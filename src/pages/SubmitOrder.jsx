@@ -258,7 +258,7 @@ export default function SubmitOrder() {
                       <div className="flex-1">
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-medium text-gray-800">{opt.name}</span>
-                          <span className="text-sm text-red-600 font-medium">+{form.prepayment_currency} {parseFloat(opt.fee).toFixed(2)}</span>
+                          <span className="text-sm text-red-600 font-medium">+{opt.fee_currency || "JPY"} {parseFloat(opt.fee).toFixed(2)}</span>
                         </div>
                         {opt.description && <p className="text-xs text-gray-400 mt-0.5">{opt.description}</p>}
                       </div>
