@@ -190,21 +190,30 @@ export default function AdminSettings() {
             </div>
           ))}
           <div className="pt-2 border-t border-dashed border-gray-200 space-y-2">
-            <p className="text-xs text-gray-500 font-medium">新增增值选项</p>
-            <div className="grid grid-cols-3 gap-2">
-              <div>
-                <Label className="text-xs text-gray-400">名称 *</Label>
-                <Input className="mt-0.5 h-8 text-sm" placeholder="例：质检拍照" value={newAddon.name} onChange={e => setNewAddon(p => ({ ...p, name: e.target.value }))} />
-              </div>
-              <div>
-                <Label className="text-xs text-gray-400">费用 *</Label>
-                <Input type="number" step="0.01" className="mt-0.5 h-8 text-sm" placeholder="5.00" value={newAddon.fee} onChange={e => setNewAddon(p => ({ ...p, fee: e.target.value }))} />
-              </div>
-              <div>
-                <Label className="text-xs text-gray-400">说明</Label>
-                <Input className="mt-0.5 h-8 text-sm" placeholder="可选" value={newAddon.description} onChange={e => setNewAddon(p => ({ ...p, description: e.target.value }))} />
-              </div>
+          <p className="text-xs text-gray-500 font-medium">新增增值选项</p>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label className="text-xs text-gray-400">名称 *</Label>
+              <Input className="mt-0.5 h-8 text-sm" placeholder="例：质检拍照" value={newAddon.name} onChange={e => setNewAddon(p => ({ ...p, name: e.target.value }))} />
             </div>
+            <div>
+              <Label className="text-xs text-gray-400">说明</Label>
+              <Input className="mt-0.5 h-8 text-sm" placeholder="可选" value={newAddon.description} onChange={e => setNewAddon(p => ({ ...p, description: e.target.value }))} />
+            </div>
+            <div>
+              <Label className="text-xs text-gray-400">费用 *</Label>
+              <Input type="number" step="0.01" className="mt-0.5 h-8 text-sm" placeholder="500" value={newAddon.fee} onChange={e => setNewAddon(p => ({ ...p, fee: e.target.value }))} />
+            </div>
+            <div>
+              <Label className="text-xs text-gray-400">费用货币</Label>
+              <Select value={newAddon.fee_currency} onValueChange={v => setNewAddon(p => ({ ...p, fee_currency: v }))}>
+                <SelectTrigger className="mt-0.5 h-8 text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {["JPY","CNY","USD","TWD","HKD","EUR","SGD"].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
             <Button size="sm" variant="outline" onClick={handleAddAddon} disabled={!newAddon.name || newAddon.fee === ""}>
               <Plus className="w-3.5 h-3.5 mr-1" />添加
             </Button>
