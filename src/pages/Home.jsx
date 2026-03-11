@@ -72,7 +72,7 @@ export default function Home() {
           <Globe className="w-5 h-5 text-red-600" />
           <span className="text-sm text-gray-500">日本 → 全球</span>
         </div>
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">JapanBuy 国际代购</h1>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">同一物流 · Tongyi Express</h1>
         <p className="text-gray-500 mb-6 max-w-md mx-auto text-sm">
           专业代购日本商品，安心付款，全程追踪，极速发货至全球各地
         </p>
