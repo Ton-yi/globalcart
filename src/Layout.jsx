@@ -74,10 +74,10 @@ export default function Layout({ children, currentPageName }) {
             </button>
             <Link to={createPageUrl("Home")} className="flex items-center gap-2">
               <div className="w-7 h-7 bg-red-600 rounded flex items-center justify-center">
-                <span className="text-white text-xs font-bold">JP</span>
+                <span className="text-white text-xs font-bold">同一</span>
               </div>
-              <span className="font-semibold text-gray-900 text-sm">JapanBuy</span>
-              <span className="text-gray-400 text-xs hidden sm:inline">国際代購</span>
+              <span className="font-semibold text-gray-900 text-sm">同一物流</span>
+              <span className="text-gray-400 text-xs hidden sm:inline">Tongyi Express</span>
             </Link>
           </div>
 
