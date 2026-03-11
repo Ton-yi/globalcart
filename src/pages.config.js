@@ -52,6 +52,9 @@ import SubmitOrder from './pages/SubmitOrder';
 import MyOrders from './pages/MyOrders';
 import ShippingRequests from './pages/ShippingRequests';
 import UserPreferences from './pages/UserPreferences';
+import AdminDashboard from './pages/AdminDashboard';
+import AdminOrders from './pages/AdminOrders';
+import AdminShipping from './pages/AdminShipping';
 import __Layout from './Layout.jsx';
 
 
@@ -61,6 +64,9 @@ export const PAGES = {
     "MyOrders": MyOrders,
     "ShippingRequests": ShippingRequests,
     "UserPreferences": UserPreferences,
+    "AdminDashboard": AdminDashboard,
+    "AdminOrders": AdminOrders,
+    "AdminShipping": AdminShipping,
 }
 
 export const pagesConfig = {
