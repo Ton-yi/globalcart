@@ -21,6 +21,7 @@ export default function SubmitOrder() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [productUrls, setProductUrls] = useState([""]);
+  const [urlMode, setUrlMode] = useState("multi"); // "textarea" | "multi"
   const [addonOptions, setAddonOptions] = useState([]);
   const [selectedAddons, setSelectedAddons] = useState([]);
   const [form, setForm] = useState({
@@ -152,32 +153,57 @@ export default function SubmitOrder() {
           <CardContent className="space-y-4">
             {/* Multi-URL input */}
             <div>
-              <Label className="text-sm">商品链接</Label>
-              <div className="mt-1 space-y-2">
-                {productUrls.map((url, idx) => (
-                  <div key={idx} className="flex items-center gap-2">
-                    <Input
-                      placeholder="https://www.amazon.co.jp/..."
-                      value={url}
-                      onChange={e => handleUrlChange(idx, e.target.value)}
-                      onKeyDown={e => handleUrlKeyDown(e, idx)}
-                      className="flex-1"
-                    />
-                    {productUrls.length > 1 && (
-                      <button type="button" onClick={() => removeUrl(idx)} className="text-gray-400 hover:text-red-500 flex-shrink-0">
-                        <X className="w-4 h-4" />
-                      </button>
-                    )}
-                    {idx === productUrls.length - 1 && (
-                      <button type="button" onClick={addUrl} className="text-gray-400 hover:text-blue-600 flex-shrink-0">
-                        <Plus className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                ))}
+              <div className="flex items-center justify-between mb-1">
+                <Label className="text-sm">商品链接</Label>
+                <button type="button" onClick={() => {
+                  if (urlMode === "multi") {
+                    setUrlMode("textarea");
+                    setProductUrls([productUrls.filter(u => u.trim()).join("\n")]);
+                  } else {
+                    setUrlMode("multi");
+                    const lines = (productUrls[0] || "").split("\n").map(s => s.trim()).filter(Boolean);
+                    setProductUrls(lines.length > 0 ? lines : [""]);
+                  }
+                }} className="text-xs text-blue-500 hover:text-blue-700 flex items-center gap-1">
+                  <ChevronsUpDown className="w-3 h-3" />
+                  {urlMode === "multi" ? "切换为文本框模式" : "切换为分行模式"}
+                </button>
               </div>
+              {urlMode === "textarea" ? (
+                <Textarea
+                  placeholder={"https://www.amazon.co.jp/...\nhttps://www.rakuten.co.jp/..."}
+                  value={productUrls[0] || ""}
+                  onChange={e => setProductUrls([e.target.value])}
+                  className="mt-1 text-sm"
+                  rows={3}
+                />
+              ) : (
+                <div className="mt-1 space-y-2">
+                  {productUrls.map((url, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <Input
+                        placeholder="https://www.amazon.co.jp/..."
+                        value={url}
+                        onChange={e => handleUrlChange(idx, e.target.value)}
+                        onKeyDown={e => handleUrlKeyDown(e, idx)}
+                        className="flex-1"
+                      />
+                      {productUrls.length > 1 && (
+                        <button type="button" onClick={() => removeUrl(idx)} className="text-gray-400 hover:text-red-500 flex-shrink-0">
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
+                      {idx === productUrls.length - 1 && (
+                        <button type="button" onClick={addUrl} className="text-gray-400 hover:text-blue-600 flex-shrink-0">
+                          <Plus className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
               <p className="text-xs text-gray-400 mt-1.5">
-                Shift+Enter 以添加多个商品链接 · 请按商城为单位提交订单，不同商城购买需求请分开提交
+                分行模式：Shift+Enter 快速添加下一条 · 请按商城为单位提交，不同商城请分开提交
               </p>
             </div>
 
