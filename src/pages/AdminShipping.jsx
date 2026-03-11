@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import AdminShippingEditModal from "../components/admin/AdminShippingEditModal";
+import AdminShippingEditModal from "@/components/admin/AdminShippingEditModal";
 
 const STATUS_LABELS = { pending: "待确认", fee_confirmed: "运费已确认", payment_pending: "待付运费", paid: "运费已付", shipped: "已发货", delivered: "已签收" };
 const STATUS_COLORS = { pending: "bg-gray-100 text-gray-600", fee_confirmed: "bg-yellow-100 text-yellow-700", payment_pending: "bg-orange-100 text-orange-700", paid: "bg-green-100 text-green-700", shipped: "bg-blue-100 text-blue-700", delivered: "bg-emerald-100 text-emerald-700" };

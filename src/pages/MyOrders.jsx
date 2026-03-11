@@ -6,8 +6,8 @@ import { Package, Eye, CreditCard, Truck, ChevronDown, ChevronUp } from "lucide-
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import OrderDetailModal from "../components/orders/OrderDetailModal";
-import PaymentModal from "../components/orders/PaymentModal";
+import OrderDetailModal from "@/components/orders/OrderDetailModal";
+import PaymentModal from "@/components/orders/PaymentModal";
 
 const STATUS_LABELS = {
   draft: "草稿", submitted: "已提交", price_confirmed: "已报价",
