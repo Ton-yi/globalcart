@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { ShoppingBag, Calculator, Info, Upload, Plus, X } from "lucide-react";
+import { ShoppingBag, Calculator, Info, Upload, Plus, X, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -37,9 +37,23 @@ export default function SubmitOrder() {
     base44.entities.AddonOption.filter({ is_active: true }).then(setAddonOptions).catch(() => {});
   }, []);
 
+  // Convert addon fee to user's payment currency for total calculation
+  // JPY rates used as base
+  const convertAddonFee = (opt) => {
+    if (!opt) return 0;
+    const fee = parseFloat(opt.fee) || 0;
+    const feeCur = opt.fee_currency || "JPY";
+    const paymentCur = form.prepayment_currency;
+    if (feeCur === paymentCur) return fee;
+    // Convert via JPY as base
+    const toJpy = { JPY: 1, CNY: 1/0.048, USD: 1/0.0067, TWD: 1/0.22, HKD: 1/0.052, EUR: 1/0.0062, SGD: 1/0.0090 };
+    const rate = JPY_RATES[paymentCur] || JPY_RATES.CNY;
+    return fee * (toJpy[feeCur] || 1) * rate;
+  };
+
   const getAddonTotal = () => selectedAddons.reduce((sum, id) => {
     const opt = addonOptions.find(a => a.id === id);
-    return sum + (opt ? parseFloat(opt.fee) : 0);
+    return sum + convertAddonFee(opt);
   }, 0);
 
   const calculate = () => {
