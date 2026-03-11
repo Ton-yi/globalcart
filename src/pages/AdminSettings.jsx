@@ -27,7 +27,9 @@ const CAT_COLORS = { fee: "bg-yellow-100 text-yellow-700", payment: "bg-green-10
 
 export default function AdminSettings() {
   const [settings, setSettings] = useState([]);
+  const [addons, setAddons] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [newAddon, setNewAddon] = useState({ name: "", description: "", fee: "" });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [newKey, setNewKey] = useState("");
