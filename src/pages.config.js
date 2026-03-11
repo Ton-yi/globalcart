@@ -50,6 +50,8 @@
 import Home from './pages/Home';
 import SubmitOrder from './pages/SubmitOrder';
 import MyOrders from './pages/MyOrders';
+import ShippingRequests from './pages/ShippingRequests';
+import UserPreferences from './pages/UserPreferences';
 import __Layout from './Layout.jsx';
 
 
@@ -57,6 +59,8 @@ export const PAGES = {
     "Home": Home,
     "SubmitOrder": SubmitOrder,
     "MyOrders": MyOrders,
+    "ShippingRequests": ShippingRequests,
+    "UserPreferences": UserPreferences,
 }
 
 export const pagesConfig = {
