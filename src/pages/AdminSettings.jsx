@@ -38,12 +38,16 @@ export default function AdminSettings() {
   const [newCat, setNewCat] = useState("general");
 
   const load = async () => {
-    let data = await base44.entities.SiteSettings.list();
+    let [data, addonData] = await Promise.all([
+      base44.entities.SiteSettings.list(),
+      base44.entities.AddonOption.list()
+    ]);
     if (data.length === 0) {
       await base44.entities.SiteSettings.bulkCreate(DEFAULT_SETTINGS);
       data = await base44.entities.SiteSettings.list();
     }
     setSettings(data);
+    setAddons(addonData);
     setLoading(false);
   };
 
