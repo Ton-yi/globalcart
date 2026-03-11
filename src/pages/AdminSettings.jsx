@@ -15,12 +15,19 @@ const DEFAULT_SETTINGS = [
   { key: "jpy_usd_rate", value: "0.0067", description: "日元/美元汇率", category: "fee" },
   { key: "jpy_cny_rate", value: "0.048", description: "日元/人民币汇率", category: "fee" },
   { key: "jpy_twd_rate", value: "0.22", description: "日元/台币汇率", category: "fee" },
-  { key: "site_name", value: "JapanBuy", description: "网站名称", category: "general" },
+  { key: "site_name", value: "同一物流", description: "网站名称", category: "general" },
   { key: "contact_email", value: "", description: "联系邮箱", category: "general" },
   { key: "whatsapp", value: "", description: "WhatsApp", category: "general" },
   { key: "line_id", value: "", description: "Line ID", category: "general" },
   { key: "wechat_id", value: "", description: "微信号", category: "general" },
+  { key: "alipay_account", value: "", description: "支付宝账号", category: "payment" },
+  { key: "alipay_account_name", value: "", description: "支付宝收款人姓名", category: "payment" },
+  { key: "alipay_qr_url", value: "", description: "支付宝收款码图片URL", category: "payment" },
+  { key: "alipay_payment_note", value: "请在付款备注中填写您的订单号", description: "支付宝付款备注提示", category: "payment" },
 ];
+
+// 支付相关设置键名，仅超级管理员可见
+const PAYMENT_RESTRICTED_KEYS = ["alipay_account", "alipay_account_name", "alipay_qr_url", "alipay_payment_note"];
 
 const CAT_LABELS = { fee: "费率设置", payment: "支付设置", shipping: "运输设置", general: "基本信息" };
 const CAT_COLORS = { fee: "bg-yellow-100 text-yellow-700", payment: "bg-green-100 text-green-700", shipping: "bg-blue-100 text-blue-700", general: "bg-gray-100 text-gray-600" };
@@ -29,7 +36,9 @@ export default function AdminSettings() {
   const [settings, setSettings] = useState([]);
   const [addons, setAddons] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [newAddon, setNewAddon] = useState({ name: "", description: "", fee: "" });
+  const [user, setUser] = useState(null);
+  const [showPayment, setShowPayment] = useState(false);
+  const [newAddon, setNewAddon] = useState({ name: "", description: "", fee: "", fee_currency: "JPY" });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [newKey, setNewKey] = useState("");
