@@ -32,6 +32,7 @@ export default function SubmitOrder() {
   const [calculated, setCalculated] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState("alipay");
 
   useEffect(() => {
     base44.auth.me().then(setUser).catch(() => base44.auth.redirectToLogin());
@@ -114,9 +115,12 @@ export default function SubmitOrder() {
     setSubmitting(true);
     const orderNum = "TY" + Date.now().toString().slice(-8);
     const selectedAddonNames = selectedAddons.map(id => addonOptions.find(a => a.id === id)?.name).filter(Boolean).join(", ");
-    await base44.entities.Order.create({
+    const urlsText = urlMode === "textarea"
+      ? (productUrls[0] || "").split("\n").map(s => s.trim()).filter(Boolean).join("\n")
+      : productUrls.filter(u => u.trim()).join("\n");
+    const order = await base44.entities.Order.create({
       ...form,
-      product_url: productUrls.filter(u => u.trim()).join("\n"),
+      product_url: urlsText,
       order_number: orderNum,
       user_email: user.email,
       user_name: user.full_name || user.email,
@@ -124,11 +128,12 @@ export default function SubmitOrder() {
       estimated_jpy: parseFloat(form.estimated_jpy) || 0,
       service_fee_rate: SERVICE_FEE_RATE * 100,
       prepayment_amount: calculated ? parseFloat(calculated.prepay) : 0,
+      prepayment_currency: form.prepayment_currency,
       order_status: "submitted",
       payment_status: "awaiting_payment",
       user_note: [form.user_note, selectedAddonNames ? `增值服务：${selectedAddonNames}` : ""].filter(Boolean).join("\n"),
     });
-    navigate(createPageUrl("MyOrders"));
+    navigate(createPageUrl(`Payment?order_id=${order.id}&method=${paymentMethod}`));
   };
 
   return (
