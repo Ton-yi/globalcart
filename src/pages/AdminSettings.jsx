@@ -180,7 +180,7 @@ export default function AdminSettings() {
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-gray-800">{a.name}</span>
-                  <span className="text-sm text-red-600">+{parseFloat(a.fee).toFixed(2)}</span>
+                  <span className="text-sm text-red-600">+{a.fee_currency || "JPY"} {parseFloat(a.fee).toFixed(2)}</span>
                   {!a.is_active && <Badge className="text-xs bg-gray-100 text-gray-400">已禁用</Badge>}
                 </div>
                 {a.description && <p className="text-xs text-gray-400">{a.description}</p>}
