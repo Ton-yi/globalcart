@@ -337,9 +337,38 @@ export default function SubmitOrder() {
           </CardContent>
         </Card>
 
+        {/* Payment method selection */}
+        <Card className="border-gray-200">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold text-gray-700">选择支付方式</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { value: "alipay", label: "支付宝", color: "blue" },
+                { value: "wechatpay", label: "微信支付", color: "green" },
+                { value: "other", label: "其他", color: "gray" },
+              ].map(m => (
+                <button
+                  key={m.value}
+                  type="button"
+                  onClick={() => setPaymentMethod(m.value)}
+                  className={`p-3 rounded-lg border-2 text-sm font-medium transition-all ${
+                    paymentMethod === m.value
+                      ? "border-red-500 bg-red-50 text-red-700"
+                      : "border-gray-200 text-gray-500 hover:border-gray-300"
+                  }`}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
         <Button type="submit" disabled={submitting || !form.product_name} className="w-full bg-red-600 hover:bg-red-700">
           <ShoppingBag className="w-4 h-4 mr-2" />
-          {submitting ? "提交中..." : "提交购买需求"}
+          {submitting ? "提交中..." : "提交并前往付款"}
         </Button>
       </form>
     </div>
