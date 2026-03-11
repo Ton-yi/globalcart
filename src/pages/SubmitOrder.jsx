@@ -284,7 +284,7 @@ export default function SubmitOrder() {
           </CardContent>
         </Card>
 
-        {/* Price Calculator with formula */}
+        {/* Price Calculator */}
         {calculated && (
           <Card className="border-gray-200 bg-gray-50">
             <CardHeader className="pb-2">
@@ -293,16 +293,25 @@ export default function SubmitOrder() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {/* Formula display */}
-              <div className="bg-white border border-gray-200 rounded-lg p-3 text-xs text-gray-500 font-mono leading-relaxed">
-                <div>¥{calculated.jpy.toLocaleString()} × {calculated.rate} <span className="text-gray-400">（汇率）</span> = {calculated.cur} {calculated.converted}</div>
-                <div className="mt-1">+ ¥{calculated.jpy.toLocaleString()} × {calculated.feeRate}% <span className="text-gray-400">（服务费）</span> = {calculated.cur} {calculated.serviceFee}</div>
+              {/* Compact formula above */}
+              <div className="text-xs text-gray-400 font-mono leading-5 bg-white border border-gray-100 rounded px-3 py-2">
+                <span className="text-gray-500">¥{calculated.jpy.toLocaleString()} × {calculated.rate}</span>
+                <span className="text-gray-300 mx-1">=</span>
+                <span className="text-gray-600">{calculated.cur} {calculated.converted}</span>
+                <span className="text-gray-300 mx-1 ml-2">+</span>
+                <span className="text-gray-500">{calculated.feeRate}%服务费</span>
+                <span className="text-gray-300 mx-1">=</span>
+                <span className="text-gray-600">{calculated.cur} {calculated.serviceFee}</span>
                 {parseFloat(calculated.addonTotal) > 0 && (
-                  <div className="mt-1">+ {calculated.cur} {calculated.addonTotal} <span className="text-gray-400">（增值服务）</span></div>
+                  <>
+                    <span className="text-gray-300 mx-1 ml-2">+</span>
+                    <span className="text-gray-500">增值</span>
+                    <span className="text-gray-300 mx-1">=</span>
+                    <span className="text-gray-600">{calculated.cur} {calculated.addonTotal}</span>
+                  </>
                 )}
-                <div className="mt-1 pt-1 border-t border-dashed border-gray-200 text-gray-700 font-semibold">
-                  = {calculated.cur} {calculated.total} <span className="text-gray-400 font-normal">（订单总额）</span>
-                </div>
+                <span className="text-gray-300 mx-1 ml-2">→</span>
+                <span className="font-semibold text-gray-700">总额 {calculated.cur} {calculated.total}</span>
               </div>
               {/* Prepay highlight */}
               <div className="flex items-center justify-between bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3">
