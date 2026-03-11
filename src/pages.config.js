@@ -55,6 +55,9 @@ import UserPreferences from './pages/UserPreferences';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminOrders from './pages/AdminOrders';
 import AdminShipping from './pages/AdminShipping';
+import AdminUsers from './pages/AdminUsers';
+import AdminAnnouncements from './pages/AdminAnnouncements';
+import AdminSettings from './pages/AdminSettings';
 import __Layout from './Layout.jsx';
 
 
@@ -67,6 +70,9 @@ export const PAGES = {
     "AdminDashboard": AdminDashboard,
     "AdminOrders": AdminOrders,
     "AdminShipping": AdminShipping,
+    "AdminUsers": AdminUsers,
+    "AdminAnnouncements": AdminAnnouncements,
+    "AdminSettings": AdminSettings,
 }
 
 export const pagesConfig = {
