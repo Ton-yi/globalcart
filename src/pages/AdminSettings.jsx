@@ -137,6 +137,52 @@ export default function AdminSettings() {
         ))
       )}
 
+      {/* Addon Options */}
+      <Card className="border-gray-200">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+            <Star className="w-4 h-4 text-yellow-500" />增值选项设置
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {addons.length === 0 && <p className="text-xs text-gray-400">暂无增值选项，在下方添加</p>}
+          {addons.map(a => (
+            <div key={a.id} className={`flex items-center gap-3 p-2 rounded-lg border ${a.is_active ? "border-gray-200" : "border-gray-100 opacity-50"}`}>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-800">{a.name}</span>
+                  <span className="text-sm text-red-600">+{parseFloat(a.fee).toFixed(2)}</span>
+                  {!a.is_active && <Badge className="text-xs bg-gray-100 text-gray-400">已禁用</Badge>}
+                </div>
+                {a.description && <p className="text-xs text-gray-400">{a.description}</p>}
+              </div>
+              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => toggleAddon(a)}>{a.is_active ? "禁用" : "启用"}</Button>
+              <Button variant="ghost" size="sm" className="h-7 text-xs text-red-400" onClick={() => handleDeleteAddon(a.id)}><Trash2 className="w-3 h-3" /></Button>
+            </div>
+          ))}
+          <div className="pt-2 border-t border-dashed border-gray-200 space-y-2">
+            <p className="text-xs text-gray-500 font-medium">新增增值选项</p>
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <Label className="text-xs text-gray-400">名称 *</Label>
+                <Input className="mt-0.5 h-8 text-sm" placeholder="例：质检拍照" value={newAddon.name} onChange={e => setNewAddon(p => ({ ...p, name: e.target.value }))} />
+              </div>
+              <div>
+                <Label className="text-xs text-gray-400">费用 *</Label>
+                <Input type="number" step="0.01" className="mt-0.5 h-8 text-sm" placeholder="5.00" value={newAddon.fee} onChange={e => setNewAddon(p => ({ ...p, fee: e.target.value }))} />
+              </div>
+              <div>
+                <Label className="text-xs text-gray-400">说明</Label>
+                <Input className="mt-0.5 h-8 text-sm" placeholder="可选" value={newAddon.description} onChange={e => setNewAddon(p => ({ ...p, description: e.target.value }))} />
+              </div>
+            </div>
+            <Button size="sm" variant="outline" onClick={handleAddAddon} disabled={!newAddon.name || newAddon.fee === ""}>
+              <Plus className="w-3.5 h-3.5 mr-1" />添加
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Add new setting */}
       <Card className="border-dashed border-gray-300">
         <CardHeader className="pb-3">
