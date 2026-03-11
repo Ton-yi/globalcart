@@ -77,6 +77,23 @@ export default function AdminSettings() {
     await load();
   };
 
+  const handleAddAddon = async () => {
+    if (!newAddon.name || newAddon.fee === "") return;
+    await base44.entities.AddonOption.create({ ...newAddon, fee: parseFloat(newAddon.fee) || 0, is_active: true });
+    setNewAddon({ name: "", description: "", fee: "" });
+    await load();
+  };
+
+  const handleDeleteAddon = async (id) => {
+    await base44.entities.AddonOption.delete(id);
+    await load();
+  };
+
+  const toggleAddon = async (a) => {
+    await base44.entities.AddonOption.update(a.id, { is_active: !a.is_active });
+    await load();
+  };
+
   const grouped = settings.reduce((acc, s) => {
     const cat = s.category || "general";
     if (!acc[cat]) acc[cat] = [];
