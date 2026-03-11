@@ -60,7 +60,10 @@ export default function AdminSettings() {
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    base44.auth.me().then(setUser).catch(() => {});
+    load();
+  }, []);
 
   const updateSetting = (id, field, value) => {
     setSettings(prev => prev.map(s => s.id === id ? { ...s, [field]: value } : s));
@@ -89,7 +92,7 @@ export default function AdminSettings() {
   const handleAddAddon = async () => {
     if (!newAddon.name || newAddon.fee === "") return;
     await base44.entities.AddonOption.create({ ...newAddon, fee: parseFloat(newAddon.fee) || 0, is_active: true });
-    setNewAddon({ name: "", description: "", fee: "" });
+    setNewAddon({ name: "", description: "", fee: "", fee_currency: "JPY" });
     await load();
   };
 
