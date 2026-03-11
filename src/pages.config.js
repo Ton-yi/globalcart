@@ -58,6 +58,7 @@ import AdminShipping from './pages/AdminShipping';
 import AdminUsers from './pages/AdminUsers';
 import AdminAnnouncements from './pages/AdminAnnouncements';
 import AdminSettings from './pages/AdminSettings';
+import Payment from './pages/Payment';
 import __Layout from './Layout.jsx';
 
 
@@ -73,6 +74,7 @@ export const PAGES = {
     "AdminUsers": AdminUsers,
     "AdminAnnouncements": AdminAnnouncements,
     "AdminSettings": AdminSettings,
+    "Payment": Payment,
 }
 
 export const pagesConfig = {
