@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Settings, Save, Plus, Trash2, Star } from "lucide-react";
+import { Settings, Save, Plus, Trash2, Star, Lock, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -125,28 +125,45 @@ export default function AdminSettings() {
       {loading ? (
         <p className="text-gray-400 text-sm">加载中...</p>
       ) : (
-        Object.entries(grouped).map(([cat, items]) => (
-          <Card key={cat} className="border-gray-200">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                <Badge className={`text-xs ${CAT_COLORS[cat]}`}>{CAT_LABELS[cat] || cat}</Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {items.map(s => (
-                <div key={s.id} className="flex items-center gap-3">
-                  <div className="flex-1">
-                    <Label className="text-xs text-gray-500">{s.description || s.key}</Label>
-                    <Input className="mt-0.5 h-8 text-sm" value={s.value} onChange={e => updateSetting(s.id, "value", e.target.value)} />
-                  </div>
-                  <Button variant="ghost" size="sm" className="h-7 text-xs text-red-400 mt-4" onClick={() => handleDelete(s.id)}>
-                    <Trash2 className="w-3 h-3" />
-                  </Button>
+        Object.entries(grouped).map(([cat, items]) => {
+          const isPayment = cat === "payment";
+          const isUnlocked = !isPayment || showPayment;
+          return (
+            <Card key={cat} className={`border-gray-200 ${isPayment ? "border-green-200" : ""}`}>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                    <Badge className={`text-xs ${CAT_COLORS[cat]}`}>{CAT_LABELS[cat] || cat}</Badge>
+                    {isPayment && <Lock className="w-3.5 h-3.5 text-green-600" />}
+                  </CardTitle>
+                  {isPayment && (
+                    <Button variant="ghost" size="sm" className="h-7 text-xs text-green-600" onClick={() => setShowPayment(p => !p)}>
+                      {showPayment ? <><EyeOff className="w-3.5 h-3.5 mr-1" />隐藏</> : <><Eye className="w-3.5 h-3.5 mr-1" />显示</>}
+                    </Button>
+                  )}
                 </div>
-              ))}
-            </CardContent>
-          </Card>
-        ))
+                {isPayment && !showPayment && (
+                  <p className="text-xs text-green-600 mt-1">⚠ 支付网关配置仅限超级管理员操作，点击「显示」展开</p>
+                )}
+              </CardHeader>
+              {isUnlocked && (
+                <CardContent className="space-y-3">
+                  {items.map(s => (
+                    <div key={s.id} className="flex items-center gap-3">
+                      <div className="flex-1">
+                        <Label className="text-xs text-gray-500">{s.description || s.key}</Label>
+                        <Input className="mt-0.5 h-8 text-sm" value={s.value} onChange={e => updateSetting(s.id, "value", e.target.value)} />
+                      </div>
+                      <Button variant="ghost" size="sm" className="h-7 text-xs text-red-400 mt-4" onClick={() => handleDelete(s.id)}>
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </CardContent>
+              )}
+            </Card>
+          );
+        })
       )}
 
       {/* Addon Options */}
