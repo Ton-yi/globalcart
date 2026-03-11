@@ -156,7 +156,7 @@ export default function Layout({ children, currentPageName }) {
       </main>
 
       <footer className="border-t bg-white mt-10 py-6 text-center text-xs text-gray-400">
-        © 2026 JapanBuy 国際代購 · 日本 → 全球 · 安心・信頼・快捷
+        © 2026 同一物流 Tongyi Express · 日本 → 全球 · 安心・信頼・快捷
       </footer>
     </div>
   );
