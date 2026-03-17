@@ -1,10 +1,10 @@
 /**
  * OrderDetailDrawer
- * Full order detail view for users (replaces old OrderDetailModal).
+ * Full order detail view for users.
  * Shows status, messages, and action buttons based on current order state.
  */
-import { useState } from "react";
-import { X, ExternalLink, MessageCircle, Truck, Package, CheckCircle } from "lucide-react";
+import { useState, useEffect } from "react";
+import { X, ExternalLink, MessageCircle, Truck, CheckCircle } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,12 +14,24 @@ import OrderMessageThread from "./OrderMessageThread";
 export default function OrderDetailDrawer({ order, currentUser, onClose, onAction }) {
   const [showMessages, setShowMessages] = useState(false);
   const [confirmingDelivered, setConfirmingDelivered] = useState(false);
+  const [contactInfo, setContactInfo] = useState("");
+
+  useEffect(() => {
+    // Load user's saved contact info from preferences
+    base44.entities.UserPreference.filter({ user_email: currentUser.email })
+      .then(prefs => {
+        if (prefs.length > 0 && prefs[0].contact_info) {
+          setContactInfo(prefs[0].contact_info);
+        }
+      })
+      .catch(() => {});
+  }, [currentUser.email]);
 
   const status = order.order_status;
   const statusLabel = getStatusLabel(status, "user");
   const statusColor = getStatusColor(status, "user");
   const hasMessages = (order.messages || []).length > 0;
-  const unread = status === "awaiting_reply";
+  const unread = status === "admin_replied";
 
   const handleConfirmDelivered = async () => {
     setConfirmingDelivered(true);
@@ -27,8 +39,11 @@ export default function OrderDetailDrawer({ order, currentUser, onClose, onActio
     onAction?.("delivered");
   };
 
+  const handleMessageSent = () => {
+    onAction?.("message_sent");
+  };
+
   const urls = (order.product_url || "").split("\n").map(s => s.trim()).filter(Boolean);
-  const singleUrl = urls.length === 1 && !order.product_description && !order.user_note;
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
@@ -138,12 +153,12 @@ export default function OrderDetailDrawer({ order, currentUser, onClose, onActio
           {/* Message thread */}
           <div>
             <button
-              className="flex items-center gap-2 text-sm font-medium text-gray-700 w-full"
+              className="flex items-center gap-2 text-sm font-medium text-gray-700 w-full py-1"
               onClick={() => setShowMessages(!showMessages)}
             >
               <MessageCircle className="w-4 h-4" />
-              留言{hasMessages ? `（${(order.messages || []).length}条）` : ""}
-              {unread && <span className="ml-1 w-2 h-2 rounded-full bg-orange-400 inline-block" />}
+              {hasMessages ? `留言记录（${(order.messages || []).length}条）` : "发起留言"}
+              {unread && <span className="ml-1 w-2 h-2 rounded-full bg-orange-400 inline-block animate-pulse" />}
               <span className="text-xs text-gray-400 ml-auto">{showMessages ? "收起" : "展开"}</span>
             </button>
             {showMessages && (
@@ -152,7 +167,8 @@ export default function OrderDetailDrawer({ order, currentUser, onClose, onActio
                   order={order}
                   currentUser={currentUser}
                   isAdmin={false}
-                  onMessageSent={onAction}
+                  contactInfo={contactInfo}
+                  onMessageSent={handleMessageSent}
                 />
               </div>
             )}
@@ -160,30 +176,23 @@ export default function OrderDetailDrawer({ order, currentUser, onClose, onActio
 
           {/* Action buttons */}
           <div className="space-y-2 pt-1">
-            {/* Payment due reminder */}
             {status === "payment_pending" && order.payment_due_date && (
               <div className="text-xs text-orange-600 text-center">
                 付款截止日期：{order.payment_due_date}
               </div>
             )}
-
-            {/* Notify shipment */}
             {status === "in_warehouse" && (
               <Button className="w-full bg-teal-600 hover:bg-teal-700 text-sm"
                 onClick={() => onAction?.("notify_ship")}>
                 <Truck className="w-4 h-4 mr-2" />通知发货
               </Button>
             )}
-
-            {/* Pay shipping fee */}
             {status === "shipping_fee_pending" && order.shipping_fee_amount > 0 && (
               <Button className="w-full bg-red-600 hover:bg-red-700 text-sm"
                 onClick={() => onAction?.("pay_shipping")}>
                 付运费 {order.shipping_fee_currency} {order.shipping_fee_amount?.toFixed(2)}
               </Button>
             )}
-
-            {/* Confirm received */}
             {status === "shipped" && (
               <Button
                 className="w-full bg-green-600 hover:bg-green-700 text-sm"
