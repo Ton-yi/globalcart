@@ -18,7 +18,8 @@ import OrderMessageThread from "@/components/orders/OrderMessageThread";
 // All statuses admin can manually set (escape hatch)
 const ALL_STATUSES = [
   { v: "pending_confirmation", l: "后付款待确认" },
-  { v: "awaiting_reply", l: "待回复/已回复" },
+  { v: "awaiting_reply", l: "用户已回复（待回复）" },
+  { v: "admin_replied", l: "管理员已回复" },
   { v: "payment_pending", l: "待付款" },
   { v: "paid", l: "已付款/待下单" },
   { v: "purchased", l: "已下单" },
