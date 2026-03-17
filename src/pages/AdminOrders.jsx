@@ -1,32 +1,12 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Search, Edit2, Check, X, AlertTriangle, ChevronDown } from "lucide-react";
+import { Search, Edit2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import AdminOrderEditModal from "@/components/admin/AdminOrderEditModal";
-
-const STATUS_LABELS = {
-  draft: "草稿", submitted: "已提交", price_confirmed: "已报价",
-  payment_pending: "待付款", payment_confirmed: "已付款",
-  purchasing: "采购中", purchased: "已购买",
-  awaiting_shipment: "等待发货", shipped: "已发货", delivered: "已签收", cancelled: "已取消"
-};
-const STATUS_COLORS = {
-  draft: "bg-gray-100 text-gray-600", submitted: "bg-blue-100 text-blue-700",
-  price_confirmed: "bg-yellow-100 text-yellow-700", payment_pending: "bg-orange-100 text-orange-700",
-  payment_confirmed: "bg-green-100 text-green-700", purchasing: "bg-purple-100 text-purple-700",
-  purchased: "bg-indigo-100 text-indigo-700", awaiting_shipment: "bg-cyan-100 text-cyan-700",
-  shipped: "bg-teal-100 text-teal-700", delivered: "bg-emerald-100 text-emerald-700",
-  cancelled: "bg-red-100 text-red-700",
-};
-const PAY_COLORS = {
-  pending: "bg-gray-100 text-gray-600", awaiting_payment: "bg-orange-100 text-orange-700",
-  paid: "bg-yellow-100 text-yellow-700", underpaid: "bg-red-100 text-red-700",
-  overpaid: "bg-blue-100 text-blue-700", confirmed: "bg-green-100 text-green-700",
-};
-const PAY_LABELS = { pending: "未付款", awaiting_payment: "等待付款", paid: "已付待确认", underpaid: "付款不足", overpaid: "付款多余", confirmed: "已确认" };
+import { getStatusLabel, getStatusColor, ORDER_STATUS_CONFIG } from "@/lib/orderStatus";
 
 export default function AdminOrders() {
   const [orders, setOrders] = useState([]);
