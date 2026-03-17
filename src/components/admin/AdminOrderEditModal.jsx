@@ -184,8 +184,35 @@ export default function AdminOrderEditModal({ order, onClose, onSaved }) {
 
           <div>
             <Label className="text-sm">预付款金额</Label>
-            <Input type="number" step="0.01" className="mt-1" value={form.prepayment_amount}
-              onChange={e => f("prepayment_amount", e.target.value)} />
+            <div className="flex gap-2 mt-1">
+              <Input type="number" step="0.01" value={form.prepayment_amount}
+                onChange={e => f("prepayment_amount", e.target.value)} />
+              <Button
+                type="button" size="sm" variant="outline"
+                className="whitespace-nowrap text-blue-600 border-blue-300 hover:bg-blue-50"
+                onClick={handleGenerateAlipayLink}
+                disabled={generatingLink || !form.prepayment_amount}
+              >
+                {generatingLink ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ExternalLink className="w-3.5 h-3.5" />}
+                <span className="ml-1 text-xs">生成付款链接</span>
+              </Button>
+            </div>
+            {alipayUrl && (
+              <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-lg space-y-1.5">
+                <p className="text-xs text-blue-700 font-medium">✓ 付款链接已生成，发送给用户：</p>
+                <div className="flex gap-2">
+                  <input readOnly value={alipayUrl}
+                    className="flex-1 text-xs bg-white border border-blue-200 rounded px-2 py-1 font-mono truncate" />
+                  <Button size="sm" variant="ghost" className="h-7 px-2" onClick={handleCopyLink}>
+                    {linkCopied ? <CheckCircle className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
+                  </Button>
+                </div>
+                <a href={alipayUrl} target="_blank" rel="noopener noreferrer"
+                  className="text-xs text-blue-600 underline flex items-center gap-1">
+                  <ExternalLink className="w-3 h-3" />在新标签中预览
+                </a>
+              </div>
+            )}
           </div>
 
           <div>
