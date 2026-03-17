@@ -338,38 +338,63 @@ export default function SubmitOrder() {
           </CardContent>
         </Card>
 
-        {/* Payment method selection */}
+        {/* Payment mode selection */}
         <Card className="border-gray-200">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold text-gray-700">选择支付方式</CardTitle>
+            <CardTitle className="text-sm font-semibold text-gray-700">付款方式</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                { value: "alipay", label: "支付宝", color: "blue" },
-                { value: "wechatpay", label: "微信支付", color: "green" },
-                { value: "other", label: "其他", color: "gray" },
-              ].map(m => (
-                <button
-                  key={m.value}
-                  type="button"
-                  onClick={() => setPaymentMethod(m.value)}
-                  className={`p-3 rounded-lg border-2 text-sm font-medium transition-all ${
-                    paymentMethod === m.value
-                      ? "border-red-500 bg-red-50 text-red-700"
-                      : "border-gray-200 text-gray-500 hover:border-gray-300"
-                  }`}
-                >
-                  {m.label}
-                </button>
-              ))}
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setPaymentMode("prepay")}
+                className={`p-3 rounded-lg border-2 text-sm font-medium transition-all text-left ${
+                  paymentMode === "prepay" ? "border-red-500 bg-red-50 text-red-700" : "border-gray-200 text-gray-500 hover:border-gray-300"
+                }`}
+              >
+                <div className="font-semibold">立即预付款</div>
+                <div className="text-xs mt-0.5 opacity-70">提交后直接前往付款页</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaymentMode("deferred")}
+                className={`p-3 rounded-lg border-2 text-sm font-medium transition-all text-left ${
+                  paymentMode === "deferred" ? "border-purple-500 bg-purple-50 text-purple-700" : "border-gray-200 text-gray-500 hover:border-gray-300"
+                }`}
+              >
+                <div className="font-semibold">后付款</div>
+                <div className="text-xs mt-0.5 opacity-70">提交后等待客服确认报价</div>
+              </button>
             </div>
+
+            {paymentMode === "prepay" && (
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { value: "alipay", label: "支付宝" },
+                  { value: "wechatpay", label: "微信支付" },
+                  { value: "other", label: "其他" },
+                ].map(m => (
+                  <button
+                    key={m.value}
+                    type="button"
+                    onClick={() => setPaymentMethod(m.value)}
+                    className={`p-2.5 rounded-lg border-2 text-xs font-medium transition-all ${
+                      paymentMethod === m.value
+                        ? "border-red-500 bg-red-50 text-red-700"
+                        : "border-gray-200 text-gray-500 hover:border-gray-300"
+                    }`}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 
         <Button type="submit" disabled={submitting || !form.product_name} className="w-full bg-red-600 hover:bg-red-700">
           <ShoppingBag className="w-4 h-4 mr-2" />
-          {submitting ? "提交中..." : "提交并前往付款"}
+          {submitting ? "提交中..." : paymentMode === "deferred" ? "提交需求（后付款）" : "提交并前往付款"}
         </Button>
       </form>
     </div>
