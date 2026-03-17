@@ -108,7 +108,7 @@ export const COMPLETED_STATUSES = ["delivered"];
 
 // Active (non-terminal) statuses
 export const ACTIVE_STATUSES = [
-  "pending_confirmation", "awaiting_reply", "payment_pending",
+  "pending_confirmation", "awaiting_reply", "admin_replied", "payment_pending",
   "paid", "pending_purchase", "purchased", "in_warehouse",
   "notified_shipment", "shipping_fee_pending", "ready_to_ship", "shipped"
 ];
