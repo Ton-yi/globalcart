@@ -39,6 +39,7 @@ export default function UserPreferences() {
         const p = prefs[0];
         setPref(p);
         setForm({
+          contact_info: p.contact_info || "",
           preferred_currency: p.preferred_currency || "JPY",
           preferred_language: p.preferred_language || "zh",
           preferred_shipping: p.preferred_shipping || "EMS",
