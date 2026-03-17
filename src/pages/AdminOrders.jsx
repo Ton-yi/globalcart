@@ -98,9 +98,20 @@ export default function AdminOrders() {
                   {order.paid_amount > 0 && <div className="text-xs text-green-600">已付 {order.paid_amount.toFixed(2)}</div>}
                 </td>
                 <td className="px-4 py-3">
-                  <Badge className={`text-xs ${getStatusColor(order.order_status, "admin")}`}>
-                    {getStatusLabel(order.order_status, "admin")}
-                  </Badge>
+                  {isPurchaseStatus(order.order_status) ? (
+                    <Badge
+                      className={`text-xs cursor-pointer hover:opacity-80 ${getStatusColor(order.order_status, "admin")}`}
+                      onClick={() => handlePurchaseClick(order, setEditingOrder)}
+                      title="单链接直接跳转，多链接/有备注打开详情"
+                    >
+                      {getStatusLabel(order.order_status, "admin")}
+                      <ExternalLink className="w-3 h-3 ml-1 inline" />
+                    </Badge>
+                  ) : (
+                    <Badge className={`text-xs ${getStatusColor(order.order_status, "admin")}`}>
+                      {getStatusLabel(order.order_status, "admin")}
+                    </Badge>
+                  )}
                   {order.order_status === "awaiting_reply" && (order.messages || []).length > 0 && (
                     <div className="text-xs text-orange-500 mt-0.5">
                       {(order.messages || []).length}条留言
