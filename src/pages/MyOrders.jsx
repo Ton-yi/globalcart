@@ -163,7 +163,7 @@ export default function MyOrders() {
                 const rowActions = getRowActions(order);
                 const statusLabel = getStatusLabel(order.order_status, "user");
                 const statusColor = getStatusColor(order.order_status, "user");
-                const unread = order.order_status === "awaiting_reply";
+                const unread = order.order_status === "admin_replied";
                 const isPaid = order.order_status === "paid" || order.order_status === "pending_purchase";
 
                 return (
