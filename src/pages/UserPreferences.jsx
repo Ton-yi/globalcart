@@ -136,6 +136,23 @@ export default function UserPreferences() {
         </Card>
       )}
 
+      {/* 联系方式 */}
+      <Card className="border-gray-200">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-semibold text-gray-700">联系方式</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Label className="text-sm">线上联系方式</Label>
+          <Input
+            className="mt-1"
+            placeholder="如：微信 wxid_xxx / Line: xxx / WhatsApp: +81..."
+            value={form.contact_info}
+            onChange={e => f("contact_info", e.target.value)}
+          />
+          <p className="text-xs text-gray-400 mt-1.5">填写后将自动附在您的留言中，方便客服联系您</p>
+        </CardContent>
+      </Card>
+
       {/* 偏好设置 */}
       <Card className="border-gray-200">
         <CardHeader className="pb-3">
