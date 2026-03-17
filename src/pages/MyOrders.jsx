@@ -181,7 +181,7 @@ export default function MyOrders() {
                       </div>
                       <div className="text-xs text-gray-400">×{order.quantity}</div>
                       {unread && (
-                        <Badge className="bg-orange-100 text-orange-700 text-xs mt-0.5 animate-pulse">待回复</Badge>
+                        <Badge className="bg-orange-100 text-orange-700 text-xs mt-0.5 animate-pulse">有新回复</Badge>
                       )}
                       {order.payment_due_date && order.order_status === "payment_pending" && (
                         <div className="text-xs text-red-500 mt-0.5">截止 {order.payment_due_date}</div>
