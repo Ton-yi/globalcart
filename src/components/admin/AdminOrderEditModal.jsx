@@ -383,8 +383,8 @@ export default function AdminOrderEditModal({ order, onClose, onSaved }) {
                   )}
                   <div className="flex gap-2 pt-1">
                     <Button size="sm" variant="outline" className="flex-1 text-xs border-orange-300 text-orange-600"
-                      onClick={handleSendToReply} disabled={saving}>
-                      发起留言
+                      onClick={() => setTab("messages")}>
+                      <MessageCircle className="w-3.5 h-3.5 mr-1" />发起留言
                     </Button>
                     <div className="flex gap-1 flex-1">
                       <Input placeholder="取消理由" value={form.cancel_reason}
