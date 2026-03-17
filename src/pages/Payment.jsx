@@ -32,6 +32,8 @@ export default function Payment() {
   const [submitted, setSubmitted] = useState(false);
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [alipayUrl, setAlipayUrl] = useState(null);
+  const [generatingLink, setGeneratingLink] = useState(false);
 
   useEffect(() => {
     if (!orderId) { navigate(createPageUrl("MyOrders")); return; }

@@ -29,6 +29,9 @@ export default function AdminOrderEditModal({ order, onClose, onSaved }) {
     estimated_jpy: order.estimated_jpy || "",
   });
   const [saving, setSaving] = useState(false);
+  const [alipayUrl, setAlipayUrl] = useState(null);
+  const [generatingLink, setGeneratingLink] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
