@@ -1,12 +1,26 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Search, Edit2 } from "lucide-react";
+import { Search, Edit2, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import AdminOrderEditModal from "@/components/admin/AdminOrderEditModal";
 import { getStatusLabel, getStatusColor, ORDER_STATUS_CONFIG } from "@/lib/orderStatus";
+
+function isPurchaseStatus(status) {
+  return status === "paid" || status === "pending_purchase";
+}
+
+function handlePurchaseClick(order, openModal) {
+  const urls = (order.product_url || "").split("\n").map(s => s.trim()).filter(Boolean);
+  const hasExtras = order.user_note || order.product_description || urls.length > 1;
+  if (!hasExtras && urls.length === 1) {
+    window.open(urls[0], "_blank", "noopener,noreferrer");
+  } else {
+    openModal(order);
+  }
+}
 
 export default function AdminOrders() {
   const [orders, setOrders] = useState([]);
