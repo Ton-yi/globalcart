@@ -534,11 +534,11 @@ export default function AdminOrderEditModal({ order, onClose, onSaved }) {
               )}
 
               {/* Any status → send to awaiting_reply */}
-              {!["awaiting_reply", "cancelled", "delivered", "notified_shipment", "shipping_fee_pending", "ready_to_ship", "shipped"].includes(status) && status !== "pending_confirmation" && status !== "payment_pending" && (
+              {!["awaiting_reply", "cancelled", "delivered"].includes(status) && (
                 <div className="pt-2 border-t border-gray-100">
                   <Button size="sm" variant="outline" className="text-xs w-full border-orange-200 text-orange-600"
-                    onClick={handleSendToReply} disabled={saving}>
-                    <MessageCircle className="w-3.5 h-3.5 mr-1.5" />将订单设为待回复并附留言
+                    onClick={() => setTab("messages")}>
+                    <MessageCircle className="w-3.5 h-3.5 mr-1.5" />发起留言
                   </Button>
                 </div>
               )}
