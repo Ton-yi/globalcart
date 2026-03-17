@@ -60,8 +60,8 @@ export default function AdminOrders() {
               <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">用户</th>
               <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">商品</th>
               <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">预付款</th>
-              <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">付款状态</th>
               <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">订单状态</th>
+              <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">付款</th>
               <th className="px-4 py-2.5"></th>
             </tr>
           </thead>
