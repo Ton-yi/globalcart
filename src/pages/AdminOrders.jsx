@@ -84,14 +84,20 @@ export default function AdminOrders() {
                   {order.paid_amount > 0 && <div className="text-xs text-green-600">已付 {order.paid_amount.toFixed(2)}</div>}
                 </td>
                 <td className="px-4 py-3">
-                  <Badge className={`text-xs ${PAY_COLORS[order.payment_status] || "bg-gray-100"}`}>
-                    {PAY_LABELS[order.payment_status] || order.payment_status}
+                  <Badge className={`text-xs ${getStatusColor(order.order_status, "admin")}`}>
+                    {getStatusLabel(order.order_status, "admin")}
                   </Badge>
+                  {order.order_status === "awaiting_reply" && (order.messages || []).length > 0 && (
+                    <div className="text-xs text-orange-500 mt-0.5">
+                      {(order.messages || []).length}条留言
+                    </div>
+                  )}
                 </td>
-                <td className="px-4 py-3">
-                  <Badge className={`text-xs ${STATUS_COLORS[order.order_status] || "bg-gray-100"}`}>
-                    {STATUS_LABELS[order.order_status] || order.order_status}
-                  </Badge>
+                <td className="px-4 py-3 text-xs text-gray-500">
+                  {order.payment_status === "paid" && <span className="text-green-600">已付款</span>}
+                  {order.payment_status === "awaiting_payment" && <span className="text-orange-500">待付款</span>}
+                  {order.payment_status === "confirmed" && <span className="text-green-700">已确认</span>}
+                  {order.payment_status === "underpaid" && <span className="text-red-500">付款不足</span>}
                 </td>
                 <td className="px-4 py-3">
                   <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditingOrder(order)}>
