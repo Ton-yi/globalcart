@@ -29,6 +29,8 @@ export default function AdminOrders() {
     return matchSearch && matchStatus;
   });
 
+  const statusOptions = Object.entries(ORDER_STATUS_CONFIG).map(([k, v]) => ({ key: k, label: v.admin }));
+
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
