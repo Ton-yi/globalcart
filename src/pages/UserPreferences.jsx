@@ -17,6 +17,7 @@ export default function UserPreferences() {
   const [avatarUrl, setAvatarUrl] = useState("");
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [form, setForm] = useState({
+    contact_info: "",
     preferred_currency: "JPY",
     preferred_language: "zh",
     preferred_shipping: "EMS",
