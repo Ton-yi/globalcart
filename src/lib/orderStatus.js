@@ -9,6 +9,12 @@ export const ORDER_STATUS_CONFIG = {
     userColor: "bg-blue-100 text-blue-700",
   },
   awaiting_reply: {
+    admin: "待回复",
+    user: "已回复",
+    adminColor: "bg-orange-100 text-orange-700",
+    userColor: "bg-yellow-100 text-yellow-700",
+  },
+  admin_replied: {
     admin: "已回复",
     user: "待回复",
     adminColor: "bg-yellow-100 text-yellow-700",
