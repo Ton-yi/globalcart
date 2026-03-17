@@ -119,6 +119,7 @@ export default function SubmitOrder() {
     const urlsText = urlMode === "textarea"
       ? (productUrls[0] || "").split("\n").map(s => s.trim()).filter(Boolean).join("\n")
       : productUrls.filter(u => u.trim()).join("\n");
+    const isDeferred = paymentMode === "deferred";
     const order = await base44.entities.Order.create({
       ...form,
       product_url: urlsText,
@@ -130,11 +131,16 @@ export default function SubmitOrder() {
       service_fee_rate: SERVICE_FEE_RATE * 100,
       prepayment_amount: calculated ? parseFloat(calculated.prepay) : 0,
       prepayment_currency: form.prepayment_currency,
-      order_status: "submitted",
-      payment_status: "awaiting_payment",
+      payment_mode: isDeferred ? "deferred" : "prepay",
+      order_status: isDeferred ? "pending_confirmation" : "payment_pending",
+      payment_status: isDeferred ? "pending" : "awaiting_payment",
       user_note: [form.user_note, selectedAddonNames ? `增值服务：${selectedAddonNames}` : ""].filter(Boolean).join("\n"),
     });
-    navigate(createPageUrl(`Payment?order_id=${order.id}&method=${paymentMethod}`));
+    if (isDeferred) {
+      navigate(createPageUrl("MyOrders"));
+    } else {
+      navigate(createPageUrl(`Payment?order_id=${order.id}&method=${paymentMethod}`));
+    }
   };
 
   return (
