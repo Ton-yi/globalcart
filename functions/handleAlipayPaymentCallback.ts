@@ -98,18 +98,36 @@ Deno.serve(async (req) => {
       return new Response('success', { status: 200 });
     }
 
-    // 5. Update order to paid
-    await base44.asServiceRole.entities.Order.update(order.id, {
-      payment_status: 'paid',
-      order_status: 'payment_confirmed',
-      paid_amount: parseFloat(total_amount) || order.prepayment_amount,
-      alipay_transaction_id: trade_no,
-      payment_method: 'alipay',
-      admin_note: [
-        order.admin_note,
-        `支付宝自动确认 | 买家:${buyer_logon_id || '-'} | 流水号:${trade_no} | ${new Date().toISOString()}`
-      ].filter(Boolean).join('\n'),
-    });
+    // 5. Determine if this is a shipping fee payment or order payment
+    const isShippingPayment = order.shipping_alipay_trade_no === out_trade_no;
+
+    let updates;
+    if (isShippingPayment) {
+      updates = {
+        payment_status: 'confirmed',
+        order_status: 'ready_to_ship',
+        alipay_transaction_id: trade_no,
+        payment_method: 'alipay',
+        admin_note: [
+          order.admin_note,
+          `运费支付宝自动确认 | 买家:${buyer_logon_id || '-'} | 流水号:${trade_no} | ${new Date().toISOString()}`
+        ].filter(Boolean).join('\n'),
+      };
+    } else {
+      updates = {
+        payment_status: 'paid',
+        order_status: 'paid',
+        paid_amount: parseFloat(total_amount) || order.prepayment_amount,
+        alipay_transaction_id: trade_no,
+        payment_method: 'alipay',
+        admin_note: [
+          order.admin_note,
+          `支付宝自动确认 | 买家:${buyer_logon_id || '-'} | 流水号:${trade_no} | ${new Date().toISOString()}`
+        ].filter(Boolean).join('\n'),
+      };
+    }
+
+    await base44.asServiceRole.entities.Order.update(order.id, updates);
 
     console.log(`Order ${order.id} payment confirmed via Alipay. trade_no: ${trade_no}`);
 
