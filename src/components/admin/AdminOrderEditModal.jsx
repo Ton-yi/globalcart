@@ -1,51 +1,85 @@
+/**
+ * AdminOrderEditModal (v2)
+ * Full admin workflow panel for a single order.
+ * Covers all status transitions per the new order flow.
+ */
 import { useState } from "react";
 import { base44 } from "@/api/base44Client";
-import { X, AlertTriangle, CheckCircle, ExternalLink, Copy, Loader2 } from "lucide-react";
+import { X, ExternalLink, Copy, Loader2, CheckCircle, Upload, AlertTriangle, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { getStatusLabel, getStatusColor } from "@/lib/orderStatus";
+import OrderMessageThread from "@/components/orders/OrderMessageThread";
 
-const ORDER_STATUSES = [
-  { v: "submitted", l: "已提交" }, { v: "price_confirmed", l: "已报价" },
-  { v: "payment_pending", l: "待付款" }, { v: "payment_confirmed", l: "已付款" },
-  { v: "purchasing", l: "采购中" }, { v: "purchased", l: "已购买" },
-  { v: "awaiting_shipment", l: "等待发货" }, { v: "shipped", l: "已发货" },
-  { v: "delivered", l: "已签收" }, { v: "cancelled", l: "已取消" }
+// All statuses admin can manually set (escape hatch)
+const ALL_STATUSES = [
+  { v: "pending_confirmation", l: "后付款待确认" },
+  { v: "awaiting_reply", l: "待回复/已回复" },
+  { v: "payment_pending", l: "待付款" },
+  { v: "paid", l: "已付款/待下单" },
+  { v: "purchased", l: "已下单" },
+  { v: "in_warehouse", l: "已入库" },
+  { v: "notified_shipment", l: "已通知出货/待出货" },
+  { v: "shipping_fee_pending", l: "待付运费/已付运费" },
+  { v: "shipped", l: "已发出" },
+  { v: "delivered", l: "已收货" },
+  { v: "cancelled", l: "已取消" },
 ];
 
 export default function AdminOrderEditModal({ order, onClose, onSaved }) {
-  const [form, setForm] = useState({
-    order_status: order.order_status || "submitted",
-    payment_status: order.payment_status || "pending",
-    admin_confirmed_amount: order.admin_confirmed_amount || order.prepayment_amount || "",
-    admin_note: order.admin_note || "",
-    supplement_requested: order.supplement_requested || false,
-    supplement_amount: order.supplement_amount || "",
-    balance_credit: order.balance_credit || 0,
-    prepayment_amount: order.prepayment_amount || "",
-    estimated_jpy: order.estimated_jpy || "",
-  });
+  const [tab, setTab] = useState("actions"); // "actions" | "edit" | "messages"
   const [saving, setSaving] = useState(false);
+
+  // Alipay link generation
   const [alipayUrl, setAlipayUrl] = useState(null);
-  const [generatingLink, setGeneratingLink] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+
+  // Form fields for "edit" tab
+  const [form, setForm] = useState({
+    order_status: order.order_status || "pending_confirmation",
+    admin_note: order.admin_note || "",
+    admin_confirmed_amount: order.admin_confirmed_amount || order.prepayment_amount || "",
+    prepayment_amount: order.prepayment_amount || "",
+    payment_due_date: order.payment_due_date || "",
+    estimated_jpy: order.estimated_jpy || "",
+    balance_credit: order.balance_credit || 0,
+    cancel_reason: order.cancel_reason || "",
+  });
+
+  // Upload state
+  const [purchaseScreenshot, setPurchaseScreenshot] = useState(null);
+  const [arrivalPhoto, setArrivalPhoto] = useState(null);
+  const [uploadingScreenshot, setUploadingScreenshot] = useState(false);
+  const [uploadingArrival, setUploadingArrival] = useState(false);
+
+  // Shipping fee form
+  const [shippingWeight, setShippingWeight] = useState(order.shipping_total_weight_g || "");
+  const [shippingFee, setShippingFee] = useState(order.shipping_fee_amount || "");
+  const [shippingCurrency, setShippingCurrency] = useState(order.shipping_fee_currency || "CNY");
+  const [trackingNumber, setTrackingNumber] = useState(order.tracking_number || "");
 
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
-  const handleGenerateAlipayLink = async () => {
-    setGeneratingLink(true);
+  const status = order.order_status;
+  const cur = order.prepayment_currency || "CNY";
+
+  // ── Alipay link generation ──
+  const handleGenerateAlipay = async () => {
+    setGenerating(true);
     setAlipayUrl(null);
-    const res = await base44.functions.invoke('generateAlipayPaymentLink', {
+    const res = await base44.functions.invoke("generateAlipayPaymentLink", {
       orderId: order.id,
       amount: parseFloat(form.prepayment_amount) || order.prepayment_amount,
-      currency: order.prepayment_currency || 'CNY',
+      currency: cur,
       subject: `同一物流代购 - ${order.product_name}`,
     });
-    setAlipayUrl(res.data.paymentUrl);
-    setGeneratingLink(false);
+    setAlipayUrl(res.data?.paymentUrl);
+    setGenerating(false);
   };
 
   const handleCopyLink = () => {
@@ -54,179 +88,530 @@ export default function AdminOrderEditModal({ order, onClose, onSaved }) {
     setTimeout(() => setLinkCopied(false), 2000);
   };
 
-  const handleConfirmPayment = async (action) => {
-    setSaving(true);
-    const paid = parseFloat(order.paid_amount || 0);
-    const required = parseFloat(form.admin_confirmed_amount || form.prepayment_amount);
-    const diff = paid - required;
-
-    let updates = {
-      admin_confirmed_amount: parseFloat(form.admin_confirmed_amount),
-      admin_note: form.admin_note,
-      order_status: form.order_status,
-      payment_status: form.payment_status,
-    };
-
-    if (action === "confirm_exact" || action === "confirm_over") {
-      updates.payment_status = "confirmed";
-      updates.order_status = "payment_confirmed";
-      if (diff > 0) updates.balance_credit = (order.balance_credit || 0) + diff;
-    } else if (action === "request_supplement") {
-      updates.supplement_requested = true;
-      updates.supplement_amount = Math.abs(diff);
-      updates.payment_status = "underpaid";
-    }
-
-    await base44.entities.Order.update(order.id, updates);
-    onSaved();
+  // ── Upload helpers ──
+  const uploadFile = async (file, setter, loadingSetter) => {
+    loadingSetter(true);
+    const { file_url } = await base44.integrations.Core.UploadFile({ file });
+    setter(file_url);
+    loadingSetter(false);
   };
 
-  const handleSave = async () => {
+  // ── Status-specific action handlers ──
+
+  // pending_confirmation → payment_pending (set amount + optional due date)
+  const handleConfirmOrder = async () => {
     setSaving(true);
     await base44.entities.Order.update(order.id, {
-      order_status: form.order_status,
-      payment_status: form.payment_status,
+      order_status: "payment_pending",
+      prepayment_amount: parseFloat(form.prepayment_amount) || order.prepayment_amount,
+      payment_due_date: form.payment_due_date || null,
       admin_note: form.admin_note,
-      admin_confirmed_amount: parseFloat(form.admin_confirmed_amount) || 0,
-      supplement_requested: form.supplement_requested,
-      supplement_amount: parseFloat(form.supplement_amount) || 0,
-      balance_credit: parseFloat(form.balance_credit) || 0,
-      prepayment_amount: parseFloat(form.prepayment_amount) || 0,
-      estimated_jpy: parseFloat(form.estimated_jpy) || 0,
     });
     onSaved();
   };
 
-  const paid = parseFloat(order.paid_amount || 0);
-  const confirmed = parseFloat(form.admin_confirmed_amount || 0);
-  const diff = paid - confirmed;
+  // → awaiting_reply
+  const handleSendToReply = async () => {
+    setSaving(true);
+    await base44.entities.Order.update(order.id, {
+      order_status: "awaiting_reply",
+      pre_reply_status: order.pre_reply_status || order.order_status,
+      admin_note: form.admin_note,
+    });
+    onSaved();
+  };
+
+  // → cancelled
+  const handleCancel = async () => {
+    if (!form.cancel_reason) { alert("请填写取消理由"); return; }
+    setSaving(true);
+    await base44.entities.Order.update(order.id, {
+      order_status: "cancelled",
+      cancel_reason: form.cancel_reason,
+      admin_note: form.admin_note,
+    });
+    onSaved();
+  };
+
+  // paid → purchased (admin confirms purchase, optionally uploads screenshot)
+  const handleMarkPurchased = async () => {
+    setSaving(true);
+    const updates = {
+      order_status: "purchased",
+      admin_note: form.admin_note,
+    };
+    if (purchaseScreenshot) updates.purchase_screenshot_url = purchaseScreenshot;
+    await base44.entities.Order.update(order.id, updates);
+    onSaved();
+  };
+
+  // purchased → in_warehouse
+  const handleMarkInWarehouse = async () => {
+    setSaving(true);
+    const updates = {
+      order_status: "in_warehouse",
+      admin_note: form.admin_note,
+    };
+    if (arrivalPhoto) updates.arrival_photo_url = arrivalPhoto;
+    if (form.weight_g) updates.weight_g = parseFloat(form.weight_g);
+    await base44.entities.Order.update(order.id, updates);
+    onSaved();
+  };
+
+  // notified_shipment → shipping_fee_pending (provide weight + fee + tracking)
+  const handleSetShippingFee = async () => {
+    setSaving(true);
+    let finalFee = parseFloat(shippingFee) || 0;
+    const credit = parseFloat(order.balance_credit || 0);
+    const netFee = Math.max(0, finalFee - credit);
+    await base44.entities.Order.update(order.id, {
+      order_status: "shipping_fee_pending",
+      shipping_total_weight_g: parseFloat(shippingWeight) || 0,
+      shipping_fee_amount: netFee,
+      shipping_fee_currency: shippingCurrency,
+      tracking_number: trackingNumber,
+      admin_note: form.admin_note,
+    });
+    onSaved();
+  };
+
+  // shipping_fee_pending/ready_to_ship → shipped
+  const handleMarkShipped = async () => {
+    setSaving(true);
+    await base44.entities.Order.update(order.id, {
+      order_status: "shipped",
+      tracking_number: trackingNumber,
+      admin_note: form.admin_note,
+    });
+    onSaved();
+  };
+
+  // Generic save (edit tab)
+  const handleSave = async () => {
+    setSaving(true);
+    await base44.entities.Order.update(order.id, {
+      order_status: form.order_status,
+      admin_note: form.admin_note,
+      admin_confirmed_amount: parseFloat(form.admin_confirmed_amount) || 0,
+      prepayment_amount: parseFloat(form.prepayment_amount) || 0,
+      payment_due_date: form.payment_due_date || null,
+      estimated_jpy: parseFloat(form.estimated_jpy) || 0,
+      balance_credit: parseFloat(form.balance_credit) || 0,
+      cancel_reason: form.cancel_reason,
+    });
+    onSaved();
+  };
+
+  const statusLabel = getStatusLabel(status, "admin");
+  const statusColor = getStatusColor(status, "admin");
+  const urls = (order.product_url || "").split("\n").map(s => s.trim()).filter(Boolean);
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between px-5 py-4 border-b">
-          <div>
-            <h2 className="font-semibold text-gray-900">编辑订单</h2>
-            <p className="text-xs text-gray-400">{order.product_name} · {order.user_email}</p>
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[92vh] flex flex-col">
+        {/* Header */}
+        <div className="flex items-start justify-between px-5 py-4 border-b flex-shrink-0">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge className={`text-xs ${statusColor}`}>{statusLabel}</Badge>
+              <span className="text-xs text-gray-400">{order.order_number}</span>
+            </div>
+            <h2 className="font-semibold text-gray-900 truncate mt-0.5">{order.product_name}</h2>
+            <p className="text-xs text-gray-400">{order.user_name} · {order.user_email}</p>
           </div>
-          <button onClick={onClose}><X className="w-4 h-4 text-gray-500" /></button>
+          <button onClick={onClose} className="ml-3"><X className="w-4 h-4 text-gray-500" /></button>
         </div>
 
-        <div className="px-5 py-5 space-y-4">
-          {/* Payment Review */}
-          {order.paid_amount > 0 && (
-            <div className="p-3 bg-gray-50 rounded-lg text-sm space-y-1.5">
-              <div className="font-medium text-gray-700 mb-2">付款审核</div>
-              <div className="flex justify-between"><span className="text-gray-500">用户已付</span><span className="font-medium">{order.prepayment_currency} {order.paid_amount?.toFixed(2)}</span></div>
-              <div className="flex justify-between"><span className="text-gray-500">支付方式</span><span>{order.payment_method || "-"}</span></div>
+        {/* Tabs */}
+        <div className="flex border-b flex-shrink-0 text-xs">
+          {[
+            { key: "actions", label: "操作" },
+            { key: "messages", label: `留言${(order.messages || []).length > 0 ? `(${(order.messages || []).length})` : ""}` },
+            { key: "edit", label: "编辑" },
+          ].map(t => (
+            <button key={t.key} onClick={() => setTab(t.key)}
+              className={`px-4 py-2.5 font-medium transition-colors border-b-2 ${
+                tab === t.key ? "border-gray-900 text-gray-900" : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
+
+          {/* ───────── ACTIONS TAB ───────── */}
+          {tab === "actions" && (
+            <div className="space-y-4">
+              {/* Order info summary */}
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                {order.estimated_jpy > 0 && (
+                  <div className="bg-gray-50 rounded-lg p-2.5">
+                    <div className="text-gray-400">日元报价</div>
+                    <div className="font-medium">¥{order.estimated_jpy?.toLocaleString()}</div>
+                  </div>
+                )}
+                {order.prepayment_amount > 0 && (
+                  <div className="bg-gray-50 rounded-lg p-2.5">
+                    <div className="text-gray-400">预付款</div>
+                    <div className="font-medium">{cur} {order.prepayment_amount?.toFixed(2)}</div>
+                  </div>
+                )}
+                {order.paid_amount > 0 && (
+                  <div className="bg-green-50 rounded-lg p-2.5">
+                    <div className="text-gray-400">已付金额</div>
+                    <div className="font-medium text-green-700">{cur} {order.paid_amount?.toFixed(2)}</div>
+                  </div>
+                )}
+                {order.balance_credit > 0 && (
+                  <div className="bg-blue-50 rounded-lg p-2.5">
+                    <div className="text-gray-400">余额</div>
+                    <div className="font-medium text-blue-700">{cur} {order.balance_credit?.toFixed(2)}</div>
+                  </div>
+                )}
+              </div>
+
+              {/* Payment proof */}
               {order.payment_proof_url && (
-                <div className="mt-2">
-                  <p className="text-xs text-gray-500 mb-1">付款凭证</p>
+                <div>
+                  <div className="text-xs text-gray-400 mb-1">付款凭证</div>
                   <a href={order.payment_proof_url} target="_blank" rel="noopener noreferrer">
-                    <img src={order.payment_proof_url} alt="凭证" className="h-24 rounded border cursor-pointer" />
+                    <img src={order.payment_proof_url} alt="凭证" className="h-24 rounded-lg border cursor-pointer object-cover" />
                   </a>
                 </div>
               )}
-            </div>
-          )}
 
-          <div>
-            <Label className="text-sm">管理员确认金额</Label>
-            <Input type="number" step="0.01" className="mt-1" value={form.admin_confirmed_amount}
-              onChange={e => f("admin_confirmed_amount", e.target.value)} />
-          </div>
-
-          {confirmed > 0 && order.paid_amount > 0 && (
-            <div className={`p-3 rounded-lg text-sm ${diff === 0 ? "bg-green-50 text-green-800" : diff > 0 ? "bg-blue-50 text-blue-800" : "bg-red-50 text-red-800"}`}>
-              {diff === 0 && <><CheckCircle className="inline w-4 h-4 mr-1" />金额正好，可以确认</>}
-              {diff > 0 && <><span>多付 {order.prepayment_currency} {diff.toFixed(2)}，将自动存入余额供运费抵扣</span></>}
-              {diff < 0 && <><AlertTriangle className="inline w-4 h-4 mr-1" />付款不足 {order.prepayment_currency} {Math.abs(diff).toFixed(2)}</>}
-            </div>
-          )}
-
-          {confirmed > 0 && order.paid_amount > 0 && (
-            <div className="flex gap-2 flex-wrap">
-              {diff >= 0 && (
-                <Button size="sm" className="bg-green-600 hover:bg-green-700 text-xs"
-                  onClick={() => handleConfirmPayment(diff > 0 ? "confirm_over" : "confirm_exact")} disabled={saving}>
-                  <CheckCircle className="w-3 h-3 mr-1" />确认付款{diff > 0 ? "（余额抵扣）" : ""}
-                </Button>
+              {/* Product links */}
+              {urls.length > 0 && (
+                <div>
+                  <div className="text-xs text-gray-400 mb-1">商品链接</div>
+                  <div className="space-y-1">
+                    {urls.map((u, i) => (
+                      <a key={i} href={u} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 truncate">
+                        <ExternalLink className="w-3 h-3 flex-shrink-0" />{u}
+                      </a>
+                    ))}
+                  </div>
+                </div>
               )}
-              {diff < 0 && (
-                <Button size="sm" className="bg-orange-600 hover:bg-orange-700 text-xs"
-                  onClick={() => handleConfirmPayment("request_supplement")} disabled={saving}>
-                  <AlertTriangle className="w-3 h-3 mr-1" />向用户索取补款
-                </Button>
+
+              {/* User notes */}
+              {order.user_note && (
+                <div className="bg-yellow-50 border border-yellow-100 rounded-lg px-3 py-2 text-sm text-yellow-800 whitespace-pre-wrap">
+                  <div className="text-xs text-yellow-500 mb-0.5">用户备注</div>
+                  {order.user_note}
+                </div>
               )}
-            </div>
-          )}
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-sm">订单状态</Label>
-              <Select value={form.order_status} onValueChange={v => f("order_status", v)}>
-                <SelectTrigger className="mt-1 text-sm"><SelectValue /></SelectTrigger>
-                <SelectContent>{ORDER_STATUSES.map(s => <SelectItem key={s.v} value={s.v}>{s.l}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-sm">余额 (供运费抵扣)</Label>
-              <Input type="number" step="0.01" className="mt-1" value={form.balance_credit}
-                onChange={e => f("balance_credit", e.target.value)} />
-            </div>
-          </div>
+              {order.product_description && (
+                <div className="bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-700 whitespace-pre-wrap">
+                  <div className="text-xs text-gray-400 mb-0.5">商品描述</div>
+                  {order.product_description}
+                </div>
+              )}
 
-          <div>
-            <Label className="text-sm">日元报价</Label>
-            <Input type="number" className="mt-1" value={form.estimated_jpy}
-              onChange={e => f("estimated_jpy", e.target.value)} />
-          </div>
+              <div>
+                <Label className="text-sm">管理员备注</Label>
+                <Textarea rows={2} className="mt-1 text-sm" value={form.admin_note}
+                  onChange={e => f("admin_note", e.target.value)} />
+              </div>
 
-          <div>
-            <Label className="text-sm">预付款金额</Label>
-            <div className="flex gap-2 mt-1">
-              <Input type="number" step="0.01" value={form.prepayment_amount}
-                onChange={e => f("prepayment_amount", e.target.value)} />
-              <Button
-                type="button" size="sm" variant="outline"
-                className="whitespace-nowrap text-blue-600 border-blue-300 hover:bg-blue-50"
-                onClick={handleGenerateAlipayLink}
-                disabled={generatingLink || !form.prepayment_amount}
-              >
-                {generatingLink ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ExternalLink className="w-3.5 h-3.5" />}
-                <span className="ml-1 text-xs">生成付款链接</span>
-              </Button>
-            </div>
-            {alipayUrl && (
-              <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-lg space-y-1.5">
-                <p className="text-xs text-blue-700 font-medium">✓ 付款链接已生成，发送给用户：</p>
-                <div className="flex gap-2">
-                  <input readOnly value={alipayUrl}
-                    className="flex-1 text-xs bg-white border border-blue-200 rounded px-2 py-1 font-mono truncate" />
-                  <Button size="sm" variant="ghost" className="h-7 px-2" onClick={handleCopyLink}>
-                    {linkCopied ? <CheckCircle className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
+              {/* ── Status-specific action panels ── */}
+
+              {/* pending_confirmation → confirm or reply or cancel */}
+              {status === "pending_confirmation" && (
+                <div className="space-y-3 border border-purple-100 rounded-xl p-3 bg-purple-50">
+                  <div className="text-sm font-medium text-purple-800">后付款待确认 — 请选择处理方式</div>
+                  <div className="space-y-2">
+                    <Label className="text-xs">确认后设置付款金额 ({cur})</Label>
+                    <Input type="number" step="0.01" placeholder="0.00" value={form.prepayment_amount}
+                      onChange={e => f("prepayment_amount", e.target.value)} />
+                    <Label className="text-xs">付款截止日期（可选）</Label>
+                    <Input type="date" value={form.payment_due_date}
+                      onChange={e => f("payment_due_date", e.target.value)} />
+                    <div className="flex gap-2 pt-1">
+                      <Button size="sm" className="flex-1 bg-green-600 hover:bg-green-700 text-xs"
+                        onClick={handleConfirmOrder} disabled={!form.prepayment_amount || saving}>
+                        ✓ 确认可购买，通知付款
+                      </Button>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" className="flex-1 text-xs border-orange-300 text-orange-600"
+                        onClick={handleSendToReply} disabled={saving}>
+                        留言待回复
+                      </Button>
+                      <div className="flex-1 space-y-1">
+                        <Input placeholder="取消理由" value={form.cancel_reason}
+                          onChange={e => f("cancel_reason", e.target.value)} className="text-xs h-8" />
+                        <Button size="sm" variant="outline" className="w-full text-xs border-red-300 text-red-600"
+                          onClick={handleCancel} disabled={saving}>
+                          取消订单
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* payment_pending → generate alipay link */}
+              {status === "payment_pending" && (
+                <div className="space-y-2 border border-orange-100 rounded-xl p-3 bg-orange-50">
+                  <div className="text-sm font-medium text-orange-800">待付款 — 为用户生成支付宝付款链接</div>
+                  <div className="flex gap-2">
+                    <Input type="number" step="0.01" placeholder="付款金额" value={form.prepayment_amount}
+                      onChange={e => f("prepayment_amount", e.target.value)} className="bg-white" />
+                    <Button size="sm" variant="outline"
+                      className="whitespace-nowrap text-blue-600 border-blue-300 hover:bg-blue-50"
+                      onClick={handleGenerateAlipay}
+                      disabled={generating || !form.prepayment_amount}>
+                      {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ExternalLink className="w-3.5 h-3.5" />}
+                      <span className="ml-1 text-xs">生成链接</span>
+                    </Button>
+                  </div>
+                  {alipayUrl && (
+                    <div className="p-2 bg-white border border-blue-200 rounded-lg space-y-1.5">
+                      <div className="flex gap-2">
+                        <input readOnly value={alipayUrl}
+                          className="flex-1 text-xs bg-gray-50 border border-gray-200 rounded px-2 py-1 font-mono truncate" />
+                        <Button size="sm" variant="ghost" className="h-7 px-2" onClick={handleCopyLink}>
+                          {linkCopied ? <CheckCircle className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex gap-2 pt-1">
+                    <Button size="sm" variant="outline" className="flex-1 text-xs border-orange-300 text-orange-600"
+                      onClick={handleSendToReply} disabled={saving}>
+                      发起留言
+                    </Button>
+                    <div className="flex gap-1 flex-1">
+                      <Input placeholder="取消理由" value={form.cancel_reason}
+                        onChange={e => f("cancel_reason", e.target.value)} className="text-xs h-8" />
+                      <Button size="sm" variant="outline" className="text-xs border-red-300 text-red-600 whitespace-nowrap"
+                        onClick={handleCancel} disabled={saving}>
+                        取消
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* paid / pending_purchase → mark purchased */}
+              {(status === "paid" || status === "pending_purchase") && (
+                <div className="space-y-3 border border-indigo-100 rounded-xl p-3 bg-indigo-50">
+                  <div className="text-sm font-medium text-indigo-800">待下单 — 完成购买后上传截图</div>
+                  <label className="cursor-pointer block">
+                    <div className={`flex items-center justify-center gap-2 border-2 border-dashed rounded-lg p-3 text-sm transition-colors ${
+                      purchaseScreenshot ? "border-green-300 bg-green-50 text-green-700" : "border-indigo-200 bg-white text-gray-400"
+                    }`}>
+                      {purchaseScreenshot
+                        ? <><CheckCircle className="w-4 h-4" />截图已上传</>
+                        : <><Upload className="w-4 h-4" />{uploadingScreenshot ? "上传中..." : "上传购买截图（可选）"}</>}
+                    </div>
+                    <input type="file" accept="image/*" className="hidden"
+                      onChange={e => uploadFile(e.target.files[0], setPurchaseScreenshot, setUploadingScreenshot)} />
+                  </label>
+                  <div className="flex gap-2">
+                    <Button size="sm" className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-xs"
+                      onClick={handleMarkPurchased} disabled={saving}>
+                      ✓ 购买完成 → 已下单
+                    </Button>
+                    <Button size="sm" variant="outline" className="text-xs border-red-300 text-red-600"
+                      onClick={() => { f("cancel_reason", form.cancel_reason); handleCancel(); }} disabled={saving || !form.cancel_reason}>
+                      取消
+                    </Button>
+                  </div>
+                  {!form.cancel_reason && <Input placeholder="取消理由（取消时必填）" value={form.cancel_reason}
+                    onChange={e => f("cancel_reason", e.target.value)} className="text-xs" />}
+                </div>
+              )}
+
+              {/* purchased → in_warehouse */}
+              {status === "purchased" && (
+                <div className="space-y-3 border border-teal-100 rounded-xl p-3 bg-teal-50">
+                  <div className="text-sm font-medium text-teal-800">已下单 — 到货后入库</div>
+                  <label className="cursor-pointer block">
+                    <div className={`flex items-center justify-center gap-2 border-2 border-dashed rounded-lg p-3 text-sm transition-colors ${
+                      arrivalPhoto ? "border-green-300 bg-green-50 text-green-700" : "border-teal-200 bg-white text-gray-400"
+                    }`}>
+                      {arrivalPhoto
+                        ? <><CheckCircle className="w-4 h-4" />到货图片已上传</>
+                        : <><Upload className="w-4 h-4" />{uploadingArrival ? "上传中..." : "上传到货图片（可选）"}</>}
+                    </div>
+                    <input type="file" accept="image/*" className="hidden"
+                      onChange={e => uploadFile(e.target.files[0], setArrivalPhoto, setUploadingArrival)} />
+                  </label>
+                  <div>
+                    <Label className="text-xs">货品重量 (g)（默认100g）</Label>
+                    <Input type="number" placeholder="100" value={form.weight_g || ""}
+                      onChange={e => f("weight_g", e.target.value)} className="mt-1" />
+                  </div>
+                  <Button size="sm" className="w-full bg-teal-600 hover:bg-teal-700 text-xs"
+                    onClick={handleMarkInWarehouse} disabled={saving}>
+                    ✓ 确认入库
                   </Button>
                 </div>
-                <a href={alipayUrl} target="_blank" rel="noopener noreferrer"
-                  className="text-xs text-blue-600 underline flex items-center gap-1">
-                  <ExternalLink className="w-3 h-3" />在新标签中预览
-                </a>
-              </div>
-            )}
-          </div>
+              )}
 
-          <div>
-            <Label className="text-sm">管理员备注</Label>
-            <Textarea rows={3} className="mt-1" value={form.admin_note}
-              onChange={e => f("admin_note", e.target.value)} />
-          </div>
+              {/* in_warehouse: show if user has pre-set shipping request */}
+              {status === "in_warehouse" && (
+                <div className="space-y-2 border border-cyan-100 rounded-xl p-3 bg-cyan-50">
+                  <div className="text-sm font-medium text-cyan-800">已入库</div>
+                  {order.shipping_method ? (
+                    <div className="text-xs text-gray-700">
+                      用户已预设发货方式：<strong>{order.shipping_method}</strong>
+                      {order.consolidation_requested && "（申请拼邮）"}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-400">等待用户通知发货</p>
+                  )}
+                </div>
+              )}
+
+              {/* notified_shipment → set shipping fee */}
+              {status === "notified_shipment" && (
+                <div className="space-y-3 border border-cyan-100 rounded-xl p-3 bg-cyan-50">
+                  <div className="text-sm font-medium text-cyan-800">待出货 — 填写运费信息</div>
+                  {order.shipping_method && (
+                    <div className="text-xs text-gray-600">发货方式：{order.shipping_method}
+                      {order.consolidation_requested && " · 拼邮"}
+                    </div>
+                  )}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-xs">出货总重量 (g)</Label>
+                      <Input type="number" className="mt-1" value={shippingWeight}
+                        onChange={e => setShippingWeight(e.target.value)} />
+                    </div>
+                    <div>
+                      <Label className="text-xs">运费金额</Label>
+                      <div className="flex gap-1 mt-1">
+                        <Input type="number" step="0.01" value={shippingFee}
+                          onChange={e => setShippingFee(e.target.value)} />
+                        <Select value={shippingCurrency} onValueChange={setShippingCurrency}>
+                          <SelectTrigger className="w-20 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {["CNY","USD","JPY","TWD","HKD"].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                  {order.balance_credit > 0 && (
+                    <p className="text-xs text-blue-600">
+                      用户余额 {cur} {order.balance_credit?.toFixed(2)}，将自动抵扣，实收 {shippingCurrency} {Math.max(0, parseFloat(shippingFee || 0) - parseFloat(order.balance_credit || 0)).toFixed(2)}
+                    </p>
+                  )}
+                  <div>
+                    <Label className="text-xs">运单号（可选）</Label>
+                    <Input className="mt-1" value={trackingNumber} onChange={e => setTrackingNumber(e.target.value)} />
+                  </div>
+                  <Button size="sm" className="w-full bg-cyan-600 hover:bg-cyan-700 text-xs"
+                    onClick={handleSetShippingFee} disabled={!shippingFee || saving}>
+                    ✓ 通知用户付运费
+                  </Button>
+                </div>
+              )}
+
+              {/* shipping_fee_pending / ready_to_ship → shipped */}
+              {(status === "shipping_fee_pending" || status === "ready_to_ship") && (
+                <div className="space-y-3 border border-lime-100 rounded-xl p-3 bg-lime-50">
+                  <div className="text-sm font-medium text-lime-800">
+                    {status === "shipping_fee_pending" ? "等待用户付运费" : "已付运费 — 填写运单号后发出"}
+                  </div>
+                  <div>
+                    <Label className="text-xs">运单号</Label>
+                    <Input className="mt-1" value={trackingNumber}
+                      onChange={e => setTrackingNumber(e.target.value)} />
+                  </div>
+                  <Button size="sm" className="w-full bg-lime-600 hover:bg-lime-700 text-xs"
+                    onClick={handleMarkShipped} disabled={!trackingNumber || saving}>
+                    ✓ 确认已发出
+                  </Button>
+                </div>
+              )}
+
+              {/* Any status → send to awaiting_reply */}
+              {!["awaiting_reply", "cancelled", "delivered", "notified_shipment", "shipping_fee_pending", "ready_to_ship", "shipped"].includes(status) && status !== "pending_confirmation" && status !== "payment_pending" && (
+                <div className="pt-2 border-t border-gray-100">
+                  <Button size="sm" variant="outline" className="text-xs w-full border-orange-200 text-orange-600"
+                    onClick={handleSendToReply} disabled={saving}>
+                    <MessageCircle className="w-3.5 h-3.5 mr-1.5" />将订单设为待回复并附留言
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ───────── MESSAGES TAB ───────── */}
+          {tab === "messages" && (
+            <OrderMessageThread
+              order={order}
+              currentUser={{ email: "admin" }}
+              isAdmin={true}
+              onMessageSent={onSaved}
+            />
+          )}
+
+          {/* ───────── EDIT TAB ───────── */}
+          {tab === "edit" && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-sm">订单状态</Label>
+                  <Select value={form.order_status} onValueChange={v => f("order_status", v)}>
+                    <SelectTrigger className="mt-1 text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {ALL_STATUSES.map(s => <SelectItem key={s.v} value={s.v}>{s.l}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-sm">余额 ({cur})</Label>
+                  <Input type="number" step="0.01" className="mt-1" value={form.balance_credit}
+                    onChange={e => f("balance_credit", e.target.value)} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-sm">日元报价 (¥)</Label>
+                  <Input type="number" className="mt-1" value={form.estimated_jpy}
+                    onChange={e => f("estimated_jpy", e.target.value)} />
+                </div>
+                <div>
+                  <Label className="text-sm">预付款金额 ({cur})</Label>
+                  <Input type="number" step="0.01" className="mt-1" value={form.prepayment_amount}
+                    onChange={e => f("prepayment_amount", e.target.value)} />
+                </div>
+              </div>
+              <div>
+                <Label className="text-sm">付款截止日期</Label>
+                <Input type="date" className="mt-1" value={form.payment_due_date}
+                  onChange={e => f("payment_due_date", e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-sm">取消理由</Label>
+                <Input className="mt-1" value={form.cancel_reason}
+                  onChange={e => f("cancel_reason", e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-sm">管理员备注</Label>
+                <Textarea rows={3} className="mt-1" value={form.admin_note}
+                  onChange={e => f("admin_note", e.target.value)} />
+              </div>
+            </div>
+          )}
         </div>
 
-        <div className="px-5 py-3 border-t flex gap-2 justify-end">
-          <Button variant="outline" size="sm" onClick={onClose}>取消</Button>
-          <Button size="sm" className="bg-gray-900 hover:bg-gray-800" onClick={handleSave} disabled={saving}>
-            {saving ? "保存中..." : "保存变更"}
-          </Button>
+        {/* Footer */}
+        <div className="px-5 py-3 border-t flex gap-2 justify-end flex-shrink-0">
+          <Button variant="outline" size="sm" onClick={onClose}>关闭</Button>
+          {tab === "edit" && (
+            <Button size="sm" className="bg-gray-900 hover:bg-gray-800" onClick={handleSave} disabled={saving}>
+              {saving ? "保存中..." : "保存变更"}
+            </Button>
+          )}
         </div>
       </div>
     </div>

@@ -33,6 +33,7 @@ export default function SubmitOrder() {
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("alipay");
+  const [paymentMode, setPaymentMode] = useState("prepay"); // "prepay" | "deferred"
 
   useEffect(() => {
     base44.auth.me().then(setUser).catch(() => base44.auth.redirectToLogin());
