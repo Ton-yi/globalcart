@@ -35,6 +35,25 @@ export default function AdminOrderEditModal({ order, onClose, onSaved }) {
 
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
+  const handleGenerateAlipayLink = async () => {
+    setGeneratingLink(true);
+    setAlipayUrl(null);
+    const res = await base44.functions.invoke('generateAlipayPaymentLink', {
+      orderId: order.id,
+      amount: parseFloat(form.prepayment_amount) || order.prepayment_amount,
+      currency: order.prepayment_currency || 'CNY',
+      subject: `同一物流代购 - ${order.product_name}`,
+    });
+    setAlipayUrl(res.data.paymentUrl);
+    setGeneratingLink(false);
+  };
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(alipayUrl);
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2000);
+  };
+
   const handleConfirmPayment = async (action) => {
     setSaving(true);
     const paid = parseFloat(order.paid_amount || 0);
