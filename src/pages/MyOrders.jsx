@@ -301,6 +301,17 @@ export default function MyOrders() {
           }}
         />
       )}
+
+      {shipmentOrder && (
+        <UserNotifyShipmentModal
+          order={shipmentOrder}
+          onClose={() => setShipmentOrder(null)}
+          onSuccess={() => {
+            setShipmentOrder(null);
+            fetchOrders(user);
+          }}
+        />
+      )}
     </div>
   );
 }
