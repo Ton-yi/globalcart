@@ -108,17 +108,9 @@ function CellValue({ col, order, onQuickOrdered, userAvatars }) {
       return <span className="text-sm text-gray-700">{order.weight_g ? `${order.weight_g}g` : "-"}</span>;
     case "order_status":
       return (
-        <div className="flex flex-col gap-1 items-start">
-          <Badge className={`text-xs ${getStatusColor(order.order_status, "admin")}`}>
-            {getStatusLabel(order.order_status, "admin")}
-          </Badge>
-          {(order.order_status === "paid" || order.order_status === "pending_purchase") && (
-            <Button size="sm" variant="outline" className="h-5 text-xs px-1.5 text-indigo-600 border-indigo-200"
-              onClick={e => { e.stopPropagation(); onQuickOrdered(order); }}>
-              快速→已下单
-            </Button>
-          )}
-        </div>
+        <Badge className={`text-xs ${getStatusColor(order.order_status, "admin")}`}>
+          {getStatusLabel(order.order_status, "admin")}
+        </Badge>
       );
     case "product_image_url":
       return order.product_image_url
@@ -250,8 +242,15 @@ export default function AdminOrders() {
   };
 
   const handleQuickOrdered = async (order) => {
-    await base44.entities.Order.update(order.id, { order_status: "purchased" });
+    await base44.entities.Order.update(order.id, {
+      order_status: "purchased",
+      purchased_date: new Date().toISOString().split("T")[0],
+    });
     fetchOrders();
+  };
+
+  const handleQuickInWarehouse = async (order) => {
+    setSelectedOrder(order);
   };
 
   return (
@@ -346,13 +345,21 @@ export default function AdminOrders() {
                    <CellValue col={col} order={order} onQuickOrdered={handleQuickOrdered} userAvatars={userAvatars} />
                   </td>
                 ))}
-                <td className="px-3 py-3" onClick={e => e.stopPropagation()}>
-                  {(order.order_status === "paid" || order.order_status === "pending_purchase") && (
-                    <Button size="sm" variant="outline" className="h-6 text-xs px-2 text-indigo-600 border-indigo-200"
-                      onClick={() => handleQuickOrdered(order)}>
-                      已下单
-                    </Button>
-                  )}
+                <td className="px-3 py-3 whitespace-nowrap" onClick={e => e.stopPropagation()}>
+                  <div className="flex gap-1">
+                    {(order.order_status === "paid" || order.order_status === "pending_purchase") && (
+                      <Button size="sm" variant="outline" className="h-6 text-xs px-2 text-indigo-600 border-indigo-200"
+                        onClick={() => handleQuickOrdered(order)}>
+                        已下单
+                      </Button>
+                    )}
+                    {order.order_status === "purchased" && (
+                      <Button size="sm" variant="outline" className="h-6 text-xs px-2 text-teal-600 border-teal-200"
+                        onClick={() => handleQuickInWarehouse(order)}>
+                        入库
+                      </Button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
