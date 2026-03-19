@@ -24,6 +24,10 @@ const ALL_COLUMNS = [
   { key: "admin_note", label: "管理员备注", defaultVisible: false },
   { key: "user_note", label: "用户备注", defaultVisible: false },
   { key: "payment_due_date", label: "付款截止日期", defaultVisible: false },
+  { key: "submit_date", label: "订单提交日", defaultVisible: false },
+  { key: "purchased_date", label: "下单日", defaultVisible: false },
+  { key: "in_warehouse_date", label: "入库日", defaultVisible: false },
+  { key: "shipped_date", label: "发货日", defaultVisible: false },
 ];
 
 const DEFAULT_COLUMNS = ALL_COLUMNS.map(c => ({ ...c, visible: c.defaultVisible }));

@@ -25,6 +25,7 @@ const ALL_COLUMNS = [
   { key: "purchased_date", label: "下单日", defaultVisible: false, sortable: true },
   { key: "in_warehouse_date", label: "入库日", defaultVisible: false, sortable: true },
   { key: "shipped_date", label: "发货日", defaultVisible: false, sortable: true },
+  { key: "submit_date", label: "订单提交日", defaultVisible: false, sortable: true },
   { key: "product_image_url", label: "商品图片", defaultVisible: false, sortable: false },
   { key: "arrival_photo_url", label: "入库图片", defaultVisible: false, sortable: false },
   { key: "product_description", label: "商品描述", defaultVisible: false, sortable: true },
