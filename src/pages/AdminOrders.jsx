@@ -145,11 +145,18 @@ export default function AdminOrders() {
   const [bulkStatus, setBulkStatus] = useState("");
   const [bulkUpdating, setBulkUpdating] = useState(false);
   const [columns, setColumns] = useState(loadColumns);
+  const [userAvatars, setUserAvatars] = useState({});
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
-    const data = await base44.entities.Order.list("-updated_date", 200);
+    const [data, prefs] = await Promise.all([
+      base44.entities.Order.list("-updated_date", 200),
+      base44.entities.UserPreference.list(),
+    ]);
     setOrders(data);
+    const avatarMap = {};
+    prefs.forEach(p => { if (p.avatar_url) avatarMap[p.user_email] = p.avatar_url; });
+    setUserAvatars(avatarMap);
     setLoading(false);
   }, []);
 
