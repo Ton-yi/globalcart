@@ -29,7 +29,7 @@ export default function PaymentModal({ order, mode = "prepay", onClose, onSucces
   const isSupp = mode === "supplement";
   const isShipping = mode === "shipping";
 
-  const defaultAmount = isSupp
+  const rawAmount = isSupp
     ? order.supplement_amount
     : isShipping
     ? order.shipping_fee_amount
@@ -37,11 +37,22 @@ export default function PaymentModal({ order, mode = "prepay", onClose, onSucces
 
   const cur = isShipping ? (order.shipping_fee_currency || "CNY") : (order.prepayment_currency || "CNY");
 
+  // CNY amounts round to nearest integer (round half up)
+  const roundAmount = (val, currency) => {
+    if (!val) return 0;
+    const num = parseFloat(val);
+    return currency === "CNY" ? Math.round(num) : num;
+  };
+
+  const defaultAmount = roundAmount(rawAmount, cur);
+
   const title = isSupp ? "补款" : isShipping ? "运费付款" : "预付款";
-  const amountLabel = `${title}金额：${cur} ${parseFloat(defaultAmount || 0).toFixed(2)}`;
+  const amountLabel = cur === "CNY"
+    ? `${title}金额：CNY ${defaultAmount}`
+    : `${title}金额：${cur} ${parseFloat(defaultAmount || 0).toFixed(2)}`;
 
   const [method, setMethod] = useState("");
-  const [paidAmount, setPaidAmount] = useState(parseFloat(defaultAmount || 0).toFixed(2));
+  const [paidAmount, setPaidAmount] = useState(String(defaultAmount));
 
   // Alipay
   const [alipayUrl, setAlipayUrl] = useState(null);
