@@ -147,6 +147,7 @@ export default function OrderMessageThread({ order, currentUser, isAdmin, onMess
               </div>
             );
           })}
+          <div ref={bottomRef} />
         </div>
       )}
 
