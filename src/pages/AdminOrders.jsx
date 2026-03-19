@@ -16,7 +16,7 @@ const ALL_COLUMNS = [
   { key: "order_number", label: "订单号", defaultVisible: true },
   { key: "user_name", label: "用户名", defaultVisible: true },
   { key: "product_name", label: "商品名", defaultVisible: true },
-  { key: "estimated_jpy", label: "日元报价", defaultVisible: true },
+  { key: "estimated_jpy", label: "货款", defaultVisible: true },
   { key: "prepayment_amount", label: "付款金额", defaultVisible: true },
   { key: "weight_g", label: "订单重量", defaultVisible: true },
   { key: "order_status", label: "订单状态", defaultVisible: true },
@@ -67,23 +67,37 @@ const ALL_STATUSES = [
   { v: "cancelled", l: "已取消" },
 ];
 
-function CellValue({ col, order, onQuickOrdered }) {
+function formatAmount(amount, currency) {
+  if (!amount || amount <= 0) return "-";
+  const val = amount.toFixed(2);
+  if (currency === "CNY") return `${val} yuan`;
+  return `${currency} ${val}`;
+}
+
+function CellValue({ col, order, onQuickOrdered, userAvatars }) {
   switch (col.key) {
     case "order_number":
       return <span className="font-mono text-xs text-gray-500">{order.order_number || "-"}</span>;
-    case "user_name":
+    case "user_name": {
+      const avatar = userAvatars?.[order.user_email];
       return (
-        <div className="min-w-0">
-          <div className="text-sm text-gray-800 truncate">{order.user_name || "-"}</div>
-          <div className="text-xs text-gray-400 truncate">{order.user_email}</div>
+        <div className="flex items-center gap-2 min-w-0">
+          {avatar
+            ? <img src={avatar} alt="" className="w-7 h-7 rounded-full object-cover flex-shrink-0 border border-gray-100" />
+            : <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0 text-xs text-gray-500 font-medium">
+                {(order.user_name || order.user_email || "?")[0].toUpperCase()}
+              </div>
+          }
+          <span className="text-sm text-gray-800 truncate">{order.user_name || "-"}</span>
         </div>
       );
+    }
     case "product_name":
       return <span className="text-sm font-medium text-gray-900 truncate">{order.product_name}</span>;
     case "estimated_jpy":
-      return <span className="text-sm text-gray-700">{order.estimated_jpy ? `¥${order.estimated_jpy.toLocaleString()}` : "-"}</span>;
+      return <span className="text-sm text-gray-700">{order.estimated_jpy ? `${order.estimated_jpy.toLocaleString()} yen` : "-"}</span>;
     case "prepayment_amount":
-      return <span className="text-sm text-gray-700">{order.prepayment_amount > 0 ? `${order.prepayment_currency} ${order.prepayment_amount.toFixed(2)}` : "-"}</span>;
+      return <span className="text-sm text-gray-700">{formatAmount(order.prepayment_amount, order.prepayment_currency)}</span>;
     case "weight_g":
       return <span className="text-sm text-gray-700">{order.weight_g ? `${order.weight_g}g` : "-"}</span>;
     case "order_status":
