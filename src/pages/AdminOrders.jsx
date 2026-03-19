@@ -174,6 +174,17 @@ export default function AdminOrders() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(newCols.map(c => ({ key: c.key, visible: c.visible }))));
   };
 
+  const handleSort = (key) => {
+    if (sortKey === key) {
+      setSortDir(d => d === "asc" ? "desc" : "asc");
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  };
+
+  const REPLY_STATUS_ORDER = { no_reply: 0, awaiting_admin_reply: 1, awaiting_user_reply: 2 };
+
   const filtered = orders.filter(o => {
     const matchStatus = statusFilter === "all" || o.order_status === statusFilter;
     const q = search.toLowerCase();
@@ -183,6 +194,20 @@ export default function AdminOrders() {
       (o.user_email || "").toLowerCase().includes(q) ||
       (o.user_name || "").toLowerCase().includes(q);
     return matchStatus && matchSearch;
+  }).sort((a, b) => {
+    if (!sortKey) return 0;
+    let va = a[sortKey], vb = b[sortKey];
+    if (sortKey === "reply_status") {
+      va = REPLY_STATUS_ORDER[va] ?? 0;
+      vb = REPLY_STATUS_ORDER[vb] ?? 0;
+    } else if (typeof va === "string" && typeof vb === "string") {
+      va = va.toLowerCase(); vb = vb.toLowerCase();
+    }
+    if (va == null) va = "";
+    if (vb == null) vb = "";
+    if (va < vb) return sortDir === "asc" ? -1 : 1;
+    if (va > vb) return sortDir === "asc" ? 1 : -1;
+    return 0;
   });
 
   const visibleCols = columns.filter(c => c.visible);
