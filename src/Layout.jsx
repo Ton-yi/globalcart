@@ -29,6 +29,7 @@ export default function Layout({ children, currentPageName }) {
     { label: "提交需求", icon: ShoppingBag, page: "SubmitOrder" },
     { label: "我的订单", icon: Package, page: "MyOrders" },
     { label: "发货需求", icon: Truck, page: "ShippingRequests" },
+    { label: "拼邮池", icon: Layers, page: "ConsolidationPool" },
     { label: "个人设置", icon: User, page: "UserPreferences" },
   ];
 
