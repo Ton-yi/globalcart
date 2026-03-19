@@ -71,11 +71,11 @@ export default function OrderMessageThread({ order, currentUser, isAdmin, onMess
     setContent("");
     setImageUrl("");
 
-    const newStatus = isAdmin ? "admin_replied" : "awaiting_reply";
     const updates = {
       messages: updatedMessages,
-      order_status: newStatus,
+      reply_status: isAdmin ? "awaiting_user_reply" : "awaiting_admin_reply",
     };
+    // 保留旧的 order_status 同步逻辑（兼容现有流程）
     if (!order.pre_reply_status) {
       updates.pre_reply_status = order.order_status;
     }
