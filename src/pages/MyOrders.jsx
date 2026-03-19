@@ -181,6 +181,21 @@ export default function MyOrders() {
 
   const visibleCols = columns.filter(c => c.visible);
 
+  // Orders eligible for bulk notify (in_warehouse only)
+  const inWarehouseOrders = filtered.filter(o => o.order_status === "in_warehouse");
+  const selectedInWarehouse = filtered.filter(o => selectedIds.includes(o.id) && o.order_status === "in_warehouse");
+
+  const toggleSelect = (id) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const toggleAllInWarehouse = () => {
+    const ids = inWarehouseOrders.map(o => o.id);
+    const allSelected = ids.every(id => selectedIds.includes(id));
+    if (allSelected) setSelectedIds(prev => prev.filter(id => !ids.includes(id)));
+    else setSelectedIds(prev => [...new Set([...prev, ...ids])]);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
