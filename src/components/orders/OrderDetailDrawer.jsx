@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { getStatusLabel, getStatusColor } from "@/lib/orderStatus";
 import OrderMessageThread from "./OrderMessageThread";
 import PaymentModal from "./PaymentModal";
+import UserNotifyShipmentModal from "./UserNotifyShipmentModal";
 
 export default function OrderDetailDrawer({ order, currentUser, onClose, onAction }) {
   const hasReplyStatus = order.reply_status && order.reply_status !== "no_reply";
