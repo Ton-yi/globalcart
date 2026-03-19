@@ -185,10 +185,10 @@ export default function MyOrders() {
           </thead>
           <tbody className="divide-y divide-gray-100">
             {loading ? (
-              <tr><td colSpan={visibleCols.length} className="text-center py-12 text-gray-400 text-sm">加载中...</td></tr>
+              <tr><td colSpan={visibleCols.length + 1} className="text-center py-12 text-gray-400 text-sm">加载中...</td></tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={visibleCols.length} className="py-16">
+                <td colSpan={visibleCols.length + 1} className="py-16">
                   <div className="flex flex-col items-center text-gray-400">
                     <Package className="w-10 h-10 mb-3 opacity-30" />
                     <p className="text-sm">暂无订单</p>
