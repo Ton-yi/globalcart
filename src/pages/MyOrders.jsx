@@ -207,7 +207,7 @@ export default function MyOrders() {
 
       <div className="text-xs text-gray-400 text-right">共 {filtered.length} 条</div>
 
-      {selectedOrder && (
+      {selectedOrder && user && (
         <OrderDetailDrawer
           order={selectedOrder}
           currentUser={user}
