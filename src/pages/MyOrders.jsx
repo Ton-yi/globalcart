@@ -201,6 +201,14 @@ export default function MyOrders() {
                     <CellValue col={col} order={order} />
                   </td>
                 ))}
+                <td className="px-3 py-3" onClick={e => e.stopPropagation()}>
+                  {order.order_status === "payment_pending" && (
+                    <Button size="sm" className="h-7 text-xs bg-red-600 hover:bg-red-700 whitespace-nowrap"
+                      onClick={() => setPaymentOrder(order)}>
+                      <CreditCard className="w-3 h-3 mr-1" />去付款
+                    </Button>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
