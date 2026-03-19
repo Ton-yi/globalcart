@@ -109,6 +109,7 @@ export default function MyOrders() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [paymentOrder, setPaymentOrder] = useState(null);
   const [columns, setColumns] = useState(loadColumns);
 
   const fetchOrders = async (u) => {
