@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Package, RefreshCw, Search } from "lucide-react";
+import { Package, RefreshCw, Search, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { getStatusLabel, getStatusColor } from "@/lib/orderStatus";
 import OrderDetailDrawer from "@/components/orders/OrderDetailDrawer";
 import ColumnCustomizer from "@/components/orders/ColumnCustomizer";
+import PaymentModal from "@/components/orders/PaymentModal";
 
 const STORAGE_KEY = "my_orders_columns";
 
