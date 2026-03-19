@@ -1,12 +1,10 @@
 /**
  * OrderMessageThread
  * Displays a conversation thread for an order (admin ↔ user).
- * Sending a message automatically flips the "awaiting_reply" status:
- *   - User sends  → order_status = "awaiting_reply"  (admin side shows 待回复)
- *   - Admin sends → order_status = "admin_replied"    (user side shows 待回复)
- * The status reverts to pre_reply_status once both sides have exchanged.
+ * Fix: message list updates immediately after sending (local state append).
+ * Feature: shows sender avatar, name, and timestamp.
  */
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Send, Upload, X, MessageCircle } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
@@ -18,8 +16,20 @@ function formatTime(ts) {
   return d.toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
 
+function Avatar({ name, imageUrl, size = "sm" }) {
+  const dim = size === "sm" ? "w-7 h-7 text-xs" : "w-8 h-8 text-sm";
+  if (imageUrl) {
+    return <img src={imageUrl} alt={name} className={`${dim} rounded-full object-cover flex-shrink-0 border border-gray-200`} />;
+  }
+  return (
+    <div className={`${dim} rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0 font-medium text-gray-600`}>
+      {(name || "?")[0].toUpperCase()}
+    </div>
+  );
+}
+
 export default function OrderMessageThread({ order, currentUser, isAdmin, onMessageSent, contactInfo }) {
-  const messages = order.messages || [];
+  const [localMessages, setLocalMessages] = useState(order.messages || []);
   const [content, setContent] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -49,62 +59,85 @@ export default function OrderMessageThread({ order, currentUser, isAdmin, onMess
       prev_status: order.order_status,
     };
 
-    const updatedMessages = [...messages, newMsg];
+    const updatedMessages = [...localMessages, newMsg];
 
-    // Status logic:
-    // User sends   → awaiting_reply  (admin sees 待回复)
-    // Admin sends  → admin_replied   (user sees 待回复)
+    // Optimistically update local state immediately
+    setLocalMessages(updatedMessages);
+    setContent("");
+    setImageUrl("");
+
     const newStatus = isAdmin ? "admin_replied" : "awaiting_reply";
     const updates = {
       messages: updatedMessages,
       order_status: newStatus,
     };
-    // Preserve pre_reply_status so we know where to return
     if (!order.pre_reply_status) {
       updates.pre_reply_status = order.order_status;
     }
 
     await base44.entities.Order.update(order.id, updates);
-    setContent("");
-    setImageUrl("");
     setSending(false);
     onMessageSent?.();
+  };
+
+  const getSenderName = (msg) => {
+    if (msg.role === "admin") return "客服";
+    // Try to extract display name from email or use order user_name
+    if (msg.from === order.user_email) return order.user_name || msg.from;
+    return msg.from;
   };
 
   return (
     <div className="space-y-4">
       {/* Message history */}
-      {messages.length === 0 ? (
+      {localMessages.length === 0 ? (
         <div className="text-center py-6 text-gray-400 text-sm">
           <MessageCircle className="w-8 h-8 mx-auto mb-2 opacity-30" />
           暂无留言
         </div>
       ) : (
-        <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
-          {messages.map((msg) => {
+        <div className="space-y-4 max-h-72 overflow-y-auto pr-1">
+          {localMessages.map((msg) => {
             const isMine = isAdmin ? msg.role === "admin" : msg.role === "user";
+            const senderName = getSenderName(msg);
+            const isAdminMsg = msg.role === "admin";
+
             return (
-              <div key={msg.id} className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
-                <div className={`max-w-[80%] rounded-xl px-3 py-2 text-sm ${
-                  isMine ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-800"
-                }`}>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className={`text-xs font-medium ${isMine ? "text-gray-300" : "text-gray-500"}`}>
-                      {msg.role === "admin" ? "客服" : "用户"}
-                    </span>
+              <div key={msg.id} className={`flex gap-2.5 ${isMine ? "flex-row-reverse" : "flex-row"}`}>
+                {/* Avatar */}
+                <div className="flex-shrink-0 mt-0.5">
+                  <Avatar
+                    name={isAdminMsg ? "客服" : senderName}
+                    imageUrl={isAdminMsg ? null : null} // can hook up real avatars here
+                  />
+                </div>
+
+                {/* Bubble */}
+                <div className={`flex flex-col max-w-[75%] ${isMine ? "items-end" : "items-start"}`}>
+                  {/* Sender info row */}
+                  <div className={`flex items-center gap-1.5 mb-1 ${isMine ? "flex-row-reverse" : "flex-row"}`}>
+                    <span className="text-xs font-medium text-gray-700">{senderName}</span>
                     <span className="text-xs text-gray-400">{formatTime(msg.timestamp)}</span>
                   </div>
-                  {msg.content && <p className="whitespace-pre-wrap">{msg.content}</p>}
-                  {msg.image_url && (
-                    <a href={msg.image_url} target="_blank" rel="noopener noreferrer">
-                      <img src={msg.image_url} alt="附图" className="mt-2 rounded max-h-40 cursor-pointer" />
-                    </a>
-                  )}
-                  {msg.contact_info && (
-                    <p className={`text-xs mt-1.5 ${isMine ? "text-gray-300" : "text-gray-500"}`}>
-                      联系方式：{msg.contact_info}
-                    </p>
-                  )}
+
+                  {/* Content */}
+                  <div className={`rounded-2xl px-3.5 py-2.5 text-sm ${
+                    isMine
+                      ? "bg-gray-900 text-white rounded-tr-sm"
+                      : "bg-gray-100 text-gray-800 rounded-tl-sm"
+                  }`}>
+                    {msg.content && <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>}
+                    {msg.image_url && (
+                      <a href={msg.image_url} target="_blank" rel="noopener noreferrer">
+                        <img src={msg.image_url} alt="附图" className="mt-2 rounded-lg max-h-40 cursor-pointer" />
+                      </a>
+                    )}
+                    {msg.contact_info && (
+                      <p className={`text-xs mt-1.5 ${isMine ? "text-gray-300" : "text-gray-500"}`}>
+                        联系方式：{msg.contact_info}
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
             );
