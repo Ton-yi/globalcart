@@ -14,11 +14,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 
 const SHIPPING_METHODS = [
   { value: "EMS", label: "日本邮政 EMS" },
-  { value: "SAL", label: "日本邮政 SAL（慢船）" },
-  { value: "surface", label: "日本邮政海运" },
-  { value: "DHL", label: "DHL" },
-  { value: "FedEx", label: "FedEx" },
-  { value: "other", label: "其他" },
+  { value: "surface", label: "日本邮政 海运" },
+  { value: "small_packet_air", label: "日本邮政 小型包装物空运" },
 ];
 
 export default function UserNotifyShipmentModal({ order, onClose, onSuccess }) {

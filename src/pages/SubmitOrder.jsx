@@ -114,7 +114,10 @@ export default function SubmitOrder() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
-    const orderNum = "TY" + Date.now().toString().slice(-8);
+    const now = new Date();
+    const yyyymmdd = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,"0")}${String(now.getDate()).padStart(2,"0")}`;
+    const rand = String(Math.floor(Math.random() * 9000) + 1000);
+    const orderNum = `TY${yyyymmdd}${rand}`;
     const selectedAddonNames = selectedAddons.map(id => addonOptions.find(a => a.id === id)?.name).filter(Boolean).join(", ");
     const urlsText = urlMode === "textarea"
       ? (productUrls[0] || "").split("\n").map(s => s.trim()).filter(Boolean).join("\n")
