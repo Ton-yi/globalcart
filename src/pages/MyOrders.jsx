@@ -101,6 +101,14 @@ function CellValue({ col, order }) {
       return <span className="text-xs text-gray-600 line-clamp-2 max-w-[200px]">{order.user_note || "-"}</span>;
     case "payment_due_date":
       return <span className="text-xs text-gray-700">{order.payment_due_date || "-"}</span>;
+    case "submit_date":
+      return <span className="text-xs text-gray-700">{order.created_date ? new Date(order.created_date).toLocaleDateString("zh-CN") : "-"}</span>;
+    case "purchased_date":
+      return <span className="text-xs text-gray-700">{order.purchased_date ? new Date(order.purchased_date).toLocaleDateString("zh-CN") : "-"}</span>;
+    case "in_warehouse_date":
+      return <span className="text-xs text-gray-700">{order.in_warehouse_date ? new Date(order.in_warehouse_date).toLocaleDateString("zh-CN") : "-"}</span>;
+    case "shipped_date":
+      return <span className="text-xs text-gray-700">{order.shipped_date ? new Date(order.shipped_date).toLocaleDateString("zh-CN") : "-"}</span>;
     default:
       return "-";
   }
