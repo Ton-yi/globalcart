@@ -210,7 +210,13 @@ export default function MyOrders() {
       {selectedOrder && (
         <OrderDetailDrawer
           order={selectedOrder}
+          currentUser={user}
           onClose={() => setSelectedOrder(null)}
+          onAction={(action) => {
+            if (action === "notify_ship" || action === "pay_shipping" || action === "delivered" || action === "message_sent") {
+              fetchOrders(user);
+            }
+          }}
           onUpdated={() => {
             setSelectedOrder(null);
             fetchOrders(user);
