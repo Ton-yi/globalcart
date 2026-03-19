@@ -152,6 +152,7 @@ export default function AdminOrderEditModal({ order, onClose, onSaved }) {
     setSaving(true);
     const updates = {
       order_status: "in_warehouse",
+      in_warehouse_date: new Date().toISOString().split("T")[0],
       admin_note: form.admin_note,
     };
     if (arrivalPhoto) updates.arrival_photo_url = arrivalPhoto;
