@@ -224,12 +224,23 @@ export default function MyOrders() {
           currentUser={user}
           onClose={() => setSelectedOrder(null)}
           onAction={(action) => {
-            if (action === "notify_ship" || action === "pay_shipping" || action === "delivered" || action === "message_sent") {
-              fetchOrders(user);
-            }
+            fetchOrders(user);
+            if (action === "delivered") setSelectedOrder(null);
           }}
           onUpdated={() => {
             setSelectedOrder(null);
+            fetchOrders(user);
+          }}
+        />
+      )}
+
+      {paymentOrder && (
+        <PaymentModal
+          order={paymentOrder}
+          mode="prepay"
+          onClose={() => setPaymentOrder(null)}
+          onSuccess={() => {
+            setPaymentOrder(null);
             fetchOrders(user);
           }}
         />
