@@ -135,6 +135,20 @@ function CellValue({ col, order, onQuickOrdered, userAvatars }) {
       return <span className="text-xs text-gray-600 line-clamp-2 max-w-[200px]">{order.user_note || "-"}</span>;
     case "payment_due_date":
       return <span className="text-xs text-gray-700">{order.payment_due_date || "-"}</span>;
+    case "reply_status": {
+      const replyLabels = { no_reply: "无留言", awaiting_admin_reply: "待客服回复", awaiting_user_reply: "待用户回复" };
+      const replyColors = { no_reply: "bg-gray-100 text-gray-400", awaiting_admin_reply: "bg-orange-100 text-orange-700", awaiting_user_reply: "bg-blue-100 text-blue-700" };
+      const rs = order.reply_status || "no_reply";
+      return <Badge className={`text-xs ${replyColors[rs]}`}>{replyLabels[rs]}</Badge>;
+    }
+    case "created_date":
+      return <span className="text-xs text-gray-700">{order.created_date ? new Date(order.created_date).toLocaleDateString("zh-CN") : "-"}</span>;
+    case "purchased_date":
+      return <span className="text-xs text-gray-700">{order.purchased_date || "-"}</span>;
+    case "in_warehouse_date":
+      return <span className="text-xs text-gray-700">{order.in_warehouse_date || "-"}</span>;
+    case "shipped_date":
+      return <span className="text-xs text-gray-700">{order.shipped_date || "-"}</span>;
     default:
       return "-";
   }
