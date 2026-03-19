@@ -125,6 +125,8 @@ export default function MyOrders() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [paymentOrder, setPaymentOrder] = useState(null);
   const [shipmentOrder, setShipmentOrder] = useState(null);
+  const [shipmentOrders, setShipmentOrders] = useState(null); // multi-order bulk
+  const [selectedIds, setSelectedIds] = useState([]);
   const [columns, setColumns] = useState(loadColumns);
   const [sortKey, setSortKey] = useState(null);
   const [sortDir, setSortDir] = useState("asc");
