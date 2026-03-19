@@ -116,8 +116,14 @@ export default function SubmitOrder() {
     setSubmitting(true);
     const now = new Date();
     const yyyymmdd = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,"0")}${String(now.getDate()).padStart(2,"0")}`;
-    const rand = String(Math.floor(Math.random() * 9000) + 1000);
-    const orderNum = `TY${yyyymmdd}${rand}`;
+    // Count today's orders to generate sequential number
+    const todayOrders = await base44.entities.Order.filter({ submit_date_prefix: yyyymmdd }).catch(() => []);
+    // fallback: list all and filter by order_number prefix
+    const allOrders = await base44.entities.Order.list("-created_date", 200);
+    const prefix = `TY${yyyymmdd}`;
+    const todayCount = allOrders.filter(o => (o.order_number || "").startsWith(prefix)).length;
+    const seq = String(todayCount + 1).padStart(4, "0");
+    const orderNum = `${prefix}${seq}`;
     const selectedAddonNames = selectedAddons.map(id => addonOptions.find(a => a.id === id)?.name).filter(Boolean).join(", ");
     const urlsText = urlMode === "textarea"
       ? (productUrls[0] || "").split("\n").map(s => s.trim()).filter(Boolean).join("\n")
