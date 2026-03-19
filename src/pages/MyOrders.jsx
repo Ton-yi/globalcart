@@ -211,11 +211,20 @@ export default function MyOrders() {
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200">
               {visibleCols.map(col => (
-                <th key={col.key} className="px-3 py-2 text-left text-xs font-medium text-gray-500 whitespace-nowrap">
-                  {col.label}
+                <th key={col.key}
+                  className={`px-3 py-2 text-left text-xs font-medium text-gray-500 whitespace-nowrap ${col.sortable ? "cursor-pointer select-none hover:text-gray-800" : ""}`}
+                  onClick={() => col.sortable && handleSort(col.key)}>
+                  <div className="flex items-center gap-1">
+                    {col.label}
+                    {col.sortable && (
+                      sortKey === col.key
+                        ? (sortDir === "asc" ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)
+                        : <ChevronsUpDown className="w-3 h-3 opacity-30" />
+                    )}
+                  </div>
                 </th>
               ))}
-              <th className="px-3 py-2"></th>
+              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">操作</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -237,11 +246,23 @@ export default function MyOrders() {
                     <CellValue col={col} order={order} />
                   </td>
                 ))}
-                <td className="px-3 py-3" onClick={e => e.stopPropagation()}>
+                <td className="px-3 py-3 whitespace-nowrap" onClick={e => e.stopPropagation()}>
                   {order.order_status === "payment_pending" && (
-                    <Button size="sm" className="h-7 text-xs bg-red-600 hover:bg-red-700 whitespace-nowrap"
+                    <Button size="sm" className="h-7 text-xs bg-red-600 hover:bg-red-700"
                       onClick={() => setPaymentOrder(order)}>
-                      <CreditCard className="w-3 h-3 mr-1" />去付款
+                      <CreditCard className="w-3 h-3 mr-1" />付款
+                    </Button>
+                  )}
+                  {order.order_status === "in_warehouse" && (
+                    <Button size="sm" className="h-7 text-xs bg-teal-600 hover:bg-teal-700"
+                      onClick={() => setShipmentOrder(order)}>
+                      <Truck className="w-3 h-3 mr-1" />通知发货
+                    </Button>
+                  )}
+                  {order.order_status === "shipped" && (
+                    <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700"
+                      onClick={() => handleConfirmDelivered(order)}>
+                      <CheckCircle className="w-3 h-3 mr-1" />收货
                     </Button>
                   )}
                 </td>
