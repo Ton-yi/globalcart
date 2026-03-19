@@ -34,6 +34,11 @@ export default function OrderMessageThread({ order, currentUser, isAdmin, onMess
   const [imageUrl, setImageUrl] = useState("");
   const [uploading, setUploading] = useState(false);
   const [sending, setSending] = useState(false);
+  const bottomRef = useRef(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [localMessages]);
 
   const handleUpload = async (e) => {
     const file = e.target.files[0];
