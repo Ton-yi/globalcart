@@ -19,6 +19,7 @@ export default function OrderDetailDrawer({ order, currentUser, onClose, onActio
   const [confirmingDelivered, setConfirmingDelivered] = useState(false);
   const [contactInfo, setContactInfo] = useState("");
   const [showPayment, setShowPayment] = useState(false);
+  const [showShipment, setShowShipment] = useState(false);
 
   useEffect(() => {
     // Load user's saved contact info from preferences
