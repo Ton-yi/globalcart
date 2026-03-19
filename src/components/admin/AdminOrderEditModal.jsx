@@ -183,6 +183,7 @@ export default function AdminOrderEditModal({ order, onClose, onSaved }) {
     setSaving(true);
     await base44.entities.Order.update(order.id, {
       order_status: "shipped",
+      shipped_date: new Date().toISOString().split("T")[0],
       tracking_number: trackingNumber,
       admin_note: form.admin_note,
     });
