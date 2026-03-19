@@ -151,6 +151,8 @@ export default function AdminOrders() {
   const [bulkUpdating, setBulkUpdating] = useState(false);
   const [columns, setColumns] = useState(loadColumns);
   const [userAvatars, setUserAvatars] = useState({});
+  const [sortKey, setSortKey] = useState(null);
+  const [sortDir, setSortDir] = useState("asc");
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
