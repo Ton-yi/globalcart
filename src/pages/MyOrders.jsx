@@ -223,11 +223,32 @@ export default function MyOrders() {
         </Select>
       </div>
 
+      {/* Bulk action bar */}
+      {selectedInWarehouse.length > 0 && (
+        <div className="flex items-center gap-3 bg-teal-50 border border-teal-200 rounded-xl px-4 py-2.5">
+          <span className="text-sm text-teal-700 font-medium">已选 {selectedInWarehouse.length} 件已入库包裹</span>
+          <Button size="sm" className="h-7 text-xs bg-teal-600 hover:bg-teal-700 ml-auto"
+            onClick={() => setShipmentOrders(selectedInWarehouse)}>
+            <Truck className="w-3 h-3 mr-1" />批量通知发货
+          </Button>
+          <Button size="sm" variant="ghost" className="h-7 text-xs"
+            onClick={() => setSelectedIds([])}>取消</Button>
+        </div>
+      )}
+
       {/* Orders table */}
       <div className="border border-gray-200 rounded-xl overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200">
+              <th className="w-8 px-3 py-2">
+                {inWarehouseOrders.length > 0 && (
+                  <Checkbox
+                    checked={inWarehouseOrders.every(o => selectedIds.includes(o.id))}
+                    onCheckedChange={toggleAllInWarehouse}
+                  />
+                )}
+              </th>
               {visibleCols.map(col => (
                 <th key={col.key}
                   className={`px-3 py-2 text-left text-xs font-medium text-gray-500 whitespace-nowrap ${col.sortable ? "cursor-pointer select-none hover:text-gray-800" : ""}`}
@@ -247,10 +268,10 @@ export default function MyOrders() {
           </thead>
           <tbody className="divide-y divide-gray-100">
             {loading ? (
-              <tr><td colSpan={visibleCols.length + 1} className="text-center py-12 text-gray-400 text-sm">加载中...</td></tr>
+              <tr><td colSpan={visibleCols.length + 2} className="text-center py-12 text-gray-400 text-sm">加载中...</td></tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={visibleCols.length + 1} className="py-16">
+                <td colSpan={visibleCols.length + 2} className="py-16">
                   <div className="flex flex-col items-center text-gray-400">
                     <Package className="w-10 h-10 mb-3 opacity-30" />
                     <p className="text-sm">暂无订单</p>
@@ -258,7 +279,16 @@ export default function MyOrders() {
                 </td>
               </tr>
             ) : filtered.map(order => (
-              <tr key={order.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => setSelectedOrder(order)}>
+              <tr key={order.id} className={`hover:bg-gray-50 cursor-pointer ${selectedIds.includes(order.id) ? "bg-teal-50/50" : ""}`}
+                onClick={() => setSelectedOrder(order)}>
+                <td className="px-3 py-3" onClick={e => e.stopPropagation()}>
+                  {order.order_status === "in_warehouse" && (
+                    <Checkbox
+                      checked={selectedIds.includes(order.id)}
+                      onCheckedChange={() => toggleSelect(order.id)}
+                    />
+                  )}
+                </td>
                 {visibleCols.map(col => (
                   <td key={col.key} className="px-3 py-3 max-w-[220px]">
                     <CellValue col={col} order={order} />
