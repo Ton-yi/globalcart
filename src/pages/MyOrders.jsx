@@ -7,6 +7,43 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getStatusLabel, getStatusColor } from "@/lib/orderStatus";
 import OrderDetailDrawer from "@/components/orders/OrderDetailDrawer";
+import ColumnCustomizer from "@/components/orders/ColumnCustomizer";
+
+const STORAGE_KEY = "my_orders_columns";
+
+const ALL_COLUMNS = [
+  { key: "product_image_url", label: "商品图片", defaultVisible: true },
+  { key: "order_number", label: "订单号", defaultVisible: true },
+  { key: "product_name", label: "商品名", defaultVisible: true },
+  { key: "prepayment_amount", label: "付款金额", defaultVisible: true },
+  { key: "weight_g", label: "订单重量", defaultVisible: true },
+  { key: "order_status", label: "订单状态", defaultVisible: true },
+  { key: "product_description", label: "商品描述", defaultVisible: false },
+  { key: "arrival_photo_url", label: "入库图片", defaultVisible: false },
+  { key: "admin_note", label: "管理员备注", defaultVisible: false },
+  { key: "user_note", label: "用户备注", defaultVisible: false },
+  { key: "payment_due_date", label: "付款截止日期", defaultVisible: false },
+];
+
+const DEFAULT_COLUMNS = ALL_COLUMNS.map(c => ({ ...c, visible: c.defaultVisible }));
+
+function loadColumns() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (!saved) return DEFAULT_COLUMNS;
+    const parsed = JSON.parse(saved);
+    const keyOrder = parsed.map(c => c.key);
+    return [
+      ...parsed.map(p => {
+        const def = ALL_COLUMNS.find(c => c.key === p.key);
+        return def ? { ...def, visible: p.visible } : null;
+      }).filter(Boolean),
+      ...ALL_COLUMNS.filter(c => !keyOrder.includes(c.key)).map(c => ({ ...c, visible: c.defaultVisible })),
+    ];
+  } catch {
+    return DEFAULT_COLUMNS;
+  }
+}
 
 const STATUS_FILTERS = [
   { v: "all", l: "全部" },
@@ -21,6 +58,45 @@ const STATUS_FILTERS = [
   { v: "cancelled", l: "已取消" },
 ];
 
+function CellValue({ col, order }) {
+  switch (col.key) {
+    case "product_image_url":
+      return order.product_image_url
+        ? <img src={order.product_image_url} alt="" className="w-10 h-10 rounded-lg object-cover border border-gray-100" />
+        : <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
+            <Package className="w-5 h-5 text-gray-300" />
+          </div>;
+    case "order_number":
+      return <span className="font-mono text-xs text-gray-500">{order.order_number || "-"}</span>;
+    case "product_name":
+      return <span className="text-sm font-medium text-gray-900 truncate">{order.product_name}</span>;
+    case "prepayment_amount":
+      return <span className="text-sm text-gray-700">{order.prepayment_amount > 0 ? `${order.prepayment_currency} ${order.prepayment_amount.toFixed(2)}` : "-"}</span>;
+    case "weight_g":
+      return <span className="text-sm text-gray-700">{order.weight_g ? `${order.weight_g}g` : "-"}</span>;
+    case "order_status":
+      return (
+        <Badge className={`text-xs ${getStatusColor(order.order_status, "user")}`}>
+          {getStatusLabel(order.order_status, "user")}
+        </Badge>
+      );
+    case "product_description":
+      return <span className="text-xs text-gray-600 line-clamp-2 max-w-[200px]">{order.product_description || "-"}</span>;
+    case "arrival_photo_url":
+      return order.arrival_photo_url
+        ? <img src={order.arrival_photo_url} alt="" className="w-10 h-10 rounded object-cover border border-gray-100" />
+        : <span className="text-xs text-gray-300">-</span>;
+    case "admin_note":
+      return <span className="text-xs text-gray-600 line-clamp-2 max-w-[200px]">{order.admin_note || "-"}</span>;
+    case "user_note":
+      return <span className="text-xs text-gray-600 line-clamp-2 max-w-[200px]">{order.user_note || "-"}</span>;
+    case "payment_due_date":
+      return <span className="text-xs text-gray-700">{order.payment_due_date || "-"}</span>;
+    default:
+      return "-";
+  }
+}
+
 export default function MyOrders() {
   const [user, setUser] = useState(null);
   const [orders, setOrders] = useState([]);
@@ -28,6 +104,7 @@ export default function MyOrders() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [columns, setColumns] = useState(loadColumns);
 
   const fetchOrders = async (u) => {
     if (!u) return;
@@ -44,6 +121,11 @@ export default function MyOrders() {
     }).catch(() => base44.auth.redirectToLogin());
   }, []);
 
+  const handleColumnsChange = (newCols) => {
+    setColumns(newCols);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(newCols.map(c => ({ key: c.key, visible: c.visible }))));
+  };
+
   const filtered = orders.filter(o => {
     const matchStatus = statusFilter === "all" || o.order_status === statusFilter;
     const q = search.toLowerCase();
@@ -53,13 +135,18 @@ export default function MyOrders() {
     return matchStatus && matchSearch;
   });
 
+  const visibleCols = columns.filter(c => c.visible);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h1 className="text-xl font-bold text-gray-900">我的订单</h1>
-        <Button variant="outline" size="sm" onClick={() => fetchOrders(user)}>
-          <RefreshCw className="w-3.5 h-3.5 mr-1.5" />刷新
-        </Button>
+        <div className="flex items-center gap-2">
+          <ColumnCustomizer columns={columns} onChange={handleColumnsChange} />
+          <Button variant="outline" size="sm" onClick={() => fetchOrders(user)}>
+            <RefreshCw className="w-3.5 h-3.5 mr-1.5" />刷新
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -77,44 +164,41 @@ export default function MyOrders() {
         </Select>
       </div>
 
-      {/* Orders list */}
-      <div className="border border-gray-200 rounded-xl overflow-hidden">
-        {loading ? (
-          <div className="text-center py-12 text-gray-400 text-sm">加载中...</div>
-        ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center py-16 text-gray-400">
-            <Package className="w-10 h-10 mb-3 opacity-30" />
-            <p className="text-sm">暂无订单</p>
-          </div>
-        ) : (
-          <div className="divide-y divide-gray-100">
-            {filtered.map(order => (
-              <div key={order.id}
-                className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer"
-                onClick={() => setSelectedOrder(order)}>
-                {order.product_image_url ? (
-                  <img src={order.product_image_url} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0 border border-gray-100" />
-                ) : (
-                  <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
-                    <Package className="w-5 h-5 text-gray-300" />
+      {/* Orders table */}
+      <div className="border border-gray-200 rounded-xl overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-gray-50 border-b border-gray-200">
+              {visibleCols.map(col => (
+                <th key={col.key} className="px-3 py-2 text-left text-xs font-medium text-gray-500 whitespace-nowrap">
+                  {col.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {loading ? (
+              <tr><td colSpan={visibleCols.length} className="text-center py-12 text-gray-400 text-sm">加载中...</td></tr>
+            ) : filtered.length === 0 ? (
+              <tr>
+                <td colSpan={visibleCols.length} className="py-16">
+                  <div className="flex flex-col items-center text-gray-400">
+                    <Package className="w-10 h-10 mb-3 opacity-30" />
+                    <p className="text-sm">暂无订单</p>
                   </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-gray-900 truncate">{order.product_name}</div>
-                  <div className="text-xs text-gray-400">{order.order_number}</div>
-                </div>
-                <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                  <Badge className={`text-xs ${getStatusColor(order.order_status, "user")}`}>
-                    {getStatusLabel(order.order_status, "user")}
-                  </Badge>
-                  {order.prepayment_amount > 0 && (
-                    <span className="text-xs text-gray-500">{order.prepayment_currency} {order.prepayment_amount?.toFixed(2)}</span>
-                  )}
-                </div>
-              </div>
+                </td>
+              </tr>
+            ) : filtered.map(order => (
+              <tr key={order.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => setSelectedOrder(order)}>
+                {visibleCols.map(col => (
+                  <td key={col.key} className="px-3 py-3 max-w-[220px]">
+                    <CellValue col={col} order={order} />
+                  </td>
+                ))}
+              </tr>
             ))}
-          </div>
-        )}
+          </tbody>
+        </table>
       </div>
 
       <div className="text-xs text-gray-400 text-right">共 {filtered.length} 条</div>

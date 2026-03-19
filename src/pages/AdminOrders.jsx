@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
-import { Search, RefreshCw, Filter, ChevronDown } from "lucide-react";
+import { Search, RefreshCw, Filter, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +8,47 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import AdminOrderEditModal from "@/components/admin/AdminOrderEditModal";
 import { getStatusLabel, getStatusColor } from "@/lib/orderStatus";
+import ColumnCustomizer from "@/components/orders/ColumnCustomizer";
+
+const STORAGE_KEY = "admin_orders_columns";
+
+const ALL_COLUMNS = [
+  { key: "order_number", label: "订单号", defaultVisible: true },
+  { key: "user_name", label: "用户名", defaultVisible: true },
+  { key: "product_name", label: "商品名", defaultVisible: true },
+  { key: "estimated_jpy", label: "日元报价", defaultVisible: true },
+  { key: "prepayment_amount", label: "付款金额", defaultVisible: true },
+  { key: "weight_g", label: "订单重量", defaultVisible: true },
+  { key: "order_status", label: "订单状态", defaultVisible: true },
+  { key: "product_image_url", label: "商品图片", defaultVisible: false },
+  { key: "arrival_photo_url", label: "入库图片", defaultVisible: false },
+  { key: "product_description", label: "商品描述", defaultVisible: false },
+  { key: "admin_note", label: "管理员备注", defaultVisible: false },
+  { key: "user_note", label: "用户备注", defaultVisible: false },
+  { key: "payment_due_date", label: "付款截止日期", defaultVisible: false },
+];
+
+const DEFAULT_COLUMNS = ALL_COLUMNS.map(c => ({ ...c, visible: c.defaultVisible }));
+
+function loadColumns() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (!saved) return DEFAULT_COLUMNS;
+    const parsed = JSON.parse(saved);
+    // Merge with ALL_COLUMNS to pick up any new columns added
+    const keyOrder = parsed.map(c => c.key);
+    const merged = [
+      ...parsed.map(p => {
+        const def = ALL_COLUMNS.find(c => c.key === p.key);
+        return def ? { ...def, visible: p.visible } : null;
+      }).filter(Boolean),
+      ...ALL_COLUMNS.filter(c => !keyOrder.includes(c.key)).map(c => ({ ...c, visible: c.defaultVisible })),
+    ];
+    return merged;
+  } catch {
+    return DEFAULT_COLUMNS;
+  }
+}
 
 const ALL_STATUSES = [
   { v: "pending_confirmation", l: "后付款待确认" },
@@ -26,6 +67,60 @@ const ALL_STATUSES = [
   { v: "cancelled", l: "已取消" },
 ];
 
+function CellValue({ col, order, onQuickOrdered }) {
+  switch (col.key) {
+    case "order_number":
+      return <span className="font-mono text-xs text-gray-500">{order.order_number || "-"}</span>;
+    case "user_name":
+      return (
+        <div className="min-w-0">
+          <div className="text-sm text-gray-800 truncate">{order.user_name || "-"}</div>
+          <div className="text-xs text-gray-400 truncate">{order.user_email}</div>
+        </div>
+      );
+    case "product_name":
+      return <span className="text-sm font-medium text-gray-900 truncate">{order.product_name}</span>;
+    case "estimated_jpy":
+      return <span className="text-sm text-gray-700">{order.estimated_jpy ? `¥${order.estimated_jpy.toLocaleString()}` : "-"}</span>;
+    case "prepayment_amount":
+      return <span className="text-sm text-gray-700">{order.prepayment_amount > 0 ? `${order.prepayment_currency} ${order.prepayment_amount.toFixed(2)}` : "-"}</span>;
+    case "weight_g":
+      return <span className="text-sm text-gray-700">{order.weight_g ? `${order.weight_g}g` : "-"}</span>;
+    case "order_status":
+      return (
+        <div className="flex flex-col gap-1 items-start">
+          <Badge className={`text-xs ${getStatusColor(order.order_status, "admin")}`}>
+            {getStatusLabel(order.order_status, "admin")}
+          </Badge>
+          {(order.order_status === "paid" || order.order_status === "pending_purchase") && (
+            <Button size="sm" variant="outline" className="h-5 text-xs px-1.5 text-indigo-600 border-indigo-200"
+              onClick={e => { e.stopPropagation(); onQuickOrdered(order); }}>
+              快速→已下单
+            </Button>
+          )}
+        </div>
+      );
+    case "product_image_url":
+      return order.product_image_url
+        ? <img src={order.product_image_url} alt="" className="w-10 h-10 rounded object-cover border border-gray-100" />
+        : <span className="text-xs text-gray-300">-</span>;
+    case "arrival_photo_url":
+      return order.arrival_photo_url
+        ? <img src={order.arrival_photo_url} alt="" className="w-10 h-10 rounded object-cover border border-gray-100" />
+        : <span className="text-xs text-gray-300">-</span>;
+    case "product_description":
+      return <span className="text-xs text-gray-600 line-clamp-2 max-w-[200px]">{order.product_description || "-"}</span>;
+    case "admin_note":
+      return <span className="text-xs text-gray-600 line-clamp-2 max-w-[200px]">{order.admin_note || "-"}</span>;
+    case "user_note":
+      return <span className="text-xs text-gray-600 line-clamp-2 max-w-[200px]">{order.user_note || "-"}</span>;
+    case "payment_due_date":
+      return <span className="text-xs text-gray-700">{order.payment_due_date || "-"}</span>;
+    default:
+      return "-";
+  }
+}
+
 export default function AdminOrders() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -35,6 +130,7 @@ export default function AdminOrders() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [bulkStatus, setBulkStatus] = useState("");
   const [bulkUpdating, setBulkUpdating] = useState(false);
+  const [columns, setColumns] = useState(loadColumns);
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
@@ -44,6 +140,11 @@ export default function AdminOrders() {
   }, []);
 
   useEffect(() => { fetchOrders(); }, [fetchOrders]);
+
+  const handleColumnsChange = (newCols) => {
+    setColumns(newCols);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(newCols.map(c => ({ key: c.key, visible: c.visible }))));
+  };
 
   const filtered = orders.filter(o => {
     const matchStatus = statusFilter === "all" || o.order_status === statusFilter;
@@ -55,6 +156,8 @@ export default function AdminOrders() {
       (o.user_name || "").toLowerCase().includes(q);
     return matchStatus && matchSearch;
   });
+
+  const visibleCols = columns.filter(c => c.visible);
 
   const toggleSelect = (id) => {
     setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
@@ -75,8 +178,7 @@ export default function AdminOrders() {
     fetchOrders();
   };
 
-  const handleQuickOrdered = async (order, e) => {
-    e.stopPropagation();
+  const handleQuickOrdered = async (order) => {
     await base44.entities.Order.update(order.id, { order_status: "purchased" });
     fetchOrders();
   };
@@ -85,9 +187,12 @@ export default function AdminOrders() {
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h1 className="text-xl font-bold text-gray-900">订单管理</h1>
-        <Button variant="outline" size="sm" onClick={fetchOrders}>
-          <RefreshCw className="w-3.5 h-3.5 mr-1.5" />刷新
-        </Button>
+        <div className="flex items-center gap-2">
+          <ColumnCustomizer columns={columns} onChange={handleColumnsChange} />
+          <Button variant="outline" size="sm" onClick={fetchOrders}>
+            <RefreshCw className="w-3.5 h-3.5 mr-1.5" />刷新
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -129,55 +234,50 @@ export default function AdminOrders() {
         </div>
       )}
 
-      {/* Orders list */}
-      <div className="border border-gray-200 rounded-xl overflow-hidden">
-        {/* Header */}
-        <div className="grid grid-cols-[32px_1fr_140px_100px_80px] gap-2 px-3 py-2 bg-gray-50 border-b border-gray-200 text-xs font-medium text-gray-500">
-          <Checkbox checked={selectedIds.length === filtered.length && filtered.length > 0}
-            onCheckedChange={toggleAll} />
-          <div>商品 / 用户</div>
-          <div>状态</div>
-          <div>金额</div>
-          <div>操作</div>
-        </div>
-
-        {loading ? (
-          <div className="text-center py-12 text-gray-400 text-sm">加载中...</div>
-        ) : filtered.length === 0 ? (
-          <div className="text-center py-12 text-gray-400 text-sm">暂无订单</div>
-        ) : (
-          <div className="divide-y divide-gray-100">
-            {filtered.map(order => (
-              <div key={order.id}
-                className="grid grid-cols-[32px_1fr_140px_100px_80px] gap-2 px-3 py-3 hover:bg-gray-50 cursor-pointer items-center"
-                onClick={() => setSelectedOrder(order)}>
-                <Checkbox checked={selectedIds.includes(order.id)}
-                  onCheckedChange={() => toggleSelect(order.id)}
-                  onClick={e => e.stopPropagation()} />
-                <div className="min-w-0">
-                  <div className="text-sm font-medium text-gray-900 truncate">{order.product_name}</div>
-                  <div className="text-xs text-gray-400 truncate">{order.order_number} · {order.user_name || order.user_email}</div>
-                </div>
-                <div>
-                  <Badge className={`text-xs ${getStatusColor(order.order_status, "admin")}`}>
-                    {getStatusLabel(order.order_status, "admin")}
-                  </Badge>
-                </div>
-                <div className="text-sm text-gray-700">
-                  {order.prepayment_amount > 0 ? `${order.prepayment_currency} ${order.prepayment_amount?.toFixed(2)}` : "-"}
-                </div>
-                <div onClick={e => e.stopPropagation()}>
+      {/* Orders table */}
+      <div className="border border-gray-200 rounded-xl overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-gray-50 border-b border-gray-200">
+              <th className="w-8 px-3 py-2 text-left">
+                <Checkbox checked={selectedIds.length === filtered.length && filtered.length > 0}
+                  onCheckedChange={toggleAll} />
+              </th>
+              {visibleCols.map(col => (
+                <th key={col.key} className="px-3 py-2 text-left text-xs font-medium text-gray-500 whitespace-nowrap">
+                  {col.label}
+                </th>
+              ))}
+              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">操作</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {loading ? (
+              <tr><td colSpan={visibleCols.length + 2} className="text-center py-12 text-gray-400 text-sm">加载中...</td></tr>
+            ) : filtered.length === 0 ? (
+              <tr><td colSpan={visibleCols.length + 2} className="text-center py-12 text-gray-400 text-sm">暂无订单</td></tr>
+            ) : filtered.map(order => (
+              <tr key={order.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => setSelectedOrder(order)}>
+                <td className="px-3 py-3" onClick={e => e.stopPropagation()}>
+                  <Checkbox checked={selectedIds.includes(order.id)} onCheckedChange={() => toggleSelect(order.id)} />
+                </td>
+                {visibleCols.map(col => (
+                  <td key={col.key} className="px-3 py-3 max-w-[220px]">
+                    <CellValue col={col} order={order} onQuickOrdered={handleQuickOrdered} />
+                  </td>
+                ))}
+                <td className="px-3 py-3" onClick={e => e.stopPropagation()}>
                   {(order.order_status === "paid" || order.order_status === "pending_purchase") && (
                     <Button size="sm" variant="outline" className="h-6 text-xs px-2 text-indigo-600 border-indigo-200"
-                      onClick={e => handleQuickOrdered(order, e)}>
+                      onClick={() => handleQuickOrdered(order)}>
                       已下单
                     </Button>
                   )}
-                </div>
-              </div>
+                </td>
+              </tr>
             ))}
-          </div>
-        )}
+          </tbody>
+        </table>
       </div>
 
       <div className="text-xs text-gray-400 text-right">共 {filtered.length} 条</div>
