@@ -178,10 +178,18 @@ export default function OrderDetailDrawer({ order, currentUser, onClose, onActio
 
           {/* Action buttons */}
           <div className="space-y-2 pt-1">
-            {status === "payment_pending" && order.payment_due_date && (
-              <div className="text-xs text-orange-600 text-center">
-                付款截止日期：{order.payment_due_date}
-              </div>
+            {status === "payment_pending" && (
+              <>
+                {order.payment_due_date && (
+                  <div className="text-xs text-orange-600 text-center">
+                    付款截止日期：{order.payment_due_date}
+                  </div>
+                )}
+                <Button className="w-full bg-red-600 hover:bg-red-700 text-sm"
+                  onClick={() => setShowPayment(true)}>
+                  <CreditCard className="w-4 h-4 mr-2" />立即付款
+                </Button>
+              </>
             )}
             {status === "in_warehouse" && (
               <Button className="w-full bg-teal-600 hover:bg-teal-700 text-sm"
@@ -191,7 +199,8 @@ export default function OrderDetailDrawer({ order, currentUser, onClose, onActio
             )}
             {status === "shipping_fee_pending" && order.shipping_fee_amount > 0 && (
               <Button className="w-full bg-red-600 hover:bg-red-700 text-sm"
-                onClick={() => onAction?.("pay_shipping")}>
+                onClick={() => setShowPayment("shipping")}>
+                <CreditCard className="w-4 h-4 mr-2" />
                 付运费 {order.shipping_fee_currency} {order.shipping_fee_amount?.toFixed(2)}
               </Button>
             )}
@@ -208,6 +217,19 @@ export default function OrderDetailDrawer({ order, currentUser, onClose, onActio
           </div>
         </div>
       </div>
+
+      {/* Payment Modal */}
+      {showPayment && (
+        <PaymentModal
+          order={order}
+          mode={showPayment === "shipping" ? "shipping" : "prepay"}
+          onClose={() => setShowPayment(false)}
+          onSuccess={() => {
+            setShowPayment(false);
+            onAction?.("payment_done");
+          }}
+        />
+      )}
     </div>
   );
 }
