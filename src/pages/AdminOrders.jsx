@@ -213,7 +213,8 @@ export default function AdminOrders() {
     return matchStatus && matchSearch;
   }).sort((a, b) => {
     if (!sortKey) return 0;
-    let va = a[sortKey], vb = b[sortKey];
+    const rk = sortKey === "submit_date" ? "created_date" : sortKey;
+    let va = a[rk], vb = b[rk];
     if (sortKey === "reply_status") {
       va = REPLY_STATUS_ORDER[va] ?? 0;
       vb = REPLY_STATUS_ORDER[vb] ?? 0;
