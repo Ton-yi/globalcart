@@ -139,6 +139,7 @@ export default function AdminOrderEditModal({ order, onClose, onSaved }) {
     setSaving(true);
     const updates = {
       order_status: "purchased",
+      purchased_date: new Date().toISOString().split("T")[0],
       admin_note: form.admin_note,
     };
     if (purchaseScreenshot) updates.purchase_screenshot_url = purchaseScreenshot;
