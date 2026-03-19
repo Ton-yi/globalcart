@@ -552,7 +552,7 @@ export default function AdminOrderEditModal({ order, onClose, onSaved }) {
               currentUser={{ email: "admin" }}
               isAdmin={true}
               contactInfo=""
-              onMessageSent={onSaved}
+              onMessageSent={() => {}}
             />
           )}
 

@@ -4,7 +4,7 @@
  * Fix: message list updates immediately after sending (local state append).
  * Feature: shows sender avatar, name, and timestamp.
  */
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Send, Upload, X, MessageCircle } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
