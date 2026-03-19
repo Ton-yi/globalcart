@@ -123,7 +123,10 @@ export default function MyOrders() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [paymentOrder, setPaymentOrder] = useState(null);
+  const [shipmentOrder, setShipmentOrder] = useState(null);
   const [columns, setColumns] = useState(loadColumns);
+  const [sortKey, setSortKey] = useState(null);
+  const [sortDir, setSortDir] = useState("asc");
 
   const fetchOrders = async (u) => {
     if (!u) return;
@@ -145,6 +148,16 @@ export default function MyOrders() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(newCols.map(c => ({ key: c.key, visible: c.visible }))));
   };
 
+  const handleSort = (key) => {
+    if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");
+    else { setSortKey(key); setSortDir("asc"); }
+  };
+
+  const handleConfirmDelivered = async (order) => {
+    await base44.entities.Order.update(order.id, { order_status: "delivered" });
+    fetchOrders(user);
+  };
+
   const filtered = orders.filter(o => {
     const matchStatus = statusFilter === "all" || o.order_status === statusFilter;
     const q = search.toLowerCase();
@@ -152,6 +165,15 @@ export default function MyOrders() {
       (o.product_name || "").toLowerCase().includes(q) ||
       (o.order_number || "").toLowerCase().includes(q);
     return matchStatus && matchSearch;
+  }).sort((a, b) => {
+    if (!sortKey) return 0;
+    const rk = sortKey === "submit_date" ? "created_date" : sortKey;
+    let va = a[rk], vb = b[rk];
+    if (typeof va === "string" && typeof vb === "string") { va = va.toLowerCase(); vb = vb.toLowerCase(); }
+    if (va == null) va = ""; if (vb == null) vb = "";
+    if (va < vb) return sortDir === "asc" ? -1 : 1;
+    if (va > vb) return sortDir === "asc" ? 1 : -1;
+    return 0;
   });
 
   const visibleCols = columns.filter(c => c.visible);
