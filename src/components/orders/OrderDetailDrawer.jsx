@@ -4,12 +4,13 @@
  * Shows status, messages, and action buttons based on current order state.
  */
 import { useState, useEffect } from "react";
-import { X, ExternalLink, MessageCircle, Truck, CheckCircle } from "lucide-react";
+import { X, ExternalLink, MessageCircle, Truck, CheckCircle, CreditCard } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { getStatusLabel, getStatusColor } from "@/lib/orderStatus";
 import OrderMessageThread from "./OrderMessageThread";
+import PaymentModal from "./PaymentModal";
 
 export default function OrderDetailDrawer({ order, currentUser, onClose, onAction }) {
   const [showMessages, setShowMessages] = useState(false);
