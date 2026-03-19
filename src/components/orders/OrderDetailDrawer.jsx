@@ -233,6 +233,17 @@ export default function OrderDetailDrawer({ order, currentUser, onClose, onActio
           }}
         />
       )}
+
+      {showShipment && (
+        <UserNotifyShipmentModal
+          order={order}
+          onClose={() => setShowShipment(false)}
+          onSuccess={() => {
+            setShowShipment(false);
+            onAction?.("notify_ship");
+          }}
+        />
+      )}
     </div>
   );
 }
