@@ -70,8 +70,12 @@ function CellValue({ col, order }) {
       return <span className="font-mono text-xs text-gray-500">{order.order_number || "-"}</span>;
     case "product_name":
       return <span className="text-sm font-medium text-gray-900 truncate">{order.product_name}</span>;
-    case "prepayment_amount":
-      return <span className="text-sm text-gray-700">{order.prepayment_amount > 0 ? `${order.prepayment_currency} ${order.prepayment_amount.toFixed(2)}` : "-"}</span>;
+    case "prepayment_amount": {
+      const val = order.prepayment_amount;
+      const cur = order.prepayment_currency;
+      const display = val > 0 ? (cur === "CNY" ? `${val.toFixed(2)} yuan` : `${cur} ${val.toFixed(2)}`) : "-";
+      return <span className="text-sm text-gray-700">{display}</span>;
+    }
     case "weight_g":
       return <span className="text-sm text-gray-700">{order.weight_g ? `${order.weight_g}g` : "-"}</span>;
     case "order_status":
