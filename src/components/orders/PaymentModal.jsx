@@ -134,7 +134,8 @@ export default function PaymentModal({ order, mode = "prepay", onClose, onSucces
           <div>
             <Label className="text-sm">实付金额 ({cur})</Label>
             <Input type="number" className="mt-1" value={paidAmount}
-              onChange={e => setPaidAmount(e.target.value)} step="0.01" />
+              onChange={e => setPaidAmount(cur === "CNY" ? String(Math.round(parseFloat(e.target.value) || 0)) : e.target.value)}
+              step={cur === "CNY" ? "1" : "0.01"} />
           </div>
 
           {/* Method selection */}
