@@ -116,10 +116,8 @@ export default function SubmitOrder() {
     setSubmitting(true);
     const now = new Date();
     const yyyymmdd = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,"0")}${String(now.getDate()).padStart(2,"0")}`;
-    // Count today's orders to generate sequential number
-    const todayOrders = await base44.entities.Order.filter({ submit_date_prefix: yyyymmdd }).catch(() => []);
-    // fallback: list all and filter by order_number prefix
-    const allOrders = await base44.entities.Order.list("-created_date", 200);
+    // Generate sequential order number: TY+YYYYMMDD+0001
+    const allOrders = await base44.entities.Order.list("-created_date", 500);
     const prefix = `TY${yyyymmdd}`;
     const todayCount = allOrders.filter(o => (o.order_number || "").startsWith(prefix)).length;
     const seq = String(todayCount + 1).padStart(4, "0");
