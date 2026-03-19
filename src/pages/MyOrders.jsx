@@ -360,6 +360,18 @@ export default function MyOrders() {
           }}
         />
       )}
+
+      {shipmentOrders && (
+        <UserNotifyShipmentModal
+          orders={shipmentOrders}
+          onClose={() => setShipmentOrders(null)}
+          onSuccess={() => {
+            setShipmentOrders(null);
+            setSelectedIds([]);
+            fetchOrders(user);
+          }}
+        />
+      )}
     </div>
   );
 }
