@@ -13,19 +13,24 @@ import ColumnCustomizer from "@/components/orders/ColumnCustomizer";
 const STORAGE_KEY = "admin_orders_columns";
 
 const ALL_COLUMNS = [
-  { key: "order_number", label: "订单号", defaultVisible: true },
-  { key: "user_name", label: "用户名", defaultVisible: true },
-  { key: "product_name", label: "商品名", defaultVisible: true },
-  { key: "estimated_jpy", label: "货款", defaultVisible: true },
-  { key: "prepayment_amount", label: "付款金额", defaultVisible: true },
-  { key: "weight_g", label: "订单重量", defaultVisible: true },
-  { key: "order_status", label: "订单状态", defaultVisible: true },
-  { key: "product_image_url", label: "商品图片", defaultVisible: false },
-  { key: "arrival_photo_url", label: "入库图片", defaultVisible: false },
-  { key: "product_description", label: "商品描述", defaultVisible: false },
-  { key: "admin_note", label: "管理员备注", defaultVisible: false },
-  { key: "user_note", label: "用户备注", defaultVisible: false },
-  { key: "payment_due_date", label: "付款截止日期", defaultVisible: false },
+  { key: "order_number", label: "订单号", defaultVisible: true, sortable: true },
+  { key: "user_name", label: "用户名", defaultVisible: true, sortable: true },
+  { key: "product_name", label: "商品名", defaultVisible: true, sortable: true },
+  { key: "estimated_jpy", label: "货款", defaultVisible: true, sortable: true },
+  { key: "prepayment_amount", label: "付款金额", defaultVisible: true, sortable: true },
+  { key: "weight_g", label: "订单重量", defaultVisible: true, sortable: true },
+  { key: "order_status", label: "订单状态", defaultVisible: true, sortable: true },
+  { key: "reply_status", label: "回复状态", defaultVisible: false, sortable: true },
+  { key: "created_date", label: "订单提交时间", defaultVisible: false, sortable: true },
+  { key: "purchased_date", label: "下单日", defaultVisible: false, sortable: true },
+  { key: "in_warehouse_date", label: "入库日", defaultVisible: false, sortable: true },
+  { key: "shipped_date", label: "发货日", defaultVisible: false, sortable: true },
+  { key: "product_image_url", label: "商品图片", defaultVisible: false, sortable: false },
+  { key: "arrival_photo_url", label: "入库图片", defaultVisible: false, sortable: false },
+  { key: "product_description", label: "商品描述", defaultVisible: false, sortable: true },
+  { key: "admin_note", label: "管理员备注", defaultVisible: false, sortable: true },
+  { key: "user_note", label: "用户备注", defaultVisible: false, sortable: true },
+  { key: "payment_due_date", label: "付款截止日期", defaultVisible: false, sortable: true },
 ];
 
 const DEFAULT_COLUMNS = ALL_COLUMNS.map(c => ({ ...c, visible: c.defaultVisible }));

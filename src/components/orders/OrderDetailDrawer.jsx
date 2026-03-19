@@ -13,7 +13,8 @@ import OrderMessageThread from "./OrderMessageThread";
 import PaymentModal from "./PaymentModal";
 
 export default function OrderDetailDrawer({ order, currentUser, onClose, onAction }) {
-  const [showMessages, setShowMessages] = useState(false);
+  const hasReplyStatus = order.reply_status && order.reply_status !== "no_reply";
+  const [showMessages, setShowMessages] = useState(hasReplyStatus);
   const [confirmingDelivered, setConfirmingDelivered] = useState(false);
   const [contactInfo, setContactInfo] = useState("");
   const [showPayment, setShowPayment] = useState(false);
