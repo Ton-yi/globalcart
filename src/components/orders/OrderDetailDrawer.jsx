@@ -196,7 +196,7 @@ export default function OrderDetailDrawer({ order, currentUser, onClose, onActio
             )}
             {status === "in_warehouse" && (
               <Button className="w-full bg-teal-600 hover:bg-teal-700 text-sm"
-                onClick={() => onAction?.("notify_ship")}>
+                onClick={() => setShowShipment(true)}>
                 <Truck className="w-4 h-4 mr-2" />通知发货
               </Button>
             )}
