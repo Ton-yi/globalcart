@@ -27,7 +27,7 @@ const ALL_COLUMNS = [
   { key: "admin_note", label: "管理员备注", defaultVisible: false, sortable: true },
   { key: "user_note", label: "用户备注", defaultVisible: false, sortable: true },
   { key: "payment_due_date", label: "付款截止日期", defaultVisible: false, sortable: true },
-  { key: "submit_date", label: "订单提交日", defaultVisible: false, sortable: true },
+  { key: "submit_date", label: "订单提交日期", defaultVisible: false, sortable: true },
   { key: "purchased_date", label: "下单日", defaultVisible: false, sortable: true },
   { key: "in_warehouse_date", label: "入库日", defaultVisible: false, sortable: true },
   { key: "shipped_date", label: "发货日", defaultVisible: false, sortable: true },
@@ -81,7 +81,12 @@ function CellValue({ col, order }) {
     case "prepayment_amount": {
       const val = order.prepayment_amount;
       const cur = order.prepayment_currency;
-      const display = val > 0 ? (cur === "CNY" ? `${val.toFixed(2)} yuan` : `${cur} ${val.toFixed(2)}`) : "-";
+      let display = "-";
+      if (val > 0) {
+        if (cur === "CNY") display = `¥${val.toFixed(2)}`;
+        else if (cur === "JPY") display = `¥${val.toFixed(0)}`;
+        else display = `${cur} ${val.toFixed(2)}`;
+      }
       return <span className="text-sm text-gray-700">{display}</span>;
     }
     case "weight_g":
@@ -106,6 +111,8 @@ function CellValue({ col, order }) {
       return <span className="text-xs text-gray-700">{order.payment_due_date || "-"}</span>;
     case "submit_date":
       return <span className="text-xs text-gray-700">{order.created_date ? new Date(order.created_date).toLocaleDateString("zh-CN") : "-"}</span>;
+    case "online_store_tag":
+      return <Badge className={`text-xs ${order.tag_color || "bg-gray-100 text-gray-700"}`}>{order.online_store_tag || "其它"}</Badge>;
     case "purchased_date":
       return <span className="text-xs text-gray-700">{order.purchased_date ? new Date(order.purchased_date).toLocaleDateString("zh-CN") : "-"}</span>;
     case "in_warehouse_date":
@@ -298,7 +305,7 @@ export default function MyOrders() {
                   </td>
                 ))}
                 <td className="px-3 py-3 whitespace-nowrap" onClick={e => e.stopPropagation()}>
-                  {order.order_status === "payment_pending" && (
+                  {order.order_status === "payment_pending" && order.payment_status !== "awaiting_confirmation" && (
                     <Button size="sm" className="h-7 text-xs bg-red-600 hover:bg-red-700"
                       onClick={() => setPaymentOrder(order)}>
                       <CreditCard className="w-3 h-3 mr-1" />付款
