@@ -132,6 +132,8 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
   const [selectedAddress, setSelectedAddress] = useState("");
   const [transitLocations, setTransitLocations] = useState([]);
   const [selectedTransitId, setSelectedTransitId] = useState("");
+  // Final delivery address (used when consType="transit" — after transit the parcel goes here)
+  const [finalAddressId, setFinalAddressId] = useState("");
 
   useEffect(() => {
     base44.auth.me().then(async u => {
