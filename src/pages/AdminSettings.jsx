@@ -154,140 +154,140 @@ export default function AdminSettings() {
       )}
 
       {activeTab === "general" && !loading && (
-        <>{Object.entries(grouped).map(([cat, items]) => {
-          const isPayment = cat === "payment";
-          const isUnlocked = !isPayment || showPayment;
-          return (
-            <Card key={cat} className={`border-gray-200 ${isPayment ? "border-green-200" : ""}`}>
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                    <Badge className={`text-xs ${CAT_COLORS[cat]}`}>{CAT_LABELS[cat] || cat}</Badge>
-                    {isPayment && <Lock className="w-3.5 h-3.5 text-green-600" />}
-                  </CardTitle>
-                  {isPayment && (
-                    <Button variant="ghost" size="sm" className="h-7 text-xs text-green-600" onClick={() => setShowPayment(p => !p)}>
-                      {showPayment ? <><EyeOff className="w-3.5 h-3.5 mr-1" />隐藏</> : <><Eye className="w-3.5 h-3.5 mr-1" />显示</>}
-                    </Button>
-                  )}
-                </div>
-                {isPayment && !showPayment && (
-                  <p className="text-xs text-green-600 mt-1">⚠ 支付网关配置仅限超级管理员操作，点击「显示」展开</p>
-                )}
-              </CardHeader>
-              {isUnlocked && (
-                <CardContent className="space-y-3">
-                  {items.map(s => (
-                    <div key={s.id} className="flex items-center gap-3">
-                      <div className="flex-1">
-                        <Label className="text-xs text-gray-500">{s.description || s.key}</Label>
-                        <Input className="mt-0.5 h-8 text-sm" value={s.value} onChange={e => updateSetting(s.id, "value", e.target.value)} />
-                      </div>
-                      <Button variant="ghost" size="sm" className="h-7 text-xs text-red-400 mt-4" onClick={() => handleDelete(s.id)}>
-                        <Trash2 className="w-3 h-3" />
+        <>
+          {Object.entries(grouped).map(([cat, items]) => {
+            const isPayment = cat === "payment";
+            const isUnlocked = !isPayment || showPayment;
+            return (
+              <Card key={cat} className={`border-gray-200 ${isPayment ? "border-green-200" : ""}`}>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                      <Badge className={`text-xs ${CAT_COLORS[cat]}`}>{CAT_LABELS[cat] || cat}</Badge>
+                      {isPayment && <Lock className="w-3.5 h-3.5 text-green-600" />}
+                    </CardTitle>
+                    {isPayment && (
+                      <Button variant="ghost" size="sm" className="h-7 text-xs text-green-600" onClick={() => setShowPayment(p => !p)}>
+                        {showPayment ? <><EyeOff className="w-3.5 h-3.5 mr-1" />隐藏</> : <><Eye className="w-3.5 h-3.5 mr-1" />显示</>}
                       </Button>
+                    )}
+                  </div>
+                  {isPayment && !showPayment && (
+                    <p className="text-xs text-green-600 mt-1">⚠ 支付网关配置仅限超级管理员操作，点击「显示」展开</p>
+                  )}
+                </CardHeader>
+                {isUnlocked && (
+                  <CardContent className="space-y-3">
+                    {items.map(s => (
+                      <div key={s.id} className="flex items-center gap-3">
+                        <div className="flex-1">
+                          <Label className="text-xs text-gray-500">{s.description || s.key}</Label>
+                          <Input className="mt-0.5 h-8 text-sm" value={s.value} onChange={e => updateSetting(s.id, "value", e.target.value)} />
+                        </div>
+                        <Button variant="ghost" size="sm" className="h-7 text-xs text-red-400 mt-4" onClick={() => handleDelete(s.id)}>
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </CardContent>
+                )}
+              </Card>
+            );
+          })}
+
+          {/* Addon Options */}
+          <Card className="border-gray-200">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                <Star className="w-4 h-4 text-yellow-500" />增值选项设置
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {addons.length === 0 && <p className="text-xs text-gray-400">暂无增值选项，在下方添加</p>}
+              {addons.map(a => (
+                <div key={a.id} className={`flex items-center gap-3 p-2 rounded-lg border ${a.is_active ? "border-gray-200" : "border-gray-100 opacity-50"}`}>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-800">{a.name}</span>
+                      <span className="text-sm text-red-600">+{a.fee_currency || "JPY"} {parseFloat(a.fee).toFixed(2)}</span>
+                      {!a.is_active && <Badge className="text-xs bg-gray-100 text-gray-400">已禁用</Badge>}
                     </div>
-                  ))}
-                </CardContent>
-              )}
-            </Card>
-          );
-        })}</>
-      )}
-
-      {activeTab === "general" && !loading && <>
-      {/* Addon Options */}
-      <Card className="border-gray-200">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-            <Star className="w-4 h-4 text-yellow-500" />增值选项设置
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {addons.length === 0 && <p className="text-xs text-gray-400">暂无增值选项，在下方添加</p>}
-          {addons.map(a => (
-            <div key={a.id} className={`flex items-center gap-3 p-2 rounded-lg border ${a.is_active ? "border-gray-200" : "border-gray-100 opacity-50"}`}>
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-gray-800">{a.name}</span>
-                  <span className="text-sm text-red-600">+{a.fee_currency || "JPY"} {parseFloat(a.fee).toFixed(2)}</span>
-                  {!a.is_active && <Badge className="text-xs bg-gray-100 text-gray-400">已禁用</Badge>}
+                    {a.description && <p className="text-xs text-gray-400">{a.description}</p>}
+                  </div>
+                  <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => toggleAddon(a)}>{a.is_active ? "禁用" : "启用"}</Button>
+                  <Button variant="ghost" size="sm" className="h-7 text-xs text-red-400" onClick={() => handleDeleteAddon(a.id)}><Trash2 className="w-3 h-3" /></Button>
                 </div>
-                {a.description && <p className="text-xs text-gray-400">{a.description}</p>}
+              ))}
+              <div className="pt-2 border-t border-dashed border-gray-200 space-y-2">
+                <p className="text-xs text-gray-500 font-medium">新增增值选项</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-xs text-gray-400">名称 *</Label>
+                    <Input className="mt-0.5 h-8 text-sm" placeholder="例：质检拍照" value={newAddon.name} onChange={e => setNewAddon(p => ({ ...p, name: e.target.value }))} />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-400">说明</Label>
+                    <Input className="mt-0.5 h-8 text-sm" placeholder="可选" value={newAddon.description} onChange={e => setNewAddon(p => ({ ...p, description: e.target.value }))} />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-400">费用 *</Label>
+                    <Input type="number" step="0.01" className="mt-0.5 h-8 text-sm" placeholder="500" value={newAddon.fee} onChange={e => setNewAddon(p => ({ ...p, fee: e.target.value }))} />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-400">费用货币</Label>
+                    <Select value={newAddon.fee_currency} onValueChange={v => setNewAddon(p => ({ ...p, fee_currency: v }))}>
+                      <SelectTrigger className="mt-0.5 h-8 text-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {["JPY","CNY","USD","TWD","HKD","EUR","SGD"].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <Button size="sm" variant="outline" onClick={handleAddAddon} disabled={!newAddon.name || newAddon.fee === ""}>
+                  <Plus className="w-3.5 h-3.5 mr-1" />添加
+                </Button>
               </div>
-              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => toggleAddon(a)}>{a.is_active ? "禁用" : "启用"}</Button>
-              <Button variant="ghost" size="sm" className="h-7 text-xs text-red-400" onClick={() => handleDeleteAddon(a.id)}><Trash2 className="w-3 h-3" /></Button>
-            </div>
-          ))}
-          <div className="pt-2 border-t border-dashed border-gray-200 space-y-2">
-          <p className="text-xs text-gray-500 font-medium">新增增值选项</p>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <Label className="text-xs text-gray-400">名称 *</Label>
-              <Input className="mt-0.5 h-8 text-sm" placeholder="例：质检拍照" value={newAddon.name} onChange={e => setNewAddon(p => ({ ...p, name: e.target.value }))} />
-            </div>
-            <div>
-              <Label className="text-xs text-gray-400">说明</Label>
-              <Input className="mt-0.5 h-8 text-sm" placeholder="可选" value={newAddon.description} onChange={e => setNewAddon(p => ({ ...p, description: e.target.value }))} />
-            </div>
-            <div>
-              <Label className="text-xs text-gray-400">费用 *</Label>
-              <Input type="number" step="0.01" className="mt-0.5 h-8 text-sm" placeholder="500" value={newAddon.fee} onChange={e => setNewAddon(p => ({ ...p, fee: e.target.value }))} />
-            </div>
-            <div>
-              <Label className="text-xs text-gray-400">费用货币</Label>
-              <Select value={newAddon.fee_currency} onValueChange={v => setNewAddon(p => ({ ...p, fee_currency: v }))}>
-                <SelectTrigger className="mt-0.5 h-8 text-sm"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {["JPY","CNY","USD","TWD","HKD","EUR","SGD"].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-            <Button size="sm" variant="outline" onClick={handleAddAddon} disabled={!newAddon.name || newAddon.fee === ""}>
-              <Plus className="w-3.5 h-3.5 mr-1" />添加
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
 
-      {/* Add new setting */}
-      <Card className="border-dashed border-gray-300">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-semibold text-gray-500 flex items-center gap-2">
-            <Plus className="w-4 h-4" />新增设置项
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-xs text-gray-500">键名 (key)</Label>
-              <Input className="mt-0.5 h-8 text-sm" value={newKey} onChange={e => setNewKey(e.target.value)} placeholder="my_setting_key" />
-            </div>
-            <div>
-              <Label className="text-xs text-gray-500">值 (value)</Label>
-              <Input className="mt-0.5 h-8 text-sm" value={newVal} onChange={e => setNewVal(e.target.value)} />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-xs text-gray-500">说明</Label>
-              <Input className="mt-0.5 h-8 text-sm" value={newDesc} onChange={e => setNewDesc(e.target.value)} />
-            </div>
-            <div>
-              <Label className="text-xs text-gray-500">分类</Label>
-              <Select value={newCat} onValueChange={setNewCat}>
-                <SelectTrigger className="mt-0.5 h-8 text-sm"><SelectValue /></SelectTrigger>
-                <SelectContent>{Object.entries(CAT_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-          </div>
-          <Button size="sm" variant="outline" onClick={handleAdd} disabled={!newKey || !newVal}>
-            <Plus className="w-3.5 h-3.5 mr-1" />新增
-          </Button>
-        </CardContent>
-      </Card>
-      </>}
+          {/* Add new setting */}
+          <Card className="border-dashed border-gray-300">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold text-gray-500 flex items-center gap-2">
+                <Plus className="w-4 h-4" />新增设置项
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs text-gray-500">键名 (key)</Label>
+                  <Input className="mt-0.5 h-8 text-sm" value={newKey} onChange={e => setNewKey(e.target.value)} placeholder="my_setting_key" />
+                </div>
+                <div>
+                  <Label className="text-xs text-gray-500">值 (value)</Label>
+                  <Input className="mt-0.5 h-8 text-sm" value={newVal} onChange={e => setNewVal(e.target.value)} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs text-gray-500">说明</Label>
+                  <Input className="mt-0.5 h-8 text-sm" value={newDesc} onChange={e => setNewDesc(e.target.value)} />
+                </div>
+                <div>
+                  <Label className="text-xs text-gray-500">分类</Label>
+                  <Select value={newCat} onValueChange={setNewCat}>
+                    <SelectTrigger className="mt-0.5 h-8 text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>{Object.entries(CAT_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <Button size="sm" variant="outline" onClick={handleAdd} disabled={!newKey || !newVal}>
+                <Plus className="w-3.5 h-3.5 mr-1" />新增
+              </Button>
+            </CardContent>
+          </Card>
+        </>
+      )}
     </div>
   );
 }
