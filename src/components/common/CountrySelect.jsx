@@ -146,8 +146,26 @@ export default function CountrySelect({
               ))
             )}
           </div>
-        </div>
-      )}
+        </div>,
+    document.body
+  );
+
+  return (
+    <div ref={ref} className={`relative ${className}`}>
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={handleOpen}
+        className={`flex w-full items-center justify-between whitespace-nowrap rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring ${compact ? "h-7 text-xs px-2" : "h-9"}`}
+      >
+        {displayLabel ? (
+          <span>{displayLabel}</span>
+        ) : (
+          <span className="text-muted-foreground text-xs">{placeholder}</span>
+        )}
+        <ChevronDown className="h-3.5 w-3.5 opacity-50 flex-shrink-0 ml-1" />
+      </button>
+      {dropdown}
     </div>
   );
 }
