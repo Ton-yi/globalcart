@@ -376,7 +376,12 @@ export default function ShippingPool() {
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <Label className="text-xs text-gray-500">目的国家 *</Label>
-                      <Input className="mt-1 h-8 text-sm" placeholder="如：中国、台湾" value={form.destination_country} onChange={e => f("destination_country", e.target.value)} />
+                      <CountrySelect
+                        value={form.destination_country}
+                        onChange={v => f("destination_country", v)}
+                        placeholder="选择国家"
+                        className="mt-1"
+                      />
                     </div>
                     <div>
                       <Label className="text-xs text-gray-500">运输方式</Label>
