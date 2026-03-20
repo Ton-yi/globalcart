@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { orderId, amount, currency, subject } = await req.json();
+    const { orderId, amount, subject } = await req.json();
 
     if (!orderId || !amount || !subject) {
       return Response.json({ error: 'Missing required parameters: orderId, amount, subject' }, { status: 400 });
@@ -64,9 +64,11 @@ Deno.serve(async (req) => {
     const shortId = orderId.replace(/-/g, '').slice(0, 8).toUpperCase();
     const out_trade_no = `TY${shortId}${Date.now()}`;
 
-    // Determine total_amount in CNY (Alipay requires CNY)
-    // If currency is already CNY use as-is, otherwise pass through (caller should convert)
-    const total_amount = Number(amount).toFixed(2);
+    // Convert JPY to CNY for Alipay payment
+    // Use standard exchange rate: 1 JPY ≈ 0.048 CNY
+    const JPY_TO_CNY_RATE = 0.048;
+    const amount_jpy = Number(amount);
+    const total_amount = (amount_jpy * JPY_TO_CNY_RATE).toFixed(2);
 
     // notify_url points to our callback function
     // Base44 function URLs follow: https://api.base44.com/api/apps/{APP_ID}/functions/{functionName}
