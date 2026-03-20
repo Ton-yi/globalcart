@@ -31,6 +31,7 @@ export default function CountrySelect({
   const [dropdownStyle, setDropdownStyle] = useState({});
   const ref = useRef(null);
   const btnRef = useRef(null);
+  const dropdownRef = useRef(null);
 
   const isZone = value && value.startsWith("zone");
   const selectedCountry = !isZone && value ? ALL_COUNTRIES.find(c => c.code === value) : null;
