@@ -20,6 +20,7 @@ const ALL_COLUMNS = [
   { key: "prepayment_amount", label: "付款金额", defaultVisible: true, sortable: true },
   { key: "weight_g", label: "订单重量", defaultVisible: true, sortable: true },
   { key: "order_status", label: "订单状态", defaultVisible: true, sortable: true },
+  { key: "online_store_tag", label: "商城标签", defaultVisible: false, sortable: true },
   { key: "reply_status", label: "回复状态", defaultVisible: false, sortable: true },
   { key: "created_date", label: "订单提交时间", defaultVisible: false, sortable: true },
   { key: "purchased_date", label: "下单日", defaultVisible: false, sortable: true },
@@ -144,6 +145,8 @@ function CellValue({ col, order, onQuickOrdered, userAvatars }) {
       return <span className="text-xs text-gray-700">{order.in_warehouse_date ? new Date(order.in_warehouse_date).toLocaleDateString("zh-CN") : "-"}</span>;
     case "shipped_date":
       return <span className="text-xs text-gray-700">{order.shipped_date ? new Date(order.shipped_date).toLocaleDateString("zh-CN") : "-"}</span>;
+    case "online_store_tag":
+      return <Badge className={`text-xs ${order.tag_color || "bg-gray-100 text-gray-700"}`}>{order.online_store_tag || "其它"}</Badge>;
     default:
       return "-";
   }
@@ -239,6 +242,20 @@ export default function AdminOrders() {
     setSelectedIds([]);
     setBulkStatus("");
     fetchOrders();
+  };
+
+  const handleStatusClick = (order) => {
+    // Quick link jump for simple pending_purchase orders
+    if (order.order_status === "pending_purchase") {
+      const urls = (order.product_url || "").split("\n").map(s => s.trim()).filter(Boolean);
+      const isSimpleOrder = urls.length === 1 && !order.product_description && !order.user_note && (order.messages || []).length === 0;
+      if (isSimpleOrder) {
+        window.open(urls[0], "_blank");
+        return;
+      }
+    }
+    // Open order details for other cases
+    setSelectedOrder(order);
   };
 
   const handleQuickOrdered = async (order) => {
@@ -342,7 +359,7 @@ export default function AdminOrders() {
             ) : filtered.length === 0 ? (
               <tr><td colSpan={visibleCols.length + 2} className="text-center py-12 text-gray-400 text-sm">暂无订单</td></tr>
             ) : filtered.map(order => (
-              <tr key={order.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => setSelectedOrder(order)}>
+              <tr key={order.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => handleStatusClick(order)}>
                 <td className="px-3 py-3" onClick={e => e.stopPropagation()}>
                   <Checkbox checked={selectedIds.includes(order.id)} onCheckedChange={() => toggleSelect(order.id)} />
                 </td>
