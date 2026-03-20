@@ -34,6 +34,13 @@ export default function UserPreferences() {
   const [addrForm, setAddrForm] = useState({ label: "", country: "", full_text: "" });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [theme, setThemeState] = useState(getTheme);
+
+  const handleThemeToggle = (isMidnight) => {
+    const newTheme = isMidnight ? "midnight" : "default";
+    setTheme(newTheme);
+    setThemeState(newTheme);
+  };
 
   useEffect(() => {
     base44.auth.me().then(async u => {
