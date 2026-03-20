@@ -60,6 +60,8 @@ import AdminAnnouncements from './pages/AdminAnnouncements';
 import AdminSettings from './pages/AdminSettings';
 import Payment from './pages/Payment';
 import ConsolidationPool from './pages/ConsolidationPool';
+import ShippingPool from './pages/ShippingPool.jsx';
+import AdminShippingPool from './pages/AdminShippingPool.jsx';
 import __Layout from './Layout.jsx';
 
 
@@ -77,6 +79,8 @@ export const PAGES = {
     "AdminSettings": AdminSettings,
     "Payment": Payment,
     "ConsolidationPool": ConsolidationPool,
+    "ShippingPool": ShippingPool,
+    "AdminShippingPool": AdminShippingPool,
 }
 
 export const pagesConfig = {
