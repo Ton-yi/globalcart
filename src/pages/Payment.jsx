@@ -77,11 +77,12 @@ export default function Payment() {
 
   const handleConfirm = async () => {
     if (!proofFile) return;
+    const newOrderStatus = method === "alipay" ? "payment_pending" : "awaiting_payment_confirmation";
     await base44.entities.Order.update(order.id, {
       payment_proof_url: proofFile,
       payment_method: method,
-      payment_status: "awaiting_payment",
-      order_status: "payment_pending",
+      payment_status: method === "alipay" ? "awaiting_payment" : "awaiting_confirmation",
+      order_status: newOrderStatus,
       paid_amount: order.prepayment_amount
     });
     setSubmitted(true);
