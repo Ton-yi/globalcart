@@ -26,6 +26,9 @@ export default function UserPreferences() {
     default_address: "",
     notification_email: true
   });
+  const [savedAddresses, setSavedAddresses] = useState([]);
+  const [newAddrLabel, setNewAddrLabel] = useState("");
+  const [newAddrText, setNewAddrText] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
