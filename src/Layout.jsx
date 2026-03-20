@@ -5,7 +5,7 @@ import { base44 } from "@/api/base44Client";
 import { 
   ShoppingBag, Package, Truck, User, Settings, 
   Bell, LogOut, Menu, X, ChevronDown, Shield,
-  Home, Users, BarChart3, Store, Layers, Send
+  Home, Users, BarChart3, Store, Send
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
