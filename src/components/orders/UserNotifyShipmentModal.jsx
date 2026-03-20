@@ -226,18 +226,23 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
             </Select>
           </div>
 
-          {/* Consolidation toggle */}
-          <label className="flex items-start gap-3 cursor-pointer p-3 rounded-lg border border-gray-100 hover:bg-gray-50">
-            <Checkbox
-              checked={consolidation}
-              onCheckedChange={setConsolidation}
-              className="mt-0.5"
-            />
-            <div>
-              <div className="text-sm font-medium text-gray-800">申请拼邮</div>
-              <p className="text-xs text-gray-400 mt-0.5">与其他用户合并发货，可降低运费</p>
-            </div>
-          </label>
+          {/* Consolidation type */}
+          <div className="space-y-2">
+            <label className="text-xs text-gray-500 font-medium uppercase tracking-wide">拼邮方式</label>
+            {[
+              { key: "", label: "不申请拼邮", desc: "单独发货" },
+              { key: "transit", label: "申请拼邮到中转地", desc: "与其他包裹合并，发往指定中转地" },
+              { key: "other", label: "申请拼邮到其它地址", desc: "与其他包裹合并，发往自选地址" },
+            ].map(opt => (
+              <label key={opt.key} className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${consType === opt.key ? "border-red-300 bg-red-50" : "border-gray-100 hover:bg-gray-50"}`}>
+                <input type="radio" checked={consType === opt.key} onChange={() => setConsType(opt.key)} className="mt-0.5 accent-red-600" />
+                <div>
+                  <div className="text-sm font-medium text-gray-800">{opt.label}</div>
+                  <p className="text-xs text-gray-400 mt-0.5">{opt.desc}</p>
+                </div>
+              </label>
+            ))}
+          </div>
 
           {/* Natural-language consolidation config */}
           {consolidation && (
