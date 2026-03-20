@@ -60,10 +60,12 @@ export default function AdminShippingPool() {
   };
 
   useEffect(() => {
-    base44.auth.me().then(u => {
+    base44.auth.me().then(async u => {
       setUser(u);
       fetchPools();
       fetchLocations();
+      const users = await base44.entities.User.list();
+      setAllUsers(users);
     }).catch(() => base44.auth.redirectToLogin());
   }, []);
 
