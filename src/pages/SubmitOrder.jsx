@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { getRatesWithIncrements } from "@/lib/exchangeRates";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -15,11 +16,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 const SERVICE_FEE_RATE = 0.10;
 const PREPAY_RATE = 0.80;
 
-const JPY_RATES = { CNY: 0.048, USD: 0.0067, TWD: 0.22, HKD: 0.052, EUR: 0.0062, SGD: 0.0090 };
-
 export default function SubmitOrder() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
+  const [rates, setRates] = useState(null);
   const [productUrls, setProductUrls] = useState([""]);
   const [urlMode, setUrlMode] = useState("multi"); // "textarea" | "multi"
   const [addonOptions, setAddonOptions] = useState([]);
@@ -38,20 +38,19 @@ export default function SubmitOrder() {
   useEffect(() => {
     base44.auth.me().then(setUser).catch(() => base44.auth.redirectToLogin());
     base44.entities.AddonOption.filter({ is_active: true }).then(setAddonOptions).catch(() => {});
+    getRatesWithIncrements().then(setRates).catch(() => {});
   }, []);
 
-  // Convert addon fee to user's payment currency for total calculation
-  // JPY rates used as base
+  // Convert addon fee to JPY (all calculations in JPY)
   const convertAddonFee = (opt) => {
-    if (!opt) return 0;
+    if (!opt || !rates) return 0;
     const fee = parseFloat(opt.fee) || 0;
     const feeCur = opt.fee_currency || "JPY";
-    const paymentCur = form.prepayment_currency;
-    if (feeCur === paymentCur) return fee;
-    // Convert via JPY as base
-    const toJpy = { JPY: 1, CNY: 1/0.048, USD: 1/0.0067, TWD: 1/0.22, HKD: 1/0.052, EUR: 1/0.0062, SGD: 1/0.0090 };
-    const rate = JPY_RATES[paymentCur] || JPY_RATES.CNY;
-    return fee * (toJpy[feeCur] || 1) * rate;
+    if (feeCur === "JPY") return fee;
+    // Convert from other currencies to JPY
+    const rateKey = `jpy_${feeCur.toLowerCase()}`;
+    const rate = rates[rateKey] || 1;
+    return fee / rate; // fee in feeCur → divide by rate to get JPY
   };
 
   const getAddonTotal = () => selectedAddons.reduce((sum, id) => {
