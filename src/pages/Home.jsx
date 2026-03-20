@@ -50,6 +50,11 @@ export default function Home() {
 
   return (
     <div className="space-y-8">
+      {/* Theme toggle - top right */}
+      <div className="flex justify-end">
+        <ThemeSelector compact />
+      </div>
+
       {/* Announcements */}
       {announcements.length > 0 && (
         <div className="space-y-2">

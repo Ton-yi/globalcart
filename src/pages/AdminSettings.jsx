@@ -37,6 +37,7 @@ const CAT_COLORS = { fee: "bg-yellow-100 text-yellow-700", payment: "bg-green-10
 const TABS = [
   { key: "general", label: "基本设置" },
   { key: "shipping_methods", label: "运输方式" },
+  { key: "theme", label: "界面主题" },
 ];
 
 export default function AdminSettings() {
