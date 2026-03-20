@@ -247,6 +247,29 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
             ))}
           </div>
 
+          {/* Address selection for non-consolidation */}
+          {consType === "" && savedAddresses.length > 0 && (
+            <div>
+              <label className="text-xs text-gray-500 font-medium uppercase tracking-wide flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5" />收货地址
+              </label>
+              <Select value={selectedAddress} onValueChange={handleAddressSelect}>
+                <SelectTrigger className="mt-1.5">
+                  <SelectValue placeholder="选择地址簿中的地址" />
+                </SelectTrigger>
+                <SelectContent>
+                  {savedAddresses.map(a => (
+                    <SelectItem key={a.id} value={a.id}>{a.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedAddress && (() => {
+                const addr = savedAddresses.find(a => a.id === selectedAddress);
+                return addr ? <div className="mt-2 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 text-xs text-gray-600 whitespace-pre-wrap">{addr.full_text}</div> : null;
+              })()}
+            </div>
+          )}
+
           {/* Transit location selection */}
           {consType === "transit" && (
             <div className="space-y-3">
