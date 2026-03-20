@@ -324,26 +324,54 @@ export default function ShippingPool() {
 
                   {/* Transit location selector (only for consType="transit") */}
                   {consType === "transit" && (
-                    <div className="border border-blue-100 rounded-xl p-4 bg-blue-50/40 space-y-3">
-                      <Label className="text-xs text-blue-700 font-medium">选择中转地 *</Label>
-                      {transitLocations.length === 0 ? (
-                        <p className="text-xs text-gray-400">暂无可用中转地，请联系管理员添加</p>
-                      ) : (
-                        <div className="space-y-2">
-                          {transitLocations.map(l => (
-                            <label key={l.id} className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${form.transit_location_id === l.id ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
-                              <input type="radio" checked={form.transit_location_id === l.id} onChange={() => f("transit_location_id", l.id)} className="mt-0.5 accent-blue-600" />
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-gray-800">{l.name}</p>
-                                <p className="text-xs text-gray-400 mt-0.5">
-                                  {[l.country, l.province].filter(Boolean).join(" · ")}
-                                  {l.handling_fee > 0 && ` · 手续费 ${l.handling_fee_currency || "JPY"} ${l.handling_fee}`}
-                                  {l.allow_storage && " · 支持暂存"}
-                                </p>
-                                {l.address && <p className="text-xs text-gray-400">{l.address}</p>}
-                              </div>
-                            </label>
-                          ))}
+                    <div className="space-y-3">
+                      <div className="border border-blue-100 rounded-xl p-4 bg-blue-50/40 space-y-3">
+                        <Label className="text-xs text-blue-700 font-medium">选择中转地 *</Label>
+                        {transitLocations.length === 0 ? (
+                          <p className="text-xs text-gray-400">暂无可用中转地，请联系管理员添加</p>
+                        ) : (
+                          <div className="space-y-2">
+                            {transitLocations.map(l => (
+                              <label key={l.id} className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${form.transit_location_id === l.id ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
+                                <input type="radio" checked={form.transit_location_id === l.id} onChange={() => f("transit_location_id", l.id)} className="mt-0.5 accent-blue-600" />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-gray-800">{l.name}</p>
+                                  <p className="text-xs text-gray-400 mt-0.5">
+                                    {[getCountry(l.country)?.name || l.country, l.province].filter(Boolean).join(" · ")}
+                                    {l.handling_fee > 0 && ` · 手续费 ${l.handling_fee_currency || "JPY"} ${l.handling_fee}`}
+                                    {l.allow_storage && " · 支持暂存"}
+                                  </p>
+                                  {l.manager_contact && (
+                                    <p className="text-xs text-gray-400">联系：{l.manager_contact}</p>
+                                  )}
+                                </div>
+                              </label>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Final delivery address after transit */}
+                      {savedAddresses.length > 0 && (
+                        <div className="border border-gray-200 rounded-xl p-4 bg-gray-50/60 space-y-2">
+                          <Label className="text-xs text-gray-600 font-medium flex items-center gap-1.5">
+                            <MapPin className="w-3.5 h-3.5 text-gray-400" />
+                            最终收货地址（货品从中转地发往此处）
+                          </Label>
+                          <Select value={form.final_address_id || ""} onValueChange={v => f("final_address_id", v)}>
+                            <SelectTrigger className="bg-white"><SelectValue placeholder="选择地址簿中的收货地址" /></SelectTrigger>
+                            <SelectContent>
+                              {savedAddresses.map(a => (
+                                <SelectItem key={a.id} value={a.id}>{a.label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {form.final_address_id && (() => {
+                            const addr = savedAddresses.find(a => a.id === form.final_address_id);
+                            return addr ? (
+                              <div className="bg-white border border-gray-100 rounded-lg px-3 py-2 text-xs text-gray-600 whitespace-pre-wrap">{addr.full_text}</div>
+                            ) : null;
+                          })()}
                         </div>
                       )}
                     </div>
