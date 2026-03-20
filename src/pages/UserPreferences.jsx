@@ -235,6 +235,16 @@ export default function UserPreferences() {
             </div>
             <Switch checked={form.notification_email} onCheckedChange={v => f("notification_email", v)} />
           </div>
+          <div className="flex items-center justify-between py-1 border-t border-gray-100 pt-3">
+            <div className="flex items-center gap-2">
+              <Moon className="w-4 h-4 text-indigo-500" />
+              <div>
+                <Label className="text-sm">午夜主题（Midnight）</Label>
+                <p className="text-xs text-gray-400 mt-0.5">深色蓝调界面风格</p>
+              </div>
+            </div>
+            <Switch checked={theme === "midnight"} onCheckedChange={handleThemeToggle} />
+          </div>
         </CardContent>
       </Card>
 
