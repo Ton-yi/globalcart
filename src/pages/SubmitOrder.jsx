@@ -155,11 +155,11 @@ export default function SubmitOrder() {
       </div>
 
       <Alert className="border-blue-200 bg-blue-50">
-        <Info className="w-4 h-4 text-blue-600" />
-        <AlertDescription className="text-blue-800 text-sm">
-          预付款 = (商品价格 × 数量 + {SERVICE_FEE_RATE * 100}% 服务费 + 增值费用) × 80%。订单确认后可补款或抵扣余额。
-        </AlertDescription>
-      </Alert>
+         <Info className="w-4 h-4 text-blue-600" />
+         <AlertDescription className="text-blue-800 text-sm">
+           预付款 = (日元货款总价 + {SERVICE_FEE_RATE * 100}% 服务费 + 增值费用) × 80%。订单确认后可补款或抵扣余额。
+         </AlertDescription>
+       </Alert>
 
       <form onSubmit={handleSubmit} className="space-y-5">
         <Card className="border-gray-200">
@@ -230,34 +230,17 @@ export default function SubmitOrder() {
             </div>
 
             <div>
-              <Label className="text-sm">商品描述 / 规格要求</Label>
-              <Textarea placeholder="颜色、尺码、特殊要求等..." value={form.product_description}
-                onChange={e => setForm(f => ({ ...f, product_description: e.target.value }))}
-                className="mt-1" rows={3} />
-            </div>
+               <Label className="text-sm">商品描述 / 规格要求</Label>
+               <Textarea placeholder="数量 颜色 尺码 特殊要求等..." value={form.product_description}
+                 onChange={e => setForm(f => ({ ...f, product_description: e.target.value }))}
+                 className="mt-1" rows={3} />
+             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-sm">数量 *</Label>
-                <Input type="number" min="1" required value={form.quantity}
-                  onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} className="mt-1" />
-              </div>
-              <div>
-                <Label className="text-sm">日元价格 (¥) *</Label>
-                <Input type="number" placeholder="15000" required value={form.estimated_jpy}
-                  onChange={e => setForm(f => ({ ...f, estimated_jpy: e.target.value }))} className="mt-1" />
-              </div>
-            </div>
-
-            <div>
-              <Label className="text-sm">付款货币</Label>
-              <Select value={form.prepayment_currency} onValueChange={v => setForm(f => ({ ...f, prepayment_currency: v }))}>
-                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {Object.keys(JPY_RATES).map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
+             <div>
+               <Label className="text-sm">日元货款总价（包括日本运费）(¥) *</Label>
+               <Input type="number" placeholder="15000" required value={form.estimated_jpy}
+                 onChange={e => setForm(f => ({ ...f, estimated_jpy: e.target.value }))} className="mt-1" />
+             </div>
 
             {/* Addon options */}
             {addonOptions.length > 0 && (
