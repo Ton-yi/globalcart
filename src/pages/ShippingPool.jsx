@@ -302,93 +302,120 @@ export default function ShippingPool() {
               {/* STEP 2: ADDRESS + DETAILS */}
               {createStep === 2 && (
                 <div className="space-y-4">
-                  {/* Address picker */}
-                  {savedAddresses.length > 0 && (
-                    <div>
-                      <Label className="text-xs text-gray-500 font-medium flex items-center gap-1.5 mb-1.5">
-                        <MapPin className="w-3.5 h-3.5" />收货地址
-                      </Label>
-                      <Select value={selectedAddressId} onValueChange={handleAddressSelect}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="选择地址..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {savedAddresses.map(a => (
-                            <SelectItem key={a.id} value={a.id}>{a.label}</SelectItem>
+                  {/* Consolidation type selection */}
+                  <div>
+                    <Label className="text-xs text-gray-500 font-medium mb-2 block">发货方式</Label>
+                    <div className="space-y-2">
+                      {[
+                        { key: "", label: "直接发货（单独发往收货地址）", desc: "" },
+                        { key: "transit", label: "申请拼邮到中转地", desc: "与其他包裹合并，发往中转地" },
+                        { key: "other", label: "申请拼邮到其它地址", desc: "与其他包裹合并，发往自选地址" },
+                      ].map(opt => (
+                        <label key={opt.key} className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${consType === opt.key ? "border-red-300 bg-red-50" : "border-gray-200 hover:bg-gray-50"}`}>
+                          <input type="radio" checked={consType === opt.key} onChange={() => setConsType(opt.key)} className="mt-0.5 accent-red-600" />
+                          <div>
+                            <span className="text-sm font-medium text-gray-800">{opt.label}</span>
+                            {opt.desc && <p className="text-xs text-gray-400 mt-0.5">{opt.desc}</p>}
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Transit location selector (only for consType="transit") */}
+                  {consType === "transit" && (
+                    <div className="border border-blue-100 rounded-xl p-4 bg-blue-50/40 space-y-3">
+                      <Label className="text-xs text-blue-700 font-medium">选择中转地 *</Label>
+                      {transitLocations.length === 0 ? (
+                        <p className="text-xs text-gray-400">暂无可用中转地，请联系管理员添加</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {transitLocations.map(l => (
+                            <label key={l.id} className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${form.transit_location_id === l.id ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
+                              <input type="radio" checked={form.transit_location_id === l.id} onChange={() => f("transit_location_id", l.id)} className="mt-0.5 accent-blue-600" />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-800">{l.name}</p>
+                                <p className="text-xs text-gray-400 mt-0.5">
+                                  {[l.country, l.province].filter(Boolean).join(" · ")}
+                                  {l.handling_fee > 0 && ` · 手续费 ${l.handling_fee_currency || "JPY"} ${l.handling_fee}`}
+                                  {l.allow_storage && " · 支持暂存"}
+                                </p>
+                                {l.address && <p className="text-xs text-gray-400">{l.address}</p>}
+                              </div>
+                            </label>
                           ))}
-                          <SelectItem value="__new__">
-                            <span className="flex items-center gap-1.5 text-blue-600">
-                              <Plus className="w-3.5 h-3.5" />输入新地址
-                            </span>
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
+                        </div>
+                      )}
                     </div>
                   )}
 
-                  {/* Saved address preview */}
-                  {!useNewAddress && savedAddresses.length > 0 && (() => {
-                    const addr = savedAddresses.find(a => a.id === selectedAddressId);
-                    return addr ? (
-                      <div className="bg-blue-50 border border-blue-100 rounded-lg px-4 py-3 text-sm text-gray-700 whitespace-pre-wrap">{addr.full_text}</div>
-                    ) : null;
-                  })()}
-
-                  {/* New address form */}
-                  {(useNewAddress || savedAddresses.length === 0) && (
-                    <div className="space-y-3 border border-gray-100 rounded-xl p-4 bg-gray-50">
-                      <div className="grid grid-cols-2 gap-3">
+                  {/* Address section (for direct or consType="other") */}
+                  {(consType === "" || consType === "other") && (
+                    <>
+                      {savedAddresses.length > 0 && (
                         <div>
-                          <Label className="text-xs text-gray-500">收件人姓名 *</Label>
-                          <Input className="mt-1 h-8 text-sm" value={form.recipient_name} onChange={e => f("recipient_name", e.target.value)} />
+                          <Label className="text-xs text-gray-500 font-medium flex items-center gap-1.5 mb-1.5">
+                            <MapPin className="w-3.5 h-3.5" />{consType === "other" ? "拼邮目标地址" : "收货地址"}
+                          </Label>
+                          <Select value={selectedAddressId} onValueChange={handleAddressSelect}>
+                            <SelectTrigger><SelectValue placeholder="选择地址..." /></SelectTrigger>
+                            <SelectContent>
+                              {savedAddresses.map(a => (
+                                <SelectItem key={a.id} value={a.id}>{a.label}</SelectItem>
+                              ))}
+                              <SelectItem value="__new__">
+                                <span className="flex items-center gap-1.5 text-blue-600">
+                                  <Plus className="w-3.5 h-3.5" />输入新地址
+                                </span>
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
-                        <div>
-                          <Label className="text-xs text-gray-500">联系电话</Label>
-                          <Input className="mt-1 h-8 text-sm" value={form.recipient_phone} onChange={e => f("recipient_phone", e.target.value)} />
-                        </div>
-                      </div>
-                      <div>
-                        <Label className="text-xs text-gray-500">地址行1</Label>
-                        <Input className="mt-1 h-8 text-sm" placeholder="街道、门牌号" value={form.address_line1} onChange={e => f("address_line1", e.target.value)} />
-                      </div>
-                      <div>
-                        <Label className="text-xs text-gray-500">地址行2（可选）</Label>
-                        <Input className="mt-1 h-8 text-sm" placeholder="单元、楼层" value={form.address_line2} onChange={e => f("address_line2", e.target.value)} />
-                      </div>
-                      <div className="grid grid-cols-3 gap-2">
-                        <div>
-                          <Label className="text-xs text-gray-500">城市</Label>
-                          <Input className="mt-1 h-8 text-sm" value={form.city} onChange={e => f("city", e.target.value)} />
-                        </div>
-                        <div>
-                          <Label className="text-xs text-gray-500">州/省</Label>
-                          <Input className="mt-1 h-8 text-sm" value={form.state} onChange={e => f("state", e.target.value)} />
-                        </div>
-                        <div>
-                          <Label className="text-xs text-gray-500">邮编</Label>
-                          <Input className="mt-1 h-8 text-sm" value={form.postal_code} onChange={e => f("postal_code", e.target.value)} />
-                        </div>
-                      </div>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <Checkbox checked={saveAddress} onCheckedChange={setSaveAddress} />
-                        <span className="text-xs text-gray-600">保存此地址到地址簿</span>
-                      </label>
-                      {saveAddress && (
-                        <Input className="h-8 text-sm" placeholder="地址标签（如：家、公司）" value={newAddressLabel} onChange={e => setNewAddressLabel(e.target.value)} />
                       )}
-                    </div>
+
+                      {!useNewAddress && savedAddresses.length > 0 && (() => {
+                        const addr = savedAddresses.find(a => a.id === selectedAddressId);
+                        return addr ? (
+                          <div className="bg-blue-50 border border-blue-100 rounded-lg px-4 py-3 text-sm text-gray-700 whitespace-pre-wrap">{addr.full_text}</div>
+                        ) : null;
+                      })()}
+
+                      {(useNewAddress || savedAddresses.length === 0) && (
+                        <div className="space-y-3 border border-gray-100 rounded-xl p-4 bg-gray-50">
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <Label className="text-xs text-gray-500">收件人姓名 *</Label>
+                              <Input className="mt-1 h-8 text-sm" value={form.recipient_name} onChange={e => f("recipient_name", e.target.value)} />
+                            </div>
+                            <div>
+                              <Label className="text-xs text-gray-500">联系电话</Label>
+                              <Input className="mt-1 h-8 text-sm" value={form.recipient_phone} onChange={e => f("recipient_phone", e.target.value)} />
+                            </div>
+                          </div>
+                          <Input className="h-8 text-sm" placeholder="地址行1（街道、门牌号）" value={form.address_line1} onChange={e => f("address_line1", e.target.value)} />
+                          <Input className="h-8 text-sm" placeholder="地址行2（单元、楼层，可选）" value={form.address_line2} onChange={e => f("address_line2", e.target.value)} />
+                          <div className="grid grid-cols-3 gap-2">
+                            <Input className="h-8 text-sm" placeholder="城市" value={form.city} onChange={e => f("city", e.target.value)} />
+                            <Input className="h-8 text-sm" placeholder="州/省" value={form.state} onChange={e => f("state", e.target.value)} />
+                            <Input className="h-8 text-sm" placeholder="邮编" value={form.postal_code} onChange={e => f("postal_code", e.target.value)} />
+                          </div>
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <Checkbox checked={saveAddress} onCheckedChange={setSaveAddress} />
+                            <span className="text-xs text-gray-600">保存此地址到地址簿</span>
+                          </label>
+                          {saveAddress && (
+                            <Input className="h-8 text-sm" placeholder="地址标签（如：家、公司）" value={newAddressLabel} onChange={e => setNewAddressLabel(e.target.value)} />
+                          )}
+                        </div>
+                      )}
+                    </>
                   )}
 
                   {/* Country + method */}
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <Label className="text-xs text-gray-500">目的国家 *</Label>
-                      <CountrySelect
-                        value={form.destination_country}
-                        onChange={v => f("destination_country", v)}
-                        placeholder="选择国家"
-                        className="mt-1"
-                      />
+                      <CountrySelect value={form.destination_country} onChange={v => f("destination_country", v)} placeholder="选择国家" className="mt-1" />
                     </div>
                     <div>
                       <Label className="text-xs text-gray-500">运输方式</Label>
@@ -401,22 +428,24 @@ export default function ShippingPool() {
                     </div>
                   </div>
 
-                  {/* Transit + date */}
-                  <div className="grid grid-cols-2 gap-3">
-                    {transitLocations.length > 0 && (
-                      <div>
-                        <Label className="text-xs text-gray-500">中转地（可选）</Label>
-                        <Select value={form.transit_location_id} onValueChange={v => f("transit_location_id", v)}>
-                          <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue placeholder="选择..." /></SelectTrigger>
-                          <SelectContent>
-                            {transitLocations.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-                    <div>
-                      <Label className="text-xs text-gray-500">计划发货日期</Label>
-                      <Input type="date" className="mt-1 h-8 text-sm" value={form.scheduled_ship_date} onChange={e => f("scheduled_ship_date", e.target.value)} />
+                  {/* Scheduled date with ASAP option */}
+                  <div>
+                    <Label className="text-xs text-gray-500">计划发货日期</Label>
+                    <div className="flex gap-2 mt-1">
+                      <button
+                        type="button"
+                        onClick={() => f("scheduled_ship_date", "__asap__")}
+                        className={`flex items-center gap-1.5 px-3 h-8 rounded-md border text-sm transition-colors ${form.scheduled_ship_date === "__asap__" ? "border-orange-400 bg-orange-50 text-orange-600 font-medium" : "border-gray-200 text-gray-500 hover:bg-gray-50"}`}
+                      >
+                        ⚡ 尽快
+                      </button>
+                      <Input
+                        type="date"
+                        className="h-8 text-sm flex-1"
+                        value={form.scheduled_ship_date === "__asap__" ? "" : form.scheduled_ship_date}
+                        onChange={e => f("scheduled_ship_date", e.target.value)}
+                        placeholder="或选择日期"
+                      />
                     </div>
                   </div>
 
@@ -431,6 +460,7 @@ export default function ShippingPool() {
                     <span>{selectedOrders.length} 件包裹 · {totalWeight}g</span>
                     {form.destination_country && <span>→ {getCountry(form.destination_country)?.name || form.destination_country}</span>}
                     {form.shipping_method && <span>{SHIPPING_METHODS.find(m => m.value === form.shipping_method)?.label}</span>}
+                    {form.scheduled_ship_date === "__asap__" && <span className="text-orange-500">⚡ 尽快发出</span>}
                   </div>
 
                   <div className="flex items-center justify-between pt-1">
@@ -438,7 +468,7 @@ export default function ShippingPool() {
                       <ChevronLeft className="w-3.5 h-3.5 mr-1" />上一步
                     </Button>
                     <Button size="sm" className="bg-red-600 hover:bg-red-700"
-                      disabled={submitting || !form.destination_country}
+                      disabled={submitting || !form.destination_country || (consType === "transit" && !form.transit_location_id)}
                       onClick={handleSubmit}>
                       {submitting ? "提交中..." : "确认创建发货申请"}
                     </Button>
