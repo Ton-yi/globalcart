@@ -12,7 +12,18 @@ export default function OnlineStoreTagManager() {
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({});
-  const [newRule, setNewRule] = useState({ keyword: "", tag_label: "", priority: 0 });
+  const [newRule, setNewRule] = useState({ keyword: "", tag_label: "", tag_color: "bg-gray-100 text-gray-700", priority: 0 });
+
+const COLOR_PRESETS = [
+  { value: "bg-gray-100 text-gray-700", label: "灰色" },
+  { value: "bg-blue-100 text-blue-700", label: "蓝色" },
+  { value: "bg-red-100 text-red-700", label: "红色" },
+  { value: "bg-green-100 text-green-700", label: "绿色" },
+  { value: "bg-yellow-100 text-yellow-700", label: "黄色" },
+  { value: "bg-purple-100 text-purple-700", label: "紫色" },
+  { value: "bg-orange-100 text-orange-700", label: "橙色" },
+  { value: "bg-pink-100 text-pink-700", label: "粉色" },
+];
 
   useEffect(() => {
     loadRules();
@@ -29,10 +40,11 @@ export default function OnlineStoreTagManager() {
     await base44.entities.OnlineStoreTagRule.create({
       keyword: newRule.keyword,
       tag_label: newRule.tag_label,
+      tag_color: newRule.tag_color || "bg-gray-100 text-gray-700",
       priority: parseInt(newRule.priority) || 0,
       is_active: true
     });
-    setNewRule({ keyword: "", tag_label: "", priority: 0 });
+    setNewRule({ keyword: "", tag_label: "", tag_color: "bg-gray-100 text-gray-700", priority: 0 });
     await loadRules();
   };
 
@@ -50,6 +62,7 @@ export default function OnlineStoreTagManager() {
     await base44.entities.OnlineStoreTagRule.update(editingId, {
       keyword: editForm.keyword,
       tag_label: editForm.tag_label,
+      tag_color: editForm.tag_color || "bg-gray-100 text-gray-700",
       priority: parseInt(editForm.priority) || 0
     });
     setEditingId(null);
@@ -120,6 +133,21 @@ export default function OnlineStoreTagManager() {
                         />
                       </div>
                     </div>
+                    <div>
+                      <Label className="text-xs text-gray-500 block mb-2">显示颜色</Label>
+                      <div className="flex gap-1 flex-wrap">
+                        {COLOR_PRESETS.map(c => (
+                          <button
+                            key={c.value}
+                            onClick={() => setEditForm(p => ({ ...p, tag_color: c.value }))}
+                            className={`px-2 py-1 rounded text-xs border-2 transition-colors ${editForm.tag_color === c.value ? "border-blue-400 shadow-sm" : "border-transparent"}`}
+                            title={c.label}
+                          >
+                            <Badge className={`text-xs ${c.value}`}>{c.label}</Badge>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                   <div className="flex gap-1 flex-shrink-0">
                     <Button
@@ -144,7 +172,7 @@ export default function OnlineStoreTagManager() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <code className="text-xs bg-gray-100 px-2 py-1 rounded font-mono text-gray-700">{rule.keyword}</code>
-                      <Badge className="text-xs">{rule.tag_label}</Badge>
+                      <Badge className={`text-xs ${rule.tag_color || "bg-gray-100 text-gray-700"}`}>{rule.tag_label}</Badge>
                       <span className="text-xs text-gray-400">优先级: {rule.priority || 0}</span>
                       {!rule.is_active && <Badge className="bg-gray-100 text-gray-400 text-xs">已禁用</Badge>}
                     </div>
@@ -229,6 +257,21 @@ export default function OnlineStoreTagManager() {
                 value={newRule.priority}
                 onChange={e => setNewRule(p => ({ ...p, priority: e.target.value }))}
               />
+            </div>
+          </div>
+          <div>
+            <Label className="text-xs text-gray-500 block mb-2">显示颜色</Label>
+            <div className="flex gap-1 flex-wrap">
+              {COLOR_PRESETS.map(c => (
+                <button
+                  key={c.value}
+                  onClick={() => setNewRule(p => ({ ...p, tag_color: c.value }))}
+                  className={`px-2 py-1 rounded text-xs border-2 transition-colors ${newRule.tag_color === c.value ? "border-blue-400 shadow-sm" : "border-transparent"}`}
+                  title={c.label}
+                >
+                  <Badge className={`text-xs ${c.value}`}>{c.label}</Badge>
+                </button>
+              ))}
             </div>
           </div>
           <Button
