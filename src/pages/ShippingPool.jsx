@@ -106,12 +106,20 @@ export default function ShippingPool() {
     ]);
     setAvailableOrders(orders);
     setTransitLocations(locs);
-    const addrs = prefs[0]?.saved_addresses || [];
+    const pref = prefs[0];
+    const addrs = (pref?.saved_addresses || []).map(a => ({ country: "", ...a }));
     setSavedAddresses(addrs);
-    if (addrs.length > 0) {
-      setSelectedAddressId(addrs[0].id);
+    // Auto-select default address
+    const defaultId = pref?.default_address_id || "";
+    const defaultAddr = addrs.find(a => a.id === defaultId) || addrs[0];
+    if (defaultAddr) {
+      setSelectedAddressId(defaultAddr.id);
       setUseNewAddress(false);
-      applyAddress(addrs[0]);
+      applyAddress(defaultAddr);
+      // Also set destination_country from the address
+      if (defaultAddr.country) {
+        setForm(p => ({ ...p, destination_country: defaultAddr.country }));
+      }
     } else {
       setUseNewAddress(true);
       setSelectedAddressId("");
