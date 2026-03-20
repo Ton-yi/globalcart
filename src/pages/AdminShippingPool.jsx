@@ -257,12 +257,19 @@ export default function AdminShippingPool() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-medium text-gray-800">{loc.name}</span>
-                      {loc.country && <Badge variant="outline" className="text-xs">{loc.country}</Badge>}
+                      {(loc.country || loc.province) && (
+                        <Badge variant="outline" className="text-xs">{[loc.country, loc.province].filter(Boolean).join(" · ")}</Badge>
+                      )}
+                      {loc.allow_storage && <Badge className="text-xs bg-blue-100 text-blue-600">可暂存</Badge>}
                       <Badge className={`text-xs ${loc.is_active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
                         {loc.is_active ? "启用" : "停用"}
                       </Badge>
                     </div>
-                    {loc.address && <p className="text-xs text-gray-500 mt-0.5">{loc.address}</p>}
+                    <div className="flex flex-wrap gap-x-3 mt-0.5">
+                      {loc.address && <p className="text-xs text-gray-500">{loc.address}</p>}
+                      {loc.handling_fee > 0 && <p className="text-xs text-orange-500">手续费 {loc.handling_fee_currency || "JPY"} {loc.handling_fee}</p>}
+                      {loc.manager_email && <p className="text-xs text-gray-400">负责人：{loc.manager_email}</p>}
+                    </div>
                     {loc.description && <p className="text-xs text-gray-400 mt-0.5">{loc.description}</p>}
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0">
