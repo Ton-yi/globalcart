@@ -149,10 +149,12 @@ export default function AdminSettings() {
         </Card>
       )}
 
-      {activeTab === "general" && loading ? (
+      {activeTab === "general" && loading && (
         <p className="text-gray-400 text-sm">加载中...</p>
-      ) : (
-        Object.entries(grouped).map(([cat, items]) => {
+      )}
+
+      {activeTab === "general" && !loading && (
+        <>{Object.entries(grouped).map(([cat, items]) => {
           const isPayment = cat === "payment";
           const isUnlocked = !isPayment || showPayment;
           return (
