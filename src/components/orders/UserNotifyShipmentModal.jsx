@@ -120,6 +120,7 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
   const [deadline, setDeadline] = useState("");
   const [minWeight, setMinWeight] = useState("2000");
   const [consMethod, setConsMethod] = useState(""); // consolidation-specific method (optional)
+  const [consMethodFallback, setConsMethodFallback] = useState(""); // secondary method fallback
   const [timeoutAction, setTimeoutAction] = useState("ship_individually");
   const [timeoutMethod, setTimeoutMethod] = useState(""); // if timeout=ship_individually, which method
   const [note, setNote] = useState("");
