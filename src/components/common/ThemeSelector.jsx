@@ -3,8 +3,33 @@
  * compact: boolean - show only icons without labels (for header/home use)
  */
 import { useState } from "react";
-import { Palette } from "lucide-react";
+import { Moon, Sun, Palette } from "lucide-react";
 import { THEMES, getTheme, setTheme } from "@/lib/theme";
+
+// Two-theme toggle: only switches between "default" and "midnight"
+export function MidnightToggle() {
+  const [current, setCurrent] = useState(getTheme);
+  const isMidnight = current === "midnight";
+
+  const toggle = () => {
+    const next = isMidnight ? "default" : "midnight";
+    setTheme(next);
+    setCurrent(next);
+  };
+
+  return (
+    <button
+      onClick={toggle}
+      title={isMidnight ? "切换到默认主题" : "切换到午夜主题"}
+      className="p-1.5 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+    >
+      {isMidnight
+        ? <Sun className="w-4 h-4" />
+        : <Moon className="w-4 h-4" />
+      }
+    </button>
+  );
+}
 
 export default function ThemeSelector({ compact = false }) {
   const [current, setCurrent] = useState(getTheme);
@@ -15,26 +40,7 @@ export default function ThemeSelector({ compact = false }) {
   };
 
   if (compact) {
-    // Simple cycle button for home / header
-    const idx = THEMES.findIndex(t => t.id === current);
-    const next = THEMES[(idx + 1) % THEMES.length];
-    const theme = THEMES.find(t => t.id === current);
-
-    return (
-      <button
-        onClick={() => handleSelect(next.id)}
-        title={`当前：${theme?.name}，点击切换到 ${next.name}`}
-        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-accent transition-colors text-xs"
-      >
-        <span className="flex gap-0.5">
-          {(theme?.preview || []).map((c, i) => (
-            <span key={i} className="w-2.5 h-2.5 rounded-full border border-black/10" style={{ backgroundColor: c }} />
-          ))}
-        </span>
-        <span className="hidden sm:inline">{theme?.name}</span>
-        <Palette className="w-3 h-3" />
-      </button>
-    );
+    return <MidnightToggle />;
   }
 
   // Full grid for settings pages
