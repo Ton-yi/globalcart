@@ -6,6 +6,7 @@ import { ShoppingBag, Truck, Package, ArrowRight, Bell, CheckCircle, Clock, Glob
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import ThemeSelector from "@/components/common/ThemeSelector";
 
 const STATUS_LABELS = {
   draft: "草稿", submitted: "已提交", price_confirmed: "已报价",
