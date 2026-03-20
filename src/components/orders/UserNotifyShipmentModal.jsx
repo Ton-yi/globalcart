@@ -116,26 +116,33 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
   const isMulti = targetOrders.length > 1;
 
   const [method, setMethod] = useState(targetOrders[0]?.shipping_method || "");
-  const [consolidation, setConsolidation] = useState(false);
+  // consType: "" = no consolidation, "transit" = to transit, "other" = to other address
+  const [consType, setConsType] = useState("");
   const [deadline, setDeadline] = useState("");
   const [minWeight, setMinWeight] = useState("2000");
-  const [consMethod, setConsMethod] = useState(""); // consolidation-specific method (optional)
-  const [consMethodFallback, setConsMethodFallback] = useState(""); // secondary method fallback
+  const [consMethod, setConsMethod] = useState("");
+  const [consMethodFallback, setConsMethodFallback] = useState("");
   const [timeoutAction, setTimeoutAction] = useState("ship_individually");
-  const [timeoutMethod, setTimeoutMethod] = useState(""); // if timeout=ship_individually, which method
+  const [timeoutMethod, setTimeoutMethod] = useState("");
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  // Saved addresses
+  // Saved addresses & transit locations
   const [savedAddresses, setSavedAddresses] = useState([]);
   const [selectedAddress, setSelectedAddress] = useState("");
+  const [transitLocations, setTransitLocations] = useState([]);
+  const [selectedTransitId, setSelectedTransitId] = useState("");
 
   useEffect(() => {
     base44.auth.me().then(async u => {
-      const prefs = await base44.entities.UserPreference.filter({ user_email: u.email });
+      const [prefs, locs] = await Promise.all([
+        base44.entities.UserPreference.filter({ user_email: u.email }),
+        base44.entities.TransitLocation.filter({ is_active: true }),
+      ]);
       if (prefs.length > 0 && prefs[0].saved_addresses) {
         setSavedAddresses(prefs[0].saved_addresses);
       }
+      setTransitLocations(locs);
     }).catch(() => {});
   }, []);
 
