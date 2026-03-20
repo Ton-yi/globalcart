@@ -379,7 +379,11 @@ export default function ShippingPool() {
                             <MapPin className="w-3.5 h-3.5 text-gray-400" />
                             最终收货地址（货品从中转地发往此处）
                           </Label>
-                          <Select value={form.final_address_id || ""} onValueChange={v => f("final_address_id", v)}>
+                          <Select value={form.final_address_id || ""} onValueChange={v => {
+                              f("final_address_id", v);
+                              const addr = savedAddresses.find(a => a.id === v);
+                              if (addr?.country) setForm(p => ({ ...p, final_address_id: v, destination_country: addr.country }));
+                            }}>
                             <SelectTrigger className="bg-white"><SelectValue placeholder="选择地址簿中的收货地址" /></SelectTrigger>
                             <SelectContent>
                               {savedAddresses.map(a => (
