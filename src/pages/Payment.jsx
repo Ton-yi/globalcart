@@ -91,8 +91,8 @@ export default function Payment() {
 
   if (loading) return <div className="text-center py-20 text-gray-400">加载中...</div>;
 
-  const cur = order?.prepayment_currency || "CNY";
-  const amount = order?.prepayment_amount?.toFixed(2) || "0.00";
+  const cur = "JPY";
+  const amount = order?.prepayment_amount?.toFixed(0) || "0";
 
   // Alipay gateway info from settings
   const alipayAccount = settings["alipay_account"] || "";
