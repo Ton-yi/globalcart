@@ -151,6 +151,20 @@ export default function AdminSettings() {
         </Card>
       )}
 
+      {activeTab === "theme" && (
+        <Card className="border-gray-200">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+              <Palette className="w-4 h-4 text-purple-500" />界面主题
+            </CardTitle>
+            <p className="text-xs text-gray-400 mt-1">选择网站整体视觉风格，设置仅对当前浏览器生效</p>
+          </CardHeader>
+          <CardContent>
+            <ThemeSelector />
+          </CardContent>
+        </Card>
+      )}
+
       {activeTab === "general" && loading && (
         <p className="text-gray-400 text-sm">加载中...</p>
       )}
