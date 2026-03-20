@@ -88,23 +88,11 @@ export default function CountrySelect({
       ? selectedZone.name
       : null;
 
-  return (
-    <div ref={ref} className={`relative ${className}`}>
-      <button
-        type="button"
-        onClick={() => setOpen(o => !o)}
-        className={`flex w-full items-center justify-between whitespace-nowrap rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring ${compact ? "h-7 text-xs px-2" : "h-9"}`}
-      >
-        {displayLabel ? (
-          <span>{displayLabel}</span>
-        ) : (
-          <span className="text-muted-foreground text-xs">{placeholder}</span>
-        )}
-        <ChevronDown className="h-3.5 w-3.5 opacity-50 flex-shrink-0 ml-1" />
-      </button>
-
-      {open && (
-        <div className="absolute z-50 mt-1 w-full min-w-[240px] rounded-md border bg-popover text-popover-foreground shadow-md">
+  const dropdown = open && createPortal(
+    <div
+      style={dropdownStyle}
+      className="rounded-md border bg-popover text-popover-foreground shadow-md"
+    >
           {/* Search */}
           <div className="flex items-center border-b px-3 py-2 gap-2">
             <Search className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
