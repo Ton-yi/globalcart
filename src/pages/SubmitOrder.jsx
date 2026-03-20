@@ -13,13 +13,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 
-const SERVICE_FEE_RATE = 0.10;
-const PREPAY_RATE = 0.80;
+// Default rates (overridden by settings)
+const DEFAULT_SERVICE_FEE_RATE = 0.10;
+const DEFAULT_PREPAY_RATE = 0.80;
 
 export default function SubmitOrder() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [rates, setRates] = useState(null);
+  const [settings, setSettings] = useState({});
   const [productUrls, setProductUrls] = useState([""]);
   const [urlMode, setUrlMode] = useState("multi"); // "textarea" | "multi"
   const [addonOptions, setAddonOptions] = useState([]);
@@ -37,8 +39,17 @@ export default function SubmitOrder() {
 
   useEffect(() => {
     base44.auth.me().then(setUser).catch(() => base44.auth.redirectToLogin());
-    base44.entities.AddonOption.filter({ is_active: true }).then(setAddonOptions).catch(() => {});
-    getRatesWithIncrements().then(setRates).catch(() => {});
+    Promise.all([
+      base44.entities.AddonOption.filter({ is_active: true }),
+      getRatesWithIncrements(),
+      base44.entities.SiteSettings.list()
+    ]).then(([addons, rates, settingsList]) => {
+      setAddonOptions(addons);
+      setRates(rates);
+      const settingsMap = {};
+      settingsList.forEach(s => { settingsMap[s.key] = parseFloat(s.value) || 0; });
+      setSettings(settingsMap);
+    }).catch(() => {});
   }, []);
 
   // Convert addon fee to JPY (all calculations in JPY)
@@ -61,22 +72,26 @@ export default function SubmitOrder() {
   const calculate = () => {
     const jpy = parseFloat(form.estimated_jpy);
     if (!jpy || jpy <= 0) { setCalculated(null); return; }
-    // Calculate all fees in JPY, then convert if needed
-    const serviceFeeJpy = jpy * SERVICE_FEE_RATE;
+    // Get rates from settings
+    const serviceFeeRate = (settings.service_fee_rate || DEFAULT_SERVICE_FEE_RATE) / 100;
+    const prepayRate = (settings.prepay_rate || DEFAULT_PREPAY_RATE) / 100;
+    // Calculate all fees in JPY
+    const serviceFeeJpy = jpy * serviceFeeRate;
     const addonTotalJpy = getAddonTotal();
     const totalJpy = jpy + serviceFeeJpy + addonTotalJpy;
-    const prepayJpy = totalJpy * PREPAY_RATE;
+    const prepayJpy = totalJpy * prepayRate;
     setCalculated({
       jpy: jpy,
       serviceFeeJpy: serviceFeeJpy.toFixed(2),
       addonTotal: addonTotalJpy.toFixed(2),
       totalJpy: totalJpy.toFixed(2),
       prepayJpy: prepayJpy.toFixed(2),
-      feeRate: (SERVICE_FEE_RATE * 100).toFixed(0)
+      feeRate: (serviceFeeRate * 100).toFixed(0),
+      prepayRate: (prepayRate * 100).toFixed(0)
     });
   };
 
-  useEffect(() => { if (form.estimated_jpy) calculate(); }, [form.estimated_jpy, selectedAddons]);
+  useEffect(() => { if (form.estimated_jpy) calculate(); }, [form.estimated_jpy, selectedAddons, settings]);
 
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
@@ -129,7 +144,7 @@ export default function SubmitOrder() {
       user_name: user.full_name || user.email,
       quantity: 1,
       estimated_jpy: parseFloat(form.estimated_jpy) || 0,
-      service_fee_rate: SERVICE_FEE_RATE * 100,
+      service_fee_rate: settings.service_fee_rate || (DEFAULT_SERVICE_FEE_RATE * 100),
       prepayment_amount: calculated ? parseFloat(calculated.prepayJpy) : 0,
       prepayment_currency: "JPY",
       payment_mode: isDeferred ? "deferred" : "prepay",
@@ -154,7 +169,7 @@ export default function SubmitOrder() {
       <Alert className="border-blue-200 bg-blue-50">
          <Info className="w-4 h-4 text-blue-600" />
          <AlertDescription className="text-blue-800 text-sm">
-           预付款 = (日元货款总价 + {SERVICE_FEE_RATE * 100}% 服务费 + 增值费用) × 80%。订单确认后可补款或抵扣余额。
+           预付款 = (日元货款总价 + {settings.service_fee_rate || (DEFAULT_SERVICE_FEE_RATE * 100)}% 服务费 + 增值费用) × {settings.prepay_rate || (DEFAULT_PREPAY_RATE * 100)}%。订单确认后可补款或抵扣余额。
          </AlertDescription>
        </Alert>
 
@@ -309,7 +324,7 @@ export default function SubmitOrder() {
               </div>
               {/* Prepay highlight */}
               <div className="flex items-center justify-between bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3">
-                <span className="text-sm text-gray-700 font-medium">预付款 (80%)</span>
+                <span className="text-sm text-gray-700 font-medium">预付款 ({calculated.prepayRate}%)</span>
                 <span className="text-lg font-bold text-red-600">¥{calculated.prepayJpy}</span>
               </div>
             </CardContent>
