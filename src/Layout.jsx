@@ -5,7 +5,7 @@ import { base44 } from "@/api/base44Client";
 import { 
   ShoppingBag, Package, Truck, User, Settings, 
   Bell, LogOut, Menu, X, ChevronDown, Shield,
-  Home, Users, BarChart3, Store, Layers
+  Home, Users, BarChart3, Store, Layers, Send
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,7 +28,7 @@ export default function Layout({ children, currentPageName }) {
     { label: "首页", icon: Home, page: "Home" },
     { label: "提交需求", icon: ShoppingBag, page: "SubmitOrder" },
     { label: "我的订单", icon: Package, page: "MyOrders" },
-    { label: "发货需求", icon: Truck, page: "ShippingRequests" },
+    { label: "发货申请", icon: Send, page: "ShippingPool" },
     { label: "拼邮池", icon: Layers, page: "ConsolidationPool" },
     { label: "个人设置", icon: User, page: "UserPreferences" },
   ];
@@ -37,6 +37,7 @@ export default function Layout({ children, currentPageName }) {
     { label: "管理总览", icon: BarChart3, page: "AdminDashboard" },
     { label: "订单管理", icon: Package, page: "AdminOrders" },
     { label: "发货管理", icon: Truck, page: "AdminShipping" },
+    { label: "发货池", icon: Send, page: "AdminShippingPool" },
     { label: "用户管理", icon: Users, page: "AdminUsers" },
     { label: "公告管理", icon: Bell, page: "AdminAnnouncements" },
     { label: "网站设置", icon: Settings, page: "AdminSettings" },
