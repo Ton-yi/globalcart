@@ -288,6 +288,9 @@ export default function AdminShippingPool() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-medium text-gray-800">{loc.name}</span>
+                      {loc.code_prefix && (
+                        <Badge className="text-xs bg-purple-100 text-purple-700 font-mono">{loc.code_prefix}</Badge>
+                      )}
                       {(loc.country || loc.province) && (
                         <Badge variant="outline" className="text-xs">
                           {[getCountry(loc.country)?.name || loc.country, loc.province].filter(Boolean).join(" · ")}
