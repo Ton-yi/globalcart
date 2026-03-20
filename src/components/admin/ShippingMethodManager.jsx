@@ -1,10 +1,10 @@
 /**
  * ShippingMethodManager - Admin only
- * Manage shipping methods with simple/detailed rate configuration
+ * Manage shipping methods with zone-based rate configuration aligned with lib/countries.js
  */
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Plus, Trash2, Edit2, ChevronDown, ChevronUp, Check, X } from "lucide-react";
+import { Plus, Trash2, Edit2, ChevronDown, ChevronUp, Check, X, Download, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,8 +12,18 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import CountrySelect from "@/components/common/CountrySelect";
+import { getCountry, getCountryZone, EMS_RATES, COUNTRY_ZONES, ALL_COUNTRIES } from "@/lib/countries";
 
 const CURRENCIES = ["JPY", "CNY", "USD", "TWD", "HKD", "EUR"];
+
+const ZONE_LABELS = {
+  zone1: "第1地帯",
+  zone2: "第2地帯",
+  zone3: "第3地帯",
+  zone4: "第4地帯",
+  zone5: "第5地帯",
+};
 
 const DEFAULT_METHODS = [
   { name: "EMS空运", code: "EMS", icon: "Plane", color: "#2563EB", transit_days: "5-10个工作日", description: "日本邮政EMS国际特快专递，速度快，适合贵重物品", is_active: true, rate_mode: "simple", simple_rates: [], detailed_rates: [] },
@@ -21,12 +31,66 @@ const DEFAULT_METHODS = [
   { name: "小型包装物空运", code: "small_packet_air", icon: "Package", color: "#7C3AED", transit_days: "10-20个工作日", description: "小型包裹空运，价格适中，适合轻小件", is_active: true, rate_mode: "simple", simple_rates: [], detailed_rates: [] },
 ];
 
+/** Generate detailed_rates for EMS from lib/countries.js EMS_RATES, per zone */
+function generateEMSDetailedRates() {
+  const rates = [];
+  Object.entries(EMS_RATES).forEach(([zone, brackets]) => {
+    // Use zone as the "country" key (e.g. "zone1"), so one row per zone per bracket
+    // But for display purposes we use zone codes
+    // We'll use one row per zone bracket with country = zone code
+    brackets.forEach((b, idx) => {
+      const from = idx === 0 ? 0 : brackets[idx - 1].maxWeight;
+      rates.push({
+        country: zone, // zone code as country key
+        weight_from_g: from,
+        weight_to_g: b.maxWeight,
+        fee: b.fee,
+        currency: "JPY",
+      });
+    });
+  });
+  return rates;
+}
+
+/** Generate simple_rates for EMS: one row per zone using first-weight style */
+function generateEMSSimpleRatesByZone() {
+  return Object.entries(EMS_RATES).map(([zone, brackets]) => {
+    // first bracket as base, next bracket delta as additional
+    const first = brackets[0];
+    const second = brackets[1];
+    const addUnit = second ? (second.maxWeight - first.maxWeight) : 500;
+    const addFee = second ? (second.fee - first.fee) : 0;
+    return {
+      country: zone,
+      first_weight_g: first.maxWeight,
+      first_weight_fee: first.fee,
+      additional_unit_g: addUnit,
+      additional_unit_fee: addFee,
+      currency: "JPY",
+    };
+  });
+}
+
+function countryLabel(code) {
+  if (!code) return "";
+  // If it looks like a zone code
+  if (ZONE_LABELS[code]) return ZONE_LABELS[code];
+  const c = getCountry(code);
+  return c ? c.name : code;
+}
+
 function RateRow({ rate, onChange, onDelete }) {
   return (
     <div className="grid grid-cols-6 gap-1.5 items-end">
       <div>
-        <Label className="text-xs text-gray-400">国家</Label>
-        <Input className="h-7 text-xs mt-0.5" value={rate.country || ""} onChange={e => onChange({ ...rate, country: e.target.value })} placeholder="China" />
+        <Label className="text-xs text-gray-400">国家/地带</Label>
+        <CountrySelect
+          value={rate.country || ""}
+          onChange={v => onChange({ ...rate, country: v })}
+          placeholder="选择"
+          className="mt-0.5"
+          compact
+        />
       </div>
       <div>
         <Label className="text-xs text-gray-400">首重(g)</Label>
@@ -62,15 +126,21 @@ function DetailedRateRow({ rate, onChange, onDelete }) {
   return (
     <div className="grid grid-cols-5 gap-1.5 items-end">
       <div>
-        <Label className="text-xs text-gray-400">国家</Label>
-        <Input className="h-7 text-xs mt-0.5" value={rate.country || ""} onChange={e => onChange({ ...rate, country: e.target.value })} placeholder="China" />
+        <Label className="text-xs text-gray-400">国家/地带</Label>
+        <CountrySelect
+          value={rate.country || ""}
+          onChange={v => onChange({ ...rate, country: v })}
+          placeholder="选择"
+          className="mt-0.5"
+          compact
+        />
       </div>
       <div>
-        <Label className="text-xs text-gray-400">起始重量(g)</Label>
+        <Label className="text-xs text-gray-400">起始(g)</Label>
         <Input type="number" className="h-7 text-xs mt-0.5" value={rate.weight_from_g || ""} onChange={e => onChange({ ...rate, weight_from_g: parseFloat(e.target.value) || 0 })} placeholder="0" />
       </div>
       <div>
-        <Label className="text-xs text-gray-400">结束重量(g)</Label>
+        <Label className="text-xs text-gray-400">结束(g)</Label>
         <Input type="number" className="h-7 text-xs mt-0.5" value={rate.weight_to_g || ""} onChange={e => onChange({ ...rate, weight_to_g: parseFloat(e.target.value) || 0 })} placeholder="1000" />
       </div>
       <div>
@@ -127,12 +197,22 @@ function MethodCard({ method, onSave, onDelete }) {
     setForm(p => ({ ...p, detailed_rates: (p.detailed_rates || []).filter((_, i) => i !== idx) }));
   };
 
+  const handleImportEMS = () => {
+    if (form.rate_mode === "simple") {
+      setForm(p => ({ ...p, simple_rates: generateEMSSimpleRatesByZone() }));
+    } else {
+      setForm(p => ({ ...p, detailed_rates: generateEMSDetailedRates() }));
+    }
+  };
+
   const handleSave = async () => {
     setSaving(true);
     await onSave(form);
     setEditing(false);
     setSaving(false);
   };
+
+  const isEMS = method.code === "EMS";
 
   return (
     <div className={`border rounded-xl overflow-hidden ${method.is_active ? "border-gray-200" : "border-gray-100 opacity-60"}`}>
@@ -150,6 +230,8 @@ function MethodCard({ method, onSave, onDelete }) {
             <Badge className={`text-xs ${method.rate_mode === "detailed" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"}`}>
               {method.rate_mode === "detailed" ? "详细费率" : "简易费率"}
             </Badge>
+            {method.simple_rates?.length > 0 && <Badge className="text-xs bg-green-100 text-green-700">{method.simple_rates.length} 条费率</Badge>}
+            {method.detailed_rates?.length > 0 && <Badge className="text-xs bg-green-100 text-green-700">{method.detailed_rates.length} 条区间</Badge>}
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
@@ -206,27 +288,38 @@ function MethodCard({ method, onSave, onDelete }) {
                     <label key={mode} className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer text-sm ${form.rate_mode === mode ? "border-red-300 bg-red-50 text-red-700" : "border-gray-200 text-gray-600"}`}>
                       <input type="radio" className="hidden" checked={form.rate_mode === mode} onChange={() => f("rate_mode", mode)} />
                       {form.rate_mode === mode && <Check className="w-3.5 h-3.5" />}
-                      {mode === "simple" ? "简易设置" : "详细设置"}
+                      {mode === "simple" ? "简易设置（首重+续重）" : "详细设置（按重量区间）"}
                     </label>
                   ))}
                 </div>
               </div>
 
+              {/* EMS import button */}
+              {isEMS && (
+                <div className="flex items-center gap-3 bg-blue-50 border border-blue-100 rounded-lg p-3">
+                  <Info className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                  <span className="text-xs text-blue-700 flex-1">EMS 方式可直接从日本邮政官方费率表（lib/countries.js）导入，按5个地带自动生成费率。</span>
+                  <Button size="sm" variant="outline" className="h-7 text-xs border-blue-300 text-blue-700 hover:bg-blue-100 flex-shrink-0" onClick={handleImportEMS}>
+                    <Download className="w-3 h-3 mr-1" />导入官方费率
+                  </Button>
+                </div>
+              )}
+
               {/* Simple rates */}
               {form.rate_mode === "simple" && (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label className="text-xs text-gray-500 font-medium">按国家费率（简易）</Label>
+                    <Label className="text-xs text-gray-500 font-medium">按国家/地带费率（简易）</Label>
                     <Button size="sm" variant="outline" className="h-6 text-xs" onClick={addSimpleRate}>
-                      <Plus className="w-3 h-3 mr-1" />添加国家
+                      <Plus className="w-3 h-3 mr-1" />添加
                     </Button>
                   </div>
-                  <div className="text-xs text-gray-400 mb-1">首重费 + 续重费 × ((实重 - 首重) / 续重单位)</div>
+                  <p className="text-xs text-gray-400">费率 = 首重费 + 续重费 × ceil((实重 - 首重) / 续重单位)。国家字段支持输入国家代码(CN/US)或地带代码(zone1~zone5)。</p>
                   {(form.simple_rates || []).map((rate, idx) => (
                     <RateRow key={idx} rate={rate} onChange={u => updateSimpleRate(idx, u)} onDelete={() => deleteSimpleRate(idx)} />
                   ))}
                   {(form.simple_rates || []).length === 0 && (
-                    <p className="text-xs text-gray-400 py-2">暂无费率，点击"添加国家"</p>
+                    <p className="text-xs text-gray-400 py-2">暂无费率，点击"添加"或使用上方导入功能</p>
                   )}
                 </div>
               )}
@@ -240,11 +333,14 @@ function MethodCard({ method, onSave, onDelete }) {
                       <Plus className="w-3 h-3 mr-1" />添加区间
                     </Button>
                   </div>
-                  {(form.detailed_rates || []).map((rate, idx) => (
-                    <DetailedRateRow key={idx} rate={rate} onChange={u => updateDetailedRate(idx, u)} onDelete={() => deleteDetailedRate(idx)} />
-                  ))}
+                  <p className="text-xs text-gray-400">国家字段支持输入国家代码(CN/US)或地带代码(zone1~zone5)。</p>
+                  <div className="max-h-80 overflow-y-auto space-y-1.5 pr-1">
+                    {(form.detailed_rates || []).map((rate, idx) => (
+                      <DetailedRateRow key={idx} rate={rate} onChange={u => updateDetailedRate(idx, u)} onDelete={() => deleteDetailedRate(idx)} />
+                    ))}
+                  </div>
                   {(form.detailed_rates || []).length === 0 && (
-                    <p className="text-xs text-gray-400 py-2">暂无区间，点击"添加区间"</p>
+                    <p className="text-xs text-gray-400 py-2">暂无区间，点击"添加区间"或使用上方导入功能</p>
                   )}
                 </div>
               )}
@@ -267,7 +363,7 @@ function MethodCard({ method, onSave, onDelete }) {
                     <table className="text-xs w-full">
                       <thead>
                         <tr className="text-gray-400 border-b border-gray-200">
-                          <th className="text-left py-1 pr-3">国家</th>
+                          <th className="text-left py-1 pr-3">国家/地带</th>
                           <th className="text-right py-1 pr-3">首重</th>
                           <th className="text-right py-1 pr-3">首重费</th>
                           <th className="text-right py-1 pr-3">续重单位</th>
@@ -277,7 +373,7 @@ function MethodCard({ method, onSave, onDelete }) {
                       <tbody>
                         {method.simple_rates.map((r, i) => (
                           <tr key={i} className="border-b border-gray-50">
-                            <td className="py-1 pr-3">{r.country}</td>
+                            <td className="py-1 pr-3">{countryLabel(r.country)}</td>
                             <td className="text-right py-1 pr-3">{r.first_weight_g}g</td>
                             <td className="text-right py-1 pr-3">{r.currency} {r.first_weight_fee}</td>
                             <td className="text-right py-1 pr-3">{r.additional_unit_g}g</td>
@@ -291,12 +387,12 @@ function MethodCard({ method, onSave, onDelete }) {
               )}
               {method.rate_mode === "detailed" && (method.detailed_rates || []).length > 0 && (
                 <div>
-                  <p className="text-xs font-medium text-gray-500 mb-2">详细费率</p>
-                  <div className="overflow-x-auto">
+                  <p className="text-xs font-medium text-gray-500 mb-2">详细费率（{method.detailed_rates.length} 条）</p>
+                  <div className="overflow-x-auto max-h-60 overflow-y-auto">
                     <table className="text-xs w-full">
-                      <thead>
+                      <thead className="sticky top-0 bg-gray-50">
                         <tr className="text-gray-400 border-b border-gray-200">
-                          <th className="text-left py-1 pr-3">国家</th>
+                          <th className="text-left py-1 pr-3">国家/地带</th>
                           <th className="text-right py-1 pr-3">起始重量</th>
                           <th className="text-right py-1 pr-3">结束重量</th>
                           <th className="text-right py-1">运费</th>
@@ -305,7 +401,7 @@ function MethodCard({ method, onSave, onDelete }) {
                       <tbody>
                         {method.detailed_rates.map((r, i) => (
                           <tr key={i} className="border-b border-gray-50">
-                            <td className="py-1 pr-3">{r.country}</td>
+                            <td className="py-1 pr-3">{countryLabel(r.country)}</td>
                             <td className="text-right py-1 pr-3">{r.weight_from_g}g</td>
                             <td className="text-right py-1 pr-3">{r.weight_to_g}g</td>
                             <td className="text-right py-1">{r.currency} {r.fee}</td>
@@ -316,10 +412,10 @@ function MethodCard({ method, onSave, onDelete }) {
                   </div>
                 </div>
               )}
-              {(method.rate_mode === "simple" && (!method.simple_rates || method.simple_rates.length === 0)) ||
-               (method.rate_mode === "detailed" && (!method.detailed_rates || method.detailed_rates.length === 0)) ? (
+              {((method.rate_mode === "simple" && (!method.simple_rates || method.simple_rates.length === 0)) ||
+               (method.rate_mode === "detailed" && (!method.detailed_rates || method.detailed_rates.length === 0))) && (
                 <p className="text-xs text-gray-400 italic">暂未设置费率，点击编辑添加</p>
-              ) : null}
+              )}
             </div>
           )}
         </div>
@@ -373,7 +469,7 @@ export default function ShippingMethodManager() {
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm font-semibold text-gray-700">运输方式管理</p>
-          <p className="text-xs text-gray-400 mt-0.5">管理可用运输方式及费率设置</p>
+          <p className="text-xs text-gray-400 mt-0.5">国家/地带代码与 lib/countries.js 中的日邮地带规则一致（zone1~zone5）</p>
         </div>
         <Button size="sm" variant="outline" onClick={() => setShowAdd(v => !v)}>
           <Plus className="w-3.5 h-3.5 mr-1.5" />添加运输方式
