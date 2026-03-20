@@ -3,8 +3,8 @@
  * Supports single or multiple orders.
  * Includes natural-language combined shipping (拼邮) configuration.
  */
-import { useState } from "react";
-import { X, Truck, Package } from "lucide-react";
+import { useState, useEffect } from "react";
+import { X, Truck, Package, MapPin, ChevronDown } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -20,9 +20,20 @@ const SHIPPING_METHODS = [
 
 const TIMEOUT_ACTIONS = [
   { value: "ship_individually", label: "单独发货" },
-  { value: "next_consolidation", label: "加入下一次拼邮" },
+  { value: "next_consolidation", label: "加入下一次最快发出的拼邮" },
   { value: "return_to_storage", label: "退回仓库暂存" },
 ];
+
+// Clamp a date string to 4-digit year
+function clampYear(dateStr) {
+  if (!dateStr) return dateStr;
+  const parts = dateStr.split("-");
+  if (parts[0] && parts[0].length > 4) {
+    parts[0] = parts[0].slice(0, 4);
+    return parts.join("-");
+  }
+  return dateStr;
+}
 
 // Inline editable token
 function Token({ value, onChange, type = "text", options, placeholder, suffix }) {
@@ -36,6 +47,19 @@ function Token({ value, onChange, type = "text", options, placeholder, suffix })
           {options.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
         </SelectContent>
       </Select>
+    );
+  }
+  if (type === "date") {
+    return (
+      <span className="inline-flex items-center gap-0.5">
+        <input
+          type="date"
+          value={value || ""}
+          onChange={e => onChange(clampYear(e.target.value))}
+          className="inline-block border-0 border-b-2 border-dashed border-blue-400 bg-blue-50 text-blue-700 font-medium text-sm px-1 rounded-none focus:outline-none focus:border-blue-600"
+          style={{ width: "130px" }}
+        />
+      </span>
     );
   }
   return (
@@ -53,24 +77,83 @@ function Token({ value, onChange, type = "text", options, placeholder, suffix })
   );
 }
 
+// Deadline token that shows "任何时候" until clicked
+function DeadlineToken({ value, onChange }) {
+  const [editing, setEditing] = useState(false);
+
+  if (!editing && !value) {
+    return (
+      <button
+        type="button"
+        onClick={() => setEditing(true)}
+        className="inline-flex items-center gap-0.5 border-0 border-b-2 border-dashed border-blue-400 bg-blue-50 text-blue-700 font-medium text-sm px-2 h-7 rounded-none hover:bg-blue-100"
+      >
+        任何时候
+      </button>
+    );
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1">
+      <input
+        type="date"
+        value={value || ""}
+        onChange={e => onChange(clampYear(e.target.value))}
+        autoFocus={editing}
+        className="inline-block border-0 border-b-2 border-dashed border-blue-400 bg-blue-50 text-blue-700 font-medium text-sm px-1 rounded-none focus:outline-none focus:border-blue-600"
+        style={{ width: "140px" }}
+      />
+      {value && (
+        <button type="button" onClick={() => { onChange(""); setEditing(false); }}
+          className="text-blue-400 hover:text-blue-600 text-xs">×</button>
+      )}
+    </span>
+  );
+}
+
 export default function UserNotifyShipmentModal({ order, orders, onClose, onSuccess }) {
-  // Support single order (order) or multiple (orders)
   const targetOrders = orders || (order ? [order] : []);
   const isMulti = targetOrders.length > 1;
 
   const [method, setMethod] = useState(targetOrders[0]?.shipping_method || "");
   const [consolidation, setConsolidation] = useState(false);
   const [deadline, setDeadline] = useState("");
-  const [minWeight, setMinWeight] = useState("");
+  const [minWeight, setMinWeight] = useState("2000");
+  const [consMethod, setConsMethod] = useState(""); // consolidation-specific method (optional)
   const [timeoutAction, setTimeoutAction] = useState("ship_individually");
+  const [timeoutMethod, setTimeoutMethod] = useState(""); // if timeout=ship_individually, which method
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  // Saved addresses
+  const [savedAddresses, setSavedAddresses] = useState([]);
+  const [selectedAddress, setSelectedAddress] = useState("");
+
+  useEffect(() => {
+    base44.auth.me().then(async u => {
+      const prefs = await base44.entities.UserPreference.filter({ user_email: u.email });
+      if (prefs.length > 0 && prefs[0].saved_addresses) {
+        setSavedAddresses(prefs[0].saved_addresses);
+      }
+    }).catch(() => {});
+  }, []);
+
+  const handleAddressSelect = (val) => {
+    setSelectedAddress(val);
+    if (val) {
+      const addr = savedAddresses.find(a => a.id === val);
+      if (addr) setNote(addr.full_text || "");
+    }
+  };
 
   const hasConsolidationConditions = consolidation && (deadline || minWeight);
 
   const handleSubmit = async () => {
     if (!method) return;
     setSubmitting(true);
+
+    // Effective method for consolidation: consMethod if set, else method
+    const effectiveConsMethod = consMethod || method;
 
     const updates = {
       shipping_method: method,
@@ -92,12 +175,9 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
     onSuccess?.();
   };
 
-  const methodLabel = SHIPPING_METHODS.find(m => m.value === method)?.label || "";
-  const timeoutLabel = TIMEOUT_ACTIONS.find(a => a.value === timeoutAction)?.label || "";
-
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b">
           <div>
@@ -156,36 +236,52 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
             <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 space-y-3">
               <p className="text-xs text-blue-500 font-medium uppercase tracking-wide">拼邮配置</p>
 
-              {/* Main sentence */}
+              {/* Deadline sentence */}
               <div className="text-sm text-gray-700 leading-8 flex flex-wrap items-center gap-x-1.5">
                 <span>在</span>
-                <Token
-                  type="date"
-                  value={deadline}
-                  onChange={setDeadline}
-                  placeholder="截止日期"
-                />
+                <DeadlineToken value={deadline} onChange={setDeadline} />
                 <span>前拼邮发出，</span>
               </div>
 
+              {/* Shipping method - always show "任何运输方式" as default */}
               <div className="text-sm text-gray-700 leading-8 flex flex-wrap items-center gap-x-1.5">
                 <span>使用</span>
-                <Token
-                  value={method}
-                  onChange={setMethod}
-                  options={SHIPPING_METHODS}
-                  placeholder="发货方式"
-                />
+                <Select value={consMethod} onValueChange={setConsMethod}>
+                  <SelectTrigger className="inline-flex h-7 border-0 border-b-2 border-dashed border-blue-400 rounded-none bg-blue-50 text-blue-700 font-medium text-sm px-2 w-auto min-w-[120px] focus:ring-0 focus:border-blue-600">
+                    <SelectValue placeholder="任何运输方式" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="any">任何运输方式</SelectItem>
+                    {SHIPPING_METHODS.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                {/* Only show "or [method]" if a specific method was chosen */}
+                {consMethod && consMethod !== "any" && (
+                  <>
+                    <span className="text-gray-400">或</span>
+                    <Select value={""} onValueChange={() => {}}>
+                      <SelectTrigger className="inline-flex h-7 border-0 border-b-2 border-dashed border-gray-300 rounded-none bg-gray-50 text-gray-500 font-medium text-sm px-2 w-auto min-w-[100px] focus:ring-0">
+                        <SelectValue placeholder="可留空" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {SHIPPING_METHODS.filter(m => m.value !== consMethod).map(m => (
+                          <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </>
+                )}
                 <span>，</span>
               </div>
 
+              {/* Min weight */}
               <div className="text-sm text-gray-700 leading-8 flex flex-wrap items-center gap-x-1.5">
                 <span>凑满</span>
                 <Token
                   type="number"
                   value={minWeight}
                   onChange={setMinWeight}
-                  placeholder="重量"
+                  placeholder="2000"
                   suffix="g"
                 />
                 <span>时发货。</span>
@@ -193,24 +289,59 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
 
               {/* Timeout condition */}
               {hasConsolidationConditions && (
-                <div className="text-sm text-gray-700 leading-8 flex flex-wrap items-center gap-x-1.5 pt-1 border-t border-blue-100">
-                  <span className="text-gray-500">若条件未达成，则</span>
-                  <Token
-                    value={timeoutAction}
-                    onChange={setTimeoutAction}
-                    options={TIMEOUT_ACTIONS}
-                  />
-                  <span>。</span>
+                <div className="space-y-2 pt-1 border-t border-blue-100">
+                  <div className="text-sm text-gray-700 leading-8 flex flex-wrap items-center gap-x-1.5">
+                    <span className="text-gray-500">若条件未达成，则</span>
+                    <Token
+                      value={timeoutAction}
+                      onChange={setTimeoutAction}
+                      options={TIMEOUT_ACTIONS}
+                    />
+                    <span>。</span>
+                  </div>
+                  {/* If "单独发货" is selected, show method picker */}
+                  {timeoutAction === "ship_individually" && (
+                    <div className="text-sm text-gray-700 leading-8 flex flex-wrap items-center gap-x-1.5 pl-2">
+                      <span className="text-gray-500">单独发货方式：</span>
+                      <Select value={timeoutMethod} onValueChange={setTimeoutMethod}>
+                        <SelectTrigger className="inline-flex h-7 border-0 border-b-2 border-dashed border-blue-400 rounded-none bg-blue-50 text-blue-700 font-medium text-sm px-2 w-auto min-w-[120px] focus:ring-0">
+                          <SelectValue placeholder="请选择" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {SHIPPING_METHODS.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           )}
 
+          {/* Saved address picker */}
+          {savedAddresses.length > 0 && (
+            <div>
+              <label className="text-xs text-gray-500 font-medium uppercase tracking-wide flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5" />收货地址
+              </label>
+              <Select value={selectedAddress} onValueChange={handleAddressSelect}>
+                <SelectTrigger className="mt-1.5">
+                  <SelectValue placeholder="选择已保存的收货地址（可选）" />
+                </SelectTrigger>
+                <SelectContent>
+                  {savedAddresses.map(a => (
+                    <SelectItem key={a.id} value={a.id}>{a.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           {/* Note */}
           <div>
-            <label className="text-xs text-gray-500 font-medium uppercase tracking-wide">备注（可选）</label>
+            <label className="text-xs text-gray-500 font-medium uppercase tracking-wide">备注 / 收货地址（可选）</label>
             <Textarea
-              rows={2}
+              rows={3}
               placeholder="收件地址或特殊要求..."
               value={note}
               onChange={e => setNote(e.target.value)}
