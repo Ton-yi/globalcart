@@ -142,11 +142,14 @@ export default function ShippingPool() {
     setSelectedAddressId(id);
     if (id === "__new__") {
       setUseNewAddress(true);
-      setForm(p => ({ ...p, recipient_name: "", recipient_phone: "", address_line1: "", address_line2: "", city: "", state: "", postal_code: "" }));
+      setForm(p => ({ ...p, recipient_name: "", recipient_phone: "", address_line1: "", address_line2: "", city: "", state: "", postal_code: "", destination_country: "" }));
     } else {
       setUseNewAddress(false);
       const addr = savedAddresses.find(a => a.id === id);
-      if (addr) applyAddress(addr);
+      if (addr) {
+        applyAddress(addr);
+        if (addr.country) setForm(p => ({ ...p, destination_country: addr.country }));
+      }
     }
   };
 
