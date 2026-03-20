@@ -181,7 +181,7 @@ export default function OrderDetailDrawer({ order, currentUser, onClose, onActio
 
           {/* Action buttons */}
           <div className="space-y-2 pt-1">
-            {status === "payment_pending" && (
+            {status === "payment_pending" && order.payment_status !== "awaiting_confirmation" && (
               <>
                 {order.payment_due_date && (
                   <div className="text-xs text-orange-600 text-center">
@@ -193,6 +193,12 @@ export default function OrderDetailDrawer({ order, currentUser, onClose, onActio
                   <CreditCard className="w-4 h-4 mr-2" />立即付款
                 </Button>
               </>
+            )}
+            {USER_CAN_RESUBMIT_PROOF_STATUSES.includes(status) && (
+              <Button className="w-full bg-orange-600 hover:bg-orange-700 text-sm"
+                onClick={() => setShowPayment(true)}>
+                <Upload className="w-4 h-4 mr-2" />重新提交付款凭证
+              </Button>
             )}
             {status === "in_warehouse" && (
               <Button className="w-full bg-teal-600 hover:bg-teal-700 text-sm"
