@@ -7,6 +7,7 @@ import {
   Bell, LogOut, Menu, X, ChevronDown, Shield,
   Home, Users, BarChart3, Store, Send
 } from "lucide-react";
+import { MidnightToggle } from "@/components/common/ThemeSelector";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
