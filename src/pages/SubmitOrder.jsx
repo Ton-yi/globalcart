@@ -128,13 +128,11 @@ export default function SubmitOrder() {
       order_number: orderNum,
       user_email: user.email,
       user_name: user.full_name || user.email,
-      quantity: parseInt(form.quantity),
+      quantity: 1,
       estimated_jpy: parseFloat(form.estimated_jpy) || 0,
       service_fee_rate: SERVICE_FEE_RATE * 100,
-      prepayment_amount: calculated
-        ? (form.prepayment_currency === "CNY" ? Math.round(parseFloat(calculated.prepay)) : parseFloat(calculated.prepay))
-        : 0,
-      prepayment_currency: form.prepayment_currency,
+      prepayment_amount: calculated ? parseFloat(calculated.prepayJpy) : 0,
+      prepayment_currency: "JPY",
       payment_mode: isDeferred ? "deferred" : "prepay",
       order_status: isDeferred ? "pending_confirmation" : "payment_pending",
       payment_status: isDeferred ? "pending" : "awaiting_payment",
