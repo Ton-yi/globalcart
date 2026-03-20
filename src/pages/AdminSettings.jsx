@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Settings, Save, Plus, Trash2, Star, Lock, Eye, EyeOff, Truck, Palette } from "lucide-react";
+import { getExchangeRates } from "@/lib/exchangeRates";
+import { Settings, Save, Plus, Trash2, Star, Lock, Eye, EyeOff, Truck, Palette, TrendingUp } from "lucide-react";
 import ThemeSelector from "@/components/common/ThemeSelector";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,9 +15,8 @@ import ShippingMethodManager from "@/components/admin/ShippingMethodManager";
 const DEFAULT_SETTINGS = [
   { key: "service_fee_rate", value: "10", description: "服务费率 (%)", category: "fee" },
   { key: "prepay_rate", value: "80", description: "预付款比率 (%)", category: "fee" },
-  { key: "jpy_usd_rate", value: "0.0067", description: "日元/美元汇率", category: "fee" },
-  { key: "jpy_cny_rate", value: "0.048", description: "日元/人民币汇率", category: "fee" },
-  { key: "jpy_twd_rate", value: "0.22", description: "日元/台币汇率", category: "fee" },
+  { key: "jpy_usd_increment", value: "0", description: "日元/美元汇率增量 (基于实时汇率)", category: "fee" },
+  { key: "jpy_cny_increment", value: "0", description: "日元/人民币汇率增量 (基于实时汇率)", category: "fee" },
   { key: "site_name", value: "同一物流", description: "网站名称", category: "general" },
   { key: "contact_email", value: "", description: "联系邮箱", category: "general" },
   { key: "whatsapp", value: "", description: "WhatsApp", category: "general" },
@@ -47,6 +47,7 @@ export default function AdminSettings() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [showPayment, setShowPayment] = useState(false);
+  const [liveRates, setLiveRates] = useState(null);
   const [newAddon, setNewAddon] = useState({ name: "", description: "", fee: "", fee_currency: "JPY" });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -72,6 +73,7 @@ export default function AdminSettings() {
   useEffect(() => {
     base44.auth.me().then(setUser).catch(() => {});
     load();
+    getExchangeRates().then(setLiveRates).catch(() => {});
   }, []);
 
   const updateSetting = (id, field, value) => {
@@ -171,6 +173,38 @@ export default function AdminSettings() {
 
       {activeTab === "general" && !loading && (
         <>
+          {/* Live Exchange Rates Display */}
+          {liveRates && (
+            <Card className="border-blue-200 bg-blue-50">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-semibold text-blue-800 flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4" />实时汇率 (JPY)
+                </CardTitle>
+                <p className="text-xs text-blue-600 mt-1">自动从国际汇率API获取，每小时更新一次</p>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="text-center">
+                    <div className="text-xs text-blue-600 font-medium">USD</div>
+                    <div className="text-sm font-bold text-blue-900">{(liveRates.jpy_usd || 0).toFixed(6)}</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-xs text-blue-600 font-medium">CNY</div>
+                    <div className="text-sm font-bold text-blue-900">{(liveRates.jpy_cny || 0).toFixed(6)}</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-xs text-blue-600 font-medium">EUR</div>
+                    <div className="text-sm font-bold text-blue-900">{(liveRates.jpy_eur || 0).toFixed(6)}</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-xs text-blue-600 font-medium">TWD</div>
+                    <div className="text-sm font-bold text-blue-900">{(liveRates.jpy_twd || 0).toFixed(6)}</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {Object.entries(grouped).map(([cat, items]) => {
             const isPayment = cat === "payment";
             const isUnlocked = !isPayment || showPayment;
