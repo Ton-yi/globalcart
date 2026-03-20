@@ -609,22 +609,37 @@ export default function ShippingPool() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-              {Object.entries(consGroups).map(([method, groupOrders]) => {
-                const groupWeight = groupOrders.reduce((s, o) => s + (o.weight_g || 0), 0);
-                const minWeight = Math.max(...groupOrders.map(o => o.consolidation_min_weight_g || 0).filter(Boolean));
-                const deadline = groupOrders.map(o => o.consolidation_deadline).filter(Boolean).sort()[0];
+              {pools.filter(p => p.consolidation_type && p.consolidation_type !== "").map(pool => {
+                const poolOrders = (pool.order_ids || [])
+                  .map(id => consolidationOrders.find(o => o.id === id))
+                  .filter(Boolean);
+                if (poolOrders.length === 0) return null;
+                const groupWeight = poolOrders.reduce((s, o) => s + (o.weight_g || 0), 0);
+                const minWeight = Math.max(...poolOrders.map(o => o.consolidation_min_weight_g || 0).filter(Boolean));
+                const deadline = poolOrders.map(o => o.consolidation_deadline).filter(Boolean).sort()[0];
+                const groupLabel = pool.consolidation_type === "transit"
+                  ? (pool.transit_location_name || "中转地")
+                  : (pool.creator_name || pool.creator_email || "用户地址");
                 return (
-                  <div key={method} className="border border-gray-200 rounded-xl overflow-hidden bg-white">
-                    <div className="bg-gray-50 px-4 py-3 flex items-center justify-between border-b">
-                      <div className="flex items-center gap-2">
-                        <Package className="w-4 h-4 text-gray-500" />
-                        <span className="font-medium text-gray-800 text-sm">{METHOD_LABELS[method] || method}</span>
-                        <Badge variant="outline" className="text-xs">{groupOrders.length} 件</Badge>
+                  <div key={pool.id} className="border border-gray-200 rounded-xl overflow-hidden bg-white">
+                    <div className="bg-gray-50 px-4 py-3 border-b">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Package className="w-4 h-4 text-gray-500" />
+                          <span className="font-medium text-gray-800 text-sm">{groupLabel}</span>
+                          {pool.pool_code && (
+                            <span className="text-xs font-mono bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">{pool.pool_code}</span>
+                          )}
+                          <Badge variant="outline" className="text-xs">{poolOrders.length} 件</Badge>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-gray-500">
+                          <span className="flex items-center gap-1"><Scale className="w-3 h-3" />{groupWeight}g</span>
+                          {deadline && <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{deadline}</span>}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2 text-xs text-gray-500">
-                        <span className="flex items-center gap-1"><Scale className="w-3 h-3" />{groupWeight}g</span>
-                        {deadline && <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{deadline}</span>}
-                      </div>
+                      {pool.shipping_method && (
+                        <p className="text-xs text-gray-400 mt-1">{METHOD_LABELS[pool.shipping_method] || pool.shipping_method}</p>
+                      )}
                     </div>
                     {minWeight > 0 && (
                       <div className="px-4 py-2 border-b bg-white">
@@ -637,7 +652,7 @@ export default function ShippingPool() {
                       </div>
                     )}
                     <div className="divide-y divide-gray-50">
-                      {groupOrders.map(o => (
+                      {poolOrders.map(o => (
                         <div key={o.id} className="px-4 py-2.5 flex items-center justify-between">
                           <div className="min-w-0">
                             <p className="text-sm font-medium text-gray-800 truncate">{o.product_name}</p>
@@ -652,7 +667,7 @@ export default function ShippingPool() {
                     </div>
                   </div>
                 );
-              })}
+              }).filter(Boolean)}
             </div>
           )}
         </>
