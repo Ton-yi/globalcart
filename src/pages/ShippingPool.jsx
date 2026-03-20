@@ -450,13 +450,15 @@ export default function ShippingPool() {
                     </>
                   )}
 
-                  {/* Country + method */}
+                  {/* Country (only shown for transit mode; for direct/other it's auto-derived from address) + method */}
                   <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label className="text-xs text-gray-500">目的国家 *</Label>
-                      <CountrySelect value={form.destination_country} onChange={v => f("destination_country", v)} placeholder="选择国家" className="mt-1" />
-                    </div>
-                    <div>
+                    {consType === "transit" && (
+                      <div>
+                        <Label className="text-xs text-gray-500">目的国家 *</Label>
+                        <CountrySelect value={form.destination_country} onChange={v => f("destination_country", v)} placeholder="选择国家" className="mt-1" />
+                      </div>
+                    )}
+                    <div className={consType === "transit" ? "" : "col-span-2"}>
                       <Label className="text-xs text-gray-500">运输方式</Label>
                       <Select value={form.shipping_method} onValueChange={v => f("shipping_method", v)}>
                         <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue placeholder="选择..." /></SelectTrigger>
