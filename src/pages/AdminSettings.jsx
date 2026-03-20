@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Settings, Save, Plus, Trash2, Star, Lock, Eye, EyeOff } from "lucide-react";
+import { Settings, Save, Plus, Trash2, Star, Lock, Eye, EyeOff, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import ShippingMethodManager from "@/components/admin/ShippingMethodManager";
 
 const DEFAULT_SETTINGS = [
   { key: "service_fee_rate", value: "10", description: "服务费率 (%)", category: "fee" },
@@ -32,7 +33,13 @@ const PAYMENT_RESTRICTED_KEYS = ["alipay_account", "alipay_account_name", "alipa
 const CAT_LABELS = { fee: "费率设置", payment: "支付设置", shipping: "运输设置", general: "基本信息" };
 const CAT_COLORS = { fee: "bg-yellow-100 text-yellow-700", payment: "bg-green-100 text-green-700", shipping: "bg-blue-100 text-blue-700", general: "bg-gray-100 text-gray-600" };
 
+const TABS = [
+  { key: "general", label: "基本设置" },
+  { key: "shipping_methods", label: "运输方式" },
+];
+
 export default function AdminSettings() {
+  const [activeTab, setActiveTab] = useState("general");
   const [settings, setSettings] = useState([]);
   const [addons, setAddons] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -117,12 +124,32 @@ export default function AdminSettings() {
     <div className="space-y-5 max-w-2xl">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-gray-900">网站后台设置</h1>
-        <Button className="bg-gray-900 hover:bg-gray-800" size="sm" onClick={handleSaveAll} disabled={saving}>
-          <Save className="w-4 h-4 mr-1.5" />{saved ? "已保存 ✓" : saving ? "保存中..." : "保存全部"}
-        </Button>
+        {activeTab === "general" && (
+          <Button className="bg-gray-900 hover:bg-gray-800" size="sm" onClick={handleSaveAll} disabled={saving}>
+            <Save className="w-4 h-4 mr-1.5" />{saved ? "已保存 ✓" : saving ? "保存中..." : "保存全部"}
+          </Button>
+        )}
       </div>
 
-      {loading ? (
+      {/* Tabs */}
+      <div className="flex gap-1 border-b border-gray-200">
+        {TABS.map(tab => (
+          <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${activeTab === tab.key ? "border-red-600 text-red-600" : "border-transparent text-gray-500 hover:text-gray-800"}`}>
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "shipping_methods" && (
+        <Card className="border-gray-200">
+          <CardContent className="pt-5">
+            <ShippingMethodManager />
+          </CardContent>
+        </Card>
+      )}
+
+      {activeTab === "general" && loading ? (
         <p className="text-gray-400 text-sm">加载中...</p>
       ) : (
         Object.entries(grouped).map(([cat, items]) => {
