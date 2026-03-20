@@ -203,11 +203,9 @@ export default function AdminShippingPool() {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="col-span-2">
+              <div>
                   <Label className="text-xs text-gray-500">负责人（用户）</Label>
                   <Select value={locForm.manager_email} onValueChange={v => {
-                    const u = allUsers.find(u => u.email === v);
                     lf("manager_email", v);
                   }}>
                     <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue placeholder="选择用户..." /></SelectTrigger>
@@ -219,7 +217,6 @@ export default function AdminShippingPool() {
                       ))}
                     </SelectContent>
                   </Select>
-                </div>
               </div>
               <div>
                 <Label className="text-xs text-gray-500">负责人联系方式（微信/Line/WhatsApp等）</Label>
