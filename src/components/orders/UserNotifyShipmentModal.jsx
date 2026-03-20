@@ -154,14 +154,13 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
     }
   };
 
+  const consolidation = consType !== "";
   const hasConsolidationConditions = consolidation && (deadline || minWeight);
 
   const handleSubmit = async () => {
     if (!method) return;
+    if (consType === "transit" && !selectedTransitId) return;
     setSubmitting(true);
-
-    // Effective method for consolidation: consMethod if set, else method
-    const effectiveConsMethod = consMethod || method;
 
     const updates = {
       shipping_method: method,
@@ -170,6 +169,7 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
       ...(consolidation && deadline ? { consolidation_deadline: deadline } : {}),
       ...(consolidation && minWeight ? { consolidation_min_weight_g: parseFloat(minWeight) } : {}),
       ...(hasConsolidationConditions ? { consolidation_timeout_action: timeoutAction } : {}),
+      ...(consType === "transit" ? { consolidation_transit_id: selectedTransitId } : {}),
     };
 
     await Promise.all(
