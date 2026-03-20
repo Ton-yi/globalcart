@@ -179,8 +179,19 @@ export default function ShippingPool() {
 
     const transitLoc = transitLocations.find(l => l.id === form.transit_location_id);
     const isAsap = form.scheduled_ship_date === "__asap__";
+
+    // Generate pool_code
+    const prefix = consType === "transit" && transitLoc?.code_prefix
+      ? transitLoc.code_prefix.toUpperCase()
+      : "AAA";
+    const existingPools = await base44.entities.ShippingPool.list("-created_date", 500);
+    const prefixPools = existingPools.filter(p => p.pool_code && p.pool_code.startsWith(prefix));
+    const nextSeq = (prefixPools.length + 1).toString().padStart(5, "0");
+    const pool_code = `${prefix}${nextSeq}`;
+
     await base44.entities.ShippingPool.create({
       ...form,
+      pool_code,
       scheduled_ship_date: isAsap ? "" : form.scheduled_ship_date,
       asap: isAsap,
       consolidation_type: consType || "",
