@@ -260,7 +260,7 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
                 {consMethod && consMethod !== "any" && (
                   <>
                     <span className="text-gray-400">或</span>
-                    <Select value={""} onValueChange={() => {}}>
+                    <Select value={consMethodFallback} onValueChange={setConsMethodFallback}>
                       <SelectTrigger className="inline-flex h-7 border-0 border-b-2 border-dashed border-gray-300 rounded-none bg-gray-50 text-gray-500 font-medium text-sm px-2 w-auto min-w-[100px] focus:ring-0">
                         <SelectValue placeholder="可留空" />
                       </SelectTrigger>
