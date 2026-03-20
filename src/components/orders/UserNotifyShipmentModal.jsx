@@ -172,7 +172,7 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
       ...(consolidation && deadline ? { consolidation_deadline: deadline } : {}),
       ...(consolidation && minWeight ? { consolidation_min_weight_g: parseFloat(minWeight) } : {}),
       ...(hasConsolidationConditions ? { consolidation_timeout_action: timeoutAction } : {}),
-      ...(consType === "transit" ? { consolidation_transit_id: selectedTransitId } : {}),
+      ...(consType === "transit" ? { consolidation_transit_id: selectedTransitId, consolidation_final_address_id: finalAddressId } : {}),
     };
 
     await Promise.all(
