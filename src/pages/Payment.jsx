@@ -55,7 +55,6 @@ export default function Payment() {
     const res = await base44.functions.invoke('generateAlipayPaymentLink', {
       orderId: order.id,
       amount: order.prepayment_amount,
-      currency: order.prepayment_currency || 'CNY',
       subject: `同一物流代购 - ${order.product_name}`,
     });
     setAlipayUrl(res.data.paymentUrl);

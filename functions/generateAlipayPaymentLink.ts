@@ -64,11 +64,8 @@ Deno.serve(async (req) => {
     const shortId = orderId.replace(/-/g, '').slice(0, 8).toUpperCase();
     const out_trade_no = `TY${shortId}${Date.now()}`;
 
-    // Convert JPY to CNY for Alipay payment
-    // Use standard exchange rate: 1 JPY ≈ 0.048 CNY
-    const JPY_TO_CNY_RATE = 0.048;
-    const amount_jpy = Number(amount);
-    const total_amount = (amount_jpy * JPY_TO_CNY_RATE).toFixed(2);
+    // Use amount directly as JPY for payment
+    const total_amount = Number(amount).toFixed(0);
 
     // notify_url points to our callback function
     // Base44 function URLs follow: https://api.base44.com/api/apps/{APP_ID}/functions/{functionName}
