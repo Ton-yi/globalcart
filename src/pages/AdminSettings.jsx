@@ -192,9 +192,10 @@ export default function AdminSettings() {
               )}
             </Card>
           );
-        })
+        })}</>
       )}
 
+      {activeTab === "general" && !loading && <>
       {/* Addon Options */}
       <Card className="border-gray-200">
         <CardHeader className="pb-3">
@@ -286,6 +287,7 @@ export default function AdminSettings() {
           </Button>
         </CardContent>
       </Card>
+      </>}
     </div>
   );
 }
