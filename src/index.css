@@ -79,31 +79,84 @@
 
 /* ===== Midnight Theme ===== */
 .midnight {
-  --background: 222 47% 7%;
-  --foreground: 213 31% 91%;
-  --card: 222 47% 10%;
-  --card-foreground: 213 31% 91%;
-  --popover: 222 47% 10%;
-  --popover-foreground: 213 31% 91%;
-  --primary: 210 100% 56%;
+  /* Deep navy base */
+  --background: 225 35% 8%;
+  --foreground: 220 20% 92%;
+
+  /* Cards slightly elevated */
+  --card: 225 35% 11%;
+  --card-foreground: 220 20% 92%;
+
+  /* Popovers / dropdowns even lighter so they float */
+  --popover: 225 35% 14%;
+  --popover-foreground: 220 20% 92%;
+
+  /* Accent blue as primary */
+  --primary: 217 91% 60%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 222 47% 15%;
-  --secondary-foreground: 213 31% 91%;
-  --muted: 222 47% 15%;
-  --muted-foreground: 215 20% 55%;
-  --accent: 222 47% 18%;
-  --accent-foreground: 213 31% 91%;
-  --destructive: 0 72% 51%;
-  --destructive-foreground: 0 0% 98%;
-  --border: 222 47% 18%;
-  --input: 222 47% 18%;
-  --ring: 210 100% 56%;
+
+  /* Subtle containers */
+  --secondary: 225 30% 17%;
+  --secondary-foreground: 220 15% 80%;
+
+  --muted: 225 30% 15%;
+  --muted-foreground: 220 15% 52%;
+
+  --accent: 225 30% 19%;
+  --accent-foreground: 220 20% 92%;
+
+  /* Danger */
+  --destructive: 0 68% 55%;
+  --destructive-foreground: 0 0% 100%;
+
+  /* Borders: visible but subtle */
+  --border: 225 30% 20%;
+  --input: 225 30% 18%;
+  --ring: 217 91% 60%;
 }
 
+/* Apply bg/text directly to html root so scrollbars & gaps are also colored */
+.midnight,
 .midnight body {
-  background-color: hsl(222, 47%, 7%);
-  color: hsl(213, 31%, 91%);
+  background-color: hsl(225, 35%, 8%);
+  color: hsl(220, 20%, 92%);
 }
+
+/* Header / nav bar in midnight */
+.midnight header {
+  background-color: hsl(225, 35%, 10%) !important;
+  border-color: hsl(225, 30%, 18%) !important;
+}
+
+/* Footer */
+.midnight footer {
+  background-color: hsl(225, 35%, 10%) !important;
+  border-color: hsl(225, 30%, 18%) !important;
+  color: hsl(220, 15%, 45%);
+}
+
+/* Gray-50 bg used everywhere → remap to a slightly lighter navy */
+.midnight .bg-gray-50 { background-color: hsl(225, 32%, 13%) !important; }
+.midnight .bg-gray-100 { background-color: hsl(225, 30%, 16%) !important; }
+.midnight .bg-gray-200 { background-color: hsl(225, 28%, 20%) !important; }
+
+/* Text colors */
+.midnight .text-gray-900 { color: hsl(220, 20%, 94%) !important; }
+.midnight .text-gray-800 { color: hsl(220, 18%, 88%) !important; }
+.midnight .text-gray-700 { color: hsl(220, 15%, 78%) !important; }
+.midnight .text-gray-600 { color: hsl(220, 12%, 65%) !important; }
+.midnight .text-gray-500 { color: hsl(220, 10%, 52%) !important; }
+.midnight .text-gray-400 { color: hsl(220, 10%, 42%) !important; }
+
+/* Border colors */
+.midnight .border-gray-200 { border-color: hsl(225, 28%, 20%) !important; }
+.midnight .border-gray-100 { border-color: hsl(225, 30%, 17%) !important; }
+
+/* Scrollbar styling */
+.midnight ::-webkit-scrollbar { width: 6px; height: 6px; }
+.midnight ::-webkit-scrollbar-track { background: hsl(225, 35%, 10%); }
+.midnight ::-webkit-scrollbar-thumb { background: hsl(225, 28%, 25%); border-radius: 3px; }
+.midnight ::-webkit-scrollbar-thumb:hover { background: hsl(217, 60%, 45%); }
 
 @layer base {
   * {
