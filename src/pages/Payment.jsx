@@ -57,7 +57,7 @@ export default function Payment() {
       subject: `同一物流代购 - ${order.product_name}`,
     });
     setGeneratingLink(false);
-    window.location.href = res.data.paymentUrl;
+    window.open(res.data.paymentUrl, '_blank');
   };
 
   const handleCopy = (text) => {
