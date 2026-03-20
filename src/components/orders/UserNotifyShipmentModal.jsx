@@ -13,7 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 
 const SHIPPING_METHODS = [
-  { value: "EMS", label: "EMS" },
+  { value: "EMS", label: "EMS空运" },
   { value: "surface", label: "海运" },
   { value: "small_packet_air", label: "小型包装物空运" },
 ];
