@@ -32,7 +32,6 @@ export default function Payment() {
   const [submitted, setSubmitted] = useState(false);
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [alipayUrl, setAlipayUrl] = useState(null);
   const [generatingLink, setGeneratingLink] = useState(false);
 
   useEffect(() => {
@@ -57,8 +56,8 @@ export default function Payment() {
       amount: order.prepayment_amount,
       subject: `同一物流代购 - ${order.product_name}`,
     });
-    setAlipayUrl(res.data.paymentUrl);
     setGeneratingLink(false);
+    window.location.href = res.data.paymentUrl;
   };
 
   const handleCopy = (text) => {
@@ -138,25 +137,15 @@ export default function Payment() {
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Auto-generate Alipay payment link */}
-            {!alipayUrl ? (
-              <Button
-                className="w-full bg-blue-600 hover:bg-blue-700"
-                onClick={handleGenerateAlipayLink}
-                disabled={generatingLink}
-              >
-                {generatingLink
-                  ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />生成付款链接中...</>
-                  : <><ExternalLink className="w-4 h-4 mr-2" />点击前往支付宝付款</>}
-              </Button>
-            ) : (
-              <div className="space-y-2">
-                <a href={alipayUrl} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2.5 rounded-md transition-colors">
-                  <ExternalLink className="w-4 h-4" />前往支付宝完成付款
-                </a>
-                <p className="text-xs text-gray-400 text-center">如跳转无效，请复制链接在浏览器打开</p>
-              </div>
-            )}
+            <Button
+              className="w-full bg-blue-600 hover:bg-blue-700"
+              onClick={handleGenerateAlipayLink}
+              disabled={generatingLink}
+            >
+              {generatingLink
+                ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />生成链接并前往支付中...</>
+                : <><ExternalLink className="w-4 h-4 mr-2" />前往支付宝完成付款</>}
+            </Button>
 
             {alipayQr ? (
               <div className="text-center">
