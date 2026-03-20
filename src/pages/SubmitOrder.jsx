@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { getRatesWithIncrements } from "@/lib/exchangeRates";
+import { detectPrimaryStoreTag } from "@/lib/onlineStoreTag";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -29,7 +30,7 @@ export default function SubmitOrder() {
   const [form, setForm] = useState({
     product_name: "", product_description: "",
     estimated_jpy: "", prepayment_currency: "JPY",
-    user_note: "", product_image_url: ""
+    user_note: "", product_image_url: "", online_store_tag: "其它"
   });
   const [calculated, setCalculated] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -136,6 +137,7 @@ export default function SubmitOrder() {
       ? (productUrls[0] || "").split("\n").map(s => s.trim()).filter(Boolean).join("\n")
       : productUrls.filter(u => u.trim()).join("\n");
     const isDeferred = paymentMode === "deferred";
+    const detectedTag = await detectPrimaryStoreTag(urlsText);
     const order = await base44.entities.Order.create({
       ...form,
       product_url: urlsText,
@@ -147,6 +149,7 @@ export default function SubmitOrder() {
       service_fee_rate: settings.service_fee_rate || (DEFAULT_SERVICE_FEE_RATE * 100),
       prepayment_amount: calculated ? parseFloat(calculated.prepayJpy) : 0,
       prepayment_currency: "JPY",
+      online_store_tag: detectedTag,
       payment_mode: isDeferred ? "deferred" : "prepay",
       order_status: isDeferred ? "pending_confirmation" : "payment_pending",
       payment_status: isDeferred ? "pending" : "awaiting_payment",
