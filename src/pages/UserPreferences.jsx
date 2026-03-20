@@ -51,6 +51,7 @@ export default function UserPreferences() {
           default_address: p.default_address || "",
           notification_email: p.notification_email !== false
         });
+        setSavedAddresses(p.saved_addresses || []);
       }
     }).catch(() => base44.auth.redirectToLogin());
   }, []);
