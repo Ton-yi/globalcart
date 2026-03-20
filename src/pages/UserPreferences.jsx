@@ -232,6 +232,18 @@ export default function UserPreferences() {
         </CardContent>
       </Card>
 
+      {/* 界面主题 */}
+      <Card className="border-gray-200">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+            <Palette className="w-4 h-4" />界面主题
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ThemeSelector />
+        </CardContent>
+      </Card>
+
       {/* 收货地址管理（合并版） */}
       <Card className="border-gray-200">
         <CardHeader className="pb-3">
