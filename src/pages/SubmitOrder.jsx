@@ -294,28 +294,26 @@ export default function SubmitOrder() {
             <CardContent className="space-y-3">
               {/* Compact formula above */}
               <div className="text-xs text-gray-400 font-mono leading-5 bg-white border border-gray-100 rounded px-3 py-2">
-                <span className="text-gray-500">¥{calculated.jpy.toLocaleString()} × {calculated.rate}</span>
-                <span className="text-gray-300 mx-1">=</span>
-                <span className="text-gray-600">{calculated.cur} {calculated.converted}</span>
+                <span className="text-gray-500">¥{parseFloat(calculated.jpy).toLocaleString()}</span>
                 <span className="text-gray-300 mx-1 ml-2">+</span>
                 <span className="text-gray-500">{calculated.feeRate}%服务费</span>
                 <span className="text-gray-300 mx-1">=</span>
-                <span className="text-gray-600">{calculated.cur} {calculated.serviceFee}</span>
+                <span className="text-gray-600">¥{calculated.serviceFeeJpy}</span>
                 {parseFloat(calculated.addonTotal) > 0 && (
                   <>
                     <span className="text-gray-300 mx-1 ml-2">+</span>
                     <span className="text-gray-500">增值</span>
                     <span className="text-gray-300 mx-1">=</span>
-                    <span className="text-gray-600">{calculated.cur} {calculated.addonTotal}</span>
+                    <span className="text-gray-600">¥{calculated.addonTotal}</span>
                   </>
                 )}
                 <span className="text-gray-300 mx-1 ml-2">→</span>
-                <span className="font-semibold text-gray-700">总额 {calculated.cur} {calculated.total}</span>
+                <span className="font-semibold text-gray-700">总额 ¥{calculated.totalJpy}</span>
               </div>
               {/* Prepay highlight */}
               <div className="flex items-center justify-between bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3">
                 <span className="text-sm text-gray-700 font-medium">预付款 (80%)</span>
-                <span className="text-lg font-bold text-red-600">{calculated.cur} {calculated.prepay}</span>
+                <span className="text-lg font-bold text-red-600">¥{calculated.prepayJpy}</span>
               </div>
             </CardContent>
           </Card>
