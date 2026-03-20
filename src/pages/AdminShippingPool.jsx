@@ -86,7 +86,13 @@ export default function AdminShippingPool() {
 
   const handleLocEdit = (loc) => {
     setEditingLoc(loc);
-    setLocForm({ name: loc.name, country: loc.country || "", address: loc.address || "", description: loc.description || "", is_active: loc.is_active !== false });
+    setLocForm({
+      name: loc.name, country: loc.country || "", province: loc.province || "",
+      address: loc.address || "", handling_fee: loc.handling_fee || 0,
+      handling_fee_currency: loc.handling_fee_currency || "JPY",
+      manager_email: loc.manager_email || "", allow_storage: loc.allow_storage || false,
+      description: loc.description || "", is_active: loc.is_active !== false,
+    });
     setShowLocForm(true);
   };
 
