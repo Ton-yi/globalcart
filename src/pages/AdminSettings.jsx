@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { getExchangeRates } from "@/lib/exchangeRates";
-import { Settings, Save, Plus, Trash2, Star, Lock, Eye, EyeOff, Truck, Palette, TrendingUp } from "lucide-react";
+import { Settings, Save, Plus, Trash2, Star, Lock, Eye, EyeOff, Truck, Palette, TrendingUp, Zap } from "lucide-react";
 import ThemeSelector from "@/components/common/ThemeSelector";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import ShippingMethodManager from "@/components/admin/ShippingMethodManager";
 
 const DEFAULT_SETTINGS = [
@@ -78,6 +79,15 @@ export default function AdminSettings() {
 
   const updateSetting = (id, field, value) => {
     setSettings(prev => prev.map(s => s.id === id ? { ...s, [field]: value } : s));
+  };
+
+  const handleSaveCategory = async (category) => {
+    setSaving(true);
+    const itemsToSave = settings.filter(s => s.category === category);
+    await Promise.all(itemsToSave.map(s => base44.entities.SiteSettings.update(s.id, { value: s.value, description: s.description })));
+    setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
   };
 
   const handleSaveAll = async () => {
@@ -173,39 +183,71 @@ export default function AdminSettings() {
 
       {activeTab === "general" && !loading && (
         <>
-          {/* Live Exchange Rates Display */}
-          {liveRates && (
-            <Card className="border-blue-200 bg-blue-50">
+          {/* Fee Rate Settings - Unified Block */}
+          {grouped.fee && (
+            <Card className="border-yellow-200">
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-semibold text-blue-800 flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4" />实时汇率 (JPY)
-                </CardTitle>
-                <p className="text-xs text-blue-600 mt-1">自动从国际汇率API获取，每小时更新一次</p>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <div className="text-center">
-                    <div className="text-xs text-blue-600 font-medium">USD</div>
-                    <div className="text-sm font-bold text-blue-900">{(liveRates.jpy_usd || 0).toFixed(6)}</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-xs text-blue-600 font-medium">CNY</div>
-                    <div className="text-sm font-bold text-blue-900">{(liveRates.jpy_cny || 0).toFixed(6)}</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-xs text-blue-600 font-medium">EUR</div>
-                    <div className="text-sm font-bold text-blue-900">{(liveRates.jpy_eur || 0).toFixed(6)}</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-xs text-blue-600 font-medium">TWD</div>
-                    <div className="text-sm font-bold text-blue-900">{(liveRates.jpy_twd || 0).toFixed(6)}</div>
-                  </div>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                    <Badge className="text-xs bg-yellow-100 text-yellow-700">费率设置</Badge>
+                  </CardTitle>
+                  <Button size="sm" className="h-7 text-xs bg-yellow-600 hover:bg-yellow-700" onClick={() => handleSaveCategory("fee")} disabled={saving}>
+                    <Save className="w-3 h-3 mr-1" />{saved ? "已保存 ✓" : saving ? "保存中..." : "保存"}
+                  </Button>
                 </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Service & Prepay Rates */}
+                <div className="grid grid-cols-2 gap-3">
+                  {grouped.fee.filter(s => !s.key.includes("increment")).map(s => (
+                    <div key={s.id}>
+                      <Label className="text-xs text-gray-500 block mb-1">{s.description || s.key}</Label>
+                      <div className="flex items-center gap-1">
+                        <Input type="number" step="0.1" className="h-8 text-sm flex-1" value={s.value} onChange={e => updateSetting(s.id, "value", e.target.value)} />
+                        <span className="text-xs text-gray-400 px-2">%</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Exchange Rate Increments with Live Rates */}
+                {liveRates && (
+                  <div className="border-t pt-3">
+                    <p className="text-xs font-medium text-gray-600 mb-3">实时汇率增量设置 (JPY)</p>
+                    <Alert className="mb-3 border-blue-200 bg-blue-50">
+                      <TrendingUp className="h-3 w-3 text-blue-600" />
+                      <AlertDescription className="text-xs text-blue-700 ml-1">
+                        基础汇率自动获取，可在此设定增量（正数=上浮，负数=下浮）
+                      </AlertDescription>
+                    </Alert>
+                    <div className="grid grid-cols-2 gap-3">
+                      {[
+                        { key: "jpy_usd_increment", label: "USD", live: liveRates.jpy_usd },
+                        { key: "jpy_cny_increment", label: "CNY", live: liveRates.jpy_cny }
+                      ].map(curr => {
+                        const setting = grouped.fee.find(s => s.key === curr.key);
+                        return setting ? (
+                          <div key={curr.key}>
+                            <Label className="text-xs text-gray-500 block mb-1">
+                              {curr.label}
+                              <span className="text-gray-400 ml-1">({(curr.live || 0).toFixed(6)})</span>
+                            </Label>
+                            <div className="flex items-center gap-1">
+                              <Input type="number" step="0.00001" className="h-8 text-sm flex-1" value={setting.value} onChange={e => updateSetting(setting.id, "value", e.target.value)} placeholder="0" />
+                              <span className="text-xs text-gray-400 px-2">Δ</span>
+                            </div>
+                          </div>
+                        ) : null;
+                      })}
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
 
-          {Object.entries(grouped).map(([cat, items]) => {
+          {/* Other Settings */}
+          {Object.entries(grouped).filter(([cat]) => cat !== "fee").map(([cat, items]) => {
             const isPayment = cat === "payment";
             const isUnlocked = !isPayment || showPayment;
             return (
