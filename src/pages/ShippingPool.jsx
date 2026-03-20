@@ -515,7 +515,7 @@ export default function ShippingPool() {
                       <ChevronLeft className="w-3.5 h-3.5 mr-1" />上一步
                     </Button>
                     <Button size="sm" className="bg-red-600 hover:bg-red-700"
-                      disabled={submitting || (consType === "transit" && (!form.destination_country || !form.transit_location_id))}
+                      disabled={submitting || (consType === "transit" && !form.transit_location_id)}
                       onClick={handleSubmit}>
                       {submitting ? "提交中..." : "确认创建发货申请"}
                     </Button>
