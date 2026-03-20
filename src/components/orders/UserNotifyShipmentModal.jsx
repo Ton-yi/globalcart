@@ -394,7 +394,7 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
             size="sm"
             className="bg-red-600 hover:bg-red-700"
             onClick={handleSubmit}
-            disabled={!method || submitting}
+            disabled={!method || submitting || (consType === "transit" && !selectedTransitId)}
           >
             <Truck className="w-3.5 h-3.5 mr-1.5" />
             {submitting ? "提交中..." : isMulti ? `确认通知发货 (${targetOrders.length})` : "确认通知发货"}
