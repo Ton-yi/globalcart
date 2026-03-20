@@ -21,6 +21,7 @@ const ALL_COLUMNS = [
   { key: "prepayment_amount", label: "付款金额", defaultVisible: true, sortable: true },
   { key: "weight_g", label: "订单重量", defaultVisible: true, sortable: true },
   { key: "order_status", label: "订单状态", defaultVisible: true, sortable: true },
+  { key: "online_store_tag", label: "商城标签", defaultVisible: false, sortable: true },
   { key: "product_description", label: "商品描述", defaultVisible: false, sortable: true },
   { key: "arrival_photo_url", label: "入库图片", defaultVisible: false, sortable: false },
   { key: "admin_note", label: "管理员备注", defaultVisible: false, sortable: true },
@@ -111,6 +112,8 @@ function CellValue({ col, order }) {
       return <span className="text-xs text-gray-700">{order.in_warehouse_date ? new Date(order.in_warehouse_date).toLocaleDateString("zh-CN") : "-"}</span>;
     case "shipped_date":
       return <span className="text-xs text-gray-700">{order.shipped_date ? new Date(order.shipped_date).toLocaleDateString("zh-CN") : "-"}</span>;
+    case "online_store_tag":
+      return <Badge className="text-xs bg-purple-100 text-purple-700">{order.online_store_tag || "其它"}</Badge>;
     default:
       return "-";
   }
