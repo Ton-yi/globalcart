@@ -102,6 +102,7 @@ export default function ShippingPool() {
     setCreateStep(1);
     setSelectedOrderIds([]);
     setForm({ recipient_name: "", recipient_phone: "", address_line1: "", address_line2: "", city: "", state: "", postal_code: "", destination_country: "", shipping_method: "", scheduled_ship_date: "", transit_location_id: "", user_note: "" });
+    setConsType("");
     setFormLoading(true);
     const [orders, locs, prefs] = await Promise.all([
       base44.entities.Order.filter({ user_email: user.email, order_status: "in_warehouse" }, "-updated_date", 100),
