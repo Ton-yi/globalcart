@@ -255,8 +255,13 @@ export default function UserPreferences() {
                   <Input className="mt-1 h-8 text-sm" placeholder="如：家、公司" value={addrForm.label} onChange={e => af("label", e.target.value)} />
                 </div>
                 <div>
-                  <Label className="text-xs text-gray-500">收货国家 * (英文)</Label>
-                  <Input className="mt-1 h-8 text-sm" placeholder="China / Taiwan / USA" value={addrForm.country} onChange={e => af("country", e.target.value)} />
+                  <Label className="text-xs text-gray-500">收货国家 *</Label>
+                  <CountrySelect
+                    value={addrForm.country}
+                    onChange={v => af("country", v)}
+                    placeholder="选择国家"
+                    className="mt-1"
+                  />
                 </div>
               </div>
               <div>
@@ -283,7 +288,7 @@ export default function UserPreferences() {
                 <div className="flex items-start justify-between gap-2 mb-1.5">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-medium text-gray-800">{addr.label}</span>
-                    {addr.country && <Badge variant="outline" className="text-xs">{addr.country}</Badge>}
+                    {addr.country && <Badge variant="outline" className="text-xs">{getCountry(addr.country)?.name || addr.country}</Badge>}
                     {isDefault && (
                       <Badge className="text-xs bg-red-100 text-red-700 flex items-center gap-1">
                         <Star className="w-2.5 h-2.5" />默认
