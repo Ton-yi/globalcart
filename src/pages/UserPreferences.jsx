@@ -265,6 +265,56 @@ export default function UserPreferences() {
         </CardContent>
       </Card>
 
+      {/* 收货地址管理 */}
+      <Card className="border-gray-200">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+            <MapPin className="w-4 h-4" />收货地址管理
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {savedAddresses.length > 0 && (
+            <div className="space-y-2">
+              {savedAddresses.map(addr => (
+                <div key={addr.id} className="border border-gray-100 rounded-lg p-3 bg-gray-50">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-medium text-gray-800">{addr.label}</span>
+                    <button onClick={() => handleDeleteAddress(addr.id)}
+                      className="text-gray-300 hover:text-red-500 transition-colors">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500 whitespace-pre-wrap">{addr.full_text}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="space-y-2 pt-1 border-t border-gray-100">
+            <Label className="text-xs text-gray-500 font-medium">添加新地址</Label>
+            <Input
+              placeholder="地址标签（如：家、公司）"
+              value={newAddrLabel}
+              onChange={e => setNewAddrLabel(e.target.value)}
+              className="text-sm"
+            />
+            <Textarea
+              rows={3}
+              placeholder={"收件人 / 联系方式\n省市区\n详细地址"}
+              value={newAddrText}
+              onChange={e => setNewAddrText(e.target.value)}
+              className="text-sm"
+            />
+            <Button variant="outline" size="sm" className="w-full text-xs"
+              onClick={handleAddAddress}
+              disabled={!newAddrLabel.trim() || !newAddrText.trim()}>
+              <Plus className="w-3.5 h-3.5 mr-1.5" />添加地址
+            </Button>
+          </div>
+          <p className="text-xs text-gray-400">保存后可在通知发货时快速选用</p>
+        </CardContent>
+      </Card>
+
       <Button className="w-full bg-red-600 hover:bg-red-700" onClick={handleSave} disabled={saving}>
         <Save className="w-4 h-4 mr-2" />
         {saved ? "已保存 ✓" : saving ? "保存中..." : "保存设置"}
