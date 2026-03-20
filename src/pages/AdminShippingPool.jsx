@@ -180,30 +180,59 @@ export default function AdminShippingPool() {
           {/* Location form */}
           {showLocForm && (
             <div className="border border-gray-200 rounded-xl p-5 bg-gray-50 space-y-3">
-              <h3 className="text-sm font-semibold text-gray-800">
-                {editingLoc ? "编辑中转地" : "添加中转地"}
-              </h3>
+              <h3 className="text-sm font-semibold text-gray-800">{editingLoc ? "编辑中转地" : "添加中转地"}</h3>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-xs text-gray-500">名称 *</Label>
+                  <Label className="text-xs text-gray-500">中转地名称 *</Label>
                   <Input className="mt-1 h-8 text-sm" value={locForm.name} onChange={e => lf("name", e.target.value)} />
                 </div>
                 <div>
-                  <Label className="text-xs text-gray-500">所在国家</Label>
-                  <Input className="mt-1 h-8 text-sm" placeholder="如：日本" value={locForm.country} onChange={e => lf("country", e.target.value)} />
+                  <Label className="text-xs text-gray-500">负责人邮箱</Label>
+                  <Input className="mt-1 h-8 text-sm" placeholder="manager@example.com" value={locForm.manager_email} onChange={e => lf("manager_email", e.target.value)} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs text-gray-500">国家</Label>
+                  <Input className="mt-1 h-8 text-sm" placeholder="如：中国" value={locForm.country} onChange={e => lf("country", e.target.value)} />
+                </div>
+                <div>
+                  <Label className="text-xs text-gray-500">省/州</Label>
+                  <Input className="mt-1 h-8 text-sm" placeholder="如：广东省" value={locForm.province} onChange={e => lf("province", e.target.value)} />
                 </div>
               </div>
               <div>
-                <Label className="text-xs text-gray-500">地址</Label>
-                <Input className="mt-1 h-8 text-sm" value={locForm.address} onChange={e => lf("address", e.target.value)} />
+                <Label className="text-xs text-gray-500">详细地址</Label>
+                <Input className="mt-1 h-8 text-sm" placeholder="街道、门牌号等" value={locForm.address} onChange={e => lf("address", e.target.value)} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs text-gray-500">中转手续费</Label>
+                  <Input type="number" step="0.01" className="mt-1 h-8 text-sm" placeholder="0" value={locForm.handling_fee} onChange={e => lf("handling_fee", parseFloat(e.target.value) || 0)} />
+                </div>
+                <div>
+                  <Label className="text-xs text-gray-500">手续费货币</Label>
+                  <Select value={locForm.handling_fee_currency} onValueChange={v => lf("handling_fee_currency", v)}>
+                    <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {["JPY","CNY","USD","TWD","HKD","EUR","SGD"].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <div>
                 <Label className="text-xs text-gray-500">描述/备注</Label>
                 <Textarea rows={2} className="mt-1 text-sm" value={locForm.description} onChange={e => lf("description", e.target.value)} />
               </div>
-              <div className="flex items-center gap-2">
-                <Switch checked={locForm.is_active} onCheckedChange={v => lf("is_active", v)} />
-                <span className="text-xs text-gray-600">启用</span>
+              <div className="flex items-center gap-6">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <Switch checked={locForm.allow_storage} onCheckedChange={v => lf("allow_storage", v)} />
+                  <span className="text-xs text-gray-600">允许货品暂存</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <Switch checked={locForm.is_active} onCheckedChange={v => lf("is_active", v)} />
+                  <span className="text-xs text-gray-600">启用</span>
+                </label>
               </div>
               <div className="flex gap-2 justify-end">
                 <Button variant="outline" size="sm" onClick={() => { setShowLocForm(false); setEditingLoc(null); }}>取消</Button>
