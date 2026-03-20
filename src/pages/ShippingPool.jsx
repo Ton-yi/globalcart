@@ -221,14 +221,17 @@ export default function ShippingPool() {
 
   const filtered = pools.filter(p => statusFilter === "all" || p.status === statusFilter);
 
-  // Consolidation groups
+  // Group consolidation orders by their pool_code (from ShippingPool records)
+  // We'll fetch pools with consolidation_type set for display
+  const consTotalWeight = consolidationOrders.reduce((s, o) => s + (o.weight_g || 0), 0);
+
+  // Group by consolidation_pool_id or shipping_method as fallback
   const consGroups = consolidationOrders.reduce((acc, o) => {
-    const key = o.shipping_method || "unknown";
+    const key = o.consolidation_pool_id || o.shipping_method || "unknown";
     if (!acc[key]) acc[key] = [];
     acc[key].push(o);
     return acc;
   }, {});
-  const consTotalWeight = consolidationOrders.reduce((s, o) => s + (o.weight_g || 0), 0);
 
   return (
     <div className="space-y-5">
