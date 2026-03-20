@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import ShippingMethodManager from "@/components/admin/ShippingMethodManager";
+import OnlineStoreTagManager from "@/components/admin/OnlineStoreTagManager";
 
 const DEFAULT_SETTINGS = [
   { key: "service_fee_rate", value: "10", description: "服务费率 (%)", category: "fee" },
@@ -38,6 +39,7 @@ const CAT_COLORS = { fee: "bg-yellow-100 text-yellow-700", payment: "bg-green-10
 const TABS = [
   { key: "general", label: "基本设置" },
   { key: "shipping_methods", label: "运输方式" },
+  { key: "store_tags", label: "商城标签规则" },
   { key: "theme", label: "界面主题" },
 ];
 
@@ -159,6 +161,14 @@ export default function AdminSettings() {
         <Card className="border-gray-200">
           <CardContent className="pt-5">
             <ShippingMethodManager />
+          </CardContent>
+        </Card>
+      )}
+
+      {activeTab === "store_tags" && (
+        <Card className="border-gray-200">
+          <CardContent className="pt-5">
+            <OnlineStoreTagManager />
           </CardContent>
         </Card>
       )}
