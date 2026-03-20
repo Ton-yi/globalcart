@@ -14,7 +14,7 @@ const DEFAULT_RATES = {
 
 let cachedRates = null;
 let cacheTimestamp = 0;
-const CACHE_TTL = 3600000; // 1 hour
+const CACHE_TTL = 28800000; // 8 hours (API updates 3 times daily)
 
 /**
  * Get live exchange rates for JPY
