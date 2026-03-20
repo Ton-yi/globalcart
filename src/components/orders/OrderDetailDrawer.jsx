@@ -4,11 +4,11 @@
  * Shows status, messages, and action buttons based on current order state.
  */
 import { useState, useEffect } from "react";
-import { X, ExternalLink, MessageCircle, Truck, CheckCircle, CreditCard } from "lucide-react";
+import { X, ExternalLink, MessageCircle, Truck, CheckCircle, CreditCard, Upload } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { getStatusLabel, getStatusColor } from "@/lib/orderStatus";
+import { getStatusLabel, getStatusColor, USER_CAN_RESUBMIT_PROOF_STATUSES } from "@/lib/orderStatus";
 import OrderMessageThread from "./OrderMessageThread";
 import PaymentModal from "./PaymentModal";
 import UserNotifyShipmentModal from "./UserNotifyShipmentModal";
@@ -20,6 +20,7 @@ export default function OrderDetailDrawer({ order, currentUser, onClose, onActio
   const [contactInfo, setContactInfo] = useState("");
   const [showPayment, setShowPayment] = useState(false);
   const [showShipment, setShowShipment] = useState(false);
+  const [paidReminder, setPaidReminder] = useState("");
 
   useEffect(() => {
     // Load user's saved contact info from preferences
@@ -30,7 +31,16 @@ export default function OrderDetailDrawer({ order, currentUser, onClose, onActio
         }
       })
       .catch(() => {});
-  }, [currentUser.email]);
+    
+    // Load paid reminder text if order is paid
+    if (order.order_status === "paid") {
+      base44.entities.SiteSettings.filter({ key: "paid_order_reminder" })
+        .then(settings => {
+          if (settings.length > 0) setPaidReminder(settings[0].value);
+        })
+        .catch(() => {});
+    }
+  }, [currentUser.email, order.order_status]);
 
   const status = order.order_status;
   const statusLabel = getStatusLabel(status, "user");
@@ -120,6 +130,14 @@ export default function OrderDetailDrawer({ order, currentUser, onClose, onActio
             <div className="bg-red-50 border border-red-100 rounded-lg px-3 py-2.5">
               <div className="text-xs text-red-500 font-medium mb-0.5">取消理由</div>
               <p className="text-sm text-red-700">{order.cancel_reason}</p>
+            </div>
+          )}
+
+          {/* Paid order reminder */}
+          {status === "paid" && paidReminder && (
+            <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2.5">
+              <div className="text-xs text-blue-600 font-medium mb-0.5">提示</div>
+              <p className="text-sm text-blue-800">{paidReminder}</p>
             </div>
           )}
 
