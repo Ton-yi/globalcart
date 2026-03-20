@@ -1,5 +1,6 @@
 import { Calendar, Package, Scale, MapPin, Truck, DollarSign, User } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { getCountry } from "@/lib/countries";
 
 const STATUS_CONFIG = {
   pending:    { label: "待处理", color: "bg-gray-100 text-gray-600" },
@@ -68,7 +69,7 @@ export default function ShippingPoolCard({ pool, onClick }) {
         {pool.destination_country && (
           <div className="flex items-center gap-1.5">
             <MapPin className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-            <span>{pool.destination_country}</span>
+            <span>{getCountry(pool.destination_country)?.name || pool.destination_country}</span>
           </div>
         )}
         {(pool.actual_fee || pool.estimated_fee) && (
