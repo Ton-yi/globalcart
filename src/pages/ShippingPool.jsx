@@ -166,7 +166,14 @@ export default function ShippingPool() {
   const totalWeight = selectedOrders.reduce((s, o) => s + (o.weight_g || 0), 0);
 
   const handleSubmit = async () => {
-    if (selectedOrderIds.length === 0 || !form.destination_country) return;
+    // For direct/other, destination_country comes from selected address
+    const effectiveCountry = form.destination_country || (() => {
+      const addr = savedAddresses.find(a => a.id === selectedAddressId);
+      return addr?.country || "";
+    })();
+    if (selectedOrderIds.length === 0) return;
+    if (consType === "transit" && !effectiveCountry) return;
+    if (!form.destination_country && effectiveCountry) setForm(p => ({ ...p, destination_country: effectiveCountry }));
     setSubmitting(true);
 
     if (useNewAddress && saveAddress && newAddressLabel.trim()) {
