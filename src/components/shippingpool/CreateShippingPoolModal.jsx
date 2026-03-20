@@ -5,6 +5,8 @@
  */
 import { useState, useEffect } from "react";
 import { X, Package, MapPin, ChevronRight, ChevronLeft, Plus, Check } from "lucide-react";
+import CountrySelect from "@/components/common/CountrySelect";
+import { getCountry } from "@/lib/countries";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -330,7 +332,12 @@ export default function CreateShippingPoolModal({ isAdmin, onClose, onSuccess })
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-xs text-gray-500">目的国家 *</Label>
-                  <Input className="mt-1 h-8 text-sm" placeholder="如：中国、台湾" value={form.destination_country} onChange={e => f("destination_country", e.target.value)} />
+                  <CountrySelect
+                    value={form.destination_country}
+                    onChange={v => f("destination_country", v)}
+                    placeholder="选择国家"
+                    className="mt-1"
+                  />
                 </div>
                 <div>
                   <Label className="text-xs text-gray-500">运输方式</Label>
@@ -372,7 +379,7 @@ export default function CreateShippingPoolModal({ isAdmin, onClose, onSuccess })
               <div className="bg-gray-50 border border-gray-100 rounded-lg p-3 text-xs text-gray-600 space-y-1">
                 <p className="font-medium text-gray-700">发货摘要</p>
                 <p>{selectedOrders.length} 件包裹 · 总重量 {totalWeight}g</p>
-                {form.destination_country && <p>目的地：{form.destination_country}</p>}
+                {form.destination_country && <p>目的地：{getCountry(form.destination_country)?.name || form.destination_country}</p>}
                 {form.shipping_method && <p>运输方式：{SHIPPING_METHODS.find(m => m.value === form.shipping_method)?.label || form.shipping_method}</p>}
               </div>
             </div>
