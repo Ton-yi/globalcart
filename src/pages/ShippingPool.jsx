@@ -178,8 +178,12 @@ export default function ShippingPool() {
     }
 
     const transitLoc = transitLocations.find(l => l.id === form.transit_location_id);
+    const isAsap = form.scheduled_ship_date === "__asap__";
     await base44.entities.ShippingPool.create({
       ...form,
+      scheduled_ship_date: isAsap ? "" : form.scheduled_ship_date,
+      asap: isAsap,
+      consolidation_type: consType || "",
       order_ids: selectedOrderIds,
       creator_email: user.email,
       creator_name: user.full_name || user.email,
