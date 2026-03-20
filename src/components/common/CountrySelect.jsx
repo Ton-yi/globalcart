@@ -44,6 +44,23 @@ export default function CountrySelect({
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
+  const handleOpen = () => {
+    if (!open && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const dropHeight = 280;
+      const showAbove = spaceBelow < dropHeight && rect.top > dropHeight;
+      setDropdownStyle({
+        position: "fixed",
+        top: showAbove ? rect.top - dropHeight - 4 : rect.bottom + 4,
+        left: rect.left,
+        width: Math.max(rect.width, 260),
+        zIndex: 9999,
+      });
+    }
+    setOpen(o => !o);
+  };
+
   const filtered = search.trim()
     ? ALL_COUNTRIES.filter(c =>
         c.name.includes(search) ||
