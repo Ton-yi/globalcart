@@ -64,11 +64,23 @@ Deno.serve(async (req) => {
     const shortId = orderId.replace(/-/g, '').slice(0, 8).toUpperCase();
     const out_trade_no = `TY${shortId}${Date.now()}`;
 
-    // Convert JPY to CNY for Alipay API (Alipay only accepts CNY)
-    // Standard rate: 1 JPY ≈ 0.048 CNY
-    const JPY_TO_CNY_RATE = 0.048;
+    // Fetch live rates with increments from settings
+    const [liveRates, settingsList] = await Promise.all([
+      base44.asServiceRole.functions.invoke('fetchExchangeRates', {}),
+      base44.asServiceRole.entities.SiteSettings.list()
+    ]);
+
+    const settingsMap = {};
+    settingsList.forEach(s => { settingsMap[s.key] = parseFloat(s.value) || 0; });
+
+    // Calculate JPY to CNY rate
+    const jpy_cny_base = liveRates.data?.jpy_cny || 0.048;
+    const jpy_cny_increment = settingsMap.jpy_cny_increment || 0;
+    const jpy_cny_rate = jpy_cny_base + jpy_cny_increment;
+
+    // Convert JPY to CNY for Alipay API
     const amount_jpy = Number(amount);
-    const amount_cny = (amount_jpy * JPY_TO_CNY_RATE).toFixed(2);
+    const amount_cny = (amount_jpy * jpy_cny_rate).toFixed(2);
     const total_amount = amount_cny;
 
     // notify_url points to our callback function
