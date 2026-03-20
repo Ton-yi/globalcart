@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { User, Save, Camera, Plus, Trash2, MapPin, Edit2, Check, Star, Moon } from "lucide-react";
-import { getTheme, setTheme } from "@/lib/theme";
+import { User, Save, Camera, Plus, Trash2, MapPin, Edit2, Check, Star, Palette } from "lucide-react";
+import ThemeSelector from "@/components/common/ThemeSelector";
 import CountrySelect from "@/components/common/CountrySelect";
 import { getCountry } from "@/lib/countries";
 import { Button } from "@/components/ui/button";
@@ -34,13 +34,6 @@ export default function UserPreferences() {
   const [addrForm, setAddrForm] = useState({ label: "", country: "", full_text: "" });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [theme, setThemeState] = useState(getTheme);
-
-  const handleThemeToggle = (isMidnight) => {
-    const newTheme = isMidnight ? "midnight" : "default";
-    setTheme(newTheme);
-    setThemeState(newTheme);
-  };
 
   useEffect(() => {
     base44.auth.me().then(async u => {
@@ -235,16 +228,7 @@ export default function UserPreferences() {
             </div>
             <Switch checked={form.notification_email} onCheckedChange={v => f("notification_email", v)} />
           </div>
-          <div className="flex items-center justify-between py-1 border-t border-gray-100 pt-3">
-            <div className="flex items-center gap-2">
-              <Moon className="w-4 h-4 text-indigo-500" />
-              <div>
-                <Label className="text-sm">午夜主题（Midnight）</Label>
-                <p className="text-xs text-gray-400 mt-0.5">深色蓝调界面风格</p>
-              </div>
-            </div>
-            <Switch checked={theme === "midnight"} onCheckedChange={handleThemeToggle} />
-          </div>
+
         </CardContent>
       </Card>
 
