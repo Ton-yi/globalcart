@@ -84,7 +84,7 @@ export default function AdminShippingPool() {
     await fetchLocations();
     setShowLocForm(false);
     setEditingLoc(null);
-    setLocForm({ name: "", country: "", province: "", address: "", handling_fee: 0, handling_fee_currency: "JPY", manager_email: "", allow_storage: false, description: "", is_active: true });
+    setLocForm({ name: "", country: "", province: "", address: "", handling_fee: 0, handling_fee_currency: "JPY", manager_email: "", manager_contact: "", allow_storage: false, description: "", is_active: true });
     setSavingLoc(false);
   };
 
