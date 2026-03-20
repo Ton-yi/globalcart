@@ -422,7 +422,7 @@ export default function ShippingPool() {
                   {/* Summary */}
                   <div className="bg-gray-50 border border-gray-100 rounded-lg px-4 py-2.5 text-xs text-gray-600 flex flex-wrap gap-x-4 gap-y-1">
                     <span>{selectedOrders.length} 件包裹 · {totalWeight}g</span>
-                    {form.destination_country && <span>→ {form.destination_country}</span>}
+                    {form.destination_country && <span>→ {getCountry(form.destination_country)?.name || form.destination_country}</span>}
                     {form.shipping_method && <span>{SHIPPING_METHODS.find(m => m.value === form.shipping_method)?.label}</span>}
                   </div>
 
