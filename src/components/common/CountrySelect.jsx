@@ -6,6 +6,7 @@
  *   - allowZone: boolean - also allow selecting zone codes (zone1~zone5) directly
  */
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { ChevronDown, Search, X } from "lucide-react";
 import { COUNTRY_ZONES, ALL_COUNTRIES } from "@/lib/countries";
 
