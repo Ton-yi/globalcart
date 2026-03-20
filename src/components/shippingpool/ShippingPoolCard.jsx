@@ -28,6 +28,9 @@ export default function ShippingPoolCard({ pool, onClick }) {
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <Badge className={`text-xs ${status.color}`}>{status.label}</Badge>
+            {pool.pool_code && (
+              <span className="text-xs font-mono text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded">{pool.pool_code}</span>
+            )}
             {pool.status === "pending" && pool.asap && (
               <Badge className="text-xs bg-orange-100 text-orange-600 border-orange-200">⚡ 尽快</Badge>
             )}
