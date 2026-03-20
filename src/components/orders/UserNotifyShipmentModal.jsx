@@ -244,6 +244,27 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
             ))}
           </div>
 
+          {/* Transit location selection */}
+          {consType === "transit" && (
+            <div className="border border-blue-100 rounded-xl p-4 bg-blue-50/40 space-y-2">
+              <label className="text-xs text-blue-700 font-medium">选择中转地 *</label>
+              {transitLocations.length === 0 ? (
+                <p className="text-xs text-gray-400">暂无可用中转地，请联系管理员</p>
+              ) : transitLocations.map(l => (
+                <label key={l.id} className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${selectedTransitId === l.id ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
+                  <input type="radio" checked={selectedTransitId === l.id} onChange={() => setSelectedTransitId(l.id)} className="mt-0.5 accent-blue-600" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-gray-800">{l.name}</p>
+                    <p className="text-xs text-gray-400">
+                      {[l.country, l.province].filter(Boolean).join(" · ")}
+                      {l.handling_fee > 0 && ` · 手续费 ${l.handling_fee_currency || "JPY"} ${l.handling_fee}`}
+                    </p>
+                  </div>
+                </label>
+              ))}
+            </div>
+          )}
+
           {/* Natural-language consolidation config */}
           {consolidation && (
             <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 space-y-3">
