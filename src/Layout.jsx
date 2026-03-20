@@ -108,6 +108,7 @@ export default function Layout({ children, currentPageName }) {
           </nav>
 
           <div className="flex items-center gap-2">
+            <MidnightToggle />
             {isAdmin && (
               <Badge className="bg-red-100 text-red-700 border-red-200 text-xs">
                 <Shield className="w-3 h-3 mr-1" />管理员
