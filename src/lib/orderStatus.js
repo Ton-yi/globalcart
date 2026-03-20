@@ -26,6 +26,12 @@ export const ORDER_STATUS_CONFIG = {
     adminColor: "bg-orange-100 text-orange-700",
     userColor: "bg-orange-100 text-orange-700",
   },
+  awaiting_payment_confirmation: {
+    admin: "待付款确认",
+    user: "待付款确认",
+    adminColor: "bg-orange-50 text-orange-600",
+    userColor: "bg-orange-50 text-orange-600",
+  },
   paid: {
     admin: "待下单",
     user: "已付款",
@@ -100,6 +106,9 @@ export function getStatusColor(status, role = "user") {
 // Which statuses show a "pay" button for the user
 export const USER_CAN_PAY_STATUSES = ["payment_pending"];
 
+// Statuses where user can resubmit payment proof (awaiting confirmation)
+export const USER_CAN_RESUBMIT_PROOF_STATUSES = ["awaiting_payment_confirmation"];
+
 // Which statuses show "notify shipment" for user
 export const USER_CAN_NOTIFY_SHIP_STATUSES = ["in_warehouse"];
 
@@ -109,6 +118,6 @@ export const COMPLETED_STATUSES = ["delivered"];
 // Active (non-terminal) statuses
 export const ACTIVE_STATUSES = [
   "pending_confirmation", "awaiting_reply", "admin_replied", "payment_pending",
-  "paid", "pending_purchase", "purchased", "in_warehouse",
+  "awaiting_payment_confirmation", "paid", "pending_purchase", "purchased", "in_warehouse",
   "notified_shipment", "shipping_fee_pending", "ready_to_ship", "shipped"
 ];
