@@ -247,7 +247,7 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
               {/* Shipping method - always show "任何运输方式" as default */}
               <div className="text-sm text-gray-700 leading-8 flex flex-wrap items-center gap-x-1.5">
                 <span>使用</span>
-                <Select value={consMethod} onValueChange={setConsMethod}>
+                <Select value={consMethod} onValueChange={v => { setConsMethod(v); setConsMethodFallback(""); }}>
                   <SelectTrigger className="inline-flex h-7 border-0 border-b-2 border-dashed border-blue-400 rounded-none bg-blue-50 text-blue-700 font-medium text-sm px-2 w-auto min-w-[120px] focus:ring-0 focus:border-blue-600">
                     <SelectValue placeholder="任何运输方式" />
                   </SelectTrigger>
