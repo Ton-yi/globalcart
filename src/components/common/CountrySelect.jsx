@@ -110,7 +110,7 @@ export default function CountrySelect({
         <ChevronDown className="h-3.5 w-3.5 opacity-50 flex-shrink-0 ml-1" />
       </button>
       {open && createPortal(
-        <div style={dropdownStyle} className="rounded-md border bg-popover text-popover-foreground shadow-md">
+        <div ref={dropdownRef} style={dropdownStyle} className="rounded-md border bg-popover text-popover-foreground shadow-md">
           <div className="flex items-center border-b px-3 py-2 gap-2">
             <Search className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
             <input
