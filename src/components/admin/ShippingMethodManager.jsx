@@ -90,6 +90,7 @@ function RateRow({ rate, onChange, onDelete }) {
           placeholder="选择"
           className="mt-0.5"
           compact
+          allowZone
         />
       </div>
       <div>
@@ -133,6 +134,7 @@ function DetailedRateRow({ rate, onChange, onDelete }) {
           placeholder="选择"
           className="mt-0.5"
           compact
+          allowZone
         />
       </div>
       <div>
