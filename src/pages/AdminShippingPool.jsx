@@ -192,14 +192,30 @@ export default function AdminShippingPool() {
                   <Input className="mt-1 h-8 text-sm" value={locForm.name} onChange={e => lf("name", e.target.value)} />
                 </div>
                 <div>
-                  <Label className="text-xs text-gray-500">负责人邮箱</Label>
-                  <Input className="mt-1 h-8 text-sm" placeholder="manager@example.com" value={locForm.manager_email} onChange={e => lf("manager_email", e.target.value)} />
+                  <Label className="text-xs text-gray-500">负责人（用户）</Label>
+                  <Select value={locForm.manager_email} onValueChange={v => {
+                    const u = allUsers.find(u => u.email === v);
+                    lf("manager_email", v);
+                  }}>
+                    <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue placeholder="选择用户..." /></SelectTrigger>
+                    <SelectContent>
+                      {allUsers.map(u => (
+                        <SelectItem key={u.id} value={u.email}>
+                          {u.full_name ? `${u.full_name} (${u.email})` : u.email}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
+              </div>
+              <div>
+                <Label className="text-xs text-gray-500">负责人联系方式（微信/Line/WhatsApp等）</Label>
+                <Input className="mt-1 h-8 text-sm" placeholder="如：微信号 abc123" value={locForm.manager_contact} onChange={e => lf("manager_contact", e.target.value)} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-xs text-gray-500">国家</Label>
-                  <Input className="mt-1 h-8 text-sm" placeholder="如：中国" value={locForm.country} onChange={e => lf("country", e.target.value)} />
+                  <CountrySelect value={locForm.country} onChange={v => lf("country", v)} placeholder="选择国家" className="mt-1" />
                 </div>
                 <div>
                   <Label className="text-xs text-gray-500">省/州</Label>
