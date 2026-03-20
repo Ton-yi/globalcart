@@ -185,77 +185,115 @@
 .midnight .divide-gray-100 > * + * { border-color: hsl(225, 28%, 17%) !important; }
 .midnight .divide-y { border-color: hsl(225, 28%, 17%) !important; }
 
-/* ===== Rose Theme ===== */
+/* ===== Dark Moss Theme ===== */
+/* Inspired by Obsidian dark moss: #0d1117 bg, #15df6b green accent, #61afef blue */
 /* -------------------------------------------------- */
-.rose {
-  --background: 350 30% 98%;
-  --foreground: 345 25% 15%;
-  --card: 350 40% 100%;
-  --card-foreground: 345 25% 15%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 345 25% 15%;
-  --primary: 346 77% 49%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 350 40% 94%;
-  --secondary-foreground: 345 25% 25%;
-  --muted: 350 30% 94%;
-  --muted-foreground: 345 15% 50%;
-  --accent: 350 50% 92%;
-  --accent-foreground: 345 25% 20%;
-  --destructive: 0 84% 60%;
+.darkmoss {
+  /* Near-black github-dark base */
+  --background: 216 28% 7%;
+  --foreground: 0 0% 87%;
+
+  /* Cards: slightly lighter */
+  --card: 215 27% 10%;
+  --card-foreground: 0 0% 87%;
+
+  /* Popovers float */
+  --popover: 215 27% 13%;
+  --popover-foreground: 0 0% 87%;
+
+  /* Accent green as primary */
+  --primary: 148 74% 49%;
+  --primary-foreground: 216 28% 7%;
+
+  /* Subtle containers */
+  --secondary: 215 24% 16%;
+  --secondary-foreground: 0 0% 80%;
+
+  --muted: 215 22% 14%;
+  --muted-foreground: 215 12% 50%;
+
+  --accent: 215 24% 18%;
+  --accent-foreground: 0 0% 87%;
+
+  /* Error red */
+  --destructive: 350 90% 54%;
   --destructive-foreground: 0 0% 100%;
-  --border: 350 30% 88%;
-  --input: 350 30% 88%;
-  --ring: 346 77% 49%;
+
+  /* Borders */
+  --border: 215 22% 22%;
+  --input: 215 22% 18%;
+  --ring: 148 74% 49%;
 }
 
-/* ===== Forest Theme ===== */
-/* -------------------------------------------------- */
-.forest {
-  --background: 140 20% 97%;
-  --foreground: 140 25% 10%;
-  --card: 0 0% 100%;
-  --card-foreground: 140 25% 10%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 140 25% 10%;
-  --primary: 142 71% 30%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 140 20% 91%;
-  --secondary-foreground: 140 25% 15%;
-  --muted: 140 15% 91%;
-  --muted-foreground: 140 10% 45%;
-  --accent: 140 25% 88%;
-  --accent-foreground: 140 25% 15%;
-  --destructive: 0 72% 51%;
-  --destructive-foreground: 0 0% 100%;
-  --border: 140 20% 84%;
-  --input: 140 20% 84%;
-  --ring: 142 71% 30%;
+.darkmoss,
+.darkmoss body {
+  background-color: hsl(216, 28%, 7%);
+  color: hsl(0, 0%, 87%);
 }
 
-/* ===== Ocean Theme ===== */
-/* -------------------------------------------------- */
-.ocean {
-  --background: 205 40% 97%;
-  --foreground: 205 30% 12%;
-  --card: 0 0% 100%;
-  --card-foreground: 205 30% 12%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 205 30% 12%;
-  --primary: 201 90% 38%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 205 35% 91%;
-  --secondary-foreground: 205 25% 18%;
-  --muted: 205 25% 91%;
-  --muted-foreground: 205 15% 48%;
-  --accent: 205 40% 88%;
-  --accent-foreground: 205 25% 15%;
-  --destructive: 0 72% 51%;
-  --destructive-foreground: 0 0% 100%;
-  --border: 205 30% 84%;
-  --input: 205 30% 84%;
-  --ring: 201 90% 38%;
+.darkmoss header {
+  background-color: hsl(215, 27%, 9%) !important;
+  border-color: hsl(215, 22%, 15%) !important;
 }
+
+.darkmoss footer {
+  background-color: hsl(215, 27%, 9%) !important;
+  border-color: hsl(215, 22%, 15%) !important;
+  color: hsl(215, 12%, 42%);
+}
+
+.darkmoss .bg-white { background-color: hsl(215, 27%, 10%) !important; }
+.darkmoss .bg-gray-50 { background-color: hsl(215, 25%, 12%) !important; }
+.darkmoss .bg-gray-100 { background-color: hsl(215, 24%, 15%) !important; }
+.darkmoss .bg-gray-200 { background-color: hsl(215, 22%, 19%) !important; }
+
+.darkmoss .text-gray-900 { color: hsl(0, 0%, 92%) !important; }
+.darkmoss .text-gray-800 { color: hsl(0, 0%, 85%) !important; }
+.darkmoss .text-gray-700 { color: hsl(0, 0%, 75%) !important; }
+.darkmoss .text-gray-600 { color: hsl(215, 10%, 60%) !important; }
+.darkmoss .text-gray-500 { color: hsl(215, 10%, 50%) !important; }
+.darkmoss .text-gray-400 { color: hsl(215, 10%, 40%) !important; }
+
+.darkmoss .border-gray-200 { border-color: hsl(215, 22%, 20%) !important; }
+.darkmoss .border-gray-100 { border-color: hsl(215, 22%, 16%) !important; }
+
+.darkmoss .hover\:bg-gray-50:hover { background-color: hsl(215, 24%, 14%) !important; }
+
+.darkmoss .divide-gray-100 > * + * { border-color: hsl(215, 22%, 16%) !important; }
+
+/* Green glow on primary buttons */
+.darkmoss .bg-red-600,
+.darkmoss .bg-red-700 {
+  background-color: hsl(148, 70%, 38%) !important;
+}
+.darkmoss .hover\:bg-red-700:hover,
+.darkmoss .hover\:bg-red-600:hover {
+  background-color: hsl(148, 70%, 32%) !important;
+}
+.darkmoss .text-red-600 { color: hsl(148, 74%, 49%) !important; }
+.darkmoss .text-red-700 { color: hsl(148, 70%, 42%) !important; }
+.darkmoss .border-red-600 { border-color: hsl(148, 74%, 40%) !important; }
+
+/* Badge overrides */
+.darkmoss .bg-blue-50 { background-color: hsl(213, 35%, 14%) !important; }
+.darkmoss .bg-blue-100 { background-color: hsl(213, 35%, 18%) !important; }
+.darkmoss .bg-green-50 { background-color: hsl(148, 40%, 10%) !important; }
+.darkmoss .bg-green-100 { background-color: hsl(148, 40%, 14%) !important; }
+.darkmoss .bg-red-50 { background-color: hsl(350, 35%, 13%) !important; }
+.darkmoss .bg-red-100 { background-color: hsl(350, 35%, 17%) !important; }
+.darkmoss .bg-yellow-50 { background-color: hsl(45, 35%, 13%) !important; }
+.darkmoss .bg-yellow-100 { background-color: hsl(45, 35%, 16%) !important; }
+.darkmoss .bg-teal-50 { background-color: hsl(175, 35%, 11%) !important; }
+.darkmoss .bg-teal-100 { background-color: hsl(175, 35%, 15%) !important; }
+.darkmoss .bg-purple-50 { background-color: hsl(270, 30%, 14%) !important; }
+.darkmoss .bg-purple-100 { background-color: hsl(270, 30%, 17%) !important; }
+.darkmoss .bg-orange-50 { background-color: hsl(25, 35%, 13%) !important; }
+.darkmoss .bg-orange-100 { background-color: hsl(25, 35%, 16%) !important; }
+
+.darkmoss ::-webkit-scrollbar { width: 6px; height: 6px; }
+.darkmoss ::-webkit-scrollbar-track { background: hsl(216, 28%, 8%); }
+.darkmoss ::-webkit-scrollbar-thumb { background: hsl(148, 40%, 22%); border-radius: 3px; }
+.darkmoss ::-webkit-scrollbar-thumb:hover { background: hsl(148, 60%, 35%); }
 
 @layer base {
   * {

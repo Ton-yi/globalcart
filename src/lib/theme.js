@@ -21,25 +21,11 @@ export const THEMES = [
     preview: ["#0d1117", "#161b22", "#3b82f6"],
   },
   {
-    id: "rose",
-    name: "玫瑰",
-    nameEn: "Rose",
-    description: "温柔粉红调",
-    preview: ["#fff1f2", "#ffe4e6", "#e11d48"],
-  },
-  {
-    id: "forest",
-    name: "森林",
-    nameEn: "Forest",
-    description: "沉稳绿色系",
-    preview: ["#f0fdf4", "#dcfce7", "#16a34a"],
-  },
-  {
-    id: "ocean",
-    name: "海洋",
-    nameEn: "Ocean",
-    description: "清爽蓝绿调",
-    preview: ["#f0f9ff", "#e0f2fe", "#0284c7"],
+    id: "darkmoss",
+    name: "暗苔",
+    nameEn: "Dark Moss",
+    description: "墨黑底·翠绿辉光",
+    preview: ["#0d1117", "#161b22", "#15df6b"],
   },
 ];
 
