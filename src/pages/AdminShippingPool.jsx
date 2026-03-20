@@ -44,7 +44,7 @@ export default function AdminShippingPool() {
   // Location form
   const [showLocForm, setShowLocForm] = useState(false);
   const [editingLoc, setEditingLoc] = useState(null);
-  const [locForm, setLocForm] = useState({ name: "", country: "", province: "", address: "", handling_fee: 0, handling_fee_currency: "JPY", manager_email: "", manager_contact: "", allow_storage: false, description: "", is_active: true });
+  const [locForm, setLocForm] = useState({ name: "", code_prefix: "", country: "", province: "", address: "", handling_fee: 0, handling_fee_currency: "JPY", manager_email: "", manager_contact: "", allow_storage: false, description: "", is_active: true });
   const [savingLoc, setSavingLoc] = useState(false);
   const [allUsers, setAllUsers] = useState([]);
 
@@ -85,14 +85,14 @@ export default function AdminShippingPool() {
     await fetchLocations();
     setShowLocForm(false);
     setEditingLoc(null);
-    setLocForm({ name: "", country: "", province: "", address: "", handling_fee: 0, handling_fee_currency: "JPY", manager_email: "", manager_contact: "", allow_storage: false, description: "", is_active: true });
+    setLocForm({ name: "", code_prefix: "", country: "", province: "", address: "", handling_fee: 0, handling_fee_currency: "JPY", manager_email: "", manager_contact: "", allow_storage: false, description: "", is_active: true });
     setSavingLoc(false);
   };
 
   const handleLocEdit = (loc) => {
     setEditingLoc(loc);
     setLocForm({
-      name: loc.name, country: loc.country || "", province: loc.province || "",
+      name: loc.name, code_prefix: loc.code_prefix || "", country: loc.country || "", province: loc.province || "",
       address: loc.address || "", handling_fee: loc.handling_fee || 0,
       handling_fee_currency: loc.handling_fee_currency || "JPY",
       manager_email: loc.manager_email || "", manager_contact: loc.manager_contact || "",
@@ -132,7 +132,7 @@ export default function AdminShippingPool() {
             </>
           )}
           {activeTab === "locations" && (
-            <Button size="sm" className="bg-red-600 hover:bg-red-700" onClick={() => { setEditingLoc(null); setLocForm({ name: "", country: "", province: "", address: "", handling_fee: 0, handling_fee_currency: "JPY", manager_email: "", manager_contact: "", allow_storage: false, description: "", is_active: true }); setShowLocForm(true); }}>
+            <Button size="sm" className="bg-red-600 hover:bg-red-700" onClick={() => { setEditingLoc(null); setLocForm({ name: "", code_prefix: "", country: "", province: "", address: "", handling_fee: 0, handling_fee_currency: "JPY", manager_email: "", manager_contact: "", allow_storage: false, description: "", is_active: true }); setShowLocForm(true); }}>
               <Plus className="w-3.5 h-3.5 mr-1.5" />添加中转地
             </Button>
           )}
