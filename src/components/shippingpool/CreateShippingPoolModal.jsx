@@ -15,13 +15,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 
 const SHIPPING_METHODS = [
-  { value: "EMS", label: "EMS 国际快递" },
-  { value: "DHL", label: "DHL" },
-  { value: "FedEx", label: "FedEx" },
-  { value: "SAL", label: "SAL 经济航空" },
+  { value: "EMS", label: "EMS空运" },
   { value: "surface", label: "海运" },
   { value: "small_packet_air", label: "小型包装物空运" },
-  { value: "other", label: "其他" },
 ];
 
 export default function CreateShippingPoolModal({ isAdmin, onClose, onSuccess }) {
