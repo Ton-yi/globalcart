@@ -24,6 +24,7 @@ const DEFAULT_SETTINGS = [
   { key: "whatsapp", value: "", description: "WhatsApp", category: "general" },
   { key: "line_id", value: "", description: "Line ID", category: "general" },
   { key: "wechat_id", value: "", description: "微信号", category: "general" },
+  { key: "paid_order_reminder", value: "感谢付款！我们会尽快开始处理您的订单。", description: "已付款订单的提示消息", category: "general" },
   { key: "alipay_account", value: "", description: "支付宝账号", category: "payment" },
   { key: "alipay_account_name", value: "", description: "支付宝收款人姓名", category: "payment" },
   { key: "alipay_qr_url", value: "", description: "支付宝收款码图片URL", category: "payment" },
