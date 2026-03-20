@@ -43,8 +43,9 @@ export default function AdminShippingPool() {
   // Location form
   const [showLocForm, setShowLocForm] = useState(false);
   const [editingLoc, setEditingLoc] = useState(null);
-  const [locForm, setLocForm] = useState({ name: "", country: "", province: "", address: "", handling_fee: 0, handling_fee_currency: "JPY", manager_email: "", allow_storage: false, description: "", is_active: true });
+  const [locForm, setLocForm] = useState({ name: "", country: "", province: "", address: "", handling_fee: 0, handling_fee_currency: "JPY", manager_email: "", manager_contact: "", allow_storage: false, description: "", is_active: true });
   const [savingLoc, setSavingLoc] = useState(false);
+  const [allUsers, setAllUsers] = useState([]);
 
   const fetchPools = async () => {
     setLoading(true);
