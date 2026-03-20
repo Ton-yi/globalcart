@@ -365,6 +365,12 @@ export default function AdminOrders() {
                         入库
                       </Button>
                     )}
+                    {order.order_status === "cancelled" && (
+                      <Button size="sm" variant="outline" className="h-6 text-xs px-2 text-red-600 border-red-200 hover:bg-red-50"
+                        onClick={() => handleDeleteCancelled(order)}>
+                        <Trash2 className="w-3 h-3 mr-1" />删除
+                      </Button>
+                    )}
                   </div>
                 </td>
               </tr>
