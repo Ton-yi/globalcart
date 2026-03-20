@@ -73,6 +73,8 @@ export default function ShippingPool() {
     city: "", state: "", postal_code: "", destination_country: "",
     shipping_method: "", scheduled_ship_date: "", transit_location_id: "", user_note: "",
   });
+  // consolidation type: "" = none, "transit" = to transit location, "other" = to saved address
+  const [consType, setConsType] = useState("");
 
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
