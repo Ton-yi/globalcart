@@ -5,6 +5,7 @@
  */
 import { useState, useEffect } from "react";
 import { X, Truck, Package, MapPin, ChevronDown } from "lucide-react";
+import { getCountry } from "@/lib/countries";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
