@@ -187,12 +187,24 @@ export default function AdminShippingPool() {
           {showLocForm && (
             <div className="border border-gray-200 rounded-xl p-5 bg-gray-50 space-y-3">
               <h3 className="text-sm font-semibold text-gray-800">{editingLoc ? "编辑中转地" : "添加中转地"}</h3>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="col-span-2">
                   <Label className="text-xs text-gray-500">中转地名称 *</Label>
                   <Input className="mt-1 h-8 text-sm" value={locForm.name} onChange={e => lf("name", e.target.value)} />
                 </div>
                 <div>
+                  <Label className="text-xs text-gray-500">代号前缀（3位大写字母）</Label>
+                  <Input
+                    className="mt-1 h-8 text-sm font-mono uppercase tracking-widest"
+                    maxLength={3}
+                    placeholder="TYO"
+                    value={locForm.code_prefix}
+                    onChange={e => lf("code_prefix", e.target.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 3))}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2">
                   <Label className="text-xs text-gray-500">负责人（用户）</Label>
                   <Select value={locForm.manager_email} onValueChange={v => {
                     const u = allUsers.find(u => u.email === v);
