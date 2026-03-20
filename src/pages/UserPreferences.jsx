@@ -84,6 +84,21 @@ export default function UserPreferences() {
 
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
+  const handleAddAddress = () => {
+    if (!newAddrLabel.trim() || !newAddrText.trim()) return;
+    setSavedAddresses(prev => [...prev, {
+      id: Date.now().toString(),
+      label: newAddrLabel.trim(),
+      full_text: newAddrText.trim()
+    }]);
+    setNewAddrLabel("");
+    setNewAddrText("");
+  };
+
+  const handleDeleteAddress = (id) => {
+    setSavedAddresses(prev => prev.filter(a => a.id !== id));
+  };
+
   return (
     <div className="max-w-lg mx-auto space-y-5">
       <div>
