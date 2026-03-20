@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { User, Save, Camera, Plus, Trash2, MapPin, Edit2, Check, Star } from "lucide-react";
+import CountrySelect from "@/components/common/CountrySelect";
+import { getCountry } from "@/lib/countries";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
