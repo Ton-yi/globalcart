@@ -6,27 +6,29 @@ import { useState } from "react";
 import { Moon, Sun, Palette } from "lucide-react";
 import { THEMES, getTheme, setTheme } from "@/lib/theme";
 
-// Two-theme toggle: only switches between "default" and "midnight"
+// Compact theme cycle button for the nav bar
 export function MidnightToggle() {
   const [current, setCurrent] = useState(getTheme);
-  const isMidnight = current === "midnight";
+  const idx = THEMES.findIndex(t => t.id === current);
+  const theme = THEMES[idx] || THEMES[0];
+  const next = THEMES[(idx + 1) % THEMES.length];
 
-  const toggle = () => {
-    const next = isMidnight ? "default" : "midnight";
-    setTheme(next);
-    setCurrent(next);
+  const cycle = () => {
+    setTheme(next.id);
+    setCurrent(next.id);
   };
 
   return (
     <button
-      onClick={toggle}
-      title={isMidnight ? "切换到默认主题" : "切换到午夜主题"}
-      className="p-1.5 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+      onClick={cycle}
+      title={`当前：${theme.name} → 切换到 ${next.name}`}
+      className="flex items-center gap-1 p-1.5 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors"
     >
-      {isMidnight
-        ? <Sun className="w-4 h-4" />
-        : <Moon className="w-4 h-4" />
-      }
+      <span className="flex gap-0.5">
+        {theme.preview.map((c, i) => (
+          <span key={i} className="w-2.5 h-2.5 rounded-full border border-black/10" style={{ backgroundColor: c }} />
+        ))}
+      </span>
     </button>
   );
 }
