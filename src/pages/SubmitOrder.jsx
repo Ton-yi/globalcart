@@ -26,7 +26,7 @@ export default function SubmitOrder() {
   const [selectedAddons, setSelectedAddons] = useState([]);
   const [form, setForm] = useState({
     product_name: "", product_description: "",
-    quantity: 1, estimated_jpy: "", prepayment_currency: "CNY",
+    estimated_jpy: "", prepayment_currency: "JPY",
     user_note: "", product_image_url: ""
   });
   const [calculated, setCalculated] = useState(null);
@@ -61,28 +61,23 @@ export default function SubmitOrder() {
 
   const calculate = () => {
     const jpy = parseFloat(form.estimated_jpy);
-    const rate = JPY_RATES[form.prepayment_currency] || JPY_RATES.CNY;
     if (!jpy || jpy <= 0) { setCalculated(null); return; }
-    const qty = parseFloat(form.quantity || 1);
-    const converted = jpy * qty * rate;
-    const serviceFee = converted * SERVICE_FEE_RATE;
-    const addonTotal = getAddonTotal();
-    const total = converted + serviceFee + addonTotal;
-    const prepay = total * PREPAY_RATE;
+    // Calculate all fees in JPY, then convert if needed
+    const serviceFeeJpy = jpy * SERVICE_FEE_RATE;
+    const addonTotalJpy = getAddonTotal();
+    const totalJpy = jpy + serviceFeeJpy + addonTotalJpy;
+    const prepayJpy = totalJpy * PREPAY_RATE;
     setCalculated({
-      jpy: jpy * qty,
-      rate,
-      converted: converted.toFixed(2),
-      serviceFee: serviceFee.toFixed(2),
-      addonTotal: addonTotal.toFixed(2),
-      total: total.toFixed(2),
-      prepay: prepay.toFixed(2),
-      cur: form.prepayment_currency,
+      jpy: jpy,
+      serviceFeeJpy: serviceFeeJpy.toFixed(2),
+      addonTotal: addonTotalJpy.toFixed(2),
+      totalJpy: totalJpy.toFixed(2),
+      prepayJpy: prepayJpy.toFixed(2),
       feeRate: (SERVICE_FEE_RATE * 100).toFixed(0)
     });
   };
 
-  useEffect(() => { if (form.estimated_jpy) calculate(); }, [form.estimated_jpy, form.quantity, form.prepayment_currency, selectedAddons]);
+  useEffect(() => { if (form.estimated_jpy) calculate(); }, [form.estimated_jpy, selectedAddons]);
 
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
