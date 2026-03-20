@@ -70,10 +70,11 @@ export default function UserPreferences() {
     // Update user display name and avatar
     await base44.auth.updateMe({ display_name: displayName, avatar_url: avatarUrl });
     // Update preferences
+    const data = { ...form, user_email: user.email, saved_addresses: savedAddresses };
     if (pref) {
-      await base44.entities.UserPreference.update(pref.id, { ...form, user_email: user.email });
+      await base44.entities.UserPreference.update(pref.id, data);
     } else {
-      const created = await base44.entities.UserPreference.create({ ...form, user_email: user.email });
+      const created = await base44.entities.UserPreference.create(data);
       setPref(created);
     }
     setSaving(false);
