@@ -253,6 +253,12 @@ export default function AdminOrders() {
     setSelectedOrder(order);
   };
 
+  const handleDeleteCancelled = async (order) => {
+    if (!window.confirm(`确认永久删除订单"${order.product_name}"？此操作不可撤销。`)) return;
+    await base44.entities.Order.delete(order.id);
+    fetchOrders();
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
