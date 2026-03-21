@@ -148,6 +148,25 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
     onUpdated?.();
   };
 
+  const handlePoolEditSave = async () => {
+    if (!editingPoolData) return;
+    setSavingPool(true);
+
+    const updateData = {
+      user_note: editingPoolData.user_note || "",
+      title: editingPoolData.title || "",
+      scheduled_ship_date: editingPoolData.scheduled_ship_date || "",
+    };
+    if (isAdmin) {
+      updateData.admin_note = editingPoolData.admin_note || "";
+    }
+
+    await base44.entities.ShippingPool.update(pool.id, updateData);
+    setPool(p => ({ ...p, ...updateData }));
+    setEditingPool(false);
+    setSavingPool(false);
+  };
+
   const handleAdminOrderSave = async () => {
     if (!editingOrderData) return;
     setSavingOrder(true);
