@@ -2,6 +2,29 @@ import { Calendar, Package, Scale, MapPin, Truck, DollarSign, User, Layers, Chev
 import { Badge } from "@/components/ui/badge";
 import { getCountry } from "@/lib/countries";
 
+function truncateName(name, maxLen = 10) {
+  if (!name) return "";
+  return name.length > maxLen ? name.slice(0, maxLen) + "…" : name;
+}
+
+function PackagesSummary({ orderIds, orderNames }) {
+  const count = (orderIds || []).length;
+  if (!orderNames || orderNames.length === 0) {
+    return <span>{count} 件包裹</span>;
+  }
+  const MAX_SHOW = 2;
+  const shown = orderNames.slice(0, MAX_SHOW);
+  const remaining = count - shown.length;
+  return (
+    <span>
+      {shown.map((n, i) => (
+        <span key={i}>{i > 0 && <span className="text-gray-300 mx-0.5">·</span>}{truncateName(n)}</span>
+      ))}
+      {remaining > 0 && <span className="text-gray-400 ml-1">…等{count}个包裹</span>}
+    </span>
+  );
+}
+
 const STATUS_CONFIG = {
   pending:    { label: "待处理", color: "bg-amber-100 text-amber-700" },
   processing: { label: "处理中", color: "bg-blue-100 text-blue-700" },
