@@ -4,13 +4,14 @@
  * Admin can edit tracking number, actual fee.
  */
 import { useState, useEffect } from "react";
-import { X, Package, Send, Image, Truck } from "lucide-react";
+import { X, Package, Send, Image, Truck, Edit2 } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import ShippingEditModal from "@/components/shippingpool/ShippingEditModal";
 
 const STATUS_CONFIG = {
   pending:    { label: "待处理", color: "bg-gray-100 text-gray-600" },
@@ -32,6 +33,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
   const [sendingMsg, setSendingMsg] = useState(false);
   const [saving, setSaving] = useState(false);
   const [imageFile, setImageFile] = useState(null);
+  const [editingOrder, setEditingOrder] = useState(null); // order being edited
 
   // Admin edit fields
   const [trackingNumber, setTrackingNumber] = useState(pool.tracking_number || "");
