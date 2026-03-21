@@ -362,6 +362,24 @@ export default function MyOrders() {
                       <Truck className="w-3 h-3 mr-1" />通知发货
                     </Button>
                   )}
+                  {order.order_status === "notified_shipment" && (() => {
+                    const pool = shippingPools.find(p => (p.order_ids || []).includes(order.id));
+                    return (
+                      <div className="flex flex-col gap-1 items-start">
+                        {pool && (
+                          <span className="text-xs font-mono text-purple-700 bg-purple-50 border border-purple-100 px-1.5 py-0.5 rounded">
+                            {pool.pool_code || pool.id.slice(-6).toUpperCase()}
+                          </span>
+                        )}
+                        {pool && pool.status !== "shipped" && pool.status !== "delivered" && (
+                          <Button size="sm" variant="outline" className="h-6 text-xs px-2"
+                            onClick={() => { setEditShipOrder(order); setEditShipPool(pool); }}>
+                            编辑出货
+                          </Button>
+                        )}
+                      </div>
+                    );
+                  })()}
                   {order.order_status === "shipped" && (
                     <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700"
                       onClick={() => handleConfirmDelivered(order)}>
