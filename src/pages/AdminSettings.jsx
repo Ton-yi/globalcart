@@ -43,6 +43,7 @@ const TABS = [
   { key: "general", label: "基本设置" },
   { key: "shipping_methods", label: "运输方式" },
   { key: "transit_methods", label: "中转运输方式" },
+  { key: "item_sizes", label: "物品尺寸" },
   { key: "store_tags", label: "商城标签规则" },
   { key: "theme", label: "界面主题" },
 ];
