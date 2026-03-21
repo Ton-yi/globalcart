@@ -178,6 +178,14 @@ export default function AdminSettings() {
         </Card>
       )}
 
+      {activeTab === "item_sizes" && (
+        <Card className="border-gray-200">
+          <CardContent className="pt-5">
+            <ItemSizeTemplateManager />
+          </CardContent>
+        </Card>
+      )}
+
       {activeTab === "store_tags" && (
         <Card className="border-gray-200">
           <CardContent className="pt-5">
