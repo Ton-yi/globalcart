@@ -539,7 +539,7 @@ export default function ShippingPool() {
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${activeTab === tab.key ? "border-red-600 text-red-600" : "border-transparent text-gray-500 hover:text-gray-800"}`}>
             {tab.label}
             {tab.key === "pools" && <span className="ml-1.5 text-xs bg-gray-100 text-gray-500 rounded px-1.5 py-0.5">{pools.length}</span>}
-            {tab.key === "consolidation" && <span className="ml-1.5 text-xs bg-gray-100 text-gray-500 rounded px-1.5 py-0.5">{consolidationOrders.length}</span>}
+            {tab.key === "consolidation" && <span className="ml-1.5 text-xs bg-gray-100 text-gray-500 rounded px-1.5 py-0.5">{pools.filter(p => p.consolidation_type && p.consolidation_type !== "").length}</span>}
           </button>
         ))}
       </div>
