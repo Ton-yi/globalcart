@@ -48,17 +48,6 @@ async function verifyAlipaySign(params, publicKeyPem) {
   );
 }
 
-// Parse application/x-www-form-urlencoded body into plain object
-async function parseFormBody(req) {
-  const text = await req.text();
-  const obj = {};
-  for (const pair of text.split('&')) {
-    const [k, v] = pair.split('=');
-    if (k) obj[decodeURIComponent(k)] = decodeURIComponent((v || '').replace(/\+/g, ' '));
-  }
-  return obj;
-}
-
 // ── Main handler ───────────────────────────────────────────────────────────
 
 Deno.serve(async (req) => {
