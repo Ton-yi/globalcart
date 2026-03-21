@@ -159,6 +159,80 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
     setSavingOrder(false);
   };
 
+  // Move order to another pool
+  const handleMoveOrder = async () => {
+    if (!adminEditingOrder || !targetPoolId) return;
+    setSavingOrder(true);
+    try {
+      const targetPool = otherPools.find(p => p.id === targetPoolId);
+      if (!targetPool) return;
+
+      // Remove from current pool
+      const updatedOrderIds = pool.order_ids.filter(id => id !== adminEditingOrder.id);
+      const updatedWeight = Math.max(0, (pool.total_weight_g || 0) - (adminEditingOrder.weight_g || 0));
+      
+      await Promise.all([
+        base44.entities.ShippingPool.update(pool.id, {
+          order_ids: updatedOrderIds,
+          total_weight_g: updatedWeight,
+        }),
+        base44.entities.ShippingPool.update(targetPoolId, {
+          order_ids: [...(targetPool.order_ids || []), adminEditingOrder.id],
+          total_weight_g: (targetPool.total_weight_g || 0) + (adminEditingOrder.weight_g || 0),
+        }),
+        base44.entities.Order.update(adminEditingOrder.id, {
+          consolidation_pool_id: targetPoolId,
+        }),
+      ]);
+
+      // Update local state
+      setPool(p => ({
+        ...p,
+        order_ids: updatedOrderIds,
+        total_weight_g: updatedWeight,
+      }));
+      setOrders(prev => prev.filter(o => o.id !== adminEditingOrder.id));
+      setAdminEditingOrder(null);
+      setActionMode(null);
+    } catch (err) {
+      console.error("Failed to move order:", err);
+    }
+    setSavingOrder(false);
+  };
+
+  // Return order to warehouse (remove from pool, mark as in_warehouse)
+  const handleReturnOrder = async () => {
+    if (!adminEditingOrder) return;
+    setSavingOrder(true);
+    try {
+      const updatedOrderIds = pool.order_ids.filter(id => id !== adminEditingOrder.id);
+      const updatedWeight = Math.max(0, (pool.total_weight_g || 0) - (adminEditingOrder.weight_g || 0));
+
+      await Promise.all([
+        base44.entities.ShippingPool.update(pool.id, {
+          order_ids: updatedOrderIds,
+          total_weight_g: updatedWeight,
+        }),
+        base44.entities.Order.update(adminEditingOrder.id, {
+          order_status: "in_warehouse",
+          consolidation_pool_id: "",
+        }),
+      ]);
+
+      setPool(p => ({
+        ...p,
+        order_ids: updatedOrderIds,
+        total_weight_g: updatedWeight,
+      }));
+      setOrders(prev => prev.filter(o => o.id !== adminEditingOrder.id));
+      setAdminEditingOrder(null);
+      setActionMode(null);
+    } catch (err) {
+      console.error("Failed to return order:", err);
+    }
+    setSavingOrder(false);
+  };
+
   // Get unique users from orders (with email for avatar lookup)
   const participantUsers = [...new Map(orders.map(o => [o.user_email || o.user_name, { name: o.user_name || o.user_email, email: o.user_email }])).values()].filter(u => u.name);
 
