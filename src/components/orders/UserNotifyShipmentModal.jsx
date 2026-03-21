@@ -779,13 +779,14 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
             className="bg-red-600 hover:bg-red-700"
             onClick={handleSubmit}
             disabled={
-              !method || submitting ||
+              (!method && !joinDirectPool) || submitting ||
               (consType === "transit" && !selectedTransitId) ||
-              (joinExistingPool && !selectedPoolId)
+              (joinExistingPool && !selectedPoolId) ||
+              (joinDirectPool && !selectedDirectPoolId)
             }
           >
             <Truck className="w-3.5 h-3.5 mr-1.5" />
-            {submitting ? "提交中..." : isJoiningPool ? `加入拼邮需求 (${targetOrders.length})` : isMulti ? `确认通知发货 (${targetOrders.length})` : "确认通知发货"}
+            {submitting ? "提交中..." : joinDirectPool && selectedDirectPoolId ? `加入发货申请 (${targetOrders.length})` : isJoiningPool ? `加入拼邮需求 (${targetOrders.length})` : isMulti ? `确认通知发货 (${targetOrders.length})` : "确认通知发货"}
           </Button>
         </div>
       </div>
