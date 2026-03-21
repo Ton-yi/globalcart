@@ -227,7 +227,6 @@ export default function OrderDetailDrawer({ order, currentUser, onClose, onActio
               <Button variant="outline" className="w-full text-sm"
                 disabled={loadingPool}
                 onClick={async () => {
-                  if (editPool) { setEditPool(editPool); return; }
                   setLoadingPool(true);
                   const pools = await base44.entities.ShippingPool.filter({ creator_email: currentUser.email }, "-created_date", 200);
                   const found = pools.find(p => (p.order_ids || []).includes(order.id));
