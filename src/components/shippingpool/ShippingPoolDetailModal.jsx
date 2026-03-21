@@ -42,6 +42,9 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
   const [otherPools, setOtherPools] = useState([]); // other pools for moving orders
   const [targetPoolId, setTargetPoolId] = useState("");
   const [actionMode, setActionMode] = useState(null); // 'move' or 'return'
+  const [editingPool, setEditingPool] = useState(false); // editing pool details
+  const [editingPoolData, setEditingPoolData] = useState(null);
+  const [savingPool, setSavingPool] = useState(false);
 
   // Admin edit fields
   const [trackingNumber, setTrackingNumber] = useState(pool.tracking_number || "");
