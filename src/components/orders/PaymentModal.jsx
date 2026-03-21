@@ -131,11 +131,18 @@ export default function PaymentModal({ order, mode = "prepay", onClose, onSucces
             <AlertDescription className="text-yellow-800 text-sm font-medium">{amountLabel}</AlertDescription>
           </Alert>
 
+          {/* Only show editable amount for supplement/shipping; for prepay show read-only */}
           <div>
-            <Label className="text-sm">实付金额 ({cur})</Label>
-            <Input type="number" className="mt-1" value={paidAmount}
-              onChange={e => setPaidAmount(cur === "CNY" ? String(Math.round(parseFloat(e.target.value) || 0)) : e.target.value)}
-              step={cur === "CNY" ? "1" : "0.01"} />
+            <Label className="text-sm">付款金额 ({cur})</Label>
+            {mode === "prepay" ? (
+              <div className="mt-1 h-9 flex items-center px-3 rounded-md border border-input bg-muted text-sm font-medium text-gray-700">
+                {paidAmount}
+              </div>
+            ) : (
+              <Input type="number" className="mt-1" value={paidAmount}
+                onChange={e => setPaidAmount(cur === "CNY" ? String(Math.round(parseFloat(e.target.value) || 0)) : e.target.value)}
+                step={cur === "CNY" ? "1" : "0.01"} />
+            )}
           </div>
 
           {/* Method selection */}
