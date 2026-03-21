@@ -355,6 +355,63 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                           )}
                         </div>
                       )}
+                      {/* Admin actions panel */}
+                      {isAdmin && showOrderActions === o.id && (
+                        <div className="border-t border-gray-100 bg-gray-50 px-3 py-2.5 space-y-2">
+                          {actionMode === null ? (
+                            <div className="flex gap-2">
+                              <Button size="sm" variant="outline" className="flex-1 h-6 text-xs gap-1"
+                                onClick={() => { loadOtherPools(o); setActionMode('move'); }}>
+                                <ArrowRight className="w-3 h-3" />移动到其他发货申请
+                              </Button>
+                              <Button size="sm" variant="outline" className="flex-1 h-6 text-xs gap-1"
+                                onClick={() => { setAdminEditingOrder(o); setActionMode('return'); }}>
+                                <RotateCcw className="w-3 h-3" />重新入库
+                              </Button>
+                            </div>
+                          ) : actionMode === 'move' ? (
+                            <div className="space-y-2">
+                              <div className="relative">
+                                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                                <Input placeholder="搜索发货申请..." className="pl-8 h-7 text-xs" />
+                              </div>
+                              <div className="max-h-32 overflow-y-auto space-y-1">
+                                {otherPools.length === 0 ? (
+                                  <p className="text-xs text-gray-400 text-center py-2">无可用的发货申请</p>
+                                ) : (
+                                  otherPools.map(p => (
+                                    <button
+                                      key={p.id}
+                                      onClick={() => { setTargetPoolId(p.id); handleMoveOrder(); }}
+                                      disabled={savingOrder}
+                                      className="w-full text-left px-2 py-1.5 rounded text-xs border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors disabled:opacity-50">
+                                      <div className="flex items-center justify-between">
+                                        <span className="font-mono text-gray-600">{p.pool_code}</span>
+                                        {savingOrder && targetPoolId === p.id && <Loader2 className="w-3 h-3 animate-spin" />}
+                                      </div>
+                                    </button>
+                                  ))
+                                )}
+                              </div>
+                              <Button size="sm" variant="outline" className="w-full h-6 text-xs"
+                                onClick={() => setActionMode(null)}>取消</Button>
+                            </div>
+                          ) : actionMode === 'return' ? (
+                            <div className="space-y-2 bg-orange-50 border border-orange-100 rounded px-2 py-2">
+                              <p className="text-xs text-orange-700">确认重新入库此订单？订单状态将变为"已入库"。</p>
+                              <div className="flex gap-2">
+                                <Button size="sm" variant="outline" className="flex-1 h-6 text-xs"
+                                  onClick={() => setActionMode(null)}>取消</Button>
+                                <Button size="sm" className="flex-1 h-6 text-xs bg-orange-600 hover:bg-orange-700"
+                                  onClick={handleReturnOrder} disabled={savingOrder}>
+                                  {savingOrder ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <RotateCcw className="w-3 h-3 mr-1" />}
+                                  确认入库
+                                </Button>
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
