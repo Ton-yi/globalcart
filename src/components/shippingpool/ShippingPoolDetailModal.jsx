@@ -37,6 +37,11 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
   const [editingOrder, setEditingOrder] = useState(null); // order being edited
   const [editingOrderData, setEditingOrderData] = useState(null); // inline admin order edit
   const [savingOrder, setSavingOrder] = useState(false);
+  const [adminEditingOrder, setAdminEditingOrder] = useState(null); // order for move/return ops
+  const [showOrderActions, setShowOrderActions] = useState(null); // which order's actions are open
+  const [otherPools, setOtherPools] = useState([]); // other pools for moving orders
+  const [targetPoolId, setTargetPoolId] = useState("");
+  const [actionMode, setActionMode] = useState(null); // 'move' or 'return'
 
   // Admin edit fields
   const [trackingNumber, setTrackingNumber] = useState(pool.tracking_number || "");
