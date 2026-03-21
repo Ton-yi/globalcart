@@ -203,12 +203,23 @@ export default function MyOrders() {
   const inWarehouseOrders = filtered.filter(o => o.order_status === "in_warehouse");
   const selectedInWarehouse = filtered.filter(o => selectedIds.includes(o.id) && o.order_status === "in_warehouse");
 
+  // Orders eligible for bulk payment
+  const paymentPendingOrders = filtered.filter(o => o.order_status === "payment_pending" && o.payment_status !== "awaiting_confirmation");
+  const selectedPaymentPending = filtered.filter(o => selectedIds.includes(o.id) && o.order_status === "payment_pending" && o.payment_status !== "awaiting_confirmation");
+
   const toggleSelect = (id) => {
     setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   };
 
   const toggleAllInWarehouse = () => {
     const ids = inWarehouseOrders.map(o => o.id);
+    const allSelected = ids.every(id => selectedIds.includes(id));
+    if (allSelected) setSelectedIds(prev => prev.filter(id => !ids.includes(id)));
+    else setSelectedIds(prev => [...new Set([...prev, ...ids])]);
+  };
+
+  const toggleAllPaymentPending = () => {
+    const ids = paymentPendingOrders.map(o => o.id);
     const allSelected = ids.every(id => selectedIds.includes(id));
     if (allSelected) setSelectedIds(prev => prev.filter(id => !ids.includes(id)));
     else setSelectedIds(prev => [...new Set([...prev, ...ids])]);
