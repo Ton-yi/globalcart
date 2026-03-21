@@ -420,6 +420,18 @@ export default function MyOrders() {
           }}
         />
       )}
+
+      {bulkPaymentOrders && (
+        <BulkPaymentModal
+          orders={bulkPaymentOrders}
+          onClose={() => setBulkPaymentOrders(null)}
+          onSuccess={() => {
+            setBulkPaymentOrders(null);
+            setSelectedIds([]);
+            fetchOrders(user);
+          }}
+        />
+      )}
     </div>
   );
 }
