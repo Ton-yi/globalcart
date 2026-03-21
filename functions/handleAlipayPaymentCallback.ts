@@ -85,52 +85,53 @@ Deno.serve(async (req) => {
       return new Response('success', { status: 200 });
     }
 
-    // 3. Find order by alipay_trade_no (out_trade_no)
-    const orders = await base44.asServiceRole.entities.Order.filter({ alipay_trade_no: out_trade_no });
-    if (!orders || orders.length === 0) {
+    // 3. Find ALL orders sharing this out_trade_no (supports bulk payment)
+    const matchedOrders = await base44.asServiceRole.entities.Order.filter({ alipay_trade_no: out_trade_no });
+    if (!matchedOrders || matchedOrders.length === 0) {
       console.error(`Order not found for out_trade_no: ${out_trade_no}`);
-      return new Response('success', { status: 200 }); // return success to stop retries
-    }
-
-    const order = orders[0];
-
-    // 4. Idempotency check — skip if already confirmed
-    if (order.payment_status === 'paid' || order.payment_status === 'confirmed') {
       return new Response('success', { status: 200 });
     }
 
-    // 5. Determine if this is a shipping fee payment or order payment
-    const isShippingPayment = order.shipping_alipay_trade_no === out_trade_no;
-
-    let updates;
-    if (isShippingPayment) {
-      updates = {
-        payment_status: 'confirmed',
-        order_status: 'ready_to_ship',
-        alipay_transaction_id: trade_no,
-        payment_method: 'alipay',
-        admin_note: [
-          order.admin_note,
-          `运费支付宝自动确认 | 买家:${buyer_logon_id || '-'} | 流水号:${trade_no} | ${new Date().toISOString()}`
-        ].filter(Boolean).join('\n'),
-      };
-    } else {
-      updates = {
-        payment_status: 'paid',
-        order_status: 'paid',
-        paid_amount: parseFloat(total_amount) || order.prepayment_amount,
-        alipay_transaction_id: trade_no,
-        payment_method: 'alipay',
-        admin_note: [
-          order.admin_note,
-          `支付宝自动确认 | 买家:${buyer_logon_id || '-'} | 流水号:${trade_no} | ${new Date().toISOString()}`
-        ].filter(Boolean).join('\n'),
-      };
+    // 4. Idempotency check — skip if all already confirmed
+    const pendingOrders = matchedOrders.filter(o =>
+      o.payment_status !== 'paid' && o.payment_status !== 'confirmed'
+    );
+    if (pendingOrders.length === 0) {
+      return new Response('success', { status: 200 });
     }
 
-    await base44.asServiceRole.entities.Order.update(order.id, updates);
+    // 5. Update all matching orders
+    await Promise.all(pendingOrders.map(order => {
+      const isShippingPayment = order.shipping_alipay_trade_no === out_trade_no;
+      let updates;
+      if (isShippingPayment) {
+        updates = {
+          payment_status: 'confirmed',
+          order_status: 'ready_to_ship',
+          alipay_transaction_id: trade_no,
+          payment_method: 'alipay',
+          admin_note: [
+            order.admin_note,
+            `运费支付宝自动确认 | 买家:${buyer_logon_id || '-'} | 流水号:${trade_no} | ${new Date().toISOString()}`
+          ].filter(Boolean).join('\n'),
+        };
+      } else {
+        updates = {
+          payment_status: 'paid',
+          order_status: 'paid',
+          paid_amount: (order.prepayment_amount || 0),
+          alipay_transaction_id: trade_no,
+          payment_method: 'alipay',
+          admin_note: [
+            order.admin_note,
+            `支付宝自动确认 | 买家:${buyer_logon_id || '-'} | 流水号:${trade_no} | ${new Date().toISOString()}`
+          ].filter(Boolean).join('\n'),
+        };
+      }
+      return base44.asServiceRole.entities.Order.update(order.id, updates);
+    }));
 
-    console.log(`Order ${order.id} payment confirmed via Alipay. trade_no: ${trade_no}`);
+    console.log(`${pendingOrders.length} order(s) confirmed via Alipay. out_trade_no: ${out_trade_no}, trade_no: ${trade_no}`);
 
     // 6. MUST return plain text "success"
     return new Response('success', { status: 200 });
