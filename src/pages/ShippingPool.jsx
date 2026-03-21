@@ -79,6 +79,7 @@ export default function ShippingPool() {
 
   const fetchData = async (u) => {
     setLoading(true);
+    // Fetch all pools created by this user (includes private ones they own)
     const allPools = await base44.entities.ShippingPool.filter({ creator_email: u.email }, "-created_date", 100);
     setPools(allPools);
 
