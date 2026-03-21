@@ -67,8 +67,14 @@ export default function AdminShippingPool() {
       setUser(u);
       fetchPools();
       fetchLocations();
-      const users = await base44.entities.User.list();
+      const [users, methods, addons] = await Promise.all([
+        base44.entities.User.list(),
+        base44.entities.TransitShippingMethod.list(),
+        base44.entities.AddonOption.filter({ addon_type: "shipping", is_active: true }),
+      ]);
       setAllUsers(users);
+      setTransitMethods(methods);
+      setAddonOptions(addons);
     }).catch(() => base44.auth.redirectToLogin());
   }, []);
 
