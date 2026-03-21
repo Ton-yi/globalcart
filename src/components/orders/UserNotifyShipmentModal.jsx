@@ -132,13 +132,18 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
   useEffect(() => {
     base44.auth.me().then(async u => {
       setCurrentUser(u);
-      const [prefs, allLocs, usersRes, pools] = await Promise.all([
+      const [prefs, allLocs, usersRes, pools, addons, tMethods] = await Promise.all([
         base44.entities.UserPreference.filter({ user_email: u.email }),
-        base44.entities.TransitLocation.list(),  // list all, filter is_active in frontend
+        base44.entities.TransitLocation.list(),
         base44.functions.invoke("listNonAdminUsers", {}),
         base44.entities.ShippingPool.filter({ creator_email: u.email }, "-created_date", 200),
+        base44.entities.AddonOption.filter({ addon_type: "shipping", is_active: true }),
+        base44.entities.TransitShippingMethod.filter({ is_active: true }),
       ]);
       if (prefs.length > 0 && prefs[0].saved_addresses) setSavedAddresses(prefs[0].saved_addresses);
+      if (prefs.length > 0 && prefs[0].preferred_transit_shipping_id) {
+        setSelectedTransitMethodId(prefs[0].preferred_transit_shipping_id);
+      }
       setTransitLocations((allLocs || []).filter(l => l.is_active !== false));
       setAllUsers(usersRes?.data?.users || []);
       const consolidationPools = pools.filter(p =>
@@ -147,6 +152,8 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
         (!p.is_private || p.creator_email === u.email || (p.shared_with_emails || []).includes(u.email))
       );
       setExistingPools(consolidationPools);
+      setShippingAddons(addons || []);
+      setTransitMethods(tMethods || []);
     }).catch(() => {});
   }, []);
 
