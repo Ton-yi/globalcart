@@ -74,8 +74,21 @@ export default function ShippingPoolCard({ pool, onClick }) {
               }
             </div>
 
+            {/* Shipping method + order status chips */}
+            <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+              {pool.shipping_method && (
+                <span className="inline-flex items-center gap-1 text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">
+                  <Truck className="w-2.5 h-2.5" />{METHOD_LABELS[pool.shipping_method] || pool.shipping_method}
+                </span>
+              )}
+              {pool.consolidation_type && pool.consolidation_type !== "" && (
+                <span className="inline-flex items-center gap-1 text-xs bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded">
+                  <Layers className="w-2.5 h-2.5" />拼邮
+                </span>
+              )}
+            </div>
             {/* Title / transit location */}
-            <p className="text-sm font-semibold text-gray-900 mt-1.5 truncate">
+            <p className="text-sm font-semibold text-gray-900 mt-1 truncate">
               {isConsolidation ?
               pool.consolidation_type === "transit" ? `中转拼邮 → ${pool.transit_location_name || "中转地"}` : "自选地址拼邮" :
               `单独发货 ${pool.pool_code || ""}`}
