@@ -137,8 +137,6 @@ export default function SubmitOrder() {
       ? (productUrls[0] || "").split("\n").map(s => s.trim()).filter(Boolean).join("\n")
       : productUrls.filter(u => u.trim()).join("\n");
     const isDeferred = paymentMode === "deferred";
-    const { base44: b44 } = await import('@/api/base44Client');
-    const { detectPrimaryStoreTagResult } = await import('@/lib/onlineStoreTag');
     const tagResult = await detectPrimaryStoreTagResult(urlsText);
     const order = await base44.entities.Order.create({
       ...form,
