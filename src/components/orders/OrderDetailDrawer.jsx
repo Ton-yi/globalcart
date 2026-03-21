@@ -4,7 +4,7 @@
  * Shows status, messages, and action buttons based on current order state.
  */
 import { useState, useEffect } from "react";
-import { X, ExternalLink, MessageCircle, Truck, CheckCircle, CreditCard, Upload } from "lucide-react";
+import { X, ExternalLink, MessageCircle, Truck, CheckCircle, CreditCard, Upload, Edit2 } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,7 @@ import { getStatusLabel, getStatusColor, USER_CAN_RESUBMIT_PROOF_STATUSES } from
 import OrderMessageThread from "./OrderMessageThread";
 import PaymentModal from "./PaymentModal";
 import UserNotifyShipmentModal from "./UserNotifyShipmentModal";
+import ShippingEditModal from "@/components/shippingpool/ShippingEditModal";
 
 export default function OrderDetailDrawer({ order, currentUser, onClose, onAction }) {
   const hasReplyStatus = order.reply_status && order.reply_status !== "no_reply";
@@ -21,6 +22,8 @@ export default function OrderDetailDrawer({ order, currentUser, onClose, onActio
   const [showPayment, setShowPayment] = useState(false);
   const [showShipment, setShowShipment] = useState(false);
   const [paidReminder, setPaidReminder] = useState("");
+  const [editPool, setEditPool] = useState(null);
+  const [loadingPool, setLoadingPool] = useState(false);
 
   useEffect(() => {
     // Load user's saved contact info from preferences
