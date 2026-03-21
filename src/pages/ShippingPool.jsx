@@ -79,12 +79,18 @@ export default function ShippingPool() {
 
   const fetchData = async (u) => {
     setLoading(true);
-    const [pools, consOrders] = await Promise.all([
-      base44.entities.ShippingPool.filter({ creator_email: u.email }, "-created_date", 100),
-      base44.entities.Order.filter({ user_email: u.email, consolidation_requested: true, order_status: "notified_shipment" }, "-updated_date", 100),
-    ]);
-    setPools(pools);
-    setConsolidationOrders(consOrders);
+    const allPools = await base44.entities.ShippingPool.filter({ creator_email: u.email }, "-created_date", 100);
+    setPools(allPools);
+
+    // For consolidation tab: get orders that belong to consolidation-type pools
+    const consPools = allPools.filter(p => p.consolidation_type && p.consolidation_type !== "");
+    const consOrderIds = [...new Set(consPools.flatMap(p => p.order_ids || []))];
+    if (consOrderIds.length > 0) {
+      const orders = await base44.entities.Order.filter({ user_email: u.email, order_status: "notified_shipment" }, "-updated_date", 200);
+      setConsolidationOrders(orders.filter(o => consOrderIds.includes(o.id)));
+    } else {
+      setConsolidationOrders([]);
+    }
     setLoading(false);
   };
 
