@@ -275,6 +275,14 @@ export default function AdminOrderEditModal({ order, onClose, onSaved }) {
                 )}
               </div>
 
+              {/* Payment method */}
+              {order.payment_method && (
+                <div className="bg-gray-50 rounded-lg p-2.5 text-xs">
+                  <div className="text-gray-400">付款方式</div>
+                  <div className="font-medium">{{ alipay: "支付宝", wechatpay: "微信支付", paypay: "PayPay", paypal: "PayPal", credit_card: "信用卡", bank_transfer: "银行转账", other: "其他" }[order.payment_method] || order.payment_method}</div>
+                </div>
+              )}
+
               {/* Payment proof */}
               {order.payment_proof_url && (
                 <div>
