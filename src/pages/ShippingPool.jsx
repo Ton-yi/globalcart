@@ -514,6 +514,26 @@ export default function ShippingPool() {
                     </div>
                   </div>
 
+                  {/* Consolidation strategy - collapsible (only for consolidation types) */}
+                  {consType !== "" && (() => {
+                    const [strategyOpen, setStrategyOpen] = useState(false);
+                    return (
+                      <div className="border border-blue-100 rounded-xl overflow-hidden">
+                        <button type="button"
+                          onClick={() => setStrategyOpen(v => !v)}
+                          className="w-full flex items-center justify-between px-4 py-3 bg-blue-50 hover:bg-blue-100/60 transition-colors">
+                          <p className="text-xs text-blue-600 font-medium uppercase tracking-wide">拼邮策略</p>
+                          <span className="text-xs text-blue-400">{strategyOpen ? "收起 ▲" : "展开 ▼"}</span>
+                        </button>
+                        {strategyOpen && (
+                          <div className="bg-blue-50 px-4 pb-4 text-xs text-gray-500 pt-2">
+                            <p>拼邮策略配置（截止日期、凑满重量、超时处理等）可在通知发货时设置。</p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+
                   {/* Privacy setting (only when consolidation type selected) */}
                   {consType !== "" && (
                     <div className="border border-gray-200 rounded-xl p-4 space-y-3">
