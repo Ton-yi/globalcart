@@ -123,7 +123,7 @@ export default function BulkPaymentModal({ orders, onClose, onSuccess }) {
             <div className="grid grid-cols-2 gap-2">
               {METHODS.map(m => (
                 <button key={m.value} type="button"
-                  onClick={() => { setMethod(m.value); setAlipayUrls({}); setProofUrl(""); }}
+                  onClick={() => { setMethod(m.value); setAlipayUrl(null); setProofUrl(""); }}
                   className={`p-3 rounded-lg border-2 text-sm font-medium transition-all ${
                     method === m.value
                       ? "border-blue-500 bg-blue-50 text-blue-700 ring-2 ring-blue-200"
