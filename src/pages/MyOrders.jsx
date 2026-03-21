@@ -112,7 +112,7 @@ function CellValue({ col, order }) {
     case "submit_date":
       return <span className="text-xs text-gray-700">{order.created_date ? new Date(order.created_date).toLocaleDateString("zh-CN") : "-"}</span>;
     case "online_store_tag":
-      return <Badge className={`text-xs ${order.tag_color || "bg-gray-100 text-gray-700"}`}>{order.online_store_tag || "其它"}</Badge>;
+      return <Badge className={`text-xs ${order.online_store_tag_color || "bg-gray-100 text-gray-700"}`}>{order.online_store_tag || "其它"}</Badge>;
     case "purchased_date":
       return <span className="text-xs text-gray-700">{order.purchased_date ? new Date(order.purchased_date).toLocaleDateString("zh-CN") : "-"}</span>;
     case "in_warehouse_date":
