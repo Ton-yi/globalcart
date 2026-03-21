@@ -435,7 +435,7 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
               { key: "other", label: "申请拼邮到其它地址", desc: "与其他包裹合并，发往自选地址" },
             ].map(opt => (
               <label key={opt.key} className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${consType === opt.key ? "border-red-300 bg-red-50" : "border-gray-100 hover:bg-gray-50"}`}>
-                <input type="radio" checked={consType === opt.key} onChange={() => { setConsType(opt.key); setJoinExistingPool(false); setSelectedPoolId(""); }} className="mt-0.5 accent-red-600" />
+                <input type="radio" checked={consType === opt.key} onChange={() => { setConsType(opt.key); setJoinExistingPool(false); setSelectedPoolId(""); setJoinDirectPool(false); setSelectedDirectPoolId(""); }} className="mt-0.5 accent-red-600" />
                 <div>
                   <div className="text-sm font-medium text-gray-800">{opt.label}</div>
                   <p className="text-xs text-gray-400 mt-0.5">{opt.desc}</p>
