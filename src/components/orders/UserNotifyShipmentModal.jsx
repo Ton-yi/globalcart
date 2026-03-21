@@ -87,6 +87,84 @@ function DeadlineToken({ value, onChange }) {
   );
 }
 
+function TransitMethodSection({ consType, selectedTransitId, transitLocations, transitMethods, selectedTransitMethodId, setSelectedTransitMethodId }) {
+  if (consType !== "transit") return null;
+  const selectedLoc = transitLocations.find(l => l.id === selectedTransitId);
+  const disabledMethodIds = selectedLoc?.disabled_transit_method_ids || [];
+  const visibleMethods = transitMethods.filter(m => !disabledMethodIds.includes(m.id));
+  const allowPickup = selectedLoc?.allow_pickup;
+  if (visibleMethods.length === 0 && !allowPickup) return null;
+
+  const getRateSummary = (m) => {
+    if (m.rate_mode === "fixed" || !m.simple_rates?.length) {
+      return `+${m.fee_currency || "CNY"} ${Number(m.fee || 0).toLocaleString()}`;
+    }
+    const r = m.simple_rates[0];
+    return `首${r.first_weight_g}g/${r.first_weight_fee}${r.currency}`;
+  };
+
+  return (
+    <div>
+      <label className="text-xs text-gray-500 font-medium uppercase tracking-wide flex items-center gap-1.5">
+        <Truck className="w-3.5 h-3.5" />中转段运输方式
+      </label>
+      <div className="mt-1.5 space-y-1.5">
+        {allowPickup && (
+          <label className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${selectedTransitMethodId === "pickup" ? "border-teal-400 bg-teal-50" : "border-gray-200 hover:bg-gray-50"}`}>
+            <input type="radio" checked={selectedTransitMethodId === "pickup"} onChange={() => setSelectedTransitMethodId("pickup")} className="accent-teal-600" />
+            <span className="text-sm text-gray-600">自取</span>
+          </label>
+        )}
+        {visibleMethods.map(m => (
+          <label key={m.id} className={`flex items-center justify-between gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${selectedTransitMethodId === m.id ? "border-orange-400 bg-orange-50" : "border-gray-200 hover:bg-gray-50"}`}>
+            <div className="flex items-center gap-2">
+              <input type="radio" checked={selectedTransitMethodId === m.id} onChange={() => setSelectedTransitMethodId(m.id)} className="accent-orange-500" />
+              <div>
+                <span className="text-sm font-medium text-gray-800">{m.name}</span>
+                {m.description && <span className="text-xs text-gray-400 ml-2">{m.description}</span>}
+              </div>
+            </div>
+            <span className="text-xs font-medium text-orange-700 flex-shrink-0">{getRateSummary(m)}</span>
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TransitAddonSection({ consType, selectedTransitId, transitLocations, shippingAddons, selectedAddonIds, setSelectedAddonIds }) {
+  if (consType !== "transit") return null;
+  const selectedLoc = transitLocations.find(l => l.id === selectedTransitId);
+  const disabledAddonIds = selectedLoc?.disabled_addon_ids || [];
+  const visibleAddons = shippingAddons.filter(a => !disabledAddonIds.includes(a.id));
+  if (visibleAddons.length === 0) return null;
+
+  return (
+    <div>
+      <label className="text-xs text-gray-500 font-medium uppercase tracking-wide flex items-center gap-1.5">
+        <Star className="w-3.5 h-3.5" />增值服务（可选）
+      </label>
+      <div className="mt-1.5 space-y-1.5">
+        {visibleAddons.map(a => (
+          <label key={a.id} className={`flex items-center justify-between gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${selectedAddonIds.includes(a.id) ? "border-yellow-400 bg-yellow-50" : "border-gray-200 hover:bg-gray-50"}`}>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                checked={selectedAddonIds.includes(a.id)}
+                onCheckedChange={v => setSelectedAddonIds(prev => v ? [...prev, a.id] : prev.filter(id => id !== a.id))}
+              />
+              <div>
+                <span className="text-sm font-medium text-gray-800">{a.name}</span>
+                {a.description && <span className="text-xs text-gray-400 ml-2">{a.description}</span>}
+              </div>
+            </div>
+            <span className="text-xs font-medium text-yellow-700 flex-shrink-0">+{a.fee_currency || "JPY"} {Number(a.fee || 0).toLocaleString()}</span>
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function UserNotifyShipmentModal({ order, orders, onClose, onSuccess }) {
   const targetOrders = orders || (order ? [order] : []);
   const isMulti = targetOrders.length > 1;
