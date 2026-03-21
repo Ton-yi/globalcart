@@ -58,6 +58,10 @@ export default function AdminOrderEditModal({ order, onClose, onSaved }) {
   const [uploadingScreenshot, setUploadingScreenshot] = useState(false);
   const [uploadingArrival, setUploadingArrival] = useState(false);
 
+  // Item size templates
+  const [itemSizeTemplates, setItemSizeTemplates] = useState([]);
+  const [selectedSizeId, setSelectedSizeId] = useState(order.item_size_template_id || "");
+
   // Shipping fee form
   const [shippingWeight, setShippingWeight] = useState(order.shipping_total_weight_g || "");
   const [shippingFee, setShippingFee] = useState(order.shipping_fee_amount || "");
