@@ -144,6 +144,7 @@ export default function MyOrders() {
   const [columns, setColumns] = useState(loadColumns);
   const [sortKey, setSortKey] = useState(null);
   const [sortDir, setSortDir] = useState("asc");
+  const [storeTagRules, setStoreTagRules] = useState([]);
 
   const fetchOrders = async (u) => {
     if (!u) return;
@@ -158,6 +159,7 @@ export default function MyOrders() {
       setUser(u);
       fetchOrders(u);
     }).catch(() => base44.auth.redirectToLogin());
+    getOnlineStoreRules().then(setStoreTagRules).catch(() => {});
   }, []);
 
   const handleColumnsChange = (newCols) => {
