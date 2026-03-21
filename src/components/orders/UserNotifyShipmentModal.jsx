@@ -7,7 +7,7 @@
  * - Join existing shipping pool option
  */
 import { useState, useEffect } from "react";
-import { X, Truck, Package, MapPin, Lock, Users, Search } from "lucide-react";
+import { X, Truck, Package, MapPin, Lock, Users, Search, Star } from "lucide-react";
 import { getCountry } from "@/lib/countries";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
