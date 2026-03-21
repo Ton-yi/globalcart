@@ -41,7 +41,7 @@ export default function SubmitOrder() {
   useEffect(() => {
     base44.auth.me().then(setUser).catch(() => base44.auth.redirectToLogin());
     Promise.all([
-      base44.entities.AddonOption.filter({ is_active: true }),
+      base44.entities.AddonOption.filter({ addon_type: "order", is_active: true }),
       getRatesWithIncrements(),
       base44.entities.SiteSettings.list()
     ]).then(([addons, rates, settingsList]) => {
