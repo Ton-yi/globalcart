@@ -55,8 +55,14 @@ export default function ShippingPoolCard({ pool, onClick }) {
             <p className="text-sm font-semibold text-gray-900 mt-1.5 truncate">
               {isConsolidation
                 ? (pool.consolidation_type === "transit" ? `中转拼邮 → ${pool.transit_location_name || "中转地"}` : "自选地址拼邮")
-                : (pool.title || `发货申请 ${pool.pool_code ? `#${pool.pool_code}` : `#${pool.id.slice(-6).toUpperCase()}`}`)}
+                : (pool.title || "直接发货申请")}
             </p>
+            {pool.pool_code && (
+              <p className="text-xs text-gray-400 mt-0.5 font-mono">编号：{pool.pool_code}</p>
+            )}
+            {pool.is_private && (
+              <span className="inline-flex items-center gap-1 text-xs text-gray-500 mt-0.5">🔒 不公开</span>
+            )}
           </div>
 
           {/* Right: date */}
