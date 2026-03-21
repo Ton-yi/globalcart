@@ -420,9 +420,18 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
           )}
 
           {/* Natural-language consolidation config */}
-          {consolidation && !isJoiningPool && (
-            <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 space-y-3">
-              <p className="text-xs text-blue-500 font-medium uppercase tracking-wide">拼邮配置</p>
+          {consolidation && !isJoiningPool && (() => {
+            const [strategyOpen, setStrategyOpen] = React.useState(false);
+            return (
+            <div className="border border-blue-100 rounded-xl overflow-hidden">
+              <button type="button"
+                onClick={() => setStrategyOpen(v => !v)}
+                className="w-full flex items-center justify-between px-4 py-3 bg-blue-50 hover:bg-blue-100/60 transition-colors">
+                <p className="text-xs text-blue-600 font-medium uppercase tracking-wide">拼邮策略</p>
+                <span className="text-xs text-blue-400">{strategyOpen ? "收起 ▲" : "展开 ▼"}</span>
+              </button>
+              {strategyOpen && (
+              <div className="bg-blue-50 px-4 pb-4 space-y-3">
 
               <div className="text-sm text-gray-700 leading-8 flex flex-wrap items-center gap-x-1.5">
                 <span>在</span>

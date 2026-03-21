@@ -277,6 +277,7 @@ export default function OrderDetailDrawer({ order, currentUser, onClose, onActio
           onClose={() => setShowShipment(false)}
           onSuccess={() => {
             setShowShipment(false);
+            onClose(); // close the order detail drawer too
             onAction?.("notify_ship");
           }}
         />
