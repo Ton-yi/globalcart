@@ -167,6 +167,18 @@ export default function AdminOrderEditModal({ order, onClose, onSaved }) {
     };
     if (arrivalPhoto) updates.arrival_photo_url = arrivalPhoto;
     if (form.weight_g) updates.weight_g = parseFloat(form.weight_g);
+    
+    // Apply selected item size template
+    if (selectedSizeId) {
+      const selectedTemplate = itemSizeTemplates.find(t => t.id === selectedSizeId);
+      if (selectedTemplate) {
+        updates.item_size_template_id = selectedTemplate.id;
+        updates.item_size_title = selectedTemplate.title;
+        updates.item_size_extra_fee = selectedTemplate.extra_fee;
+        updates.item_size_fee_currency = selectedTemplate.fee_currency;
+      }
+    }
+    
     await base44.entities.Order.update(order.id, updates);
     onSaved();
   };
