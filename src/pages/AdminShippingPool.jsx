@@ -264,16 +264,68 @@ export default function AdminShippingPool() {
                 <Label className="text-xs text-gray-500">描述/备注</Label>
                 <Textarea rows={2} className="mt-1 text-sm" value={locForm.description} onChange={e => lf("description", e.target.value)} />
               </div>
-              <div className="flex items-center gap-6">
+              <div className="flex items-center gap-6 flex-wrap">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <Switch checked={locForm.allow_storage} onCheckedChange={v => lf("allow_storage", v)} />
                   <span className="text-xs text-gray-600">允许货品暂存</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <Switch checked={locForm.allow_pickup} onCheckedChange={v => lf("allow_pickup", v)} />
+                  <span className="text-xs text-gray-600">允许自取</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <Switch checked={locForm.is_active} onCheckedChange={v => lf("is_active", v)} />
                   <span className="text-xs text-gray-600">启用</span>
                 </label>
               </div>
+
+              {/* Disable transit methods for this location */}
+              {transitMethods.length > 0 && (
+                <div>
+                  <Label className="text-xs text-gray-500">禁用的中转运输方式（勾选 = 在此中转地隐藏）</Label>
+                  <div className="mt-1.5 space-y-1 border border-gray-200 rounded-lg p-2 bg-white max-h-36 overflow-y-auto">
+                    {transitMethods.map(m => {
+                      const disabled = (locForm.disabled_transit_method_ids || []).includes(m.id);
+                      return (
+                        <label key={m.id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 rounded px-1 py-0.5">
+                          <input type="checkbox" checked={disabled}
+                            onChange={() => lf("disabled_transit_method_ids", disabled
+                              ? (locForm.disabled_transit_method_ids || []).filter(id => id !== m.id)
+                              : [...(locForm.disabled_transit_method_ids || []), m.id]
+                            )}
+                            className="accent-red-600" />
+                          <span className="text-xs text-gray-700">{m.name}</span>
+                          {!m.is_active && <span className="text-xs text-gray-400">（已全局禁用）</span>}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Disable addons for this location */}
+              {addonOptions.length > 0 && (
+                <div>
+                  <Label className="text-xs text-gray-500">禁用的发货增值服务（勾选 = 在此中转地隐藏）</Label>
+                  <div className="mt-1.5 space-y-1 border border-gray-200 rounded-lg p-2 bg-white max-h-36 overflow-y-auto">
+                    {addonOptions.map(a => {
+                      const disabled = (locForm.disabled_addon_ids || []).includes(a.id);
+                      return (
+                        <label key={a.id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 rounded px-1 py-0.5">
+                          <input type="checkbox" checked={disabled}
+                            onChange={() => lf("disabled_addon_ids", disabled
+                              ? (locForm.disabled_addon_ids || []).filter(id => id !== a.id)
+                              : [...(locForm.disabled_addon_ids || []), a.id]
+                            )}
+                            className="accent-red-600" />
+                          <span className="text-xs text-gray-700">{a.name}</span>
+                          {a.fee > 0 && <span className="text-xs text-gray-400">+{a.fee_currency} {a.fee}</span>}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
               <div className="flex gap-2 justify-end">
                 <Button variant="outline" size="sm" onClick={() => { setShowLocForm(false); setEditingLoc(null); }}>取消</Button>
                 <Button size="sm" className="bg-red-600 hover:bg-red-700" onClick={handleLocSave} disabled={savingLoc || !locForm.name}>
