@@ -28,7 +28,7 @@ function Avatar({ name, imageUrl, size = "sm" }) {
   );
 }
 
-export default function OrderMessageThread({ order, currentUser, isAdmin, onMessageSent, contactInfo }) {
+export default function OrderMessageThread({ order, currentUser, isAdmin, onMessageSent, contactInfo, composeOnly = false }) {
   const [localMessages, setLocalMessages] = useState(order.messages || []);
   const [content, setContent] = useState("");
   const [imageUrl, setImageUrl] = useState("");
@@ -95,12 +95,12 @@ export default function OrderMessageThread({ order, currentUser, isAdmin, onMess
   return (
     <div className="space-y-4">
       {/* Message history */}
-      {localMessages.length === 0 ? (
+      {!composeOnly && localMessages.length === 0 ? (
         <div className="text-center py-6 text-gray-400 text-sm">
           <MessageCircle className="w-8 h-8 mx-auto mb-2 opacity-30" />
           暂无留言
         </div>
-      ) : (
+      ) : !composeOnly && (
         <div className="space-y-4 max-h-72 overflow-y-auto pr-1">
           {localMessages.map((msg) => {
             const isMine = isAdmin ? msg.role === "admin" : msg.role === "user";
