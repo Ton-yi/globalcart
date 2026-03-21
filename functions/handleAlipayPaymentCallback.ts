@@ -63,7 +63,8 @@ async function parseFormBody(req) {
 
 Deno.serve(async (req) => {
   try {
-    const base44 = createClientFromRequest(req);
+    // Alipay callback does NOT send Base44 headers — use APP_ID directly
+    const base44 = createClient({ appId: Deno.env.get('BASE44_APP_ID') });
 
     // Alipay sends POST with application/x-www-form-urlencoded
     const params = await parseFormBody(req);
