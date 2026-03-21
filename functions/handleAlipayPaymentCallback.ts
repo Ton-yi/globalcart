@@ -63,11 +63,28 @@ async function parseFormBody(req) {
 
 Deno.serve(async (req) => {
   try {
-    // Alipay callback does NOT send Base44 headers — use APP_ID directly
-    const base44 = createClient({ appId: Deno.env.get('BASE44_APP_ID') });
+    // Alipay callback doesn't send Base44-App-Id header.
+    // We pass app_id as a query param in notify_url so createClientFromRequest can pick it up.
+    // Manually inject it into the request headers if missing.
+    const url = new URL(req.url);
+    const appIdFromQuery = url.searchParams.get('app_id');
+    let reqToUse = req;
+    if (appIdFromQuery && !req.headers.get('Base44-App-Id')) {
+      const newHeaders = new Headers(req.headers);
+      newHeaders.set('Base44-App-Id', appIdFromQuery);
+      // Clone the request body for parseFormBody later
+      const bodyText = await req.text();
+      reqToUse = new Request(req.url, {
+        method: req.method,
+        headers: newHeaders,
+        body: bodyText,
+      });
+    }
+    const base44 = createClientFromRequest(reqToUse);
 
     // Alipay sends POST with application/x-www-form-urlencoded
-    const params = await parseFormBody(req);
+    // Body was already consumed above if we cloned, get it from reqToUse
+    const params = await parseFormBody(reqToUse);
 
     const publicKeyPem = Deno.env.get('ALIPAY_PUBLIC_KEY');
 
