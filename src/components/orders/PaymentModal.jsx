@@ -131,10 +131,30 @@ export default function PaymentModal({ order, mode = "prepay", onClose, onSucces
         </div>
 
         <div className="px-5 py-5 space-y-4">
-          <Alert className="border-yellow-200 bg-yellow-50 py-2.5">
-            <CreditCard className="w-4 h-4 text-yellow-600" />
-            <AlertDescription className="text-yellow-800 text-sm font-medium">{amountLabel}</AlertDescription>
-          </Alert>
+           <Alert className="border-yellow-200 bg-yellow-50 py-2.5">
+             <CreditCard className="w-4 h-4 text-yellow-600" />
+             <AlertDescription className="text-yellow-800 text-sm font-medium">{amountLabel}</AlertDescription>
+           </Alert>
+
+           {/* Item size fee breakdown for shipping */}
+           {isShipping && itemSizeFee > 0 && (
+             <div className="bg-purple-50 border border-purple-100 rounded-lg px-3 py-2.5 space-y-1.5">
+               <p className="text-xs text-purple-600 font-medium">费用明细</p>
+               <div className="flex items-center justify-between text-xs">
+                 <span className="text-gray-600">运费：</span>
+                 <span className="font-medium text-gray-800">{cur} {order.shipping_fee_amount}</span>
+               </div>
+               <div className="flex items-center justify-between text-xs border-t border-purple-100 pt-1">
+                 <span className="text-gray-600">物品尺寸费：</span>
+                 <span className="font-medium text-purple-700">{order.item_size_fee_currency} {itemSizeFee}</span>
+               </div>
+               {order.item_size_title && (
+                 <div className="text-xs text-gray-500 pt-1 border-t border-purple-100">
+                   {order.item_size_title}
+                 </div>
+               )}
+             </div>
+           )}
 
           {/* Only show editable amount for supplement/shipping; for prepay show read-only */}
           <div>
