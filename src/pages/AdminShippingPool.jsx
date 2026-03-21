@@ -105,6 +105,9 @@ export default function AdminShippingPool() {
       handling_fee_currency: loc.handling_fee_currency || "JPY",
       manager_email: loc.manager_email || "", manager_contact: loc.manager_contact || "",
       allow_storage: loc.allow_storage || false,
+      allow_pickup: loc.allow_pickup || false,
+      disabled_transit_method_ids: loc.disabled_transit_method_ids || [],
+      disabled_addon_ids: loc.disabled_addon_ids || [],
       description: loc.description || "", is_active: loc.is_active !== false,
     });
     setShowLocForm(true);
