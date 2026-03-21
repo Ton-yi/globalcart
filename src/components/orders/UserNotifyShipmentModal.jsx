@@ -646,29 +646,30 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
             const visibleAddons = shippingAddons.filter(a => !disabledAddonIds.includes(a.id));
             if (visibleAddons.length === 0) return null;
             return (
-            <div>
-              <label className="text-xs text-gray-500 font-medium uppercase tracking-wide flex items-center gap-1.5">
-                <Star className="w-3.5 h-3.5" />增值服务（可选）
-              </label>
-              <div className="mt-1.5 space-y-1.5">
-                {shippingAddons.map(a => (
-                  <label key={a.id} className={`flex items-center justify-between gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${selectedAddonIds.includes(a.id) ? "border-yellow-400 bg-yellow-50" : "border-gray-200 hover:bg-gray-50"}`}>
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        checked={selectedAddonIds.includes(a.id)}
-                        onCheckedChange={v => setSelectedAddonIds(prev => v ? [...prev, a.id] : prev.filter(id => id !== a.id))}
-                      />
-                      <div>
-                        <span className="text-sm font-medium text-gray-800">{a.name}</span>
-                        {a.description && <span className="text-xs text-gray-400 ml-2">{a.description}</span>}
+              <div>
+                <label className="text-xs text-gray-500 font-medium uppercase tracking-wide flex items-center gap-1.5">
+                  <Star className="w-3.5 h-3.5" />增值服务（可选）
+                </label>
+                <div className="mt-1.5 space-y-1.5">
+                  {visibleAddons.map(a => (
+                    <label key={a.id} className={`flex items-center justify-between gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${selectedAddonIds.includes(a.id) ? "border-yellow-400 bg-yellow-50" : "border-gray-200 hover:bg-gray-50"}`}>
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          checked={selectedAddonIds.includes(a.id)}
+                          onCheckedChange={v => setSelectedAddonIds(prev => v ? [...prev, a.id] : prev.filter(id => id !== a.id))}
+                        />
+                        <div>
+                          <span className="text-sm font-medium text-gray-800">{a.name}</span>
+                          {a.description && <span className="text-xs text-gray-400 ml-2">{a.description}</span>}
+                        </div>
                       </div>
-                    </div>
-                    <span className="text-xs font-medium text-yellow-700 flex-shrink-0">+{a.fee_currency || "JPY"} {Number(a.fee || 0).toLocaleString()}</span>
-                  </label>
-                ))}
+                      <span className="text-xs font-medium text-yellow-700 flex-shrink-0">+{a.fee_currency || "JPY"} {Number(a.fee || 0).toLocaleString()}</span>
+                    </label>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Note */}
           <div>
