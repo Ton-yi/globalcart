@@ -333,6 +333,7 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
         pool_code,
         consolidation_type: consType || "",
         order_ids: orderIds,
+        order_names: targetOrders.map(o => o.product_name || ""),
         creator_email: u.email,
         creator_name: u.full_name || u.email,
         is_admin_created: false,
