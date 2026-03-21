@@ -330,7 +330,7 @@ export default function MyOrders() {
               <tr key={order.id} className={`hover:bg-gray-50 cursor-pointer ${selectedIds.includes(order.id) ? "bg-teal-50/50" : ""}`}
                 onClick={() => setSelectedOrder(order)}>
                 <td className="px-3 py-3" onClick={e => e.stopPropagation()}>
-                  {order.order_status === "in_warehouse" && (
+                  {(order.order_status === "in_warehouse" || (order.order_status === "payment_pending" && order.payment_status !== "awaiting_confirmation")) && (
                     <Checkbox
                       checked={selectedIds.includes(order.id)}
                       onCheckedChange={() => toggleSelect(order.id)}
