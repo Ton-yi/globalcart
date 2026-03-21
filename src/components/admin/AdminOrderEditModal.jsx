@@ -416,18 +416,18 @@ export default function AdminOrderEditModal({ order, onClose, onSaved }) {
                     <input type="file" accept="image/*" className="hidden"
                       onChange={e => uploadFile(e.target.files[0], setPurchaseScreenshot, setUploadingScreenshot)} />
                   </label>
+                  <Input placeholder="取消理由（取消时必填）" value={form.cancel_reason}
+                    onChange={e => f("cancel_reason", e.target.value)} className="text-xs" />
                   <div className="flex gap-2">
                     <Button size="sm" className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-xs"
                       onClick={handleMarkPurchased} disabled={saving}>
                       ✓ 购买完成 → 已下单
                     </Button>
                     <Button size="sm" variant="outline" className="text-xs border-red-300 text-red-600"
-                      onClick={() => { f("cancel_reason", form.cancel_reason); handleCancel(); }} disabled={saving || !form.cancel_reason}>
-                      取消
+                      onClick={handleCancel} disabled={saving || !form.cancel_reason}>
+                      取消订单
                     </Button>
                   </div>
-                  {!form.cancel_reason && <Input placeholder="取消理由（取消时必填）" value={form.cancel_reason}
-                    onChange={e => f("cancel_reason", e.target.value)} className="text-xs" />}
                 </div>
               )}
 
