@@ -281,7 +281,17 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
               {pool.is_private && <span className="ml-2">🔒 不公开</span>}
             </p>
           </div>
-          <button onClick={onClose}><X className="w-4 h-4 text-gray-500" /></button>
+          <div className="flex items-center gap-2">
+            {(isAdmin || currentUser?.email === pool.creator_email) && pool.status !== "shipped" && pool.status !== "delivered" && (
+              <button
+                onClick={() => { setEditingPool(true); setEditingPoolData(pool); }}
+                className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                title="编辑发货申请">
+                <Edit2 className="w-4 h-4" />
+              </button>
+            )}
+            <button onClick={onClose}><X className="w-4 h-4 text-gray-500" /></button>
+          </div>
         </div>
 
         <div className="px-6 py-5 space-y-6">
