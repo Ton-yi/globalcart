@@ -132,9 +132,13 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
               )}
             </div>
             <h2 className="font-semibold text-gray-900 mt-1">
-              {pool.title || `发货申请 #${pool.id.slice(-6).toUpperCase()}`}
+              {pool.title || (pool.pool_code ? `发货申请 ${pool.pool_code}` : `发货申请 #${pool.id.slice(-6).toUpperCase()}`)}
             </h2>
-            <p className="text-xs text-gray-400 mt-0.5">创建于 {new Date(pool.created_date).toLocaleDateString("zh-CN")}</p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {pool.pool_code && <span className="font-mono mr-2 text-gray-500">{pool.pool_code}</span>}
+              创建于 {new Date(pool.created_date).toLocaleDateString("zh-CN")}
+              {pool.is_private && <span className="ml-2">🔒 不公开</span>}
+            </p>
           </div>
           <button onClick={onClose}><X className="w-4 h-4 text-gray-500" /></button>
         </div>
