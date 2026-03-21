@@ -99,8 +99,10 @@ Deno.serve(async (req) => {
     const shortRef = orderIds.map(id => id.replace(/-/g, '').slice(0, 4).toUpperCase()).join('');
     const out_trade_no = `TY${shortRef.slice(0, 16)}${Date.now()}`;
 
-    const appBaseUrl = `https://api.base44.com/api/apps/${Deno.env.get('BASE44_APP_ID')}/functions`;
-    const notify_url = `${appBaseUrl}/handleAlipayPaymentCallback`;
+    const appId_env = Deno.env.get('BASE44_APP_ID');
+    const appBaseUrl = `https://api.base44.com/api/apps/${appId_env}/functions`;
+    // Pass app_id as query param so the callback can init the SDK without the Base44-App-Id header
+    const notify_url = `${appBaseUrl}/handleAlipayPaymentCallback?app_id=${appId_env}`;
     const return_url = `https://${req.headers.get('host') || 'app'}/MyOrders`;
 
     const resolvedSubject = subject || `同一物流代购 - ${orderIds.length} 笔订单`;
