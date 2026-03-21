@@ -78,9 +78,9 @@ export default function ShippingPoolCard({ pool, onClick }) {
 
         {/* Info grid */}
         <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs text-gray-600">
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 col-span-2">
             <Package className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-            <span>{(pool.order_ids || []).length} 件包裹</span>
+            <PackagesSummary orderIds={pool.order_ids} orderNames={pool.order_names} />
           </div>
           {pool.total_weight_g > 0 && (
             <div className="flex items-center gap-1.5">
