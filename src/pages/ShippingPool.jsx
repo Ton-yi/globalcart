@@ -226,6 +226,8 @@ export default function ShippingPool() {
       status: "pending",
       transit_location_name: transitLoc?.name || "",
       messages: [],
+      is_private: isPrivate,
+      shared_with_emails: isPrivate ? sharedWithEmails : [],
     });
 
     await Promise.all(selectedOrderIds.map(id => base44.entities.Order.update(id, { order_status: "notified_shipment" })));
