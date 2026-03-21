@@ -183,6 +183,42 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
         })
       )
     );
+
+    // Create a ShippingPool record so it shows up in the pools list
+    const u = await base44.auth.me();
+    const orderIds = targetOrders.map(o => o.id);
+    const totalWeight = targetOrders.reduce((s, o) => s + (o.weight_g || 0), 0);
+
+    const transitLoc = transitLocations.find(l => l.id === selectedTransitId);
+    const prefix = consType === "transit" && transitLoc?.code_prefix
+      ? transitLoc.code_prefix.toUpperCase()
+      : "AAA";
+    const existingPools = await base44.entities.ShippingPool.list("-created_date", 500);
+    const prefixPools = existingPools.filter(p => p.pool_code && p.pool_code.startsWith(prefix));
+    const nextSeq = (prefixPools.length + 1).toString().padStart(5, "0");
+    const pool_code = `${prefix}${nextSeq}`;
+
+    // Determine address info from selected address
+    const addrObj = savedAddresses.find(a => a.id === (consType === "transit" ? finalAddressId : selectedAddress));
+
+    await base44.entities.ShippingPool.create({
+      pool_code,
+      consolidation_type: consType || "",
+      order_ids: orderIds,
+      creator_email: u.email,
+      creator_name: u.full_name || u.email,
+      is_admin_created: false,
+      shipping_method: method,
+      total_weight_g: totalWeight,
+      status: "pending",
+      transit_location_id: consType === "transit" ? selectedTransitId : "",
+      transit_location_name: transitLoc?.name || "",
+      final_address_id: consType === "transit" ? finalAddressId : "",
+      user_note: note || "",
+      messages: [],
+      ...(addrObj ? { recipient_name: addrObj.full_text?.split("\n")[0] || "" } : {}),
+    });
+
     onSuccess?.();
   };
 
