@@ -132,6 +132,12 @@ export default function OrderDetailDrawer({ order, currentUser, onClose, onActio
                 <div className="font-mono font-medium text-teal-700">{order.tracking_number}</div>
               </div>
             )}
+            {status === "notified_shipment" && editPool && (
+              <div className="bg-purple-50 rounded-lg p-3 col-span-2">
+                <div className="text-xs text-gray-400">发货申请单号</div>
+                <div className="font-mono font-medium text-purple-700">{editPool.pool_code || editPool.id.slice(-6).toUpperCase()}</div>
+              </div>
+            )}
           </div>
 
           {/* Notes */}
