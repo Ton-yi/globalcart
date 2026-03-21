@@ -126,6 +126,15 @@ export default function OrderDetailDrawer({ order, currentUser, onClose, onActio
                 <div className="font-medium text-yellow-700">{order.shipping_fee_currency} {order.shipping_fee_amount?.toFixed(2)}</div>
               </div>
             )}
+            {order.item_size_extra_fee > 0 && (
+              <div className="bg-purple-50 rounded-lg p-3">
+                <div className="text-xs text-gray-400 flex items-center gap-1">
+                  <Package className="w-3.5 h-3.5" />物品尺寸费
+                </div>
+                <div className="font-medium text-purple-700">{order.item_size_fee_currency} {order.item_size_extra_fee}</div>
+                {order.item_size_title && <div className="text-xs text-gray-500 mt-1">{order.item_size_title}</div>}
+              </div>
+            )}
             {order.tracking_number && (
               <div className="bg-teal-50 rounded-lg p-3 col-span-2">
                 <div className="text-xs text-gray-400">运单号</div>
