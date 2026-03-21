@@ -469,6 +469,49 @@ export default function AdminOrderEditModal({ order, onClose, onSaved }) {
                     <Input type="number" placeholder="100" value={form.weight_g || ""}
                       onChange={e => f("weight_g", e.target.value)} className="mt-1" />
                   </div>
+
+                  {itemSizeTemplates.length > 0 && (
+                    <div>
+                      <Label className="text-xs flex items-center gap-1.5">
+                        <Package className="w-3.5 h-3.5" />物品尺寸（可选）
+                      </Label>
+                      <div className="mt-1.5 space-y-1.5">
+                        {itemSizeTemplates.map(template => (
+                          <label key={template.id} className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${
+                            selectedSizeId === template.id ? "border-teal-400 bg-teal-100" : "border-teal-200 hover:bg-teal-50"
+                          }`}>
+                            <input
+                              type="radio"
+                              checked={selectedSizeId === template.id}
+                              onChange={() => setSelectedSizeId(template.id)}
+                              className="mt-0.5 accent-teal-600"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-medium text-gray-800">{template.title}</span>
+                                <span className="text-xs font-mono text-teal-700">
+                                  +{template.fee_currency} {template.extra_fee}
+                                </span>
+                              </div>
+                              {template.description && <p className="text-xs text-gray-500 mt-0.5">{template.description}</p>}
+                            </div>
+                          </label>
+                        ))}
+                        <label className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${
+                          selectedSizeId === "" ? "border-gray-300 bg-gray-50" : "border-gray-200 hover:bg-gray-50"
+                        }`}>
+                          <input
+                            type="radio"
+                            checked={selectedSizeId === ""}
+                            onChange={() => setSelectedSizeId("")}
+                            className="accent-gray-600"
+                          />
+                          <span className="text-xs text-gray-500">不选择尺寸</span>
+                        </label>
+                      </div>
+                    </div>
+                  )}
+
                   <Button size="sm" className="w-full bg-teal-600 hover:bg-teal-700 text-xs"
                     onClick={handleMarkInWarehouse} disabled={saving}>
                     ✓ 确认入库
