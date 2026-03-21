@@ -241,6 +241,9 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
 
       const addrObj = savedAddresses.find(a => a.id === (consType === "transit" ? finalAddressId : selectedAddress));
 
+      const selectedAddons = shippingAddons.filter(a => selectedAddonIds.includes(a.id));
+      const transitMethod = transitMethods.find(m => m.id === selectedTransitMethodId);
+
       await base44.entities.ShippingPool.create({
         pool_code,
         consolidation_type: consType || "",
@@ -254,6 +257,10 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
         transit_location_id: consType === "transit" ? selectedTransitId : "",
         transit_location_name: transitLoc?.name || "",
         final_address_id: consType === "transit" ? finalAddressId : "",
+        transit_shipping_method_id: selectedTransitMethodId || "",
+        transit_shipping_method_name: transitMethod?.name || "",
+        selected_addon_ids: selectedAddonIds,
+        selected_addons: selectedAddons.map(a => ({ id: a.id, name: a.name, fee: a.fee, fee_currency: a.fee_currency })),
         user_note: note || "",
         messages: [],
         is_private: isPrivate,
