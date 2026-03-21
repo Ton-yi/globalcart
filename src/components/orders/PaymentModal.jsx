@@ -37,6 +37,9 @@ export default function PaymentModal({ order, mode = "prepay", onClose, onSucces
 
   const cur = isShipping ? (order.shipping_fee_currency || "CNY") : (order.prepayment_currency || "CNY");
 
+  // For shipping: combine shipping fee + item size fee
+  const itemSizeFee = isShipping && order.item_size_extra_fee > 0 ? order.item_size_extra_fee : 0;
+
   // CNY amounts round to nearest integer (round half up)
   const roundAmount = (val, currency) => {
     if (!val) return 0;
