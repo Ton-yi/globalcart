@@ -51,6 +51,7 @@ export default function UserPreferences() {
           preferred_currency: p.preferred_currency || "JPY",
           preferred_language: p.preferred_language || "zh",
           preferred_shipping: p.preferred_shipping || "EMS",
+          preferred_transit_shipping_id: p.preferred_transit_shipping_id || "",
           prefer_consolidation: p.prefer_consolidation || false,
           notification_email: p.notification_email !== false,
           default_address_id: p.default_address_id || "",
