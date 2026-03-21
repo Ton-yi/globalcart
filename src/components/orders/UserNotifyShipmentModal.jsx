@@ -587,6 +587,59 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
             </div>
           )}
 
+          {/* Transit shipping method (only when transit consolidation selected) */}
+          {consType === "transit" && transitMethods.length > 0 && (
+            <div>
+              <label className="text-xs text-gray-500 font-medium uppercase tracking-wide flex items-center gap-1.5">
+                <Truck className="w-3.5 h-3.5" />中转段运输方式
+              </label>
+              <div className="mt-1.5 space-y-1.5">
+                <label className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${!selectedTransitMethodId ? "border-gray-400 bg-gray-50" : "border-gray-200 hover:bg-gray-50"}`}>
+                  <input type="radio" checked={!selectedTransitMethodId} onChange={() => setSelectedTransitMethodId("")} className="accent-gray-600" />
+                  <span className="text-sm text-gray-600">由管理员安排</span>
+                </label>
+                {transitMethods.map(m => (
+                  <label key={m.id} className={`flex items-center justify-between gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${selectedTransitMethodId === m.id ? "border-orange-400 bg-orange-50" : "border-gray-200 hover:bg-gray-50"}`}>
+                    <div className="flex items-center gap-2">
+                      <input type="radio" checked={selectedTransitMethodId === m.id} onChange={() => setSelectedTransitMethodId(m.id)} className="accent-orange-500" />
+                      <div>
+                        <span className="text-sm font-medium text-gray-800">{m.name}</span>
+                        {m.description && <span className="text-xs text-gray-400 ml-2">{m.description}</span>}
+                      </div>
+                    </div>
+                    <span className="text-xs font-medium text-orange-700 flex-shrink-0">+{m.fee_currency || "JPY"} {Number(m.fee || 0).toLocaleString()}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Shipping addons */}
+          {shippingAddons.length > 0 && (
+            <div>
+              <label className="text-xs text-gray-500 font-medium uppercase tracking-wide flex items-center gap-1.5">
+                <Star className="w-3.5 h-3.5" />增值服务（可选）
+              </label>
+              <div className="mt-1.5 space-y-1.5">
+                {shippingAddons.map(a => (
+                  <label key={a.id} className={`flex items-center justify-between gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${selectedAddonIds.includes(a.id) ? "border-yellow-400 bg-yellow-50" : "border-gray-200 hover:bg-gray-50"}`}>
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        checked={selectedAddonIds.includes(a.id)}
+                        onCheckedChange={v => setSelectedAddonIds(prev => v ? [...prev, a.id] : prev.filter(id => id !== a.id))}
+                      />
+                      <div>
+                        <span className="text-sm font-medium text-gray-800">{a.name}</span>
+                        {a.description && <span className="text-xs text-gray-400 ml-2">{a.description}</span>}
+                      </div>
+                    </div>
+                    <span className="text-xs font-medium text-yellow-700 flex-shrink-0">+{a.fee_currency || "JPY"} {Number(a.fee || 0).toLocaleString()}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Note */}
           <div>
             <label className="text-xs text-gray-500 font-medium uppercase tracking-wide">备注 / 收货地址（可选）</label>
