@@ -143,7 +143,7 @@ export default function AdminShippingPool() {
             </>
           )}
           {activeTab === "locations" && (
-            <Button size="sm" className="bg-red-600 hover:bg-red-700" onClick={() => { setEditingLoc(null); setLocForm({ name: "", code_prefix: "", country: "", province: "", address: "", handling_fee: 0, handling_fee_currency: "JPY", manager_email: "", manager_contact: "", allow_storage: false, description: "", is_active: true }); setShowLocForm(true); }}>
+            <Button size="sm" className="bg-red-600 hover:bg-red-700" onClick={() => { setEditingLoc(null); setLocForm({ name: "", code_prefix: "", country: "", province: "", address: "", handling_fee: 0, handling_fee_currency: "JPY", manager_email: "", manager_contact: "", allow_storage: false, allow_pickup: false, description: "", is_active: true, disabled_transit_method_ids: [], disabled_addon_ids: [] }); setShowLocForm(true); }}>
               <Plus className="w-3.5 h-3.5 mr-1.5" />添加中转地
             </Button>
           )}
