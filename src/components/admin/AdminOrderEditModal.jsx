@@ -3,9 +3,9 @@
  * Full admin workflow panel for a single order.
  * Covers all status transitions per the new order flow.
  */
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { X, ExternalLink, Copy, Loader2, CheckCircle, Upload, AlertTriangle, MessageCircle } from "lucide-react";
+import { X, ExternalLink, Copy, Loader2, CheckCircle, Upload, AlertTriangle, MessageCircle, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
