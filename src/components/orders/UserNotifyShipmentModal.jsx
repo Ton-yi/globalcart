@@ -117,6 +117,7 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
 
   // Join existing pool
   const [joinExistingPool, setJoinExistingPool] = useState(false);
+  const [strategyOpen, setStrategyOpen] = useState(false);
   const [existingPools, setExistingPools] = useState([]);
   const [poolSearchQuery, setPoolSearchQuery] = useState("");
   const [selectedPoolId, setSelectedPoolId] = useState("");

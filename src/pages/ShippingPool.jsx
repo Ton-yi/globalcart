@@ -79,6 +79,7 @@ export default function ShippingPool() {
   const [sharedWithEmails, setSharedWithEmails] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
   const [userSearchQuery, setUserSearchQuery] = useState("");
+  const [strategyOpen, setStrategyOpen] = useState(false);
 
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
