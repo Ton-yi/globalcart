@@ -146,7 +146,7 @@ function CellValue({ col, order, onQuickOrdered, userAvatars }) {
     case "shipped_date":
       return <span className="text-xs text-gray-700">{order.shipped_date ? new Date(order.shipped_date).toLocaleDateString("zh-CN") : "-"}</span>;
     case "online_store_tag":
-      return <Badge className={`text-xs ${order.tag_color || "bg-gray-100 text-gray-700"}`}>{order.online_store_tag || "其它"}</Badge>;
+      return <Badge className={`text-xs ${order.online_store_tag_color || "bg-gray-100 text-gray-700"}`}>{order.online_store_tag || "其它"}</Badge>;
     default:
       return "-";
   }
