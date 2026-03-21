@@ -54,7 +54,7 @@ export default function AdminSettings() {
   const [user, setUser] = useState(null);
   const [showPayment, setShowPayment] = useState(false);
   const [liveRates, setLiveRates] = useState(null);
-  const [newAddon, setNewAddon] = useState({ name: "", description: "", fee: "", fee_currency: "JPY" });
+  const [newAddon, setNewAddon] = useState({ name: "", description: "", fee: "", fee_currency: "JPY", addon_type: "order" });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [newKey, setNewKey] = useState("");
