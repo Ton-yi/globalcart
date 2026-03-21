@@ -169,6 +169,28 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
     setSavingPool(false);
   };
 
+  const handleDeletePool = async () => {
+    setDeleting(true);
+    try {
+      // Reset all orders in this pool back to in_warehouse
+      await Promise.all(
+        (pool.order_ids || []).map(id =>
+          base44.entities.Order.update(id, {
+            order_status: "in_warehouse",
+            consolidation_pool_id: "",
+          })
+        )
+      );
+      // Delete the pool
+      await base44.entities.ShippingPool.delete(pool.id);
+      onClose?.();
+      onUpdated?.();
+    } catch (err) {
+      console.error("Failed to delete pool:", err);
+    }
+    setDeleting(false);
+  };
+
   const handleAdminOrderSave = async () => {
     if (!editingOrderData) return;
     setSavingOrder(true);
