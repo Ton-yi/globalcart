@@ -21,7 +21,7 @@ export default function BulkPaymentModal({ orders, onClose, onSuccess }) {
   const [proofUrl, setProofUrl] = useState("");
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [alipayUrls, setAlipayUrls] = useState({}); // orderId -> url
+  const [alipayUrl, setAlipayUrl] = useState(null);
   const [generating, setGenerating] = useState(false);
 
   // Total by currency
