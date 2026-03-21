@@ -620,51 +620,66 @@ export default function ShippingPool() {
                 const deadline = poolOrders.map(o => o.consolidation_deadline).filter(Boolean).sort()[0];
                 const groupLabel = pool.consolidation_type === "transit"
                   ? (pool.transit_location_name || "中转地")
-                  : (pool.creator_name || pool.creator_email || "用户地址");
+                  : "自选地址拼邮";
+                const progressPct = minWeight > 0 ? Math.min(100, (groupWeight / minWeight) * 100) : 0;
+                const isReady = minWeight > 0 && groupWeight >= minWeight;
                 return (
-                  <div key={pool.id} className="border border-gray-200 rounded-xl overflow-hidden bg-white">
-                    <div className="bg-gray-50 px-4 py-3 border-b">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <Package className="w-4 h-4 text-gray-500" />
-                          <span className="font-medium text-gray-800 text-sm">{groupLabel}</span>
+                  <div key={pool.id}
+                    className="border border-gray-200 rounded-xl overflow-hidden bg-white hover:shadow-md hover:border-gray-300 cursor-pointer transition-all"
+                    onClick={() => setSelectedPool(pool)}
+                  >
+                    {/* Card header */}
+                    <div className={`px-4 py-3 border-b ${pool.consolidation_type === "transit" ? "bg-blue-50 border-blue-100" : "bg-purple-50 border-purple-100"}`}>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                          <Layers className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
+                          <span className="font-semibold text-gray-800 text-sm truncate">{groupLabel}</span>
                           {pool.pool_code && (
-                            <span className="text-xs font-mono bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">{pool.pool_code}</span>
+                            <span className="text-xs font-mono bg-white/70 text-purple-700 border border-purple-200 px-1.5 py-0.5 rounded">{pool.pool_code}</span>
                           )}
-                          <Badge variant="outline" className="text-xs">{poolOrders.length} 件</Badge>
                         </div>
-                        <div className="flex items-center gap-2 text-xs text-gray-500">
-                          <span className="flex items-center gap-1"><Scale className="w-3 h-3" />{groupWeight}g</span>
-                          {deadline && <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{deadline}</span>}
+                        <div className="flex items-center gap-1.5 text-xs text-gray-500 flex-shrink-0">
+                          <Badge variant="outline" className="text-xs">{poolOrders.length} 件</Badge>
+                          {isReady && <Badge className="text-xs bg-green-100 text-green-700 border-green-200">可发货</Badge>}
                         </div>
                       </div>
-                      {pool.shipping_method && (
-                        <p className="text-xs text-gray-400 mt-1">{METHOD_LABELS[pool.shipping_method] || pool.shipping_method}</p>
-                      )}
+                      <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-500">
+                        {pool.shipping_method && <span className="flex items-center gap-1"><Truck className="w-3 h-3" />{METHOD_LABELS[pool.shipping_method] || pool.shipping_method}</span>}
+                        <span className="flex items-center gap-1"><Scale className="w-3 h-3" />{groupWeight}g</span>
+                        {deadline && <span className="flex items-center gap-1 text-orange-500"><Calendar className="w-3 h-3" />截止 {deadline}</span>}
+                      </div>
                     </div>
+
+                    {/* Progress bar */}
                     {minWeight > 0 && (
-                      <div className="px-4 py-2 border-b bg-white">
-                        <div className="flex justify-between text-xs text-gray-400 mb-1">
-                          <span>凑单进度</span><span>{groupWeight}g / {minWeight}g</span>
+                      <div className="px-4 py-2.5 border-b bg-white">
+                        <div className="flex justify-between text-xs mb-1.5">
+                          <span className="text-gray-500">凑单进度</span>
+                          <span className={isReady ? "text-green-600 font-medium" : "text-gray-500"}>{groupWeight}g / {minWeight}g</span>
                         </div>
-                        <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                          <div className="h-full bg-blue-500 rounded-full" style={{ width: `${Math.min(100, (groupWeight / minWeight) * 100)}%` }} />
+                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                          <div className={`h-full rounded-full transition-all ${isReady ? "bg-green-500" : "bg-blue-400"}`} style={{ width: `${progressPct}%` }} />
                         </div>
+                        {!isReady && <p className="text-xs text-gray-400 mt-1">还差 {minWeight - groupWeight}g 可发货</p>}
                       </div>
                     )}
+
+                    {/* Order list */}
                     <div className="divide-y divide-gray-50">
-                      {poolOrders.map(o => (
-                        <div key={o.id} className="px-4 py-2.5 flex items-center justify-between">
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium text-gray-800 truncate">{o.product_name}</p>
+                      {poolOrders.slice(0, 3).map(o => (
+                        <div key={o.id} className="px-4 py-2 flex items-center justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm text-gray-800 truncate">{o.product_name}</p>
                             <p className="text-xs text-gray-400">{o.order_number} · {o.weight_g || 100}g</p>
                           </div>
-                          <div className="ml-2 flex-shrink-0 text-right text-xs">
-                            {o.consolidation_timeout_action && <span className="text-gray-400">{TIMEOUT_LABELS[o.consolidation_timeout_action]}</span>}
-                            {o.consolidation_deadline && <p className="text-orange-500 mt-0.5">截止 {o.consolidation_deadline}</p>}
-                          </div>
+                          {o.consolidation_deadline && (
+                            <span className="text-xs text-orange-500 flex-shrink-0">截止 {o.consolidation_deadline}</span>
+                          )}
                         </div>
                       ))}
+                      {poolOrders.length > 3 && (
+                        <div className="px-4 py-2 text-xs text-gray-400 text-center">还有 {poolOrders.length - 3} 件...</div>
+                      )}
                     </div>
                   </div>
                 );
