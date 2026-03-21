@@ -359,7 +359,7 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
                   <p className="text-xs text-gray-400">暂无可用中转地，请联系管理员</p>
                 ) : transitLocations.map(l => (
                   <label key={l.id} className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${selectedTransitId === l.id ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
-                    <input type="radio" checked={selectedTransitId === l.id} onChange={() => setSelectedTransitId(l.id)} className="mt-0.5 accent-blue-600" />
+                    <input type="radio" checked={selectedTransitId === l.id} onChange={() => { setSelectedTransitId(l.id); setSelectedTransitMethodId(""); setSelectedAddonIds([]); }} className="mt-0.5 accent-blue-600" />
                     <div className="flex-1">
                       <p className="text-sm font-medium text-gray-800">{l.name}</p>
                       <p className="text-xs text-gray-400">
