@@ -300,6 +300,20 @@ export default function OrderDetailDrawer({ order, currentUser, onClose, onActio
           }}
         />
       )}
+
+      {editPool && (
+        <ShippingEditModal
+          order={order}
+          currentPool={editPool}
+          currentUser={currentUser}
+          onClose={() => setEditPool(null)}
+          onSuccess={() => {
+            setEditPool(null);
+            onClose();
+            onAction?.("edit_ship");
+          }}
+        />
+      )}
     </div>
   );
 }
