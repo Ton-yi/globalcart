@@ -84,8 +84,8 @@ function CellValue({ col, order }) {
       const cur = order.prepayment_currency;
       let display = "-";
       if (val > 0) {
-        if (cur === "CNY") display = `¥${val.toFixed(2)}`;
-        else if (cur === "JPY") display = `¥${val.toFixed(0)}`;
+        if (cur === "JPY") display = `${Math.round(val).toLocaleString()} yen`;
+        else if (cur === "CNY") display = `${val.toFixed(2)} yuan`;
         else display = `${cur} ${val.toFixed(2)}`;
       }
       return <span className="text-sm text-gray-700">{display}</span>;
