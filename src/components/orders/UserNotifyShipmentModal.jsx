@@ -125,18 +125,15 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
   useEffect(() => {
     base44.auth.me().then(async u => {
       setCurrentUser(u);
-      const [prefs, locs, users, pools] = await Promise.all([
+      const [prefs, allLocs, usersRes, pools] = await Promise.all([
         base44.entities.UserPreference.filter({ user_email: u.email }),
-        base44.entities.TransitLocation.filter({ is_active: true }),
-        base44.entities.User.list(),
-        // Fetch all consolidation-type pools that are visible to this user
+        base44.entities.TransitLocation.list(),  // list all, filter is_active in frontend
+        base44.functions.invoke("listNonAdminUsers", {}),
         base44.entities.ShippingPool.filter({ creator_email: u.email }, "-created_date", 200),
       ]);
       if (prefs.length > 0 && prefs[0].saved_addresses) setSavedAddresses(prefs[0].saved_addresses);
-      setTransitLocations(locs);
-      // Filter out admins from user list for privacy sharing
-      setAllUsers((users || []).filter(usr => usr.role !== "admin" && usr.email !== u.email));
-      // Only show pools that are consolidation type (transit or other) and are pending/processing
+      setTransitLocations((allLocs || []).filter(l => l.is_active !== false));
+      setAllUsers(usersRes?.data?.users || []);
       const consolidationPools = pools.filter(p =>
         p.consolidation_type && p.consolidation_type !== "" &&
         (p.status === "pending" || p.status === "processing") &&
