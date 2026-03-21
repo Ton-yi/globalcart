@@ -57,6 +57,27 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
     }
   }, []);
 
+  // Fetch other pools for moving orders
+  const loadOtherPools = async (order) => {
+    setAdminEditingOrder(order);
+    setActionMode(null);
+    setTargetPoolId("");
+    try {
+      const pools = await base44.entities.ShippingPool.filter(
+        { 
+          id: { $ne: pool.id },
+          status: { $in: ["pending", "processing"] }
+        },
+        "-created_date",
+        100
+      );
+      setOtherPools(pools || []);
+    } catch (err) {
+      console.error("Failed to load pools:", err);
+      setOtherPools([]);
+    }
+  };
+
   const messages = pool.messages || [];
 
   const handleSendMessage = async () => {
