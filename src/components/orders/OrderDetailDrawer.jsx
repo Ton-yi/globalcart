@@ -173,30 +173,6 @@ export default function OrderDetailDrawer({ order, currentUser, onClose, onActio
             )}
           </div>
 
-          {/* Message thread */}
-          <div>
-            <button
-              className="flex items-center gap-2 text-sm font-medium text-gray-700 w-full py-1"
-              onClick={() => setShowMessages(!showMessages)}
-            >
-              <MessageCircle className="w-4 h-4" />
-              {hasMessages ? `留言记录（${(order.messages || []).length}条）` : "发起留言"}
-              {unread && <span className="ml-1 w-2 h-2 rounded-full bg-orange-400 inline-block animate-pulse" />}
-              <span className="text-xs text-gray-400 ml-auto">{showMessages ? "收起" : "展开"}</span>
-            </button>
-            {showMessages && (
-              <div className="mt-3">
-                <OrderMessageThread
-                  order={order}
-                  currentUser={currentUser}
-                  isAdmin={false}
-                  contactInfo={contactInfo}
-                  onMessageSent={handleMessageSent}
-                />
-              </div>
-            )}
-          </div>
-
           {/* Action buttons */}
           <div className="space-y-2 pt-1">
             {status === "payment_pending" && order.payment_status !== "awaiting_confirmation" && (
@@ -240,6 +216,53 @@ export default function OrderDetailDrawer({ order, currentUser, onClose, onActio
                 <CheckCircle className="w-4 h-4 mr-2" />
                 {confirmingDelivered ? "确认中..." : "确认已收货"}
               </Button>
+            )}
+          </div>
+
+          {/* Message thread - always visible at bottom */}
+          <div id="message-section" className="border-t pt-4">
+            {hasMessages && (
+              <button
+                className="flex items-center gap-2 text-sm font-medium text-gray-700 w-full py-1 mb-2"
+                onClick={() => setShowMessages(!showMessages)}
+              >
+                <MessageCircle className="w-4 h-4" />
+                {`留言记录（${(order.messages || []).length}条）`}
+                {unread && <span className="ml-1 w-2 h-2 rounded-full bg-orange-400 inline-block animate-pulse" />}
+                <span className="text-xs text-gray-400 ml-auto">{showMessages ? "收起" : "展开"}</span>
+              </button>
+            )}
+            {(showMessages || !hasMessages) && hasMessages && (
+              <div className="mb-3">
+                <OrderMessageThread
+                  order={order}
+                  currentUser={currentUser}
+                  isAdmin={false}
+                  contactInfo={contactInfo}
+                  onMessageSent={handleMessageSent}
+                  composeOnly={false}
+                />
+              </div>
+            )}
+            {!showMessages && hasMessages && (
+              <OrderMessageThread
+                order={order}
+                currentUser={currentUser}
+                isAdmin={false}
+                contactInfo={contactInfo}
+                onMessageSent={handleMessageSent}
+                composeOnly={true}
+              />
+            )}
+            {!hasMessages && (
+              <OrderMessageThread
+                order={order}
+                currentUser={currentUser}
+                isAdmin={false}
+                contactInfo={contactInfo}
+                onMessageSent={handleMessageSent}
+                composeOnly={false}
+              />
             )}
           </div>
         </div>
