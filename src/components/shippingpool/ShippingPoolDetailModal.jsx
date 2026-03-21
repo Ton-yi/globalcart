@@ -259,9 +259,9 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
           {participantUsers.length > 0 && (
             <div>
               <h3 className="text-sm font-semibold text-gray-700 mb-2">参与用户</h3>
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-2">
                 {participantUsers.map(u => (
-                  <Badge key={u} variant="outline" className="text-xs">{u}</Badge>
+                  <ParticipantChip key={u.email || u.name} user={u} />
                 ))}
               </div>
             </div>
