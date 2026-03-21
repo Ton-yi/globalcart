@@ -4,7 +4,7 @@
  * Admin can edit tracking number, actual fee.
  */
 import { useState, useEffect } from "react";
-import { X, Package, Send, Image, Truck, Edit2, Save, MoreVertical, ArrowRight, RotateCcw, Loader2, Search } from "lucide-react";
+import { X, Package, Send, Image, Truck, Edit2, Save, MoreVertical, ArrowRight, RotateCcw, Loader2, Search, Trash2 } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
