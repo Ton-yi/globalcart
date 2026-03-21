@@ -543,6 +543,20 @@ export default function AdminOrderEditModal({ order, onClose, onSaved }) {
                       {order.consolidation_requested && " · 拼邮"}
                     </div>
                   )}
+
+                  {/* Item size fee info */}
+                  {order.item_size_title && (
+                    <div className="bg-white border border-cyan-200 rounded-lg p-2.5 space-y-1">
+                      <p className="text-xs font-medium text-gray-700">物品尺寸</p>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-600">{order.item_size_title}</span>
+                        <span className="text-xs font-mono text-cyan-700">
+                          +{order.item_size_fee_currency} {order.item_size_extra_fee}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <Label className="text-xs">出货总重量 (g)</Label>
