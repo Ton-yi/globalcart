@@ -1,15 +1,31 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
 
 Deno.serve(async (req) => {
-  const base44 = createClientFromRequest(req);
-  const user = await base44.auth.me();
-  if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  try {
+    const base44 = createClientFromRequest(req);
+    const user = await base44.auth.me();
+    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-  // Any authenticated user can fetch the list of non-admin users (for sharing purposes)
-  const allUsers = await base44.asServiceRole.entities.User.list();
-  const nonAdmins = (allUsers || [])
-    .filter(u => u.role !== 'admin' && u.email !== user.email)
-    .map(u => ({ email: u.email, full_name: u.full_name || '' }));
+    // Get tenant context from authenticated user
+    const userRecord = await base44.asServiceRole.entities.User.filter({ email: user.email });
+    if (!userRecord || userRecord.length === 0) {
+      return Response.json({ error: 'User record not found' }, { status: 404 });
+    }
 
-  return Response.json({ users: nonAdmins });
+    const tenantId = userRecord[0].tenant_id;
+    if (!tenantId) {
+      return Response.json({ error: 'User has no tenant assigned' }, { status: 403 });
+    }
+
+    // Fetch non-admin users only within the same tenant
+    const allUsers = await base44.asServiceRole.entities.User.filter({ tenant_id: tenantId });
+    const nonAdmins = (allUsers || [])
+      .filter(u => u.role !== 'admin' && u.role !== 'platform_admin' && u.email !== user.email)
+      .map(u => ({ email: u.email, full_name: u.full_name || '' }));
+
+    return Response.json({ users: nonAdmins });
+  } catch (error) {
+    console.error('listNonAdminUsers error:', error);
+    return Response.json({ error: error.message }, { status: 500 });
+  }
 });
