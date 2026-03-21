@@ -123,6 +123,12 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
   const [selectedPoolId, setSelectedPoolId] = useState("");
   const [currentUser, setCurrentUser] = useState(null);
 
+  // Addons & transit shipping method
+  const [shippingAddons, setShippingAddons] = useState([]);
+  const [selectedAddonIds, setSelectedAddonIds] = useState([]);
+  const [transitMethods, setTransitMethods] = useState([]);
+  const [selectedTransitMethodId, setSelectedTransitMethodId] = useState("");
+
   useEffect(() => {
     base44.auth.me().then(async u => {
       setCurrentUser(u);
