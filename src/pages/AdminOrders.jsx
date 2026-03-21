@@ -102,7 +102,7 @@ function CellValue({ col, order, onQuickOrdered, userAvatars }) {
     case "product_name":
       return <span className="text-sm font-medium text-gray-900 truncate">{order.product_name}</span>;
     case "estimated_jpy":
-      return <span className="text-sm text-gray-700">{order.estimated_jpy ? `${order.estimated_jpy.toLocaleString()} yen` : "-"}</span>;
+      return <span className="text-sm text-gray-700">{order.estimated_jpy ? `${Math.round(order.estimated_jpy).toLocaleString()} yen` : "-"}</span>;
     case "prepayment_amount":
       return <span className="text-sm text-gray-700">{formatAmount(order.prepayment_amount, order.prepayment_currency)}</span>;
     case "weight_g":
