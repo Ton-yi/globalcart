@@ -140,6 +140,7 @@ export default function CreateShippingPoolModal({ isAdmin, onClose, onSuccess })
     const poolData = {
       ...form,
       order_ids: selectedOrderIds,
+      order_names: selectedOrders.map(o => o.product_name || ""),
       creator_email: user.email,
       creator_name: user.full_name || user.email,
       is_admin_created: isAdmin || false,
