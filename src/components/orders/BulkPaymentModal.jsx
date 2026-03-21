@@ -60,30 +60,19 @@ export default function BulkPaymentModal({ orders, onClose, onSuccess }) {
     onSuccess?.();
   };
 
-  // Alipay: generate link for each order individually
+  // Alipay: generate a single combined link for all orders
   const handleGenerateAlipay = async () => {
     setGenerating(true);
-    const results = {};
-    for (const o of orders) {
-      const res = await base44.functions.invoke("generateAlipayPaymentLink", {
-        orderId: o.id,
-        amount: o.prepayment_amount,
-        currency: o.prepayment_currency || "CNY",
-        subject: `同一物流代购 - ${o.product_name}`,
-        paymentType: "order",
-      });
-      if (res.data?.paymentUrl) {
-        results[o.id] = res.data.paymentUrl;
-      }
-    }
-    setAlipayUrls(results);
+    const res = await base44.functions.invoke("generateAlipayPaymentLink", {
+      orderIds: orders.map(o => o.id),
+      subject: `同一物流代购 - ${orders.length} 笔订单合并付款`,
+      paymentType: "order",
+    });
+    const url = res.data?.paymentUrl;
+    setAlipayUrl(url || null);
     setGenerating(false);
-    // Open first one automatically
-    const first = Object.values(results)[0];
-    if (first) window.open(first, "_blank");
+    if (url) window.open(url, "_blank");
   };
-
-  const allAlipayGenerated = orders.every(o => alipayUrls[o.id]);
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
