@@ -34,6 +34,8 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
   const [saving, setSaving] = useState(false);
   const [imageFile, setImageFile] = useState(null);
   const [editingOrder, setEditingOrder] = useState(null); // order being edited
+  const [editingOrderData, setEditingOrderData] = useState(null); // inline admin order edit
+  const [savingOrder, setSavingOrder] = useState(false);
 
   // Admin edit fields
   const [trackingNumber, setTrackingNumber] = useState(pool.tracking_number || "");
