@@ -118,8 +118,22 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
     onUpdated?.();
   };
 
-  // Get unique users from orders
-  const participantUsers = [...new Set(orders.map(o => o.user_name || o.user_email).filter(Boolean))];
+  const handleAdminOrderSave = async () => {
+    if (!editingOrderData) return;
+    setSavingOrder(true);
+    await base44.entities.Order.update(editingOrderData.id, {
+      product_name: editingOrderData.product_name,
+      weight_g: parseFloat(editingOrderData.weight_g) || 0,
+      order_number: editingOrderData.order_number,
+      admin_note: editingOrderData.admin_note,
+    });
+    setOrders(prev => prev.map(o => o.id === editingOrderData.id ? { ...o, ...editingOrderData } : o));
+    setEditingOrderData(null);
+    setSavingOrder(false);
+  };
+
+  // Get unique users from orders (with email for avatar lookup)
+  const participantUsers = [...new Map(orders.map(o => [o.user_email || o.user_name, { name: o.user_name || o.user_email, email: o.user_email }])).values()].filter(u => u.name);
 
   const status = STATUS_CONFIG[pool.status] || STATUS_CONFIG.pending;
 
