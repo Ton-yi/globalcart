@@ -307,7 +307,7 @@ export default function MyOrders() {
                 </td>
                 {visibleCols.map(col => (
                   <td key={col.key} className="px-3 py-3 max-w-[220px]">
-                    <CellValue col={col} order={order} />
+                    <CellValue col={{ ...col, _rules: storeTagRules }} order={order} />
                   </td>
                 ))}
                 <td className="px-3 py-3 whitespace-nowrap" onClick={e => e.stopPropagation()}>
