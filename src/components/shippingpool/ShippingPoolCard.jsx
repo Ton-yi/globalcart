@@ -61,6 +61,11 @@ export default function ShippingPoolCard({ pool, onClick }) {
                   <Layers className="w-2.5 h-2.5 mr-1 inline" />拼邮
                 </Badge>
               }
+              {pool.shipping_method && (
+                <span className="inline-flex items-center gap-1 text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">
+                  <Truck className="w-2.5 h-2.5" />{METHOD_LABELS[pool.shipping_method] || pool.shipping_method}
+                </span>
+              )}
               
 
               
