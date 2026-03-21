@@ -73,6 +73,12 @@ export default function AdminOrderEditModal({ order, onClose, onSaved }) {
   const status = order.order_status;
   const cur = order.prepayment_currency || "CNY";
 
+  useEffect(() => {
+    base44.entities.ItemSizeTemplate.filter({ is_active: true }, "-created_date", 100)
+      .then(templates => setItemSizeTemplates(templates || []))
+      .catch(() => {});
+  }, []);
+
   // ── Alipay link generation ──
   const handleGenerateAlipay = async () => {
     setGenerating(true);
