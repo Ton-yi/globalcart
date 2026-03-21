@@ -372,7 +372,7 @@ export default function AdminOrders() {
                 </td>
                 {visibleCols.map(col => (
                   <td key={col.key} className="px-3 py-3 max-w-[220px]">
-                   <CellValue col={col} order={order} onQuickOrdered={handleQuickOrdered} userAvatars={userAvatars} />
+                   <CellValue col={{ ...col, _rules: storeTagRules }} order={order} onQuickOrdered={handleQuickOrdered} userAvatars={userAvatars} />
                   </td>
                 ))}
                 <td className="px-3 py-3 whitespace-nowrap" onClick={e => e.stopPropagation()}>
