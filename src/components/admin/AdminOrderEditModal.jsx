@@ -340,19 +340,13 @@ export default function AdminOrderEditModal({ order, onClose, onSaved }) {
                         ✓ 确认可购买，通知付款
                       </Button>
                     </div>
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="outline" className="flex-1 text-xs border-orange-300 text-orange-600"
-                        onClick={() => setTab("messages")}>
-                        <MessageCircle className="w-3.5 h-3.5 mr-1" />发起留言
+                    <div className="space-y-2">
+                      <Input placeholder="取消理由（取消时必填）" value={form.cancel_reason}
+                        onChange={e => f("cancel_reason", e.target.value)} className="text-xs h-8" />
+                      <Button size="sm" variant="outline" className="w-full text-xs border-red-300 text-red-600"
+                        onClick={handleCancel} disabled={saving || !form.cancel_reason}>
+                        取消订单
                       </Button>
-                      <div className="flex-1 space-y-1">
-                        <Input placeholder="取消理由" value={form.cancel_reason}
-                          onChange={e => f("cancel_reason", e.target.value)} className="text-xs h-8" />
-                        <Button size="sm" variant="outline" className="w-full text-xs border-red-300 text-red-600"
-                          onClick={handleCancel} disabled={saving}>
-                          取消订单
-                        </Button>
-                      </div>
                     </div>
                   </div>
                 </div>
@@ -384,19 +378,13 @@ export default function AdminOrderEditModal({ order, onClose, onSaved }) {
                       </div>
                     </div>
                   )}
-                  <div className="flex gap-2 pt-1">
-                    <Button size="sm" variant="outline" className="flex-1 text-xs border-orange-300 text-orange-600"
-                      onClick={() => setTab("messages")}>
-                      <MessageCircle className="w-3.5 h-3.5 mr-1" />发起留言
+                  <div className="space-y-2 pt-1">
+                    <Input placeholder="取消理由（取消时必填）" value={form.cancel_reason}
+                      onChange={e => f("cancel_reason", e.target.value)} className="text-xs h-8" />
+                    <Button size="sm" variant="outline" className="w-full text-xs border-red-300 text-red-600"
+                      onClick={handleCancel} disabled={saving || !form.cancel_reason}>
+                      取消订单
                     </Button>
-                    <div className="flex gap-1 flex-1">
-                      <Input placeholder="取消理由" value={form.cancel_reason}
-                        onChange={e => f("cancel_reason", e.target.value)} className="text-xs h-8" />
-                      <Button size="sm" variant="outline" className="text-xs border-red-300 text-red-600 whitespace-nowrap"
-                        onClick={handleCancel} disabled={saving}>
-                        取消
-                      </Button>
-                    </div>
                   </div>
                 </div>
               )}
