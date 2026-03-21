@@ -220,6 +220,24 @@ export default function UserPreferences() {
               </SelectContent>
             </Select>
           </div>
+          {transitMethods.length > 0 && (
+            <div>
+              <Label className="text-sm">默认中转运输方式</Label>
+              <p className="text-xs text-gray-400 mt-0.5">拼邮发货时的中转段默认运输方式</p>
+              <Select value={form.preferred_transit_shipping_id || "auto"} onValueChange={v => f("preferred_transit_shipping_id", v === "auto" ? "" : v)}>
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">由管理员安排</SelectItem>
+                  {transitMethods.map(m => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.name} · {m.fee_currency || "JPY"} {Number(m.fee || 0).toLocaleString()}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           <div className="flex items-center justify-between py-1">
             <div>
               <Label className="text-sm">偏好拼邮</Label>
