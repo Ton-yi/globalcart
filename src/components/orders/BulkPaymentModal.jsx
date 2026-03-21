@@ -134,31 +134,32 @@ export default function BulkPaymentModal({ orders, onClose, onSuccess }) {
             </div>
           </div>
 
-          {/* Alipay: generate individual links */}
+          {/* Alipay: single combined link */}
           {method === "alipay" && (
             <div className="space-y-3">
-              {!allAlipayGenerated ? (
+              {!alipayUrl ? (
                 <Button className="w-full bg-blue-600 hover:bg-blue-700"
                   onClick={handleGenerateAlipay} disabled={generating}>
                   {generating
-                    ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />生成付款链接中...</>
-                    : <><ExternalLink className="w-4 h-4 mr-2" />为所有订单生成支付宝链接</>}
+                    ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />生成合并付款链接中...</>
+                    : <><ExternalLink className="w-4 h-4 mr-2" />生成合并支付宝付款链接</>}
                 </Button>
               ) : (
-                <div className="space-y-2">
-                  <p className="text-xs text-green-600 font-medium flex items-center gap-1">
-                    <CheckCircle className="w-3.5 h-3.5" />已生成全部付款链接，请逐一完成付款
-                  </p>
-                  {orders.map(o => (
-                    alipayUrls[o.id] && (
-                      <a key={o.id} href={alipayUrls[o.id]} target="_blank" rel="noopener noreferrer"
-                        className="flex items-center justify-between gap-2 w-full border border-blue-200 bg-blue-50 text-blue-700 text-sm px-3 py-2 rounded-lg hover:bg-blue-100 transition-colors">
-                        <span className="truncate">{o.product_name}</span>
-                        <ExternalLink className="w-3.5 h-3.5 flex-shrink-0" />
-                      </a>
-                    )
-                  ))}
-                  <p className="text-xs text-gray-400 text-center">支付宝付款成功后系统将自动更新订单状态</p>
+                <div className="space-y-3">
+                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <p className="text-sm text-green-700 font-medium flex items-center gap-1.5 mb-2">
+                      <CheckCircle className="w-4 h-4" />合并付款链接已生成
+                    </p>
+                    <a href={alipayUrl} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center justify-center gap-2 w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 rounded-md transition-colors">
+                      <ExternalLink className="w-4 h-4" />重新打开支付宝付款页
+                    </a>
+                  </div>
+                  <p className="text-xs text-gray-400 text-center">支付宝付款成功后系统将自动更新所有订单状态</p>
+                  <Button variant="outline" size="sm" className="w-full text-xs"
+                    onClick={() => setAlipayUrl(null)}>
+                    重新生成链接
+                  </Button>
                 </div>
               )}
             </div>
