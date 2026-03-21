@@ -457,6 +457,20 @@ export default function MyOrders() {
           }}
         />
       )}
+
+      {editShipOrder && editShipPool && user && (
+        <ShippingEditModal
+          order={editShipOrder}
+          currentPool={editShipPool}
+          currentUser={user}
+          onClose={() => { setEditShipOrder(null); setEditShipPool(null); }}
+          onSuccess={() => {
+            setEditShipOrder(null);
+            setEditShipPool(null);
+            fetchOrders(user);
+          }}
+        />
+      )}
     </div>
   );
 }
