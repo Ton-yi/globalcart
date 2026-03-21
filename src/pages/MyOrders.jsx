@@ -13,6 +13,7 @@ import OrderDetailDrawer from "@/components/orders/OrderDetailDrawer";
 import ColumnCustomizer from "@/components/orders/ColumnCustomizer";
 import PaymentModal from "@/components/orders/PaymentModal";
 import UserNotifyShipmentModal from "@/components/orders/UserNotifyShipmentModal";
+import ShippingEditModal from "@/components/shippingpool/ShippingEditModal";
 
 const STORAGE_KEY = "my_orders_columns";
 
@@ -142,6 +143,9 @@ export default function MyOrders() {
   const [shipmentOrder, setShipmentOrder] = useState(null);
   const [shipmentOrders, setShipmentOrders] = useState(null); // multi-order bulk
   const [bulkPaymentOrders, setBulkPaymentOrders] = useState(null); // multi-order bulk payment
+  const [editShipOrder, setEditShipOrder] = useState(null); // order being edit-shipped
+  const [editShipPool, setEditShipPool] = useState(null); // current pool of that order
+  const [shippingPools, setShippingPools] = useState([]); // cached pools for lookup
   const [selectedIds, setSelectedIds] = useState([]);
   const [columns, setColumns] = useState(loadColumns);
   const [sortKey, setSortKey] = useState(null);
