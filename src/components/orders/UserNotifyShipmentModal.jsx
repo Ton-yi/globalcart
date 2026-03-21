@@ -233,7 +233,7 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
           <div className="space-y-2">
             <label className="text-xs text-gray-500 font-medium uppercase tracking-wide">拼邮方式</label>
             {[
-              { key: "", label: "不申请拼邮", desc: "单独发货" },
+              { key: "", label: "单独发货", desc: "不申请拼邮" },
               { key: "transit", label: "申请拼邮到中转地", desc: "与其他包裹合并，发往指定中转地" },
               { key: "other", label: "申请拼邮到其它地址", desc: "与其他包裹合并，发往自选地址" },
             ].map(opt => (
