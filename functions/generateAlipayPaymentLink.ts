@@ -49,6 +49,16 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Get tenant context
+    const userRecord = await base44.asServiceRole.entities.User.filter({ email: user.email });
+    if (!userRecord || userRecord.length === 0) {
+      return Response.json({ error: 'User record not found' }, { status: 404 });
+    }
+    const tenantId = userRecord[0].tenant_id;
+    if (!tenantId && user.role !== 'platform_admin') {
+      return Response.json({ error: 'User has no tenant assigned' }, { status: 403 });
+    }
+
     const body = await req.json();
 
     // Support both single order (orderId) and bulk orders (orderIds array)
@@ -57,6 +67,25 @@ Deno.serve(async (req) => {
 
     if (!orderIds || orderIds.length === 0) {
       return Response.json({ error: 'Missing required parameter: orderId or orderIds' }, { status: 400 });
+    }
+
+    // Verify all orders belong to the user's tenant
+    const orders = await Promise.all(
+      orderIds.map(id => base44.asServiceRole.entities.Order.filter({ id }))
+    );
+    for (const orderResult of orders) {
+      const order = Array.isArray(orderResult) ? orderResult[0] : orderResult;
+      if (!order) {
+        return Response.json({ error: 'Order not found' }, { status: 404 });
+      }
+      // Check tenant isolation (platform_admin can access all, others only their tenant)
+      if (user.role !== 'platform_admin' && order.tenant_id !== tenantId) {
+        return Response.json({ error: 'Forbidden: Order does not belong to your tenant' }, { status: 403 });
+      }
+      // User can only pay their own orders; staff/admin can pay orders for their tenant
+      if (user.role === 'user' && order.user_email !== user.email) {
+        return Response.json({ error: 'Forbidden: You can only pay your own orders' }, { status: 403 });
+      }
     }
 
     const appId         = Deno.env.get('ALIPAY_APP_ID');
