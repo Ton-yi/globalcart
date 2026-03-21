@@ -316,8 +316,21 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
       )
     );
 
-    if (isJoiningPool && selectedPool) {
-      // Add orders to existing pool
+    if (joinDirectPool && selectedDirectPoolId) {
+      // Add orders to existing direct shipment pool
+      const directPool = directPools.find(p => p.id === selectedDirectPoolId);
+      if (directPool) {
+        const updatedOrderIds = [...new Set([...(directPool.order_ids || []), ...orderIds])];
+        const updatedOrderNames = [...new Set([...(directPool.order_names || []), ...targetOrders.map(o => o.product_name || "")])];
+        const updatedWeight = (directPool.total_weight_g || 0) + totalWeight;
+        await base44.entities.ShippingPool.update(directPool.id, {
+          order_ids: updatedOrderIds,
+          order_names: updatedOrderNames,
+          total_weight_g: updatedWeight,
+        });
+      }
+    } else if (isJoiningPool && selectedPool) {
+      // Add orders to existing consolidation pool
       const updatedOrderIds = [...new Set([...(selectedPool.order_ids || []), ...orderIds])];
       const updatedWeight = (selectedPool.total_weight_g || 0) + totalWeight;
       await base44.entities.ShippingPool.update(selectedPool.id, {
