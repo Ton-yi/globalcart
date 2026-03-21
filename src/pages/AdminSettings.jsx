@@ -118,7 +118,7 @@ export default function AdminSettings() {
   const handleAddAddon = async () => {
     if (!newAddon.name || newAddon.fee === "") return;
     await base44.entities.AddonOption.create({ ...newAddon, fee: parseFloat(newAddon.fee) || 0, is_active: true });
-    setNewAddon({ name: "", description: "", fee: "", fee_currency: "JPY" });
+    setNewAddon({ name: "", description: "", fee: "", fee_currency: "JPY", addon_type: "order" });
     await load();
   };
 
