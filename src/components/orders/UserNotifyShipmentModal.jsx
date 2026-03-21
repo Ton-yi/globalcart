@@ -389,14 +389,17 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
           {/* Shipping method */}
           <div>
             <label className="text-xs text-gray-500 font-medium uppercase tracking-wide">发货方式</label>
-            <Select value={method} onValueChange={setMethod}>
-              <SelectTrigger className="mt-1.5"><SelectValue placeholder="请选择发货方式" /></SelectTrigger>
+            <Select value={method} onValueChange={setMethod} disabled={!!isJoiningPool}>
+              <SelectTrigger className={`mt-1.5 ${isJoiningPool ? "opacity-50 cursor-not-allowed" : ""}`}>
+                <SelectValue placeholder={isJoiningPool ? "使用拼邮池配置" : "请选择发货方式"} />
+              </SelectTrigger>
               <SelectContent>
                 {SHIPPING_METHODS.map(m => (
                   <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {isJoiningPool && <p className="text-xs text-gray-400 mt-1">发货方式将使用所选拼邮需求的配置</p>}
           </div>
 
           {/* Consolidation type */}
