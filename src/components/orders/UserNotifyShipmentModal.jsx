@@ -506,7 +506,6 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
                     <span className="text-xs text-gray-400">（仅管理员和指定用户可见）</span>
                   </div>
                 </label>
-
                 {isPrivate && (
                   <div className="ml-2 space-y-2">
                     <div className="flex items-center gap-1.5 text-xs text-gray-500">
@@ -539,9 +538,9 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
                   </div>
                 )}
               </div>
-              </div>
-              )}
             </div>
+            )}
+          </div>
           )}
 
           {/* Joining existing pool: only show deadline */}
