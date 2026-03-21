@@ -308,6 +308,20 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
   );
 }
 
+      {editingOrder && (
+        <ShippingEditModal
+          order={editingOrder}
+          currentPool={pool}
+          currentUser={currentUser}
+          onClose={() => setEditingOrder(null)}
+          onSuccess={() => { setEditingOrder(null); onUpdated?.(); }}
+        />
+      )}
+    </div>
+  );
+}
+
+// Dummy closing — this replaces the real closing below
 function InfoBlock({ label, value, highlight }) {
   return (
     <div className={`rounded-lg p-3 ${highlight ? "bg-green-50 border border-green-100" : "bg-gray-50"}`}>
