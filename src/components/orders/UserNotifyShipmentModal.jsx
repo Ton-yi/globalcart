@@ -242,6 +242,12 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
         (!p.is_private || p.creator_email === u.email || (p.shared_with_emails || []).includes(u.email))
       );
       setExistingPools(consolidationPools);
+      const directShipPools = pools.filter(p =>
+        (!p.consolidation_type || p.consolidation_type === "") &&
+        (p.status === "pending" || p.status === "processing") &&
+        p.creator_email === u.email
+      );
+      setDirectPools(directShipPools);
       setShippingAddons(addons || []);
       setTransitMethods(tMethods || []);
     }).catch(() => {});
