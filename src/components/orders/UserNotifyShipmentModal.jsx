@@ -421,9 +421,7 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
           )}
 
           {/* Natural-language consolidation config */}
-          {consolidation && !isJoiningPool && (() => {
-            const [strategyOpen, setStrategyOpen] = React.useState(false);
-            return (
+          {consolidation && !isJoiningPool && (
             <div className="border border-blue-100 rounded-xl overflow-hidden">
               <button type="button"
                 onClick={() => setStrategyOpen(v => !v)}
