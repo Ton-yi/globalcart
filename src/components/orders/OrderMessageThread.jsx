@@ -28,7 +28,7 @@ function Avatar({ name, imageUrl, size = "sm" }) {
   );
 }
 
-export default function OrderMessageThread({ order, currentUser, isAdmin, onMessageSent, contactInfo, composeOnly = false }) {
+export default function OrderMessageThread({ order, currentUser, isAdmin, onMessageSent, contactInfo, composeOnly = false, hideHistory = false }) {
   const [localMessages, setLocalMessages] = useState(order.messages || []);
   const [content, setContent] = useState("");
   const [imageUrl, setImageUrl] = useState("");
@@ -95,12 +95,13 @@ export default function OrderMessageThread({ order, currentUser, isAdmin, onMess
   return (
     <div className="space-y-4">
       {/* Message history */}
-      {!composeOnly && localMessages.length === 0 ? (
-        <div className="text-center py-6 text-gray-400 text-sm">
-          <MessageCircle className="w-8 h-8 mx-auto mb-2 opacity-30" />
-          暂无留言
+      {!hideHistory && localMessages.length === 0 && (
+        <div className="text-center py-4 text-gray-400 text-sm">
+          <MessageCircle className="w-7 h-7 mx-auto mb-2 opacity-30" />
+          暂无留言，可在下方发起留言
         </div>
-      ) : !composeOnly && (
+      )}
+      {!hideHistory && localMessages.length > 0 && (
         <div className="space-y-4 max-h-72 overflow-y-auto pr-1">
           {localMessages.map((msg) => {
             const isMine = isAdmin ? msg.role === "admin" : msg.role === "user";
