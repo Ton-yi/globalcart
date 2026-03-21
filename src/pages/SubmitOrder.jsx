@@ -137,7 +137,9 @@ export default function SubmitOrder() {
       ? (productUrls[0] || "").split("\n").map(s => s.trim()).filter(Boolean).join("\n")
       : productUrls.filter(u => u.trim()).join("\n");
     const isDeferred = paymentMode === "deferred";
-    const detectedTag = await detectPrimaryStoreTag(urlsText);
+    const { base44: b44 } = await import('@/api/base44Client');
+    const { detectPrimaryStoreTagResult } = await import('@/lib/onlineStoreTag');
+    const tagResult = await detectPrimaryStoreTagResult(urlsText);
     const order = await base44.entities.Order.create({
       ...form,
       product_url: urlsText,
@@ -149,7 +151,8 @@ export default function SubmitOrder() {
       service_fee_rate: settings.service_fee_rate || (DEFAULT_SERVICE_FEE_RATE * 100),
       prepayment_amount: calculated ? parseFloat(calculated.prepayJpy) : 0,
       prepayment_currency: "JPY",
-      online_store_tag: detectedTag,
+      online_store_tag: tagResult.tag_label,
+      online_store_tag_color: tagResult.tag_color,
       payment_mode: isDeferred ? "deferred" : "prepay",
       order_status: isDeferred ? "pending_confirmation" : "payment_pending",
       payment_status: isDeferred ? "pending" : "awaiting_payment",
