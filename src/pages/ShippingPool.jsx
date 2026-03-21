@@ -514,6 +514,58 @@ export default function ShippingPool() {
                     </div>
                   </div>
 
+                  {/* Privacy setting (only when consolidation type selected) */}
+                  {consType !== "" && (
+                    <div className="border border-gray-200 rounded-xl p-4 space-y-3">
+                      <label className={`flex items-center gap-3 cursor-pointer rounded-lg p-2 -m-2 transition-colors ${isPrivate ? "bg-gray-100" : "hover:bg-gray-50"}`}>
+                        <Checkbox checked={isPrivate} onCheckedChange={v => { setIsPrivate(!!v); if (!v) setSharedWithEmails([]); }} />
+                        <div className="flex items-center gap-1.5">
+                          <Lock className="w-3.5 h-3.5 text-gray-500" />
+                          <span className="text-sm font-medium text-gray-700">不公开</span>
+                          <span className="text-xs text-gray-400">（仅管理员和指定用户可见）</span>
+                        </div>
+                      </label>
+                      {isPrivate && (
+                        <div className="ml-2 space-y-2">
+                          <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                            <Users className="w-3.5 h-3.5" />
+                            <span>选择可查看此拼邮需求的用户（管理员始终可见）</span>
+                          </div>
+                          <div className="relative">
+                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                            <Input placeholder="搜索用户..." className="pl-8 h-7 text-xs"
+                              value={userSearchQuery} onChange={e => setUserSearchQuery(e.target.value)} />
+                          </div>
+                          {allUsers.length === 0 ? (
+                            <p className="text-xs text-gray-400">暂无其他用户</p>
+                          ) : (
+                            <div className="space-y-1 max-h-32 overflow-y-auto border border-gray-200 rounded-lg p-2 bg-white">
+                              {allUsers.filter(u => {
+                                if (!userSearchQuery) return true;
+                                const q = userSearchQuery.toLowerCase();
+                                return (u.full_name || "").toLowerCase().includes(q) || (u.email || "").toLowerCase().includes(q);
+                              }).map(u => (
+                                <label key={u.email} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 rounded px-1 py-0.5">
+                                  <Checkbox
+                                    checked={sharedWithEmails.includes(u.email)}
+                                    onCheckedChange={() => setSharedWithEmails(prev => prev.includes(u.email) ? prev.filter(e => e !== u.email) : [...prev, u.email])}
+                                  />
+                                  <div className="flex-1 min-w-0">
+                                    <span className="text-xs font-medium text-gray-700">{u.full_name || u.email}</span>
+                                    {u.full_name && <span className="text-xs text-gray-400 ml-1.5">{u.email}</span>}
+                                  </div>
+                                </label>
+                              ))}
+                            </div>
+                          )}
+                          {sharedWithEmails.length > 0 && (
+                            <p className="text-xs text-gray-500">已与 {sharedWithEmails.length} 位用户分享</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* Note */}
                   <div>
                     <Label className="text-xs text-gray-500">备注（可选）</Label>
