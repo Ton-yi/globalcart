@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { getRatesWithIncrements } from "@/lib/exchangeRates";
-import { detectPrimaryStoreTag } from "@/lib/onlineStoreTag";
+import { detectPrimaryStoreTagResult } from "@/lib/onlineStoreTag";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
