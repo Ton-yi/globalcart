@@ -86,7 +86,7 @@ export default function Payment() {
       paid_amount: order.prepayment_amount
     });
     setSubmitted(true);
-    setTimeout(() => navigate(createPageUrl("MyOrders")), 2500);
+    setTimeout(() => window.location.reload(), 2000);
   };
 
   if (loading) return <div className="text-center py-20 text-gray-400">加载中...</div>;
@@ -119,7 +119,7 @@ export default function Payment() {
             </div>
             <div className="text-right">
               <div className="text-xs text-gray-400">预付款金额</div>
-              <div className="text-2xl font-bold text-red-600">{cur} {amount}</div>
+              <div className="text-2xl font-bold text-red-600">{amount} yen</div>
             </div>
           </div>
         </CardContent>
@@ -191,7 +191,7 @@ export default function Payment() {
 
             <div className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-3 border border-gray-200">
               <span className="text-sm text-gray-700">付款金额</span>
-              <span className="text-lg font-bold text-red-600">{cur} {amount}</span>
+              <span className="text-lg font-bold text-red-600">{amount} yen</span>
             </div>
           </CardContent>
         </Card>
@@ -206,44 +206,46 @@ export default function Payment() {
         </Card>
       )}
 
-      {/* Upload proof */}
-      {!submitted ? (
-        <Card className="border-gray-200">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold text-gray-700">上传付款凭证</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-xs text-gray-400">请在付款完成后上传付款截图或凭证，以便我们尽快确认</p>
-            <label className="cursor-pointer block">
-              <div className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${proofFile ? "border-green-300 bg-green-50" : "border-gray-200 hover:border-gray-300"}`}>
-                {proofFile ? (
-                  <div className="text-green-600">
-                    <CheckCircle className="w-8 h-8 mx-auto mb-1" />
-                    <p className="text-sm font-medium">凭证已上传</p>
-                  </div>
-                ) : (
-                  <div className="text-gray-400">
-                    <Upload className="w-8 h-8 mx-auto mb-1" />
-                    <p className="text-sm">{uploading ? "上传中..." : "点击上传付款截图"}</p>
-                  </div>
-                )}
-              </div>
-              <input type="file" accept="image/*" className="hidden" onChange={handleUpload} disabled={uploading} />
-            </label>
-            <Button
-              className="w-full bg-blue-600 hover:bg-blue-700"
-              onClick={handleConfirm}
-              disabled={!proofFile || uploading}
-            >
-              <CheckCircle className="w-4 h-4 mr-2" />我已完成付款，提交凭证
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <Alert className="border-green-200 bg-green-50">
-          <CheckCircle className="w-4 h-4 text-green-600" />
-          <AlertDescription className="text-green-800">付款凭证已提交！管理员确认后将更新订单状态。正在跳转...</AlertDescription>
-        </Alert>
+      {/* Upload proof - only for non-alipay methods */}
+      {method !== "alipay" && (
+        !submitted ? (
+          <Card className="border-gray-200">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold text-gray-700">上传付款凭证</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-xs text-gray-400">请在付款完成后上传付款截图或凭证，以便我们尽快确认</p>
+              <label className="cursor-pointer block">
+                <div className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${proofFile ? "border-green-300 bg-green-50" : "border-gray-200 hover:border-gray-300"}`}>
+                  {proofFile ? (
+                    <div className="text-green-600">
+                      <CheckCircle className="w-8 h-8 mx-auto mb-1" />
+                      <p className="text-sm font-medium">凭证已上传</p>
+                    </div>
+                  ) : (
+                    <div className="text-gray-400">
+                      <Upload className="w-8 h-8 mx-auto mb-1" />
+                      <p className="text-sm">{uploading ? "上传中..." : "点击上传付款截图"}</p>
+                    </div>
+                  )}
+                </div>
+                <input type="file" accept="image/*" className="hidden" onChange={handleUpload} disabled={uploading} />
+              </label>
+              <Button
+                className="w-full bg-blue-600 hover:bg-blue-700"
+                onClick={handleConfirm}
+                disabled={!proofFile || uploading}
+              >
+                <CheckCircle className="w-4 h-4 mr-2" />我已完成付款，提交凭证
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <Alert className="border-green-200 bg-green-50">
+            <CheckCircle className="w-4 h-4 text-green-600" />
+            <AlertDescription className="text-green-800">付款凭证已提交！管理员确认后将更新订单状态。正在跳转...</AlertDescription>
+          </Alert>
+        )
       )}
     </div>
   );
