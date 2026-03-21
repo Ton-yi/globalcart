@@ -24,10 +24,12 @@ export default function UserPreferences() {
     preferred_currency: "JPY",
     preferred_language: "zh",
     preferred_shipping: "EMS",
+    preferred_transit_shipping_id: "",
     prefer_consolidation: false,
     notification_email: true,
     default_address_id: "",
   });
+  const [transitMethods, setTransitMethods] = useState([]);
   // Unified address list: each has { id, label, country, full_text }
   const [addresses, setAddresses] = useState([]);
   const [editingAddr, setEditingAddr] = useState(null); // null = not editing, "new" = new form, id = editing existing
