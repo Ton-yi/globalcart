@@ -168,6 +168,14 @@ export default function AdminSettings() {
         </Card>
       )}
 
+      {activeTab === "transit_methods" && (
+        <Card className="border-gray-200">
+          <CardContent className="pt-5">
+            <TransitShippingMethodManager />
+          </CardContent>
+        </Card>
+      )}
+
       {activeTab === "store_tags" && (
         <Card className="border-gray-200">
           <CardContent className="pt-5">
@@ -307,22 +315,58 @@ export default function AdminSettings() {
                 <Star className="w-4 h-4 text-yellow-500" />增值选项设置
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              {addons.length === 0 && <p className="text-xs text-gray-400">暂无增值选项，在下方添加</p>}
-              {addons.map(a => (
-                <div key={a.id} className={`flex items-center gap-3 p-2 rounded-lg border ${a.is_active ? "border-gray-200" : "border-gray-100 opacity-50"}`}>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-gray-800">{a.name}</span>
-                      <span className="text-sm text-red-600">+{a.fee_currency || "JPY"} {parseFloat(a.fee).toFixed(2)}</span>
-                      {!a.is_active && <Badge className="text-xs bg-gray-100 text-gray-400">已禁用</Badge>}
+            <CardContent className="space-y-4">
+              {/* Order addons */}
+              <div>
+                <p className="text-xs font-semibold text-gray-600 mb-2 flex items-center gap-1.5">
+                  <Badge className="text-xs bg-blue-100 text-blue-700">下单增值选项</Badge>
+                  <span className="text-gray-400 font-normal">提交订单时展示</span>
+                </p>
+                {addons.filter(a => !a.addon_type || a.addon_type === "order").length === 0 && (
+                  <p className="text-xs text-gray-400 py-1">暂无，在下方添加</p>
+                )}
+                {addons.filter(a => !a.addon_type || a.addon_type === "order").map(a => (
+                  <div key={a.id} className={`flex items-center gap-3 p-2 rounded-lg border mb-1.5 ${a.is_active ? "border-gray-200" : "border-gray-100 opacity-50"}`}>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-gray-800">{a.name}</span>
+                        <span className="text-sm text-red-600">+{a.fee_currency || "JPY"} {parseFloat(a.fee).toFixed(0)}</span>
+                        {!a.is_active && <Badge className="text-xs bg-gray-100 text-gray-400">已禁用</Badge>}
+                      </div>
+                      {a.description && <p className="text-xs text-gray-400">{a.description}</p>}
                     </div>
-                    {a.description && <p className="text-xs text-gray-400">{a.description}</p>}
+                    <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => toggleAddon(a)}>{a.is_active ? "禁用" : "启用"}</Button>
+                    <Button variant="ghost" size="sm" className="h-7 text-xs text-red-400" onClick={() => handleDeleteAddon(a.id)}><Trash2 className="w-3 h-3" /></Button>
                   </div>
-                  <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => toggleAddon(a)}>{a.is_active ? "禁用" : "启用"}</Button>
-                  <Button variant="ghost" size="sm" className="h-7 text-xs text-red-400" onClick={() => handleDeleteAddon(a.id)}><Trash2 className="w-3 h-3" /></Button>
-                </div>
-              ))}
+                ))}
+              </div>
+
+              {/* Shipping addons */}
+              <div className="border-t pt-3">
+                <p className="text-xs font-semibold text-gray-600 mb-2 flex items-center gap-1.5">
+                  <Badge className="text-xs bg-orange-100 text-orange-700">发货增值选项</Badge>
+                  <span className="text-gray-400 font-normal">提交发货申请时展示</span>
+                </p>
+                {addons.filter(a => a.addon_type === "shipping").length === 0 && (
+                  <p className="text-xs text-gray-400 py-1">暂无，在下方添加</p>
+                )}
+                {addons.filter(a => a.addon_type === "shipping").map(a => (
+                  <div key={a.id} className={`flex items-center gap-3 p-2 rounded-lg border mb-1.5 ${a.is_active ? "border-gray-200" : "border-gray-100 opacity-50"}`}>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-gray-800">{a.name}</span>
+                        <span className="text-sm text-red-600">+{a.fee_currency || "JPY"} {parseFloat(a.fee).toFixed(0)}</span>
+                        {!a.is_active && <Badge className="text-xs bg-gray-100 text-gray-400">已禁用</Badge>}
+                      </div>
+                      {a.description && <p className="text-xs text-gray-400">{a.description}</p>}
+                    </div>
+                    <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => toggleAddon(a)}>{a.is_active ? "禁用" : "启用"}</Button>
+                    <Button variant="ghost" size="sm" className="h-7 text-xs text-red-400" onClick={() => handleDeleteAddon(a.id)}><Trash2 className="w-3 h-3" /></Button>
+                  </div>
+                ))}
+              </div>
+
+              {/* Add new */}
               <div className="pt-2 border-t border-dashed border-gray-200 space-y-2">
                 <p className="text-xs text-gray-500 font-medium">新增增值选项</p>
                 <div className="grid grid-cols-2 gap-2">
@@ -336,7 +380,7 @@ export default function AdminSettings() {
                   </div>
                   <div>
                     <Label className="text-xs text-gray-400">费用 *</Label>
-                    <Input type="number" step="0.01" className="mt-0.5 h-8 text-sm" placeholder="500" value={newAddon.fee} onChange={e => setNewAddon(p => ({ ...p, fee: e.target.value }))} />
+                    <Input type="number" step="1" className="mt-0.5 h-8 text-sm" placeholder="500" value={newAddon.fee} onChange={e => setNewAddon(p => ({ ...p, fee: e.target.value }))} />
                   </div>
                   <div>
                     <Label className="text-xs text-gray-400">费用货币</Label>
@@ -346,6 +390,17 @@ export default function AdminSettings() {
                         {["JPY","CNY","USD","TWD","HKD","EUR","SGD"].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                       </SelectContent>
                     </Select>
+                  </div>
+                  <div className="col-span-2">
+                    <Label className="text-xs text-gray-400">增值类型</Label>
+                    <div className="flex gap-3 mt-1">
+                      {[{ v: "order", l: "下单增值选项" }, { v: "shipping", l: "发货增值选项" }].map(opt => (
+                        <label key={opt.v} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border cursor-pointer text-xs ${newAddon.addon_type === opt.v ? "border-red-300 bg-red-50 text-red-700" : "border-gray-200 text-gray-600"}`}>
+                          <input type="radio" className="hidden" checked={newAddon.addon_type === opt.v} onChange={() => setNewAddon(p => ({ ...p, addon_type: opt.v }))} />
+                          {opt.l}
+                        </label>
+                      ))}
+                    </div>
                   </div>
                 </div>
                 <Button size="sm" variant="outline" onClick={handleAddAddon} disabled={!newAddon.name || newAddon.fee === ""}>
