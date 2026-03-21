@@ -60,6 +60,9 @@ export default function UserPreferences() {
         const addrs = (p.saved_addresses || []).map(a => ({ country: "", ...a }));
         setAddresses(addrs);
       }
+      // Load transit shipping methods
+      const tMethods = await base44.entities.TransitShippingMethod.filter({ is_active: true });
+      setTransitMethods(tMethods || []);
     }).catch(() => base44.auth.redirectToLogin());
   }, []);
 
