@@ -37,7 +37,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
   const [trackingNumber, setTrackingNumber] = useState(pool.tracking_number || "");
   const [actualFee, setActualFee] = useState(pool.actual_fee?.toString() || "");
   const [adminNote, setAdminNote] = useState(pool.admin_note || "");
-  const [editMode, setEditMode] = useState(false);
+  const [editMode, setEditMode] = useState(true); // Always expanded for admin
 
   useEffect(() => {
     if (pool.order_ids?.length > 0) {
@@ -120,7 +120,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
   const status = STATUS_CONFIG[pool.status] || STATUS_CONFIG.pending;
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-start justify-between px-6 py-4 border-b sticky top-0 bg-white z-10">
@@ -208,46 +208,41 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
             </div>
           )}
 
-          {/* Admin edit panel */}
+          {/* Admin edit panel - always expanded */}
           {isAdmin && (
-            <div className="border border-gray-200 rounded-xl overflow-hidden">
-              <div className="bg-gray-50 px-4 py-2.5 flex items-center justify-between border-b">
-                <span className="text-sm font-medium text-gray-700">管理员操作</span>
-                <button className="text-xs text-blue-600 hover:text-blue-800" onClick={() => setEditMode(v => !v)}>
-                  {editMode ? "取消" : "编辑"}
-                </button>
+            <div className="border border-red-100 rounded-xl overflow-hidden">
+              <div className="bg-red-50 px-4 py-2.5 border-b border-red-100">
+                <span className="text-sm font-medium text-red-700">管理员操作</span>
               </div>
-              {editMode && (
-                <div className="p-4 space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label className="text-xs text-gray-500">运单号</Label>
-                      <Input className="mt-1 h-8 text-sm font-mono" placeholder="填写后状态变为已发货"
-                        value={trackingNumber} onChange={e => setTrackingNumber(e.target.value)} />
-                    </div>
-                    <div>
-                      <Label className="text-xs text-gray-500">实际运费 ({pool.fee_currency || "CNY"})</Label>
-                      <Input className="mt-1 h-8 text-sm" type="number" placeholder="0.00"
-                        value={actualFee} onChange={e => setActualFee(e.target.value)} />
-                    </div>
+              <div className="p-4 space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs text-gray-500">运单号</Label>
+                    <Input className="mt-1 h-8 text-sm font-mono" placeholder="填写后状态变为已发货"
+                      value={trackingNumber} onChange={e => setTrackingNumber(e.target.value)} />
                   </div>
                   <div>
-                    <Label className="text-xs text-gray-500">管理员备注</Label>
-                    <Textarea rows={2} className="mt-1 text-sm"
-                      value={adminNote} onChange={e => setAdminNote(e.target.value)} />
+                    <Label className="text-xs text-gray-500">实际运费（日元 JPY）</Label>
+                    <Input className="mt-1 h-8 text-sm" type="number" placeholder="0"
+                      value={actualFee} onChange={e => setActualFee(e.target.value)} />
                   </div>
-                  {trackingNumber && (
-                    <div className="bg-orange-50 border border-orange-100 rounded-lg px-3 py-2 text-xs text-orange-700">
-                      ⚠️ 填写运单号后，发货申请状态将变为"已发货"，且关联的所有订单也将同步更新为"已发货"。
-                    </div>
-                  )}
-                  <Button size="sm" className="bg-red-600 hover:bg-red-700 w-full"
-                    onClick={handleAdminSave} disabled={saving}>
-                    <Truck className="w-3.5 h-3.5 mr-1.5" />
-                    {saving ? "保存中..." : "保存"}
-                  </Button>
                 </div>
-              )}
+                <div>
+                  <Label className="text-xs text-gray-500">管理员备注</Label>
+                  <Textarea rows={2} className="mt-1 text-sm"
+                    value={adminNote} onChange={e => setAdminNote(e.target.value)} />
+                </div>
+                {trackingNumber && (
+                  <div className="bg-orange-50 border border-orange-100 rounded-lg px-3 py-2 text-xs text-orange-700">
+                    ⚠️ 填写运单号后，发货申请状态将变为"已发货"，且关联的所有订单也将同步更新为"已发货"。
+                  </div>
+                )}
+                <Button size="sm" className="bg-red-600 hover:bg-red-700 w-full"
+                  onClick={handleAdminSave} disabled={saving}>
+                  <Truck className="w-3.5 h-3.5 mr-1.5" />
+                  {saving ? "保存中..." : "保存"}
+                </Button>
+              </div>
             </div>
           )}
 
