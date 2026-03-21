@@ -223,7 +223,7 @@ export default function OrderDetailDrawer({ order, currentUser, onClose, onActio
           <div id="message-section" className="border-t pt-4">
             {hasMessages && (
               <button
-                className="flex items-center gap-2 text-sm font-medium text-gray-700 w-full py-1 mb-2"
+                className="flex items-center gap-2 text-sm font-medium text-gray-700 w-full py-1 mb-3"
                 onClick={() => setShowMessages(!showMessages)}
               >
                 <MessageCircle className="w-4 h-4" />
@@ -232,38 +232,14 @@ export default function OrderDetailDrawer({ order, currentUser, onClose, onActio
                 <span className="text-xs text-gray-400 ml-auto">{showMessages ? "收起" : "展开"}</span>
               </button>
             )}
-            {(showMessages || !hasMessages) && hasMessages && (
-              <div className="mb-3">
-                <OrderMessageThread
-                  order={order}
-                  currentUser={currentUser}
-                  isAdmin={false}
-                  contactInfo={contactInfo}
-                  onMessageSent={handleMessageSent}
-                  composeOnly={false}
-                />
-              </div>
-            )}
-            {!showMessages && hasMessages && (
-              <OrderMessageThread
-                order={order}
-                currentUser={currentUser}
-                isAdmin={false}
-                contactInfo={contactInfo}
-                onMessageSent={handleMessageSent}
-                composeOnly={true}
-              />
-            )}
-            {!hasMessages && (
-              <OrderMessageThread
-                order={order}
-                currentUser={currentUser}
-                isAdmin={false}
-                contactInfo={contactInfo}
-                onMessageSent={handleMessageSent}
-                composeOnly={false}
-              />
-            )}
+            <OrderMessageThread
+              order={order}
+              currentUser={currentUser}
+              isAdmin={false}
+              contactInfo={contactInfo}
+              onMessageSent={handleMessageSent}
+              hideHistory={hasMessages && !showMessages}
+            />
           </div>
         </div>
       </div>
