@@ -115,13 +115,15 @@ export default function ShippingPool() {
     setForm({ recipient_name: "", recipient_phone: "", address_line1: "", address_line2: "", city: "", state: "", postal_code: "", destination_country: "", shipping_method: "", scheduled_ship_date: "", transit_location_id: "", user_note: "" });
     setConsType("");
     setFormLoading(true);
-    const [orders, locs, prefs] = await Promise.all([
+    const [orders, allLocs, prefs, usersRes] = await Promise.all([
       base44.entities.Order.filter({ user_email: user.email, order_status: "in_warehouse" }, "-updated_date", 100),
-      base44.entities.TransitLocation.filter({ is_active: true }),
+      base44.entities.TransitLocation.list(),  // list all, filter is_active in frontend
       base44.entities.UserPreference.filter({ user_email: user.email }),
+      base44.functions.invoke("listNonAdminUsers", {}),
     ]);
     setAvailableOrders(orders);
-    setTransitLocations(locs);
+    setTransitLocations((allLocs || []).filter(l => l.is_active !== false));
+    setAllUsers(usersRes?.data?.users || []);
     const pref = prefs[0];
     const addrs = (pref?.saved_addresses || []).map(a => ({ country: "", ...a }));
     setSavedAddresses(addrs);
