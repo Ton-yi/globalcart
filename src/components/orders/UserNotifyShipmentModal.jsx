@@ -1,10 +1,13 @@
 /**
  * UserNotifyShipmentModal
  * Supports single or multiple orders.
- * Includes natural-language combined shipping (拼邮) configuration.
+ * Includes:
+ * - Natural-language combined shipping (拼邮) configuration
+ * - Privacy system (不公开 + shared with specific users)
+ * - Join existing shipping pool option
  */
 import { useState, useEffect } from "react";
-import { X, Truck, Package, MapPin, ChevronDown } from "lucide-react";
+import { X, Truck, Package, MapPin, Lock, Users, Search } from "lucide-react";
 import { getCountry } from "@/lib/countries";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
@@ -25,18 +28,13 @@ const TIMEOUT_ACTIONS = [
   { value: "return_to_storage", label: "退回仓库暂存" },
 ];
 
-// Clamp a date string to 4-digit year
 function clampYear(dateStr) {
   if (!dateStr) return dateStr;
   const parts = dateStr.split("-");
-  if (parts[0] && parts[0].length > 4) {
-    parts[0] = parts[0].slice(0, 4);
-    return parts.join("-");
-  }
+  if (parts[0] && parts[0].length > 4) { parts[0] = parts[0].slice(0, 4); return parts.join("-"); }
   return dateStr;
 }
 
-// Inline editable token
 function Token({ value, onChange, type = "text", options, placeholder, suffix }) {
   if (options) {
     return (
@@ -53,61 +51,38 @@ function Token({ value, onChange, type = "text", options, placeholder, suffix })
   if (type === "date") {
     return (
       <span className="inline-flex items-center gap-0.5">
-        <input
-          type="date"
-          value={value || ""}
-          onChange={e => onChange(clampYear(e.target.value))}
+        <input type="date" value={value || ""} onChange={e => onChange(clampYear(e.target.value))}
           className="inline-block border-0 border-b-2 border-dashed border-blue-400 bg-blue-50 text-blue-700 font-medium text-sm px-1 rounded-none focus:outline-none focus:border-blue-600"
-          style={{ width: "130px" }}
-        />
+          style={{ width: "130px" }} />
       </span>
     );
   }
   return (
     <span className="inline-flex items-center gap-0.5">
-      <input
-        type={type}
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        placeholder={placeholder}
+      <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
         className="inline-block border-0 border-b-2 border-dashed border-blue-400 bg-blue-50 text-blue-700 font-medium text-sm px-1 rounded-none focus:outline-none focus:border-blue-600 w-auto min-w-[60px]"
-        style={{ width: `${Math.max((value?.length || placeholder?.length || 4) + 2, 6)}ch` }}
-      />
+        style={{ width: `${Math.max((value?.length || placeholder?.length || 4) + 2, 6)}ch` }} />
       {suffix && <span className="text-gray-500 text-sm">{suffix}</span>}
     </span>
   );
 }
 
-// Deadline token that shows "任何时候" until clicked
 function DeadlineToken({ value, onChange }) {
   const [editing, setEditing] = useState(false);
-
   if (!editing && !value) {
     return (
-      <button
-        type="button"
-        onClick={() => setEditing(true)}
-        className="inline-flex items-center gap-0.5 border-0 border-b-2 border-dashed border-blue-400 bg-blue-50 text-blue-700 font-medium text-sm px-2 h-7 rounded-none hover:bg-blue-100"
-      >
+      <button type="button" onClick={() => setEditing(true)}
+        className="inline-flex items-center gap-0.5 border-0 border-b-2 border-dashed border-blue-400 bg-blue-50 text-blue-700 font-medium text-sm px-2 h-7 rounded-none hover:bg-blue-100">
         任何时候
       </button>
     );
   }
-
   return (
     <span className="inline-flex items-center gap-1">
-      <input
-        type="date"
-        value={value || ""}
-        onChange={e => onChange(clampYear(e.target.value))}
-        autoFocus={editing}
+      <input type="date" value={value || ""} onChange={e => onChange(clampYear(e.target.value))} autoFocus={editing}
         className="inline-block border-0 border-b-2 border-dashed border-blue-400 bg-blue-50 text-blue-700 font-medium text-sm px-1 rounded-none focus:outline-none focus:border-blue-600"
-        style={{ width: "140px" }}
-      />
-      {value && (
-        <button type="button" onClick={() => { onChange(""); setEditing(false); }}
-          className="text-blue-400 hover:text-blue-600 text-xs">×</button>
-      )}
+        style={{ width: "140px" }} />
+      {value && <button type="button" onClick={() => { onChange(""); setEditing(false); }} className="text-blue-400 hover:text-blue-600 text-xs">×</button>}
     </span>
   );
 }
@@ -117,7 +92,6 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
   const isMulti = targetOrders.length > 1;
 
   const [method, setMethod] = useState(targetOrders[0]?.shipping_method || "");
-  // consType: "" = no consolidation, "transit" = to transit, "other" = to other address
   const [consType, setConsType] = useState("");
   const [deadline, setDeadline] = useState("");
   const [minWeight, setMinWeight] = useState("2000");
@@ -128,24 +102,47 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  // Saved addresses & transit locations
+  // Address & transit
   const [savedAddresses, setSavedAddresses] = useState([]);
   const [selectedAddress, setSelectedAddress] = useState("");
   const [transitLocations, setTransitLocations] = useState([]);
   const [selectedTransitId, setSelectedTransitId] = useState("");
-  // Final delivery address (used when consType="transit" — after transit the parcel goes here)
   const [finalAddressId, setFinalAddressId] = useState("");
+
+  // Privacy system
+  const [isPrivate, setIsPrivate] = useState(false);
+  const [allUsers, setAllUsers] = useState([]); // non-admin users
+  const [sharedWithEmails, setSharedWithEmails] = useState([]);
+  const [userSearchQuery, setUserSearchQuery] = useState("");
+
+  // Join existing pool
+  const [joinExistingPool, setJoinExistingPool] = useState(false);
+  const [existingPools, setExistingPools] = useState([]);
+  const [poolSearchQuery, setPoolSearchQuery] = useState("");
+  const [selectedPoolId, setSelectedPoolId] = useState("");
+  const [currentUser, setCurrentUser] = useState(null);
 
   useEffect(() => {
     base44.auth.me().then(async u => {
-      const [prefs, locs] = await Promise.all([
+      setCurrentUser(u);
+      const [prefs, locs, users, pools] = await Promise.all([
         base44.entities.UserPreference.filter({ user_email: u.email }),
         base44.entities.TransitLocation.filter({ is_active: true }),
+        base44.entities.User.list(),
+        // Fetch all consolidation-type pools that are visible to this user
+        base44.entities.ShippingPool.filter({ creator_email: u.email }, "-created_date", 200),
       ]);
-      if (prefs.length > 0 && prefs[0].saved_addresses) {
-        setSavedAddresses(prefs[0].saved_addresses);
-      }
+      if (prefs.length > 0 && prefs[0].saved_addresses) setSavedAddresses(prefs[0].saved_addresses);
       setTransitLocations(locs);
+      // Filter out admins from user list for privacy sharing
+      setAllUsers((users || []).filter(usr => usr.role !== "admin" && usr.email !== u.email));
+      // Only show pools that are consolidation type (transit or other) and are pending/processing
+      const consolidationPools = pools.filter(p =>
+        p.consolidation_type && p.consolidation_type !== "" &&
+        (p.status === "pending" || p.status === "processing") &&
+        (!p.is_private || p.creator_email === u.email || (p.shared_with_emails || []).includes(u.email))
+      );
+      setExistingPools(consolidationPools);
     }).catch(() => {});
   }, []);
 
@@ -160,18 +157,46 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
   const consolidation = consType !== "";
   const hasConsolidationConditions = consolidation && (deadline || minWeight);
 
+  const selectedPool = existingPools.find(p => p.id === selectedPoolId);
+
+  // When joining existing pool, method/minWeight/consMethod are locked
+  const isJoiningPool = joinExistingPool && selectedPoolId;
+
+  const filteredPools = existingPools.filter(p => {
+    if (!poolSearchQuery) return true;
+    const q = poolSearchQuery.toLowerCase();
+    return (p.pool_code || "").toLowerCase().includes(q) ||
+      (p.transit_location_name || "").toLowerCase().includes(q) ||
+      (p.title || "").toLowerCase().includes(q);
+  });
+
+  const filteredUsers = allUsers.filter(u => {
+    if (!userSearchQuery) return true;
+    const q = userSearchQuery.toLowerCase();
+    return (u.full_name || "").toLowerCase().includes(q) || (u.email || "").toLowerCase().includes(q);
+  });
+
+  const toggleSharedUser = (email) => {
+    setSharedWithEmails(prev => prev.includes(email) ? prev.filter(e => e !== email) : [...prev, email]);
+  };
+
   const handleSubmit = async () => {
     if (!method) return;
     if (consType === "transit" && !selectedTransitId) return;
+    if (joinExistingPool && !selectedPoolId) return;
     setSubmitting(true);
+
+    const u = currentUser || await base44.auth.me();
+    const orderIds = targetOrders.map(o => o.id);
+    const totalWeight = targetOrders.reduce((s, o) => s + (o.weight_g || 0), 0);
 
     const updates = {
       shipping_method: method,
       consolidation_requested: consolidation,
       order_status: "notified_shipment",
       ...(consolidation && deadline ? { consolidation_deadline: deadline } : {}),
-      ...(consolidation && minWeight ? { consolidation_min_weight_g: parseFloat(minWeight) } : {}),
-      ...(hasConsolidationConditions ? { consolidation_timeout_action: timeoutAction } : {}),
+      ...(!isJoiningPool && consolidation && minWeight ? { consolidation_min_weight_g: parseFloat(minWeight) } : {}),
+      ...(!isJoiningPool && hasConsolidationConditions ? { consolidation_timeout_action: timeoutAction } : {}),
       ...(consType === "transit" ? { consolidation_transit_id: selectedTransitId, consolidation_final_address_id: finalAddressId } : {}),
     };
 
@@ -184,40 +209,47 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
       )
     );
 
-    // Create a ShippingPool record so it shows up in the pools list
-    const u = await base44.auth.me();
-    const orderIds = targetOrders.map(o => o.id);
-    const totalWeight = targetOrders.reduce((s, o) => s + (o.weight_g || 0), 0);
+    if (isJoiningPool && selectedPool) {
+      // Add orders to existing pool
+      const updatedOrderIds = [...new Set([...(selectedPool.order_ids || []), ...orderIds])];
+      const updatedWeight = (selectedPool.total_weight_g || 0) + totalWeight;
+      await base44.entities.ShippingPool.update(selectedPool.id, {
+        order_ids: updatedOrderIds,
+        total_weight_g: updatedWeight,
+      });
+    } else {
+      // Create a new ShippingPool record
+      const transitLoc = transitLocations.find(l => l.id === selectedTransitId);
+      const prefix = consType === "transit" && transitLoc?.code_prefix
+        ? transitLoc.code_prefix.toUpperCase()
+        : "AAA";
+      const allPools = await base44.entities.ShippingPool.list("-created_date", 500);
+      const prefixPools = allPools.filter(p => p.pool_code && p.pool_code.startsWith(prefix));
+      const nextSeq = (prefixPools.length + 1).toString().padStart(5, "0");
+      const pool_code = `${prefix}${nextSeq}`;
 
-    const transitLoc = transitLocations.find(l => l.id === selectedTransitId);
-    const prefix = consType === "transit" && transitLoc?.code_prefix
-      ? transitLoc.code_prefix.toUpperCase()
-      : "AAA";
-    const existingPools = await base44.entities.ShippingPool.list("-created_date", 500);
-    const prefixPools = existingPools.filter(p => p.pool_code && p.pool_code.startsWith(prefix));
-    const nextSeq = (prefixPools.length + 1).toString().padStart(5, "0");
-    const pool_code = `${prefix}${nextSeq}`;
+      const addrObj = savedAddresses.find(a => a.id === (consType === "transit" ? finalAddressId : selectedAddress));
 
-    // Determine address info from selected address
-    const addrObj = savedAddresses.find(a => a.id === (consType === "transit" ? finalAddressId : selectedAddress));
-
-    await base44.entities.ShippingPool.create({
-      pool_code,
-      consolidation_type: consType || "",
-      order_ids: orderIds,
-      creator_email: u.email,
-      creator_name: u.full_name || u.email,
-      is_admin_created: false,
-      shipping_method: method,
-      total_weight_g: totalWeight,
-      status: "pending",
-      transit_location_id: consType === "transit" ? selectedTransitId : "",
-      transit_location_name: transitLoc?.name || "",
-      final_address_id: consType === "transit" ? finalAddressId : "",
-      user_note: note || "",
-      messages: [],
-      ...(addrObj ? { recipient_name: addrObj.full_text?.split("\n")[0] || "" } : {}),
-    });
+      await base44.entities.ShippingPool.create({
+        pool_code,
+        consolidation_type: consType || "",
+        order_ids: orderIds,
+        creator_email: u.email,
+        creator_name: u.full_name || u.email,
+        is_admin_created: false,
+        shipping_method: method,
+        total_weight_g: totalWeight,
+        status: "pending",
+        transit_location_id: consType === "transit" ? selectedTransitId : "",
+        transit_location_name: transitLoc?.name || "",
+        final_address_id: consType === "transit" ? finalAddressId : "",
+        user_note: note || "",
+        messages: [],
+        is_private: isPrivate,
+        shared_with_emails: isPrivate ? sharedWithEmails : [],
+        ...(addrObj ? { recipient_name: addrObj.full_text?.split("\n")[0] || "" } : {}),
+      });
+    }
 
     onSuccess?.();
   };
@@ -230,9 +262,7 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
           <div>
             <h2 className="font-semibold text-gray-900">通知发货</h2>
             <p className="text-xs text-gray-400 mt-0.5">
-              {isMulti
-                ? `已选择 ${targetOrders.length} 个订单`
-                : targetOrders[0]?.product_name}
+              {isMulti ? `已选择 ${targetOrders.length} 个订单` : targetOrders[0]?.product_name}
             </p>
           </div>
           <button onClick={onClose}><X className="w-4 h-4 text-gray-500" /></button>
@@ -274,7 +304,7 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
               { key: "other", label: "申请拼邮到其它地址", desc: "与其他包裹合并，发往自选地址" },
             ].map(opt => (
               <label key={opt.key} className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${consType === opt.key ? "border-red-300 bg-red-50" : "border-gray-100 hover:bg-gray-50"}`}>
-                <input type="radio" checked={consType === opt.key} onChange={() => setConsType(opt.key)} className="mt-0.5 accent-red-600" />
+                <input type="radio" checked={consType === opt.key} onChange={() => { setConsType(opt.key); setJoinExistingPool(false); setSelectedPoolId(""); }} className="mt-0.5 accent-red-600" />
                 <div>
                   <div className="text-sm font-medium text-gray-800">{opt.label}</div>
                   <p className="text-xs text-gray-400 mt-0.5">{opt.desc}</p>
@@ -290,13 +320,9 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
                 <MapPin className="w-3.5 h-3.5" />收货地址
               </label>
               <Select value={selectedAddress} onValueChange={handleAddressSelect}>
-                <SelectTrigger className="mt-1.5">
-                  <SelectValue placeholder="选择地址簿中的地址" />
-                </SelectTrigger>
+                <SelectTrigger className="mt-1.5"><SelectValue placeholder="选择地址簿中的地址" /></SelectTrigger>
                 <SelectContent>
-                  {savedAddresses.map(a => (
-                    <SelectItem key={a.id} value={a.id}>{a.label}</SelectItem>
-                  ))}
+                  {savedAddresses.map(a => <SelectItem key={a.id} value={a.id}>{a.label}</SelectItem>)}
                 </SelectContent>
               </Select>
               {selectedAddress && (() => {
@@ -323,53 +349,90 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
                         {l.handling_fee > 0 && ` · 手续费 ${l.handling_fee_currency || "JPY"} ${l.handling_fee}`}
                         {l.allow_storage && " · 支持暂存"}
                       </p>
-                      {l.manager_contact && (
-                        <p className="text-xs text-gray-400 mt-0.5">联系：{l.manager_contact}</p>
-                      )}
+                      {l.manager_contact && <p className="text-xs text-gray-400 mt-0.5">联系：{l.manager_contact}</p>}
                     </div>
                   </label>
                 ))}
               </div>
-
-              {/* Final delivery address after transit */}
               {savedAddresses.length > 0 && (
                 <div className="border border-gray-200 rounded-xl p-4 bg-gray-50/60 space-y-2">
                   <label className="text-xs text-gray-600 font-medium flex items-center gap-1.5">
-                    <MapPin className="w-3.5 h-3.5 text-gray-400" />
-                    最终收货地址（货品从中转地发往此处）
+                    <MapPin className="w-3.5 h-3.5 text-gray-400" />最终收货地址（货品从中转地发往此处）
                   </label>
                   <Select value={finalAddressId} onValueChange={setFinalAddressId}>
                     <SelectTrigger className="bg-white"><SelectValue placeholder="选择地址簿中的收货地址" /></SelectTrigger>
                     <SelectContent>
-                      {savedAddresses.map(a => (
-                        <SelectItem key={a.id} value={a.id}>{a.label}</SelectItem>
-                      ))}
+                      {savedAddresses.map(a => <SelectItem key={a.id} value={a.id}>{a.label}</SelectItem>)}
                     </SelectContent>
                   </Select>
                   {finalAddressId && (() => {
                     const addr = savedAddresses.find(a => a.id === finalAddressId);
-                    return addr ? (
-                      <div className="bg-white border border-gray-100 rounded-lg px-3 py-2 text-xs text-gray-600 whitespace-pre-wrap">{addr.full_text}</div>
-                    ) : null;
+                    return addr ? <div className="bg-white border border-gray-100 rounded-lg px-3 py-2 text-xs text-gray-600 whitespace-pre-wrap">{addr.full_text}</div> : null;
                   })()}
                 </div>
               )}
             </div>
           )}
 
+          {/* Join existing pool option (only for consolidation types) */}
+          {consolidation && existingPools.length > 0 && (
+            <div className="border border-gray-200 rounded-xl overflow-hidden">
+              <label className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${joinExistingPool ? "bg-purple-50 border-b border-purple-100" : "hover:bg-gray-50"}`}>
+                <Checkbox checked={joinExistingPool} onCheckedChange={v => { setJoinExistingPool(!!v); if (!v) setSelectedPoolId(""); }} />
+                <div>
+                  <p className="text-sm font-medium text-gray-800">加入已有的拼邮需求</p>
+                  <p className="text-xs text-gray-400 mt-0.5">将此次发货订单加入到现有的拼邮池中</p>
+                </div>
+              </label>
+
+              {joinExistingPool && (
+                <div className="px-4 py-3 space-y-2 bg-purple-50/40">
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                    <Input placeholder="搜索拼邮需求编号或名称..." className="pl-8 h-8 text-sm"
+                      value={poolSearchQuery} onChange={e => setPoolSearchQuery(e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                    {filteredPools.length === 0 ? (
+                      <p className="text-xs text-gray-400 text-center py-3">无匹配的拼邮需求</p>
+                    ) : filteredPools.map(p => (
+                      <label key={p.id} className={`flex items-start gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-colors ${selectedPoolId === p.id ? "border-purple-400 bg-purple-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
+                        <input type="radio" checked={selectedPoolId === p.id} onChange={() => setSelectedPoolId(p.id)} className="mt-0.5 accent-purple-600" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-xs font-mono font-medium text-purple-700">{p.pool_code}</span>
+                            {p.is_private && <span className="text-xs text-gray-400">🔒</span>}
+                          </div>
+                          <p className="text-xs text-gray-600 mt-0.5 truncate">
+                            {p.consolidation_type === "transit" ? `中转拼邮 → ${p.transit_location_name || "中转地"}` : "自选地址拼邮"}
+                            {p.shipping_method && ` · ${p.shipping_method}`}
+                            {` · 当前 ${(p.order_ids || []).length} 件`}
+                          </p>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                  {isJoiningPool && (
+                    <p className="text-xs text-blue-600 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+                      ℹ️ 加入已有拼邮需求后，运输方式与凑满重量设置将使用该需求的配置。发货期限设置仅适用于本次新加入的订单。
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Natural-language consolidation config */}
-          {consolidation && (
+          {consolidation && !isJoiningPool && (
             <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 space-y-3">
               <p className="text-xs text-blue-500 font-medium uppercase tracking-wide">拼邮配置</p>
 
-              {/* Deadline sentence */}
               <div className="text-sm text-gray-700 leading-8 flex flex-wrap items-center gap-x-1.5">
                 <span>在</span>
                 <DeadlineToken value={deadline} onChange={setDeadline} />
                 <span>前拼邮发出，</span>
               </div>
 
-              {/* Shipping method - always show "任何运输方式" as default */}
               <div className="text-sm text-gray-700 leading-8 flex flex-wrap items-center gap-x-1.5">
                 <span>使用</span>
                 <Select value={consMethod} onValueChange={v => { setConsMethod(v); setConsMethodFallback(""); }}>
@@ -381,7 +444,6 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
                     {SHIPPING_METHODS.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
-                {/* Only show "or [method]" if a specific method was chosen */}
                 {consMethod && consMethod !== "any" && (
                   <>
                     <span className="text-gray-400">或</span>
@@ -400,32 +462,19 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
                 <span>，</span>
               </div>
 
-              {/* Min weight */}
               <div className="text-sm text-gray-700 leading-8 flex flex-wrap items-center gap-x-1.5">
                 <span>凑满</span>
-                <Token
-                  type="number"
-                  value={minWeight}
-                  onChange={setMinWeight}
-                  placeholder="2000"
-                  suffix="g"
-                />
+                <Token type="number" value={minWeight} onChange={setMinWeight} placeholder="2000" suffix="g" />
                 <span>时发货。</span>
               </div>
 
-              {/* Timeout condition */}
               {hasConsolidationConditions && (
                 <div className="space-y-2 pt-1 border-t border-blue-100">
                   <div className="text-sm text-gray-700 leading-8 flex flex-wrap items-center gap-x-1.5">
                     <span className="text-gray-500">若条件未达成，则</span>
-                    <Token
-                      value={timeoutAction}
-                      onChange={setTimeoutAction}
-                      options={TIMEOUT_ACTIONS}
-                    />
+                    <Token value={timeoutAction} onChange={setTimeoutAction} options={TIMEOUT_ACTIONS} />
                     <span>。</span>
                   </div>
-                  {/* If "单独发货" is selected, show method picker */}
                   {timeoutAction === "ship_individually" && (
                     <div className="text-sm text-gray-700 leading-8 flex flex-wrap items-center gap-x-1.5 pl-2">
                       <span className="text-gray-500">单独发货方式：</span>
@@ -441,6 +490,62 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
                   )}
                 </div>
               )}
+
+              {/* Privacy section - inside consolidation config */}
+              <div className="pt-2 border-t border-blue-100 space-y-3">
+                <label className={`flex items-center gap-3 cursor-pointer rounded-lg p-2 transition-colors ${isPrivate ? "bg-gray-100" : "hover:bg-blue-100/50"}`}>
+                  <Checkbox checked={isPrivate} onCheckedChange={v => { setIsPrivate(!!v); if (!v) setSharedWithEmails([]); }} />
+                  <div className="flex items-center gap-1.5">
+                    <Lock className="w-3.5 h-3.5 text-gray-500" />
+                    <span className="text-sm font-medium text-gray-700">不公开</span>
+                    <span className="text-xs text-gray-400">（仅管理员和指定用户可见）</span>
+                  </div>
+                </label>
+
+                {isPrivate && (
+                  <div className="ml-2 space-y-2">
+                    <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                      <Users className="w-3.5 h-3.5" />
+                      <span>选择可查看此拼邮需求的用户（管理员始终可见，无需选择）</span>
+                    </div>
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                      <Input placeholder="搜索用户..." className="pl-8 h-7 text-xs"
+                        value={userSearchQuery} onChange={e => setUserSearchQuery(e.target.value)} />
+                    </div>
+                    {allUsers.length === 0 ? (
+                      <p className="text-xs text-gray-400">暂无其他用户</p>
+                    ) : (
+                      <div className="space-y-1 max-h-32 overflow-y-auto border border-gray-200 rounded-lg p-2 bg-white">
+                        {filteredUsers.map(u => (
+                          <label key={u.email} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 rounded px-1 py-0.5">
+                            <Checkbox checked={sharedWithEmails.includes(u.email)} onCheckedChange={() => toggleSharedUser(u.email)} />
+                            <div className="flex-1 min-w-0">
+                              <span className="text-xs font-medium text-gray-700">{u.full_name || u.email}</span>
+                              {u.full_name && <span className="text-xs text-gray-400 ml-1.5">{u.email}</span>}
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                    {sharedWithEmails.length > 0 && (
+                      <p className="text-xs text-gray-500">已选择与 {sharedWithEmails.length} 位用户分享</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Joining existing pool: only show deadline */}
+          {isJoiningPool && (
+            <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 space-y-2">
+              <p className="text-xs text-blue-500 font-medium uppercase tracking-wide">发货期限（仅适用于本次订单）</p>
+              <div className="text-sm text-gray-700 leading-8 flex flex-wrap items-center gap-x-1.5">
+                <span>在</span>
+                <DeadlineToken value={deadline} onChange={setDeadline} />
+                <span>前发出。</span>
+              </div>
             </div>
           )}
 
@@ -451,13 +556,9 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
                 <MapPin className="w-3.5 h-3.5" />拼邮目标地址
               </label>
               <Select value={selectedAddress} onValueChange={handleAddressSelect}>
-                <SelectTrigger className="mt-1.5">
-                  <SelectValue placeholder="选择地址簿中的地址" />
-                </SelectTrigger>
+                <SelectTrigger className="mt-1.5"><SelectValue placeholder="选择地址簿中的地址" /></SelectTrigger>
                 <SelectContent>
-                  {savedAddresses.map(a => (
-                    <SelectItem key={a.id} value={a.id}>{a.label}</SelectItem>
-                  ))}
+                  {savedAddresses.map(a => <SelectItem key={a.id} value={a.id}>{a.label}</SelectItem>)}
                 </SelectContent>
               </Select>
               {selectedAddress && (() => {
@@ -470,13 +571,7 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
           {/* Note */}
           <div>
             <label className="text-xs text-gray-500 font-medium uppercase tracking-wide">备注 / 收货地址（可选）</label>
-            <Textarea
-              rows={3}
-              placeholder="收件地址或特殊要求..."
-              value={note}
-              onChange={e => setNote(e.target.value)}
-              className="mt-1.5"
-            />
+            <Textarea rows={3} placeholder="收件地址或特殊要求..." value={note} onChange={e => setNote(e.target.value)} className="mt-1.5" />
           </div>
         </div>
 
@@ -486,10 +581,14 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
             size="sm"
             className="bg-red-600 hover:bg-red-700"
             onClick={handleSubmit}
-            disabled={!method || submitting || (consType === "transit" && !selectedTransitId)}
+            disabled={
+              !method || submitting ||
+              (consType === "transit" && !selectedTransitId) ||
+              (joinExistingPool && !selectedPoolId)
+            }
           >
             <Truck className="w-3.5 h-3.5 mr-1.5" />
-            {submitting ? "提交中..." : isMulti ? `确认通知发货 (${targetOrders.length})` : "确认通知发货"}
+            {submitting ? "提交中..." : isJoiningPool ? `加入拼邮需求 (${targetOrders.length})` : isMulti ? `确认通知发货 (${targetOrders.length})` : "确认通知发货"}
           </Button>
         </div>
       </div>
