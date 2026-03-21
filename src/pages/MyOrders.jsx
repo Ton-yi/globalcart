@@ -157,6 +157,9 @@ export default function MyOrders() {
     setLoading(true);
     const data = await base44.entities.Order.filter({ user_email: u.email }, "-updated_date", 100);
     setOrders(data);
+    // Also fetch pools to look up pool_code for notified orders
+    base44.entities.ShippingPool.filter({ creator_email: u.email }, "-created_date", 200)
+      .then(setShippingPools).catch(() => {});
     setLoading(false);
   };
 
