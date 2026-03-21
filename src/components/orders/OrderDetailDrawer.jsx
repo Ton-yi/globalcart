@@ -88,19 +88,27 @@ export default function OrderDetailDrawer({ order, currentUser, onClose, onActio
             {order.estimated_jpy > 0 && (
               <div className="bg-gray-50 rounded-lg p-3">
                 <div className="text-xs text-gray-400">商品日元价格</div>
-                <div className="font-medium text-gray-800">¥{order.estimated_jpy?.toLocaleString()}</div>
+                <div className="font-medium text-gray-800">{Math.round(order.estimated_jpy).toLocaleString()} yen</div>
               </div>
             )}
             {order.prepayment_amount > 0 && (
               <div className="bg-gray-50 rounded-lg p-3">
                 <div className="text-xs text-gray-400">预付款</div>
-                <div className="font-medium text-gray-800">{order.prepayment_currency} {order.prepayment_amount?.toFixed(2)}</div>
+                <div className="font-medium text-gray-800">
+                  {order.prepayment_currency === "JPY"
+                    ? `${Math.round(order.prepayment_amount).toLocaleString()} yen`
+                    : `${order.prepayment_currency} ${order.prepayment_amount?.toFixed(2)}`}
+                </div>
               </div>
             )}
             {order.paid_amount > 0 && (
               <div className="bg-green-50 rounded-lg p-3">
                 <div className="text-xs text-gray-400">已付金额</div>
-                <div className="font-medium text-green-700">{order.prepayment_currency} {order.paid_amount?.toFixed(2)}</div>
+                <div className="font-medium text-green-700">
+                  {order.prepayment_currency === "JPY"
+                    ? `${Math.round(order.paid_amount).toLocaleString()} yen`
+                    : `${order.prepayment_currency} ${order.paid_amount?.toFixed(2)}`}
+                </div>
               </div>
             )}
             {order.balance_credit > 0 && (
