@@ -569,6 +569,49 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
             onSuccess={() => { setEditingOrder(null); onUpdated?.(); }}
           />
         )}
+
+        {editingPool && editingPoolData && (
+          <div className="fixed inset-0 bg-black/40 z-[70] flex items-center justify-center p-4"
+            onClick={e => { if (e.target === e.currentTarget) setEditingPool(false); }}>
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between px-5 py-4 border-b">
+                <h3 className="font-semibold text-gray-900">编辑发货申请</h3>
+                <button onClick={() => setEditingPool(false)}><X className="w-4 h-4 text-gray-500" /></button>
+              </div>
+              <div className="px-5 py-5 space-y-4">
+                <div>
+                  <Label className="text-xs text-gray-500">发货申请标题</Label>
+                  <Input className="mt-1 h-8 text-sm" placeholder="给此发货申请取个名字"
+                    value={editingPoolData.title || ""} onChange={e => setEditingPoolData(d => ({ ...d, title: e.target.value }))} />
+                </div>
+                <div>
+                  <Label className="text-xs text-gray-500">计划发货日期</Label>
+                  <Input className="mt-1 h-8 text-sm" type="date"
+                    value={editingPoolData.scheduled_ship_date || ""} onChange={e => setEditingPoolData(d => ({ ...d, scheduled_ship_date: e.target.value }))} />
+                </div>
+                <div>
+                  <Label className="text-xs text-gray-500">{isAdmin ? "用户备注" : "备注"}</Label>
+                  <Textarea rows={3} className="mt-1 text-sm"
+                    value={editingPoolData.user_note || ""} onChange={e => setEditingPoolData(d => ({ ...d, user_note: e.target.value }))} />
+                </div>
+                {isAdmin && (
+                  <div>
+                    <Label className="text-xs text-gray-500">管理员备注</Label>
+                    <Textarea rows={2} className="mt-1 text-sm"
+                      value={editingPoolData.admin_note || ""} onChange={e => setEditingPoolData(d => ({ ...d, admin_note: e.target.value }))} />
+                  </div>
+                )}
+              </div>
+              <div className="px-5 py-3 border-t flex gap-2 justify-end">
+                <Button variant="outline" size="sm" onClick={() => setEditingPool(false)}>取消</Button>
+                <Button size="sm" className="bg-blue-600 hover:bg-blue-700"
+                  onClick={handlePoolEditSave} disabled={savingPool}>
+                  {savingPool ? "保存中..." : "保存"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
