@@ -14,6 +14,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import ShippingMethodManager from "@/components/admin/ShippingMethodManager";
 import OnlineStoreTagManager from "@/components/admin/OnlineStoreTagManager";
 import TransitShippingMethodManager from "@/components/admin/TransitShippingMethodManager";
+import ItemSizeTemplateManager from "@/components/admin/ItemSizeTemplateManager";
 
 const DEFAULT_SETTINGS = [
   { key: "service_fee_rate", value: "10", description: "服务费率 (%)", category: "fee" },
