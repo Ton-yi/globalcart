@@ -13,19 +13,28 @@ export async function getOnlineStoreRules() {
   }
 }
 
-export function matchStoreTag(url, rules) {
-  if (!url || !rules || rules.length === 0) return "其它";
+export function matchStoreTagResult(url, rules) {
+  if (!url || !rules || rules.length === 0) return { tag_label: "其它", tag_color: "bg-gray-100 text-gray-700" };
   
   const urlLower = url.toLowerCase();
   
   for (const rule of rules) {
     const keyword = (rule.keyword || "").toLowerCase();
     if (keyword && urlLower.includes(keyword)) {
-      return rule.tag_label || "其它";
+      return { tag_label: rule.tag_label || "其它", tag_color: rule.tag_color || "bg-gray-100 text-gray-700" };
     }
   }
   
-  return "其它";
+  return { tag_label: "其它", tag_color: "bg-gray-100 text-gray-700" };
+}
+
+export function matchStoreTag(url, rules) {
+  return matchStoreTagResult(url, rules).tag_label;
+}
+
+export async function detectStoreTagResult(url) {
+  const rules = await getOnlineStoreRules();
+  return matchStoreTagResult(url, rules);
 }
 
 export async function detectStoreTag(url) {
@@ -33,12 +42,18 @@ export async function detectStoreTag(url) {
   return matchStoreTag(url, rules);
 }
 
-// Detect tag for the first URL (primary tag for order)
-export async function detectPrimaryStoreTag(urlsString) {
-  if (!urlsString || typeof urlsString !== 'string') return "其它";
+// Detect tag for the first URL (primary tag for order) - returns { tag_label, tag_color }
+export async function detectPrimaryStoreTagResult(urlsString) {
+  if (!urlsString || typeof urlsString !== 'string') return { tag_label: "其它", tag_color: "bg-gray-100 text-gray-700" };
   
   const urls = urlsString.split('\n').map(s => s.trim()).filter(Boolean);
-  if (urls.length === 0) return "其它";
+  if (urls.length === 0) return { tag_label: "其它", tag_color: "bg-gray-100 text-gray-700" };
   
-  return detectStoreTag(urls[0]);
+  return detectStoreTagResult(urls[0]);
+}
+
+// Detect tag for the first URL (primary tag for order)
+export async function detectPrimaryStoreTag(urlsString) {
+  const result = await detectPrimaryStoreTagResult(urlsString);
+  return result.tag_label;
 }
