@@ -23,7 +23,6 @@ const ALL_COLUMNS = [
   { key: "order_status", label: "订单状态", defaultVisible: true, sortable: true },
   { key: "online_store_tag", label: "商城标签", defaultVisible: false, sortable: true },
   { key: "reply_status", label: "回复状态", defaultVisible: false, sortable: true },
-  { key: "created_date", label: "订单提交时间", defaultVisible: false, sortable: true },
   { key: "purchased_date", label: "下单日", defaultVisible: false, sortable: true },
   { key: "in_warehouse_date", label: "入库日", defaultVisible: false, sortable: true },
   { key: "shipped_date", label: "发货日", defaultVisible: false, sortable: true },
