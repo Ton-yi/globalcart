@@ -200,12 +200,17 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
   const [sharedWithEmails, setSharedWithEmails] = useState([]);
   const [userSearchQuery, setUserSearchQuery] = useState("");
 
-  // Join existing pool
+  // Join existing pool (consolidation)
   const [joinExistingPool, setJoinExistingPool] = useState(false);
   const [strategyOpen, setStrategyOpen] = useState(false);
   const [existingPools, setExistingPools] = useState([]);
   const [poolSearchQuery, setPoolSearchQuery] = useState("");
   const [selectedPoolId, setSelectedPoolId] = useState("");
+  // Join existing direct (single) pool
+  const [joinDirectPool, setJoinDirectPool] = useState(false);
+  const [directPoolSearchQuery, setDirectPoolSearchQuery] = useState("");
+  const [selectedDirectPoolId, setSelectedDirectPoolId] = useState("");
+  const [directPools, setDirectPools] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
 
   // Addons & transit shipping method
