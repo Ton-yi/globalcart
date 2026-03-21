@@ -189,24 +189,66 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
             <h3 className="text-sm font-semibold text-gray-700 mb-2">包裹清单 ({(pool.order_ids || []).length} 件)</h3>
             {orders.length > 0 ? (
               <div className="space-y-1.5">
-                {orders.map(o => (
-                  <div key={o.id} className="flex items-center gap-3 bg-gray-50 rounded-lg px-3 py-2">
-                  <Package className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-800 truncate">{o.product_name}</p>
-                    <p className="text-xs text-gray-400">{o.order_number} · {o.weight_g || 0}g{o.user_name ? ` · ${o.user_name}` : ""}</p>
-                  </div>
-                  {/* User can edit their own orders */}
-                  {!isAdmin && o.user_email === currentUser?.email && pool.status !== "shipped" && pool.status !== "delivered" && (
-                    <button
-                      onClick={() => setEditingOrder(o)}
-                      className="flex-shrink-0 p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600 transition-colors"
-                      title="编辑发货参数">
-                      <Edit2 className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                  </div>
-                ))}
+                {orders.map(o => {
+                  const isEditingThis = editingOrderData?.id === o.id;
+                  return (
+                    <div key={o.id} className={`rounded-lg border transition-colors ${isEditingThis ? "border-blue-200 bg-blue-50" : "border-transparent bg-gray-50"}`}>
+                      {isEditingThis ? (
+                        <div className="px-3 py-2.5 space-y-2">
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <Label className="text-xs text-gray-500">订单名称</Label>
+                              <Input className="h-7 text-xs mt-0.5" value={editingOrderData.product_name}
+                                onChange={e => setEditingOrderData(d => ({ ...d, product_name: e.target.value }))} />
+                            </div>
+                            <div>
+                              <Label className="text-xs text-gray-500">重量 (g)</Label>
+                              <Input className="h-7 text-xs mt-0.5" type="number" value={editingOrderData.weight_g}
+                                onChange={e => setEditingOrderData(d => ({ ...d, weight_g: e.target.value }))} />
+                            </div>
+                          </div>
+                          <div>
+                            <Label className="text-xs text-gray-500">管理员备注</Label>
+                            <Input className="h-7 text-xs mt-0.5" value={editingOrderData.admin_note || ""}
+                              onChange={e => setEditingOrderData(d => ({ ...d, admin_note: e.target.value }))} />
+                          </div>
+                          <div className="flex gap-2 justify-end">
+                            <Button size="sm" variant="outline" className="h-6 text-xs px-2" onClick={() => setEditingOrderData(null)}>取消</Button>
+                            <Button size="sm" className="h-6 text-xs px-2 bg-blue-600 hover:bg-blue-700" onClick={handleAdminOrderSave} disabled={savingOrder}>
+                              <Save className="w-3 h-3 mr-1" />{savingOrder ? "保存中..." : "保存"}
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-3 px-3 py-2">
+                          <Package className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm text-gray-800 truncate">{o.product_name}</p>
+                            <p className="text-xs text-gray-400">{o.order_number} · {o.weight_g || 0}g{o.user_name ? ` · ${o.user_name}` : ""}</p>
+                          </div>
+                          {/* Admin can edit any order */}
+                          {isAdmin && pool.status !== "shipped" && pool.status !== "delivered" && (
+                            <button
+                              onClick={() => setEditingOrderData({ ...o })}
+                              className="flex-shrink-0 p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600 transition-colors"
+                              title="编辑包裹信息">
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          {/* User can edit their own orders */}
+                          {!isAdmin && o.user_email === currentUser?.email && pool.status !== "shipped" && pool.status !== "delivered" && (
+                            <button
+                              onClick={() => setEditingOrder(o)}
+                              className="flex-shrink-0 p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600 transition-colors"
+                              title="编辑发货参数">
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               <p className="text-xs text-gray-400">加载中...</p>
