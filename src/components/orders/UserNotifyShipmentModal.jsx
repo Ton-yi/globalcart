@@ -539,6 +539,7 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
                   </div>
                 )}
               </div>
+              </div>
               )}
             </div>
           )}
