@@ -76,9 +76,9 @@ const ALL_STATUSES = [
 
 function formatAmount(amount, currency) {
   if (!amount || amount <= 0) return "-";
-  const val = amount.toFixed(2);
-  if (currency === "CNY") return `${val} yuan`;
-  return `${currency} ${val}`;
+  if (currency === "JPY") return `${Math.round(amount).toLocaleString()} yen`;
+  if (currency === "CNY") return `${amount.toFixed(2)} yuan`;
+  return `${currency} ${amount.toFixed(2)}`;
 }
 
 function CellValue({ col, order, onQuickOrdered, userAvatars }) {
