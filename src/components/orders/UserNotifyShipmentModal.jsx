@@ -431,8 +431,47 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
             ))}
           </div>
 
+          {/* Join existing direct shipment pool (only for single shipment) */}
+          {consType === "" && directPools.length > 0 && (
+            <div className="border border-gray-200 rounded-xl overflow-hidden">
+              <label className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${joinDirectPool ? "bg-teal-50 border-b border-teal-100" : "hover:bg-gray-50"}`}>
+                <Checkbox checked={joinDirectPool} onCheckedChange={v => { setJoinDirectPool(!!v); if (!v) setSelectedDirectPoolId(""); }} />
+                <div>
+                  <p className="text-sm font-medium text-gray-800">加入已有的单独发货申请</p>
+                  <p className="text-xs text-gray-400 mt-0.5">将此订单合并到已有的发货申请中一起发货</p>
+                </div>
+              </label>
+              {joinDirectPool && (
+                <div className="px-4 py-3 space-y-2 bg-teal-50/40">
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                    <Input placeholder="搜索发货申请编号..." className="pl-8 h-8 text-sm"
+                      value={directPoolSearchQuery} onChange={e => setDirectPoolSearchQuery(e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                    {directPools.filter(p => {
+                      if (!directPoolSearchQuery) return true;
+                      const q = directPoolSearchQuery.toLowerCase();
+                      return (p.pool_code || "").toLowerCase().includes(q) || (p.title || "").toLowerCase().includes(q);
+                    }).map(p => (
+                      <label key={p.id} className={`flex items-start gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-colors ${selectedDirectPoolId === p.id ? "border-teal-400 bg-teal-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
+                        <input type="radio" checked={selectedDirectPoolId === p.id} onChange={() => setSelectedDirectPoolId(p.id)} className="mt-0.5 accent-teal-600" />
+                        <div className="flex-1 min-w-0">
+                          <span className="text-xs font-mono font-medium text-teal-700">{p.pool_code}</span>
+                          <p className="text-xs text-gray-500 mt-0.5 truncate">
+                            单独发货 · {p.shipping_method || "方式未定"} · {(p.order_ids || []).length} 件
+                          </p>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Address selection for non-consolidation */}
-          {consType === "" && savedAddresses.length > 0 && (
+          {consType === "" && !joinDirectPool && savedAddresses.length > 0 && (
             <div>
               <label className="text-xs text-gray-500 font-medium uppercase tracking-wide flex items-center gap-1.5">
                 <MapPin className="w-3.5 h-3.5" />收货地址
