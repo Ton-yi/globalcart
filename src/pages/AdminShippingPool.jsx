@@ -358,6 +358,7 @@ export default function AdminShippingPool() {
                         </Badge>
                       )}
                       {loc.allow_storage && <Badge className="text-xs bg-blue-100 text-blue-600">可暂存</Badge>}
+                      {loc.allow_pickup && <Badge className="text-xs bg-teal-100 text-teal-600">可自取</Badge>}
                       <Badge className={`text-xs ${loc.is_active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
                         {loc.is_active ? "启用" : "停用"}
                       </Badge>
