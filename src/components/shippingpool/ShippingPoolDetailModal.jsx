@@ -175,11 +175,20 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
               <div className="space-y-1.5">
                 {orders.map(o => (
                   <div key={o.id} className="flex items-center gap-3 bg-gray-50 rounded-lg px-3 py-2">
-                    <Package className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-gray-800 truncate">{o.product_name}</p>
-                      <p className="text-xs text-gray-400">{o.order_number} · {o.weight_g || 0}g{o.user_name ? ` · ${o.user_name}` : ""}</p>
-                    </div>
+                  <Package className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-gray-800 truncate">{o.product_name}</p>
+                    <p className="text-xs text-gray-400">{o.order_number} · {o.weight_g || 0}g{o.user_name ? ` · ${o.user_name}` : ""}</p>
+                  </div>
+                  {/* User can edit their own orders */}
+                  {!isAdmin && o.user_email === currentUser?.email && pool.status !== "shipped" && pool.status !== "delivered" && (
+                    <button
+                      onClick={() => setEditingOrder(o)}
+                      className="flex-shrink-0 p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600 transition-colors"
+                      title="编辑发货参数">
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                   </div>
                 ))}
               </div>
