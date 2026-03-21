@@ -217,6 +217,21 @@ export default function OrderDetailDrawer({ order, currentUser, onClose, onActio
                 <Truck className="w-4 h-4 mr-2" />通知发货
               </Button>
             )}
+            {status === "notified_shipment" && (
+              <Button variant="outline" className="w-full text-sm"
+                disabled={loadingPool}
+                onClick={async () => {
+                  if (editPool) { setEditPool(editPool); return; }
+                  setLoadingPool(true);
+                  const pools = await base44.entities.ShippingPool.filter({ creator_email: currentUser.email }, "-created_date", 200);
+                  const found = pools.find(p => (p.order_ids || []).includes(order.id));
+                  setEditPool(found || null);
+                  setLoadingPool(false);
+                }}>
+                <Edit2 className="w-4 h-4 mr-2" />
+                {loadingPool ? "加载中..." : "编辑出货参数"}
+              </Button>
+            )}
             {status === "shipping_fee_pending" && order.shipping_fee_amount > 0 && (
               <Button className="w-full bg-red-600 hover:bg-red-700 text-sm"
                 onClick={() => setShowPayment("shipping")}>
