@@ -74,6 +74,11 @@ export default function ShippingPool() {
   });
   // consolidation type: "" = none, "transit" = to transit location, "other" = to saved address
   const [consType, setConsType] = useState("");
+  // Privacy
+  const [isPrivate, setIsPrivate] = useState(false);
+  const [sharedWithEmails, setSharedWithEmails] = useState([]);
+  const [allUsers, setAllUsers] = useState([]);
+  const [userSearchQuery, setUserSearchQuery] = useState("");
 
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
