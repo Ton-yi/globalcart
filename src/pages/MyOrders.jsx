@@ -282,10 +282,18 @@ export default function MyOrders() {
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200">
               <th className="w-8 px-3 py-2">
-                {inWarehouseOrders.length > 0 && (
+                {(inWarehouseOrders.length > 0 || paymentPendingOrders.length > 0) && (
                   <Checkbox
-                    checked={inWarehouseOrders.every(o => selectedIds.includes(o.id))}
-                    onCheckedChange={toggleAllInWarehouse}
+                    checked={
+                      [...inWarehouseOrders, ...paymentPendingOrders].length > 0 &&
+                      [...inWarehouseOrders, ...paymentPendingOrders].every(o => selectedIds.includes(o.id))
+                    }
+                    onCheckedChange={() => {
+                      const all = [...inWarehouseOrders, ...paymentPendingOrders];
+                      const allSelected = all.every(o => selectedIds.includes(o.id));
+                      if (allSelected) setSelectedIds(prev => prev.filter(id => !all.map(o => o.id).includes(id)));
+                      else setSelectedIds(prev => [...new Set([...prev, ...all.map(o => o.id)])]);
+                    }}
                   />
                 )}
               </th>
