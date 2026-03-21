@@ -93,7 +93,8 @@ function TransitMethodSection({ consType, selectedTransitId, transitLocations, t
   const disabledMethodIds = selectedLoc?.disabled_transit_method_ids || [];
   const visibleMethods = transitMethods.filter(m => !disabledMethodIds.includes(m.id));
   const allowPickup = selectedLoc?.allow_pickup;
-  if (visibleMethods.length === 0 && !allowPickup) return null;
+  const allowStorage = selectedLoc?.allow_storage;
+  if (visibleMethods.length === 0 && !allowPickup && !allowStorage) return null;
 
   const getRateSummary = (m) => {
     if (m.rate_mode === "fixed" || !m.simple_rates?.length) {

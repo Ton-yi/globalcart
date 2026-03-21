@@ -55,9 +55,9 @@ export default function ShippingPoolCard({ pool, onClick }) {
             <p className="text-sm font-semibold text-gray-900 mt-1.5 truncate">
               {isConsolidation
                 ? (pool.consolidation_type === "transit" ? `中转拼邮 → ${pool.transit_location_name || "中转地"}` : "自选地址拼邮")
-                : (pool.title || "直接发货申请")}
+                : `单独发货 ${pool.pool_code || ""}`}
             </p>
-            {pool.pool_code && (
+            {pool.pool_code && isConsolidation && (
               <p className="text-xs text-gray-400 mt-0.5 font-mono">编号：{pool.pool_code}</p>
             )}
             {pool.is_private && (
