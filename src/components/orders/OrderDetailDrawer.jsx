@@ -4,7 +4,7 @@
  * Shows status, messages, and action buttons based on current order state.
  */
 import { useState, useEffect } from "react";
-import { X, ExternalLink, MessageCircle, Truck, CheckCircle, CreditCard, Upload, Edit2 } from "lucide-react";
+import { X, ExternalLink, MessageCircle, Truck, CheckCircle, CreditCard, Upload, Edit2, Package } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
