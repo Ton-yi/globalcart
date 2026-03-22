@@ -56,7 +56,11 @@ Deno.serve(async (req) => {
     const isStaff = user.role === 'staff';
 
     if (!tenantId && !isPlatformAdmin) {
-      return Response.json({ error: 'User has no tenant assigned' }, { status: 403 });
+      // Gracefully return empty for list; block writes
+      if (action === 'list') {
+        return Response.json({ results: [] });
+      }
+      return Response.json({ error: 'User has no tenant assigned. Please contact a platform admin to assign your tenant.' }, { status: 403 });
     }
 
     // Admin-only write check
