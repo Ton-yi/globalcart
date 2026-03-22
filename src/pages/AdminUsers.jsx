@@ -119,6 +119,10 @@ export default function AdminUsers() {
             <div className="border-t border-amber-200 px-4 py-4 space-y-3 bg-white">
               {diagLoading ? (
                 <p className="text-sm text-gray-400">诊断中...</p>
+              ) : diagError ? (
+                <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">
+                  ⚠️ 诊断失败: {diagError}
+                </p>
               ) : diagData ? (
                 <>
                   <p className="text-xs text-gray-500">
