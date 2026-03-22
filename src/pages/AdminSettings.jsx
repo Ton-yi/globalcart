@@ -247,6 +247,94 @@ export default function AdminSettings() {
         </Card>
       )}
 
+      {activeTab === "tenants" && (
+        <div className="space-y-5">
+          {/* Create tenant */}
+          <Card className="border-blue-200">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                <Building2 className="w-4 h-4 text-blue-500" />新建租户
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs text-gray-500">租户名称 *</Label>
+                  <Input className="mt-0.5 h-8 text-sm" placeholder="例：同一物流" value={newTenant.name}
+                    onChange={e => setNewTenant(p => ({ ...p, name: e.target.value }))} />
+                </div>
+                <div>
+                  <Label className="text-xs text-gray-500">代码 (唯一) *</Label>
+                  <Input className="mt-0.5 h-8 text-sm" placeholder="例：TONGYI" value={newTenant.code}
+                    onChange={e => setNewTenant(p => ({ ...p, code: e.target.value.toUpperCase() }))} />
+                </div>
+                <div>
+                  <Label className="text-xs text-gray-500">品牌显示名</Label>
+                  <Input className="mt-0.5 h-8 text-sm" placeholder="同上则留空" value={newTenant.branding_name}
+                    onChange={e => setNewTenant(p => ({ ...p, branding_name: e.target.value }))} />
+                </div>
+                <div>
+                  <Label className="text-xs text-gray-500">时区</Label>
+                  <Input className="mt-0.5 h-8 text-sm" value={newTenant.timezone}
+                    onChange={e => setNewTenant(p => ({ ...p, timezone: e.target.value }))} />
+                </div>
+              </div>
+              {tenantMsg && (
+                <p className={`text-xs px-3 py-2 rounded border ${tenantMsg.type === 'success' ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'}`}>
+                  {tenantMsg.type === 'success' ? '✓ ' : '⚠ '}{tenantMsg.text}
+                </p>
+              )}
+              <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={handleCreateTenant}
+                disabled={creatingTenant || !newTenant.name || !newTenant.code}>
+                <Plus className="w-3.5 h-3.5 mr-1" />{creatingTenant ? "创建中..." : "创建租户"}
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Tenant list */}
+          <Card className="border-gray-200">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                <Building2 className="w-4 h-4 text-gray-400" />现有租户
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {tenantsLoading ? (
+                <p className="text-xs text-gray-400">加载中...</p>
+              ) : tenants.length === 0 ? (
+                <p className="text-xs text-gray-400">暂无租户，请在上方创建第一个租户。</p>
+              ) : (
+                <div className="space-y-2">
+                  {tenants.map(t => (
+                    <div key={t.id} className={`flex items-center gap-3 p-3 rounded-lg border ${t.is_active ? 'border-gray-200' : 'border-gray-100 opacity-60'}`}>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold text-gray-800">{t.name}</span>
+                          <Badge className="text-xs font-mono bg-gray-100 text-gray-600">{t.code}</Badge>
+                          {!t.is_active && <Badge className="text-xs bg-red-100 text-red-600">停用</Badge>}
+                        </div>
+                        <p className="text-xs text-gray-400 font-mono mt-0.5 truncate">ID: {t.id}</p>
+                        <p className="text-xs text-gray-400">{t.timezone}</p>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <Button size="sm" variant="outline" className="h-7 text-xs gap-1"
+                          onClick={() => handleAssignAll(t.id)} disabled={assigningAll}>
+                          <Users className="w-3 h-3" />{assigningAll ? "分配中..." : "批量分配未分配用户"}
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-7 text-xs"
+                          onClick={() => handleToggleTenant(t)}>
+                          {t.is_active ? "停用" : "启用"}
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {activeTab === "theme" && (
         <Card className="border-gray-200">
           <CardHeader className="pb-3">
