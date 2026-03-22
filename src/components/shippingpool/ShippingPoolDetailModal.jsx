@@ -152,11 +152,9 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
       title: editingPoolData.title || "",
       scheduled_ship_date: editingPoolData.scheduled_ship_date || "",
     };
-    if (isAdmin) {
-      updateData.admin_note = editingPoolData.admin_note || "";
-    }
+    if (isAdmin) updateData.admin_note = editingPoolData.admin_note || "";
 
-    await base44.entities.ShippingPool.update(pool.id, updateData);
+    await shippingPoolApi.update(pool.id, updateData);
     setPool(p => ({ ...p, ...updateData }));
     setEditingPool(false);
     setSavingPool(false);
