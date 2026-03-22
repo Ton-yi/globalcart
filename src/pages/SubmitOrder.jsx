@@ -127,10 +127,8 @@ export default function SubmitOrder() {
     setSubmitting(true);
     const now = new Date();
     const yyyymmdd = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,"0")}${String(now.getDate()).padStart(2,"0")}`;
-    // Generate sequential order number: TY+YYYYMMDD+0001
-    const allOrders = await base44.entities.Order.list("-created_date", 500);
     const prefix = `TY${yyyymmdd}`;
-    const todayCount = allOrders.filter(o => (o.order_number || "").startsWith(prefix)).length;
+    const todayCount = await fetchOrderCountForPrefix(prefix);
     const seq = String(todayCount + 1).padStart(4, "0");
     const orderNum = `${prefix}${seq}`;
     const selectedAddonNames = selectedAddons.map(id => addonOptions.find(a => a.id === id)?.name).filter(Boolean).join(", ");
@@ -139,7 +137,8 @@ export default function SubmitOrder() {
       : productUrls.filter(u => u.trim()).join("\n");
     const isDeferred = paymentMode === "deferred";
     const tagResult = await detectPrimaryStoreTagResult(urlsText);
-    const order = await base44.entities.Order.create({
+    // createTenantOrder auto-assigns tenant_id from session
+    const res = await base44.functions.invoke('createTenantOrder', {
       ...form,
       product_url: urlsText,
       order_number: orderNum,
@@ -157,6 +156,7 @@ export default function SubmitOrder() {
       payment_status: isDeferred ? "pending" : "awaiting_payment",
       user_note: [form.user_note, selectedAddonNames ? `增值服务：${selectedAddonNames}` : ""].filter(Boolean).join("\n"),
     });
+    const order = res.data?.order;
     if (isDeferred) {
       navigate(createPageUrl("MyOrders"));
     } else {
