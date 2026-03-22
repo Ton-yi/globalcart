@@ -12,7 +12,7 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     Promise.all([
-      base44.functions.invoke('getTenantOrders', {}).then(r => r.data?.orders || []),
+      base44.functions.invoke('getTenantOrders', { all: true }).then(r => r.data?.orders || []),
       base44.functions.invoke('listNonAdminUsers', {}).then(r => r.data?.users || []),
     ]).then(([orders, users]) => {
       setStats({ orders, shipping: [], users });
