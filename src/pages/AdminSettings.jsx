@@ -75,16 +75,25 @@ export default function AdminSettings() {
   const [assigningAll, setAssigningAll] = useState(false);
 
   const load = async () => {
-    let [data, addonData] = await Promise.all([
-      tenantEntity.list('SiteSettings'),
-      tenantEntity.list('AddonOption'),
-    ]);
-    if (data.length === 0) {
-      await Promise.all(DEFAULT_SETTINGS.map(s => tenantEntity.create('SiteSettings', s)));
-      data = await tenantEntity.list('SiteSettings');
+    try {
+      let [data, addonData] = await Promise.all([
+        tenantEntity.list('SiteSettings').catch(() => []),
+        tenantEntity.list('AddonOption').catch(() => []),
+      ]);
+      if (data.length === 0 && activeTab === 'general') {
+        // Only seed defaults if we have a tenant (create will also gracefully fail otherwise)
+        try {
+          await Promise.all(DEFAULT_SETTINGS.map(s => tenantEntity.create('SiteSettings', s)));
+          data = await tenantEntity.list('SiteSettings').catch(() => []);
+        } catch (_) {
+          // No tenant yet — skip seeding, stay empty
+        }
+      }
+      setSettings(data);
+      setAddons(addonData);
+    } catch (_) {
+      // Degraded mode: no tenant assigned yet, settings will be empty
     }
-    setSettings(data);
-    setAddons(addonData);
     setLoading(false);
   };
 
