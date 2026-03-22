@@ -56,10 +56,41 @@ export async function fetchAnnouncements() {
   return (res.data?.announcements || []).filter(a => a.is_active);
 }
 
+// ─── Generic tenant-safe entity mutations ─────────────────────────────────────
+
+async function mutate(entity, action, opts = {}) {
+  const res = await base44.functions.invoke('mutateTenantEntity', { entity, action, ...opts });
+  if (res.data?.error) throw new Error(res.data.error);
+  return res.data;
+}
+
+export const tenantEntity = {
+  list:   (entity, filter = {}) => mutate(entity, 'list', { filter }).then(r => r.results || []),
+  create: (entity, data)        => mutate(entity, 'create', { data }).then(r => r.result),
+  update: (entity, id, data)    => mutate(entity, 'update', { id, data }).then(r => r.result),
+  delete: (entity, id)          => mutate(entity, 'delete', { id }),
+};
+
+// ─── ShippingPool shortcuts ───────────────────────────────────────────────────
+
+export const shippingPoolApi = {
+  list:   (filter) => tenantEntity.list('ShippingPool', filter),
+  create: (data)   => tenantEntity.create('ShippingPool', data),
+  update: (id, d)  => tenantEntity.update('ShippingPool', id, d),
+  delete: (id)     => tenantEntity.delete('ShippingPool', id),
+};
+
+// ─── UserPreference shortcuts ─────────────────────────────────────────────────
+
+export const userPrefApi = {
+  list:   (filter) => tenantEntity.list('UserPreference', filter),
+  create: (data)   => tenantEntity.create('UserPreference', data),
+  update: (id, d)  => tenantEntity.update('UserPreference', id, d),
+};
+
 // ─── Convenience: order count query for order number generation ───────────────
 
 export async function fetchOrderCountForPrefix(prefix) {
-  // We need all orders to determine the next number. This uses the backend.
   const res = await base44.functions.invoke('getTenantOrders', { all: true });
   const orders = res.data?.orders || [];
   return orders.filter(o => (o.order_number || '').startsWith(prefix)).length;
