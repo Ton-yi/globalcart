@@ -191,26 +191,29 @@ export default function ShippingPool() {
     setSubmitting(true);
 
     if (useNewAddress && saveAddress && newAddressLabel.trim()) {
-      const prefs = await base44.entities.UserPreference.filter({ user_email: user.email });
+      const existingPrefs = await tenantEntity.list('UserPreference', { user_email: user.email });
       const addrEntry = { id: Date.now().toString(), label: newAddressLabel.trim(), full_text: [form.recipient_name, form.address_line1, form.address_line2, form.city].filter(Boolean).join("\n") };
-      const existing = prefs[0]?.saved_addresses || [];
-      if (prefs.length > 0) await base44.entities.UserPreference.update(prefs[0].id, { saved_addresses: [...existing, addrEntry] });
-      else await base44.entities.UserPreference.create({ user_email: user.email, saved_addresses: [addrEntry] });
+      if (existingPrefs.length > 0) {
+        const existing = existingPrefs[0].saved_addresses || [];
+        await tenantEntity.update('UserPreference', existingPrefs[0].id, { saved_addresses: [...existing, addrEntry] });
+      } else {
+        await tenantEntity.create('UserPreference', { user_email: user.email, saved_addresses: [addrEntry] });
+      }
     }
 
     const transitLoc = transitLocations.find(l => l.id === form.transit_location_id);
     const isAsap = form.scheduled_ship_date === "__asap__";
 
-    // Generate pool_code
+    // Generate pool_code from existing pools
     const prefix = consType === "transit" && transitLoc?.code_prefix
       ? transitLoc.code_prefix.toUpperCase()
       : "AAA";
-    const existingPools = await base44.entities.ShippingPool.list("-created_date", 500);
-    const prefixPools = existingPools.filter(p => p.pool_code && p.pool_code.startsWith(prefix));
+    const allPools = await fetchShippingPools();
+    const prefixPools = allPools.filter(p => p.pool_code && p.pool_code.startsWith(prefix));
     const nextSeq = (prefixPools.length + 1).toString().padStart(5, "0");
     const pool_code = `${prefix}${nextSeq}`;
 
-    await base44.entities.ShippingPool.create({
+    await tenantEntity.create('ShippingPool', {
       ...form,
       pool_code,
       scheduled_ship_date: isAsap ? "" : form.scheduled_ship_date,
@@ -228,7 +231,9 @@ export default function ShippingPool() {
       shared_with_emails: isPrivate ? sharedWithEmails : [],
     });
 
-    await Promise.all(selectedOrderIds.map(id => base44.entities.Order.update(id, { order_status: "notified_shipment" })));
+    await Promise.all(selectedOrderIds.map(id =>
+      base44.functions.invoke('updateTenantOrder', { order_id: id, order_status: "notified_shipment" })
+    ));
 
     setSubmitting(false);
     handleCloseCreate();
