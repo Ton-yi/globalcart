@@ -156,11 +156,12 @@ export default function MyOrders() {
   const fetchOrders = async (u) => {
     if (!u) return;
     setLoading(true);
-    const data = await base44.entities.Order.filter({ user_email: u.email }, "-updated_date", 100);
+    const [data, pools] = await Promise.all([
+      base44.functions.invoke('getTenantOrders', {}).then(r => r.data?.orders || []),
+      fetchShippingPools().catch(() => []),
+    ]);
     setOrders(data);
-    // Also fetch pools to look up pool_code for notified orders
-    base44.entities.ShippingPool.filter({ creator_email: u.email }, "-created_date", 200)
-      .then(setShippingPools).catch(() => {});
+    setShippingPools(pools);
     setLoading(false);
   };
 
