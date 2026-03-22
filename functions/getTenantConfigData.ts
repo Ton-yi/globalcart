@@ -20,14 +20,18 @@ Deno.serve(async (req) => {
     }
 
     const tenantId = userRecord[0].tenant_id;
-    
+    const isPlatformAdmin = user.role === 'platform_admin';
+
+    if (!tenantId && !isPlatformAdmin) {
+      // Return empty config rather than 403 so the UI stays functional
+      return Response.json({
+        itemSizeTemplates: [], storeTagRules: [], shippingMethods: [],
+        transitMethods: [], transitLocations: [], addons: [], announcements: []
+      });
+    }
+
     let filter = {};
-    if (user.role === 'platform_admin') {
-      // Platform admins can see all (no filter)
-    } else {
-      if (!tenantId) {
-        return Response.json({ error: 'User has no tenant assigned' }, { status: 403 });
-      }
+    if (!isPlatformAdmin) {
       filter.tenant_id = tenantId;
     }
 
