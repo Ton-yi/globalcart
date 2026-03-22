@@ -50,8 +50,17 @@ export default function AdminUsers() {
 
   const runDiagnose = async () => {
     setDiagLoading(true);
-    const r = await base44.functions.invoke('adminAssignTenant', { action: 'diagnose' });
-    setDiagData(r.data);
+    setDiagError(null);
+    try {
+      const r = await base44.functions.invoke('adminAssignTenant', { action: 'diagnose' });
+      if (r.data?.error) {
+        setDiagError(r.data.error);
+      } else {
+        setDiagData(r.data);
+      }
+    } catch (e) {
+      setDiagError(e.message || 'Failed to run diagnosis');
+    }
     setDiagLoading(false);
   };
 
