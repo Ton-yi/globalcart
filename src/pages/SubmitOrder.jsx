@@ -42,15 +42,15 @@ export default function SubmitOrder() {
   useEffect(() => {
     base44.auth.me().then(setUser).catch(() => base44.auth.redirectToLogin());
     Promise.all([
-      base44.entities.AddonOption.filter({ addon_type: "order", is_active: true }),
+      base44.functions.invoke('getTenantConfigData', {}).then(r => r.data || {}),
       getRatesWithIncrements(),
-      base44.entities.SiteSettings.list()
-    ]).then(([addons, rates, settingsList]) => {
-      setAddonOptions(addons);
+      base44.functions.invoke('getTenantSettings', {}).then(r => r.data?.settings || {}),
+    ]).then(([config, rates, settingsMap]) => {
+      setAddonOptions((config.addons || []).filter(a => a.addon_type === 'order' && a.is_active !== false));
       setRates(rates);
-      const settingsMap = {};
-      settingsList.forEach(s => { settingsMap[s.key] = parseFloat(s.value) || 0; });
-      setSettings(settingsMap);
+      const parsed = {};
+      Object.entries(settingsMap).forEach(([k, v]) => { parsed[k] = parseFloat(v) || 0; });
+      setSettings(parsed);
     }).catch(() => {});
   }, []);
 
