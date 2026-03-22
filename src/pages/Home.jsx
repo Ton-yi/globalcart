@@ -37,9 +37,11 @@ export default function Home() {
   useEffect(() => {
     base44.auth.me().then(u => {
       setUser(u);
-      base44.entities.Order.filter({ user_email: u.email }, "-updated_date", 5).then(setRecentOrders).catch(() => {});
+      base44.functions.invoke('getTenantOrders', {})
+        .then(r => setRecentOrders((r.data?.orders || []).slice(0, 5)))
+        .catch(() => {});
     }).catch(() => {});
-    base44.entities.Announcement.filter({ is_active: true }, "-created_date", 5).then(setAnnouncements).catch(() => {});
+    fetchAnnouncements().then(setAnnouncements).catch(() => {});
   }, []);
 
   const steps = [
