@@ -116,14 +116,14 @@ export default function ShippingPool() {
     setSharedWithEmails([]);
     setUserSearchQuery("");
     setFormLoading(true);
-    const [orders, allLocs, prefs, usersRes] = await Promise.all([
-      base44.entities.Order.filter({ user_email: user.email, order_status: "in_warehouse" }, "-updated_date", 100),
-      base44.entities.TransitLocation.list(),  // list all, filter is_active in frontend
-      base44.entities.UserPreference.filter({ user_email: user.email }),
+    const [myOrders, configData, prefs, usersRes] = await Promise.all([
+      base44.functions.invoke('getTenantOrders', {}).then(r => r.data?.orders || []),
+      base44.functions.invoke('getTenantConfigData', {}).then(r => r.data || {}),
+      tenantEntity.list('UserPreference', { user_email: user.email }),
       base44.functions.invoke("listNonAdminUsers", {}),
     ]);
-    setAvailableOrders(orders);
-    setTransitLocations((allLocs || []).filter(l => l.is_active !== false));
+    setAvailableOrders(myOrders.filter(o => o.order_status === "in_warehouse"));
+    setTransitLocations((configData.transitLocations || []).filter(l => l.is_active !== false));
     setAllUsers(usersRes?.data?.users || []);
     const pref = prefs[0];
     const addrs = (pref?.saved_addresses || []).map(a => ({ country: "", ...a }));
