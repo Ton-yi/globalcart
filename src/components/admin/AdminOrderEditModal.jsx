@@ -5,6 +5,7 @@
  */
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
+import { updateOrder, tenantEntity } from "@/lib/tenantApi";
 import { X, ExternalLink, Copy, Loader2, CheckCircle, Upload, AlertTriangle, MessageCircle, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
