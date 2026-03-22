@@ -101,6 +101,7 @@ export default function AdminSettings() {
     base44.auth.me().then(setUser).catch(() => {});
     load();
     getExchangeRates().then(setLiveRates).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadTenants = async () => {
