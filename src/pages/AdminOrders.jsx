@@ -278,7 +278,7 @@ export default function AdminOrders() {
 
   const handleDeleteCancelled = async (order) => {
     if (!window.confirm(`确认永久删除订单"${order.product_name}"？此操作不可撤销。`)) return;
-    await base44.entities.Order.delete(order.id);
+    await base44.functions.invoke('mutateTenantEntity', { entity: 'Order', action: 'delete', id: order.id });
     fetchOrders();
   };
 
