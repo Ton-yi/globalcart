@@ -4,6 +4,7 @@
  */
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
+import { fetchShippingPools, tenantEntity } from "@/lib/tenantApi";
 import { Plus, RefreshCw, Truck, X, Package, MapPin, ChevronRight, ChevronLeft, Check, Scale, Calendar, Info, Layers, Lock, Users, Search } from "lucide-react";
 import { getCountry } from "@/lib/countries";
 import { Button } from "@/components/ui/button";
