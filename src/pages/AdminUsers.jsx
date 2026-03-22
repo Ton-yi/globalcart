@@ -251,7 +251,10 @@ export default function AdminUsers() {
                 </td>
                 <td className="px-4 py-3">
                   {u.tenant_id
-                    ? <span className="text-xs font-mono text-gray-500">{u.tenant_id.slice(-8)}</span>
+                    ? <div>
+                        <span className="text-xs font-medium text-gray-700">{tenantMap[u.tenant_id]?.name || '...'}</span>
+                        <span className="text-xs font-mono text-gray-400 ml-1.5">{u.tenant_id.slice(-6)}</span>
+                      </div>
                     : <Badge className="text-xs bg-red-100 text-red-600">未分配</Badge>
                   }
                 </td>
