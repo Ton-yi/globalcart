@@ -213,6 +213,12 @@ export default function AdminUsers() {
                 <td className="px-4 py-3 text-xs text-gray-400 hidden md:table-cell">
                   {new Date(u.created_date).toLocaleDateString("zh-CN")}
                 </td>
+                <td className="px-4 py-3">
+                  {u.tenant_id
+                    ? <span className="text-xs font-mono text-gray-500">{u.tenant_id.slice(-8)}</span>
+                    : <Badge className="text-xs bg-red-100 text-red-600">未分配</Badge>
+                  }
+                </td>
               </tr>
             ))}
           </tbody>
