@@ -47,6 +47,7 @@ const TABS = [
   { key: "item_sizes", label: "物品尺寸" },
   { key: "store_tags", label: "商城标签规则" },
   { key: "theme", label: "界面主题" },
+  { key: "tenants", label: "租户管理" },
 ];
 
 export default function AdminSettings() {
