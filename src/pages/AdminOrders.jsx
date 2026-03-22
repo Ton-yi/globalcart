@@ -264,7 +264,8 @@ export default function AdminOrders() {
   };
 
   const handleQuickOrdered = async (order) => {
-    await base44.entities.Order.update(order.id, {
+    await base44.functions.invoke('updateTenantOrder', {
+      order_id: order.id,
       order_status: "purchased",
       purchased_date: new Date().toISOString().split("T")[0],
     });
