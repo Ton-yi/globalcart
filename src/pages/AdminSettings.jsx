@@ -66,6 +66,14 @@ export default function AdminSettings() {
   const [newDesc, setNewDesc] = useState("");
   const [newCat, setNewCat] = useState("general");
 
+  // Tenant management state
+  const [tenants, setTenants] = useState([]);
+  const [tenantsLoading, setTenantsLoading] = useState(false);
+  const [newTenant, setNewTenant] = useState({ name: "", code: "", branding_name: "", timezone: "Asia/Tokyo" });
+  const [creatingTenant, setCreatingTenant] = useState(false);
+  const [tenantMsg, setTenantMsg] = useState(null); // { type: 'success'|'error', text }
+  const [assigningAll, setAssigningAll] = useState(false);
+
   const load = async () => {
     let [data, addonData] = await Promise.all([
       tenantEntity.list('SiteSettings'),
