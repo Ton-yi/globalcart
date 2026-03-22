@@ -173,16 +173,12 @@ export default function AdminOrders() {
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
-    const [data, prefs, rules] = await Promise.all([
-      base44.entities.Order.list("-updated_date", 200),
-      base44.entities.UserPreference.list(),
+    const [data, rules] = await Promise.all([
+      base44.functions.invoke('getTenantOrders', {}).then(r => r.data?.orders || []),
       getOnlineStoreRules(),
     ]);
     setOrders(data);
     setStoreTagRules(rules);
-    const avatarMap = {};
-    prefs.forEach(p => { if (p.avatar_url) avatarMap[p.user_email] = p.avatar_url; });
-    setUserAvatars(avatarMap);
     setLoading(false);
   }, []);
 
