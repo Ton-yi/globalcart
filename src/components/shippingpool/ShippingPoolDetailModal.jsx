@@ -191,73 +191,44 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
   const handleMoveOrder = async () => {
     if (!adminEditingOrder || !targetPoolId) return;
     setSavingOrder(true);
-    try {
-      const targetPool = otherPools.find(p => p.id === targetPoolId);
-      if (!targetPool) return;
+    const targetPool = otherPools.find(p => p.id === targetPoolId);
+    if (!targetPool) { setSavingOrder(false); return; }
 
-      // Remove from current pool
-      const updatedOrderIds = pool.order_ids.filter(id => id !== adminEditingOrder.id);
-      const updatedWeight = Math.max(0, (pool.total_weight_g || 0) - (adminEditingOrder.weight_g || 0));
-      
-      await Promise.all([
-        base44.entities.ShippingPool.update(pool.id, {
-          order_ids: updatedOrderIds,
-          total_weight_g: updatedWeight,
-        }),
-        base44.entities.ShippingPool.update(targetPoolId, {
-          order_ids: [...(targetPool.order_ids || []), adminEditingOrder.id],
-          total_weight_g: (targetPool.total_weight_g || 0) + (adminEditingOrder.weight_g || 0),
-        }),
-        base44.entities.Order.update(adminEditingOrder.id, {
-          consolidation_pool_id: targetPoolId,
-        }),
-      ]);
+    const updatedOrderIds = pool.order_ids.filter(id => id !== adminEditingOrder.id);
+    const updatedWeight = Math.max(0, (pool.total_weight_g || 0) - (adminEditingOrder.weight_g || 0));
 
-      // Update local state
-      setPool(p => ({
-        ...p,
-        order_ids: updatedOrderIds,
-        total_weight_g: updatedWeight,
-      }));
-      setOrders(prev => prev.filter(o => o.id !== adminEditingOrder.id));
-      setAdminEditingOrder(null);
-      setActionMode(null);
-    } catch (err) {
-      console.error("Failed to move order:", err);
-    }
+    await Promise.all([
+      shippingPoolApi.update(pool.id, { order_ids: updatedOrderIds, total_weight_g: updatedWeight }),
+      shippingPoolApi.update(targetPoolId, {
+        order_ids: [...(targetPool.order_ids || []), adminEditingOrder.id],
+        total_weight_g: (targetPool.total_weight_g || 0) + (adminEditingOrder.weight_g || 0),
+      }),
+      updateOrder(adminEditingOrder.id, { consolidation_pool_id: targetPoolId }),
+    ]);
+
+    setPool(p => ({ ...p, order_ids: updatedOrderIds, total_weight_g: updatedWeight }));
+    setOrders(prev => prev.filter(o => o.id !== adminEditingOrder.id));
+    setAdminEditingOrder(null);
+    setActionMode(null);
     setSavingOrder(false);
   };
 
-  // Return order to warehouse (remove from pool, mark as in_warehouse)
+  // Return order to warehouse
   const handleReturnOrder = async () => {
     if (!adminEditingOrder) return;
     setSavingOrder(true);
-    try {
-      const updatedOrderIds = pool.order_ids.filter(id => id !== adminEditingOrder.id);
-      const updatedWeight = Math.max(0, (pool.total_weight_g || 0) - (adminEditingOrder.weight_g || 0));
+    const updatedOrderIds = pool.order_ids.filter(id => id !== adminEditingOrder.id);
+    const updatedWeight = Math.max(0, (pool.total_weight_g || 0) - (adminEditingOrder.weight_g || 0));
 
-      await Promise.all([
-        base44.entities.ShippingPool.update(pool.id, {
-          order_ids: updatedOrderIds,
-          total_weight_g: updatedWeight,
-        }),
-        base44.entities.Order.update(adminEditingOrder.id, {
-          order_status: "in_warehouse",
-          consolidation_pool_id: "",
-        }),
-      ]);
+    await Promise.all([
+      shippingPoolApi.update(pool.id, { order_ids: updatedOrderIds, total_weight_g: updatedWeight }),
+      updateOrder(adminEditingOrder.id, { order_status: "in_warehouse", consolidation_pool_id: "" }),
+    ]);
 
-      setPool(p => ({
-        ...p,
-        order_ids: updatedOrderIds,
-        total_weight_g: updatedWeight,
-      }));
-      setOrders(prev => prev.filter(o => o.id !== adminEditingOrder.id));
-      setAdminEditingOrder(null);
-      setActionMode(null);
-    } catch (err) {
-      console.error("Failed to return order:", err);
-    }
+    setPool(p => ({ ...p, order_ids: updatedOrderIds, total_weight_g: updatedWeight }));
+    setOrders(prev => prev.filter(o => o.id !== adminEditingOrder.id));
+    setAdminEditingOrder(null);
+    setActionMode(null);
     setSavingOrder(false);
   };
 
