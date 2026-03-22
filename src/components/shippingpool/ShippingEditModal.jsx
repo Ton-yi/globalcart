@@ -32,8 +32,7 @@ export default function ShippingEditModal({ order, currentPool, currentUser, onC
       setIsInstant(age < 5 * 60 * 1000);
     }
 
-    // Load other pending/processing pools the user could move to
-    base44.entities.ShippingPool.filter({ creator_email: currentUser.email }, "-created_date", 100)
+    fetchShippingPools()
       .then(pools => {
         const eligible = pools.filter(p =>
           p.id !== currentPool?.id &&
