@@ -80,13 +80,13 @@ export default function AdminSettings() {
         tenantEntity.list('SiteSettings').catch(() => []),
         tenantEntity.list('AddonOption').catch(() => []),
       ]);
-      if (data.length === 0 && activeTab === 'general') {
-        // Only seed defaults if we have a tenant (create will also gracefully fail otherwise)
+      if (data.length === 0) {
+        // Seed defaults; silently skip if user has no tenant yet
         try {
           await Promise.all(DEFAULT_SETTINGS.map(s => tenantEntity.create('SiteSettings', s)));
           data = await tenantEntity.list('SiteSettings').catch(() => []);
         } catch (_) {
-          // No tenant yet — skip seeding, stay empty
+          // No tenant assigned yet — stay empty
         }
       }
       setSettings(data);
