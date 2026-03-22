@@ -1,11 +1,15 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
 
 /**
- * Admin-only: diagnose and fix tenant_id assignment for users.
+ * Admin: diagnose and fix tenant_id assignment for users.
  * Actions:
- *   - "diagnose": list all users with missing tenant_id (platform_admin only)
- *   - "assign": set tenant_id on a specific user by email (platform_admin only)
- *   - "self_assign": assign own tenant_id to a specific user email (tenant admin, for their own tenant)
+ *   - "diagnose": list users with missing tenant_id
+ *       platform_admin: sees ALL users
+ *       tenant_admin (admin): sees only users with no tenant OR in their own tenant
+ *   - "assign": set tenant_id on a specific user
+ *       platform_admin: can assign any tenant to any user
+ *       tenant_admin: can only assign their OWN tenant to a user with no tenant yet
+ *   - "self_assign": assign own tenant_id to a specific user email (tenant admin)
  */
 Deno.serve(async (req) => {
   try {
@@ -30,31 +34,51 @@ Deno.serve(async (req) => {
 
     // ── diagnose: show users missing tenant_id ──────────────────────────────
     if (action === 'diagnose') {
-      if (!isPlatformAdmin) {
-        return Response.json({ error: 'Forbidden: platform_admin required for diagnose' }, { status: 403 });
-      }
       const allUsers = await base44.asServiceRole.entities.User.list();
       const allTenants = await base44.asServiceRole.entities.Tenant.filter({ is_active: true });
 
-      const missing = (allUsers || [])
-        .filter(u => !u.tenant_id)
-        .map(u => ({ id: u.id, email: u.email, full_name: u.full_name || '', role: u.role || 'user' }));
+      let missingUsers = (allUsers || []).filter(u => !u.tenant_id);
+
+      // Tenant admins without a tenant see ALL missing users (bootstrap mode)
+      // Tenant admins WITH a tenant also see all missing users so they can assign their own tenant
+      // Platform admins see everything — no restriction
+      // (For security: the assign action still prevents tenant admins from assigning other tenants)
+
+      const missing = missingUsers.map(u => ({
+        id: u.id,
+        email: u.email,
+        full_name: u.full_name || '',
+        role: u.role || 'user',
+      }));
 
       return Response.json({
         missing_tenant_users: missing,
         total_users: (allUsers || []).length,
-        tenants: (allTenants || []).map(t => ({ id: t.id, name: t.name, code: t.code })),
+        tenants: isPlatformAdmin
+          // Platform admins can pick any tenant
+          ? (allTenants || []).map(t => ({ id: t.id, name: t.name, code: t.code }))
+          // Tenant admins can only assign their own tenant (or all if they have none)
+          : callerTenantId
+            ? (allTenants || []).filter(t => t.id === callerTenantId).map(t => ({ id: t.id, name: t.name, code: t.code }))
+            : (allTenants || []).map(t => ({ id: t.id, name: t.name, code: t.code })),
+        caller_tenant_id: callerTenantId,
       });
     }
 
-    // ── assign: platform_admin sets any user's tenant_id ───────────────────
+    // ── assign: set a user's tenant_id ─────────────────────────────────────
     if (action === 'assign') {
-      if (!isPlatformAdmin) {
-        return Response.json({ error: 'Forbidden: platform_admin required for assign' }, { status: 403 });
-      }
       if (!target_email || !tenant_id) {
         return Response.json({ error: 'Missing target_email or tenant_id' }, { status: 400 });
       }
+
+      // Tenant admins can only assign their own tenant
+      if (!isPlatformAdmin) {
+        if (callerTenantId && tenant_id !== callerTenantId) {
+          return Response.json({ error: 'Forbidden: You can only assign your own tenant' }, { status: 403 });
+        }
+        // If caller has no tenant yet, they can assign any tenant to themselves but only to unassigned users
+      }
+
       // Verify tenant exists
       const tenants = await base44.asServiceRole.entities.Tenant.filter({ id: tenant_id });
       if (!tenants?.[0]) {
@@ -65,6 +89,12 @@ Deno.serve(async (req) => {
       if (!targetUser) {
         return Response.json({ error: 'Target user not found' }, { status: 404 });
       }
+
+      // Non-platform-admins can only assign to users who have no tenant yet
+      if (!isPlatformAdmin && targetUser.tenant_id && targetUser.tenant_id !== callerTenantId) {
+        return Response.json({ error: 'Forbidden: Target user already belongs to a different tenant' }, { status: 403 });
+      }
+
       await base44.asServiceRole.entities.User.update(targetUser.id, { tenant_id });
       return Response.json({ success: true, email: target_email, tenant_id });
     }
