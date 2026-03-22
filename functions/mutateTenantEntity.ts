@@ -12,6 +12,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
  */
 
 const ALLOWED_ENTITIES = [
+  'Order',
   'ShippingPool', 'ShippingRequest', 'ShippingEditRequest',
   'UserPreference', 'ItemSizeTemplate', 'OnlineStoreTagRule',
   'ShippingMethod', 'TransitShippingMethod', 'TransitLocation',
@@ -24,6 +25,9 @@ const ADMIN_ONLY_WRITE = [
   'TransitShippingMethod', 'TransitLocation', 'AddonOption',
   'SiteSettings', 'Announcement',
 ];
+
+// Entities only admins/staff can delete
+const ADMIN_ONLY_DELETE = ['Order'];
 
 Deno.serve(async (req) => {
   try {
