@@ -4,6 +4,7 @@
  */
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
+import { tenantEntity } from "@/lib/tenantApi";
 import { Plus, Trash2, Edit2, ChevronDown, ChevronUp, Check, X, Download, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

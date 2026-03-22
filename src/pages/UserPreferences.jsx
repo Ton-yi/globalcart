@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
+import { tenantEntity, userPrefApi } from "@/lib/tenantApi";
 import { User, Save, Camera, Plus, Trash2, MapPin, Edit2, Check, Star, Palette } from "lucide-react";
 import ThemeSelector from "@/components/common/ThemeSelector";
 import CountrySelect from "@/components/common/CountrySelect";
