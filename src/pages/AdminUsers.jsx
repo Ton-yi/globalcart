@@ -37,6 +37,8 @@ export default function AdminUsers() {
   }, []);
 
   const isPlatformAdmin = currentUser?.role === 'platform_admin';
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'tenant_admin';
+  const showDiagPanel = isPlatformAdmin || isAdmin;
 
   const runDiagnose = async () => {
     setDiagLoading(true);
