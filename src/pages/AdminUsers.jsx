@@ -1,11 +1,10 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Search, UserPlus, Shield, User } from "lucide-react";
+import { Search, UserPlus, Shield, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
 
 export default function AdminUsers() {
   const [users, setUsers] = useState([]);
@@ -16,17 +15,52 @@ export default function AdminUsers() {
   const [inviteRole, setInviteRole] = useState("user");
   const [inviting, setInviting] = useState(false);
   const [inviteMsg, setInviteMsg] = useState("");
+  const [currentUser, setCurrentUser] = useState(null);
+
+  // Tenant diagnosis state
+  const [diagOpen, setDiagOpen] = useState(false);
+  const [diagData, setDiagData] = useState(null);
+  const [diagLoading, setDiagLoading] = useState(false);
+  const [assigning, setAssigning] = useState({});
+  const [assignTarget, setAssignTarget] = useState({}); // email -> selected tenant_id
 
   useEffect(() => {
+    base44.auth.me().then(setCurrentUser).catch(() => {});
     Promise.all([
       base44.functions.invoke('listNonAdminUsers', {}).then(r => r.data?.users || []),
-      base44.functions.invoke('getTenantOrders', {}).then(r => r.data?.orders || []),
+      base44.functions.invoke('getTenantOrders', { all: true }).then(r => r.data?.orders || []),
     ]).then(([u, o]) => {
       setUsers(u);
       setOrders(o);
       setLoading(false);
     });
   }, []);
+
+  const isPlatformAdmin = currentUser?.role === 'platform_admin';
+
+  const runDiagnose = async () => {
+    setDiagLoading(true);
+    const r = await base44.functions.invoke('adminAssignTenant', { action: 'diagnose' });
+    setDiagData(r.data);
+    setDiagLoading(false);
+  };
+
+  const handleAssign = async (email) => {
+    const tid = assignTarget[email];
+    if (!tid) return;
+    setAssigning(a => ({ ...a, [email]: true }));
+    await base44.functions.invoke('adminAssignTenant', { action: 'assign', target_email: email, tenant_id: tid });
+    setAssigning(a => ({ ...a, [email]: false }));
+    // Refresh diagnosis
+    await runDiagnose();
+  };
+
+  const handleSelfAssign = async (email) => {
+    setAssigning(a => ({ ...a, [email]: true }));
+    await base44.functions.invoke('adminAssignTenant', { action: 'self_assign', target_email: email });
+    setAssigning(a => ({ ...a, [email]: false }));
+    await runDiagnose();
+  };
 
   const handleInvite = async () => {
     if (!inviteEmail) return;
