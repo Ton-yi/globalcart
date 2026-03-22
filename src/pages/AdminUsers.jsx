@@ -189,7 +189,7 @@ export default function AdminUsers() {
           </thead>
           <tbody className="divide-y divide-gray-100">
             {loading ? (
-              <tr><td colSpan={6} className="text-center py-8 text-gray-400">加载中...</td></tr>
+              <tr><td colSpan={7} className="text-center py-8 text-gray-400">加载中...</td></tr>
             ) : filtered.map(u => (
               <tr key={u.id} className="hover:bg-gray-50">
                 <td className="px-4 py-3">
