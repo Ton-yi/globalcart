@@ -310,7 +310,7 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
 
     await Promise.all(
       targetOrders.map(o =>
-        base44.entities.Order.update(o.id, {
+        updateOrder(o.id, {
           ...updates,
           user_note: [o.user_note, note ? `发货备注：${note}` : ""].filter(Boolean).join("\n"),
         })
@@ -318,43 +318,34 @@ export default function UserNotifyShipmentModal({ order, orders, onClose, onSucc
     );
 
     if (joinDirectPool && selectedDirectPoolId) {
-      // Add orders to existing direct shipment pool
       const directPool = directPools.find(p => p.id === selectedDirectPoolId);
       if (directPool) {
-        const updatedOrderIds = [...new Set([...(directPool.order_ids || []), ...orderIds])];
-        const updatedOrderNames = [...new Set([...(directPool.order_names || []), ...targetOrders.map(o => o.product_name || "")])];
-        const updatedWeight = (directPool.total_weight_g || 0) + totalWeight;
-        await base44.entities.ShippingPool.update(directPool.id, {
-          order_ids: updatedOrderIds,
-          order_names: updatedOrderNames,
-          total_weight_g: updatedWeight,
+        await shippingPoolApi.update(directPool.id, {
+          order_ids: [...new Set([...(directPool.order_ids || []), ...orderIds])],
+          order_names: [...new Set([...(directPool.order_names || []), ...targetOrders.map(o => o.product_name || "")])],
+          total_weight_g: (directPool.total_weight_g || 0) + totalWeight,
         });
       }
     } else if (isJoiningPool && selectedPool) {
-      // Add orders to existing consolidation pool
-      const updatedOrderIds = [...new Set([...(selectedPool.order_ids || []), ...orderIds])];
-      const updatedWeight = (selectedPool.total_weight_g || 0) + totalWeight;
-      await base44.entities.ShippingPool.update(selectedPool.id, {
-        order_ids: updatedOrderIds,
-        total_weight_g: updatedWeight,
+      await shippingPoolApi.update(selectedPool.id, {
+        order_ids: [...new Set([...(selectedPool.order_ids || []), ...orderIds])],
+        total_weight_g: (selectedPool.total_weight_g || 0) + totalWeight,
       });
     } else {
-      // Create a new ShippingPool record
       const transitLoc = transitLocations.find(l => l.id === selectedTransitId);
       const prefix = consType === "transit" && transitLoc?.code_prefix
         ? transitLoc.code_prefix.toUpperCase()
         : "AAA";
-      const allPools = await base44.entities.ShippingPool.list("-created_date", 500);
-      const prefixPools = allPools.filter(p => p.pool_code && p.pool_code.startsWith(prefix));
+      const existingPools = await fetchShippingPools();
+      const prefixPools = existingPools.filter(p => p.pool_code && p.pool_code.startsWith(prefix));
       const nextSeq = (prefixPools.length + 1).toString().padStart(5, "0");
       const pool_code = `${prefix}${nextSeq}`;
 
       const addrObj = savedAddresses.find(a => a.id === (consType === "transit" ? finalAddressId : selectedAddress));
-
       const selectedAddons = shippingAddons.filter(a => selectedAddonIds.includes(a.id));
       const transitMethod = transitMethods.find(m => m.id === selectedTransitMethodId);
 
-      await base44.entities.ShippingPool.create({
+      await shippingPoolApi.create({
         pool_code,
         consolidation_type: consType || "",
         order_ids: orderIds,
