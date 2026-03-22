@@ -86,9 +86,9 @@ export default function AdminShippingPool() {
   const handleLocSave = async () => {
     setSavingLoc(true);
     if (editingLoc) {
-      await base44.entities.TransitLocation.update(editingLoc.id, locForm);
+      await tenantEntity.update('TransitLocation', editingLoc.id, locForm);
     } else {
-      await base44.entities.TransitLocation.create(locForm);
+      await tenantEntity.create('TransitLocation', locForm);
     }
     await fetchLocations();
     setShowLocForm(false);
