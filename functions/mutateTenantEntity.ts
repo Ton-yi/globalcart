@@ -112,6 +112,10 @@ Deno.serve(async (req) => {
 
     if (action === 'delete') {
       if (!id) return Response.json({ error: 'Missing id' }, { status: 400 });
+      // Some entities require admin to delete
+      if (ADMIN_ONLY_DELETE.includes(entity) && !isPlatformAdmin && !isTenantAdmin && !isStaff) {
+        return Response.json({ error: 'Forbidden: Admin access required to delete this entity' }, { status: 403 });
+      }
       const existing = await entityRef.filter({ id });
       const record = existing?.[0];
       if (!record) return Response.json({ error: 'Record not found' }, { status: 404 });
