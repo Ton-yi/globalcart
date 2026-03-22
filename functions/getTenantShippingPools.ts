@@ -28,9 +28,9 @@ Deno.serve(async (req) => {
       return Response.json({ pools: allPools || [] });
     }
 
-    // Non-platform users must have a tenant
+    // Non-platform users with no tenant get empty results
     if (!tenantId) {
-      return Response.json({ error: 'User has no tenant assigned' }, { status: 403 });
+      return Response.json({ pools: [] });
     }
 
     // Get all pools in tenant
