@@ -25,7 +25,14 @@ export default function AdminUsers() {
   const [assignTarget, setAssignTarget] = useState({}); // email -> selected tenant_id
 
   useEffect(() => {
-    base44.auth.me().then(setCurrentUser).catch(() => {});
+    base44.auth.me().then(u => {
+      setCurrentUser(u);
+      // Auto-run diagnosis for any admin so the panel is immediately useful
+      if (u?.role === 'platform_admin' || u?.role === 'admin' || u?.role === 'tenant_admin') {
+        setDiagOpen(true);
+        runDiagnose();
+      }
+    }).catch(() => {});
     Promise.all([
       base44.functions.invoke('listNonAdminUsers', {}).then(r => r.data?.users || []),
       base44.functions.invoke('getTenantOrders', { all: true }).then(r => r.data?.orders || []),
