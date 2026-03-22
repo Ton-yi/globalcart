@@ -240,7 +240,9 @@ export default function AdminOrders() {
   const handleBulkUpdate = async () => {
     if (!bulkStatus || selectedIds.length === 0) return;
     setBulkUpdating(true);
-    await Promise.all(selectedIds.map(id => base44.entities.Order.update(id, { order_status: bulkStatus })));
+    await Promise.all(selectedIds.map(id =>
+      base44.functions.invoke('updateTenantOrder', { order_id: id, order_status: bulkStatus })
+    ));
     setBulkUpdating(false);
     setSelectedIds([]);
     setBulkStatus("");
