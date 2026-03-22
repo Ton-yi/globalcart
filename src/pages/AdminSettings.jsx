@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { tenantEntity } from "@/lib/tenantApi";
 import { getExchangeRates } from "@/lib/exchangeRates";
-import { Settings, Save, Plus, Trash2, Star, Lock, Eye, EyeOff, Truck, Palette, TrendingUp, Zap } from "lucide-react";
+import { Settings, Save, Plus, Trash2, Star, Lock, Eye, EyeOff, Truck, Palette, TrendingUp, Zap, Building2, Users, CheckCircle2 } from "lucide-react";
 import ThemeSelector from "@/components/common/ThemeSelector";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
