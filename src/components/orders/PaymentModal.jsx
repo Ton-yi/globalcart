@@ -7,6 +7,7 @@
 import { useState } from "react";
 import { X, CreditCard, ExternalLink, CheckCircle, Loader2, Upload } from "lucide-react";
 import { base44 } from "@/api/base44Client";
+import { updateOrder } from "@/lib/tenantApi";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -114,7 +115,7 @@ export default function PaymentModal({ order, mode = "prepay", onClose, onSucces
       updates.order_status = "paid";
       updates.paid_amount = (order.paid_amount || 0) + parseFloat(paidAmount);
     }
-    await base44.entities.Order.update(order.id, updates);
+    await updateOrder(order.id, updates);
     onSuccess?.();
   };
 

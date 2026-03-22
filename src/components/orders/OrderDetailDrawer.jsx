@@ -6,6 +6,7 @@
 import { useState, useEffect } from "react";
 import { X, ExternalLink, MessageCircle, Truck, CheckCircle, CreditCard, Upload, Edit2, Package } from "lucide-react";
 import { base44 } from "@/api/base44Client";
+import { updateOrder, fetchShippingPools, tenantEntity } from "@/lib/tenantApi";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { getStatusLabel, getStatusColor, USER_CAN_RESUBMIT_PROOF_STATUSES } from "@/lib/orderStatus";
@@ -26,18 +27,14 @@ export default function OrderDetailDrawer({ order, currentUser, onClose, onActio
   const [loadingPool, setLoadingPool] = useState(false);
 
   useEffect(() => {
-    // Load user's saved contact info from preferences
-    base44.entities.UserPreference.filter({ user_email: currentUser.email })
+    tenantEntity.list('UserPreference', { user_email: currentUser.email })
       .then(prefs => {
-        if (prefs.length > 0 && prefs[0].contact_info) {
-          setContactInfo(prefs[0].contact_info);
-        }
+        if (prefs.length > 0 && prefs[0].contact_info) setContactInfo(prefs[0].contact_info);
       })
       .catch(() => {});
-    
-    // Load paid reminder text if order is paid
+
     if (order.order_status === "paid") {
-      base44.entities.SiteSettings.filter({ key: "paid_order_reminder" })
+      tenantEntity.list('SiteSettings', { key: "paid_order_reminder" })
         .then(settings => {
           if (settings.length > 0) setPaidReminder(settings[0].value);
         })
@@ -53,7 +50,7 @@ export default function OrderDetailDrawer({ order, currentUser, onClose, onActio
 
   const handleConfirmDelivered = async () => {
     setConfirmingDelivered(true);
-    await base44.entities.Order.update(order.id, { order_status: "delivered" });
+    await updateOrder(order.id, { order_status: "delivered" });
     onAction?.("delivered");
   };
 
@@ -237,7 +234,7 @@ export default function OrderDetailDrawer({ order, currentUser, onClose, onActio
                 disabled={loadingPool}
                 onClick={async () => {
                   setLoadingPool(true);
-                  const pools = await base44.entities.ShippingPool.filter({ creator_email: currentUser.email }, "-created_date", 200);
+                  const pools = await fetchShippingPools();
                   const found = pools.find(p => (p.order_ids || []).includes(order.id));
                   setEditPool(found || null);
                   setLoadingPool(false);
