@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
+import { tenantEntity } from "@/lib/tenantApi";
 import { Search, Edit2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,7 +19,6 @@ export default function AdminShipping() {
   const [editing, setEditing] = useState(null);
 
   const load = async () => {
-    const { tenantEntity } = await import("@/lib/tenantApi");
     const data = await tenantEntity.list('ShippingRequest');
     setRequests(data);
     setLoading(false);
