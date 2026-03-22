@@ -57,8 +57,11 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
 
   useEffect(() => {
     if (pool.order_ids?.length > 0) {
-      Promise.all(pool.order_ids.map(id => base44.entities.Order.filter({ id })))
-        .then(results => setOrders(results.flat().filter(Boolean)))
+      base44.functions.invoke('getTenantOrders', { all: true })
+        .then(r => {
+          const allOrders = r.data?.orders || [];
+          setOrders(allOrders.filter(o => pool.order_ids.includes(o.id)));
+        })
         .catch(() => {});
     }
   }, []);
@@ -68,20 +71,14 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
     setAdminEditingOrder(order);
     setActionMode(null);
     setTargetPoolId("");
-    try {
-      const pools = await base44.entities.ShippingPool.filter(
-        { 
-          id: { $ne: pool.id },
-          status: { $in: ["pending", "processing"] }
-        },
-        "-created_date",
-        100
-      );
-      setOtherPools(pools || []);
-    } catch (err) {
-      console.error("Failed to load pools:", err);
-      setOtherPools([]);
-    }
+    base44.functions.invoke('getTenantShippingPools', {})
+      .then(r => {
+        const pools = (r.data?.pools || []).filter(p =>
+          p.id !== pool.id && (p.status === "pending" || p.status === "processing")
+        );
+        setOtherPools(pools);
+      })
+      .catch(() => setOtherPools([]));
   };
 
   const messages = pool.messages || [];
