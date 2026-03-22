@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { base44 } from "@/api/base44Client";
+import { tenantEntity } from "@/lib/tenantApi";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -28,7 +29,7 @@ export default function AdminShippingEditModal({ request, onClose, onSaved }) {
 
   const handleSave = async () => {
     setSaving(true);
-    await base44.entities.ShippingRequest.update(request.id, {
+    await tenantEntity.update('ShippingRequest', request.id, {
       status: form.status,
       estimated_shipping_fee: parseFloat(form.estimated_shipping_fee) || 0,
       actual_shipping_fee: parseFloat(form.actual_shipping_fee) || 0,
