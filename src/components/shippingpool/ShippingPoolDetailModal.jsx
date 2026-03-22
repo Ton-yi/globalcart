@@ -176,7 +176,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
   const handleAdminOrderSave = async () => {
     if (!editingOrderData) return;
     setSavingOrder(true);
-    await base44.entities.Order.update(editingOrderData.id, {
+    await updateOrder(editingOrderData.id, {
       product_name: editingOrderData.product_name,
       weight_g: parseFloat(editingOrderData.weight_g) || 0,
       order_number: editingOrderData.order_number,
