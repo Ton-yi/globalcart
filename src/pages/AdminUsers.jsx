@@ -24,6 +24,7 @@ export default function AdminUsers() {
   const [diagError, setDiagError] = useState(null);
   const [assigning, setAssigning] = useState({});
   const [assignTarget, setAssignTarget] = useState({}); // email -> selected tenant_id
+  const [tenantMap, setTenantMap] = useState({}); // id -> tenant
 
   useEffect(() => {
     base44.auth.me().then(u => {
