@@ -7,6 +7,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Send, Upload, X, MessageCircle } from "lucide-react";
 import { base44 } from "@/api/base44Client";
+import { updateOrder } from "@/lib/tenantApi";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -80,7 +81,7 @@ export default function OrderMessageThread({ order, currentUser, isAdmin, onMess
       updates.pre_reply_status = order.order_status;
     }
 
-    await base44.entities.Order.update(order.id, updates);
+    await updateOrder(order.id, updates);
     setSending(false);
     onMessageSent?.();
   };
