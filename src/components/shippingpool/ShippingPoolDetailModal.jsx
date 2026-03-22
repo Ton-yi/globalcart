@@ -102,9 +102,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
       timestamp: new Date().toISOString(),
     };
 
-    const updated = await base44.entities.ShippingPool.update(pool.id, {
-      messages: [...messages, newMsg],
-    });
+    await shippingPoolApi.update(pool.id, { messages: [...messages, newMsg] });
     setPool(p => ({ ...p, messages: [...messages, newMsg] }));
     setMessageText("");
     setImageFile(null);
