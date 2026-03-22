@@ -85,8 +85,8 @@ export default function AdminUsers() {
     <div className="space-y-5">
       <h1 className="text-xl font-bold text-gray-900">用户管理</h1>
 
-      {/* Tenant Assignment Diagnostics — platform_admin only */}
-      {isPlatformAdmin && (
+      {/* Tenant Assignment Diagnostics — platform_admin and tenant admins without tenant */}
+      {showDiagPanel && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl overflow-hidden">
           <button
             className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-amber-800"
