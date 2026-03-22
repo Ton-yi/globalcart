@@ -53,13 +53,13 @@ export default function AdminShippingPool() {
 
   const fetchPools = async () => {
     setLoading(true);
-    const data = await base44.entities.ShippingPool.list("-created_date", 200);
+    const data = await fetchShippingPools();
     setPools(data);
     setLoading(false);
   };
 
   const fetchLocations = async () => {
-    const data = await base44.entities.TransitLocation.list("-created_date");
+    const data = await tenantEntity.list('TransitLocation');
     setLocations(data);
   };
 
@@ -68,14 +68,13 @@ export default function AdminShippingPool() {
       setUser(u);
       fetchPools();
       fetchLocations();
-      const [users, methods, addons] = await Promise.all([
+      const [users, config] = await Promise.all([
         base44.entities.User.list(),
-        base44.entities.TransitShippingMethod.list(),
-        base44.entities.AddonOption.filter({ addon_type: "shipping", is_active: true }),
+        base44.functions.invoke('getTenantConfigData', {}).then(r => r.data || {}),
       ]);
       setAllUsers(users);
-      setTransitMethods(methods);
-      setAddonOptions(addons);
+      setTransitMethods(config.transitMethods || []);
+      setAddonOptions((config.addons || []).filter(a => a.addon_type === 'shipping' && a.is_active !== false));
     }).catch(() => base44.auth.redirectToLogin());
   }, []);
 
