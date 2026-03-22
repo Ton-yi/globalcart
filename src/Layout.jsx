@@ -18,9 +18,13 @@ export default function Layout({ children, currentPageName }) {
   const location = useLocation();
 
   useEffect(() => {
-    base44.auth.me().then(setUser).catch(() => {});
-    base44.entities.Announcement.filter({ is_active: true }, "-created_date", 3)
-      .then(setAnnouncements).catch(() => {});
+    base44.auth.me().then(u => {
+      setUser(u);
+      // Load tenant-scoped active announcements via secure backend
+      base44.functions.invoke('getTenantConfigData', {})
+        .then(r => setAnnouncements(r.data?.announcements || []))
+        .catch(() => {});
+    }).catch(() => {});
   }, []);
 
   const isAdmin = user?.role === "admin";

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
+import { tenantEntity } from "@/lib/tenantApi";
 import { Plus, Edit2, Trash2, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,7 +22,7 @@ export default function AdminAnnouncements() {
   const [saving, setSaving] = useState(false);
 
   const load = async () => {
-    const data = await base44.entities.Announcement.list("-created_date");
+    const data = await tenantEntity.list('Announcement');
     setAnnouncements(data);
   };
 
@@ -36,9 +37,9 @@ export default function AdminAnnouncements() {
   const handleSave = async () => {
     setSaving(true);
     if (editing) {
-      await base44.entities.Announcement.update(editing.id, form);
+      await tenantEntity.update('Announcement', editing.id, form);
     } else {
-      await base44.entities.Announcement.create(form);
+      await tenantEntity.create('Announcement', form);
     }
     await load();
     setShowForm(false);
@@ -48,12 +49,12 @@ export default function AdminAnnouncements() {
   };
 
   const handleDelete = async (id) => {
-    await base44.entities.Announcement.delete(id);
+    await tenantEntity.delete('Announcement', id);
     await load();
   };
 
   const handleToggle = async (a) => {
-    await base44.entities.Announcement.update(a.id, { is_active: !a.is_active });
+    await tenantEntity.update('Announcement', a.id, { is_active: !a.is_active });
     await load();
   };
 
