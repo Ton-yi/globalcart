@@ -115,12 +115,12 @@ export default function AdminShippingPool() {
 
   const handleLocDelete = async (id) => {
     if (!confirm("确认删除此中转地？")) return;
-    await base44.entities.TransitLocation.delete(id);
+    await tenantEntity.delete('TransitLocation', id);
     fetchLocations();
   };
 
   const handleLocToggle = async (loc) => {
-    await base44.entities.TransitLocation.update(loc.id, { is_active: !loc.is_active });
+    await tenantEntity.update('TransitLocation', loc.id, { is_active: !loc.is_active });
     fetchLocations();
   };
 
