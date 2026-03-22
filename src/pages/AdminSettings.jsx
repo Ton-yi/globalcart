@@ -94,6 +94,49 @@ export default function AdminSettings() {
     getExchangeRates().then(setLiveRates).catch(() => {});
   }, []);
 
+  const loadTenants = async () => {
+    setTenantsLoading(true);
+    const r = await base44.functions.invoke('manageTenants', { action: 'list' });
+    setTenants(r.data?.tenants || []);
+    setTenantsLoading(false);
+  };
+
+  useEffect(() => {
+    if (activeTab === 'tenants') loadTenants();
+  }, [activeTab]);
+
+  const handleCreateTenant = async () => {
+    if (!newTenant.name || !newTenant.code) return;
+    setCreatingTenant(true);
+    setTenantMsg(null);
+    const r = await base44.functions.invoke('manageTenants', { action: 'create', ...newTenant });
+    if (r.data?.error) {
+      setTenantMsg({ type: 'error', text: r.data.error });
+    } else {
+      setTenantMsg({ type: 'success', text: `租户 "${r.data.tenant.name}" 创建成功！` });
+      setNewTenant({ name: "", code: "", branding_name: "", timezone: "Asia/Tokyo" });
+      await loadTenants();
+    }
+    setCreatingTenant(false);
+  };
+
+  const handleAssignAll = async (tenantId) => {
+    setAssigningAll(true);
+    setTenantMsg(null);
+    const r = await base44.functions.invoke('manageTenants', { action: 'assign_all', tenant_id: tenantId });
+    if (r.data?.error) {
+      setTenantMsg({ type: 'error', text: r.data.error });
+    } else {
+      setTenantMsg({ type: 'success', text: `已将 ${r.data.assigned} 名用户分配到此租户。` });
+    }
+    setAssigningAll(false);
+  };
+
+  const handleToggleTenant = async (t) => {
+    await base44.functions.invoke('manageTenants', { action: 'update', id: t.id, is_active: !t.is_active });
+    await loadTenants();
+  };
+
   const updateSetting = (id, field, value) => {
     setSettings(prev => prev.map(s => s.id === id ? { ...s, [field]: value } : s));
   };
