@@ -8,6 +8,7 @@ import { X, Package, MapPin, ChevronRight, ChevronLeft, Plus, Check } from "luci
 import CountrySelect from "@/components/common/CountrySelect";
 import { getCountry } from "@/lib/countries";
 import { base44 } from "@/api/base44Client";
+import { updateOrder, shippingPoolApi, tenantEntity, userPrefApi, fetchShippingPools } from "@/lib/tenantApi";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -59,20 +60,17 @@ export default function CreateShippingPoolModal({ isAdmin, onClose, onSuccess })
       const u = await base44.auth.me();
       setUser(u);
 
-      const [orders, locs] = await Promise.all([
-        isAdmin
-          ? base44.entities.Order.filter({ order_status: "in_warehouse" }, "-updated_date", 200)
-          : base44.entities.Order.filter({ user_email: u.email, order_status: "in_warehouse" }, "-updated_date", 100),
-        base44.entities.TransitLocation.filter({ is_active: true }),
+      const [ordersRes, locs, prefs] = await Promise.all([
+        base44.functions.invoke('getTenantOrders', {}).then(r => r.data?.orders || []),
+        tenantEntity.list('TransitLocation', { is_active: true }),
+        userPrefApi.list({ user_email: u.email }),
       ]);
-      setAvailableOrders(orders);
+      const warehouseOrders = ordersRes.filter(o => o.order_status === "in_warehouse");
+      setAvailableOrders(warehouseOrders);
       setTransitLocations(locs);
 
-      // Load saved addresses
-      const prefs = await base44.entities.UserPreference.filter({ user_email: u.email });
       if (prefs.length > 0 && prefs[0].saved_addresses?.length > 0) {
         setSavedAddresses(prefs[0].saved_addresses);
-        // Pre-select first address
         setSelectedAddressId(prefs[0].saved_addresses[0].id);
         applyAddress(prefs[0].saved_addresses[0]);
       } else {
@@ -120,25 +118,31 @@ export default function CreateShippingPoolModal({ isAdmin, onClose, onSuccess })
     if (selectedOrderIds.length === 0 || !form.destination_country) return;
     setSubmitting(true);
 
-    // Save new address if requested
     if (useNewAddress && saveAddress && newAddressLabel.trim()) {
-      const prefs = await base44.entities.UserPreference.filter({ user_email: user.email });
+      const existingPrefs = await userPrefApi.list({ user_email: user.email });
       const addrEntry = {
         id: Date.now().toString(),
         label: newAddressLabel.trim(),
         full_text: [form.recipient_name, form.address_line1, form.address_line2, form.city].filter(Boolean).join("\n"),
       };
-      const existing = prefs[0]?.saved_addresses || [];
-      if (prefs.length > 0) {
-        await base44.entities.UserPreference.update(prefs[0].id, { saved_addresses: [...existing, addrEntry] });
+      if (existingPrefs.length > 0) {
+        await userPrefApi.update(existingPrefs[0].id, { saved_addresses: [...(existingPrefs[0].saved_addresses || []), addrEntry] });
       } else {
-        await base44.entities.UserPreference.create({ user_email: user.email, saved_addresses: [addrEntry] });
+        await userPrefApi.create({ user_email: user.email, saved_addresses: [addrEntry] });
       }
     }
 
     const transitLoc = transitLocations.find(l => l.id === form.transit_location_id);
-    const poolData = {
+
+    // Generate pool_code
+    const prefix = form.transit_location_id && transitLoc?.code_prefix ? transitLoc.code_prefix.toUpperCase() : "AAA";
+    const allPools = await fetchShippingPools();
+    const prefixPools = allPools.filter(p => p.pool_code && p.pool_code.startsWith(prefix));
+    const pool_code = `${prefix}${(prefixPools.length + 1).toString().padStart(5, "0")}`;
+
+    await shippingPoolApi.create({
       ...form,
+      pool_code,
       order_ids: selectedOrderIds,
       order_names: selectedOrders.map(o => o.product_name || ""),
       creator_email: user.email,
@@ -148,15 +152,10 @@ export default function CreateShippingPoolModal({ isAdmin, onClose, onSuccess })
       status: "pending",
       transit_location_name: transitLoc?.name || "",
       messages: [],
-    };
+    });
 
-    await base44.entities.ShippingPool.create(poolData);
-
-    // Update all selected orders to "notified_shipment"
     await Promise.all(
-      selectedOrderIds.map(id =>
-        base44.entities.Order.update(id, { order_status: "notified_shipment" })
-      )
+      selectedOrderIds.map(id => updateOrder(id, { order_status: "notified_shipment" }))
     );
 
     onSuccess?.();
