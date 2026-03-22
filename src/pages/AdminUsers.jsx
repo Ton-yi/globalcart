@@ -220,7 +220,7 @@ export default function AdminUsers() {
               <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500 hidden md:table-cell">订单数</th>
               <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500 hidden lg:table-cell">累计付款</th>
               <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500 hidden md:table-cell">注册时间</th>
-              <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">租户ID</th>
+              <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">租户</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
