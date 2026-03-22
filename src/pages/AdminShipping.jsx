@@ -18,7 +18,8 @@ export default function AdminShipping() {
   const [editing, setEditing] = useState(null);
 
   const load = async () => {
-    const data = await base44.entities.ShippingRequest.list("-updated_date", 200);
+    const { tenantEntity } = await import("@/lib/tenantApi");
+    const data = await tenantEntity.list('ShippingRequest');
     setRequests(data);
     setLoading(false);
   };

@@ -12,11 +12,10 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     Promise.all([
-      base44.entities.Order.list("-updated_date", 100),
-      base44.entities.ShippingRequest.list("-updated_date", 100),
-      base44.entities.User.list(),
-    ]).then(([orders, shipping, users]) => {
-      setStats({ orders, shipping, users });
+      base44.functions.invoke('getTenantOrders', {}).then(r => r.data?.orders || []),
+      base44.functions.invoke('listNonAdminUsers', {}).then(r => r.data?.users || []),
+    ]).then(([orders, users]) => {
+      setStats({ orders, shipping: [], users });
       setLoading(false);
     });
   }, []);
@@ -26,12 +25,12 @@ export default function AdminDashboard() {
   const statCards = [
     { title: "总订单数", value: orders.length, icon: Package, color: "text-blue-600 bg-blue-50", link: "AdminOrders" },
     { title: "待审核付款", value: orders.filter(o => o.payment_status === "paid" && o.order_status === "payment_pending").length, icon: AlertCircle, color: "text-orange-600 bg-orange-50", link: "AdminOrders" },
-    { title: "发货申请", value: shipping.filter(s => s.status === "pending").length, icon: Truck, color: "text-purple-600 bg-purple-50", link: "AdminShipping" },
+    { title: "入库待发货", value: orders.filter(o => o.order_status === "in_warehouse").length, icon: Truck, color: "text-purple-600 bg-purple-50", link: "AdminShippingPool" },
     { title: "注册用户", value: users.length, icon: Users, color: "text-green-600 bg-green-50", link: "AdminUsers" },
   ];
 
   const pendingOrders = orders.filter(o => o.payment_status === "paid" && o.order_status === "payment_pending").slice(0, 5);
-  const pendingShipping = shipping.filter(s => s.status === "pending").slice(0, 5);
+  const pendingShipping = orders.filter(o => o.order_status === "in_warehouse").slice(0, 5);
 
   const statusMap = {
     draft: "草稿", submitted: "已提交", price_confirmed: "已报价",
@@ -101,9 +100,9 @@ export default function AdminDashboard() {
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                <Truck className="w-4 h-4 text-purple-500" />待处理发货
+                <Truck className="w-4 h-4 text-purple-500" />已入库待发货
               </CardTitle>
-              <Link to={createPageUrl("AdminShipping")} className="text-xs text-red-600 hover:underline">查看全部</Link>
+              <Link to={createPageUrl("AdminShippingPool")} className="text-xs text-red-600 hover:underline">查看全部</Link>
             </div>
           </CardHeader>
           <CardContent>
@@ -114,10 +113,10 @@ export default function AdminDashboard() {
                 {pendingShipping.map(s => (
                   <div key={s.id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
                     <div>
-                      <div className="text-sm font-medium text-gray-800">{s.recipient_name}</div>
-                      <div className="text-xs text-gray-400">{s.country} · {s.shipping_method}</div>
+                      <div className="text-sm font-medium text-gray-800 truncate max-w-[180px]">{s.product_name}</div>
+                      <div className="text-xs text-gray-400">{s.user_name || s.user_email} · {s.order_number}</div>
                     </div>
-                    <Badge className="bg-gray-100 text-gray-600 text-xs">待确认</Badge>
+                    <Badge className="bg-gray-100 text-gray-600 text-xs">已入库</Badge>
                   </div>
                 ))}
               </div>

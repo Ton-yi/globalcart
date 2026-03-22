@@ -19,8 +19,8 @@ export default function AdminUsers() {
 
   useEffect(() => {
     Promise.all([
-      base44.entities.User.list(),
-      base44.entities.Order.list("-created_date", 500)
+      base44.functions.invoke('listNonAdminUsers', {}).then(r => r.data?.users || []),
+      base44.functions.invoke('getTenantOrders', {}).then(r => r.data?.orders || []),
     ]).then(([u, o]) => {
       setUsers(u);
       setOrders(o);
