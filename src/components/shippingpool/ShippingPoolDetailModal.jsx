@@ -113,9 +113,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
     if (!trackingNumber && !actualFee && !adminNote) return;
     setSaving(true);
 
-    const updateData = {
-      admin_note: adminNote,
-    };
+    const updateData = { admin_note: adminNote };
     if (trackingNumber) {
       updateData.tracking_number = trackingNumber;
       updateData.status = "shipped";
@@ -125,13 +123,12 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
       updateData.actual_fee = parseFloat(actualFee);
     }
 
-    await base44.entities.ShippingPool.update(pool.id, updateData);
+    await shippingPoolApi.update(pool.id, updateData);
 
-    // If tracking number saved, update all related orders to "shipped"
     if (trackingNumber) {
       await Promise.all(
         (pool.order_ids || []).map(id =>
-          base44.entities.Order.update(id, {
+          updateOrder(id, {
             order_status: "shipped",
             tracking_number: trackingNumber,
             shipped_date: new Date().toISOString().split("T")[0],
