@@ -13,12 +13,15 @@ Deno.serve(async (req) => {
     }
 
     const tenantId = userRecord[0].tenant_id;
-    if (!tenantId) {
+    const isPlatformAdmin = user.role === 'platform_admin';
+
+    if (!tenantId && !isPlatformAdmin) {
       return Response.json({ error: 'User has no tenant assigned' }, { status: 403 });
     }
 
-    // Fetch non-admin users only within the same tenant
-    const allUsers = await base44.asServiceRole.entities.User.filter({ tenant_id: tenantId });
+    // Platform admins see all users; tenant admins see only their tenant
+    const filter = isPlatformAdmin ? {} : { tenant_id: tenantId };
+    const allUsers = await base44.asServiceRole.entities.User.filter(filter);
     const nonAdmins = (allUsers || [])
       .filter(u => u.role !== 'admin' && u.role !== 'platform_admin' && u.email !== user.email)
       .map(u => ({ email: u.email, full_name: u.full_name || '' }));
