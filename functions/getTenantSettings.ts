@@ -22,8 +22,9 @@ Deno.serve(async (req) => {
     const tenantId = userRecord[0].tenant_id;
     const isPlatformAdmin = user.role === 'platform_admin';
 
+    // Bootstrap mode: admin with no tenant yet — return empty gracefully
     if (!tenantId && !isPlatformAdmin) {
-      return Response.json({ error: 'User has no tenant assigned' }, { status: 403 });
+      return Response.json({ settings: {}, raw: [] });
     }
 
     let filter = {};
