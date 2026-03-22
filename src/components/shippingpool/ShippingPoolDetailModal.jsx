@@ -55,15 +55,30 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
   const [adminNote, setAdminNote] = useState(pool.admin_note || "");
   const [editMode, setEditMode] = useState(true); // Always expanded for admin
 
+  const [tenantUserMap, setTenantUserMap] = useState({});
+
   useEffect(() => {
+    const fetches = [];
     if (pool.order_ids?.length > 0) {
-      base44.functions.invoke('getTenantOrders', { all: true })
-        .then(r => {
-          const allOrders = r.data?.orders || [];
-          setOrders(allOrders.filter(o => pool.order_ids.includes(o.id)));
-        })
-        .catch(() => {});
+      fetches.push(
+        base44.functions.invoke('getTenantOrders', { all: true })
+          .then(r => {
+            const allOrders = r.data?.orders || [];
+            setOrders(allOrders.filter(o => pool.order_ids.includes(o.id)));
+          })
+          .catch(() => {})
+      );
     }
+    fetches.push(
+      base44.functions.invoke('getTenantUsers', {})
+        .then(r => {
+          const map = {};
+          (r.data?.users || []).forEach(u => { map[u.email] = u; });
+          setTenantUserMap(map);
+        })
+        .catch(() => {})
+    );
+    Promise.all(fetches);
   }, []);
 
   // Fetch other pools for moving orders
