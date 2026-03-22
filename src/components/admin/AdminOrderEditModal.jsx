@@ -75,7 +75,7 @@ export default function AdminOrderEditModal({ order, onClose, onSaved }) {
   const cur = order.prepayment_currency || "CNY";
 
   useEffect(() => {
-    base44.entities.ItemSizeTemplate.filter({ is_active: true }, "-created_date", 100)
+    tenantEntity.list('ItemSizeTemplate', { is_active: true })
       .then(templates => setItemSizeTemplates(templates || []))
       .catch(() => {});
   }, []);
@@ -110,10 +110,10 @@ export default function AdminOrderEditModal({ order, onClose, onSaved }) {
 
   // ── Status-specific action handlers ──
 
-  // pending_confirmation → payment_pending (set amount + optional due date)
+  // pending_confirmation → payment_pending
   const handleConfirmOrder = async () => {
     setSaving(true);
-    await base44.entities.Order.update(order.id, {
+    await updateOrder(order.id, {
       order_status: "payment_pending",
       prepayment_amount: parseFloat(form.prepayment_amount) || order.prepayment_amount,
       payment_due_date: form.payment_due_date || null,
@@ -125,7 +125,7 @@ export default function AdminOrderEditModal({ order, onClose, onSaved }) {
   // → awaiting_reply
   const handleSendToReply = async () => {
     setSaving(true);
-    await base44.entities.Order.update(order.id, {
+    await updateOrder(order.id, {
       order_status: "awaiting_reply",
       pre_reply_status: order.pre_reply_status || order.order_status,
       admin_note: form.admin_note,
@@ -137,7 +137,7 @@ export default function AdminOrderEditModal({ order, onClose, onSaved }) {
   const handleCancel = async () => {
     if (!form.cancel_reason) { alert("请填写取消理由"); return; }
     setSaving(true);
-    await base44.entities.Order.update(order.id, {
+    await updateOrder(order.id, {
       order_status: "cancelled",
       cancel_reason: form.cancel_reason,
       admin_note: form.admin_note,
@@ -145,7 +145,7 @@ export default function AdminOrderEditModal({ order, onClose, onSaved }) {
     onSaved();
   };
 
-  // paid → purchased (admin confirms purchase, optionally uploads screenshot)
+  // paid → purchased
   const handleMarkPurchased = async () => {
     setSaving(true);
     const updates = {
@@ -154,7 +154,7 @@ export default function AdminOrderEditModal({ order, onClose, onSaved }) {
       admin_note: form.admin_note,
     };
     if (purchaseScreenshot) updates.purchase_screenshot_url = purchaseScreenshot;
-    await base44.entities.Order.update(order.id, updates);
+    await updateOrder(order.id, updates);
     onSaved();
   };
 
@@ -168,8 +168,6 @@ export default function AdminOrderEditModal({ order, onClose, onSaved }) {
     };
     if (arrivalPhoto) updates.arrival_photo_url = arrivalPhoto;
     if (form.weight_g) updates.weight_g = parseFloat(form.weight_g);
-    
-    // Apply selected item size template
     if (selectedSizeId) {
       const selectedTemplate = itemSizeTemplates.find(t => t.id === selectedSizeId);
       if (selectedTemplate) {
@@ -179,18 +177,17 @@ export default function AdminOrderEditModal({ order, onClose, onSaved }) {
         updates.item_size_fee_currency = selectedTemplate.fee_currency;
       }
     }
-    
-    await base44.entities.Order.update(order.id, updates);
+    await updateOrder(order.id, updates);
     onSaved();
   };
 
-  // notified_shipment → shipping_fee_pending (provide weight + fee + tracking)
+  // notified_shipment → shipping_fee_pending
   const handleSetShippingFee = async () => {
     setSaving(true);
-    let finalFee = parseFloat(shippingFee) || 0;
+    const finalFee = parseFloat(shippingFee) || 0;
     const credit = parseFloat(order.balance_credit || 0);
     const netFee = Math.max(0, finalFee - credit);
-    await base44.entities.Order.update(order.id, {
+    await updateOrder(order.id, {
       order_status: "shipping_fee_pending",
       shipping_total_weight_g: parseFloat(shippingWeight) || 0,
       shipping_fee_amount: netFee,
@@ -204,7 +201,7 @@ export default function AdminOrderEditModal({ order, onClose, onSaved }) {
   // shipping_fee_pending/ready_to_ship → shipped
   const handleMarkShipped = async () => {
     setSaving(true);
-    await base44.entities.Order.update(order.id, {
+    await updateOrder(order.id, {
       order_status: "shipped",
       shipped_date: new Date().toISOString().split("T")[0],
       tracking_number: trackingNumber,
@@ -216,7 +213,7 @@ export default function AdminOrderEditModal({ order, onClose, onSaved }) {
   // Generic save (edit tab)
   const handleSave = async () => {
     setSaving(true);
-    await base44.entities.Order.update(order.id, {
+    await updateOrder(order.id, {
       order_status: form.order_status,
       admin_note: form.admin_note,
       admin_confirmed_amount: parseFloat(form.admin_confirmed_amount) || 0,
