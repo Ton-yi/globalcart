@@ -20,18 +20,20 @@ Deno.serve(async (req) => {
     }
 
     const tenantId = userRecord[0].tenant_id;
-    
+    const isPlatformAdmin = user.role === 'platform_admin';
+
+    if (!tenantId && !isPlatformAdmin) {
+      return Response.json({ error: 'User has no tenant assigned' }, { status: 403 });
+    }
+
     let filter = {};
-    // Platform admins can query any tenant (must specify tenant_id in query)
-    if (user.role === 'platform_admin') {
+    if (isPlatformAdmin) {
+      // Platform admins can query any tenant (must specify tenant_id in query), or get all
       const query = new URL(req.url).searchParams;
       const queryTenantId = query.get('tenant_id');
       if (queryTenantId) filter.tenant_id = queryTenantId;
+      else if (tenantId) filter.tenant_id = tenantId; // scoped if they have a tenant
     } else {
-      // Regular users/staff only see their own tenant settings
-      if (!tenantId) {
-        return Response.json({ error: 'User has no tenant assigned' }, { status: 403 });
-      }
       filter.tenant_id = tenantId;
     }
 
