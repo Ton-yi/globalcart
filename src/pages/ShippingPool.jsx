@@ -84,21 +84,17 @@ export default function ShippingPool() {
 
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
-  const fetchData = async (u) => {
+  const fetchData = async (_u) => {
     setLoading(true);
-    // Fetch all pools created by this user (includes private ones they own)
-    const allPools = await base44.entities.ShippingPool.filter({ creator_email: u.email }, "-created_date", 100);
+    const [allPools, myOrders] = await Promise.all([
+      fetchShippingPools(),
+      base44.functions.invoke('getTenantOrders', {}).then(r => r.data?.orders || []),
+    ]);
     setPools(allPools);
 
-    // For consolidation tab: get orders that belong to consolidation-type pools
     const consPools = allPools.filter(p => p.consolidation_type && p.consolidation_type !== "");
-    const consOrderIds = [...new Set(consPools.flatMap(p => p.order_ids || []))];
-    if (consOrderIds.length > 0) {
-      const orders = await base44.entities.Order.filter({ user_email: u.email, order_status: "notified_shipment" }, "-updated_date", 200);
-      setConsolidationOrders(orders.filter(o => consOrderIds.includes(o.id)));
-    } else {
-      setConsolidationOrders([]);
-    }
+    const consOrderIds = new Set(consPools.flatMap(p => p.order_ids || []));
+    setConsolidationOrders(myOrders.filter(o => o.order_status === "notified_shipment" && consOrderIds.has(o.id)));
     setLoading(false);
   };
 
