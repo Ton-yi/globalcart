@@ -459,7 +459,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
               <h3 className="text-sm font-semibold text-gray-700 mb-2">参与用户</h3>
               <div className="flex flex-wrap gap-2">
                 {participantUsers.map(u => (
-                  <ParticipantChip key={u.email || u.name} user={u} />
+                  <ParticipantChip key={u.email || u.name} user={u} avatarUrl={tenantUserMap[u.email]?.avatar_url || ''} />
                 ))}
               </div>
             </div>
@@ -649,25 +649,15 @@ function InfoBlock({ label, value, highlight }) {
   );
 }
 
-function ParticipantChip({ user }) {
-  const [avatarUrl, setAvatarUrl] = useState(null);
-  const initials = (user.name || "?").slice(0, 2).toUpperCase();
-
-  useEffect(() => {
-    if (user.email) {
-      base44.entities.User.filter({ email: user.email }).then(res => {
-        if (res?.[0]?.avatar_url) setAvatarUrl(res[0].avatar_url);
-      }).catch(() => {});
-    }
-  }, [user.email]);
-
+function ParticipantChip({ user, avatarUrl }) {
+  const initial = (user.name || "?")[0].toUpperCase();
   return (
     <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-full pl-1 pr-2.5 py-0.5">
       {avatarUrl ? (
         <img src={avatarUrl} alt={user.name} className="w-5 h-5 rounded-full object-cover flex-shrink-0" />
       ) : (
         <div className="w-5 h-5 rounded-full bg-gray-300 flex items-center justify-center text-gray-600 text-xs font-medium flex-shrink-0">
-          {initials.slice(0, 1)}
+          {initial}
         </div>
       )}
       <span className="text-xs text-gray-700">{user.name}</span>
