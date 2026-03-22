@@ -65,6 +65,13 @@ export default function AdminUsers() {
         setDiagError(r.data.error);
       } else {
         setDiagData(r.data);
+        // Refresh tenant name map too
+        base44.functions.invoke('manageTenants', { action: 'list' })
+          .then(r2 => {
+            const map = {};
+            (r2.data?.tenants || []).forEach(t => { map[t.id] = t; });
+            setTenantMap(map);
+          }).catch(() => {});
       }
     } catch (e) {
       setDiagError(e.message || 'Failed to run diagnosis');
