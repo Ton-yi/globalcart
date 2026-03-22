@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
     }
 
     if (!tenantId) {
-      return Response.json({ error: 'User has no tenant assigned' }, { status: 403 });
+      return Response.json({ orders: [] });
     }
 
     let filter = { tenant_id: tenantId };
