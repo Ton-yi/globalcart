@@ -58,61 +58,40 @@ export default function ShippingEditModal({ order, currentPool, currentUser, onC
     if (isInstant) {
       // Apply immediately
       if (editType === "cancel_shipment") {
-        // Remove order from current pool
         const updatedIds = (currentPool.order_ids || []).filter(id => id !== order.id);
-        const removedWeight = order.weight_g || 0;
         await Promise.all([
-          base44.entities.ShippingPool.update(currentPool.id, {
+          shippingPoolApi.update(currentPool.id, {
             order_ids: updatedIds,
-            total_weight_g: Math.max(0, (currentPool.total_weight_g || 0) - removedWeight),
+            total_weight_g: Math.max(0, (currentPool.total_weight_g || 0) - (order.weight_g || 0)),
           }),
-          base44.entities.Order.update(order.id, {
-            order_status: "in_warehouse",
-            consolidation_pool_id: "",
-          }),
+          updateOrder(order.id, { order_status: "in_warehouse", consolidation_pool_id: "" }),
         ]);
       } else if (editType === "move_pool") {
         const targetPool = availablePools.find(p => p.id === targetPoolId);
-        const updatedCurrentIds = (currentPool.order_ids || []).filter(id => id !== order.id);
-        const updatedTargetIds = [...new Set([...(targetPool.order_ids || []), order.id])];
         const w = order.weight_g || 0;
         await Promise.all([
-          base44.entities.ShippingPool.update(currentPool.id, {
-            order_ids: updatedCurrentIds,
+          shippingPoolApi.update(currentPool.id, {
+            order_ids: (currentPool.order_ids || []).filter(id => id !== order.id),
             total_weight_g: Math.max(0, (currentPool.total_weight_g || 0) - w),
           }),
-          base44.entities.ShippingPool.update(targetPoolId, {
-            order_ids: updatedTargetIds,
+          shippingPoolApi.update(targetPoolId, {
+            order_ids: [...new Set([...(targetPool.order_ids || []), order.id])],
             total_weight_g: (targetPool.total_weight_g || 0) + w,
           }),
-          base44.entities.Order.update(order.id, {
-            consolidation_pool_id: targetPoolId,
-          }),
+          updateOrder(order.id, { consolidation_pool_id: targetPoolId }),
         ]);
       }
 
-      // Record as auto_applied
-      await base44.entities.ShippingEditRequest.create({
-        order_id: order.id,
-        pool_id: currentPool.id,
-        user_email: currentUser.email,
-        edit_type: editType,
-        target_pool_id: editType === "move_pool" ? targetPoolId : "",
-        user_note: userNote,
-        status: "auto_applied",
-        is_instant: true,
+      await tenantEntity.create('ShippingEditRequest', {
+        order_id: order.id, pool_id: currentPool.id, user_email: currentUser.email,
+        edit_type: editType, target_pool_id: editType === "move_pool" ? targetPoolId : "",
+        user_note: userNote, status: "auto_applied", is_instant: true,
       });
     } else {
-      // Submit for admin approval
-      await base44.entities.ShippingEditRequest.create({
-        order_id: order.id,
-        pool_id: currentPool.id,
-        user_email: currentUser.email,
-        edit_type: editType,
-        target_pool_id: editType === "move_pool" ? targetPoolId : "",
-        user_note: userNote,
-        status: "pending",
-        is_instant: false,
+      await tenantEntity.create('ShippingEditRequest', {
+        order_id: order.id, pool_id: currentPool.id, user_email: currentUser.email,
+        edit_type: editType, target_pool_id: editType === "move_pool" ? targetPoolId : "",
+        user_note: userNote, status: "pending", is_instant: false,
       });
     }
 
