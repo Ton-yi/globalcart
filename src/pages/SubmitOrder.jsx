@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { getRatesWithIncrements } from "@/lib/exchangeRates";
 import { detectPrimaryStoreTagResult } from "@/lib/onlineStoreTag";
 import { base44 } from "@/api/base44Client";
+import { fetchOrderCountForPrefix } from "@/lib/tenantApi";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { ShoppingBag, Calculator, Info, Upload, Plus, X, ChevronsUpDown } from "lucide-react";
