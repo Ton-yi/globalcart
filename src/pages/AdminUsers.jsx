@@ -27,9 +27,16 @@ export default function AdminUsers() {
   const [tenantMap, setTenantMap] = useState({}); // id -> tenant
 
   useEffect(() => {
+    // Load tenant list for name display
+    base44.functions.invoke('manageTenants', { action: 'list' })
+      .then(r => {
+        const map = {};
+        (r.data?.tenants || []).forEach(t => { map[t.id] = t; });
+        setTenantMap(map);
+      }).catch(() => {});
+
     base44.auth.me().then(u => {
       setCurrentUser(u);
-      // Auto-run diagnosis for any admin so the panel is immediately useful
       if (u?.role === 'platform_admin' || u?.role === 'admin' || u?.role === 'tenant_admin') {
         setDiagOpen(true);
         runDiagnose();
