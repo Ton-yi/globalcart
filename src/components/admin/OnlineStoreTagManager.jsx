@@ -31,14 +31,14 @@ const COLOR_PRESETS = [
   }, []);
 
   const loadRules = async () => {
-    const data = await base44.entities.OnlineStoreTagRule.list("-priority", 100);
-    setRules(data);
+    const data = await tenantEntity.list('OnlineStoreTagRule');
+    setRules((data || []).sort((a, b) => (b.priority || 0) - (a.priority || 0)));
     setLoading(false);
   };
 
   const handleAddRule = async () => {
     if (!newRule.keyword || !newRule.tag_label) return;
-    await base44.entities.OnlineStoreTagRule.create({
+    await tenantEntity.create('OnlineStoreTagRule', {
       keyword: newRule.keyword,
       tag_label: newRule.tag_label,
       tag_color: newRule.tag_color || "bg-gray-100 text-gray-700",
@@ -50,7 +50,7 @@ const COLOR_PRESETS = [
   };
 
   const handleDeleteRule = async (id) => {
-    await base44.entities.OnlineStoreTagRule.delete(id);
+    await tenantEntity.delete('OnlineStoreTagRule', id);
     await loadRules();
   };
 
@@ -60,7 +60,7 @@ const COLOR_PRESETS = [
   };
 
   const handleSaveEdit = async () => {
-    await base44.entities.OnlineStoreTagRule.update(editingId, {
+    await tenantEntity.update('OnlineStoreTagRule', editingId, {
       keyword: editForm.keyword,
       tag_label: editForm.tag_label,
       tag_color: editForm.tag_color || "bg-gray-100 text-gray-700",
@@ -76,15 +76,13 @@ const COLOR_PRESETS = [
   };
 
   const handleToggleActive = async (rule) => {
-    await base44.entities.OnlineStoreTagRule.update(rule.id, {
-      is_active: !rule.is_active
-    });
+    await tenantEntity.update('OnlineStoreTagRule', rule.id, { is_active: !rule.is_active });
     await loadRules();
   };
 
   const handleMovePriority = async (rule, direction) => {
     const newPriority = rule.priority + (direction === "up" ? 1 : -1);
-    await base44.entities.OnlineStoreTagRule.update(rule.id, { priority: newPriority });
+    await tenantEntity.update('OnlineStoreTagRule', rule.id, { priority: newPriority });
     await loadRules();
   };
 

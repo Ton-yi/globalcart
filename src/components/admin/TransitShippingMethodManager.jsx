@@ -228,7 +228,7 @@ export default function TransitShippingMethodManager() {
 
   const load = async () => {
     setLoading(true);
-    const data = await base44.entities.TransitShippingMethod.list();
+    const data = await tenantEntity.list('TransitShippingMethod');
     setMethods(data);
     setLoading(false);
   };
@@ -236,18 +236,18 @@ export default function TransitShippingMethodManager() {
   useEffect(() => { load(); }, []);
 
   const handleSave = async (updated) => {
-    await base44.entities.TransitShippingMethod.update(updated.id, updated);
+    await tenantEntity.update('TransitShippingMethod', updated.id, updated);
     await load();
   };
 
   const handleDelete = async (id) => {
     if (!confirm("确认删除此中转运输方式？")) return;
-    await base44.entities.TransitShippingMethod.delete(id);
+    await tenantEntity.delete('TransitShippingMethod', id);
     await load();
   };
 
   const handleAddNew = async (data) => {
-    await base44.entities.TransitShippingMethod.create(data);
+    await tenantEntity.create('TransitShippingMethod', data);
     setShowAdd(false);
     await load();
   };

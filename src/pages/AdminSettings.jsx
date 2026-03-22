@@ -67,12 +67,12 @@ export default function AdminSettings() {
 
   const load = async () => {
     let [data, addonData] = await Promise.all([
-      base44.entities.SiteSettings.list(),
-      base44.entities.AddonOption.list()
+      tenantEntity.list('SiteSettings'),
+      tenantEntity.list('AddonOption'),
     ]);
     if (data.length === 0) {
-      await base44.entities.SiteSettings.bulkCreate(DEFAULT_SETTINGS);
-      data = await base44.entities.SiteSettings.list();
+      await Promise.all(DEFAULT_SETTINGS.map(s => tenantEntity.create('SiteSettings', s)));
+      data = await tenantEntity.list('SiteSettings');
     }
     setSettings(data);
     setAddons(addonData);
@@ -92,7 +92,7 @@ export default function AdminSettings() {
   const handleSaveCategory = async (category) => {
     setSaving(true);
     const itemsToSave = settings.filter(s => s.category === category);
-    await Promise.all(itemsToSave.map(s => base44.entities.SiteSettings.update(s.id, { value: s.value, description: s.description })));
+    await Promise.all(itemsToSave.map(s => tenantEntity.update('SiteSettings', s.id, { value: s.value, description: s.description })));
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
@@ -100,7 +100,7 @@ export default function AdminSettings() {
 
   const handleSaveAll = async () => {
     setSaving(true);
-    await Promise.all(settings.map(s => base44.entities.SiteSettings.update(s.id, { value: s.value, description: s.description })));
+    await Promise.all(settings.map(s => tenantEntity.update('SiteSettings', s.id, { value: s.value, description: s.description })));
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
@@ -108,30 +108,30 @@ export default function AdminSettings() {
 
   const handleAdd = async () => {
     if (!newKey || !newVal) return;
-    await base44.entities.SiteSettings.create({ key: newKey, value: newVal, description: newDesc, category: newCat });
+    await tenantEntity.create('SiteSettings', { key: newKey, value: newVal, description: newDesc, category: newCat });
     setNewKey(""); setNewVal(""); setNewDesc(""); setNewCat("general");
     await load();
   };
 
   const handleDelete = async (id) => {
-    await base44.entities.SiteSettings.delete(id);
+    await tenantEntity.delete('SiteSettings', id);
     await load();
   };
 
   const handleAddAddon = async () => {
     if (!newAddon.name || newAddon.fee === "") return;
-    await base44.entities.AddonOption.create({ ...newAddon, fee: parseFloat(newAddon.fee) || 0, is_active: true });
+    await tenantEntity.create('AddonOption', { ...newAddon, fee: parseFloat(newAddon.fee) || 0, is_active: true });
     setNewAddon({ name: "", description: "", fee: "", fee_currency: "JPY", addon_type: "order" });
     await load();
   };
 
   const handleDeleteAddon = async (id) => {
-    await base44.entities.AddonOption.delete(id);
+    await tenantEntity.delete('AddonOption', id);
     await load();
   };
 
   const toggleAddon = async (a) => {
-    await base44.entities.AddonOption.update(a.id, { is_active: !a.is_active });
+    await tenantEntity.update('AddonOption', a.id, { is_active: !a.is_active });
     await load();
   };
 

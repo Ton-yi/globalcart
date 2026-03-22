@@ -43,7 +43,10 @@ export default function UserPreferences() {
       setUser(u);
       setDisplayName(u.display_name || u.full_name || "");
       setAvatarUrl(u.avatar_url || "");
-      const prefs = await base44.entities.UserPreference.filter({ user_email: u.email });
+      const [prefs, tMethods] = await Promise.all([
+        userPrefApi.list({ user_email: u.email }),
+        tenantEntity.list('TransitShippingMethod', { is_active: true }),
+      ]);
       if (prefs.length > 0) {
         const p = prefs[0];
         setPref(p);
@@ -57,12 +60,9 @@ export default function UserPreferences() {
           notification_email: p.notification_email !== false,
           default_address_id: p.default_address_id || "",
         });
-        // Migrate old saved_addresses (add country field if missing)
         const addrs = (p.saved_addresses || []).map(a => ({ country: "", ...a }));
         setAddresses(addrs);
       }
-      // Load transit shipping methods
-      const tMethods = await base44.entities.TransitShippingMethod.filter({ is_active: true });
       setTransitMethods(tMethods || []);
     }).catch(() => base44.auth.redirectToLogin());
   }, []);
@@ -81,9 +81,9 @@ export default function UserPreferences() {
     await base44.auth.updateMe({ display_name: displayName, avatar_url: avatarUrl });
     const data = { ...form, user_email: user.email, saved_addresses: addresses };
     if (pref) {
-      await base44.entities.UserPreference.update(pref.id, data);
+      await userPrefApi.update(pref.id, data);
     } else {
-      const created = await base44.entities.UserPreference.create(data);
+      const created = await userPrefApi.create(data);
       setPref(created);
     }
     setSaving(false);

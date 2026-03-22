@@ -32,42 +32,29 @@ export default function ItemSizeTemplateManager() {
 
   const loadTemplates = async () => {
     setLoading(true);
-    try {
-      const data = await base44.entities.ItemSizeTemplate.list("-created_date", 100);
-      setTemplates(data || []);
-    } catch (err) {
-      console.error("Failed to load templates:", err);
-    }
+    const data = await tenantEntity.list('ItemSizeTemplate');
+    setTemplates(data || []);
     setLoading(false);
   };
 
   const handleSave = async () => {
     if (!formData.title.trim()) return;
     setSaving(true);
-
-    try {
-      if (editingId) {
-        await base44.entities.ItemSizeTemplate.update(editingId, formData);
-      } else {
-        await base44.entities.ItemSizeTemplate.create(formData);
-      }
-      await loadTemplates();
-      setShowForm(false);
-      resetForm();
-    } catch (err) {
-      console.error("Failed to save template:", err);
+    if (editingId) {
+      await tenantEntity.update('ItemSizeTemplate', editingId, formData);
+    } else {
+      await tenantEntity.create('ItemSizeTemplate', formData);
     }
+    await loadTemplates();
+    setShowForm(false);
+    resetForm();
     setSaving(false);
   };
 
   const handleDelete = async (id) => {
-    try {
-      await base44.entities.ItemSizeTemplate.delete(id);
-      await loadTemplates();
-      setDeleting(null);
-    } catch (err) {
-      console.error("Failed to delete template:", err);
-    }
+    await tenantEntity.delete('ItemSizeTemplate', id);
+    await loadTemplates();
+    setDeleting(null);
   };
 
   const handleEdit = (template) => {

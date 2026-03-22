@@ -435,10 +435,10 @@ export default function ShippingMethodManager() {
 
   const load = async () => {
     setLoading(true);
-    let data = await base44.entities.ShippingMethod.list();
+    let data = await tenantEntity.list('ShippingMethod');
     if (data.length === 0) {
-      await base44.entities.ShippingMethod.bulkCreate(DEFAULT_METHODS);
-      data = await base44.entities.ShippingMethod.list();
+      await Promise.all(DEFAULT_METHODS.map(m => tenantEntity.create('ShippingMethod', m)));
+      data = await tenantEntity.list('ShippingMethod');
     }
     setMethods(data);
     setLoading(false);
@@ -447,19 +447,19 @@ export default function ShippingMethodManager() {
   useEffect(() => { load(); }, []);
 
   const handleSave = async (updated) => {
-    await base44.entities.ShippingMethod.update(updated.id, updated);
+    await tenantEntity.update('ShippingMethod', updated.id, updated);
     await load();
   };
 
   const handleDelete = async (id) => {
     if (!confirm("确认删除此运输方式？")) return;
-    await base44.entities.ShippingMethod.delete(id);
+    await tenantEntity.delete('ShippingMethod', id);
     await load();
   };
 
   const handleAddNew = async () => {
     if (!newForm.name || !newForm.code) return;
-    await base44.entities.ShippingMethod.create(newForm);
+    await tenantEntity.create('ShippingMethod', newForm);
     setNewForm({ name: "", code: "", color: "#6B7280", transit_days: "", description: "", is_active: true, rate_mode: "simple", simple_rates: [], detailed_rates: [] });
     setShowAdd(false);
     await load();
