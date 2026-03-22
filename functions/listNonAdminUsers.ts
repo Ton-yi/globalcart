@@ -14,17 +14,19 @@ Deno.serve(async (req) => {
 
     const tenantId = userRecord[0].tenant_id;
     const isPlatformAdmin = user.role === 'platform_admin';
+    const isTenantAdmin = user.role === 'admin' || user.role === 'tenant_admin';
+    const isStaff = user.role === 'staff';
 
-    if (!tenantId && !isPlatformAdmin) {
-      return Response.json({ error: 'User has no tenant assigned' }, { status: 403 });
+    if (!isPlatformAdmin && !isTenantAdmin && !isStaff) {
+      return Response.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
     }
 
-    // Platform admins see all users; tenant admins see only their tenant
-    const filter = isPlatformAdmin ? {} : { tenant_id: tenantId };
+    // Platform admins see all users; tenant admins with no tenant see all (degraded diagnostic mode)
+    const filter = (isPlatformAdmin || !tenantId) ? {} : { tenant_id: tenantId };
     const allUsers = await base44.asServiceRole.entities.User.filter(filter);
     const nonAdmins = (allUsers || [])
-      .filter(u => u.role !== 'admin' && u.role !== 'platform_admin' && u.email !== user.email)
-      .map(u => ({ email: u.email, full_name: u.full_name || '' }));
+      .filter(u => u.email !== user.email)
+      .map(u => ({ id: u.id, email: u.email, full_name: u.full_name || '', role: u.role || 'user', tenant_id: u.tenant_id || null, created_date: u.created_date }));
 
     return Response.json({ users: nonAdmins });
   } catch (error) {
