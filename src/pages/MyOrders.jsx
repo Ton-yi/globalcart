@@ -184,7 +184,7 @@ export default function MyOrders() {
   };
 
   const handleConfirmDelivered = async (order) => {
-    await base44.entities.Order.update(order.id, { order_status: "delivered" });
+    await base44.functions.invoke('updateTenantOrder', { order_id: order.id, order_status: "delivered" });
     fetchOrders(user);
   };
 
