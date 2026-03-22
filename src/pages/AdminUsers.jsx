@@ -21,6 +21,7 @@ export default function AdminUsers() {
   const [diagOpen, setDiagOpen] = useState(false);
   const [diagData, setDiagData] = useState(null);
   const [diagLoading, setDiagLoading] = useState(false);
+  const [diagError, setDiagError] = useState(null);
   const [assigning, setAssigning] = useState({});
   const [assignTarget, setAssignTarget] = useState({}); // email -> selected tenant_id
 
