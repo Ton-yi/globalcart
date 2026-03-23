@@ -56,11 +56,21 @@ Deno.serve(async (req) => {
     const isStaff = user.role === 'staff';
 
     if (!tenantId && !isPlatformAdmin) {
-      // Gracefully return empty for list; block writes
+      // Gracefully return empty for list so pages don't crash
       if (action === 'list') {
+        console.warn(`mutateTenantEntity: user ${user.email} (role=${user.role}) has no tenant_id — returning empty list for ${entity}`);
         return Response.json({ results: [] });
       }
-      return Response.json({ error: 'User has no tenant assigned. Please contact a platform admin to assign your tenant.' }, { status: 403 });
+      // Write operations require a tenant
+      const roleLabel = isTenantAdmin ? 'tenant admin' : isStaff ? 'staff' : 'user';
+      console.error(`mutateTenantEntity: ${roleLabel} ${user.email} attempted ${action} on ${entity} but has no tenant_id assigned`);
+      return Response.json({
+        error: `Your account (${user.email}) has no tenant assigned. ` +
+               `A platform admin or tenant admin must assign your tenant via Admin → Users → Tenant Assignment Diagnostics.`,
+        code: 'NO_TENANT_ASSIGNED',
+        user_email: user.email,
+        role: user.role,
+      }, { status: 403 });
     }
 
     // Admin-only write check
