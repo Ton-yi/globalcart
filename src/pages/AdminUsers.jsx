@@ -28,30 +28,29 @@ export default function AdminUsers() {
   const [tenantMap, setTenantMap] = useState({}); // id -> tenant
 
   useEffect(() => {
-    // Load tenant list for name display
-    base44.functions.invoke('manageTenants', { action: 'list' })
-      .then(r => {
-        const map = {};
-        (r.data?.tenants || []).forEach(t => { map[t.id] = t; });
-        setTenantMap(map);
-      }).catch(() => {});
-
-    base44.auth.me().then(u => {
-      setCurrentUser(u);
-      if (u?.role === 'platform_admin' || u?.role === 'admin' || u?.role === 'tenant_admin') {
-        setDiagOpen(true);
-        runDiagnose();
-      }
-    }).catch(() => {});
+    // All initial data in parallel
     Promise.all([
-      base44.functions.invoke('listNonAdminUsers', {}).then(r => r.data?.users || []),
-      base44.functions.invoke('getTenantOrders', { all: true }).then(r => r.data?.orders || []),
-    ]).then(([u, o]) => {
+      base44.functions.invoke('manageTenants', { action: 'list' }).then(r => r.data?.tenants || []).catch(() => []),
+      base44.functions.invoke('listNonAdminUsers', {}).then(r => r.data?.users || []).catch(() => []),
+      base44.functions.invoke('getTenantOrders', { all: true }).then(r => r.data?.orders || []).catch(() => []),
+    ]).then(([tenants, u, o]) => {
+      const map = {};
+      tenants.forEach(t => { map[t.id] = t; });
+      setTenantMap(map);
       setUsers(u);
       setOrders(o);
       setLoading(false);
     });
   }, []);
+
+  // Open diagnosis panel for admins once currentUser is known
+  useEffect(() => {
+    if (currentUser?.role === 'platform_admin' || currentUser?.role === 'admin' || currentUser?.role === 'tenant_admin') {
+      setDiagOpen(true);
+      runDiagnose();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser?.role]);
 
   const isPlatformAdmin = currentUser?.role === 'platform_admin';
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'tenant_admin';
