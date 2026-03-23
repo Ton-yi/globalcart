@@ -22,7 +22,7 @@ const DEFAULT_PREPAY_RATE = 0.80;
 
 export default function SubmitOrder() {
   const navigate = useNavigate();
-  const [user, setUser] = useState(null);
+  const { user } = useCurrentUser();
   const [rates, setRates] = useState(null);
   const [settings, setSettings] = useState({});
   const [productUrls, setProductUrls] = useState([""]);
@@ -41,14 +41,13 @@ export default function SubmitOrder() {
   const [paymentMode, setPaymentMode] = useState("prepay"); // "prepay" | "deferred"
 
   useEffect(() => {
-    base44.auth.me().then(setUser).catch(() => base44.auth.redirectToLogin());
     Promise.all([
-      base44.functions.invoke('getTenantConfigData', {}).then(r => r.data || {}),
+      fetchTenantConfig(),
       getRatesWithIncrements(),
-      base44.functions.invoke('getTenantSettings', {}).then(r => r.data?.settings || {}),
-    ]).then(([config, rates, settingsMap]) => {
+      fetchTenantSettings(),
+    ]).then(([config, ratesData, settingsMap]) => {
       setAddonOptions((config.addons || []).filter(a => a.addon_type === 'order' && a.is_active !== false));
-      setRates(rates);
+      setRates(ratesData);
       const parsed = {};
       Object.entries(settingsMap).forEach(([k, v]) => { parsed[k] = parseFloat(v) || 0; });
       setSettings(parsed);
