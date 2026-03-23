@@ -408,6 +408,7 @@ export default function AdminOrders() {
       {selectedOrder && (
         <AdminOrderEditModal
           order={selectedOrder}
+          initialItemSizeTemplates={itemSizeTemplates}
           onClose={() => setSelectedOrder(null)}
           onSaved={() => { setSelectedOrder(null); fetchOrders(); }}
         />
