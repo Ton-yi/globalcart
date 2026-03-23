@@ -65,19 +65,19 @@ export default function AdminShippingPool() {
   };
 
   useEffect(() => {
-    base44.auth.me().then(async u => {
-      setUser(u);
-      fetchPools();
-      fetchLocations();
-      const [users, config] = await Promise.all([
-        base44.entities.User.list(),
-        base44.functions.invoke('getTenantConfigData', {}).then(r => r.data || {}),
-      ]);
+    if (!user) return;
+    // Fetch all initial data in parallel, using cached config
+    Promise.all([
+      fetchPools(),
+      fetchLocations(),
+      base44.functions.invoke('listNonAdminUsers', {}).then(r => r.data?.users || []).catch(() => []),
+      fetchTenantConfig(),
+    ]).then(([, , users, config]) => {
       setAllUsers(users);
       setTransitMethods(config.transitMethods || []);
       setAddonOptions((config.addons || []).filter(a => a.addon_type === 'shipping' && a.is_active !== false));
-    }).catch(() => base44.auth.redirectToLogin());
-  }, []);
+    });
+  }, [user]);
 
   const filtered = pools.filter(p => statusFilter === "all" || p.status === statusFilter);
 
