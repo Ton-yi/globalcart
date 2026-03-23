@@ -11,9 +11,9 @@ import { Badge } from "@/components/ui/badge";
 
 const CURRENCIES = ["JPY", "CNY", "USD", "TWD", "HKD", "EUR", "SGD"];
 
-export default function ItemSizeTemplateManager() {
-  const [templates, setTemplates] = useState([]);
-  const [loading, setLoading] = useState(true);
+export default function ItemSizeTemplateManager({ initialData = null }) {
+  const [templates, setTemplates] = useState(initialData || []);
+  const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [saving, setSaving] = useState(false);
