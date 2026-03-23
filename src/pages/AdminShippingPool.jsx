@@ -4,7 +4,7 @@
  */
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { fetchShippingPools, tenantEntity, fetchTenantConfig } from "@/lib/tenantApi";
+import { tenantEntity } from "@/lib/tenantApi";
 import { timePage } from "@/lib/timing";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Plus, RefreshCw, Truck, MapPin, Edit2, Trash2, Check, X as XIcon } from "lucide-react";
