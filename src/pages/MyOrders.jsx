@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { fetchShippingPools } from "@/lib/tenantApi";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { timePage } from "@/lib/timing";
 import { Package, RefreshCw, Search, CreditCard, Truck, CheckCircle, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import BulkPaymentModal from "@/components/orders/BulkPaymentModal";
 import { getOnlineStoreRules, matchStoreTagResult } from "@/lib/onlineStoreTag";
@@ -157,23 +158,26 @@ export default function MyOrders() {
   const fetchOrders = async (u) => {
     if (!u) return;
     setLoading(true);
+    const t = timePage('MyOrders');
     const [data, pools] = await Promise.all([
-      base44.functions.invoke('getTenantOrders', {}).then(r => r.data?.orders || []),
-      fetchShippingPools().catch(() => []),
+      t.timeCall('getTenantOrders', () => base44.functions.invoke('getTenantOrders', {}).then(r => r.data?.orders || [])),
+      t.timeCall('getTenantShippingPools', () => fetchShippingPools().catch(() => [])),
     ]);
     setOrders(data);
     setShippingPools(pools);
     setLoading(false);
+    t.done(`${data.length} orders`);
   };
 
   useEffect(() => {
     if (user) {
-      // Fetch orders and store tag rules in parallel
+      const t2 = timePage('MyOrders (init)');
       Promise.all([
         fetchOrders(user),
-        getOnlineStoreRules().catch(() => []),
+        t2.timeCall('getOnlineStoreRules (config cache)', () => getOnlineStoreRules().catch(() => [])),
       ]).then(([, rules]) => {
         if (rules) setStoreTagRules(rules);
+        t2.done('all init done');
       });
     }
   }, [user]);
