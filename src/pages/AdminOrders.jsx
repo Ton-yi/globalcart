@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { timePage } from "@/lib/timing";
 import { base44 } from "@/api/base44Client";
 import { Search, RefreshCw, Filter, Package, ChevronUp, ChevronDown, ChevronsUpDown, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -173,13 +174,15 @@ export default function AdminOrders() {
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
+    const t = timePage('AdminOrders');
     const [data, rules] = await Promise.all([
-      base44.functions.invoke('getTenantOrders', { all: true }).then(r => r.data?.orders || []),
-      getOnlineStoreRules(),
+      t.timeCall('getTenantOrders {all:true}', () => base44.functions.invoke('getTenantOrders', { all: true }).then(r => r.data?.orders || [])),
+      t.timeCall('getOnlineStoreRules (config cache)', () => getOnlineStoreRules()),
     ]);
     setOrders(data);
     setStoreTagRules(rules);
     setLoading(false);
+    t.done(`${data.length} orders`);
   }, []);
 
   useEffect(() => { fetchOrders(); }, [fetchOrders]);
