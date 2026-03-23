@@ -53,10 +53,25 @@ export default function AdminShippingPool() {
   const [transitMethods, setTransitMethods] = useState([]);
   const [addonOptions, setAddonOptions] = useState([]);
 
+  const fetchPageData = async () => {
+    setLoading(true);
+    const t = timePage('AdminShippingPool');
+    const r = await t.timeCall('getAdminShippingPoolPageData', () => base44.functions.invoke('getAdminShippingPoolPageData', {}));
+    const data = r.data || {};
+    setPools(data.pools || []);
+    setLocations(data.locations || []);
+    setAllUsers(data.users || []);
+    setTransitMethods(data.transitMethods || []);
+    setAddonOptions(data.addonOptions || []);
+    setLoading(false);
+    t.done('data ready');
+  };
+
+  // fetchPools is still used for post-mutation refresh (pools only)
   const fetchPools = async () => {
     setLoading(true);
-    const data = await fetchShippingPools();
-    setPools(data);
+    const r = await base44.functions.invoke('getTenantShippingPools', {});
+    setPools(r.data?.pools || []);
     setLoading(false);
   };
 
@@ -67,18 +82,7 @@ export default function AdminShippingPool() {
 
   useEffect(() => {
     if (!user) return;
-    const t = timePage('AdminShippingPool');
-    Promise.all([
-      t.timeCall('getTenantShippingPools', () => fetchPools()),
-      t.timeCall('mutateTenantEntity TransitLocation list', () => fetchLocations()),
-      t.timeCall('listNonAdminUsers', () => base44.functions.invoke('listNonAdminUsers', {}).then(r => r.data?.users || []).catch(() => [])),
-      t.timeCall('fetchTenantConfig (cache)', () => fetchTenantConfig()),
-    ]).then(([, , users, config]) => {
-      setAllUsers(users);
-      setTransitMethods(config.transitMethods || []);
-      setAddonOptions((config.addons || []).filter(a => a.addon_type === 'shipping' && a.is_active !== false));
-      t.done('data ready');
-    });
+    fetchPageData();
   }, [user]);
 
   const filtered = pools.filter(p => statusFilter === "all" || p.status === statusFilter);
