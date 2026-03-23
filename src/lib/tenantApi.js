@@ -95,6 +95,23 @@ export const userPrefApi = {
   update: (id, d)  => tenantEntity.update('UserPreference', id, d),
 };
 
+// ─── Page-level aggregated APIs ───────────────────────────────────────────────
+
+export async function fetchMyOrdersPageData() {
+  const res = await base44.functions.invoke('getMyOrdersPageData', {});
+  return res.data || { orders: [], pools: [], storeTagRules: [] };
+}
+
+export async function fetchAdminShippingPoolPageData() {
+  const res = await base44.functions.invoke('getAdminShippingPoolPageData', {});
+  return res.data || { pools: [], locations: [], users: [], transitMethods: [], addonOptions: [] };
+}
+
+export async function fetchSubmitOrderPageData() {
+  const res = await base44.functions.invoke('getSubmitOrderPageData', {});
+  return res.data || { addons: [], settings: {}, rates: null };
+}
+
 // ─── Convenience: order count query for order number generation ───────────────
 
 export async function fetchOrderCountForPrefix(prefix) {
