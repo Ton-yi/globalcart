@@ -74,7 +74,9 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
   const status = order.order_status;
   const cur = order.prepayment_currency || "CNY";
 
+  // Only fetch item size templates if not provided by the parent (page-level prefetch)
   useEffect(() => {
+    if (initialItemSizeTemplates && initialItemSizeTemplates.length > 0) return;
     tenantEntity.list('ItemSizeTemplate', { is_active: true })
       .then(templates => setItemSizeTemplates(templates || []))
       .catch(() => {});
