@@ -32,7 +32,7 @@ const ALL_STATUSES = [
   { v: "cancelled", l: "已取消" },
 ];
 
-export default function AdminOrderEditModal({ order, onClose, onSaved }) {
+export default function AdminOrderEditModal({ order, initialItemSizeTemplates, onClose, onSaved }) {
   const [tab, setTab] = useState("actions"); // "actions" | "edit" | "messages"
   const [saving, setSaving] = useState(false);
 
