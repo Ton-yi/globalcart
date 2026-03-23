@@ -16,7 +16,7 @@ export default function AdminUsers() {
   const [inviteRole, setInviteRole] = useState("user");
   const [inviting, setInviting] = useState(false);
   const [inviteMsg, setInviteMsg] = useState("");
-  const [currentUser, setCurrentUser] = useState(null);
+  const { user: currentUser } = useCurrentUser();
 
   // Tenant diagnosis state
   const [diagOpen, setDiagOpen] = useState(false);
