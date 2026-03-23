@@ -42,18 +42,16 @@ export default function SubmitOrder() {
 
   useEffect(() => {
     const t = timePage('SubmitOrder');
-    Promise.all([
-      t.timeCall('fetchTenantConfig (cache)', () => fetchTenantConfig()),
-      t.timeCall('getRatesWithIncrements', () => getRatesWithIncrements()),
-      t.timeCall('getTenantSettings', () => fetchTenantSettings()),
-    ]).then(([config, ratesData, settingsMap]) => {
-      setAddonOptions((config.addons || []).filter(a => a.addon_type === 'order' && a.is_active !== false));
-      setRates(ratesData);
-      const parsed = {};
-      Object.entries(settingsMap).forEach(([k, v]) => { parsed[k] = parseFloat(v) || 0; });
-      setSettings(parsed);
-      t.done('data ready');
-    }).catch(() => {});
+    t.timeCall('getSubmitOrderPageData', () => base44.functions.invoke('getSubmitOrderPageData', {}))
+      .then(r => {
+        const data = r.data || {};
+        setAddonOptions(data.addons || []);
+        setRates(data.rates || null);
+        const parsed = {};
+        Object.entries(data.settings || {}).forEach(([k, v]) => { parsed[k] = parseFloat(v) || 0; });
+        setSettings(parsed);
+        t.done('data ready');
+      }).catch(() => {});
   }, []);
 
   // Convert addon fee to JPY (all calculations in JPY)
