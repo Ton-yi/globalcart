@@ -427,9 +427,9 @@ function MethodCard({ method, onSave, onDelete }) {
   );
 }
 
-export default function ShippingMethodManager() {
-  const [methods, setMethods] = useState([]);
-  const [loading, setLoading] = useState(true);
+export default function ShippingMethodManager({ initialData = null }) {
+  const [methods, setMethods] = useState(initialData || []);
+  const [loading, setLoading] = useState(initialData === null);
   const [showAdd, setShowAdd] = useState(false);
   const [newForm, setNewForm] = useState({ name: "", code: "", color: "#6B7280", transit_days: "", description: "", is_active: true, rate_mode: "simple", simple_rates: [], detailed_rates: [] });
 
@@ -444,7 +444,18 @@ export default function ShippingMethodManager() {
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    if (initialData !== null) {
+      // Use pre-fetched data; seed defaults if empty
+      if (initialData.length === 0) {
+        Promise.all(DEFAULT_METHODS.map(m => tenantEntity.create('ShippingMethod', m)))
+          .then(() => load())
+          .catch(() => {});
+      }
+      return;
+    }
+    load();
+  }, []);
 
   const handleSave = async (updated) => {
     await tenantEntity.update('ShippingMethod', updated.id, updated);
