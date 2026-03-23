@@ -26,16 +26,16 @@ export default function ItemSizeTemplateManager({ initialData = null }) {
     is_active: true,
   });
 
-  useEffect(() => {
-    loadTemplates();
-  }, []);
-
   const loadTemplates = async () => {
     setLoading(true);
     const data = await tenantEntity.list('ItemSizeTemplate');
     setTemplates(data || []);
     setLoading(false);
   };
+
+  useEffect(() => {
+    if (initialData === null) loadTemplates();
+  }, []);
 
   const handleSave = async () => {
     if (!formData.title.trim()) return;
