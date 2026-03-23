@@ -32,6 +32,9 @@ Deno.serve(async (req) => {
     }
 
     if (!tenantId) {
+      if (isTenantAdmin || isStaff) {
+        console.warn(`getTenantOrders: ${user.role} ${user.email} has no tenant_id — returning empty orders. Assign tenant via Admin → Users.`);
+      }
       return Response.json({ orders: [] });
     }
 
