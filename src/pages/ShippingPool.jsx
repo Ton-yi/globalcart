@@ -114,13 +114,17 @@ export default function ShippingPool() {
     setSharedWithEmails([]);
     setUserSearchQuery("");
     setFormLoading(true);
-    const [myOrders, configData, prefs, usersRes] = await Promise.all([
-      base44.functions.invoke('getTenantOrders', {}).then(r => r.data?.orders || []),
-      base44.functions.invoke('getTenantConfigData', {}).then(r => r.data || {}),
+    // Reuse already-loaded pools data; fetch config (cached) and prefs in parallel
+    const [configData, prefs, usersRes] = await Promise.all([
+      fetchTenantConfig(),
       tenantEntity.list('UserPreference', { user_email: user.email }),
       base44.functions.invoke("listNonAdminUsers", {}),
     ]);
-    setAvailableOrders(myOrders.filter(o => o.order_status === "in_warehouse"));
+    // Use orders already loaded on page mount (pools data has in_warehouse orders)
+    const inWarehouseOrders = await base44.functions.invoke('getTenantOrders', {})
+      .then(r => (r.data?.orders || []).filter(o => o.order_status === "in_warehouse"))
+      .catch(() => []);
+    setAvailableOrders(inWarehouseOrders);
     setTransitLocations((configData.transitLocations || []).filter(l => l.is_active !== false));
     setAllUsers(usersRes?.data?.users || []);
     const pref = prefs[0];
