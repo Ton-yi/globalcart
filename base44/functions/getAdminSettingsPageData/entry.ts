@@ -58,16 +58,16 @@ Deno.serve(async (req) => {
     const [settings, addons, ratesRes] = await Promise.all([
       base44.asServiceRole.entities.SiteSettings.filter(filter),
       base44.asServiceRole.entities.AddonOption.filter(filter),
-      fetch('https://open.er-api.com/v6/latest/JPY').then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch('https://v6.exchangerate-api.com/v6/89e2f91c758d92aa2c06667b/latest/JPY').then(r => r.ok ? r.json() : null).catch(() => null),
     ]);
     console.log(`[TIMING] getAdminSettingsPageData | 2x entity queries + rates (parallel): ${Date.now()-t3}ms`);
     console.log(`[TIMING] getAdminSettingsPageData | TOTAL: ${Date.now()-t0}ms`);
 
     let rates = null;
-    if (ratesRes?.rates) {
+    if (ratesRes?.result === 'success' && ratesRes?.conversion_rates) {
       rates = {
-        jpy_usd: ratesRes.rates['USD'] || null,
-        jpy_cny: ratesRes.rates['CNY'] || null,
+        jpy_usd: ratesRes.conversion_rates['USD'] || null,
+        jpy_cny: ratesRes.conversion_rates['CNY'] || null,
       };
     }
 
