@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { timePage } from "@/lib/timing";
 import { base44 } from "@/api/base44Client";
 import { tenantEntity } from "@/lib/tenantApi";
+import { setTenantConfigCache } from "@/lib/configCache";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Settings, Save, Plus, Trash2, Star, Lock, Eye, EyeOff, Truck, Palette, TrendingUp, Zap, Building2, Users, CheckCircle2 } from "lucide-react";
 import ThemeSelector from "@/components/common/ThemeSelector";
