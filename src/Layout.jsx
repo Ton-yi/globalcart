@@ -20,28 +20,28 @@ export default function Layout({ children, currentPageName }) {
   const [announcements, setAnnouncements] = useState([]);
   const location = useLocation();
 
+  // Pages that load their own config via a page-level API (e.g. getAdminSettingsPageData).
+  // Layout must not trigger fetchTenantConfig for these — they populate the cache themselves.
+  const SELF_CONFIG_PAGES = new Set(["AdminSettings"]);
+
   useEffect(() => {
     if (!user) return;
-    // Check if page-level data already populated the cache (e.g. getAdminSettingsPageData)
-    // If so, use it immediately without a network call.
+
+    // If cache is already warm (populated by a page-level fetch), use it immediately.
     const cached = getTenantConfigCache();
     if (cached) {
       setAnnouncements(cached.announcements || []);
       return;
     }
-    // Defer slightly so concurrent page-level fetches have a chance to populate the cache first
-    const timer = setTimeout(() => {
-      const cached2 = getTenantConfigCache();
-      if (cached2) {
-        setAnnouncements(cached2.announcements || []);
-        return;
-      }
-      fetchTenantConfig()
-        .then(cfg => setAnnouncements(cfg.announcements || []))
-        .catch(() => {});
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [user?.email]);
+
+    // Skip fetching entirely for pages that self-supply config —
+    // they will populate the cache, and announcements will update on next navigation.
+    if (SELF_CONFIG_PAGES.has(currentPageName)) return;
+
+    fetchTenantConfig()
+      .then(cfg => setAnnouncements(cfg.announcements || []))
+      .catch(() => {});
+  }, [user?.email, currentPageName]);
 
   const isAdmin = user?.role === "admin";
 
