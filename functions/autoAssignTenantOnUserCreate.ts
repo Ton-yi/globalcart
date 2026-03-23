@@ -19,59 +19,72 @@ Deno.serve(async (req) => {
 
     const { event, data } = body;
 
-    // Only act on create events
-    if (event?.type !== 'create') {
-      return Response.json({ skipped: true, reason: 'not a create event' });
+    // Determine which users to process:
+    // - Entity automation (event.type === 'create'): process single new user from payload
+    // - Scheduled run (no event): scan all users missing tenant_id
+    let usersToProcess = [];
+
+    if (event?.type === 'create') {
+      const newUser = data;
+      if (!newUser?.id || !newUser?.email) {
+        return Response.json({ skipped: true, reason: 'missing user data' });
+      }
+      if (newUser.tenant_id) {
+        return Response.json({ skipped: true, reason: 'user already has tenant_id' });
+      }
+      usersToProcess = [newUser];
+    } else {
+      // Scheduled sweep: find all users without tenant_id
+      const allUsers = await base44.asServiceRole.entities.User.list();
+      usersToProcess = (allUsers || []).filter(u => !u.tenant_id);
+      if (usersToProcess.length === 0) {
+        return Response.json({ skipped: true, reason: 'all users have tenant_id' });
+      }
+      console.log(`autoAssignTenant: scheduled sweep found ${usersToProcess.length} unassigned user(s)`);
     }
 
-    const newUser = data;
-    if (!newUser?.id || !newUser?.email) {
-      console.warn('autoAssignTenant: missing user data in payload');
-      return Response.json({ skipped: true, reason: 'missing user data' });
-    }
-
-    // Already has a tenant — nothing to do
-    if (newUser.tenant_id) {
-      return Response.json({ skipped: true, reason: 'user already has tenant_id' });
-    }
-
-    // Fetch active tenants
+    // Fetch active tenants and admins once for all users
     const tenants = await base44.asServiceRole.entities.Tenant.filter({ is_active: true });
     if (!tenants || tenants.length === 0) {
-      console.warn(`autoAssignTenant: no active tenants found, cannot assign for user ${newUser.email}`);
+      console.warn('autoAssignTenant: no active tenants found, cannot auto-assign');
       return Response.json({ skipped: true, reason: 'no active tenants' });
     }
 
-    // Strategy 1: Only one tenant exists — assign automatically
-    if (tenants.length === 1) {
-      await base44.asServiceRole.entities.User.update(newUser.id, { tenant_id: tenants[0].id });
-      console.log(`autoAssignTenant: assigned single tenant ${tenants[0].code} to new user ${newUser.email}`);
-      return Response.json({ assigned: true, tenant_id: tenants[0].id, reason: 'single_tenant' });
-    }
-
-    // Strategy 2: Multiple tenants — try to find the inviting admin's tenant.
-    // Look for the most recently active admin/tenant_admin who is not this user.
-    // This is a best-effort heuristic; manual assignment via adminAssignTenant is the fallback.
     const admins = await base44.asServiceRole.entities.User.filter({ role: 'admin' });
     const tenantAdmins = await base44.asServiceRole.entities.User.filter({ role: 'tenant_admin' });
-    const allAdmins = [...(admins || []), ...(tenantAdmins || [])].filter(
-      a => a.tenant_id && a.email !== newUser.email
-    );
+    const assignedAdmins = [...(admins || []), ...(tenantAdmins || [])].filter(a => a.tenant_id);
 
-    if (allAdmins.length === 1) {
-      // Only one admin with a tenant — safe to assign their tenant
-      await base44.asServiceRole.entities.User.update(newUser.id, { tenant_id: allAdmins[0].tenant_id });
-      console.log(`autoAssignTenant: assigned tenant ${allAdmins[0].tenant_id} from sole admin to ${newUser.email}`);
-      return Response.json({ assigned: true, tenant_id: allAdmins[0].tenant_id, reason: 'sole_admin_tenant' });
+    const results = [];
+
+    for (const targetUser of usersToProcess) {
+      const otherAdmins = assignedAdmins.filter(a => a.email !== targetUser.email);
+
+      // Strategy 1: Only one active tenant — assign automatically
+      if (tenants.length === 1) {
+        await base44.asServiceRole.entities.User.update(targetUser.id, { tenant_id: tenants[0].id });
+        console.log(`autoAssignTenant: assigned single tenant ${tenants[0].code} to ${targetUser.email}`);
+        results.push({ email: targetUser.email, tenant_id: tenants[0].id, reason: 'single_tenant' });
+        continue;
+      }
+
+      // Strategy 2: Exactly one admin with a tenant — safe to assign their tenant
+      if (otherAdmins.length === 1) {
+        await base44.asServiceRole.entities.User.update(targetUser.id, { tenant_id: otherAdmins[0].tenant_id });
+        console.log(`autoAssignTenant: assigned tenant ${otherAdmins[0].tenant_id} (from sole admin) to ${targetUser.email}`);
+        results.push({ email: targetUser.email, tenant_id: otherAdmins[0].tenant_id, reason: 'sole_admin_tenant' });
+        continue;
+      }
+
+      // Ambiguous — cannot safely infer, requires manual resolution
+      console.warn(
+        `autoAssignTenant: cannot auto-assign ${targetUser.email} — ` +
+        `${tenants.length} active tenants, ${otherAdmins.length} admins with tenants. ` +
+        `Resolve via Admin → Users → Tenant Assignment Diagnostics.`
+      );
+      results.push({ email: targetUser.email, reason: 'ambiguous_tenant', skipped: true });
     }
 
-    // Multiple tenants, multiple admins — cannot safely infer, log for manual resolution
-    console.warn(
-      `autoAssignTenant: new user ${newUser.email} has no tenant_id and could not be auto-assigned ` +
-      `(${tenants.length} tenants, ${allAdmins.length} admins). ` +
-      `Use AdminUsers → Tenant Assignment Diagnostics to assign manually.`
-    );
-    return Response.json({ skipped: true, reason: 'ambiguous_tenant', user_email: newUser.email });
+    return Response.json({ processed: results.length, results });
 
   } catch (error) {
     console.error('autoAssignTenantOnUserCreate error:', error);
