@@ -221,9 +221,9 @@ function MethodCard({ method, onSave, onDelete }) {
   );
 }
 
-export default function TransitShippingMethodManager() {
-  const [methods, setMethods] = useState([]);
-  const [loading, setLoading] = useState(true);
+export default function TransitShippingMethodManager({ initialData = null }) {
+  const [methods, setMethods] = useState(initialData || []);
+  const [loading, setLoading] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
 
   const load = async () => {
@@ -233,7 +233,9 @@ export default function TransitShippingMethodManager() {
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    if (initialData === null) load();
+  }, []);
 
   const handleSave = async (updated) => {
     await tenantEntity.update('TransitShippingMethod', updated.id, updated);
