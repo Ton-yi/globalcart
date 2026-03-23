@@ -5,6 +5,7 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { fetchShippingPools, tenantEntity, fetchTenantConfig } from "@/lib/tenantApi";
+import { timePage } from "@/lib/timing";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Plus, RefreshCw, Truck, MapPin, Edit2, Trash2, Check, X as XIcon } from "lucide-react";
 import { getCountry } from "@/lib/countries";
@@ -66,16 +67,17 @@ export default function AdminShippingPool() {
 
   useEffect(() => {
     if (!user) return;
-    // Fetch all initial data in parallel, using cached config
+    const t = timePage('AdminShippingPool');
     Promise.all([
-      fetchPools(),
-      fetchLocations(),
-      base44.functions.invoke('listNonAdminUsers', {}).then(r => r.data?.users || []).catch(() => []),
-      fetchTenantConfig(),
+      t.timeCall('getTenantShippingPools', () => fetchPools()),
+      t.timeCall('mutateTenantEntity TransitLocation list', () => fetchLocations()),
+      t.timeCall('listNonAdminUsers', () => base44.functions.invoke('listNonAdminUsers', {}).then(r => r.data?.users || []).catch(() => [])),
+      t.timeCall('fetchTenantConfig (cache)', () => fetchTenantConfig()),
     ]).then(([, , users, config]) => {
       setAllUsers(users);
       setTransitMethods(config.transitMethods || []);
       setAddonOptions((config.addons || []).filter(a => a.addon_type === 'shipping' && a.is_active !== false));
+      t.done('data ready');
     });
   }, [user]);
 
