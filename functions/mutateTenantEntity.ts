@@ -1,5 +1,17 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
 
+function extractEmailFromJwt(req) {
+  try {
+    const auth = req.headers.get('authorization') || '';
+    const token = auth.replace(/^Bearer\s+/i, '');
+    if (!token) return null;
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload?.email || payload?.sub || null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Generic tenant-safe CRUD for frequently mutated config entities.
  */
