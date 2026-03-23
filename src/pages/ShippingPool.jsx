@@ -5,6 +5,7 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { fetchShippingPools, tenantEntity, fetchTenantConfig } from "@/lib/tenantApi";
+import { timePage } from "@/lib/timing";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Plus, RefreshCw, Truck, X, Package, MapPin, ChevronRight, ChevronLeft, Check, Scale, Calendar, Info, Layers, Lock, Users, Search } from "lucide-react";
 import { getCountry } from "@/lib/countries";
@@ -87,9 +88,10 @@ export default function ShippingPool() {
 
   const fetchData = async (_u) => {
     setLoading(true);
+    const t = timePage('ShippingPool');
     const [allPools, myOrders] = await Promise.all([
-      fetchShippingPools(),
-      base44.functions.invoke('getTenantOrders', {}).then(r => r.data?.orders || []),
+      t.timeCall('getTenantShippingPools', () => fetchShippingPools()),
+      t.timeCall('getTenantOrders', () => base44.functions.invoke('getTenantOrders', {}).then(r => r.data?.orders || [])),
     ]);
     setPools(allPools);
 
@@ -97,6 +99,7 @@ export default function ShippingPool() {
     const consOrderIds = new Set(consPools.flatMap(p => p.order_ids || []));
     setConsolidationOrders(myOrders.filter(o => o.order_status === "notified_shipment" && consOrderIds.has(o.id)));
     setLoading(false);
+    t.done('data ready');
   };
 
   useEffect(() => {
