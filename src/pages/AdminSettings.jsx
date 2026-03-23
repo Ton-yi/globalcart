@@ -52,11 +52,11 @@ const TABS = [
 ];
 
 export default function AdminSettings() {
+  const { user } = useCurrentUser();
   const [activeTab, setActiveTab] = useState("general");
   const [settings, setSettings] = useState([]);
   const [addons, setAddons] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState(null);
   const [showPayment, setShowPayment] = useState(false);
   const [liveRates, setLiveRates] = useState(null);
   const [newAddon, setNewAddon] = useState({ name: "", description: "", fee: "", fee_currency: "JPY", addon_type: "order" });
