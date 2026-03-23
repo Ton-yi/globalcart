@@ -68,6 +68,11 @@ export default function AdminSettings() {
   const [newCat, setNewCat] = useState("general");
 
   // Tenant management state
+  const [shippingMethods, setShippingMethods] = useState(null);
+  const [transitMethods, setTransitMethods] = useState(null);
+  const [itemSizeTemplates, setItemSizeTemplates] = useState(null);
+  const [storeTagRules, setStoreTagRules] = useState(null);
+
   const [tenants, setTenants] = useState([]);
   const [tenantsLoading, setTenantsLoading] = useState(false);
   const [newTenant, setNewTenant] = useState({ name: "", code: "", branding_name: "", timezone: "Asia/Tokyo" });
