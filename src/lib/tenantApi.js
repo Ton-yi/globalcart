@@ -4,6 +4,7 @@
  * Never trust tenant_id from client — backend functions derive it from session.
  */
 import { base44 } from '@/api/base44Client';
+import { getTenantConfigCache, setTenantConfigCache } from '@/lib/configCache';
 
 // ─── Orders ──────────────────────────────────────────────────────────────────
 
