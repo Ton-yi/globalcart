@@ -55,12 +55,16 @@ Deno.serve(async (req) => {
     const filter = isPlatformAdmin && !tenantId ? {} : { tenant_id: tenantId };
 
     const t3 = Date.now();
-    const [settings, addons, ratesRes] = await Promise.all([
+    const [settings, addons, shippingMethods, transitMethods, itemSizeTemplates, storeTagRules, ratesRes] = await Promise.all([
       base44.asServiceRole.entities.SiteSettings.filter(filter),
       base44.asServiceRole.entities.AddonOption.filter(filter),
+      base44.asServiceRole.entities.ShippingMethod.filter(filter),
+      base44.asServiceRole.entities.TransitShippingMethod.filter(filter),
+      base44.asServiceRole.entities.ItemSizeTemplate.filter(filter),
+      base44.asServiceRole.entities.OnlineStoreTagRule.filter(filter),
       fetch('https://v6.exchangerate-api.com/v6/89e2f91c758d92aa2c06667b/latest/JPY').then(r => r.ok ? r.json() : null).catch(() => null),
     ]);
-    console.log(`[TIMING] getAdminSettingsPageData | 2x entity queries + rates (parallel): ${Date.now()-t3}ms`);
+    console.log(`[TIMING] getAdminSettingsPageData | 6x entity queries + rates (parallel): ${Date.now()-t3}ms`);
     console.log(`[TIMING] getAdminSettingsPageData | TOTAL: ${Date.now()-t0}ms`);
 
     let rates = null;
@@ -74,6 +78,10 @@ Deno.serve(async (req) => {
     return Response.json({
       settings: settings || [],
       addons: addons || [],
+      shippingMethods: shippingMethods || [],
+      transitMethods: transitMethods || [],
+      itemSizeTemplates: itemSizeTemplates || [],
+      storeTagRules: storeTagRules || [],
       rates,
     });
 
