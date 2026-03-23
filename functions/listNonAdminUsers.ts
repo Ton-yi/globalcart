@@ -1,24 +1,40 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
 
+function extractEmailFromJwt(req) {
+  try {
+    const auth = req.headers.get('authorization') || '';
+    const token = auth.replace(/^Bearer\s+/i, '');
+    if (!token) return null;
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload?.email || payload?.sub || null;
+  } catch {
+    return null;
+  }
+}
+
 Deno.serve(async (req) => {
   const t0 = Date.now();
   try {
     const base44 = createClientFromRequest(req);
 
-    const t1 = Date.now();
-    const user = await base44.auth.me();
-    console.log(`[TIMING] listNonAdminUsers | auth.me: ${Date.now()-t1}ms`);
+    const emailHint = extractEmailFromJwt(req);
+    const [user, earlyUserRecords] = await Promise.all([
+      base44.auth.me(),
+      emailHint
+        ? base44.asServiceRole.entities.User.filter({ email: emailHint })
+        : Promise.resolve(null),
+    ]);
+    console.log(`[TIMING] listNonAdminUsers | auth.me + User.filter (parallel): ${Date.now()-t0}ms`);
+
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const t2 = Date.now();
-    const userRecord = await base44.asServiceRole.entities.User.filter({ email: user.email });
-    console.log(`[TIMING] listNonAdminUsers | User.filter (tenant lookup): ${Date.now()-t2}ms`);
+    const userRecords = earlyUserRecords ?? await base44.asServiceRole.entities.User.filter({ email: user.email });
 
-    if (!userRecord || userRecord.length === 0) {
+    if (!userRecords || userRecords.length === 0) {
       return Response.json({ error: 'User record not found' }, { status: 404 });
     }
 
-    const tenantId = userRecord[0].tenant_id;
+    const tenantId = userRecords[0].tenant_id;
     const isPlatformAdmin = user.role === 'platform_admin';
     const isTenantAdmin = user.role === 'admin' || user.role === 'tenant_admin';
     const isStaff = user.role === 'staff';
@@ -36,7 +52,10 @@ Deno.serve(async (req) => {
 
     const nonAdmins = (allUsers || [])
       .filter(u => u.email !== user.email)
-      .map(u => ({ id: u.id, email: u.email, full_name: u.full_name || '', role: u.role || 'user', tenant_id: u.tenant_id || null, created_date: u.created_date }));
+      .map(u => ({
+        id: u.id, email: u.email, full_name: u.full_name || '',
+        role: u.role || 'user', tenant_id: u.tenant_id || null, created_date: u.created_date
+      }));
 
     return Response.json({ users: nonAdmins });
   } catch (error) {
