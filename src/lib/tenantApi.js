@@ -38,9 +38,15 @@ export async function fetchShippingPools() {
 
 // ─── Config Data (templates, rules, methods, locations, addons) ───────────────
 
-export async function fetchTenantConfig() {
+export async function fetchTenantConfig({ force = false } = {}) {
+  if (!force) {
+    const cached = getTenantConfigCache();
+    if (cached) return cached;
+  }
   const res = await base44.functions.invoke('getTenantConfigData', {});
-  return res.data || {};
+  const data = res.data || {};
+  setTenantConfigCache(data);
+  return data;
 }
 
 // ─── Settings ─────────────────────────────────────────────────────────────────
