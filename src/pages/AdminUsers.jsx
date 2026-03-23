@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { timePage } from "@/lib/timing";
 import { base44 } from "@/api/base44Client";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Search, UserPlus, Shield, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
@@ -28,18 +29,19 @@ export default function AdminUsers() {
   const [tenantMap, setTenantMap] = useState({}); // id -> tenant
 
   useEffect(() => {
-    // All initial data in parallel
+    const t = timePage('AdminUsers');
     Promise.all([
-      base44.functions.invoke('manageTenants', { action: 'list' }).then(r => r.data?.tenants || []).catch(() => []),
-      base44.functions.invoke('listNonAdminUsers', {}).then(r => r.data?.users || []).catch(() => []),
-      base44.functions.invoke('getTenantOrders', { all: true }).then(r => r.data?.orders || []).catch(() => []),
+      t.timeCall('manageTenants list', () => base44.functions.invoke('manageTenants', { action: 'list' }).then(r => r.data?.tenants || []).catch(() => [])),
+      t.timeCall('listNonAdminUsers', () => base44.functions.invoke('listNonAdminUsers', {}).then(r => r.data?.users || []).catch(() => [])),
+      t.timeCall('getTenantOrders {all:true}', () => base44.functions.invoke('getTenantOrders', { all: true }).then(r => r.data?.orders || []).catch(() => [])),
     ]).then(([tenants, u, o]) => {
       const map = {};
-      tenants.forEach(t => { map[t.id] = t; });
+      tenants.forEach(tn => { map[tn.id] = tn; });
       setTenantMap(map);
       setUsers(u);
       setOrders(o);
       setLoading(false);
+      t.done('data ready');
     });
   }, []);
 
