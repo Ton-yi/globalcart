@@ -158,27 +158,17 @@ export default function MyOrders() {
     if (!u) return;
     setLoading(true);
     const t = timePage('MyOrders');
-    const [data, pools] = await Promise.all([
-      t.timeCall('getTenantOrders', () => base44.functions.invoke('getTenantOrders', {}).then(r => r.data?.orders || [])),
-      t.timeCall('getTenantShippingPools', () => fetchShippingPools().catch(() => [])),
-    ]);
-    setOrders(data);
-    setShippingPools(pools);
+    const r = await t.timeCall('getMyOrdersPageData', () => base44.functions.invoke('getMyOrdersPageData', {}));
+    const data = r.data || {};
+    setOrders(data.orders || []);
+    setShippingPools(data.pools || []);
+    setStoreTagRules(data.storeTagRules || []);
     setLoading(false);
-    t.done(`${data.length} orders`);
+    t.done(`${(data.orders || []).length} orders`);
   };
 
   useEffect(() => {
-    if (user) {
-      const t2 = timePage('MyOrders (init)');
-      Promise.all([
-        fetchOrders(user),
-        t2.timeCall('getOnlineStoreRules (config cache)', () => getOnlineStoreRules().catch(() => [])),
-      ]).then(([, rules]) => {
-        if (rules) setStoreTagRules(rules);
-        t2.done('all init done');
-      });
-    }
+    if (user) fetchOrders(user);
   }, [user]);
 
   const handleColumnsChange = (newCols) => {
