@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 
 export default function UserPreferences() {
-  const [user, setUser] = useState(null);
+  const { user } = useCurrentUser();
   const [pref, setPref] = useState(null);
   const [displayName, setDisplayName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
@@ -40,14 +40,13 @@ export default function UserPreferences() {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    base44.auth.me().then(async u => {
-      setUser(u);
-      setDisplayName(u.display_name || u.full_name || "");
-      setAvatarUrl(u.avatar_url || "");
-      const [prefs, tMethods] = await Promise.all([
-        userPrefApi.list({ user_email: u.email }),
-        tenantEntity.list('TransitShippingMethod', { is_active: true }),
-      ]);
+    if (!user) return;
+    setDisplayName(user.display_name || user.full_name || "");
+    setAvatarUrl(user.avatar_url || "");
+    Promise.all([
+      userPrefApi.list({ user_email: user.email }),
+      tenantEntity.list('TransitShippingMethod', { is_active: true }),
+    ]).then(([prefs, tMethods]) => {
       if (prefs.length > 0) {
         const p = prefs[0];
         setPref(p);
@@ -65,8 +64,8 @@ export default function UserPreferences() {
         setAddresses(addrs);
       }
       setTransitMethods(tMethods || []);
-    }).catch(() => base44.auth.redirectToLogin());
-  }, []);
+    }).catch(() => {});
+  }, [user?.email]);
 
   const handleAvatarUpload = async (e) => {
     const file = e.target.files[0];
