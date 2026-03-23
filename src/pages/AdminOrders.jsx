@@ -172,17 +172,16 @@ export default function AdminOrders() {
   const [sortDir, setSortDir] = useState("asc");
   const [storeTagRules, setStoreTagRules] = useState([]);
 
+  const [itemSizeTemplates, setItemSizeTemplates] = useState([]);
+
   const fetchOrders = useCallback(async () => {
     setLoading(true);
-    const t = timePage('AdminOrders');
-    const [data, rules] = await Promise.all([
-      t.timeCall('getTenantOrders {all:true}', () => base44.functions.invoke('getTenantOrders', { all: true }).then(r => r.data?.orders || [])),
-      t.timeCall('getOnlineStoreRules (config cache)', () => getOnlineStoreRules()),
-    ]);
+    const r = await base44.functions.invoke('getAdminOrdersPageData', {});
+    const { orders: data = [], storeTagRules: rules = [], itemSizeTemplates: templates = [] } = r.data || {};
     setOrders(data);
     setStoreTagRules(rules);
+    setItemSizeTemplates(templates);
     setLoading(false);
-    t.done(`${data.length} orders`);
   }, []);
 
   useEffect(() => { fetchOrders(); }, [fetchOrders]);
