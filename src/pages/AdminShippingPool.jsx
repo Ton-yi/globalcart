@@ -34,7 +34,7 @@ const TABS = [
 ];
 
 export default function AdminShippingPool() {
-  const [user, setUser] = useState(null);
+  const { user } = useCurrentUser();
   const [activeTab, setActiveTab] = useState("pools");
   const [pools, setPools] = useState([]);
   const [locations, setLocations] = useState([]);
