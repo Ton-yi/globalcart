@@ -8,9 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
-export default function OnlineStoreTagManager() {
-  const [rules, setRules] = useState([]);
-  const [loading, setLoading] = useState(true);
+export default function OnlineStoreTagManager({ initialData = null }) {
+  const [rules, setRules] = useState(initialData ? [...initialData].sort((a, b) => (b.priority || 0) - (a.priority || 0)) : []);
+  const [loading, setLoading] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({});
   const [newRule, setNewRule] = useState({ keyword: "", tag_label: "", tag_color: "bg-gray-100 text-gray-700", priority: 0 });
