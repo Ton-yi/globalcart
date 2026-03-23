@@ -2,9 +2,11 @@ import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
+import { useAuth } from "@/lib/AuthContext";
+import { fetchTenantConfig } from "@/lib/tenantApi";
 import { 
   ShoppingBag, Package, Truck, User, Settings, 
-  Bell, LogOut, Menu, X, ChevronDown, Shield,
+  Bell, LogOut, Menu, X, Shield,
   Home, Users, BarChart3, Store, Send
 } from "lucide-react";
 import { MidnightToggle } from "@/components/common/ThemeSelector";
@@ -12,20 +14,18 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 export default function Layout({ children, currentPageName }) {
-  const [user, setUser] = useState(null);
+  const { user } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [announcements, setAnnouncements] = useState([]);
   const location = useLocation();
 
   useEffect(() => {
-    base44.auth.me().then(u => {
-      setUser(u);
-      // Load tenant-scoped active announcements via secure backend
-      base44.functions.invoke('getTenantConfigData', {})
-        .then(r => setAnnouncements(r.data?.announcements || []))
-        .catch(() => {});
-    }).catch(() => {});
-  }, []);
+    if (!user) return;
+    // fetchTenantConfig is cached — if a page already fetched it, this is instant
+    fetchTenantConfig()
+      .then(cfg => setAnnouncements(cfg.announcements || []))
+      .catch(() => {});
+  }, [user?.email]);
 
   const isAdmin = user?.role === "admin";
 
