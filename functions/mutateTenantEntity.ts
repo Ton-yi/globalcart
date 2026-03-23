@@ -37,12 +37,18 @@ Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
 
-    const t1 = Date.now();
-    const user = await base44.auth.me();
-    console.log(`[TIMING] mutateTenantEntity | auth.me: ${Date.now()-t1}ms`);
+    const emailHint = extractEmailFromJwt(req);
+    const [user, earlyUserRecords, body] = await Promise.all([
+      base44.auth.me(),
+      emailHint
+        ? base44.asServiceRole.entities.User.filter({ email: emailHint })
+        : Promise.resolve(null),
+      req.json(),
+    ]);
+    console.log(`[TIMING] mutateTenantEntity | auth.me + User.filter + body (parallel): ${Date.now()-t0}ms`);
+
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const body = await req.json();
     const { entity, action, id, data = {}, filter = {} } = body;
 
     if (!ALLOWED_ENTITIES.includes(entity)) {
@@ -52,9 +58,8 @@ Deno.serve(async (req) => {
       return Response.json({ error: `Action "${action}" not allowed` }, { status: 400 });
     }
 
-    const t2 = Date.now();
-    const userRecords = await base44.asServiceRole.entities.User.filter({ email: user.email });
-    console.log(`[TIMING] mutateTenantEntity | User.filter (tenant lookup): ${Date.now()-t2}ms | entity: ${entity} action: ${action}`);
+    const userRecords = earlyUserRecords ?? await base44.asServiceRole.entities.User.filter({ email: user.email });
+    console.log(`[TIMING] mutateTenantEntity | user context ready | entity: ${entity} action: ${action}`);
     const userRecord = userRecords?.[0];
     if (!userRecord) return Response.json({ error: 'User record not found' }, { status: 404 });
 
