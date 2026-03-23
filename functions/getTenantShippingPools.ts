@@ -1,33 +1,46 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
 
+function extractEmailFromJwt(req) {
+  try {
+    const auth = req.headers.get('authorization') || '';
+    const token = auth.replace(/^Bearer\s+/i, '');
+    if (!token) return null;
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload?.email || payload?.sub || null;
+  } catch {
+    return null;
+  }
+}
+
 /**
- * Fetch shipping pools for the current tenant with proper isolation
- * Users see only their own and shared pools; staff/admin see all in tenant
- * Platform admins can see all pools
+ * Fetch shipping pools for the current tenant with proper isolation.
+ * Users see only their own and shared pools; staff/admin see all in tenant.
+ * Platform admins can see all pools.
  */
 Deno.serve(async (req) => {
   const t0 = Date.now();
   try {
     const base44 = createClientFromRequest(req);
 
-    const t1 = Date.now();
-    const user = await base44.auth.me();
-    console.log(`[TIMING] getTenantShippingPools | auth.me: ${Date.now()-t1}ms`);
-    
-    if (!user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const emailHint = extractEmailFromJwt(req);
+    const [user, earlyUserRecords] = await Promise.all([
+      base44.auth.me(),
+      emailHint
+        ? base44.asServiceRole.entities.User.filter({ email: emailHint })
+        : Promise.resolve(null),
+    ]);
+    console.log(`[TIMING] getTenantShippingPools | auth.me + User.filter (parallel): ${Date.now()-t0}ms`);
 
-    const t2 = Date.now();
-    const userRecord = await base44.asServiceRole.entities.User.filter({ email: user.email });
-    console.log(`[TIMING] getTenantShippingPools | User.filter (tenant lookup): ${Date.now()-t2}ms`);
+    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    if (!userRecord || userRecord.length === 0) {
+    const userRecords = earlyUserRecords ?? await base44.asServiceRole.entities.User.filter({ email: user.email });
+
+    if (!userRecords || userRecords.length === 0) {
       return Response.json({ error: 'User record not found' }, { status: 404 });
     }
 
-    const tenantId = userRecord[0].tenant_id;
-    
+    const tenantId = userRecords[0].tenant_id;
+
     const t3 = Date.now();
     if (user.role === 'platform_admin') {
       const allPools = await base44.asServiceRole.entities.ShippingPool.list();
