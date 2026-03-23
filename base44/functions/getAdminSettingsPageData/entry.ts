@@ -12,9 +12,36 @@ function extractEmailFromJwt(req) {
   }
 }
 
+// Module-level exchange rate cache (5-minute TTL)
+// Avoids gating every page load on an external HTTP call
+let _ratesCache = null;
+let _ratesCacheTs = 0;
+const RATES_TTL_MS = 5 * 60 * 1000;
+
+async function fetchRatesCached() {
+  const now = Date.now();
+  if (_ratesCache && now - _ratesCacheTs < RATES_TTL_MS) {
+    return _ratesCache;
+  }
+  try {
+    const res = await fetch('https://v6.exchangerate-api.com/v6/89e2f91c758d92aa2c06667b/latest/JPY');
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data?.result === 'success' && data?.conversion_rates) {
+      _ratesCache = { jpy_usd: data.conversion_rates['USD'] || null, jpy_cny: data.conversion_rates['CNY'] || null };
+      _ratesCacheTs = now;
+      return _ratesCache;
+    }
+  } catch {
+    // ignore — rates are non-critical
+  }
+  return _ratesCache; // return stale cache on failure rather than null
+}
+
 /**
  * Aggregated page-load API for AdminSettings.
- * Returns: settings (raw array), addons, and live exchange rates.
+ * Returns: settings, addons, all config entity types, and live exchange rates (cached 5min).
+ * Announcements are also included so Layout can populate its cache without a separate getTenantConfigData call.
  * Enforces tenant isolation — tenant_id derived from session, never from client.
  * Only admin/tenant_admin/platform_admin may call this.
  */
@@ -30,7 +57,7 @@ Deno.serve(async (req) => {
         ? base44.asServiceRole.entities.User.filter({ email: emailHint })
         : Promise.resolve(null),
     ]);
-    console.log(`[TIMING] getAdminSettingsPageData | auth.me + User.filter (parallel): ${Date.now()-t0}ms`);
+    console.log(`[TIMING] getAdminSettingsPageData | auth.me + User.filter: ${Date.now()-t0}ms`);
 
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
@@ -49,31 +76,29 @@ Deno.serve(async (req) => {
 
     if (!tenantId && !isPlatformAdmin) {
       console.log(`[TIMING] getAdminSettingsPageData | TOTAL: ${Date.now()-t0}ms | no tenant`);
-      return Response.json({ settings: [], addons: [], rates: null });
+      return Response.json({ settings: [], addons: [], rates: null, announcements: [] });
     }
 
     const filter = isPlatformAdmin && !tenantId ? {} : { tenant_id: tenantId };
 
     const t3 = Date.now();
-    const [settings, addons, shippingMethods, transitMethods, itemSizeTemplates, storeTagRules, ratesRes] = await Promise.all([
+    // Kick off rates fetch immediately (non-blocking — uses cache when warm)
+    const ratesPromise = fetchRatesCached();
+
+    const [settings, addons, shippingMethods, transitMethods, itemSizeTemplates, storeTagRules, announcements] = await Promise.all([
       base44.asServiceRole.entities.SiteSettings.filter(filter),
       base44.asServiceRole.entities.AddonOption.filter(filter),
       base44.asServiceRole.entities.ShippingMethod.filter(filter),
       base44.asServiceRole.entities.TransitShippingMethod.filter(filter),
       base44.asServiceRole.entities.ItemSizeTemplate.filter(filter),
       base44.asServiceRole.entities.OnlineStoreTagRule.filter(filter),
-      fetch('https://v6.exchangerate-api.com/v6/89e2f91c758d92aa2c06667b/latest/JPY').then(r => r.ok ? r.json() : null).catch(() => null),
+      base44.asServiceRole.entities.Announcement.filter({ ...filter, is_active: true }),
     ]);
-    console.log(`[TIMING] getAdminSettingsPageData | 6x entity queries + rates (parallel): ${Date.now()-t3}ms`);
-    console.log(`[TIMING] getAdminSettingsPageData | TOTAL: ${Date.now()-t0}ms`);
+    console.log(`[TIMING] getAdminSettingsPageData | 7x entity queries: ${Date.now()-t3}ms`);
 
-    let rates = null;
-    if (ratesRes?.result === 'success' && ratesRes?.conversion_rates) {
-      rates = {
-        jpy_usd: ratesRes.conversion_rates['USD'] || null,
-        jpy_cny: ratesRes.conversion_rates['CNY'] || null,
-      };
-    }
+    // Rates resolve independently — if already cached this is instant
+    const rates = await ratesPromise;
+    console.log(`[TIMING] getAdminSettingsPageData | TOTAL: ${Date.now()-t0}ms`);
 
     return Response.json({
       settings: settings || [],
@@ -82,6 +107,7 @@ Deno.serve(async (req) => {
       transitMethods: transitMethods || [],
       itemSizeTemplates: itemSizeTemplates || [],
       storeTagRules: storeTagRules || [],
+      announcements: announcements || [],
       rates,
     });
 
