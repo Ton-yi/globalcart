@@ -239,7 +239,7 @@ export default function AdminSettings() {
       {activeTab === "shipping_methods" && (
         <Card className="border-gray-200">
           <CardContent className="pt-5">
-            <ShippingMethodManager />
+            <ShippingMethodManager initialData={shippingMethods} />
           </CardContent>
         </Card>
       )}
@@ -247,7 +247,7 @@ export default function AdminSettings() {
       {activeTab === "transit_methods" && (
         <Card className="border-gray-200">
           <CardContent className="pt-5">
-            <TransitShippingMethodManager />
+            <TransitShippingMethodManager initialData={transitMethods} />
           </CardContent>
         </Card>
       )}
@@ -255,7 +255,7 @@ export default function AdminSettings() {
       {activeTab === "item_sizes" && (
         <Card className="border-gray-200">
           <CardContent className="pt-5">
-            <ItemSizeTemplateManager />
+            <ItemSizeTemplateManager initialData={itemSizeTemplates} />
           </CardContent>
         </Card>
       )}
@@ -263,7 +263,7 @@ export default function AdminSettings() {
       {activeTab === "store_tags" && (
         <Card className="border-gray-200">
           <CardContent className="pt-5">
-            <OnlineStoreTagManager />
+            <OnlineStoreTagManager initialData={storeTagRules} />
           </CardContent>
         </Card>
       )}
