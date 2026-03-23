@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
-import { getRatesWithIncrements } from "@/lib/exchangeRates";
 import { detectPrimaryStoreTagResult } from "@/lib/onlineStoreTag";
 import { base44 } from "@/api/base44Client";
-import { fetchOrderCountForPrefix, fetchTenantConfig, fetchTenantSettings } from "@/lib/tenantApi";
+import { fetchOrderCountForPrefix } from "@/lib/tenantApi";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { timePage } from "@/lib/timing";
 import { useNavigate } from "react-router-dom";
