@@ -6,10 +6,9 @@
 
 export async function getOnlineStoreRules() {
   try {
-    const { base44 } = await import('@/api/base44Client');
-    // Use tenant-safe config endpoint
-    const res = await base44.functions.invoke('getTenantConfigData', {});
-    const rules = res.data?.storeTagRules || [];
+    const { fetchTenantConfig } = await import('@/lib/tenantApi');
+    const config = await fetchTenantConfig();
+    const rules = config?.storeTagRules || [];
     return rules
       .filter(r => r.is_active !== false)
       .sort((a, b) => (b.priority || 0) - (a.priority || 0));
