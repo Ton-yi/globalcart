@@ -167,12 +167,16 @@ export default function MyOrders() {
   };
 
   useEffect(() => {
-    base44.auth.me().then(u => {
-      setUser(u);
-      fetchOrders(u);
-    }).catch(() => base44.auth.redirectToLogin());
-    getOnlineStoreRules().then(setStoreTagRules).catch(() => {});
-  }, []);
+    if (user) {
+      // Fetch orders and store tag rules in parallel
+      Promise.all([
+        fetchOrders(user),
+        getOnlineStoreRules().catch(() => []),
+      ]).then(([, rules]) => {
+        if (rules) setStoreTagRules(rules);
+      });
+    }
+  }, [user]);
 
   const handleColumnsChange = (newCols) => {
     setColumns(newCols);
