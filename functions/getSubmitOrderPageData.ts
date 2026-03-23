@@ -21,20 +21,21 @@ const DEFAULT_RATES = {
 
 async function fetchLiveRates() {
   try {
+    // Base = JPY, so rates.USD = how many USD 1 JPY buys (~0.0067)
     const res = await fetch('https://open.er-api.com/v6/latest/JPY');
     if (!res.ok) return null;
     const data = await res.json();
     if (!data?.rates) return null;
     const r = data.rates;
     return {
-      jpy_usd: r.USD ? 1 / r.USD : null,
-      jpy_cny: r.CNY ? 1 / r.CNY : null,
-      jpy_eur: r.EUR ? 1 / r.EUR : null,
-      jpy_gbp: r.GBP ? 1 / r.GBP : null,
-      jpy_aud: r.AUD ? 1 / r.AUD : null,
-      jpy_sgd: r.SGD ? 1 / r.SGD : null,
-      jpy_hkd: r.HKD ? 1 / r.HKD : null,
-      jpy_twd: r.TWD ? 1 / r.TWD : null,
+      jpy_usd: r.USD || null,
+      jpy_cny: r.CNY || null,
+      jpy_eur: r.EUR || null,
+      jpy_gbp: r.GBP || null,
+      jpy_aud: r.AUD || null,
+      jpy_sgd: r.SGD || null,
+      jpy_hkd: r.HKD || null,
+      jpy_twd: r.TWD || null,
     };
   } catch {
     return null;
