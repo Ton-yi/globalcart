@@ -4,6 +4,7 @@ import { detectPrimaryStoreTagResult } from "@/lib/onlineStoreTag";
 import { base44 } from "@/api/base44Client";
 import { fetchOrderCountForPrefix, fetchTenantConfig, fetchTenantSettings } from "@/lib/tenantApi";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { timePage } from "@/lib/timing";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { ShoppingBag, Calculator, Info, Upload, Plus, X, ChevronsUpDown } from "lucide-react";
@@ -41,16 +42,18 @@ export default function SubmitOrder() {
   const [paymentMode, setPaymentMode] = useState("prepay"); // "prepay" | "deferred"
 
   useEffect(() => {
+    const t = timePage('SubmitOrder');
     Promise.all([
-      fetchTenantConfig(),
-      getRatesWithIncrements(),
-      fetchTenantSettings(),
+      t.timeCall('fetchTenantConfig (cache)', () => fetchTenantConfig()),
+      t.timeCall('getRatesWithIncrements', () => getRatesWithIncrements()),
+      t.timeCall('getTenantSettings', () => fetchTenantSettings()),
     ]).then(([config, ratesData, settingsMap]) => {
       setAddonOptions((config.addons || []).filter(a => a.addon_type === 'order' && a.is_active !== false));
       setRates(ratesData);
       const parsed = {};
       Object.entries(settingsMap).forEach(([k, v]) => { parsed[k] = parseFloat(v) || 0; });
       setSettings(parsed);
+      t.done('data ready');
     }).catch(() => {});
   }, []);
 
