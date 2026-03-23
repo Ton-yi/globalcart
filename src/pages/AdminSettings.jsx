@@ -78,31 +78,31 @@ export default function AdminSettings() {
   const load = async () => {
     const t = timePage('AdminSettings');
     try {
-      let [data, addonData] = await Promise.all([
-        t.timeCall('mutateTenantEntity SiteSettings list', () => tenantEntity.list('SiteSettings').catch(() => [])),
-        t.timeCall('mutateTenantEntity AddonOption list', () => tenantEntity.list('AddonOption').catch(() => [])),
-      ]);
-      if (data.length === 0) {
+      const r = await t.timeCall('getAdminSettingsPageData', () => base44.functions.invoke('getAdminSettingsPageData', {}));
+      const data = r.data || {};
+      let settingsData = data.settings || [];
+      if (settingsData.length === 0) {
         // Seed defaults; silently skip if user has no tenant yet
         try {
           await Promise.all(DEFAULT_SETTINGS.map(s => tenantEntity.create('SiteSettings', s)));
-          data = await tenantEntity.list('SiteSettings').catch(() => []);
+          const r2 = await base44.functions.invoke('getAdminSettingsPageData', {});
+          settingsData = r2.data?.settings || [];
         } catch (_) {
           // No tenant assigned yet — stay empty
         }
       }
-      setSettings(data);
-      setAddons(addonData);
+      setSettings(settingsData);
+      setAddons(data.addons || []);
+      if (data.rates) setLiveRates(data.rates);
       t.done('data ready');
     } catch (_) {
-      // Degraded mode: no tenant assigned yet, settings will be empty
+      // Degraded mode: no tenant assigned yet
     }
     setLoading(false);
   };
 
   useEffect(() => {
     load();
-    getExchangeRates().then(setLiveRates).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
