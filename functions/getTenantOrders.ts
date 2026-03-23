@@ -1,6 +1,23 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
 
 /**
+ * Extract email claim from a JWT Bearer token without verification.
+ * Used only to fire User.filter in parallel with auth.me().
+ * auth.me() is still the authoritative auth check.
+ */
+function extractEmailFromJwt(req) {
+  try {
+    const auth = req.headers.get('authorization') || '';
+    const token = auth.replace(/^Bearer\s+/i, '');
+    if (!token) return null;
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload?.email || payload?.sub || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Fetch orders for the current tenant with proper isolation.
  * Body/query: { all: bool } — admins/staff may request all tenant orders.
  * Users always see only their own. Platform admins see everything.
@@ -10,22 +27,27 @@ Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
 
-    const t1 = Date.now();
-    const user = await base44.auth.me();
-    console.log(`[TIMING] getTenantOrders | auth.me: ${Date.now()-t1}ms`);
+    // Fire auth.me() and User.filter() in parallel using JWT email claim
+    const emailHint = extractEmailFromJwt(req);
+    const [user, earlyUserRecords] = await Promise.all([
+      base44.auth.me(),
+      emailHint
+        ? base44.asServiceRole.entities.User.filter({ email: emailHint })
+        : Promise.resolve(null),
+    ]);
+    console.log(`[TIMING] getTenantOrders | auth.me + User.filter (parallel): ${Date.now()-t0}ms`);
 
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    let body = {};
-    try { body = await req.json(); } catch { /* GET with no body */ }
-
-    const t2 = Date.now();
-    const userRecords = await base44.asServiceRole.entities.User.filter({ email: user.email });
-    console.log(`[TIMING] getTenantOrders | User.filter (tenant lookup): ${Date.now()-t2}ms`);
+    // Use parallel result; fall back to sequential if email hint was unavailable
+    const userRecords = earlyUserRecords ?? await base44.asServiceRole.entities.User.filter({ email: user.email });
 
     if (!userRecords || userRecords.length === 0) {
       return Response.json({ error: 'User record not found' }, { status: 404 });
     }
+
+    let body = {};
+    try { body = await req.json(); } catch { /* GET with no body */ }
 
     const tenantId = userRecords[0].tenant_id;
     const isPlatformAdmin = user.role === 'platform_admin';
@@ -44,7 +66,7 @@ Deno.serve(async (req) => {
 
     if (!tenantId) {
       if (isTenantAdmin || isStaff) {
-        console.warn(`getTenantOrders: ${user.role} ${user.email} has no tenant_id — returning empty orders. Assign tenant via Admin → Users.`);
+        console.warn(`getTenantOrders: ${user.role} ${user.email} has no tenant_id — returning empty orders.`);
       }
       console.log(`[TIMING] getTenantOrders | TOTAL: ${Date.now()-t0}ms | no tenant`);
       return Response.json({ orders: [] });
