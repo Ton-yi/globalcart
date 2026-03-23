@@ -98,6 +98,10 @@ export default function AdminSettings() {
       }
       setSettings(settingsData);
       setAddons(data.addons || []);
+      setShippingMethods(data.shippingMethods || []);
+      setTransitMethods(data.transitMethods || []);
+      setItemSizeTemplates(data.itemSizeTemplates || []);
+      setStoreTagRules(data.storeTagRules || []);
       if (data.rates) setLiveRates(data.rates);
       t.done('data ready');
     } catch (_) {
