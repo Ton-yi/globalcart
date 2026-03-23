@@ -135,7 +135,7 @@ function CellValue({ col, order }) {
 }
 
 export default function MyOrders() {
-  const [user, setUser] = useState(null);
+  const { user } = useCurrentUser();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
