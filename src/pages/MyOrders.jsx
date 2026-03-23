@@ -4,7 +4,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { timePage } from "@/lib/timing";
 import { Package, RefreshCw, Search, CreditCard, Truck, CheckCircle, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import BulkPaymentModal from "@/components/orders/BulkPaymentModal";
-import { getOnlineStoreRules, matchStoreTagResult } from "@/lib/onlineStoreTag";
+import { matchStoreTagResult } from "@/lib/onlineStoreTag";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
