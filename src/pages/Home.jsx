@@ -4,6 +4,7 @@ import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { fetchAnnouncements } from "@/lib/tenantApi";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { timePage } from "@/lib/timing";
 import { ShoppingBag, Truck, Package, ArrowRight, Bell, CheckCircle, Clock, Globe } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,15 +37,15 @@ export default function Home() {
   const [announcements, setAnnouncements] = useState([]);
 
   useEffect(() => {
-    // Fetch orders and announcements in parallel — no serial auth.me() needed
+    const t = timePage('Home');
     Promise.all([
-      base44.functions.invoke('getTenantOrders', {})
-        .then(r => (r.data?.orders || []).slice(0, 5))
-        .catch(() => []),
-      fetchAnnouncements().catch(() => []),
+      t.timeCall('getTenantOrders', () => base44.functions.invoke('getTenantOrders', {})
+        .then(r => (r.data?.orders || []).slice(0, 5)).catch(() => [])),
+      t.timeCall('fetchAnnouncements (config cache)', () => fetchAnnouncements().catch(() => [])),
     ]).then(([orders, ann]) => {
       setRecentOrders(orders);
       setAnnouncements(ann);
+      t.done('data ready');
     });
   }, []);
 
