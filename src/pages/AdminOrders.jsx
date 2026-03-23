@@ -174,7 +174,7 @@ export default function AdminOrders() {
   const fetchOrders = useCallback(async () => {
     setLoading(true);
     const [data, rules] = await Promise.all([
-      base44.functions.invoke('getTenantOrders', {}).then(r => r.data?.orders || []),
+      base44.functions.invoke('getTenantOrders', { all: true }).then(r => r.data?.orders || []),
       getOnlineStoreRules(),
     ]);
     setOrders(data);

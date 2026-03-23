@@ -59,8 +59,8 @@ export async function fetchTenantSettings() {
 // ─── Announcements ────────────────────────────────────────────────────────────
 
 export async function fetchAnnouncements() {
-  const res = await base44.functions.invoke('getTenantConfigData', {});
-  return (res.data?.announcements || []).filter(a => a.is_active);
+  const config = await fetchTenantConfig();
+  return (config.announcements || []).filter(a => a.is_active);
 }
 
 // ─── Generic tenant-safe entity mutations ─────────────────────────────────────
