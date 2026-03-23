@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
+import { timePage } from "@/lib/timing";
 import { Package, Truck, Users, Bell, TrendingUp, AlertCircle, Clock } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,12 +12,14 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const t = timePage('AdminDashboard');
     Promise.all([
-      base44.functions.invoke('getTenantOrders', { all: true }).then(r => r.data?.orders || []),
-      base44.functions.invoke('listNonAdminUsers', {}).then(r => r.data?.users || []),
+      t.timeCall('getTenantOrders {all:true}', () => base44.functions.invoke('getTenantOrders', { all: true }).then(r => r.data?.orders || [])),
+      t.timeCall('listNonAdminUsers', () => base44.functions.invoke('listNonAdminUsers', {}).then(r => r.data?.users || [])),
     ]).then(([orders, users]) => {
       setStats({ orders, shipping: [], users });
       setLoading(false);
+      t.done('data ready');
     });
   }, []);
 
