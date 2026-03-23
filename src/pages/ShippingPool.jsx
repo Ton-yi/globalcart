@@ -48,7 +48,7 @@ const METHOD_LABELS = {
 };
 
 export default function ShippingPool() {
-  const [user, setUser] = useState(null);
+  const { user } = useCurrentUser();
   const [pools, setPools] = useState([]);
   const [consolidationOrders, setConsolidationOrders] = useState([]);
   const [loading, setLoading] = useState(true);
