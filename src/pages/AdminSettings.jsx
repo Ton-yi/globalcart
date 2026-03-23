@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { timePage } from "@/lib/timing";
 import { base44 } from "@/api/base44Client";
 import { tenantEntity } from "@/lib/tenantApi";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -76,10 +77,11 @@ export default function AdminSettings() {
   const [assigningAll, setAssigningAll] = useState(false);
 
   const load = async () => {
+    const t = timePage('AdminSettings');
     try {
       let [data, addonData] = await Promise.all([
-        tenantEntity.list('SiteSettings').catch(() => []),
-        tenantEntity.list('AddonOption').catch(() => []),
+        t.timeCall('mutateTenantEntity SiteSettings list', () => tenantEntity.list('SiteSettings').catch(() => [])),
+        t.timeCall('mutateTenantEntity AddonOption list', () => tenantEntity.list('AddonOption').catch(() => [])),
       ]);
       if (data.length === 0) {
         // Seed defaults; silently skip if user has no tenant yet
@@ -92,6 +94,7 @@ export default function AdminSettings() {
       }
       setSettings(data);
       setAddons(addonData);
+      t.done('data ready');
     } catch (_) {
       // Degraded mode: no tenant assigned yet, settings will be empty
     }
