@@ -9,7 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import AdminOrderEditModal from "@/components/admin/AdminOrderEditModal";
 import { getStatusLabel, getStatusColor } from "@/lib/orderStatus";
 import ColumnCustomizer from "@/components/orders/ColumnCustomizer";
-import { getOnlineStoreRules, matchStoreTagResult } from "@/lib/onlineStoreTag";
+import { matchStoreTagResult } from "@/lib/onlineStoreTag";
 
 const STORAGE_KEY = "admin_orders_columns";
 
