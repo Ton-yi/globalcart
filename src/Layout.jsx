@@ -22,10 +22,25 @@ export default function Layout({ children, currentPageName }) {
 
   useEffect(() => {
     if (!user) return;
-    // fetchTenantConfig is cached — if a page already fetched it, this is instant
-    fetchTenantConfig()
-      .then(cfg => setAnnouncements(cfg.announcements || []))
-      .catch(() => {});
+    // Check if page-level data already populated the cache (e.g. getAdminSettingsPageData)
+    // If so, use it immediately without a network call.
+    const cached = getTenantConfigCache();
+    if (cached) {
+      setAnnouncements(cached.announcements || []);
+      return;
+    }
+    // Defer slightly so concurrent page-level fetches have a chance to populate the cache first
+    const timer = setTimeout(() => {
+      const cached2 = getTenantConfigCache();
+      if (cached2) {
+        setAnnouncements(cached2.announcements || []);
+        return;
+      }
+      fetchTenantConfig()
+        .then(cfg => setAnnouncements(cfg.announcements || []))
+        .catch(() => {});
+    }, 300);
+    return () => clearTimeout(timer);
   }, [user?.email]);
 
   const isAdmin = user?.role === "admin";
