@@ -5,16 +5,22 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
  * Each tenant can have isolated configuration
  */
 Deno.serve(async (req) => {
+  const t0 = Date.now();
   try {
     const base44 = createClientFromRequest(req);
+
+    const t1 = Date.now();
     const user = await base44.auth.me();
+    console.log(`[TIMING] getTenantSettings | auth.me: ${Date.now()-t1}ms`);
     
     if (!user) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get user record to find tenant_id
+    const t2 = Date.now();
     const userRecord = await base44.asServiceRole.entities.User.filter({ email: user.email });
+    console.log(`[TIMING] getTenantSettings | User.filter (tenant lookup): ${Date.now()-t2}ms`);
+
     if (!userRecord || userRecord.length === 0) {
       return Response.json({ error: 'User record not found' }, { status: 404 });
     }
@@ -22,25 +28,26 @@ Deno.serve(async (req) => {
     const tenantId = userRecord[0].tenant_id;
     const isPlatformAdmin = user.role === 'platform_admin';
 
-    // Bootstrap mode: admin with no tenant yet — return empty gracefully
     if (!tenantId && !isPlatformAdmin) {
+      console.log(`[TIMING] getTenantSettings | TOTAL: ${Date.now()-t0}ms | no tenant`);
       return Response.json({ settings: {}, raw: [] });
     }
 
     let filter = {};
     if (isPlatformAdmin) {
-      // Platform admins can query any tenant (must specify tenant_id in query), or get all
       const query = new URL(req.url).searchParams;
       const queryTenantId = query.get('tenant_id');
       if (queryTenantId) filter.tenant_id = queryTenantId;
-      else if (tenantId) filter.tenant_id = tenantId; // scoped if they have a tenant
+      else if (tenantId) filter.tenant_id = tenantId;
     } else {
       filter.tenant_id = tenantId;
     }
 
+    const t3 = Date.now();
     const settings = await base44.asServiceRole.entities.SiteSettings.filter(filter);
+    console.log(`[TIMING] getTenantSettings | SiteSettings.filter: ${Date.now()-t3}ms | count: ${settings?.length}`);
+    console.log(`[TIMING] getTenantSettings | TOTAL: ${Date.now()-t0}ms`);
 
-    // Convert to key-value map for easier access
     const settingsMap = {};
     (settings || []).forEach(s => {
       settingsMap[s.key] = s.value;
@@ -52,6 +59,7 @@ Deno.serve(async (req) => {
     });
 
   } catch (error) {
+    console.error(`[TIMING] getTenantSettings | TOTAL (error): ${Date.now()-t0}ms`);
     console.error('getTenantSettings error:', error);
     return Response.json({ error: error.message }, { status: 500 });
   }

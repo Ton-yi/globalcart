@@ -6,16 +6,23 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
  * Users always see only their own. Platform admins see everything.
  */
 Deno.serve(async (req) => {
+  const t0 = Date.now();
   try {
     const base44 = createClientFromRequest(req);
+
+    const t1 = Date.now();
     const user = await base44.auth.me();
+    console.log(`[TIMING] getTenantOrders | auth.me: ${Date.now()-t1}ms`);
 
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
     let body = {};
     try { body = await req.json(); } catch { /* GET with no body */ }
 
+    const t2 = Date.now();
     const userRecords = await base44.asServiceRole.entities.User.filter({ email: user.email });
+    console.log(`[TIMING] getTenantOrders | User.filter (tenant lookup): ${Date.now()-t2}ms`);
+
     if (!userRecords || userRecords.length === 0) {
       return Response.json({ error: 'User record not found' }, { status: 404 });
     }
@@ -26,28 +33,35 @@ Deno.serve(async (req) => {
     const isStaff = user.role === 'staff';
     const canSeeAll = isPlatformAdmin || isTenantAdmin || isStaff;
 
+    const t3 = Date.now();
+    let orders;
     if (isPlatformAdmin) {
-      const allOrders = await base44.asServiceRole.entities.Order.list('-updated_date', 500);
-      return Response.json({ orders: allOrders || [] });
+      orders = await base44.asServiceRole.entities.Order.list('-updated_date', 500);
+      console.log(`[TIMING] getTenantOrders | Order.list (platform_admin): ${Date.now()-t3}ms`);
+      console.log(`[TIMING] getTenantOrders | TOTAL: ${Date.now()-t0}ms | count: ${orders?.length}`);
+      return Response.json({ orders: orders || [] });
     }
 
     if (!tenantId) {
       if (isTenantAdmin || isStaff) {
         console.warn(`getTenantOrders: ${user.role} ${user.email} has no tenant_id — returning empty orders. Assign tenant via Admin → Users.`);
       }
+      console.log(`[TIMING] getTenantOrders | TOTAL: ${Date.now()-t0}ms | no tenant`);
       return Response.json({ orders: [] });
     }
 
     let filter = { tenant_id: tenantId };
-    // Regular users always scoped to themselves; admins/staff see all in tenant
     if (!canSeeAll) {
       filter.user_email = user.email;
     }
 
-    const orders = await base44.asServiceRole.entities.Order.filter(filter, '-updated_date', 500);
+    orders = await base44.asServiceRole.entities.Order.filter(filter, '-updated_date', 500);
+    console.log(`[TIMING] getTenantOrders | Order.filter (tenant): ${Date.now()-t3}ms | count: ${orders?.length} | all: ${!!body.all}`);
+    console.log(`[TIMING] getTenantOrders | TOTAL: ${Date.now()-t0}ms`);
     return Response.json({ orders: orders || [] });
 
   } catch (error) {
+    console.error(`[TIMING] getTenantOrders | TOTAL (error): ${Date.now()-t0}ms`);
     console.error('getTenantOrders error:', error);
     return Response.json({ error: error.message }, { status: 500 });
   }

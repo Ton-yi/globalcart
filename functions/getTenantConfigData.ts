@@ -5,16 +5,22 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
  * with proper tenant isolation
  */
 Deno.serve(async (req) => {
+  const t0 = Date.now();
   try {
     const base44 = createClientFromRequest(req);
+
+    const t1 = Date.now();
     const user = await base44.auth.me();
+    console.log(`[TIMING] getTenantConfigData | auth.me: ${Date.now()-t1}ms`);
     
     if (!user) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get user record to find tenant_id
+    const t2 = Date.now();
     const userRecord = await base44.asServiceRole.entities.User.filter({ email: user.email });
+    console.log(`[TIMING] getTenantConfigData | User.filter (tenant lookup): ${Date.now()-t2}ms`);
+
     if (!userRecord || userRecord.length === 0) {
       return Response.json({ error: 'User record not found' }, { status: 404 });
     }
@@ -23,7 +29,7 @@ Deno.serve(async (req) => {
     const isPlatformAdmin = user.role === 'platform_admin';
 
     if (!tenantId && !isPlatformAdmin) {
-      // Return empty config rather than 403 so the UI stays functional
+      console.log(`[TIMING] getTenantConfigData | TOTAL: ${Date.now()-t0}ms | no tenant`);
       return Response.json({
         itemSizeTemplates: [], storeTagRules: [], shippingMethods: [],
         transitMethods: [], transitLocations: [], addons: [], announcements: []
@@ -35,7 +41,7 @@ Deno.serve(async (req) => {
       filter.tenant_id = tenantId;
     }
 
-    // Fetch all tenant-scoped configuration in parallel
+    const t3 = Date.now();
     const [
       itemSizeTemplates,
       storeTagRules,
@@ -51,12 +57,10 @@ Deno.serve(async (req) => {
       base44.asServiceRole.entities.TransitShippingMethod.filter(filter),
       base44.asServiceRole.entities.TransitLocation.filter(filter),
       base44.asServiceRole.entities.AddonOption.filter(filter),
-      // For announcements, include both tenant-specific and platform-wide
-      base44.asServiceRole.entities.Announcement.filter({
-        ...filter,
-        is_active: true
-      })
+      base44.asServiceRole.entities.Announcement.filter({ ...filter, is_active: true })
     ]);
+    console.log(`[TIMING] getTenantConfigData | 7x parallel entity queries: ${Date.now()-t3}ms`);
+    console.log(`[TIMING] getTenantConfigData | TOTAL: ${Date.now()-t0}ms`);
 
     return Response.json({
       itemSizeTemplates: itemSizeTemplates || [],
@@ -69,6 +73,7 @@ Deno.serve(async (req) => {
     });
 
   } catch (error) {
+    console.error(`[TIMING] getTenantConfigData | TOTAL (error): ${Date.now()-t0}ms`);
     console.error('getTenantConfigData error:', error);
     return Response.json({ error: error.message }, { status: 500 });
   }
