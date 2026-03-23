@@ -31,18 +31,21 @@ const STATUS_COLORS = {
 };
 
 export default function Home() {
-  const [user, setUser] = useState(null);
+  const { user } = useCurrentUser();
   const [recentOrders, setRecentOrders] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
 
   useEffect(() => {
-    base44.auth.me().then(u => {
-      setUser(u);
+    // Fetch orders and announcements in parallel — no serial auth.me() needed
+    Promise.all([
       base44.functions.invoke('getTenantOrders', {})
-        .then(r => setRecentOrders((r.data?.orders || []).slice(0, 5)))
-        .catch(() => {});
-    }).catch(() => {});
-    fetchAnnouncements().then(setAnnouncements).catch(() => {});
+        .then(r => (r.data?.orders || []).slice(0, 5))
+        .catch(() => []),
+      fetchAnnouncements().catch(() => []),
+    ]).then(([orders, ann]) => {
+      setRecentOrders(orders);
+      setAnnouncements(ann);
+    });
   }, []);
 
   const steps = [
