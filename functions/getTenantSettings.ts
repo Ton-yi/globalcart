@@ -1,31 +1,44 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
 
+function extractEmailFromJwt(req) {
+  try {
+    const auth = req.headers.get('authorization') || '';
+    const token = auth.replace(/^Bearer\s+/i, '');
+    if (!token) return null;
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload?.email || payload?.sub || null;
+  } catch {
+    return null;
+  }
+}
+
 /**
- * Fetch tenant-specific settings
- * Each tenant can have isolated configuration
+ * Fetch tenant-specific settings.
+ * Each tenant can have isolated configuration.
  */
 Deno.serve(async (req) => {
   const t0 = Date.now();
   try {
     const base44 = createClientFromRequest(req);
 
-    const t1 = Date.now();
-    const user = await base44.auth.me();
-    console.log(`[TIMING] getTenantSettings | auth.me: ${Date.now()-t1}ms`);
-    
-    if (!user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const emailHint = extractEmailFromJwt(req);
+    const [user, earlyUserRecords] = await Promise.all([
+      base44.auth.me(),
+      emailHint
+        ? base44.asServiceRole.entities.User.filter({ email: emailHint })
+        : Promise.resolve(null),
+    ]);
+    console.log(`[TIMING] getTenantSettings | auth.me + User.filter (parallel): ${Date.now()-t0}ms`);
 
-    const t2 = Date.now();
-    const userRecord = await base44.asServiceRole.entities.User.filter({ email: user.email });
-    console.log(`[TIMING] getTenantSettings | User.filter (tenant lookup): ${Date.now()-t2}ms`);
+    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    if (!userRecord || userRecord.length === 0) {
+    const userRecords = earlyUserRecords ?? await base44.asServiceRole.entities.User.filter({ email: user.email });
+
+    if (!userRecords || userRecords.length === 0) {
       return Response.json({ error: 'User record not found' }, { status: 404 });
     }
 
-    const tenantId = userRecord[0].tenant_id;
+    const tenantId = userRecords[0].tenant_id;
     const isPlatformAdmin = user.role === 'platform_admin';
 
     if (!tenantId && !isPlatformAdmin) {
@@ -49,14 +62,9 @@ Deno.serve(async (req) => {
     console.log(`[TIMING] getTenantSettings | TOTAL: ${Date.now()-t0}ms`);
 
     const settingsMap = {};
-    (settings || []).forEach(s => {
-      settingsMap[s.key] = s.value;
-    });
+    (settings || []).forEach(s => { settingsMap[s.key] = s.value; });
 
-    return Response.json({ 
-      settings: settingsMap,
-      raw: settings || []
-    });
+    return Response.json({ settings: settingsMap, raw: settings || [] });
 
   } catch (error) {
     console.error(`[TIMING] getTenantSettings | TOTAL (error): ${Date.now()-t0}ms`);
