@@ -59,8 +59,8 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
   const [uploadingScreenshot, setUploadingScreenshot] = useState(false);
   const [uploadingArrival, setUploadingArrival] = useState(false);
 
-  // Item size templates
-  const [itemSizeTemplates, setItemSizeTemplates] = useState([]);
+  // Item size templates — use prefetched data when available, skip self-fetch
+  const [itemSizeTemplates, setItemSizeTemplates] = useState(initialItemSizeTemplates || []);
   const [selectedSizeId, setSelectedSizeId] = useState(order.item_size_template_id || "");
 
   // Shipping fee form
