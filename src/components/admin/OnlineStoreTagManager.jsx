@@ -26,15 +26,14 @@ const COLOR_PRESETS = [
   { value: "bg-pink-100 text-pink-700", label: "粉色" },
 ];
 
-  useEffect(() => {
-    loadRules();
-  }, []);
-
   const loadRules = async () => {
     const data = await tenantEntity.list('OnlineStoreTagRule');
     setRules((data || []).sort((a, b) => (b.priority || 0) - (a.priority || 0)));
-    setLoading(false);
   };
+
+  useEffect(() => {
+    if (initialData === null) loadRules();
+  }, []);
 
   const handleAddRule = async () => {
     if (!newRule.keyword || !newRule.tag_label) return;
