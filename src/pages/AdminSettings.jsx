@@ -87,16 +87,18 @@ export default function AdminSettings() {
       const r = await t.timeCall('getAdminSettingsPageData', () => base44.functions.invoke('getAdminSettingsPageData', {}));
       const data = r.data || {};
       let settingsData = data.settings || [];
+
       if (settingsData.length === 0) {
         // Seed defaults; silently skip if user has no tenant yet
         try {
           await Promise.all(DEFAULT_SETTINGS.map(s => tenantEntity.create('SiteSettings', s)));
-          const r2 = await base44.functions.invoke('getAdminSettingsPageData', {});
-          settingsData = r2.data?.settings || [];
+          // Only re-fetch settings, not the full page payload
+          settingsData = await tenantEntity.list('SiteSettings');
         } catch (_) {
           // No tenant assigned yet — stay empty
         }
       }
+
       setSettings(settingsData);
       setAddons(data.addons || []);
       setShippingMethods(data.shippingMethods || []);
@@ -104,6 +106,21 @@ export default function AdminSettings() {
       setItemSizeTemplates(data.itemSizeTemplates || []);
       setStoreTagRules(data.storeTagRules || []);
       if (data.rates) setLiveRates(data.rates);
+
+      // Populate the shared config cache so Layout's fetchTenantConfig() is a cache-hit
+      // and does NOT fire a separate getTenantConfigData request
+      if (data.announcements !== undefined) {
+        setTenantConfigCache({
+          announcements: data.announcements || [],
+          shippingMethods: data.shippingMethods || [],
+          transitMethods: data.transitMethods || [],
+          transitLocations: [],
+          itemSizeTemplates: data.itemSizeTemplates || [],
+          storeTagRules: data.storeTagRules || [],
+          addons: data.addons || [],
+        });
+      }
+
       t.done('data ready');
     } catch (_) {
       // Degraded mode: no tenant assigned yet
