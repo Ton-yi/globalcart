@@ -100,11 +100,8 @@ export default function ShippingPool() {
   };
 
   useEffect(() => {
-    base44.auth.me().then(u => {
-      setUser(u);
-      fetchData(u);
-    }).catch(() => base44.auth.redirectToLogin());
-  }, []);
+    if (user) fetchData(user);
+  }, [user]);
 
   // Open inline create form
   const handleOpenCreate = async () => {
