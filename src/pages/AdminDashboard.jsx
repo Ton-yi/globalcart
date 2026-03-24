@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { timePage } from "@/lib/timing";
-import { Package, Truck, Users, Bell, TrendingUp, AlertCircle, Clock } from "lucide-react";
+import { Package, Truck, Users, AlertCircle, Clock } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
