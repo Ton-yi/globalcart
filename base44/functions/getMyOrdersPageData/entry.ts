@@ -18,6 +18,12 @@ function extractEmailFromJwt(req) {
  * - Orders (user-scoped)
  * - ShippingPools (accessible to user)
  * - OnlineStoreTagRules (for store tag display)
+ * - TransitLocations (for UserNotifyShipmentModal)
+ * - AddonOptions - shipping type (for UserNotifyShipmentModal)
+ * - TransitShippingMethods (for UserNotifyShipmentModal)
+ * - UserPreference (for OrderDetailDrawer + UserNotifyShipmentModal)
+ * - SiteSettings paid_order_reminder (for OrderDetailDrawer)
+ * - Non-admin users list (for UserNotifyShipmentModal privacy system)
  */
 Deno.serve(async (req) => {
   const t0 = Date.now();
@@ -42,24 +48,45 @@ Deno.serve(async (req) => {
 
     const tenantId = userRecords[0].tenant_id;
     if (!tenantId) {
-      return Response.json({ orders: [], pools: [], storeTagRules: [] });
+      return Response.json({
+        orders: [], pools: [], storeTagRules: [],
+        transitLocations: [], addons: [], transitMethods: [],
+        userPreference: null, paidOrderReminder: null, nonAdminUsers: [],
+      });
     }
 
+    const tenantFilter = { tenant_id: tenantId };
+
     const t1 = Date.now();
-    const [orders, allPools, storeTagRules] = await Promise.all([
-      // Users always see only their own orders
+    const [
+      orders,
+      allPools,
+      storeTagRules,
+      transitLocations,
+      addons,
+      transitMethods,
+      userPrefs,
+      siteSettings,
+      allTenantUsers,
+    ] = await Promise.all([
       base44.asServiceRole.entities.Order.filter(
         { tenant_id: tenantId, user_email: user.email },
         '-updated_date',
         500
       ),
-      base44.asServiceRole.entities.ShippingPool.filter({ tenant_id: tenantId }),
-      base44.asServiceRole.entities.OnlineStoreTagRule.filter({ tenant_id: tenantId }),
+      base44.asServiceRole.entities.ShippingPool.filter(tenantFilter),
+      base44.asServiceRole.entities.OnlineStoreTagRule.filter(tenantFilter),
+      base44.asServiceRole.entities.TransitLocation.filter({ ...tenantFilter, is_active: true }),
+      base44.asServiceRole.entities.AddonOption.filter({ ...tenantFilter, addon_type: 'shipping', is_active: true }),
+      base44.asServiceRole.entities.TransitShippingMethod.filter({ ...tenantFilter, is_active: true }),
+      base44.asServiceRole.entities.UserPreference.filter({ tenant_id: tenantId, user_email: user.email }),
+      base44.asServiceRole.entities.SiteSettings.filter({ tenant_id: tenantId, key: 'paid_order_reminder' }),
+      base44.asServiceRole.entities.User.filter(tenantFilter),
     ]);
-    console.log(`[TIMING] getMyOrdersPageData | 3x parallel queries: ${Date.now() - t1}ms`);
+    console.log(`[TIMING] getMyOrdersPageData | 9x parallel queries: ${Date.now() - t1}ms`);
     console.log(`[TIMING] getMyOrdersPageData | TOTAL: ${Date.now() - t0}ms`);
 
-    // Filter pools accessible to this user (same logic as getTenantShippingPools)
+    // Filter pools accessible to this user (mirrors getTenantShippingPools logic)
     const accessiblePools = (allPools || []).filter(pool => {
       if (pool.creator_email === user.email) return true;
       if (pool.is_admin_created && !pool.is_private) return true;
@@ -67,10 +94,22 @@ Deno.serve(async (req) => {
       return false;
     });
 
+    // Non-admin users for UserNotifyShipmentModal privacy system (mirrors listNonAdminUsers logic)
+    const nonAdminRoles = ['user', 'staff', 'transit_manager'];
+    const nonAdminUsers = (allTenantUsers || []).filter(u =>
+      u.email !== user.email && nonAdminRoles.includes(u.role)
+    );
+
     return Response.json({
       orders: orders || [],
       pools: accessiblePools,
       storeTagRules: (storeTagRules || []).filter(r => r.is_active !== false),
+      transitLocations: transitLocations || [],
+      addons: addons || [],
+      transitMethods: transitMethods || [],
+      userPreference: userPrefs?.[0] || null,
+      paidOrderReminder: siteSettings?.[0]?.value || null,
+      nonAdminUsers,
     });
 
   } catch (error) {
