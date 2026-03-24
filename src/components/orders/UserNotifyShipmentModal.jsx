@@ -215,12 +215,42 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
   const [currentUser, setCurrentUser] = useState(null);
 
   // Addons & transit shipping method
-  const [shippingAddons, setShippingAddons] = useState([]);
+  const [shippingAddons, setShippingAddons] = useState(initialData?.addons || []);
   const [selectedAddonIds, setSelectedAddonIds] = useState([]);
-  const [transitMethods, setTransitMethods] = useState([]);
-  const [selectedTransitMethodId, setSelectedTransitMethodId] = useState("");
+  const [transitMethods, setTransitMethods] = useState(initialData?.transitMethods || []);
+  const [selectedTransitMethodId, setSelectedTransitMethodId] = useState(
+    initialData?.userPreference?.preferred_transit_shipping_id || ""
+  );
 
   useEffect(() => {
+    // If initialData was provided by the parent page, use it directly — skip all self-fetches
+    if (initialData) {
+      const pref = initialData.userPreference;
+      if (pref?.saved_addresses) setSavedAddresses(pref.saved_addresses);
+      if (pref?.preferred_transit_shipping_id) setSelectedTransitMethodId(pref.preferred_transit_shipping_id);
+      setTransitLocations(initialData.transitLocations || []);
+      setAllUsers(initialData.nonAdminUsers || []);
+
+      const allPools = initialData.pools || [];
+      base44.auth.me().then(u => {
+        setCurrentUser(u);
+        const consolidationPools = allPools.filter(p =>
+          p.consolidation_type && p.consolidation_type !== "" &&
+          (p.status === "pending" || p.status === "processing") &&
+          (!p.is_private || p.creator_email === u.email || (p.shared_with_emails || []).includes(u.email))
+        );
+        setExistingPools(consolidationPools);
+        const directShipPools = allPools.filter(p =>
+          (!p.consolidation_type || p.consolidation_type === "") &&
+          (p.status === "pending" || p.status === "processing") &&
+          p.creator_email === u.email
+        );
+        setDirectPools(directShipPools);
+      }).catch(() => {});
+      return;
+    }
+
+    // Fallback: self-fetch when used outside MyOrders (e.g. from OrderDetailDrawer)
     base44.auth.me().then(async u => {
       setCurrentUser(u);
       const [prefs, allLocs, usersRes, allPools, addons, tMethods] = await Promise.all([
