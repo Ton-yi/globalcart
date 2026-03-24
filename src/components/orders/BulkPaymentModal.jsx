@@ -50,7 +50,7 @@ export default function BulkPaymentModal({ orders, onClose, onSuccess }) {
   const handleManualSubmit = async () => {
     setSubmitting(true);
     await Promise.all(orders.map(o =>
-      base44.entities.Order.update(o.id, {
+      updateOrder(o.id, {
         payment_method: method,
         payment_proof_url: proofUrl,
         payment_status: "paid",
