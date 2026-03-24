@@ -154,17 +154,18 @@ export default function MyOrders() {
   const [sortDir, setSortDir] = useState("asc");
   const [storeTagRules, setStoreTagRules] = useState([]);
 
+  const [pageData, setPageData] = useState({});
+
   const fetchOrders = async (u) => {
     if (!u) return;
     setLoading(true);
-    const t = timePage('MyOrders');
-    const r = await t.timeCall('getMyOrdersPageData', () => base44.functions.invoke('getMyOrdersPageData', {}));
+    const r = await base44.functions.invoke('getMyOrdersPageData', {});
     const data = r.data || {};
     setOrders(data.orders || []);
     setShippingPools(data.pools || []);
     setStoreTagRules(data.storeTagRules || []);
+    setPageData(data);
     setLoading(false);
-    t.done(`${(data.orders || []).length} orders`);
   };
 
   useEffect(() => {
