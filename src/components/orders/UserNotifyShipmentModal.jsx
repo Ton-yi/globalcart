@@ -173,7 +173,7 @@ function TransitAddonSection({ consType, selectedTransitId, transitLocations, sh
   );
 }
 
-export default function UserNotifyShipmentModal({ order, orders, onClose, onSuccess }) {
+export default function UserNotifyShipmentModal({ order, orders, initialData, onClose, onSuccess }) {
   const targetOrders = orders || (order ? [order] : []);
   const isMulti = targetOrders.length > 1;
 
