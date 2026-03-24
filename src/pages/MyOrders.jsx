@@ -399,6 +399,8 @@ export default function MyOrders() {
         <OrderDetailDrawer
           order={selectedOrder}
           currentUser={user}
+          initialUserPreference={pageData.userPreference}
+          initialPaidOrderReminder={pageData.paidOrderReminder}
           onClose={() => setSelectedOrder(null)}
           onAction={(action) => {
             fetchOrders(user);
