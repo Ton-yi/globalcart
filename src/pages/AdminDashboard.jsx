@@ -11,15 +11,12 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const t = timePage('AdminDashboard');
-    Promise.all([
-      t.timeCall('getTenantOrders {all:true}', () => base44.functions.invoke('getTenantOrders', { all: true }).then(r => r.data?.orders || [])),
-      t.timeCall('listNonAdminUsers', () => base44.functions.invoke('listNonAdminUsers', {}).then(r => r.data?.users || [])),
-    ]).then(([orders, users]) => {
-      setStats({ orders, shipping: [], users });
-      setLoading(false);
-      t.done('data ready');
-    });
+    base44.functions.invoke('getAdminDashboardData', {})
+      .then(r => {
+        const { orders = [], users = [] } = r.data || {};
+        setStats({ orders, shipping: [], users });
+        setLoading(false);
+      });
   }, []);
 
   const { orders, shipping, users } = stats;
