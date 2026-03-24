@@ -428,6 +428,7 @@ export default function MyOrders() {
       {shipmentOrder && (
         <UserNotifyShipmentModal
           order={shipmentOrder}
+          initialData={pageData}
           onClose={() => setShipmentOrder(null)}
           onSuccess={() => {
             setShipmentOrder(null);
@@ -439,6 +440,7 @@ export default function MyOrders() {
       {shipmentOrders && (
         <UserNotifyShipmentModal
           orders={shipmentOrders}
+          initialData={pageData}
           onClose={() => setShipmentOrders(null)}
           onSuccess={() => {
             setShipmentOrders(null);
