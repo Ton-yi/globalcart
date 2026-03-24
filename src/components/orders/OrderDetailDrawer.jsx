@@ -15,25 +15,28 @@ import PaymentModal from "./PaymentModal";
 import UserNotifyShipmentModal from "./UserNotifyShipmentModal";
 import ShippingEditModal from "@/components/shippingpool/ShippingEditModal";
 
-export default function OrderDetailDrawer({ order, currentUser, onClose, onAction }) {
+export default function OrderDetailDrawer({ order, currentUser, initialUserPreference, initialPaidOrderReminder, onClose, onAction }) {
   const hasReplyStatus = order.reply_status && order.reply_status !== "no_reply";
   const [showMessages, setShowMessages] = useState(hasReplyStatus);
   const [confirmingDelivered, setConfirmingDelivered] = useState(false);
-  const [contactInfo, setContactInfo] = useState("");
+  const [contactInfo, setContactInfo] = useState(initialUserPreference?.contact_info || "");
   const [showPayment, setShowPayment] = useState(false);
   const [showShipment, setShowShipment] = useState(false);
-  const [paidReminder, setPaidReminder] = useState("");
+  const [paidReminder, setPaidReminder] = useState(initialPaidOrderReminder || "");
   const [editPool, setEditPool] = useState(null);
   const [loadingPool, setLoadingPool] = useState(false);
 
   useEffect(() => {
-    tenantEntity.list('UserPreference', { user_email: currentUser.email })
-      .then(prefs => {
-        if (prefs.length > 0 && prefs[0].contact_info) setContactInfo(prefs[0].contact_info);
-      })
-      .catch(() => {});
+    // Only self-fetch if initial data was not provided by the parent page
+    if (!initialUserPreference) {
+      tenantEntity.list('UserPreference', { user_email: currentUser.email })
+        .then(prefs => {
+          if (prefs.length > 0 && prefs[0].contact_info) setContactInfo(prefs[0].contact_info);
+        })
+        .catch(() => {});
+    }
 
-    if (order.order_status === "paid") {
+    if (order.order_status === "paid" && initialPaidOrderReminder === undefined) {
       tenantEntity.list('SiteSettings', { key: "paid_order_reminder" })
         .then(settings => {
           if (settings.length > 0) setPaidReminder(settings[0].value);
