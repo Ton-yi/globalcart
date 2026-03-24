@@ -6,6 +6,7 @@
 import { useState } from "react";
 import { X, CreditCard, Upload, CheckCircle, Package, Loader2, ExternalLink } from "lucide-react";
 import { base44 } from "@/api/base44Client";
+import { updateOrder } from "@/lib/tenantApi";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 
