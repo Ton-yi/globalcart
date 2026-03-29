@@ -64,12 +64,14 @@ Deno.serve(async (req) => {
     ]);
     console.log(`[TIMING] getAdminUsersPageData | parallel fetches: ${Date.now() - t1}ms`);
 
-    // Non-admin user list (mirrors listNonAdminUsers logic)
+    // Full user list (excluding caller's own record)
     const users = (allUsers || [])
       .filter(u => u.email !== user.email)
       .map(u => ({
         id: u.id, email: u.email, full_name: u.full_name || '',
-        role: u.role || 'user', tenant_id: u.tenant_id || null, created_date: u.created_date,
+        role: u.role || 'user', tenant_id: u.tenant_id || null,
+        is_active: u.is_active !== false, // default true
+        created_date: u.created_date,
       }));
 
     // Tenant map: id -> { id, name, code }
