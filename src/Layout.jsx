@@ -5,6 +5,7 @@ import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import { fetchTenantConfig } from "@/lib/tenantApi";
 import { getTenantConfigCache } from "@/lib/configCache";
+import { getCurrentSubdomain } from "@/lib/tenantBranding";
 import { 
   ShoppingBag, Package, Truck, User, Settings, 
   Bell, LogOut, Menu, X, Shield,
@@ -15,10 +16,23 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 export default function Layout({ children, currentPageName }) {
-  const { user } = useAuth();
+  const { user, tenantBranding } = useAuth();
+  const tenant = tenantBranding?.tenant || null;
   const [mobileOpen, setMobileOpen] = useState(false);
   const [announcements, setAnnouncements] = useState([]);
   const location = useLocation();
+
+  // Apply favicon if tenant has one
+  useEffect(() => {
+    if (tenant?.favicon_url) {
+      let link = document.querySelector("link[rel~='icon']");
+      if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link); }
+      link.href = tenant.favicon_url;
+    }
+    if (tenant?.branding_name) {
+      document.title = tenant.branding_name;
+    }
+  }, [tenant?.favicon_url, tenant?.branding_name]);
 
   // Pages that load their own config via a page-level API (e.g. getAdminSettingsPageData).
   // Layout must not trigger fetchTenantConfig for these — they populate the cache themselves.
@@ -94,11 +108,15 @@ export default function Layout({ children, currentPageName }) {
               {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
             <Link to={createPageUrl("Home")} className="flex items-center gap-2">
-              <div className="w-7 h-7 bg-red-600 rounded flex items-center justify-center">
-                <span className="text-white text-xs font-bold">同一</span>
-              </div>
-              <span className="font-semibold text-gray-900 text-sm">同一物流</span>
-              <span className="text-gray-400 text-xs hidden sm:inline">Tongyi Express</span>
+              {tenant?.logo_url ? (
+                <img src={tenant.logo_url} alt={tenant.branding_name} className="h-7 w-auto object-contain" />
+              ) : (
+                <div className="w-7 h-7 rounded flex items-center justify-center flex-shrink-0"
+                  style={{ backgroundColor: tenant?.theme_color || '#dc2626' }}>
+                  <span className="text-white text-xs font-bold">{(tenant?.branding_name || "同一").slice(0, 2)}</span>
+                </div>
+              )}
+              <span className="font-semibold text-gray-900 text-sm">{tenant?.branding_name || "同一物流"}</span>
             </Link>
           </div>
 

@@ -4,6 +4,7 @@ import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { fetchAnnouncements } from "@/lib/tenantApi";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useTenantBranding } from "@/hooks/useTenantBranding";
 import { timePage } from "@/lib/timing";
 import { ShoppingBag, Truck, Package, ArrowRight, Bell, CheckCircle, Clock, Globe } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -33,6 +34,7 @@ const STATUS_COLORS = {
 
 export default function Home() {
   const { user } = useCurrentUser();
+  const { tenant } = useTenantBranding();
   const [recentOrders, setRecentOrders] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
 
@@ -81,9 +83,9 @@ export default function Home() {
           <Globe className="w-5 h-5 text-red-600" />
           <span className="text-sm text-gray-500">日本 → 全球</span>
         </div>
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">同一物流 · Tongyi Express</h1>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">{tenant?.login_title || "同一物流 · Tongyi Express"}</h1>
         <p className="text-gray-500 mb-6 max-w-md mx-auto text-sm">
-          专业代购日本商品，安心付款，全程追踪，极速发货至全球各地
+          {tenant?.login_subtitle || "专业代购日本商品，安心付款，全程追踪，极速发货至全球各地"}
         </p>
         {user ? (
           <div className="flex gap-3 justify-center">

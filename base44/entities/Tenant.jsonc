@@ -1,0 +1,64 @@
+{
+  "name": "Tenant",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "\u79df\u6237\u540d\u79f0"
+    },
+    "code": {
+      "type": "string",
+      "description": "\u79df\u6237\u4ee3\u7801\uff08\u552f\u4e00\uff0c\u540c\u65f6\u7528\u4f5c\u5b50\u57df\u540d\uff09"
+    },
+    "subdomain": {
+      "type": "string",
+      "description": "\u5b50\u57df\u540d\uff08\u5c0f\u5199\uff0c\u4e0ecode\u4e00\u81f4\u6216\u81ea\u5b9a\u4e49\uff0c\u552f\u4e00\uff09"
+    },
+    "custom_domain": {
+      "type": "string",
+      "description": "\u81ea\u5b9a\u4e49\u57df\u540d\uff08\u672a\u6765\u6269\u5c55\uff0c\u5982 app.mytenant.com\uff09"
+    },
+    "branding_name": {
+      "type": "string",
+      "description": "\u663e\u793a\u54c1\u724c\u540d\u79f0"
+    },
+    "logo_url": {
+      "type": "string",
+      "description": "Logo URL"
+    },
+    "favicon_url": {
+      "type": "string",
+      "description": "Favicon URL"
+    },
+    "theme_color": {
+      "type": "string",
+      "description": "\u4e3b\u8272\uff08\u5341\u516d\u8fdb\u5236\uff0c\u5982 #dc2626\uff09"
+    },
+    "login_title": {
+      "type": "string",
+      "description": "\u767b\u5f55\u9875\u6807\u9898"
+    },
+    "login_subtitle": {
+      "type": "string",
+      "description": "\u767b\u5f55\u9875\u526f\u6807\u9898"
+    },
+    "contact_info": {
+      "type": "string",
+      "description": "\u8054\u7cfb\u65b9\u5f0f\uff08\u663e\u793a\u5728\u767b\u5f55\u9875/\u9875\u811a\uff09"
+    },
+    "timezone": {
+      "type": "string",
+      "description": "\u65f6\u533a\uff08\u5982 Asia/Tokyo\uff09",
+      "default": "Asia/Tokyo"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "\u662f\u5426\u542f\u7528"
+    }
+  },
+  "required": [
+    "name",
+    "code"
+  ]
+}

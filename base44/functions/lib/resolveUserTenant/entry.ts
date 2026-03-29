@@ -1,8 +1,9 @@
 /**
  * Shared helper: resolve authenticated user + tenant context in one shot.
  *
- * Runs auth.me() and User.filter(email) IN PARALLEL to eliminate the
- * ~185ms sequential overhead that existed when they ran one after the other.
+ * Optionally accepts `req` as a second argument. When provided, it reads
+ * the X-Tenant-Subdomain header (set by the frontend) to enforce that the
+ * authenticated user belongs to the tenant matching that subdomain.
  *
  * Returns:
  * {
@@ -15,10 +16,9 @@
  *   isRegularUser,
  * }
  *
- * Throws Response (401/404) on failure so callers can just: return await resolveUserTenant(base44)
- * ... unless they need custom error handling, in which case they catch themselves.
+ * Throws Response (401/403/404) on failure.
  */
-export async function resolveUserTenant(base44) {
+export async function resolveUserTenant(base44, req = null) {
   const t0 = Date.now();
 
   // Kick off both calls simultaneously
@@ -57,6 +57,28 @@ export async function resolveUserTenant(base44) {
   const isTenantAdmin = user.role === 'admin' || user.role === 'tenant_admin';
   const isStaff = user.role === 'staff';
   const isRegularUser = !isPlatformAdmin && !isTenantAdmin && !isStaff;
+
+  // Subdomain-based tenant enforcement (when frontend sends X-Tenant-Subdomain header)
+  // platform_admin bypasses this check (they can access all tenants)
+  if (req && !isPlatformAdmin) {
+    const subdomainHeader = req.headers.get('X-Tenant-Subdomain');
+    if (subdomainHeader) {
+      // Resolve which tenant this subdomain maps to
+      const matchedTenants = await base44.asServiceRole.entities.Tenant.filter({ subdomain: subdomainHeader, is_active: true });
+      let matchedTenant = matchedTenants?.[0];
+      if (!matchedTenant) {
+        // fallback: match by code
+        const allActive = await base44.asServiceRole.entities.Tenant.filter({ is_active: true });
+        matchedTenant = (allActive || []).find(t => (t.code || '').toLowerCase() === subdomainHeader.toLowerCase());
+      }
+      if (matchedTenant && tenantId && matchedTenant.id !== tenantId) {
+        throw new Response(JSON.stringify({ error: 'Access denied: your account does not belong to this tenant' }), {
+          status: 403,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+    }
+  }
 
   return {
     user,

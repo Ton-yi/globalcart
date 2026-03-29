@@ -1,7 +1,7 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { appParams } from '@/lib/app-params';
-
+import { resolveTenantBranding } from '@/lib/tenantBranding';
 
 const AuthContext = createContext();
 
@@ -11,9 +11,12 @@ export const AuthProvider = ({ children }) => {
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [isLoadingPublicSettings, setIsLoadingPublicSettings] = useState(true);
   const [authError, setAuthError] = useState(null);
-  const [appPublicSettings, setAppPublicSettings] = useState(null); // Contains only { id, public_settings }
+  const [appPublicSettings, setAppPublicSettings] = useState(null);
+  const [tenantBranding, setTenantBranding] = useState(null); // { tenant: {...} | null }
 
   useEffect(() => {
+    // Resolve tenant branding from subdomain in parallel with app state check
+    resolveTenantBranding().then(b => setTenantBranding(b)).catch(() => setTenantBranding({ tenant: null }));
     checkAppState();
   }, []);
 
@@ -138,6 +141,7 @@ export const AuthProvider = ({ children }) => {
       isLoadingPublicSettings,
       authError,
       appPublicSettings,
+      tenantBranding,
       logout,
       navigateToLogin,
       checkAppState
