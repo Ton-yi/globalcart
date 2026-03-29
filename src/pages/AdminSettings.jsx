@@ -191,7 +191,6 @@ export default function AdminSettings() {
       login_subtitle: t.login_subtitle || "",
       contact_info: t.contact_info || "",
       subdomain: t.subdomain || (t.code || "").toLowerCase(),
-      code: t.code || "",
     });
     setTenantMsg(null);
   };
@@ -456,13 +455,6 @@ export default function AdminSettings() {
                               <Input className="mt-0.5 h-8 text-sm" value={editTenantFields.branding_name}
                                 onChange={e => setEditTenantFields(p => ({ ...p, branding_name: e.target.value }))} />
                             </div>
-                            {isPlatformAdmin && (
-                              <div>
-                                <Label className="text-xs text-gray-500">代码 (code) <span className="text-orange-500">（仅平台管理员）</span></Label>
-                                <Input className="mt-0.5 h-8 text-sm font-mono" value={editTenantFields.code}
-                                  onChange={e => setEditTenantFields(p => ({ ...p, code: e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, '') }))} />
-                              </div>
-                            )}
                             {isPlatformAdmin && (
                               <div>
                                 <Label className="text-xs text-gray-500">子域名 <span className="text-orange-500">（仅平台管理员）</span></Label>
