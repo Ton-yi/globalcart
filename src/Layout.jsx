@@ -56,7 +56,6 @@ export default function Layout({ children, currentPageName }) {
   const adminNav = [
     { label: "管理总览", icon: BarChart3, page: "AdminDashboard" },
     { label: "订单管理", icon: Package, page: "AdminOrders" },
-    { label: "发货管理", icon: Truck, page: "AdminShipping" },
     { label: "发货池", icon: Send, page: "AdminShippingPool" },
     { label: "用户管理", icon: Users, page: "AdminUsers" },
     { label: "公告管理", icon: Bell, page: "AdminAnnouncements" },
