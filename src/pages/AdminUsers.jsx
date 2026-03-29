@@ -115,7 +115,7 @@ export default function AdminUsers() {
   const [assignTarget, setAssignTarget] = useState({});
 
   const isPlatformAdmin = currentUser?.role === 'platform_admin';
-  const isTenantAdmin = currentUser?.role === 'admin' || currentUser?.role === 'tenant_admin';
+  const isTenantAdmin = isPlatformAdmin || currentUser?.role === 'admin' || currentUser?.role === 'tenant_admin';
 
   const loadData = () => {
     setLoading(true);

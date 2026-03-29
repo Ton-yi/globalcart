@@ -57,7 +57,7 @@ export default function Layout({ children, currentPageName }) {
       .catch(() => {});
   }, [user?.email, currentPageName]);
 
-  const isAdmin = user?.role === "admin";
+  const isAdmin = user?.role === "admin" || user?.role === "platform_admin";
 
   const userNav = [
     { label: "首页", icon: Home, page: "Home" },
