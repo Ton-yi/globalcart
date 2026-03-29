@@ -12,7 +12,8 @@
 
 import { base44 } from '@/api/base44Client';
 
-const CACHE_KEY = 'tenant_branding_v1';
+// Cache key includes hostname so different domains don't share cached branding
+const CACHE_KEY = `tenant_branding_v1_${typeof window !== 'undefined' ? window.location.hostname : 'ssr'}`;
 let _cache = null;
 
 /**
@@ -52,6 +53,18 @@ export function getTenantBrandingCache() {
 export function clearTenantBrandingCache() {
   _cache = null;
   try { sessionStorage.removeItem(CACHE_KEY); } catch (_) {}
+}
+
+// Call this once on app start to clear any stale cross-hostname cache entries
+export function purgeStaleTenantCache() {
+  try {
+    const keys = Object.keys(sessionStorage);
+    keys.forEach(k => {
+      if (k.startsWith('tenant_branding_v1_') && k !== CACHE_KEY) {
+        sessionStorage.removeItem(k);
+      }
+    });
+  } catch (_) {}
 }
 
 /**

@@ -1,27 +1,22 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 /**
  * Entity automation: fires on User create events.
  * If the new user has no tenant_id, attempt to infer one from:
- *   1. The inviting admin's tenant_id (most reliable — user was invited by a tenant admin)
+ *   1. The inviting user's tenant_id (most reliable — user was invited by a tenant member)
  *   2. If only one active tenant exists, assign it automatically (bootstrap convenience)
  *
- * This is a safety net only — normal assignment goes through adminAssignTenant.
+ * This is a safety net only — manual assignment goes through adminAssignTenant.
  */
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
 
-    // Automation payloads are sent as service-role webhooks — no user auth token.
-    // We use asServiceRole for all operations here.
     let body = {};
     try { body = await req.json(); } catch { /* empty body */ }
 
     const { event, data } = body;
 
-    // Determine which users to process:
-    // - Entity automation (event.type === 'create'): process single new user from payload
-    // - Scheduled run (no event): scan all users missing tenant_id
     let usersToProcess = [];
 
     if (event?.type === 'create') {
@@ -43,22 +38,16 @@ Deno.serve(async (req) => {
       console.log(`autoAssignTenant: scheduled sweep found ${usersToProcess.length} unassigned user(s)`);
     }
 
-    // Fetch active tenants and admins once for all users
+    // Fetch active tenants once
     const tenants = await base44.asServiceRole.entities.Tenant.filter({ is_active: true });
     if (!tenants || tenants.length === 0) {
       console.warn('autoAssignTenant: no active tenants found, cannot auto-assign');
       return Response.json({ skipped: true, reason: 'no active tenants' });
     }
 
-    const admins = await base44.asServiceRole.entities.User.filter({ role: 'admin' });
-    const tenantAdmins = await base44.asServiceRole.entities.User.filter({ role: 'tenant_admin' });
-    const assignedAdmins = [...(admins || []), ...(tenantAdmins || [])].filter(a => a.tenant_id);
-
     const results = [];
 
     for (const targetUser of usersToProcess) {
-      const otherAdmins = assignedAdmins.filter(a => a.email !== targetUser.email);
-
       // Strategy 1: Only one active tenant — assign automatically
       if (tenants.length === 1) {
         await base44.asServiceRole.entities.User.update(targetUser.id, { tenant_id: tenants[0].id });
@@ -67,18 +56,37 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Strategy 2: Exactly one admin with a tenant — safe to assign their tenant
-      if (otherAdmins.length === 1) {
-        await base44.asServiceRole.entities.User.update(targetUser.id, { tenant_id: otherAdmins[0].tenant_id });
-        console.log(`autoAssignTenant: assigned tenant ${otherAdmins[0].tenant_id} (from sole admin) to ${targetUser.email}`);
-        results.push({ email: targetUser.email, tenant_id: otherAdmins[0].tenant_id, reason: 'sole_admin_tenant' });
+      // Strategy 2: Infer from the inviting user's tenant_id (created_by field)
+      // In invite-based systems, the inviter always belongs to a specific tenant
+      const inviterEmail = targetUser.created_by;
+      if (inviterEmail) {
+        const inviterRecords = await base44.asServiceRole.entities.User.filter({ email: inviterEmail });
+        const inviter = inviterRecords?.[0];
+        if (inviter?.tenant_id) {
+          await base44.asServiceRole.entities.User.update(targetUser.id, { tenant_id: inviter.tenant_id });
+          console.log(`autoAssignTenant: assigned tenant ${inviter.tenant_id} (from inviter ${inviterEmail}) to ${targetUser.email}`);
+          results.push({ email: targetUser.email, tenant_id: inviter.tenant_id, reason: 'inviter_tenant' });
+          continue;
+        }
+      }
+
+      // Strategy 3: Exactly one admin/tenant_admin with a tenant — safe to assign their tenant
+      const allAssignedAdmins = await base44.asServiceRole.entities.User.filter({ role: 'admin' });
+      const allAssignedTenantAdmins = await base44.asServiceRole.entities.User.filter({ role: 'tenant_admin' });
+      const assignedAdmins = [...(allAssignedAdmins || []), ...(allAssignedTenantAdmins || [])]
+        .filter(a => a.tenant_id && a.email !== targetUser.email);
+
+      if (assignedAdmins.length === 1) {
+        await base44.asServiceRole.entities.User.update(targetUser.id, { tenant_id: assignedAdmins[0].tenant_id });
+        console.log(`autoAssignTenant: assigned tenant ${assignedAdmins[0].tenant_id} (from sole admin) to ${targetUser.email}`);
+        results.push({ email: targetUser.email, tenant_id: assignedAdmins[0].tenant_id, reason: 'sole_admin_tenant' });
         continue;
       }
 
       // Ambiguous — cannot safely infer, requires manual resolution
       console.warn(
         `autoAssignTenant: cannot auto-assign ${targetUser.email} — ` +
-        `${tenants.length} active tenants, ${otherAdmins.length} admins with tenants. ` +
+        `${tenants.length} active tenants, inviter has no tenant. ` +
         `Resolve via Admin → Users → Tenant Assignment Diagnostics.`
       );
       results.push({ email: targetUser.email, reason: 'ambiguous_tenant', skipped: true });
