@@ -16,7 +16,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 export default function Layout({ children, currentPageName }) {
-  const { user, tenantBranding } = useAuth();
+  const { user, tenantBranding, authError } = useAuth();
+  const isSuspended = authError?.type === 'account_suspended';
   const tenant = tenantBranding?.tenant || null;
   const [mobileOpen, setMobileOpen] = useState(false);
   const [announcements, setAnnouncements] = useState([]);
@@ -92,6 +93,15 @@ export default function Layout({ children, currentPageName }) {
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
+      {/* Account Suspended Banner */}
+      {isSuspended && (
+        <div className="bg-red-600 text-white px-4 py-3 text-sm text-center font-medium flex items-center justify-center gap-2">
+          <Shield className="w-4 h-4 flex-shrink-0" />
+          您的账户已被停用。所有操作已被禁止，请联系管理员处理。
+          <Button size="sm" variant="ghost" className="text-white hover:text-white hover:bg-red-700 h-6 px-2 text-xs ml-2"
+            onClick={() => base44.auth.logout()}>退出登录</Button>
+        </div>
+      )}
       {/* Top Announcement Banner */}
       {activeAnnouncement && (
         <div className={`border-b px-4 py-2 text-sm text-center ${typeColors[activeAnnouncement.type] || typeColors.info}`}>
@@ -191,7 +201,17 @@ export default function Layout({ children, currentPageName }) {
         )}
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 relative">
+        {isSuspended && (
+          <div className="absolute inset-0 z-40 bg-white/70 backdrop-blur-sm flex items-center justify-center rounded-lg">
+            <div className="text-center p-8">
+              <Shield className="w-12 h-12 text-red-400 mx-auto mb-3" />
+              <p className="text-lg font-semibold text-gray-800">账户已停用</p>
+              <p className="text-sm text-gray-500 mt-1">您的账户已被管理员停用，无法进行任何操作。</p>
+              <p className="text-sm text-gray-500 mt-0.5">请联系管理员解除限制。</p>
+            </div>
+          </div>
+        )}
         {children}
       </main>
 

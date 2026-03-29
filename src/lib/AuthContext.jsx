@@ -99,6 +99,13 @@ export const AuthProvider = ({ children }) => {
       setUser(currentUser);
       setIsAuthenticated(true);
       setIsLoadingAuth(false);
+
+      // Check account suspension in background (non-blocking)
+      base44.functions.invoke('getMyStatus', {}).then(r => {
+        if (r?.data?.is_active === false) {
+          setAuthError({ type: 'account_suspended', message: '您的账户已被停用，请联系管理员。' });
+        }
+      }).catch(() => {});
     } catch (error) {
       console.error('User auth check failed:', error);
       setIsLoadingAuth(false);

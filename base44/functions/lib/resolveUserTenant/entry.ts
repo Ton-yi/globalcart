@@ -52,6 +52,14 @@ export async function resolveUserTenant(base44, req = null) {
     });
   }
 
+  // Check if account is suspended (is_active === false)
+  if (userRecord.is_active === false) {
+    throw new Response(JSON.stringify({ error: '您的账户已被停用，请联系管理员。', code: 'account_suspended' }), {
+      status: 403,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
   const tenantId = userRecord.tenant_id || null;
   const isPlatformAdmin = user.role === 'platform_admin';
   const isTenantAdmin = user.role === 'admin' || user.role === 'tenant_admin';
