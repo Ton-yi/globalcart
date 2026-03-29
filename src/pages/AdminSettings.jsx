@@ -184,6 +184,7 @@ export default function AdminSettings() {
     setEditingTenant(t.id);
     setEditTenantFields({
       branding_name: t.branding_name || "",
+      code: t.code || "",
       logo_url: t.logo_url || "",
       favicon_url: t.favicon_url || "",
       theme_color: t.theme_color || "#dc2626",
@@ -457,9 +458,18 @@ export default function AdminSettings() {
                             </div>
                             {isPlatformAdmin && (
                               <div>
-                                <Label className="text-xs text-gray-500">子域名 <span className="text-orange-500">（仅平台管理员）</span></Label>
+                                <Label className="text-xs text-gray-500">租户代码 <span className="text-orange-500">（仅平台管理员）</span></Label>
+                                <Input className="mt-0.5 h-8 text-sm font-mono uppercase" value={editTenantFields.code}
+                                  onChange={e => setEditTenantFields(p => ({ ...p, code: e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, '') }))} />
+                                <p className="text-xs text-gray-400 mt-0.5">用于系统识别租户（唯一）</p>
+                              </div>
+                            )}
+                            {isPlatformAdmin && (
+                              <div>
+                                <Label className="text-xs text-gray-500">子域名 Slug <span className="text-orange-500">（仅平台管理员）</span></Label>
                                 <Input className="mt-0.5 h-8 text-sm font-mono" value={editTenantFields.subdomain}
                                   onChange={e => setEditTenantFields(p => ({ ...p, subdomain: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') }))} />
+                                <p className="text-xs text-gray-400 mt-0.5">域名读取此值匹配租户</p>
                               </div>
                             )}
                             <div>
