@@ -7,7 +7,7 @@ import { base44 } from "@/api/base44Client";
 import { fetchShippingPools, tenantEntity, fetchTenantConfig } from "@/lib/tenantApi";
 import { timePage } from "@/lib/timing";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { Plus, RefreshCw, Truck, X, Package, MapPin, ChevronRight, ChevronLeft, Check, Scale, Calendar, Info, Layers, Lock, Users, Search } from "lucide-react";
+import { Plus, RefreshCw, Truck, X, Package, MapPin, ChevronRight, ChevronLeft, Check, Scale, Calendar, Info, Layers, Lock, Users, Search, PlusCircle } from "lucide-react";
 import { getCountry } from "@/lib/countries";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -77,6 +77,11 @@ export default function ShippingPool() {
   });
   // consolidation type: "" = none, "transit" = to transit location, "other" = to saved address
   const [consType, setConsType] = useState("");
+  // Final address for transit consolidation (new address mode)
+  const [transitFinalAddressId, setTransitFinalAddressId] = useState("");
+  const [transitUseNewAddress, setTransitUseNewAddress] = useState(false);
+  const [transitNewAddress, setTransitNewAddress] = useState({ label: "", full_text: "" });
+  const [transitSaveAddress, setTransitSaveAddress] = useState(false);
   // Privacy
   const [isPrivate, setIsPrivate] = useState(false);
   const [sharedWithEmails, setSharedWithEmails] = useState([]);
@@ -113,6 +118,10 @@ export default function ShippingPool() {
     setSelectedOrderIds([]);
     setForm({ recipient_name: "", recipient_phone: "", address_line1: "", address_line2: "", city: "", state: "", postal_code: "", destination_country: "", shipping_method: "", scheduled_ship_date: "", transit_location_id: "", user_note: "" });
     setConsType("");
+    setTransitFinalAddressId("");
+    setTransitUseNewAddress(false);
+    setTransitNewAddress({ label: "", full_text: "" });
+    setTransitSaveAddress(false);
     setIsPrivate(false);
     setSharedWithEmails([]);
     setUserSearchQuery("");
@@ -193,14 +202,23 @@ export default function ShippingPool() {
     if (!form.destination_country && effectiveCountry) setForm(p => ({ ...p, destination_country: effectiveCountry }));
     setSubmitting(true);
 
-    if (useNewAddress && saveAddress && newAddressLabel.trim()) {
+    const needSaveDirect = useNewAddress && saveAddress && newAddressLabel.trim();
+    const needSaveTransit = consType === "transit" && transitUseNewAddress && transitSaveAddress && transitNewAddress.label.trim() && transitNewAddress.full_text.trim();
+
+    if (needSaveDirect || needSaveTransit) {
       const existingPrefs = await tenantEntity.list('UserPreference', { user_email: user.email });
-      const addrEntry = { id: Date.now().toString(), label: newAddressLabel.trim(), full_text: [form.recipient_name, form.address_line1, form.address_line2, form.city].filter(Boolean).join("\n") };
+      const existingAddrs = existingPrefs[0]?.saved_addresses || [];
+      const newEntries = [];
+      if (needSaveDirect) {
+        newEntries.push({ id: Date.now().toString(), label: newAddressLabel.trim(), full_text: [form.recipient_name, form.address_line1, form.address_line2, form.city].filter(Boolean).join("\n") });
+      }
+      if (needSaveTransit) {
+        newEntries.push({ id: (Date.now() + 1).toString(), label: transitNewAddress.label.trim(), full_text: transitNewAddress.full_text.trim() });
+      }
       if (existingPrefs.length > 0) {
-        const existing = existingPrefs[0].saved_addresses || [];
-        await tenantEntity.update('UserPreference', existingPrefs[0].id, { saved_addresses: [...existing, addrEntry] });
+        await tenantEntity.update('UserPreference', existingPrefs[0].id, { saved_addresses: [...existingAddrs, ...newEntries] });
       } else {
-        await tenantEntity.create('UserPreference', { user_email: user.email, saved_addresses: [addrEntry] });
+        await tenantEntity.create('UserPreference', { user_email: user.email, saved_addresses: newEntries });
       }
     }
 
@@ -229,6 +247,7 @@ export default function ShippingPool() {
       total_weight_g: totalWeight,
       status: "pending",
       transit_location_name: transitLoc?.name || "",
+      final_address_id: consType === "transit" ? (transitUseNewAddress ? "" : transitFinalAddressId) : "",
       messages: [],
       is_private: isPrivate,
       shared_with_emails: isPrivate ? sharedWithEmails : [],
@@ -396,59 +415,64 @@ export default function ShippingPool() {
                         )}
                       </div>
 
-                      {/* Final delivery address after transit — always shown */}
+                      {/* Final delivery address after transit */}
                       <div className="border border-gray-200 rounded-xl p-4 bg-gray-50/60 space-y-2">
                         <Label className="text-xs text-gray-600 font-medium flex items-center gap-1.5">
                           <MapPin className="w-3.5 h-3.5 text-gray-400" />
                           最终收货地址（货品从中转地发往此处）
                         </Label>
                         {savedAddresses.length > 0 && (
-                          <Select value={form.final_address_id || ""} onValueChange={v => {
-                              if (v === "__new__") {
-                                f("final_address_id", "");
-                                setUseNewAddress(true);
-                              } else {
-                                f("final_address_id", v);
-                                setUseNewAddress(false);
-                                const addr = savedAddresses.find(a => a.id === v);
-                                if (addr?.country) setForm(p => ({ ...p, final_address_id: v, destination_country: addr.country }));
-                              }
-                            }}>
+                          <Select value={transitUseNewAddress ? "__new__" : (transitFinalAddressId || "")} onValueChange={v => {
+                            if (v === "__new__") {
+                              setTransitFinalAddressId("");
+                              setTransitUseNewAddress(true);
+                            } else {
+                              setTransitFinalAddressId(v);
+                              setTransitUseNewAddress(false);
+                              setTransitNewAddress({ label: "", full_text: "" });
+                              setTransitSaveAddress(false);
+                              const addr = savedAddresses.find(a => a.id === v);
+                              if (addr?.country) setForm(p => ({ ...p, destination_country: addr.country }));
+                            }
+                          }}>
                             <SelectTrigger className="bg-white"><SelectValue placeholder="选择地址簿中的收货地址" /></SelectTrigger>
                             <SelectContent>
                               {savedAddresses.map(a => (
                                 <SelectItem key={a.id} value={a.id}>{a.label}</SelectItem>
                               ))}
                               <SelectItem value="__new__">
-                                <span className="flex items-center gap-1.5 text-blue-600"><Plus className="w-3.5 h-3.5" />输入新地址</span>
+                                <span className="flex items-center gap-1.5 text-blue-600"><PlusCircle className="w-3.5 h-3.5" />输入新地址</span>
                               </SelectItem>
                             </SelectContent>
                           </Select>
                         )}
-                        {form.final_address_id && !useNewAddress && (() => {
-                          const addr = savedAddresses.find(a => a.id === form.final_address_id);
+                        {/* Show saved address detail */}
+                        {!transitUseNewAddress && transitFinalAddressId && (() => {
+                          const addr = savedAddresses.find(a => a.id === transitFinalAddressId);
                           return addr ? (
                             <div className="bg-white border border-gray-100 rounded-lg px-3 py-2 text-xs text-gray-600 whitespace-pre-wrap">{addr.full_text}</div>
                           ) : null;
                         })()}
-                        {(useNewAddress || savedAddresses.length === 0) && (
+                        {/* New address input */}
+                        {(transitUseNewAddress || savedAddresses.length === 0) && (
                           <div className="space-y-2 pt-1">
-                            <div className="grid grid-cols-2 gap-2">
-                              <div>
-                                <Label className="text-xs text-gray-500">收件人姓名 *</Label>
-                                <Input className="mt-1 h-8 text-sm" value={form.recipient_name} onChange={e => f("recipient_name", e.target.value)} />
-                              </div>
-                              <div>
-                                <Label className="text-xs text-gray-500">联系电话</Label>
-                                <Input className="mt-1 h-8 text-sm" value={form.recipient_phone} onChange={e => f("recipient_phone", e.target.value)} />
-                              </div>
-                            </div>
-                            <Input className="h-8 text-sm" placeholder="地址行1" value={form.address_line1} onChange={e => f("address_line1", e.target.value)} />
-                            <div className="grid grid-cols-3 gap-2">
-                              <Input className="h-8 text-sm" placeholder="城市" value={form.city} onChange={e => f("city", e.target.value)} />
-                              <Input className="h-8 text-sm" placeholder="州/省" value={form.state} onChange={e => f("state", e.target.value)} />
-                              <Input className="h-8 text-sm" placeholder="邮编" value={form.postal_code} onChange={e => f("postal_code", e.target.value)} />
-                            </div>
+                            <Input
+                              className="h-8 text-sm bg-white"
+                              placeholder="地址标签（如：家、公司）"
+                              value={transitNewAddress.label}
+                              onChange={e => setTransitNewAddress(p => ({ ...p, label: e.target.value }))}
+                            />
+                            <Textarea
+                              rows={4}
+                              className="text-sm bg-white resize-none"
+                              placeholder={"收件人姓名\n手机号\n详细地址（省/市/区/街道/门牌号）\n邮编"}
+                              value={transitNewAddress.full_text}
+                              onChange={e => setTransitNewAddress(p => ({ ...p, full_text: e.target.value }))}
+                            />
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <Checkbox checked={transitSaveAddress} onCheckedChange={v => setTransitSaveAddress(!!v)} />
+                              <span className="text-xs text-gray-600">保存此地址到地址簿</span>
+                            </label>
                           </div>
                         )}
                       </div>
