@@ -117,16 +117,15 @@ export default function ShippingPool() {
     setSharedWithEmails([]);
     setUserSearchQuery("");
     setFormLoading(true);
-    // Reuse already-loaded pools data; fetch config (cached) and prefs in parallel
-    const [configData, prefs, usersRes] = await Promise.all([
+    // Fetch config, prefs and orders in parallel; listNonAdminUsers may return 403 for regular users — handle gracefully
+    const [configData, prefs, usersRes, inWarehouseOrders] = await Promise.all([
       fetchTenantConfig(),
-      tenantEntity.list('UserPreference', { user_email: user.email }),
-      base44.functions.invoke("listNonAdminUsers", {}),
+      tenantEntity.list('UserPreference', { user_email: user.email }).catch(() => []),
+      base44.functions.invoke("listNonAdminUsers", {}).catch(() => ({ data: { users: [] } })),
+      base44.functions.invoke('getTenantOrders', {})
+        .then(r => (r.data?.orders || []).filter(o => o.order_status === "in_warehouse"))
+        .catch(() => []),
     ]);
-    // Use orders already loaded on page mount (pools data has in_warehouse orders)
-    const inWarehouseOrders = await base44.functions.invoke('getTenantOrders', {})
-      .then(r => (r.data?.orders || []).filter(o => o.order_status === "in_warehouse"))
-      .catch(() => []);
     setAvailableOrders(inWarehouseOrders);
     setTransitLocations((configData.transitLocations || []).filter(l => l.is_active !== false));
     setAllUsers(usersRes?.data?.users || []);
@@ -140,7 +139,6 @@ export default function ShippingPool() {
       setSelectedAddressId(defaultAddr.id);
       setUseNewAddress(false);
       applyAddress(defaultAddr);
-      // Also set destination_country from the address
       if (defaultAddr.country) {
         setForm(p => ({ ...p, destination_country: defaultAddr.country }));
       }
@@ -398,44 +396,73 @@ export default function ShippingPool() {
                         )}
                       </div>
 
-                      {/* Final delivery address after transit */}
-                      {savedAddresses.length > 0 && (
-                        <div className="border border-gray-200 rounded-xl p-4 bg-gray-50/60 space-y-2">
-                          <Label className="text-xs text-gray-600 font-medium flex items-center gap-1.5">
-                            <MapPin className="w-3.5 h-3.5 text-gray-400" />
-                            最终收货地址（货品从中转地发往此处）
-                          </Label>
+                      {/* Final delivery address after transit — always shown */}
+                      <div className="border border-gray-200 rounded-xl p-4 bg-gray-50/60 space-y-2">
+                        <Label className="text-xs text-gray-600 font-medium flex items-center gap-1.5">
+                          <MapPin className="w-3.5 h-3.5 text-gray-400" />
+                          最终收货地址（货品从中转地发往此处）
+                        </Label>
+                        {savedAddresses.length > 0 && (
                           <Select value={form.final_address_id || ""} onValueChange={v => {
-                              f("final_address_id", v);
-                              const addr = savedAddresses.find(a => a.id === v);
-                              if (addr?.country) setForm(p => ({ ...p, final_address_id: v, destination_country: addr.country }));
+                              if (v === "__new__") {
+                                f("final_address_id", "");
+                                setUseNewAddress(true);
+                              } else {
+                                f("final_address_id", v);
+                                setUseNewAddress(false);
+                                const addr = savedAddresses.find(a => a.id === v);
+                                if (addr?.country) setForm(p => ({ ...p, final_address_id: v, destination_country: addr.country }));
+                              }
                             }}>
                             <SelectTrigger className="bg-white"><SelectValue placeholder="选择地址簿中的收货地址" /></SelectTrigger>
                             <SelectContent>
                               {savedAddresses.map(a => (
                                 <SelectItem key={a.id} value={a.id}>{a.label}</SelectItem>
                               ))}
+                              <SelectItem value="__new__">
+                                <span className="flex items-center gap-1.5 text-blue-600"><Plus className="w-3.5 h-3.5" />输入新地址</span>
+                              </SelectItem>
                             </SelectContent>
                           </Select>
-                          {form.final_address_id && (() => {
-                            const addr = savedAddresses.find(a => a.id === form.final_address_id);
-                            return addr ? (
-                              <div className="bg-white border border-gray-100 rounded-lg px-3 py-2 text-xs text-gray-600 whitespace-pre-wrap">{addr.full_text}</div>
-                            ) : null;
-                          })()}
-                        </div>
-                      )}
+                        )}
+                        {form.final_address_id && !useNewAddress && (() => {
+                          const addr = savedAddresses.find(a => a.id === form.final_address_id);
+                          return addr ? (
+                            <div className="bg-white border border-gray-100 rounded-lg px-3 py-2 text-xs text-gray-600 whitespace-pre-wrap">{addr.full_text}</div>
+                          ) : null;
+                        })()}
+                        {(useNewAddress || savedAddresses.length === 0) && (
+                          <div className="space-y-2 pt-1">
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <Label className="text-xs text-gray-500">收件人姓名 *</Label>
+                                <Input className="mt-1 h-8 text-sm" value={form.recipient_name} onChange={e => f("recipient_name", e.target.value)} />
+                              </div>
+                              <div>
+                                <Label className="text-xs text-gray-500">联系电话</Label>
+                                <Input className="mt-1 h-8 text-sm" value={form.recipient_phone} onChange={e => f("recipient_phone", e.target.value)} />
+                              </div>
+                            </div>
+                            <Input className="h-8 text-sm" placeholder="地址行1" value={form.address_line1} onChange={e => f("address_line1", e.target.value)} />
+                            <div className="grid grid-cols-3 gap-2">
+                              <Input className="h-8 text-sm" placeholder="城市" value={form.city} onChange={e => f("city", e.target.value)} />
+                              <Input className="h-8 text-sm" placeholder="州/省" value={form.state} onChange={e => f("state", e.target.value)} />
+                              <Input className="h-8 text-sm" placeholder="邮编" value={form.postal_code} onChange={e => f("postal_code", e.target.value)} />
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
 
                   {/* Address section (for direct or consType="other") */}
                   {(consType === "" || consType === "other") && (
                     <>
-                      {savedAddresses.length > 0 && (
-                        <div>
-                          <Label className="text-xs text-gray-500 font-medium flex items-center gap-1.5 mb-1.5">
-                            <MapPin className="w-3.5 h-3.5" />{consType === "other" ? "拼邮目标地址" : "收货地址"}
-                          </Label>
+                      <div>
+                        <Label className="text-xs text-gray-500 font-medium flex items-center gap-1.5 mb-1.5">
+                          <MapPin className="w-3.5 h-3.5" />{consType === "other" ? "拼邮目标地址" : "收货地址"}
+                        </Label>
+                        {savedAddresses.length > 0 && (
                           <Select value={selectedAddressId} onValueChange={handleAddressSelect}>
                             <SelectTrigger><SelectValue placeholder="选择地址..." /></SelectTrigger>
                             <SelectContent>
@@ -449,8 +476,8 @@ export default function ShippingPool() {
                               </SelectItem>
                             </SelectContent>
                           </Select>
-                        </div>
-                      )}
+                        )}
+                      </div>
 
                       {!useNewAddress && savedAddresses.length > 0 && (() => {
                         const addr = savedAddresses.find(a => a.id === selectedAddressId);
