@@ -66,7 +66,7 @@ export default function ShippingPool() {
   const [selectedAddressId, setSelectedAddressId] = useState("");
   const [useNewAddress, setUseNewAddress] = useState(false);
   const [saveAddress, setSaveAddress] = useState(false);
-  const [newAddressLabel, setNewAddressLabel] = useState("");
+  const [newAddress, setNewAddress] = useState({ label: "", full_text: "" });
   const [transitLocations, setTransitLocations] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
@@ -118,6 +118,8 @@ export default function ShippingPool() {
     setSelectedOrderIds([]);
     setForm({ recipient_name: "", recipient_phone: "", address_line1: "", address_line2: "", city: "", state: "", postal_code: "", destination_country: "", shipping_method: "", scheduled_ship_date: "", transit_location_id: "", user_note: "" });
     setConsType("");
+    setNewAddress({ label: "", full_text: "" });
+    setSaveAddress(false);
     setTransitFinalAddressId("");
     setTransitUseNewAddress(false);
     setTransitNewAddress({ label: "", full_text: "" });
@@ -170,17 +172,18 @@ export default function ShippingPool() {
   };
 
   const handleAddressSelect = (id) => {
-    setSelectedAddressId(id);
     if (id === "__new__") {
+      setSelectedAddressId("");
       setUseNewAddress(true);
-      setForm(p => ({ ...p, recipient_name: "", recipient_phone: "", address_line1: "", address_line2: "", city: "", state: "", postal_code: "", destination_country: "" }));
+      setNewAddress({ label: "", full_text: "" });
+      setSaveAddress(false);
     } else {
+      setSelectedAddressId(id);
       setUseNewAddress(false);
+      setNewAddress({ label: "", full_text: "" });
+      setSaveAddress(false);
       const addr = savedAddresses.find(a => a.id === id);
-      if (addr) {
-        applyAddress(addr);
-        if (addr.country) setForm(p => ({ ...p, destination_country: addr.country }));
-      }
+      if (addr?.country) setForm(p => ({ ...p, destination_country: addr.country }));
     }
   };
 
@@ -202,7 +205,7 @@ export default function ShippingPool() {
     if (!form.destination_country && effectiveCountry) setForm(p => ({ ...p, destination_country: effectiveCountry }));
     setSubmitting(true);
 
-    const needSaveDirect = useNewAddress && saveAddress && newAddressLabel.trim();
+    const needSaveDirect = useNewAddress && saveAddress && newAddress.label.trim() && newAddress.full_text.trim();
     const needSaveTransit = consType === "transit" && transitUseNewAddress && transitSaveAddress && transitNewAddress.label.trim() && transitNewAddress.full_text.trim();
 
     if (needSaveDirect || needSaveTransit) {
@@ -210,7 +213,7 @@ export default function ShippingPool() {
       const existingAddrs = existingPrefs[0]?.saved_addresses || [];
       const newEntries = [];
       if (needSaveDirect) {
-        newEntries.push({ id: Date.now().toString(), label: newAddressLabel.trim(), full_text: [form.recipient_name, form.address_line1, form.address_line2, form.city].filter(Boolean).join("\n") });
+        newEntries.push({ id: Date.now().toString(), label: newAddress.label.trim(), full_text: newAddress.full_text.trim() });
       }
       if (needSaveTransit) {
         newEntries.push({ id: (Date.now() + 1).toString(), label: transitNewAddress.label.trim(), full_text: transitNewAddress.full_text.trim() });
@@ -481,64 +484,56 @@ export default function ShippingPool() {
 
                   {/* Address section (for direct or consType="other") */}
                   {(consType === "" || consType === "other") && (
-                    <>
-                      <div>
-                        <Label className="text-xs text-gray-500 font-medium flex items-center gap-1.5 mb-1.5">
-                          <MapPin className="w-3.5 h-3.5" />{consType === "other" ? "拼邮目标地址" : "收货地址"}
-                        </Label>
-                        {savedAddresses.length > 0 && (
-                          <Select value={selectedAddressId} onValueChange={handleAddressSelect}>
-                            <SelectTrigger><SelectValue placeholder="选择地址..." /></SelectTrigger>
-                            <SelectContent>
-                              {savedAddresses.map(a => (
-                                <SelectItem key={a.id} value={a.id}>{a.label}</SelectItem>
-                              ))}
-                              <SelectItem value="__new__">
-                                <span className="flex items-center gap-1.5 text-blue-600">
-                                  <Plus className="w-3.5 h-3.5" />输入新地址
-                                </span>
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
-                        )}
-                      </div>
-
-                      {!useNewAddress && savedAddresses.length > 0 && (() => {
+                    <div className="border border-gray-200 rounded-xl p-4 bg-gray-50/60 space-y-2">
+                      <Label className="text-xs text-gray-600 font-medium flex items-center gap-1.5">
+                        <MapPin className="w-3.5 h-3.5 text-gray-400" />
+                        {consType === "other" ? "拼邮目标地址" : "收货地址"}
+                      </Label>
+                      {savedAddresses.length > 0 && (
+                        <Select value={useNewAddress ? "__new__" : (selectedAddressId || "")} onValueChange={handleAddressSelect}>
+                          <SelectTrigger className="bg-white"><SelectValue placeholder="选择地址簿中的地址" /></SelectTrigger>
+                          <SelectContent>
+                            {savedAddresses.map(a => (
+                              <SelectItem key={a.id} value={a.id}>{a.label}</SelectItem>
+                            ))}
+                            <SelectItem value="__new__">
+                              <span className="flex items-center gap-1.5 text-blue-600">
+                                <PlusCircle className="w-3.5 h-3.5" />输入新地址
+                              </span>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
+                      {/* Show saved address detail */}
+                      {!useNewAddress && selectedAddressId && (() => {
                         const addr = savedAddresses.find(a => a.id === selectedAddressId);
                         return addr ? (
-                          <div className="bg-blue-50 border border-blue-100 rounded-lg px-4 py-3 text-sm text-gray-700 whitespace-pre-wrap">{addr.full_text}</div>
+                          <div className="bg-white border border-gray-100 rounded-lg px-3 py-2 text-xs text-gray-600 whitespace-pre-wrap">{addr.full_text}</div>
                         ) : null;
                       })()}
-
+                      {/* New address input */}
                       {(useNewAddress || savedAddresses.length === 0) && (
-                        <div className="space-y-3 border border-gray-100 rounded-xl p-4 bg-gray-50">
-                          <div className="grid grid-cols-2 gap-3">
-                            <div>
-                              <Label className="text-xs text-gray-500">收件人姓名 *</Label>
-                              <Input className="mt-1 h-8 text-sm" value={form.recipient_name} onChange={e => f("recipient_name", e.target.value)} />
-                            </div>
-                            <div>
-                              <Label className="text-xs text-gray-500">联系电话</Label>
-                              <Input className="mt-1 h-8 text-sm" value={form.recipient_phone} onChange={e => f("recipient_phone", e.target.value)} />
-                            </div>
-                          </div>
-                          <Input className="h-8 text-sm" placeholder="地址行1（街道、门牌号）" value={form.address_line1} onChange={e => f("address_line1", e.target.value)} />
-                          <Input className="h-8 text-sm" placeholder="地址行2（单元、楼层，可选）" value={form.address_line2} onChange={e => f("address_line2", e.target.value)} />
-                          <div className="grid grid-cols-3 gap-2">
-                            <Input className="h-8 text-sm" placeholder="城市" value={form.city} onChange={e => f("city", e.target.value)} />
-                            <Input className="h-8 text-sm" placeholder="州/省" value={form.state} onChange={e => f("state", e.target.value)} />
-                            <Input className="h-8 text-sm" placeholder="邮编" value={form.postal_code} onChange={e => f("postal_code", e.target.value)} />
-                          </div>
+                        <div className="space-y-2 pt-1">
+                          <Input
+                            className="h-8 text-sm bg-white"
+                            placeholder="地址标签（如：家、公司）"
+                            value={newAddress.label}
+                            onChange={e => setNewAddress(p => ({ ...p, label: e.target.value }))}
+                          />
+                          <Textarea
+                            rows={4}
+                            className="text-sm bg-white resize-none"
+                            placeholder={"收件人姓名\n手机号\n详细地址（省/市/区/街道/门牌号）\n邮编"}
+                            value={newAddress.full_text}
+                            onChange={e => setNewAddress(p => ({ ...p, full_text: e.target.value }))}
+                          />
                           <label className="flex items-center gap-2 cursor-pointer">
-                            <Checkbox checked={saveAddress} onCheckedChange={setSaveAddress} />
+                            <Checkbox checked={saveAddress} onCheckedChange={v => setSaveAddress(!!v)} />
                             <span className="text-xs text-gray-600">保存此地址到地址簿</span>
                           </label>
-                          {saveAddress && (
-                            <Input className="h-8 text-sm" placeholder="地址标签（如：家、公司）" value={newAddressLabel} onChange={e => setNewAddressLabel(e.target.value)} />
-                          )}
                         </div>
                       )}
-                    </>
+                    </div>
                   )}
 
                   {/* Shipping method */}
