@@ -132,7 +132,7 @@ export default function ShippingPool() {
     const [configData, prefs, usersRes, inWarehouseOrders] = await Promise.all([
       fetchTenantConfig(),
       tenantEntity.list('UserPreference', { user_email: user.email }).catch(() => []),
-      base44.functions.invoke("listNonAdminUsers", {}).catch(() => ({ data: { users: [] } })),
+      base44.functions.invoke("listTenantUsers", {}).catch(() => ({ data: { users: [] } })),
       base44.functions.invoke('getTenantOrders', {})
         .then(r => (r.data?.orders || []).filter(o => o.order_status === "in_warehouse"))
         .catch(() => []),
