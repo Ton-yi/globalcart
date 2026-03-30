@@ -8,6 +8,7 @@
  */
 import { useState, useEffect } from "react";
 import { X, Truck, Package, MapPin, Lock, Users, Search, Star } from "lucide-react";
+import AddressBlock from "@/components/orders/AddressBlock";
 import { getCountry } from "@/lib/countries";
 import { base44 } from "@/api/base44Client";
 import { updateOrder, tenantEntity, shippingPoolApi, userPrefApi, fetchShippingPools } from "@/lib/tenantApi";
@@ -190,10 +191,17 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
 
   // Address & transit
   const [savedAddresses, setSavedAddresses] = useState([]);
+  const [userPrefId, setUserPrefId] = useState(null);
   const [selectedAddress, setSelectedAddress] = useState("");
   const [transitLocations, setTransitLocations] = useState([]);
   const [selectedTransitId, setSelectedTransitId] = useState("");
   const [finalAddressId, setFinalAddressId] = useState("");
+
+  // New address input state
+  const [newAddress, setNewAddress] = useState({ label: "", full_text: "" });
+  const [saveNewAddress, setSaveNewAddress] = useState(false);
+  // Which address slot is in "new input" mode: "direct" | "final" | "other"
+  const [addressInputMode, setAddressInputMode] = useState({});
 
   // Privacy system
   const [isPrivate, setIsPrivate] = useState(false);
@@ -228,6 +236,7 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
       const pref = initialData.userPreference;
       if (pref?.saved_addresses) setSavedAddresses(pref.saved_addresses);
       if (pref?.preferred_transit_shipping_id) setSelectedTransitMethodId(pref.preferred_transit_shipping_id);
+      if (pref?.id) setUserPrefId(pref.id);
       setTransitLocations(initialData.transitLocations || []);
       setAllUsers(initialData.nonAdminUsers || []);
 
@@ -256,14 +265,15 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
       const [prefs, allLocs, usersRes, allPools, addons, tMethods] = await Promise.all([
         userPrefApi.list({ user_email: u.email }),
         tenantEntity.list('TransitLocation'),
-        base44.functions.invoke("listNonAdminUsers", {}),
+        base44.functions.invoke("listNonAdminUsers", {}).catch(() => ({ data: { users: [] } })),
         fetchShippingPools(),
         tenantEntity.list('AddonOption', { addon_type: "shipping", is_active: true }),
         tenantEntity.list('TransitShippingMethod', { is_active: true }),
       ]);
-      if (prefs.length > 0 && prefs[0].saved_addresses) setSavedAddresses(prefs[0].saved_addresses);
-      if (prefs.length > 0 && prefs[0].preferred_transit_shipping_id) {
-        setSelectedTransitMethodId(prefs[0].preferred_transit_shipping_id);
+      if (prefs.length > 0) {
+        if (prefs[0].saved_addresses) setSavedAddresses(prefs[0].saved_addresses);
+        if (prefs[0].preferred_transit_shipping_id) setSelectedTransitMethodId(prefs[0].preferred_transit_shipping_id);
+        setUserPrefId(prefs[0].id);
       }
       setTransitLocations((allLocs || []).filter(l => l.is_active !== false));
       setAllUsers(usersRes?.data?.users || []);
@@ -284,11 +294,20 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
     }).catch(() => {});
   }, []);
 
-  const handleAddressSelect = (val) => {
-    setSelectedAddress(val);
-    if (val) {
-      const addr = savedAddresses.find(a => a.id === val);
-      if (addr) setNote(addr.full_text || "");
+  const handleAddressSelect = (val, slot = "direct") => {
+    if (val === "__new__") {
+      setAddressInputMode(m => ({ ...m, [slot]: true }));
+      if (slot === "final") setFinalAddressId("");
+      else setSelectedAddress("");
+    } else {
+      setAddressInputMode(m => ({ ...m, [slot]: false }));
+      if (slot === "final") {
+        setFinalAddressId(val);
+      } else {
+        setSelectedAddress(val);
+        const addr = savedAddresses.find(a => a.id === val);
+        if (addr) setNote(addr.full_text || "");
+      }
     }
   };
 
@@ -326,6 +345,31 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
 
     const u = currentUser || await base44.auth.me();
     const orderIds = targetOrders.map(o => o.id);
+
+    // Determine effective address object for each slot
+    const getEffectiveAddr = (slot) => {
+      if (addressInputMode[slot]) {
+        // user typed a new address
+        return newAddress.full_text ? { id: `new_${Date.now()}`, label: newAddress.label || "新地址", full_text: newAddress.full_text } : null;
+      }
+      const addrId = slot === "final" ? finalAddressId : selectedAddress;
+      return savedAddresses.find(a => a.id === addrId) || null;
+    };
+
+    // Save new address to UserPreference if requested
+    if (saveNewAddress && newAddress.full_text && Object.values(addressInputMode).some(v => v)) {
+      const newEntry = {
+        id: `addr_${Date.now()}`,
+        label: newAddress.label || "新地址",
+        full_text: newAddress.full_text,
+      };
+      const updatedAddresses = [...savedAddresses, newEntry];
+      if (userPrefId) {
+        await userPrefApi.update(userPrefId, { saved_addresses: updatedAddresses });
+      } else {
+        await userPrefApi.create({ user_email: u.email, saved_addresses: updatedAddresses });
+      }
+    }
     const totalWeight = targetOrders.reduce((s, o) => s + (o.weight_g || 0), 0);
 
     const updates = {
@@ -371,7 +415,9 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
       const nextSeq = (prefixPools.length + 1).toString().padStart(5, "0");
       const pool_code = `${prefix}${nextSeq}`;
 
-      const addrObj = savedAddresses.find(a => a.id === (consType === "transit" ? finalAddressId : selectedAddress));
+      const addrObj = consType === "transit"
+        ? (addressInputMode["final"] ? (newAddress.full_text ? { full_text: newAddress.full_text } : null) : savedAddresses.find(a => a.id === finalAddressId))
+        : (addressInputMode[consType === "other" ? "other" : "direct"] ? (newAddress.full_text ? { full_text: newAddress.full_text } : null) : savedAddresses.find(a => a.id === selectedAddress));
       const selectedAddons = shippingAddons.filter(a => selectedAddonIds.includes(a.id));
       const transitMethod = transitMethods.find(m => m.id === selectedTransitMethodId);
 
@@ -506,22 +552,19 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
           )}
 
           {/* Address selection for non-consolidation */}
-          {consType === "" && !joinDirectPool && savedAddresses.length > 0 && (
-            <div>
-              <label className="text-xs text-gray-500 font-medium uppercase tracking-wide flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5" />收货地址
-              </label>
-              <Select value={selectedAddress} onValueChange={handleAddressSelect}>
-                <SelectTrigger className="mt-1.5"><SelectValue placeholder="选择地址簿中的地址" /></SelectTrigger>
-                <SelectContent>
-                  {savedAddresses.map(a => <SelectItem key={a.id} value={a.id}>{a.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              {selectedAddress && (() => {
-                const addr = savedAddresses.find(a => a.id === selectedAddress);
-                return addr ? <div className="mt-2 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 text-xs text-gray-600 whitespace-pre-wrap">{addr.full_text}</div> : null;
-              })()}
-            </div>
+          {consType === "" && !joinDirectPool && (
+            <AddressBlock
+              slot="direct"
+              label="收货地址"
+              savedAddresses={savedAddresses}
+              selectedId={selectedAddress}
+              isNewMode={!!addressInputMode["direct"]}
+              newAddress={newAddress}
+              saveNewAddress={saveNewAddress}
+              onSelect={(v) => handleAddressSelect(v, "direct")}
+              onNewAddressChange={setNewAddress}
+              onSaveToggle={setSaveNewAddress}
+            />
           )}
 
           {/* Transit location selection */}
@@ -547,23 +590,18 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
                   </label>
                 ))}
               </div>
-              {savedAddresses.length > 0 && (
-                <div className="border border-gray-200 rounded-xl p-4 bg-gray-50/60 space-y-2">
-                  <label className="text-xs text-gray-600 font-medium flex items-center gap-1.5">
-                    <MapPin className="w-3.5 h-3.5 text-gray-400" />最终收货地址（货品从中转地发往此处）
-                  </label>
-                  <Select value={finalAddressId} onValueChange={setFinalAddressId}>
-                    <SelectTrigger className="bg-white"><SelectValue placeholder="选择地址簿中的收货地址" /></SelectTrigger>
-                    <SelectContent>
-                      {savedAddresses.map(a => <SelectItem key={a.id} value={a.id}>{a.label}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                  {finalAddressId && (() => {
-                    const addr = savedAddresses.find(a => a.id === finalAddressId);
-                    return addr ? <div className="bg-white border border-gray-100 rounded-lg px-3 py-2 text-xs text-gray-600 whitespace-pre-wrap">{addr.full_text}</div> : null;
-                  })()}
-                </div>
-              )}
+              <AddressBlock
+                slot="final"
+                label="最终收货地址（货品从中转地发往此处）"
+                savedAddresses={savedAddresses}
+                selectedId={finalAddressId}
+                isNewMode={!!addressInputMode["final"]}
+                newAddress={newAddress}
+                saveNewAddress={saveNewAddress}
+                onSelect={(v) => handleAddressSelect(v, "final")}
+                onNewAddressChange={setNewAddress}
+                onSaveToggle={setSaveNewAddress}
+              />
             </div>
           )}
 
@@ -750,23 +788,20 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
             </div>
           )}
 
-          {/* Saved address picker (only for consType="other") */}
-          {consType === "other" && savedAddresses.length > 0 && (
-            <div>
-              <label className="text-xs text-gray-500 font-medium uppercase tracking-wide flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5" />拼邮目标地址
-              </label>
-              <Select value={selectedAddress} onValueChange={handleAddressSelect}>
-                <SelectTrigger className="mt-1.5"><SelectValue placeholder="选择地址簿中的地址" /></SelectTrigger>
-                <SelectContent>
-                  {savedAddresses.map(a => <SelectItem key={a.id} value={a.id}>{a.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              {selectedAddress && (() => {
-                const addr = savedAddresses.find(a => a.id === selectedAddress);
-                return addr ? <div className="mt-2 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 text-xs text-gray-600 whitespace-pre-wrap">{addr.full_text}</div> : null;
-              })()}
-            </div>
+          {/* Address picker for consType="other" */}
+          {consType === "other" && (
+            <AddressBlock
+              slot="other"
+              label="拼邮目标地址"
+              savedAddresses={savedAddresses}
+              selectedId={selectedAddress}
+              isNewMode={!!addressInputMode["other"]}
+              newAddress={newAddress}
+              saveNewAddress={saveNewAddress}
+              onSelect={(v) => handleAddressSelect(v, "other")}
+              onNewAddressChange={setNewAddress}
+              onSaveToggle={setSaveNewAddress}
+            />
           )}
 
           <TransitMethodSection
