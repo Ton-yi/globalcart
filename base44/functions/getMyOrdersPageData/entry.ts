@@ -88,10 +88,14 @@ Deno.serve(async (req) => {
 
     // Filter pools accessible to this user (mirrors getTenantShippingPools logic)
     const accessiblePools = (allPools || []).filter(pool => {
+      // Staff, admin, tenant_admin see all pools in the tenant
+      if (user.role !== 'user') return true;
+      // Owner always sees their own pool
       if (pool.creator_email === user.email) return true;
-      if (pool.is_admin_created && !pool.is_private) return true;
-      if (pool.is_private && (pool.shared_with_emails || []).includes(user.email)) return true;
-      return false;
+      // Private pool: only visible to owner (above) and explicitly shared users
+      if (pool.is_private) return (pool.shared_with_emails || []).includes(user.email);
+      // Non-private pools are visible to all users in the tenant
+      return true;
     });
 
     // Non-admin users for UserNotifyShipmentModal privacy system (mirrors listNonAdminUsers logic)

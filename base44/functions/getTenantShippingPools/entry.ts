@@ -58,11 +58,14 @@ Deno.serve(async (req) => {
     console.log(`[TIMING] getTenantShippingPools | ShippingPool.filter (tenant): ${Date.now()-t3}ms | count: ${tenantPools?.length}`);
 
     const accessiblePools = (tenantPools || []).filter(pool => {
+      // Staff, admin, tenant_admin see all pools in the tenant
       if (user.role !== 'user') return true;
+      // Owner always sees their own pool
       if (pool.creator_email === user.email) return true;
-      if (pool.is_admin_created && !pool.is_private) return true;
-      if (pool.is_private && pool.shared_with_emails && pool.shared_with_emails.includes(user.email)) return true;
-      return false;
+      // Private pool: only visible to owner (above) and explicitly shared users
+      if (pool.is_private) return (pool.shared_with_emails || []).includes(user.email);
+      // Non-private pools are visible to all users in the tenant
+      return true;
     });
 
     console.log(`[TIMING] getTenantShippingPools | TOTAL: ${Date.now()-t0}ms | accessible: ${accessiblePools.length}`);
