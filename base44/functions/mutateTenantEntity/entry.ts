@@ -96,7 +96,18 @@ Deno.serve(async (req) => {
     const t3 = Date.now();
 
     if (action === 'list') {
-      const q = isPlatformAdmin ? filter : { ...filter, tenant_id: tenantId };
+      // UserPreference: scope by user_email for regular users (not just tenant_id),
+      // because legacy records may have been created without tenant_id.
+      let q;
+      if (isPlatformAdmin) {
+        q = filter;
+      } else if (entity === 'UserPreference' && !isTenantAdmin && !isStaff) {
+        // Regular users can only see their own preferences; don't require tenant_id match
+        // so that legacy records without tenant_id are still accessible.
+        q = { ...filter, user_email: user.email };
+      } else {
+        q = { ...filter, tenant_id: tenantId };
+      }
       const results = await entityRef.filter(q);
       console.log(`[TIMING] mutateTenantEntity | ${entity}.filter (list): ${Date.now()-t3}ms | count: ${results?.length}`);
       console.log(`[TIMING] mutateTenantEntity | TOTAL: ${Date.now()-t0}ms | ${entity} ${action}`);

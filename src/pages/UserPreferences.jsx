@@ -47,7 +47,9 @@ export default function UserPreferences() {
       tenantEntity.list('TransitShippingMethod', { is_active: true }),
     ]).then(([prefs, tMethods]) => {
       if (prefs.length > 0) {
-        const p = prefs[0];
+        // Use the most recently updated record as the primary pref record
+        const sorted = [...prefs].sort((a, b) => new Date(b.updated_date || 0) - new Date(a.updated_date || 0));
+        const p = sorted[0];
         setPref(p);
         setForm({
           contact_info: p.contact_info || "",
@@ -59,8 +61,13 @@ export default function UserPreferences() {
           notification_email: p.notification_email !== false,
           default_address_id: p.default_address_id || "",
         });
-        const addrs = (p.saved_addresses || []).map(a => ({ country: "", ...a }));
-        setAddresses(addrs);
+        // Merge saved_addresses from ALL pref records (deduplicate by id)
+        const allAddrs = sorted.flatMap(r => r.saved_addresses || []);
+        const seenIds = new Set();
+        const mergedAddrs = allAddrs
+          .filter(a => { if (!a.id || seenIds.has(a.id)) return false; seenIds.add(a.id); return true; })
+          .map(a => ({ country: "", ...a }));
+        setAddresses(mergedAddrs);
       }
       setTransitMethods(tMethods || []);
     }).catch(() => {});
@@ -81,6 +88,10 @@ export default function UserPreferences() {
     const data = { ...form, user_email: user.email, saved_addresses: addresses };
     if (pref) {
       await userPrefApi.update(pref.id, data);
+      // Clean up any duplicate UserPreference records (merge into primary)
+      const allPrefs = await userPrefApi.list({ user_email: user.email });
+      const duplicates = allPrefs.filter(p => p.id !== pref.id);
+      await Promise.all(duplicates.map(p => userPrefApi.delete(p.id)));
     } else {
       const created = await userPrefApi.create(data);
       setPref(created);

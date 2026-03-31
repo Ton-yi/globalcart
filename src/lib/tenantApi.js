@@ -93,6 +93,7 @@ export const userPrefApi = {
   list:   (filter) => tenantEntity.list('UserPreference', filter),
   create: (data)   => tenantEntity.create('UserPreference', data),
   update: (id, d)  => tenantEntity.update('UserPreference', id, d),
+  delete: (id)     => tenantEntity.delete('UserPreference', id),
 };
 
 // ─── Page-level aggregated APIs ───────────────────────────────────────────────

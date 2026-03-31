@@ -191,8 +191,8 @@ export default function ShippingPool() {
       return { label: label || "新地址", full_text: serializeAddressToText(fields), ...fields };
     };
 
-    const needSaveDirect = useNewAddress && saveAddress && newAddress.label.trim() && isAddressFormValid(newAddress);
-    const needSaveTransit = consType === "transit" && transitUseNewAddress && transitSaveAddress && transitNewAddress.label.trim() && isAddressFormValid(transitNewAddress);
+    const needSaveDirect = useNewAddress && saveAddress && isAddressFormValid(newAddress);
+    const needSaveTransit = consType === "transit" && transitUseNewAddress && transitSaveAddress && isAddressFormValid(transitNewAddress);
 
     if (needSaveDirect || needSaveTransit) {
       const existingPrefs = await tenantEntity.list('UserPreference', { user_email: user.email });
