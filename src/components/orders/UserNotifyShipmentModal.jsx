@@ -8,6 +8,7 @@
  */
 import { useState, useEffect } from "react";
 import { X, Truck, Package, MapPin, Lock, Users, Search, Star } from "lucide-react";
+import { serializeAddressToText, isAddressFormValid, EMPTY_ADDRESS_FORM } from "@/components/common/AddressForm";
 import AddressBlock from "@/components/orders/AddressBlock";
 import { getCountry } from "@/lib/countries";
 import { base44 } from "@/api/base44Client";
@@ -199,7 +200,7 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
   const [finalAddressId, setFinalAddressId] = useState("");
 
   // New address input state
-  const [newAddress, setNewAddress] = useState({ label: "", full_text: "" });
+  const [newAddress, setNewAddress] = useState({ label: "", ...EMPTY_ADDRESS_FORM });
   const [saveNewAddress, setSaveNewAddress] = useState(false);
   // Which address slot is in "new input" mode: "direct" | "final" | "other"
   const [addressInputMode, setAddressInputMode] = useState({});
@@ -358,11 +359,12 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
     };
 
     // Save new address to UserPreference if requested
-    if (saveNewAddress && newAddress.full_text && Object.values(addressInputMode).some(v => v)) {
+    if (saveNewAddress && isAddressFormValid(newAddress) && Object.values(addressInputMode).some(v => v)) {
       const newEntry = {
         id: `addr_${Date.now()}`,
         label: newAddress.label || "新地址",
-        full_text: newAddress.full_text,
+        full_text: serializeAddressToText(newAddress),
+        ...newAddress,
       };
       const updatedAddresses = [...savedAddresses, newEntry];
       if (userPrefId) {
