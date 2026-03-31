@@ -58,6 +58,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
   const [editMode, setEditMode] = useState(true); // Always expanded for admin
 
   const [tenantUserMap, setTenantUserMap] = useState({});
+  const [allPoolsMap, setAllPoolsMap] = useState({}); // id -> pool_code for target pool display
 
   useEffect(() => {
     const fetches = [];
@@ -77,6 +78,15 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
           const map = {};
           (r.data?.users || []).forEach(u => { map[u.email] = u; });
           setTenantUserMap(map);
+        })
+        .catch(() => {})
+    );
+    fetches.push(
+      base44.functions.invoke('getTenantShippingPools', {})
+        .then(r => {
+          const map = {};
+          (r.data?.pools || []).forEach(p => { map[p.id] = p; });
+          setAllPoolsMap(map);
         })
         .catch(() => {})
     );
@@ -523,7 +533,9 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                           订单：{orders.find(o => o.id === req.order_id)?.product_name || req.order_id}
                         </p>
                         {req.edit_type === 'move_pool' && req.target_pool_id && (
-                          <p className="text-xs text-gray-400 mt-0.5">目标：{req.target_pool_id.slice(-6).toUpperCase()}</p>
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            目标：<span className="font-mono text-gray-600">{allPoolsMap[req.target_pool_id]?.pool_code || req.target_pool_id.slice(-6).toUpperCase()}</span>
+                          </p>
                         )}
                         {req.user_note && (
                           <p className="text-xs text-gray-500 mt-0.5 italic">"{req.user_note}"</p>
