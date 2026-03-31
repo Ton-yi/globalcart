@@ -54,10 +54,11 @@ Deno.serve(async (req) => {
     const filter = (isPlatformAdmin || !tenantId) ? {} : { tenant_id: tenantId };
 
     const t1 = Date.now();
-    const [orders, storeTagRules, itemSizeTemplates] = await Promise.all([
+    const [orders, storeTagRules, itemSizeTemplates, pendingEditRequests] = await Promise.all([
       base44.asServiceRole.entities.Order.filter(filter),
       base44.asServiceRole.entities.OnlineStoreTagRule.filter({ ...filter, is_active: true }),
       base44.asServiceRole.entities.ItemSizeTemplate.filter({ ...filter, is_active: true }),
+      base44.asServiceRole.entities.ShippingEditRequest.filter({ ...filter, status: 'pending' }),
     ]);
     console.log(`[TIMING] getAdminOrdersPageData | parallel fetches: ${Date.now() - t1}ms`);
     console.log(`[TIMING] getAdminOrdersPageData | TOTAL: ${Date.now() - t0}ms`);
@@ -69,6 +70,7 @@ Deno.serve(async (req) => {
       orders: orders || [],
       storeTagRules: sortedRules,
       itemSizeTemplates: itemSizeTemplates || [],
+      pendingEditRequests: pendingEditRequests || [],
     });
 
   } catch (error) {

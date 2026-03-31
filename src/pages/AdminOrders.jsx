@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
-import { Search, RefreshCw, Filter, Package, ChevronUp, ChevronDown, ChevronsUpDown, Trash2 } from "lucide-react";
+import { Search, RefreshCw, Filter, ChevronUp, ChevronDown, ChevronsUpDown, Trash2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -172,14 +172,16 @@ export default function AdminOrders() {
   const [storeTagRules, setStoreTagRules] = useState([]);
 
   const [itemSizeTemplates, setItemSizeTemplates] = useState([]);
+  const [pendingEditRequests, setPendingEditRequests] = useState([]);
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
     const r = await base44.functions.invoke('getAdminOrdersPageData', {});
-    const { orders: data = [], storeTagRules: rules = [], itemSizeTemplates: templates = [] } = r.data || {};
+    const { orders: data = [], storeTagRules: rules = [], itemSizeTemplates: templates = [], pendingEditRequests: edits = [] } = r.data || {};
     setOrders(data);
     setStoreTagRules(rules);
     setItemSizeTemplates(templates);
+    setPendingEditRequests(edits);
     setLoading(false);
   }, []);
 
@@ -365,8 +367,10 @@ export default function AdminOrders() {
               <tr><td colSpan={visibleCols.length + 2} className="text-center py-12 text-gray-400 text-sm">加载中...</td></tr>
             ) : filtered.length === 0 ? (
               <tr><td colSpan={visibleCols.length + 2} className="text-center py-12 text-gray-400 text-sm">暂无订单</td></tr>
-            ) : filtered.map(order => (
-              <tr key={order.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => handleStatusClick(order)}>
+            ) : filtered.map(order => {
+              const pendingEdit = pendingEditRequests.find(r => r.order_id === order.id);
+              return (
+              <tr key={order.id} className={`hover:bg-gray-50 cursor-pointer ${pendingEdit ? "bg-orange-50/60" : ""}`} onClick={() => handleStatusClick(order)}>
                 <td className="px-3 py-3" onClick={e => e.stopPropagation()}>
                   <Checkbox checked={selectedIds.includes(order.id)} onCheckedChange={() => toggleSelect(order.id)} />
                 </td>
@@ -376,7 +380,13 @@ export default function AdminOrders() {
                   </td>
                 ))}
                 <td className="px-3 py-3 whitespace-nowrap" onClick={e => e.stopPropagation()}>
-                  <div className="flex gap-1">
+                  <div className="flex flex-wrap gap-1 items-center">
+                    {pendingEdit && (
+                      <span className="inline-flex items-center gap-1 text-xs bg-orange-100 text-orange-700 border border-orange-300 px-1.5 py-0.5 rounded-full font-medium">
+                        <AlertCircle className="w-3 h-3" />
+                        {pendingEdit.edit_type === 'cancel_shipment' ? '申请重新入库' : '申请移至其他发货申请'}
+                      </span>
+                    )}
                     {(order.order_status === "paid" || order.order_status === "pending_purchase") && (
                       <Button size="sm" variant="outline" className="h-6 text-xs px-2 text-indigo-600 border-indigo-200"
                         onClick={() => handleQuickOrdered(order)}>
@@ -398,7 +408,8 @@ export default function AdminOrders() {
                   </div>
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>
