@@ -68,6 +68,7 @@ Deno.serve(async (req) => {
       userPrefs,
       siteSettings,
       allTenantUsers,
+      myEditRequests,
     ] = await Promise.all([
       base44.asServiceRole.entities.Order.filter(
         { tenant_id: tenantId, user_email: user.email },
@@ -82,8 +83,9 @@ Deno.serve(async (req) => {
       base44.asServiceRole.entities.UserPreference.filter({ tenant_id: tenantId, user_email: user.email }),
       base44.asServiceRole.entities.SiteSettings.filter({ tenant_id: tenantId, key: 'paid_order_reminder' }),
       base44.asServiceRole.entities.User.filter(tenantFilter),
+      base44.asServiceRole.entities.ShippingEditRequest.filter({ tenant_id: tenantId, user_email: user.email, status: 'pending' }),
     ]);
-    console.log(`[TIMING] getMyOrdersPageData | 9x parallel queries: ${Date.now() - t1}ms`);
+    console.log(`[TIMING] getMyOrdersPageData | 10x parallel queries: ${Date.now() - t1}ms`);
     console.log(`[TIMING] getMyOrdersPageData | TOTAL: ${Date.now() - t0}ms`);
 
     // Filter pools accessible to this user (mirrors getTenantShippingPools logic)
@@ -114,6 +116,7 @@ Deno.serve(async (req) => {
       userPreference: userPrefs?.[0] || null,
       paidOrderReminder: siteSettings?.[0]?.value || null,
       nonAdminUsers,
+      pendingEditRequests: myEditRequests || [],
     });
 
   } catch (error) {

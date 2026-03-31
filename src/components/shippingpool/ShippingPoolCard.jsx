@@ -1,4 +1,4 @@
-import { Calendar, Package, Scale, MapPin, Truck, DollarSign, User, Layers, ChevronRight, CheckCircle2 } from "lucide-react";
+import { Calendar, Package, Scale, MapPin, Truck, DollarSign, User, Layers, ChevronRight, AlertCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getCountry } from "@/lib/countries";
 
@@ -38,7 +38,7 @@ const METHOD_LABELS = {
   surface: "海运", small_packet_air: "小包空运", other: "其他"
 };
 
-export default function ShippingPoolCard({ pool, onClick }) {
+export default function ShippingPoolCard({ pool, onClick, pendingEditCount = 0 }) {
   const status = STATUS_CONFIG[pool.status] || STATUS_CONFIG.pending;
   const isConsolidation = pool.consolidation_type && pool.consolidation_type !== "";
 
@@ -152,9 +152,16 @@ export default function ShippingPoolCard({ pool, onClick }) {
           <span className="text-xs text-gray-400">
             {new Date(pool.created_date).toLocaleDateString("zh-CN")}
           </span>
-          <span className="text-xs text-gray-400 flex items-center gap-0.5 hover:text-gray-600">
-            查看详情 <ChevronRight className="w-3 h-3" />
-          </span>
+          <div className="flex items-center gap-2">
+            {pendingEditCount > 0 && (
+              <span className="inline-flex items-center gap-1 text-xs bg-orange-100 text-orange-700 border border-orange-200 px-1.5 py-0.5 rounded-full font-medium">
+                <AlertCircle className="w-3 h-3" />{pendingEditCount} 项更改申请
+              </span>
+            )}
+            <span className="text-xs text-gray-400 flex items-center gap-0.5 hover:text-gray-600">
+              查看详情 <ChevronRight className="w-3 h-3" />
+            </span>
+          </div>
         </div>
       </div>
     </div>);

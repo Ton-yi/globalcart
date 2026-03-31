@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
     const filter = isPlatformAdmin ? {} : { tenant_id: tenantId };
 
     const t1 = Date.now();
-    const [pools, locations, allUsers, transitMethods, addonOptions] = await Promise.all([
+    const [pools, locations, allUsers, transitMethods, addonOptions, editRequests] = await Promise.all([
       isPlatformAdmin
         ? base44.asServiceRole.entities.ShippingPool.list()
         : base44.asServiceRole.entities.ShippingPool.filter({ tenant_id: tenantId }),
@@ -67,8 +67,11 @@ Deno.serve(async (req) => {
       base44.asServiceRole.entities.User.filter(isPlatformAdmin ? {} : { tenant_id: tenantId }),
       base44.asServiceRole.entities.TransitShippingMethod.filter(filter),
       base44.asServiceRole.entities.AddonOption.filter(filter),
+      isPlatformAdmin
+        ? base44.asServiceRole.entities.ShippingEditRequest.filter({ status: 'pending' })
+        : base44.asServiceRole.entities.ShippingEditRequest.filter({ tenant_id: tenantId, status: 'pending' }),
     ]);
-    console.log(`[TIMING] getAdminShippingPoolPageData | 5x parallel queries: ${Date.now() - t1}ms`);
+    console.log(`[TIMING] getAdminShippingPoolPageData | 6x parallel queries: ${Date.now() - t1}ms`);
     console.log(`[TIMING] getAdminShippingPoolPageData | TOTAL: ${Date.now() - t0}ms`);
 
     // Shape users like listNonAdminUsers
@@ -85,6 +88,7 @@ Deno.serve(async (req) => {
       users: formattedUsers,
       transitMethods: (transitMethods || []).filter(m => m.is_active !== false),
       addonOptions: (addonOptions || []).filter(a => a.addon_type === 'shipping' && a.is_active !== false),
+      pendingEditRequests: editRequests || [],
     });
 
   } catch (error) {

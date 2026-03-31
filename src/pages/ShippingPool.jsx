@@ -47,6 +47,7 @@ export default function ShippingPool() {
   const { user } = useCurrentUser();
   const [pools, setPools] = useState([]);
   const [consolidationOrders, setConsolidationOrders] = useState([]);
+  const [pendingEditRequests, setPendingEditRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("pools");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -89,11 +90,13 @@ export default function ShippingPool() {
   const fetchData = async (_u) => {
     setLoading(true);
     const t = timePage('ShippingPool');
-    const [allPools, myOrders] = await Promise.all([
+    const [allPools, myOrders, editReqs] = await Promise.all([
       t.timeCall('getTenantShippingPools', () => fetchShippingPools()),
       t.timeCall('getTenantOrders', () => base44.functions.invoke('getTenantOrders', {}).then(r => r.data?.orders || [])),
+      base44.functions.invoke('getMyShippingEditRequests', {}).then(r => r.data?.requests || []).catch(() => []),
     ]);
     setPools(allPools);
+    setPendingEditRequests(editReqs.filter(r => r.status === 'pending'));
 
     const consPools = allPools.filter(p => p.consolidation_type && p.consolidation_type !== "");
     const consOrderIds = new Set(consPools.flatMap(p => p.order_ids || []));
@@ -711,7 +714,12 @@ export default function ShippingPool() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
               {filtered.map(pool => (
-                <ShippingPoolCard key={pool.id} pool={pool} onClick={setSelectedPool} />
+                <ShippingPoolCard
+                  key={pool.id}
+                  pool={pool}
+                  onClick={setSelectedPool}
+                  pendingEditCount={pendingEditRequests.filter(r => r.pool_id === pool.id).length}
+                />
               ))}
             </div>
           )}
@@ -834,6 +842,7 @@ export default function ShippingPool() {
           pool={selectedPool}
           isAdmin={false}
           currentUser={user}
+          pendingEditRequests={pendingEditRequests.filter(r => r.pool_id === selectedPool.id)}
           onClose={() => setSelectedPool(null)}
           onUpdated={() => { setSelectedPool(null); fetchData(user); }}
         />

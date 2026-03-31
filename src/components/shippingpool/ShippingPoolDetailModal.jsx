@@ -4,7 +4,7 @@
  * Admin can edit tracking number, actual fee.
  */
 import { useState, useEffect } from "react";
-import { X, Package, Send, Image, Truck, Edit2, Save, MoreVertical, ArrowRight, RotateCcw, Loader2, Search, Trash2 } from "lucide-react";
+import { X, Package, Send, Image, Truck, Edit2, Save, MoreVertical, ArrowRight, RotateCcw, Loader2, Search, Trash2, AlertCircle, CheckCircle, XCircle } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { updateOrder, tenantEntity, shippingPoolApi } from "@/lib/tenantApi";
 import { Button } from "@/components/ui/button";
@@ -28,7 +28,7 @@ const METHOD_LABELS = {
   surface: "海运", small_packet_air: "小包空运", other: "其他",
 };
 
-export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, currentUser, onClose, onUpdated }) {
+export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, currentUser, pendingEditRequests: initialPendingEdits = [], onClose, onUpdated }) {
   const [pool, setPool] = useState(initialPool);
   const [orders, setOrders] = useState([]);
   const [messageText, setMessageText] = useState("");
@@ -48,6 +48,8 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
   const [savingPool, setSavingPool] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [pendingEdits, setPendingEdits] = useState(initialPendingEdits);
+  const [processingEditId, setProcessingEditId] = useState(null);
 
   // Admin edit fields
   const [trackingNumber, setTrackingNumber] = useState(pool.tracking_number || "");
@@ -245,6 +247,52 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
     setAdminEditingOrder(null);
     setActionMode(null);
     setSavingOrder(false);
+  };
+
+  // Approve or reject a pending ShippingEditRequest
+  const handleEditRequest = async (req, action) => {
+    setProcessingEditId(req.id);
+    if (action === 'approve') {
+      const targetOrderId = req.order_id;
+      const w = orders.find(o => o.id === targetOrderId)?.weight_g || 0;
+      if (req.edit_type === 'cancel_shipment') {
+        const updatedIds = (pool.order_ids || []).filter(id => id !== targetOrderId);
+        await Promise.all([
+          shippingPoolApi.update(pool.id, {
+            order_ids: updatedIds,
+            total_weight_g: Math.max(0, (pool.total_weight_g || 0) - w),
+          }),
+          updateOrder(targetOrderId, { order_status: 'in_warehouse', consolidation_pool_id: '' }),
+        ]);
+        setPool(p => ({ ...p, order_ids: updatedIds, total_weight_g: Math.max(0, (p.total_weight_g || 0) - w) }));
+        setOrders(prev => prev.filter(o => o.id !== targetOrderId));
+      } else if (req.edit_type === 'move_pool' && req.target_pool_id) {
+        const allPoolsRes = await base44.functions.invoke('getTenantShippingPools', {});
+        const targetPool = (allPoolsRes.data?.pools || []).find(p => p.id === req.target_pool_id);
+        if (targetPool) {
+          const updatedIds = (pool.order_ids || []).filter(id => id !== targetOrderId);
+          await Promise.all([
+            shippingPoolApi.update(pool.id, {
+              order_ids: updatedIds,
+              total_weight_g: Math.max(0, (pool.total_weight_g || 0) - w),
+            }),
+            shippingPoolApi.update(req.target_pool_id, {
+              order_ids: [...new Set([...(targetPool.order_ids || []), targetOrderId])],
+              total_weight_g: (targetPool.total_weight_g || 0) + w,
+            }),
+            updateOrder(targetOrderId, { consolidation_pool_id: req.target_pool_id }),
+          ]);
+          setPool(p => ({ ...p, order_ids: updatedIds, total_weight_g: Math.max(0, (p.total_weight_g || 0) - w) }));
+          setOrders(prev => prev.filter(o => o.id !== targetOrderId));
+        }
+      }
+      await tenantEntity.update('ShippingEditRequest', req.id, { status: 'approved' });
+    } else {
+      await tenantEntity.update('ShippingEditRequest', req.id, { status: 'rejected' });
+    }
+    setPendingEdits(prev => prev.filter(r => r.id !== req.id));
+    setProcessingEditId(null);
+    onUpdated?.();
   };
 
   // Get unique users from orders (with email for avatar lookup)
@@ -452,6 +500,85 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
               <p className="text-xs text-gray-400">加载中...</p>
             )}
           </div>
+
+          {/* Pending Edit Requests - Admin view */}
+          {isAdmin && pendingEdits.length > 0 && (
+            <div className="border border-orange-200 rounded-xl overflow-hidden">
+              <div className="flex items-center gap-2 bg-orange-50 px-4 py-2.5 border-b border-orange-200">
+                <AlertCircle className="w-4 h-4 text-orange-600 flex-shrink-0" />
+                <span className="text-sm font-medium text-orange-700">待审批的更改申请 ({pendingEdits.length})</span>
+              </div>
+              <div className="divide-y divide-orange-50">
+                {pendingEdits.map(req => (
+                  <div key={req.id} className="px-4 py-3 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-xs font-medium text-gray-700">{req.user_email}</span>
+                          <Badge className={`text-xs ${req.edit_type === 'cancel_shipment' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
+                            {req.edit_type === 'cancel_shipment' ? '申请重新入库' : '申请移至其他发货申请'}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          订单：{orders.find(o => o.id === req.order_id)?.product_name || req.order_id}
+                        </p>
+                        {req.edit_type === 'move_pool' && req.target_pool_id && (
+                          <p className="text-xs text-gray-400 mt-0.5">目标：{req.target_pool_id.slice(-6).toUpperCase()}</p>
+                        )}
+                        {req.user_note && (
+                          <p className="text-xs text-gray-500 mt-0.5 italic">"{req.user_note}"</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <Button
+                          size="sm"
+                          className="h-7 text-xs bg-green-600 hover:bg-green-700 px-2"
+                          disabled={processingEditId === req.id}
+                          onClick={() => handleEditRequest(req, 'approve')}>
+                          {processingEditId === req.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle className="w-3 h-3 mr-1" />}
+                          批准
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs px-2 border-red-200 text-red-600 hover:bg-red-50"
+                          disabled={processingEditId === req.id}
+                          onClick={() => handleEditRequest(req, 'reject')}>
+                          <XCircle className="w-3 h-3 mr-1" />拒绝
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Pending Edit Requests - User view (read-only) */}
+          {!isAdmin && pendingEdits.length > 0 && (
+            <div className="border border-orange-200 rounded-xl overflow-hidden">
+              <div className="flex items-center gap-2 bg-orange-50 px-4 py-2.5 border-b border-orange-200">
+                <AlertCircle className="w-4 h-4 text-orange-600 flex-shrink-0" />
+                <span className="text-sm font-medium text-orange-700">更改申请处理中</span>
+              </div>
+              <div className="divide-y divide-orange-50">
+                {pendingEdits.map(req => (
+                  <div key={req.id} className="px-4 py-3">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <Badge className="text-xs bg-orange-100 text-orange-700">待管理员审批</Badge>
+                      <Badge className={`text-xs ${req.edit_type === 'cancel_shipment' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
+                        {req.edit_type === 'cancel_shipment' ? '重新入库' : '移至其他发货申请'}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      包裹：{orders.find(o => o.id === req.order_id)?.product_name || req.order_id}
+                    </p>
+                    {req.user_note && <p className="text-xs text-gray-400 mt-0.5">备注：{req.user_note}</p>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Participants */}
           {participantUsers.length > 0 && (

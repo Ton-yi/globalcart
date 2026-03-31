@@ -7,7 +7,7 @@ import { base44 } from "@/api/base44Client";
 import { tenantEntity } from "@/lib/tenantApi";
 import { timePage } from "@/lib/timing";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { Plus, RefreshCw, Truck, MapPin, Edit2, Trash2, Check, X as XIcon } from "lucide-react";
+import { Plus, RefreshCw, Truck, MapPin, Edit2, Trash2, Check, X as XIcon, AlertCircle } from "lucide-react";
 import { getCountry } from "@/lib/countries";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,6 +52,7 @@ export default function AdminShippingPool() {
   const [allUsers, setAllUsers] = useState([]);
   const [transitMethods, setTransitMethods] = useState([]);
   const [addonOptions, setAddonOptions] = useState([]);
+  const [pendingEditRequests, setPendingEditRequests] = useState([]);
 
   const fetchPageData = async () => {
     setLoading(true);
@@ -63,6 +64,7 @@ export default function AdminShippingPool() {
     setAllUsers(data.users || []);
     setTransitMethods(data.transitMethods || []);
     setAddonOptions(data.addonOptions || []);
+    setPendingEditRequests(data.pendingEditRequests || []);
     setLoading(false);
     t.done('data ready');
   };
@@ -172,13 +174,19 @@ export default function AdminShippingPool() {
       {/* ---- POOLS TAB ---- */}
       {activeTab === "pools" && (
         <>
-          <div>
+          <div className="flex items-center gap-3 flex-wrap">
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-36 h-8 text-sm"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {STATUS_FILTERS.map(s => <SelectItem key={s.v} value={s.v}>{s.l}</SelectItem>)}
               </SelectContent>
             </Select>
+            {pendingEditRequests.length > 0 && (
+              <div className="flex items-center gap-1.5 text-sm text-orange-700 bg-orange-50 border border-orange-200 rounded-lg px-3 py-1.5">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>有 <strong>{pendingEditRequests.length}</strong> 项待审批的发货更改申请，点击对应发货申请处理</span>
+              </div>
+            )}
           </div>
 
           {loading ? (
@@ -191,7 +199,12 @@ export default function AdminShippingPool() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
               {filtered.map(pool => (
-                <ShippingPoolCard key={pool.id} pool={pool} onClick={setSelectedPool} />
+                <ShippingPoolCard
+                  key={pool.id}
+                  pool={pool}
+                  onClick={setSelectedPool}
+                  pendingEditCount={pendingEditRequests.filter(r => r.pool_id === pool.id).length}
+                />
               ))}
             </div>
           )}
@@ -411,10 +424,11 @@ export default function AdminShippingPool() {
           pool={selectedPool}
           isAdmin={true}
           currentUser={user}
+          pendingEditRequests={pendingEditRequests.filter(r => r.pool_id === selectedPool.id)}
           onClose={() => setSelectedPool(null)}
           onUpdated={() => {
             setSelectedPool(null);
-            fetchPools();
+            fetchPageData();
           }}
         />
       )}

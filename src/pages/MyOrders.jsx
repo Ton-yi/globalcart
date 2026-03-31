@@ -154,6 +154,7 @@ export default function MyOrders() {
   const [storeTagRules, setStoreTagRules] = useState([]);
 
   const [pageData, setPageData] = useState({});
+  const [pendingEditRequests, setPendingEditRequests] = useState([]);
 
   const fetchOrders = async (u) => {
     if (!u) return;
@@ -164,6 +165,7 @@ export default function MyOrders() {
     setShippingPools(data.pools || []);
     setStoreTagRules(data.storeTagRules || []);
     setPageData(data);
+    setPendingEditRequests(data.pendingEditRequests || []);
     setLoading(false);
   };
 
@@ -364,6 +366,7 @@ export default function MyOrders() {
                   )}
                   {order.order_status === "notified_shipment" && (() => {
                     const pool = shippingPools.find(p => (p.order_ids || []).includes(order.id));
+                    const hasPendingEdit = pendingEditRequests.some(r => r.order_id === order.id);
                     return (
                       <div className="flex flex-col gap-1 items-start">
                         {pool && (
@@ -371,7 +374,12 @@ export default function MyOrders() {
                             {pool.pool_code || pool.id.slice(-6).toUpperCase()}
                           </span>
                         )}
-                        {pool && pool.status !== "shipped" && pool.status !== "delivered" && (
+                        {hasPendingEdit && (
+                          <span className="text-xs text-orange-600 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded flex items-center gap-1">
+                            ⏳ 申请更改中
+                          </span>
+                        )}
+                        {pool && pool.status !== "shipped" && pool.status !== "delivered" && !hasPendingEdit && (
                           <Button size="sm" variant="outline" className="h-6 text-xs px-2"
                             onClick={() => { setEditShipOrder(order); setEditShipPool(pool); }}>
                             编辑出货
