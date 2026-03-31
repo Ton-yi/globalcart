@@ -6,31 +6,11 @@ import { fetchAnnouncements } from "@/lib/tenantApi";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useTenantBranding } from "@/hooks/useTenantBranding";
 import { timePage } from "@/lib/timing";
-import { ShoppingBag, Truck, Package, ArrowRight, Bell, CheckCircle, Clock, Globe } from "lucide-react";
+import { ShoppingBag, Truck, Package, ArrowRight, Bell, CheckCircle, Globe } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-
-
-const STATUS_LABELS = {
-  draft: "草稿", submitted: "已提交", price_confirmed: "已报价",
-  payment_pending: "待付款", payment_confirmed: "已付款",
-  purchasing: "采购中", purchased: "已购买",
-  awaiting_shipment: "等待发货", shipped: "已发货", delivered: "已签收", cancelled: "已取消"
-};
-const STATUS_COLORS = {
-  draft: "bg-gray-100 text-gray-600",
-  submitted: "bg-blue-100 text-blue-700",
-  price_confirmed: "bg-yellow-100 text-yellow-700",
-  payment_pending: "bg-orange-100 text-orange-700",
-  payment_confirmed: "bg-green-100 text-green-700",
-  purchasing: "bg-purple-100 text-purple-700",
-  purchased: "bg-indigo-100 text-indigo-700",
-  awaiting_shipment: "bg-cyan-100 text-cyan-700",
-  shipped: "bg-teal-100 text-teal-700",
-  delivered: "bg-emerald-100 text-emerald-700",
-  cancelled: "bg-red-100 text-red-700",
-};
+import { getStatusLabel, getStatusColor } from "@/lib/orderStatus";
 
 export default function Home() {
   const { user } = useCurrentUser();
@@ -153,8 +133,8 @@ export default function Home() {
                       <div className="max-w-xs truncate text-gray-800">{order.product_name}</div>
                     </td>
                     <td className="px-4 py-3">
-                      <Badge className={`text-xs ${STATUS_COLORS[order.order_status] || "bg-gray-100 text-gray-600"}`}>
-                        {STATUS_LABELS[order.order_status] || order.order_status}
+                      <Badge className={`text-xs ${getStatusColor(order.order_status, "user")}`}>
+                        {getStatusLabel(order.order_status, "user")}
                       </Badge>
                     </td>
                     <td className="px-4 py-3 hidden md:table-cell text-gray-700">
