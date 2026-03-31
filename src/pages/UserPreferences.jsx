@@ -4,16 +4,15 @@ import { tenantEntity, userPrefApi } from "@/lib/tenantApi";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { User, Save, Camera, Plus, Trash2, MapPin, Edit2, Check, Star, Palette } from "lucide-react";
 import ThemeSelector from "@/components/common/ThemeSelector";
-import CountrySelect from "@/components/common/CountrySelect";
 import { getCountry } from "@/lib/countries";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import AddressForm, { EMPTY_ADDRESS_FORM, serializeAddressToText, isAddressFormValid } from "@/components/common/AddressForm";
 
 export default function UserPreferences() {
   const { user } = useCurrentUser();
@@ -35,7 +34,7 @@ export default function UserPreferences() {
   // Unified address list: each has { id, label, country, full_text }
   const [addresses, setAddresses] = useState([]);
   const [editingAddr, setEditingAddr] = useState(null); // null = not editing, "new" = new form, id = editing existing
-  const [addrForm, setAddrForm] = useState({ label: "", country: "", full_text: "" });
+  const [addrForm, setAddrForm] = useState({ label: "", ...EMPTY_ADDRESS_FORM });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -95,24 +94,34 @@ export default function UserPreferences() {
   const af = (k, v) => setAddrForm(p => ({ ...p, [k]: v }));
 
   const handleOpenNew = () => {
-    setAddrForm({ label: "", country: "", full_text: "" });
+    setAddrForm({ label: "", ...EMPTY_ADDRESS_FORM });
     setEditingAddr("new");
   };
 
   const handleOpenEdit = (addr) => {
-    setAddrForm({ label: addr.label, country: addr.country || "", full_text: addr.full_text || "" });
+    setAddrForm({
+      label: addr.label || "",
+      recipient_name: addr.recipient_name || "",
+      country: addr.country || "",
+      addr1: addr.addr1 || "",
+      addr2: addr.addr2 || "",
+      addr3: addr.addr3 || "",
+      state: addr.state || "",
+      phone: addr.phone || "",
+    });
     setEditingAddr(addr.id);
   };
 
   const handleSaveAddr = () => {
-    if (!addrForm.label.trim() || !addrForm.full_text.trim()) return;
+    if (!addrForm.label.trim() || !isAddressFormValid(addrForm)) return;
+    const { label, ...fields } = addrForm;
+    const full_text = serializeAddressToText(fields);
     if (editingAddr === "new") {
-      const newAddr = { id: Date.now().toString(), ...addrForm };
+      const newAddr = { id: Date.now().toString(), label, full_text, ...fields };
       setAddresses(prev => [...prev, newAddr]);
-      // If first address, auto-set as default
       if (addresses.length === 0) setForm(p => ({ ...p, default_address_id: newAddr.id }));
     } else {
-      setAddresses(prev => prev.map(a => a.id === editingAddr ? { ...a, ...addrForm } : a));
+      setAddresses(prev => prev.map(a => a.id === editingAddr ? { ...a, label, full_text, ...fields } : a));
     }
     setEditingAddr(null);
   };
@@ -288,28 +297,17 @@ export default function UserPreferences() {
           {isEditing && (
             <div className="border border-red-100 rounded-xl p-4 bg-red-50/30 space-y-3">
               <p className="text-xs font-medium text-gray-600">{editingAddr === "new" ? "添加新地址" : "编辑地址"}</p>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs text-gray-500">地址标签 *</Label>
-                  <Input className="mt-1 h-8 text-sm" placeholder="如：家、公司" value={addrForm.label} onChange={e => af("label", e.target.value)} />
-                </div>
-                <div>
-                  <Label className="text-xs text-gray-500">收货国家 *</Label>
-                  <CountrySelect
-                    value={addrForm.country}
-                    onChange={v => af("country", v)}
-                    placeholder="选择国家"
-                    className="mt-1"
-                  />
-                </div>
-              </div>
               <div>
-                <Label className="text-xs text-gray-500">详细地址 *</Label>
-                <Textarea rows={4} className="mt-1 text-sm" placeholder={"收件人姓名\n联系电话\n省/市/区\n详细街道地址"} value={addrForm.full_text} onChange={e => af("full_text", e.target.value)} />
+                <Label className="text-xs text-gray-500">地址标签 *</Label>
+                <Input className="mt-1 h-8 text-sm" placeholder="如：家、公司" value={addrForm.label} onChange={e => af("label", e.target.value)} />
               </div>
-              <div className="flex gap-2 justify-end">
+              <AddressForm
+                value={addrForm}
+                onChange={v => setAddrForm(prev => ({ ...prev, ...v }))}
+              />
+              <div className="flex gap-2 justify-end pt-1">
                 <Button variant="outline" size="sm" onClick={() => setEditingAddr(null)}>取消</Button>
-                <Button size="sm" className="bg-red-600 hover:bg-red-700" onClick={handleSaveAddr} disabled={!addrForm.label.trim() || !addrForm.full_text.trim()}>
+                <Button size="sm" className="bg-red-600 hover:bg-red-700" onClick={handleSaveAddr} disabled={!addrForm.label.trim() || !isAddressFormValid(addrForm)}>
                   <Check className="w-3.5 h-3.5 mr-1" />保存
                 </Button>
               </div>

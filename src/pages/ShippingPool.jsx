@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import AddressForm, { EMPTY_ADDRESS_FORM, serializeAddressToText, isAddressFormValid } from "@/components/common/AddressForm";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import ShippingPoolCard from "@/components/shippingpool/ShippingPoolCard";
@@ -38,12 +39,6 @@ const TABS = [
   { key: "consolidation", label: "拼邮池" },
 ];
 
-const TIMEOUT_LABELS = {
-  ship_individually: "超时单独发货",
-  next_consolidation: "加入下次拼邮",
-  return_to_storage: "退回暂存",
-};
-
 const METHOD_LABELS = {
   EMS: "EMS", surface: "海运", small_packet_air: "小型包装物空运",
 };
@@ -66,13 +61,11 @@ export default function ShippingPool() {
   const [selectedAddressId, setSelectedAddressId] = useState("");
   const [useNewAddress, setUseNewAddress] = useState(false);
   const [saveAddress, setSaveAddress] = useState(false);
-  const [newAddress, setNewAddress] = useState({ label: "", full_text: "" });
+  const [newAddress, setNewAddress] = useState({ label: "", ...EMPTY_ADDRESS_FORM });
   const [transitLocations, setTransitLocations] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
   const [form, setForm] = useState({
-    recipient_name: "", recipient_phone: "", address_line1: "", address_line2: "",
-    city: "", state: "", postal_code: "", destination_country: "",
     shipping_method: "", scheduled_ship_date: "", transit_location_id: "", user_note: "",
   });
   // consolidation type: "" = none, "transit" = to transit location, "other" = to saved address
@@ -80,7 +73,7 @@ export default function ShippingPool() {
   // Final address for transit consolidation (new address mode)
   const [transitFinalAddressId, setTransitFinalAddressId] = useState("");
   const [transitUseNewAddress, setTransitUseNewAddress] = useState(false);
-  const [transitNewAddress, setTransitNewAddress] = useState({ label: "", full_text: "" });
+  const [transitNewAddress, setTransitNewAddress] = useState({ label: "", ...EMPTY_ADDRESS_FORM });
   const [transitSaveAddress, setTransitSaveAddress] = useState(false);
   // Privacy
   const [isPrivate, setIsPrivate] = useState(false);
@@ -116,19 +109,18 @@ export default function ShippingPool() {
     setShowCreate(true);
     setCreateStep(1);
     setSelectedOrderIds([]);
-    setForm({ recipient_name: "", recipient_phone: "", address_line1: "", address_line2: "", city: "", state: "", postal_code: "", destination_country: "", shipping_method: "", scheduled_ship_date: "", transit_location_id: "", user_note: "" });
+    setForm({ shipping_method: "", scheduled_ship_date: "", transit_location_id: "", user_note: "" });
     setConsType("");
-    setNewAddress({ label: "", full_text: "" });
+    setNewAddress({ label: "", ...EMPTY_ADDRESS_FORM });
     setSaveAddress(false);
     setTransitFinalAddressId("");
     setTransitUseNewAddress(false);
-    setTransitNewAddress({ label: "", full_text: "" });
+    setTransitNewAddress({ label: "", ...EMPTY_ADDRESS_FORM });
     setTransitSaveAddress(false);
     setIsPrivate(false);
     setSharedWithEmails([]);
     setUserSearchQuery("");
     setFormLoading(true);
-    // Fetch config, prefs and orders in parallel; listNonAdminUsers may return 403 for regular users — handle gracefully
     const [configData, prefs, usersRes, inWarehouseOrders] = await Promise.all([
       fetchTenantConfig(),
       tenantEntity.list('UserPreference', { user_email: user.email }).catch(() => []),
@@ -141,18 +133,13 @@ export default function ShippingPool() {
     setTransitLocations((configData.transitLocations || []).filter(l => l.is_active !== false));
     setAllUsers(usersRes?.data?.users || []);
     const pref = prefs[0];
-    const addrs = (pref?.saved_addresses || []).map(a => ({ country: "", ...a }));
+    const addrs = (pref?.saved_addresses || []).map(a => ({ ...EMPTY_ADDRESS_FORM, ...a }));
     setSavedAddresses(addrs);
-    // Auto-select default address
     const defaultId = pref?.default_address_id || "";
     const defaultAddr = addrs.find(a => a.id === defaultId) || addrs[0];
     if (defaultAddr) {
       setSelectedAddressId(defaultAddr.id);
       setUseNewAddress(false);
-      applyAddress(defaultAddr);
-      if (defaultAddr.country) {
-        setForm(p => ({ ...p, destination_country: defaultAddr.country }));
-      }
     } else {
       setUseNewAddress(true);
       setSelectedAddressId("");
@@ -165,25 +152,17 @@ export default function ShippingPool() {
     setCreateStep(1);
   };
 
-  const applyAddress = (addr) => {
-    if (!addr) return;
-    const lines = (addr.full_text || "").split("\n");
-    setForm(p => ({ ...p, recipient_name: lines[0] || "", address_line1: lines[1] || "", address_line2: lines[2] || "", city: lines[3] || "" }));
-  };
-
   const handleAddressSelect = (id) => {
     if (id === "__new__") {
       setSelectedAddressId("");
       setUseNewAddress(true);
-      setNewAddress({ label: "", full_text: "" });
+      setNewAddress({ label: "", ...EMPTY_ADDRESS_FORM });
       setSaveAddress(false);
     } else {
       setSelectedAddressId(id);
       setUseNewAddress(false);
-      setNewAddress({ label: "", full_text: "" });
+      setNewAddress({ label: "", ...EMPTY_ADDRESS_FORM });
       setSaveAddress(false);
-      const addr = savedAddresses.find(a => a.id === id);
-      if (addr?.country) setForm(p => ({ ...p, destination_country: addr.country }));
     }
   };
 
@@ -195,29 +174,24 @@ export default function ShippingPool() {
   const totalWeight = selectedOrders.reduce((s, o) => s + (o.weight_g || 0), 0);
 
   const handleSubmit = async () => {
-    // For direct/other, destination_country comes from selected address
-    const effectiveCountry = form.destination_country || (() => {
-      const addr = savedAddresses.find(a => a.id === selectedAddressId);
-      return addr?.country || "";
-    })();
     if (selectedOrderIds.length === 0) return;
-    if (consType === "transit" && !effectiveCountry) return;
-    if (!form.destination_country && effectiveCountry) setForm(p => ({ ...p, destination_country: effectiveCountry }));
     setSubmitting(true);
 
-    const needSaveDirect = useNewAddress && saveAddress && newAddress.label.trim() && newAddress.full_text.trim();
-    const needSaveTransit = consType === "transit" && transitUseNewAddress && transitSaveAddress && transitNewAddress.label.trim() && transitNewAddress.full_text.trim();
+    // Determine effective address fields
+    const getAddrForSave = (addrObj) => {
+      const { label, ...fields } = addrObj;
+      return { label: label || "新地址", full_text: serializeAddressToText(fields), ...fields };
+    };
+
+    const needSaveDirect = useNewAddress && saveAddress && newAddress.label.trim() && isAddressFormValid(newAddress);
+    const needSaveTransit = consType === "transit" && transitUseNewAddress && transitSaveAddress && transitNewAddress.label.trim() && isAddressFormValid(transitNewAddress);
 
     if (needSaveDirect || needSaveTransit) {
       const existingPrefs = await tenantEntity.list('UserPreference', { user_email: user.email });
       const existingAddrs = existingPrefs[0]?.saved_addresses || [];
       const newEntries = [];
-      if (needSaveDirect) {
-        newEntries.push({ id: Date.now().toString(), label: newAddress.label.trim(), full_text: newAddress.full_text.trim() });
-      }
-      if (needSaveTransit) {
-        newEntries.push({ id: (Date.now() + 1).toString(), label: transitNewAddress.label.trim(), full_text: transitNewAddress.full_text.trim() });
-      }
+      if (needSaveDirect) newEntries.push({ id: Date.now().toString(), ...getAddrForSave(newAddress) });
+      if (needSaveTransit) newEntries.push({ id: (Date.now() + 1).toString(), ...getAddrForSave(transitNewAddress) });
       if (existingPrefs.length > 0) {
         await tenantEntity.update('UserPreference', existingPrefs[0].id, { saved_addresses: [...existingAddrs, ...newEntries] });
       } else {
@@ -228,7 +202,15 @@ export default function ShippingPool() {
     const transitLoc = transitLocations.find(l => l.id === form.transit_location_id);
     const isAsap = form.scheduled_ship_date === "__asap__";
 
-    // Generate pool_code from existing pools
+    // Determine destination_country
+    let destinationCountry = "";
+    if (useNewAddress) {
+      destinationCountry = newAddress.country || "";
+    } else {
+      const addr = savedAddresses.find(a => a.id === selectedAddressId);
+      destinationCountry = addr?.country || "";
+    }
+
     const prefix = consType === "transit" && transitLoc?.code_prefix
       ? transitLoc.code_prefix.toUpperCase()
       : "AAA";
@@ -237,11 +219,17 @@ export default function ShippingPool() {
     const nextSeq = (prefixPools.length + 1).toString().padStart(5, "0");
     const pool_code = `${prefix}${nextSeq}`;
 
+    // Build address fields for pool record
+    const directAddr = useNewAddress ? newAddress : (savedAddresses.find(a => a.id === selectedAddressId) || {});
+    const finalAddr = transitUseNewAddress ? transitNewAddress : (savedAddresses.find(a => a.id === transitFinalAddressId) || {});
+
     await tenantEntity.create('ShippingPool', {
-      ...form,
       pool_code,
+      shipping_method: form.shipping_method,
       scheduled_ship_date: isAsap ? "" : form.scheduled_ship_date,
       asap: isAsap,
+      transit_location_id: form.transit_location_id || "",
+      user_note: form.user_note || "",
       consolidation_type: consType || "",
       order_ids: selectedOrderIds,
       creator_email: user.email,
@@ -249,8 +237,14 @@ export default function ShippingPool() {
       is_admin_created: false,
       total_weight_g: totalWeight,
       status: "pending",
+      destination_country: destinationCountry,
       transit_location_name: transitLoc?.name || "",
       final_address_id: consType === "transit" ? (transitUseNewAddress ? "" : transitFinalAddressId) : "",
+      recipient_name: consType === "transit" ? (finalAddr.recipient_name || "") : (directAddr.recipient_name || ""),
+      address_line1: consType === "transit" ? (finalAddr.addr1 || "") : (directAddr.addr1 || ""),
+      address_line2: consType === "transit" ? (finalAddr.addr2 || "") : (directAddr.addr2 || ""),
+      city: consType === "transit" ? (finalAddr.addr3 || "") : (directAddr.addr3 || ""),
+      state: consType === "transit" ? (finalAddr.state || "") : (directAddr.state || ""),
       messages: [],
       is_private: isPrivate,
       shared_with_emails: isPrivate ? sharedWithEmails : [],
@@ -266,12 +260,7 @@ export default function ShippingPool() {
   };
 
   const filtered = pools.filter(p => statusFilter === "all" || p.status === statusFilter);
-
-  // Group consolidation orders by their pool_code (from ShippingPool records)
-  // We'll fetch pools with consolidation_type set for display
   const consTotalWeight = consolidationOrders.reduce((s, o) => s + (o.weight_g || 0), 0);
-
-  // Group by consolidation_pool_id or shipping_method as fallback
   const consGroups = consolidationOrders.reduce((acc, o) => {
     const key = o.consolidation_pool_id || o.shipping_method || "unknown";
     if (!acc[key]) acc[key] = [];
@@ -419,7 +408,7 @@ export default function ShippingPool() {
                       </div>
 
                       {/* Final delivery address after transit */}
-                      <div className="border border-gray-200 rounded-xl p-4 bg-gray-50/60 space-y-2">
+                      <div className="border border-gray-200 rounded-xl p-4 bg-gray-50/60 space-y-3">
                         <Label className="text-xs text-gray-600 font-medium flex items-center gap-1.5">
                           <MapPin className="w-3.5 h-3.5 text-gray-400" />
                           最终收货地址（货品从中转地发往此处）
@@ -432,10 +421,8 @@ export default function ShippingPool() {
                             } else {
                               setTransitFinalAddressId(v);
                               setTransitUseNewAddress(false);
-                              setTransitNewAddress({ label: "", full_text: "" });
+                              setTransitNewAddress({ label: "", ...EMPTY_ADDRESS_FORM });
                               setTransitSaveAddress(false);
-                              const addr = savedAddresses.find(a => a.id === v);
-                              if (addr?.country) setForm(p => ({ ...p, destination_country: addr.country }));
                             }
                           }}>
                             <SelectTrigger className="bg-white"><SelectValue placeholder="选择地址簿中的收货地址" /></SelectTrigger>
@@ -449,28 +436,23 @@ export default function ShippingPool() {
                             </SelectContent>
                           </Select>
                         )}
-                        {/* Show saved address detail */}
                         {!transitUseNewAddress && transitFinalAddressId && (() => {
                           const addr = savedAddresses.find(a => a.id === transitFinalAddressId);
                           return addr ? (
-                            <div className="bg-white border border-gray-100 rounded-lg px-3 py-2 text-xs text-gray-600 whitespace-pre-wrap">{addr.full_text}</div>
+                            <div className="bg-white border border-gray-100 rounded-lg px-3 py-2 text-xs text-gray-600 whitespace-pre-wrap">{addr.full_text || serializeAddressToText(addr)}</div>
                           ) : null;
                         })()}
-                        {/* New address input */}
                         {(transitUseNewAddress || savedAddresses.length === 0) && (
-                          <div className="space-y-2 pt-1">
-                            <Input
-                              className="h-8 text-sm bg-white"
-                              placeholder="地址标签（如：家、公司）"
-                              value={transitNewAddress.label}
-                              onChange={e => setTransitNewAddress(p => ({ ...p, label: e.target.value }))}
-                            />
-                            <Textarea
-                              rows={4}
-                              className="text-sm bg-white resize-none"
-                              placeholder={"收件人姓名\n手机号\n详细地址（省/市/区/街道/门牌号）\n邮编"}
-                              value={transitNewAddress.full_text}
-                              onChange={e => setTransitNewAddress(p => ({ ...p, full_text: e.target.value }))}
+                          <div className="space-y-2">
+                            <div>
+                              <label className="text-xs text-gray-500 font-medium block mb-1">地址标签</label>
+                              <Input className="h-8 text-sm bg-white" placeholder="如：家、公司"
+                                value={transitNewAddress.label}
+                                onChange={e => setTransitNewAddress(p => ({ ...p, label: e.target.value }))} />
+                            </div>
+                            <AddressForm
+                              value={transitNewAddress}
+                              onChange={v => setTransitNewAddress(p => ({ ...p, ...v }))}
                             />
                             <label className="flex items-center gap-2 cursor-pointer">
                               <Checkbox checked={transitSaveAddress} onCheckedChange={v => setTransitSaveAddress(!!v)} />
@@ -484,7 +466,7 @@ export default function ShippingPool() {
 
                   {/* Address section (for direct or consType="other") */}
                   {(consType === "" || consType === "other") && (
-                    <div className="border border-gray-200 rounded-xl p-4 bg-gray-50/60 space-y-2">
+                    <div className="border border-gray-200 rounded-xl p-4 bg-gray-50/60 space-y-3">
                       <Label className="text-xs text-gray-600 font-medium flex items-center gap-1.5">
                         <MapPin className="w-3.5 h-3.5 text-gray-400" />
                         {consType === "other" ? "拼邮目标地址" : "收货地址"}
@@ -504,28 +486,23 @@ export default function ShippingPool() {
                           </SelectContent>
                         </Select>
                       )}
-                      {/* Show saved address detail */}
                       {!useNewAddress && selectedAddressId && (() => {
                         const addr = savedAddresses.find(a => a.id === selectedAddressId);
                         return addr ? (
-                          <div className="bg-white border border-gray-100 rounded-lg px-3 py-2 text-xs text-gray-600 whitespace-pre-wrap">{addr.full_text}</div>
+                          <div className="bg-white border border-gray-100 rounded-lg px-3 py-2 text-xs text-gray-600 whitespace-pre-wrap">{addr.full_text || serializeAddressToText(addr)}</div>
                         ) : null;
                       })()}
-                      {/* New address input */}
                       {(useNewAddress || savedAddresses.length === 0) && (
-                        <div className="space-y-2 pt-1">
-                          <Input
-                            className="h-8 text-sm bg-white"
-                            placeholder="地址标签（如：家、公司）"
-                            value={newAddress.label}
-                            onChange={e => setNewAddress(p => ({ ...p, label: e.target.value }))}
-                          />
-                          <Textarea
-                            rows={4}
-                            className="text-sm bg-white resize-none"
-                            placeholder={"收件人姓名\n手机号\n详细地址（省/市/区/街道/门牌号）\n邮编"}
-                            value={newAddress.full_text}
-                            onChange={e => setNewAddress(p => ({ ...p, full_text: e.target.value }))}
+                        <div className="space-y-2">
+                          <div>
+                            <label className="text-xs text-gray-500 font-medium block mb-1">地址标签</label>
+                            <Input className="h-8 text-sm bg-white" placeholder="如：家、公司"
+                              value={newAddress.label}
+                              onChange={e => setNewAddress(p => ({ ...p, label: e.target.value }))} />
+                          </div>
+                          <AddressForm
+                            value={newAddress}
+                            onChange={v => setNewAddress(p => ({ ...p, ...v }))}
                           />
                           <label className="flex items-center gap-2 cursor-pointer">
                             <Checkbox checked={saveAddress} onCheckedChange={v => setSaveAddress(!!v)} />
@@ -563,7 +540,6 @@ export default function ShippingPool() {
                         className="h-8 text-sm flex-1"
                         value={form.scheduled_ship_date === "__asap__" ? "" : form.scheduled_ship_date}
                         onChange={e => f("scheduled_ship_date", e.target.value)}
-                        placeholder="或选择日期"
                       />
                     </div>
                   </div>
@@ -646,7 +622,6 @@ export default function ShippingPool() {
                   {/* Summary */}
                   <div className="bg-gray-50 border border-gray-100 rounded-lg px-4 py-2.5 text-xs text-gray-600 flex flex-wrap gap-x-4 gap-y-1">
                     <span>{selectedOrders.length} 件包裹 · {totalWeight}g</span>
-                    {form.destination_country && <span>→ {getCountry(form.destination_country)?.name || form.destination_country}</span>}
                     {form.shipping_method && <span>{SHIPPING_METHODS.find(m => m.value === form.shipping_method)?.label}</span>}
                     {form.scheduled_ship_date === "__asap__" && <span className="text-orange-500">⚡ 尽快发出</span>}
                   </div>
@@ -713,7 +688,6 @@ export default function ShippingPool() {
       {/* ---- TAB: CONSOLIDATION POOL ---- */}
       {activeTab === "consolidation" && (
         <>
-          {/* Summary */}
           {consolidationOrders.length > 0 && (
             <div className="grid grid-cols-3 gap-3">
               <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-center">
@@ -764,7 +738,6 @@ export default function ShippingPool() {
                     className="border border-gray-200 rounded-xl overflow-hidden bg-white hover:shadow-md hover:border-gray-300 cursor-pointer transition-all"
                     onClick={() => setSelectedPool(pool)}
                   >
-                    {/* Card header */}
                     <div className={`px-4 py-3 border-b ${pool.consolidation_type === "transit" ? "bg-blue-50 border-blue-100" : "bg-purple-50 border-purple-100"}`}>
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-1.5 flex-wrap min-w-0">
@@ -786,7 +759,6 @@ export default function ShippingPool() {
                       </div>
                     </div>
 
-                    {/* Progress bar */}
                     {minWeight > 0 && (
                       <div className="px-4 py-2.5 border-b bg-white">
                         <div className="flex justify-between text-xs mb-1.5">
@@ -800,7 +772,6 @@ export default function ShippingPool() {
                       </div>
                     )}
 
-                    {/* Order list */}
                     <div className="divide-y divide-gray-50">
                       {poolOrders.slice(0, 3).map(o => (
                         <div key={o.id} className="px-4 py-2 flex items-center justify-between gap-2">
