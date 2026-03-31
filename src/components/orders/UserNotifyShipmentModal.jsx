@@ -142,9 +142,10 @@ function TransitMethodSection({ consType, selectedTransitId, transitLocations, t
 }
 
 function TransitAddonSection({ consType, selectedTransitId, transitLocations, shippingAddons, selectedAddonIds, setSelectedAddonIds }) {
-  if (consType !== "transit") return null;
-  const selectedLoc = transitLocations.find(l => l.id === selectedTransitId);
-  const disabledAddonIds = selectedLoc?.disabled_addon_ids || [];
+  // When consType is "transit", filter out addons disabled by the selected transit location
+  const disabledAddonIds = consType === "transit"
+    ? (transitLocations.find(l => l.id === selectedTransitId)?.disabled_addon_ids || [])
+    : [];
   const visibleAddons = shippingAddons.filter(a => !disabledAddonIds.includes(a.id));
   if (visibleAddons.length === 0) return null;
 
