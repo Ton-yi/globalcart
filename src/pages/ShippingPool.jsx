@@ -81,6 +81,8 @@ export default function ShippingPool() {
   const [allUsers, setAllUsers] = useState([]);
   const [userSearchQuery, setUserSearchQuery] = useState("");
   const [strategyOpen, setStrategyOpen] = useState(false);
+  const [shippingAddons, setShippingAddons] = useState([]);
+  const [selectedAddonIds, setSelectedAddonIds] = useState([]);
 
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
@@ -120,6 +122,8 @@ export default function ShippingPool() {
     setIsPrivate(false);
     setSharedWithEmails([]);
     setUserSearchQuery("");
+    setShippingAddons([]);
+    setSelectedAddonIds([]);
     setFormLoading(true);
     const [configData, prefs, usersRes, inWarehouseOrders] = await Promise.all([
       fetchTenantConfig(),
@@ -131,6 +135,7 @@ export default function ShippingPool() {
     ]);
     setAvailableOrders(inWarehouseOrders);
     setTransitLocations((configData.transitLocations || []).filter(l => l.is_active !== false));
+    setShippingAddons((configData.addons || []).filter(a => a.addon_type === "shipping" && a.is_active !== false));
     setAllUsers(usersRes?.data?.users || []);
     const pref = prefs[0];
     const addrs = (pref?.saved_addresses || []).map(a => ({ ...EMPTY_ADDRESS_FORM, ...a }));
@@ -248,6 +253,10 @@ export default function ShippingPool() {
       messages: [],
       is_private: isPrivate,
       shared_with_emails: isPrivate ? sharedWithEmails : [],
+      selected_addon_ids: selectedAddonIds,
+      selected_addons: shippingAddons
+        .filter(a => selectedAddonIds.includes(a.id))
+        .map(a => ({ id: a.id, name: a.name, fee: a.fee, fee_currency: a.fee_currency })),
     });
 
     await Promise.all(selectedOrderIds.map(id =>
@@ -610,6 +619,30 @@ export default function ShippingPool() {
                           )}
                         </div>
                       )}
+                    </div>
+                  )}
+
+                  {/* Shipping Addons */}
+                  {shippingAddons.length > 0 && (
+                    <div>
+                      <Label className="text-xs text-gray-500 font-medium block mb-2">发货增值服务（可选）</Label>
+                      <div className="space-y-1.5">
+                        {shippingAddons.map(a => (
+                          <label key={a.id} className={`flex items-center justify-between gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${selectedAddonIds.includes(a.id) ? "border-yellow-400 bg-yellow-50" : "border-gray-200 hover:bg-gray-50"}`}>
+                            <div className="flex items-center gap-2">
+                              <Checkbox
+                                checked={selectedAddonIds.includes(a.id)}
+                                onCheckedChange={v => setSelectedAddonIds(prev => v ? [...prev, a.id] : prev.filter(id => id !== a.id))}
+                              />
+                              <div>
+                                <span className="text-sm font-medium text-gray-800">{a.name}</span>
+                                {a.description && <span className="text-xs text-gray-400 ml-2">{a.description}</span>}
+                              </div>
+                            </div>
+                            <span className="text-xs font-medium text-yellow-700 flex-shrink-0">+{a.fee_currency || "JPY"} {Number(a.fee || 0).toLocaleString()}</span>
+                          </label>
+                        ))}
+                      </div>
                     </div>
                   )}
 
