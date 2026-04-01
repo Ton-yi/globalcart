@@ -42,6 +42,7 @@ Deno.serve(async (req) => {
       return {
         email: u.email,
         full_name: u.full_name || '',
+        display_name: u.display_name || '',
         avatar_url: u.avatar_url || '',
         // contact_info: only expose if public OR caller is admin
         contact_info: (contactPublic || isAdminCaller) ? (pref.contact_info || '') : '',

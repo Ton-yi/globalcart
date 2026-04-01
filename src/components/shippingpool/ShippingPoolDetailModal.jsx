@@ -315,8 +315,11 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
     onUpdated?.();
   };
 
-  // Get unique users from orders (with email for avatar lookup)
-  const participantUsers = [...new Map(orders.map(o => [o.user_email || o.user_name, { name: o.user_name || o.user_email, email: o.user_email }])).values()].filter(u => u.name);
+  // Get unique users from orders — prefer display_name from UserPreference, fall back to order's user_name
+  const participantUsers = [...new Map(orders.map(o => [o.user_email || o.user_name, {
+    email: o.user_email,
+    name: o.user_name || o.user_email,
+  }])).values()].filter(u => u.name);
 
   const status = STATUS_CONFIG[pool.status] || STATUS_CONFIG.pending;
 
@@ -428,7 +431,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                           <Package className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
                           <div className="flex-1 min-w-0">
                             <p className="text-sm text-gray-800 truncate">{o.product_name}</p>
-                            <p className="text-xs text-gray-400">{o.order_number} · {o.weight_g || 0}g{o.user_name ? ` · ${o.user_name}` : ""}</p>
+                            <p className="text-xs text-gray-400">{o.order_number} · {o.weight_g || 0}g{o.user_email ? ` · ${(tenantUserMap[o.user_email]?.display_name || tenantUserMap[o.user_email]?.full_name || o.user_name) || ""}` : ""}</p>
                           </div>
                           {/* Admin can edit any order */}
                            {isAdmin && pool.status !== "shipped" && pool.status !== "delivered" && (
@@ -614,10 +617,11 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                   const userData = tenantUserMap[u.email] || {};
                   // Show contact if admin, or if user set contact_public=true (default true)
                   const contactVisible = isAdmin || userData.contact_public !== false;
+                  const displayName = userData.display_name || userData.full_name || u.name;
                   return (
                     <ParticipantChip
                       key={u.email || u.name}
-                      user={u}
+                      user={{ ...u, name: displayName }}
                       avatarUrl={userData.avatar_url || ''}
                       contactInfo={contactVisible ? (userData.contact_info || '') : ''}
                     />
