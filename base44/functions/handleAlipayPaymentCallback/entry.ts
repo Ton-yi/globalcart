@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -52,14 +52,13 @@ async function verifyAlipaySign(params, publicKeyPem) {
 
 Deno.serve(async (req) => {
   try {
-    // Alipay callback doesn't send Base44-App-Id header.
-    // Read body first, then build a new request with the app_id header injected.
-    const url = new URL(req.url);
-    const appIdFromQuery = url.searchParams.get('app_id') || Deno.env.get('BASE44_APP_ID');
+    // Alipay callback doesn't send the Base44-App-Id header.
+    // Inject it from the BASE44_APP_ID environment variable (always available).
+    const appId = Deno.env.get('BASE44_APP_ID');
     const bodyText = await req.text();
 
     const newHeaders = new Headers(req.headers);
-    if (appIdFromQuery) newHeaders.set('Base44-App-Id', appIdFromQuery);
+    if (appId) newHeaders.set('Base44-App-Id', appId);
     const reqWithAppId = new Request(req.url, {
       method: req.method,
       headers: newHeaders,

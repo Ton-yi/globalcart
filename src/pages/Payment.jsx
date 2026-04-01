@@ -36,17 +36,14 @@ export default function Payment() {
 
   useEffect(() => {
     if (!orderId) { navigate(createPageUrl("MyOrders")); return; }
-    Promise.all([
-      base44.entities.Order.filter({ id: orderId }),
-      base44.entities.SiteSettings.list()
-    ]).then(([orders, siteSettings]) => {
-      if (orders.length === 0) { navigate(createPageUrl("MyOrders")); return; }
-      setOrder(orders[0]);
-      const map = {};
-      siteSettings.forEach(s => { map[s.key] = s.value; });
-      setSettings(map);
-      setLoading(false);
-    });
+    base44.functions.invoke('getPaymentPageData', { order_id: orderId })
+      .then(r => {
+        const data = r.data || {};
+        if (!data.order) { navigate(createPageUrl("MyOrders")); return; }
+        setOrder(data.order);
+        setSettings(data.settings || {});
+        setLoading(false);
+      });
   }, [orderId]);
 
   const handleGenerateAlipayLink = async () => {
@@ -77,16 +74,16 @@ export default function Payment() {
 
   const handleConfirm = async () => {
     if (!proofFile) return;
-    const newOrderStatus = method === "alipay" ? "payment_pending" : "awaiting_payment_confirmation";
-    await base44.entities.Order.update(order.id, {
+    await base44.functions.invoke('updateTenantOrder', {
+      order_id: order.id,
       payment_proof_url: proofFile,
       payment_method: method,
       payment_status: method === "alipay" ? "awaiting_payment" : "awaiting_confirmation",
-      order_status: newOrderStatus,
-      paid_amount: order.prepayment_amount
+      order_status: method === "alipay" ? "payment_pending" : "awaiting_payment_confirmation",
+      paid_amount: order.prepayment_amount,
     });
     setSubmitted(true);
-    setTimeout(() => window.location.reload(), 2000);
+    setTimeout(() => navigate(createPageUrl("MyOrders")), 2000);
   };
 
   if (loading) return <div className="text-center py-20 text-gray-400">加载中...</div>;
