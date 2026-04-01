@@ -54,14 +54,21 @@ Deno.serve(async (req) => {
     const filter = (isPlatformAdmin || !tenantId) ? {} : { tenant_id: tenantId };
 
     const t1 = Date.now();
-    const [orders, storeTagRules, itemSizeTemplates, pendingEditRequests] = await Promise.all([
+    const [orders, storeTagRules, itemSizeTemplates, pendingEditRequests, allTenantUsers] = await Promise.all([
       base44.asServiceRole.entities.Order.filter(filter),
       base44.asServiceRole.entities.OnlineStoreTagRule.filter({ ...filter, is_active: true }),
       base44.asServiceRole.entities.ItemSizeTemplate.filter({ ...filter, is_active: true }),
       base44.asServiceRole.entities.ShippingEditRequest.filter({ ...filter, status: 'pending' }),
+      base44.asServiceRole.entities.User.filter(tenantId ? { tenant_id: tenantId } : {}),
     ]);
     console.log(`[TIMING] getAdminOrdersPageData | parallel fetches: ${Date.now() - t1}ms`);
     console.log(`[TIMING] getAdminOrdersPageData | TOTAL: ${Date.now() - t0}ms`);
+
+    // Build email → { display_name, avatar_url } map
+    const userProfileMap = {};
+    for (const u of (allTenantUsers || [])) {
+      if (u.email) userProfileMap[u.email] = { display_name: u.display_name || null, avatar_url: u.avatar_url || null };
+    }
 
     // Sort store tag rules by priority descending (mirrors getOnlineStoreRules)
     const sortedRules = (storeTagRules || []).sort((a, b) => (b.priority || 0) - (a.priority || 0));
@@ -71,6 +78,7 @@ Deno.serve(async (req) => {
       storeTagRules: sortedRules,
       itemSizeTemplates: itemSizeTemplates || [],
       pendingEditRequests: pendingEditRequests || [],
+      userProfileMap,
     });
 
   } catch (error) {

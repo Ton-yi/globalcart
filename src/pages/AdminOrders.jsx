@@ -85,16 +85,18 @@ function CellValue({ col, order, onQuickOrdered, userAvatars }) {
     case "order_number":
       return <span className="font-mono text-xs text-gray-500">{order.order_number || "-"}</span>;
     case "user_name": {
-      const avatar = userAvatars?.[order.user_email];
+      const profile = userAvatars?.[order.user_email] || {};
+      const avatarUrl = profile.avatar_url || null;
+      const displayName = profile.display_name || order.user_name || order.user_email || "?";
       return (
         <div className="flex items-center gap-2 min-w-0">
-          {avatar
-            ? <img src={avatar} alt="" className="w-7 h-7 rounded-full object-cover flex-shrink-0 border border-gray-100" />
+          {avatarUrl
+            ? <img src={avatarUrl} alt="" className="w-7 h-7 rounded-full object-cover flex-shrink-0 border border-gray-100" />
             : <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0 text-xs text-gray-500 font-medium">
-                {(order.user_name || order.user_email || "?")[0].toUpperCase()}
+                {displayName[0].toUpperCase()}
               </div>
           }
-          <span className="text-sm text-gray-800 truncate">{order.user_name || "-"}</span>
+          <span className="text-sm text-gray-800 truncate">{displayName}</span>
         </div>
       );
     }
@@ -176,22 +178,24 @@ export default function AdminOrders() {
   const [bulkStatus, setBulkStatus] = useState("");
   const [bulkUpdating, setBulkUpdating] = useState(false);
   const [columns, setColumns] = useState(loadColumns);
-  const [userAvatars, setUserAvatars] = useState({});
+
   const [sortKey, setSortKey] = useState(null);
   const [sortDir, setSortDir] = useState("asc");
   const [storeTagRules, setStoreTagRules] = useState([]);
 
   const [itemSizeTemplates, setItemSizeTemplates] = useState([]);
   const [pendingEditRequests, setPendingEditRequests] = useState([]);
+  const [userProfileMap, setUserProfileMap] = useState({});
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
     const r = await base44.functions.invoke('getAdminOrdersPageData', {});
-    const { orders: data = [], storeTagRules: rules = [], itemSizeTemplates: templates = [], pendingEditRequests: edits = [] } = r.data || {};
+    const { orders: data = [], storeTagRules: rules = [], itemSizeTemplates: templates = [], pendingEditRequests: edits = [], userProfileMap: profiles = {} } = r.data || {};
     setOrders(data);
     setStoreTagRules(rules);
     setItemSizeTemplates(templates);
     setPendingEditRequests(edits);
+    setUserProfileMap(profiles);
     setLoading(false);
   }, []);
 
@@ -389,7 +393,7 @@ export default function AdminOrders() {
                 </td>
                 {visibleCols.map(col => (
                   <td key={col.key} className="px-3 py-3 max-w-[220px]">
-                   <CellValue col={{ ...col, _rules: storeTagRules }} order={order} onQuickOrdered={handleQuickOrdered} userAvatars={userAvatars} />
+                   <CellValue col={{ ...col, _rules: storeTagRules }} order={order} onQuickOrdered={handleQuickOrdered} userAvatars={userProfileMap} />
                   </td>
                 ))}
                 <td className="px-3 py-3 whitespace-nowrap" onClick={e => e.stopPropagation()}>
