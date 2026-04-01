@@ -842,7 +842,17 @@ function InfoBlock({ label, value, highlight }) {
 
 function ParticipantChip({ user, avatarUrl, contactInfo }) {
   const [tooltipVisible, setTooltipVisible] = useState(false);
+  const [copied, setCopied] = useState(false);
   const initial = (user.name || "?")[0].toUpperCase();
+
+  const handleCopyContact = () => {
+    if (contactInfo) {
+      navigator.clipboard.writeText(contactInfo);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
   return (
     <div
       className="relative flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-full pl-1 pr-2.5 py-0.5 cursor-default"
@@ -857,15 +867,24 @@ function ParticipantChip({ user, avatarUrl, contactInfo }) {
         </div>
       )}
       <span className="text-xs text-gray-700">{user.name}</span>
-      {contactInfo && <span className="w-1.5 h-1.5 rounded-full bg-green-400 flex-shrink-0" title="有联系方式" />}
+      {contactInfo && <span className="w-1.5 h-1.5 rounded-full bg-green-400 flex-shrink-0 cursor-pointer" title="点击查看联系方式" onClick={() => setTooltipVisible(!tooltipVisible)} />}
       {tooltipVisible && contactInfo && (
         <div
-          className="absolute bottom-full left-0 mb-1.5 z-50 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-lg whitespace-nowrap select-text cursor-text"
+          className="absolute bottom-full left-0 mb-2 z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-3 space-y-2"
           onMouseEnter={() => setTooltipVisible(true)}
           onMouseLeave={() => setTooltipVisible(false)}
         >
-          <p className="text-gray-400 text-[10px] mb-0.5">联系方式</p>
-          <p className="font-medium">{contactInfo}</p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-medium text-gray-500">联系方式</p>
+            <button
+              onClick={handleCopyContact}
+              className="text-xs px-2 py-1 rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
+              title="复制联系方式"
+            >
+              {copied ? "已复制" : "复制"}
+            </button>
+          </div>
+          <p className="text-sm font-medium text-gray-800 break-all select-all cursor-text">{contactInfo}</p>
         </div>
       )}
     </div>
