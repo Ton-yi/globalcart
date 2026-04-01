@@ -157,12 +157,6 @@ export default function OrderMessageThread({ order, currentUser, isAdmin, onMess
 
       {/* Compose */}
       <div className="border border-gray-200 rounded-xl p-3 space-y-2.5 bg-gray-50">
-        {contactInfo && (
-          <p className="text-xs text-gray-400">
-            您的联系方式：<span className="text-gray-600 font-medium">{contactInfo}</span>
-            <span className="ml-1">（将附在留言中）</span>
-          </p>
-        )}
         <Textarea
           placeholder="输入留言内容..."
           rows={3}
