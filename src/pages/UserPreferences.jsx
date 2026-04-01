@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { tenantEntity, userPrefApi } from "@/lib/tenantApi";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useAuth } from "@/lib/AuthContext";
 import { User, Save, Camera, Plus, Trash2, MapPin, Edit2, Check, Star, Palette } from "lucide-react";
 import ThemeSelector from "@/components/common/ThemeSelector";
 import { getCountry } from "@/lib/countries";
@@ -16,6 +17,7 @@ import AddressForm, { EMPTY_ADDRESS_FORM, serializeAddressToText, isAddressFormV
 
 export default function UserPreferences() {
   const { user } = useCurrentUser();
+  const { setUser } = useAuth();
   const [pref, setPref] = useState(null);
   const [displayName, setDisplayName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
@@ -98,6 +100,9 @@ export default function UserPreferences() {
       const created = await userPrefApi.create(data);
       setPref(created);
     }
+    // Refresh the user object in AuthContext so avatar/display_name update immediately
+    const updatedUser = await base44.auth.me();
+    setUser(updatedUser);
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
