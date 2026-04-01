@@ -90,8 +90,12 @@ Deno.serve(async (req) => {
     }
 
     // 3. Find ALL orders sharing this out_trade_no (supports bulk payment)
-    const matchedOrders = await base44.asServiceRole.entities.Order.filter({ alipay_trade_no: out_trade_no });
-    if (!matchedOrders || matchedOrders.length === 0) {
+    // SDK filter doesn't support custom fields reliably; list all and match manually
+    const allOrders = await base44.asServiceRole.entities.Order.list('-created_date', 500);
+    const matchedOrders = (allOrders || []).filter(o =>
+      o.alipay_trade_no === out_trade_no || o.shipping_alipay_trade_no === out_trade_no
+    );
+    if (matchedOrders.length === 0) {
       console.error(`Order not found for out_trade_no: ${out_trade_no}`);
       return new Response('success', { status: 200 });
     }
