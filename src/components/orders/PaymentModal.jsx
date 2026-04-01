@@ -125,15 +125,14 @@ export default function PaymentModal({ order, mode = "prepay", onClose, onSucces
       payment_method: method,
       payment_proof_url: file_url,
       payment_status: "paid",
+      order_status: "paid",
     };
     if (isShipping) {
       updates.order_status = "ready_to_ship";
     } else if (isSupp) {
-      updates.order_status = "paid";
       updates.supplement_requested = false;
       updates.paid_amount = (order.paid_amount || 0) + parseFloat(paidAmount);
     } else {
-      updates.order_status = "paid";
       updates.paid_amount = (order.paid_amount || 0) + parseFloat(paidAmount);
     }
     await updateOrder(order.id, updates);
