@@ -27,6 +27,8 @@ function extractEmailFromJwt(req) {
  */
 Deno.serve(async (req) => {
   const t0 = Date.now();
+  console.log('[DIAG][getMyOrdersPageData] === REQUEST START ===');
+  console.log('[DIAG][getMyOrdersPageData] Base44-App-Id header:', req.headers.get('Base44-App-Id'));
   try {
     const base44 = createClientFromRequest(req);
 
@@ -47,6 +49,7 @@ Deno.serve(async (req) => {
     }
 
     const tenantId = userRecords[0].tenant_id;
+    console.log('[DIAG][getMyOrdersPageData] user:', user?.email, '| tenantId:', tenantId);
     if (!tenantId) {
       return Response.json({
         orders: [], pools: [], storeTagRules: [],
@@ -87,6 +90,7 @@ Deno.serve(async (req) => {
     ]);
     console.log(`[TIMING] getMyOrdersPageData | 10x parallel queries: ${Date.now() - t1}ms`);
     console.log(`[TIMING] getMyOrdersPageData | TOTAL: ${Date.now() - t0}ms`);
+    console.log(`[DIAG][getMyOrdersPageData] orders returned: ${orders?.length} | pools: ${allPools?.length}`);
 
     // Filter pools accessible to this user (mirrors getTenantShippingPools logic)
     const accessiblePools = (allPools || []).filter(pool => {

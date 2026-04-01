@@ -43,46 +43,59 @@ async function signParams(params, privateKey) {
 
 Deno.serve(async (req) => {
   try {
+    // DIAG: log request context
+    console.log('[DIAG][generateAlipayPaymentLink] === REQUEST START ===');
+    console.log('[DIAG][generateAlipayPaymentLink] method:', req.method);
+    console.log('[DIAG][generateAlipayPaymentLink] url:', req.url);
+    console.log('[DIAG][generateAlipayPaymentLink] origin header:', req.headers.get('origin'));
+    console.log('[DIAG][generateAlipayPaymentLink] referer header:', req.headers.get('referer'));
+    console.log('[DIAG][generateAlipayPaymentLink] host header:', req.headers.get('host'));
+    console.log('[DIAG][generateAlipayPaymentLink] Base44-App-Id header:', req.headers.get('Base44-App-Id'));
+
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
+    console.log('[DIAG][generateAlipayPaymentLink] auth user:', user?.email, '| role:', user?.role);
+
     if (!user) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Get tenant context
     const userRecord = await base44.asServiceRole.entities.User.filter({ email: user.email });
+    const tenantId = userRecord?.[0]?.tenant_id;
+    console.log('[DIAG][generateAlipayPaymentLink] tenantId:', tenantId);
+
     if (!userRecord || userRecord.length === 0) {
       return Response.json({ error: 'User record not found' }, { status: 404 });
     }
-    const tenantId = userRecord[0].tenant_id;
     if (!tenantId && user.role !== 'platform_admin') {
       return Response.json({ error: 'User has no tenant assigned' }, { status: 403 });
     }
 
     const body = await req.json();
-
-    // Support both single order (orderId) and bulk orders (orderIds array)
     const orderIds = body.orderIds || (body.orderId ? [body.orderId] : null);
     const { amount, subject, paymentType } = body;
+    console.log('[DIAG][generateAlipayPaymentLink] orderIds:', orderIds, '| amount:', amount);
 
     if (!orderIds || orderIds.length === 0) {
       return Response.json({ error: 'Missing required parameter: orderId or orderIds' }, { status: 400 });
     }
 
-    // Verify all orders belong to the user's tenant
-    const orders = await Promise.all(
-      orderIds.map(id => base44.asServiceRole.entities.Order.filter({ id }))
-    );
-    for (const orderResult of orders) {
-      const order = Array.isArray(orderResult) ? orderResult[0] : orderResult;
+    // FIXED: Use list() then find by id — filter({id}) is not supported by SDK
+    console.log('[DIAG][generateAlipayPaymentLink] fetching orders for tenant:', tenantId);
+    const allTenantOrders = await base44.asServiceRole.entities.Order.filter({ tenant_id: tenantId });
+    console.log('[DIAG][generateAlipayPaymentLink] total tenant orders found:', allTenantOrders?.length);
+
+    const orders = orderIds.map(id => (allTenantOrders || []).find(o => o.id === id));
+    for (let i = 0; i < orders.length; i++) {
+      const order = orders[i];
+      console.log(`[DIAG][generateAlipayPaymentLink] order[${i}] id:${orderIds[i]} found:${!!order} tenant_id:${order?.tenant_id} user_email:${order?.user_email} status:${order?.order_status}`);
       if (!order) {
-        return Response.json({ error: 'Order not found' }, { status: 404 });
+        return Response.json({ error: `Order not found: ${orderIds[i]}` }, { status: 404 });
       }
-      // Check tenant isolation (platform_admin can access all, others only their tenant)
       if (user.role !== 'platform_admin' && order.tenant_id !== tenantId) {
         return Response.json({ error: 'Forbidden: Order does not belong to your tenant' }, { status: 403 });
       }
-      // User can only pay their own orders; staff/admin can pay orders for their tenant
       if (user.role === 'user' && order.user_email !== user.email) {
         return Response.json({ error: 'Forbidden: You can only pay your own orders' }, { status: 403 });
       }
@@ -95,50 +108,50 @@ Deno.serve(async (req) => {
     // Fetch live rates with increments from settings
     const [liveRates, settingsList] = await Promise.all([
       base44.asServiceRole.functions.invoke('fetchExchangeRates', {}),
-      base44.asServiceRole.entities.SiteSettings.list()
+      base44.asServiceRole.entities.SiteSettings.filter({ tenant_id: tenantId }),
     ]);
 
     const settingsMap = {};
-    settingsList.forEach(s => { settingsMap[s.key] = parseFloat(s.value) || 0; });
+    (settingsList || []).forEach(s => { settingsMap[s.key] = parseFloat(s.value) || 0; });
 
     const jpy_cny_base      = liveRates.data?.jpy_cny || 0.048;
     const jpy_cny_increment = settingsMap.jpy_cny_increment || 0;
     const jpy_cny_rate      = jpy_cny_base + jpy_cny_increment;
+    console.log('[DIAG][generateAlipayPaymentLink] jpy_cny_rate:', jpy_cny_rate, '(base:', jpy_cny_base, '+ increment:', jpy_cny_increment, ')');
 
     // Determine total amount in CNY
     let total_amount_cny;
     if (amount) {
-      // Caller supplied explicit amount (single order flow or shipping fee)
       const amount_jpy = Number(amount);
       total_amount_cny = (amount_jpy * jpy_cny_rate).toFixed(2);
     } else {
-      // Bulk: fetch each order and sum up
-      const ordersData = await Promise.all(
-        orderIds.map(id => base44.asServiceRole.entities.Order.filter({ id }))
-      );
+      // FIXED: reuse already-fetched orders instead of re-fetching with filter({id})
       let totalJpy = 0;
-      for (const result of ordersData) {
-        const o = Array.isArray(result) ? result[0] : result;
+      for (const o of orders) {
         if (o) totalJpy += (o.prepayment_amount || 0);
       }
       total_amount_cny = (totalJpy * jpy_cny_rate).toFixed(2);
     }
+    console.log('[DIAG][generateAlipayPaymentLink] total_amount_cny:', total_amount_cny);
 
-    // Generate a unique out_trade_no referencing all order IDs
+    // Generate a unique out_trade_no
     const shortRef = orderIds.map(id => id.replace(/-/g, '').slice(0, 4).toUpperCase()).join('');
     const out_trade_no = `TY${shortRef.slice(0, 16)}${Date.now()}`;
 
     const appId_env = Deno.env.get('BASE44_APP_ID');
     const appBaseUrl = `https://api.base44.com/api/apps/${appId_env}/functions`;
-    // Pass app_id as query param so the callback can init the SDK without the Base44-App-Id header
-    const notify_url = `${appBaseUrl}/handleAlipayPaymentCallback?app_id=${appId_env}`;
-    // Build return_url from Origin/Referer (frontend host), fallback to base44 app subdomain
+    const notify_url = `${appBaseUrl}/handleAlipayPaymentCallback`;
+    // Build return_url from Origin/Referer
     const origin = req.headers.get('origin') || req.headers.get('referer') || '';
     let frontendHost = '';
     try { frontendHost = new URL(origin).origin; } catch (_) {}
     const return_url = frontendHost
       ? `${frontendHost}/MyOrders`
       : `https://${appId_env}.base44.app/MyOrders`;
+
+    console.log('[DIAG][generateAlipayPaymentLink] notify_url:', notify_url);
+    console.log('[DIAG][generateAlipayPaymentLink] return_url:', return_url);
+    console.log('[DIAG][generateAlipayPaymentLink] out_trade_no:', out_trade_no);
 
     const resolvedSubject = subject || `同一物流代购 - ${orderIds.length} 笔订单`;
 
@@ -173,6 +186,7 @@ Deno.serve(async (req) => {
     const paymentUrl = `${gatewayUrl}?${query}`;
 
     // Update all orders: store out_trade_no and set awaiting_payment
+    console.log('[DIAG][generateAlipayPaymentLink] updating orders with out_trade_no:', out_trade_no);
     await Promise.all(orderIds.map(id =>
       base44.asServiceRole.entities.Order.update(id, {
         alipay_trade_no: out_trade_no,
@@ -180,10 +194,12 @@ Deno.serve(async (req) => {
         order_status: 'payment_pending',
       })
     ));
+    console.log('[DIAG][generateAlipayPaymentLink] orders updated successfully');
 
     return Response.json({ paymentUrl, out_trade_no });
 
   } catch (error) {
+    console.error('[DIAG][generateAlipayPaymentLink] ERROR:', error.message, error.stack);
     return Response.json({ error: error.message }, { status: 500 });
   }
 });

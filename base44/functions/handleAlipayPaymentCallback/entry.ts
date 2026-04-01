@@ -11,7 +11,6 @@ function pemToBinary(pem) {
 }
 
 async function importPublicKey(pemOrRaw) {
-  // Alipay public key may come WITHOUT PEM headers — wrap if needed
   let pem = pemOrRaw.trim();
   if (!pem.startsWith('-----')) {
     pem = `-----BEGIN PUBLIC KEY-----\n${pem}\n-----END PUBLIC KEY-----`;
@@ -30,7 +29,6 @@ async function verifyAlipaySign(params, publicKeyPem) {
   const sign = params.sign;
   if (!sign) return false;
 
-  // Build sign string: sorted keys, exclude sign & sign_type
   const sortedKeys = Object.keys(params).sort();
   const str = sortedKeys
     .filter(k => k !== 'sign' && k !== 'sign_type' && params[k] !== '' && params[k] != null)
@@ -51,11 +49,19 @@ async function verifyAlipaySign(params, publicKeyPem) {
 // ── Main handler ───────────────────────────────────────────────────────────
 
 Deno.serve(async (req) => {
+  console.log('[DIAG][handleAlipayPaymentCallback] === CALLBACK RECEIVED ===');
+  console.log('[DIAG][handleAlipayPaymentCallback] method:', req.method);
+  console.log('[DIAG][handleAlipayPaymentCallback] url:', req.url);
+  console.log('[DIAG][handleAlipayPaymentCallback] content-type:', req.headers.get('content-type'));
+  console.log('[DIAG][handleAlipayPaymentCallback] Base44-App-Id header (original):', req.headers.get('Base44-App-Id'));
+
   try {
-    // Alipay callback doesn't send the Base44-App-Id header.
-    // Inject it from the BASE44_APP_ID environment variable (always available).
+    // Alipay callback doesn't send the Base44-App-Id header — inject from env
     const appId = Deno.env.get('BASE44_APP_ID');
+    console.log('[DIAG][handleAlipayPaymentCallback] BASE44_APP_ID from env:', appId ? 'present' : 'MISSING');
+
     const bodyText = await req.text();
+    console.log('[DIAG][handleAlipayPaymentCallback] raw body (first 500 chars):', bodyText.slice(0, 500));
 
     const newHeaders = new Headers(req.headers);
     if (appId) newHeaders.set('Base44-App-Id', appId);
@@ -65,46 +71,71 @@ Deno.serve(async (req) => {
       body: bodyText,
     });
     const base44 = createClientFromRequest(reqWithAppId);
+    console.log('[DIAG][handleAlipayPaymentCallback] SDK client created with injected App-Id');
 
-    // Parse the already-read body
+    // Parse form-encoded body
     const params = {};
     for (const pair of bodyText.split('&')) {
-      const [k, v] = pair.split('=');
-      if (k) params[decodeURIComponent(k)] = decodeURIComponent((v || '').replace(/\+/g, ' '));
+      const eqIdx = pair.indexOf('=');
+      if (eqIdx === -1) continue;
+      const k = decodeURIComponent(pair.slice(0, eqIdx));
+      const v = decodeURIComponent(pair.slice(eqIdx + 1).replace(/\+/g, ' '));
+      params[k] = v;
     }
 
+    const { trade_status, out_trade_no, trade_no, buyer_logon_id, total_amount, app_id: alipayAppId } = params;
+    console.log('[DIAG][handleAlipayPaymentCallback] trade_status:', trade_status);
+    console.log('[DIAG][handleAlipayPaymentCallback] out_trade_no:', out_trade_no);
+    console.log('[DIAG][handleAlipayPaymentCallback] trade_no:', trade_no);
+    console.log('[DIAG][handleAlipayPaymentCallback] total_amount:', total_amount);
+    console.log('[DIAG][handleAlipayPaymentCallback] buyer_logon_id:', buyer_logon_id);
+    console.log('[DIAG][handleAlipayPaymentCallback] alipay app_id in params:', alipayAppId);
+
     const publicKeyPem = Deno.env.get('ALIPAY_PUBLIC_KEY');
+    console.log('[DIAG][handleAlipayPaymentCallback] ALIPAY_PUBLIC_KEY present:', !!publicKeyPem);
 
     // 1. Verify signature
     const valid = await verifyAlipaySign(params, publicKeyPem);
+    console.log('[DIAG][handleAlipayPaymentCallback] signature valid:', valid);
     if (!valid) {
-      console.error('Alipay callback signature verification failed');
-      return new Response('fail', { status: 200 }); // must return 200 to stop retries
+      console.error('[DIAG][handleAlipayPaymentCallback] SIGNATURE VERIFICATION FAILED — returning fail');
+      return new Response('fail', { status: 200 });
     }
-
-    const { trade_status, out_trade_no, trade_no, buyer_logon_id, total_amount } = params;
 
     // 2. Only process successful trades
     if (trade_status !== 'TRADE_SUCCESS' && trade_status !== 'TRADE_FINISHED') {
+      console.log('[DIAG][handleAlipayPaymentCallback] trade_status not success/finished, skipping');
       return new Response('success', { status: 200 });
     }
 
-    // 3. Find ALL orders sharing this out_trade_no (supports bulk payment)
-    // SDK filter doesn't support custom fields reliably; list all and match manually
+    // 3. Find matching orders — list all and filter manually (SDK filter() unreliable for custom fields)
+    console.log('[DIAG][handleAlipayPaymentCallback] fetching all orders to match out_trade_no:', out_trade_no);
     const allOrders = await base44.asServiceRole.entities.Order.list('-created_date', 500);
+    console.log('[DIAG][handleAlipayPaymentCallback] total orders fetched:', allOrders?.length);
+
     const matchedOrders = (allOrders || []).filter(o =>
       o.alipay_trade_no === out_trade_no || o.shipping_alipay_trade_no === out_trade_no
     );
+    console.log('[DIAG][handleAlipayPaymentCallback] matched orders count:', matchedOrders.length);
+    matchedOrders.forEach((o, i) => {
+      console.log(`[DIAG][handleAlipayPaymentCallback] matched[${i}]: id=${o.id} alipay_trade_no=${o.alipay_trade_no} shipping_alipay_trade_no=${o.shipping_alipay_trade_no} payment_status=${o.payment_status} order_status=${o.order_status}`);
+    });
+
     if (matchedOrders.length === 0) {
-      console.error(`Order not found for out_trade_no: ${out_trade_no}`);
+      // Log a sample of alipay_trade_no values to diagnose mismatch
+      const sample = (allOrders || []).slice(0, 10).map(o => `id=${o.id.slice(-6)} alipay_trade_no=${o.alipay_trade_no || 'null'}`);
+      console.error('[DIAG][handleAlipayPaymentCallback] NO MATCH FOUND. out_trade_no was:', out_trade_no);
+      console.error('[DIAG][handleAlipayPaymentCallback] Sample of orders:', sample.join(' | '));
       return new Response('success', { status: 200 });
     }
 
-    // 4. Idempotency check — skip if all already confirmed
+    // 4. Idempotency check
     const pendingOrders = matchedOrders.filter(o =>
       o.payment_status !== 'paid' && o.payment_status !== 'confirmed'
     );
+    console.log('[DIAG][handleAlipayPaymentCallback] pending (not yet paid) orders:', pendingOrders.length);
     if (pendingOrders.length === 0) {
+      console.log('[DIAG][handleAlipayPaymentCallback] all matched orders already paid, idempotent skip');
       return new Response('success', { status: 200 });
     }
 
@@ -136,17 +167,16 @@ Deno.serve(async (req) => {
           ].filter(Boolean).join('\n'),
         };
       }
+      console.log(`[DIAG][handleAlipayPaymentCallback] updating order ${order.id}: status ${order.order_status} → ${updates.order_status}, payment ${order.payment_status} → ${updates.payment_status}`);
       return base44.asServiceRole.entities.Order.update(order.id, updates);
     }));
 
-    console.log(`${pendingOrders.length} order(s) confirmed via Alipay. out_trade_no: ${out_trade_no}, trade_no: ${trade_no}`);
-
-    // 6. MUST return plain text "success"
+    console.log(`[DIAG][handleAlipayPaymentCallback] SUCCESS: ${pendingOrders.length} order(s) updated. out_trade_no: ${out_trade_no}, trade_no: ${trade_no}`);
     return new Response('success', { status: 200 });
 
   } catch (error) {
-    console.error('Alipay callback error:', error.message);
-    // Still return success to prevent Alipay retry storm on our side errors
+    console.error('[DIAG][handleAlipayPaymentCallback] EXCEPTION:', error.message);
+    console.error('[DIAG][handleAlipayPaymentCallback] stack:', error.stack);
     return new Response('success', { status: 200 });
   }
 });
