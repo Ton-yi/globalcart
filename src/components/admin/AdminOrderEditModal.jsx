@@ -6,7 +6,7 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { updateOrder, tenantEntity } from "@/lib/tenantApi";
-import { X, ExternalLink, Copy, Loader2, CheckCircle, Upload, AlertTriangle, MessageCircle, Package } from "lucide-react";
+import { X, ExternalLink, Copy, Loader2, CheckCircle, Upload, AlertTriangle, MessageCircle, Package, ZoomIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -241,7 +241,7 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
   const urls = (order.product_url || "").split("\n").map(s => s.trim()).filter(Boolean);
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[92vh] flex flex-col">
         {/* Header */}
         <div className="flex items-start justify-between px-5 py-4 border-b flex-shrink-0">
@@ -314,13 +314,44 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
                 </div>
               )}
 
-              {/* Payment proof */}
-              {order.payment_proof_url && (
-                <div>
-                  <div className="text-xs text-gray-400 mb-1">付款凭证</div>
-                  <a href={order.payment_proof_url} target="_blank" rel="noopener noreferrer">
-                    <img src={order.payment_proof_url} alt="凭证" className="h-24 rounded-lg border cursor-pointer object-cover" />
-                  </a>
+              {/* All uploaded images */}
+              {(order.product_image_url || order.payment_proof_url || order.purchase_screenshot_url || order.arrival_photo_url) && (
+                <div className="space-y-1.5">
+                  <div className="text-xs text-gray-400 font-medium">图片</div>
+                  <div className="flex flex-wrap gap-2">
+                    {order.product_image_url && (
+                      <div className="flex flex-col items-center gap-1">
+                        <a href={order.product_image_url} target="_blank" rel="noopener noreferrer">
+                          <img src={order.product_image_url} alt="商品图" className="h-20 w-20 rounded-lg border object-cover cursor-pointer hover:opacity-80 transition-opacity" />
+                        </a>
+                        <span className="text-[10px] text-gray-400">商品图</span>
+                      </div>
+                    )}
+                    {order.payment_proof_url && (
+                      <div className="flex flex-col items-center gap-1">
+                        <a href={order.payment_proof_url} target="_blank" rel="noopener noreferrer">
+                          <img src={order.payment_proof_url} alt="付款凭证" className="h-20 w-20 rounded-lg border object-cover cursor-pointer hover:opacity-80 transition-opacity" />
+                        </a>
+                        <span className="text-[10px] text-gray-400">付款凭证</span>
+                      </div>
+                    )}
+                    {order.purchase_screenshot_url && (
+                      <div className="flex flex-col items-center gap-1">
+                        <a href={order.purchase_screenshot_url} target="_blank" rel="noopener noreferrer">
+                          <img src={order.purchase_screenshot_url} alt="购买截图" className="h-20 w-20 rounded-lg border object-cover cursor-pointer hover:opacity-80 transition-opacity" />
+                        </a>
+                        <span className="text-[10px] text-gray-400">购买截图</span>
+                      </div>
+                    )}
+                    {order.arrival_photo_url && (
+                      <div className="flex flex-col items-center gap-1">
+                        <a href={order.arrival_photo_url} target="_blank" rel="noopener noreferrer">
+                          <img src={order.arrival_photo_url} alt="入库图片" className="h-20 w-20 rounded-lg border object-cover cursor-pointer hover:opacity-80 transition-opacity" />
+                        </a>
+                        <span className="text-[10px] text-gray-400">入库图片</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
