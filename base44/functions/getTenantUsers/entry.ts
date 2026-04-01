@@ -24,14 +24,30 @@ Deno.serve(async (req) => {
     }
 
     const filter = isPlatformAdmin ? {} : { tenant_id: tenantId };
-    const allUsers = await base44.asServiceRole.entities.User.filter(filter);
+    const [allUsers, allPrefs] = await Promise.all([
+      base44.asServiceRole.entities.User.filter(filter),
+      base44.asServiceRole.entities.UserPreference.filter(tenantId ? { tenant_id: tenantId } : {}),
+    ]);
+
+    // Build a map from email -> pref
+    const prefMap = {};
+    (allPrefs || []).forEach(p => { prefMap[p.user_email] = p; });
+
+    const isAdminCaller = user.role === 'admin' || user.role === 'platform_admin';
 
     // Return only safe public display fields — never full user records
-    const publicUsers = (allUsers || []).map(u => ({
-      email: u.email,
-      full_name: u.full_name || '',
-      avatar_url: u.avatar_url || '',
-    }));
+    const publicUsers = (allUsers || []).map(u => {
+      const pref = prefMap[u.email] || {};
+      const contactPublic = pref.contact_public !== false; // default true
+      return {
+        email: u.email,
+        full_name: u.full_name || '',
+        avatar_url: u.avatar_url || '',
+        // contact_info: only expose if public OR caller is admin
+        contact_info: (contactPublic || isAdminCaller) ? (pref.contact_info || '') : '',
+        contact_public: contactPublic,
+      };
+    });
 
     return Response.json({ users: publicUsers });
   } catch (error) {

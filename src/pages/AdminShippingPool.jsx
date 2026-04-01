@@ -202,6 +202,7 @@ export default function AdminShippingPool() {
                 <ShippingPoolCard
                   key={pool.id}
                   pool={pool}
+                  isAdmin={true}
                   onClick={setSelectedPool}
                   pendingEditCount={pendingEditRequests.filter(r => r.pool_id === pool.id).length}
                 />

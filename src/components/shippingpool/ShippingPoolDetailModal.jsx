@@ -3,7 +3,7 @@
  * Shows full detail of a shipping pool entry.
  * Admin can edit tracking number, actual fee.
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { X, Package, Send, Image, Truck, Edit2, Save, MoreVertical, ArrowRight, RotateCcw, Loader2, Search, Trash2, AlertCircle, CheckCircle, XCircle } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { updateOrder, tenantEntity, shippingPoolApi } from "@/lib/tenantApi";
@@ -91,6 +91,14 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
         .catch(() => {})
     );
     Promise.all(fetches);
+
+    // Mark as read on open
+    const myRole = isAdmin ? "admin" : "user";
+    if ((pool.unread_roles || []).includes(myRole)) {
+      const newRoles = (pool.unread_roles || []).filter(r => r !== myRole);
+      shippingPoolApi.update(pool.id, { unread_roles: newRoles }).catch(() => {});
+      setPool(p => ({ ...p, unread_roles: newRoles }));
+    }
   }, []);
 
   // Fetch other pools for moving orders
@@ -129,8 +137,10 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
       timestamp: new Date().toISOString(),
     };
 
-    await shippingPoolApi.update(pool.id, { messages: [...messages, newMsg] });
-    setPool(p => ({ ...p, messages: [...messages, newMsg] }));
+    const otherRole = isAdmin ? "user" : "admin";
+    const updatedUnread = [...new Set([...(pool.unread_roles || []), otherRole])];
+    await shippingPoolApi.update(pool.id, { messages: [...messages, newMsg], unread_roles: updatedUnread });
+    setPool(p => ({ ...p, messages: [...messages, newMsg], unread_roles: updatedUnread }));
     setMessageText("");
     setImageFile(null);
     setSendingMsg(false);
@@ -320,6 +330,9 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
               <Badge className={`text-xs ${status.color}`}>{status.label}</Badge>
               {pool.tracking_number && (
                 <span className="text-xs font-mono bg-blue-50 text-blue-700 px-2 py-0.5 rounded">{pool.tracking_number}</span>
+              )}
+              {(initialPool.unread_roles || []).includes(isAdmin ? "admin" : "user") && (
+                <Badge className="text-xs bg-red-100 text-red-600 animate-pulse">有新留言</Badge>
               )}
             </div>
             <h2 className="font-semibold text-gray-900 mt-1">
@@ -597,9 +610,19 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
             <div>
               <h3 className="text-sm font-semibold text-gray-700 mb-2">参与用户</h3>
               <div className="flex flex-wrap gap-2">
-                {participantUsers.map(u => (
-                  <ParticipantChip key={u.email || u.name} user={u} avatarUrl={tenantUserMap[u.email]?.avatar_url || ''} />
-                ))}
+                {participantUsers.map(u => {
+                  const userData = tenantUserMap[u.email] || {};
+                  // Show contact if admin, or if user set contact_public=true (default true)
+                  const contactVisible = isAdmin || userData.contact_public !== false;
+                  return (
+                    <ParticipantChip
+                      key={u.email || u.name}
+                      user={u}
+                      avatarUrl={userData.avatar_url || ''}
+                      contactInfo={contactVisible ? (userData.contact_info || '') : ''}
+                    />
+                  );
+                })}
               </div>
             </div>
           )}
@@ -788,10 +811,15 @@ function InfoBlock({ label, value, highlight }) {
   );
 }
 
-function ParticipantChip({ user, avatarUrl }) {
+function ParticipantChip({ user, avatarUrl, contactInfo }) {
+  const [tooltipVisible, setTooltipVisible] = useState(false);
   const initial = (user.name || "?")[0].toUpperCase();
   return (
-    <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-full pl-1 pr-2.5 py-0.5">
+    <div
+      className="relative flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-full pl-1 pr-2.5 py-0.5 cursor-default"
+      onMouseEnter={() => contactInfo && setTooltipVisible(true)}
+      onMouseLeave={() => setTooltipVisible(false)}
+    >
       {avatarUrl ? (
         <img src={avatarUrl} alt={user.name} className="w-5 h-5 rounded-full object-cover flex-shrink-0" />
       ) : (
@@ -800,6 +828,17 @@ function ParticipantChip({ user, avatarUrl }) {
         </div>
       )}
       <span className="text-xs text-gray-700">{user.name}</span>
+      {contactInfo && <span className="w-1.5 h-1.5 rounded-full bg-green-400 flex-shrink-0" title="有联系方式" />}
+      {tooltipVisible && contactInfo && (
+        <div
+          className="absolute bottom-full left-0 mb-1.5 z-50 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-lg whitespace-nowrap select-text cursor-text"
+          onMouseEnter={() => setTooltipVisible(true)}
+          onMouseLeave={() => setTooltipVisible(false)}
+        >
+          <p className="text-gray-400 text-[10px] mb-0.5">联系方式</p>
+          <p className="font-medium">{contactInfo}</p>
+        </div>
+      )}
     </div>
   );
 }

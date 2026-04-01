@@ -87,12 +87,7 @@ function CellValue({ col, order }) {
       return <span className="font-mono text-xs text-gray-500">{order.order_number || "-"}</span>;
     case "product_name":
       return (
-        <div className="flex items-center gap-1.5">
-          <span className="text-sm font-medium text-gray-900 truncate">{order.product_name}</span>
-          {(order.unread_roles || []).includes("user") && (
-            <span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0 animate-pulse" title="有新消息" />
-          )}
-        </div>
+        <span className="text-sm font-medium text-gray-900 truncate">{order.product_name}</span>
       );
     case "prepayment_amount": {
       const val = order.prepayment_amount;
@@ -372,6 +367,12 @@ export default function MyOrders() {
                   </td>
                 ))}
                 <td className="px-3 py-3 whitespace-nowrap" onClick={e => e.stopPropagation()}>
+                  <div className="flex flex-col gap-1">
+                  {(order.unread_roles || []).includes("user") && (
+                    <span className="inline-flex items-center gap-1 text-xs bg-red-100 text-red-600 border border-red-200 px-1.5 py-0.5 rounded-full font-medium animate-pulse w-fit">
+                      <span className="w-1.5 h-1.5 rounded-full bg-red-500" />新消息
+                    </span>
+                  )}
                   {order.order_status === "payment_pending" && order.payment_status !== "awaiting_confirmation" && (
                     <Button size="sm" className="h-7 text-xs bg-red-600 hover:bg-red-700"
                       onClick={() => setPaymentOrder(order)}>
@@ -414,6 +415,7 @@ export default function MyOrders() {
                       <CheckCircle className="w-3 h-3 mr-1" />收货
                     </Button>
                   )}
+                  </div>
                 </td>
               </tr>
             ))}

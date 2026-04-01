@@ -22,6 +22,7 @@ export default function UserPreferences() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [form, setForm] = useState({
     contact_info: "",
+    contact_public: true,
     preferred_currency: "JPY",
     preferred_language: "zh",
     preferred_shipping: "EMS",
@@ -53,6 +54,7 @@ export default function UserPreferences() {
         setPref(p);
         setForm({
           contact_info: p.contact_info || "",
+          contact_public: p.contact_public !== false,
           preferred_currency: p.preferred_currency || "JPY",
           preferred_language: p.preferred_language || "zh",
           preferred_shipping: p.preferred_shipping || "EMS",
@@ -85,7 +87,7 @@ export default function UserPreferences() {
   const handleSave = async () => {
     setSaving(true);
     await base44.auth.updateMe({ display_name: displayName, avatar_url: avatarUrl });
-    const data = { ...form, user_email: user.email, saved_addresses: addresses };
+    const data = { ...form, contact_public: form.contact_public !== false, user_email: user.email, saved_addresses: addresses };
     if (pref) {
       await userPrefApi.update(pref.id, data);
       // Clean up any duplicate UserPreference records (merge into primary)
@@ -197,10 +199,23 @@ export default function UserPreferences() {
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-semibold text-gray-700">联系方式</CardTitle>
         </CardHeader>
-        <CardContent>
-          <Label className="text-sm">线上联系方式</Label>
-          <Input className="mt-1" placeholder="如：微信 wxid_xxx / Line: xxx / WhatsApp: +81..." value={form.contact_info} onChange={e => f("contact_info", e.target.value)} />
-          <p className="text-xs text-gray-400 mt-1.5">填写后将自动附在您的留言中，方便客服联系您</p>
+        <CardContent className="space-y-3">
+          <div>
+            <Label className="text-sm">线上联系方式</Label>
+            <Input className="mt-1" placeholder="如：微信 wxid_xxx / Line: xxx / WhatsApp: +81..." value={form.contact_info} onChange={e => f("contact_info", e.target.value)} />
+            <p className="text-xs text-gray-400 mt-1.5">填写后将自动附在您的留言中，方便客服联系您</p>
+          </div>
+          <div className="flex items-center justify-between py-1 border-t border-gray-100 pt-3">
+            <div>
+              <Label className="text-sm">公开联系方式</Label>
+              <p className="text-xs text-gray-400 mt-0.5">
+                {form.contact_public
+                  ? "所有用户可在发货申请参与者处悬浮查看您的联系方式"
+                  : "仅管理员可查看您的联系方式"}
+              </p>
+            </div>
+            <Switch checked={form.contact_public} onCheckedChange={v => f("contact_public", v)} />
+          </div>
         </CardContent>
       </Card>
 

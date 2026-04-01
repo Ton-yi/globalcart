@@ -100,12 +100,7 @@ function CellValue({ col, order, onQuickOrdered, userAvatars }) {
     }
     case "product_name":
       return (
-        <div className="flex items-center gap-1.5">
-          <span className="text-sm font-medium text-gray-900 truncate">{order.product_name}</span>
-          {(order.unread_roles || []).includes("admin") && (
-            <span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0 animate-pulse" title="有新消息" />
-          )}
-        </div>
+        <span className="text-sm font-medium text-gray-900 truncate">{order.product_name}</span>
       );
     case "estimated_jpy":
       return <span className="text-sm text-gray-700">{order.estimated_jpy ? `${Math.round(order.estimated_jpy).toLocaleString()} yen` : "-"}</span>;
@@ -399,6 +394,11 @@ export default function AdminOrders() {
                 ))}
                 <td className="px-3 py-3 whitespace-nowrap" onClick={e => e.stopPropagation()}>
                   <div className="flex flex-wrap gap-1 items-center">
+                    {(order.unread_roles || []).includes("admin") && (
+                      <span className="inline-flex items-center gap-1 text-xs bg-red-100 text-red-600 border border-red-200 px-1.5 py-0.5 rounded-full font-medium animate-pulse">
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-500" />新消息
+                      </span>
+                    )}
                     {pendingEdit && (
                       <span className="inline-flex items-center gap-1 text-xs bg-orange-100 text-orange-700 border border-orange-300 px-1.5 py-0.5 rounded-full font-medium">
                         <AlertCircle className="w-3 h-3" />

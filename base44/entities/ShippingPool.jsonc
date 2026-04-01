@@ -1,0 +1,178 @@
+{
+  "name": "ShippingPool",
+  "type": "object",
+  "properties": {
+    "tenant_id": {
+      "type": "string",
+      "description": "\u6240\u5c5e\u79df\u6237ID"
+    },
+    "pool_code": {
+      "type": "string",
+      "description": "\u53d1\u8d27\u4ee3\u53f7\uff08\u5982\uff1aTYO00001 \u6216 AAA00001\uff09"
+    },
+    "title": {
+      "type": "string",
+      "description": "\u53d1\u8d27\u6c60\u6807\u9898\uff08\u53ef\u9009\uff09"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "processing",
+        "shipped",
+        "delivered",
+        "cancelled"
+      ],
+      "default": "pending",
+      "description": "\u53d1\u8d27\u6c60\u72b6\u6001"
+    },
+    "consolidation_type": {
+      "type": "string",
+      "enum": [
+        "",
+        "transit",
+        "other"
+      ],
+      "default": "",
+      "description": "\u62fc\u90ae\u7c7b\u578b\uff1a\u7a7a=\u76f4\u63a5\u53d1\u8d27, transit=\u4e2d\u8f6c\u5730\u62fc\u90ae, other=\u5176\u5b83\u5730\u5740\u62fc\u90ae"
+    },
+    "order_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "\u5173\u8054\u7684\u8ba2\u5355ID\u5217\u8868"
+    },
+    "creator_email": {
+      "type": "string",
+      "description": "\u521b\u5efa\u8005\u90ae\u7bb1"
+    },
+    "creator_name": {
+      "type": "string",
+      "description": "\u521b\u5efa\u8005\u540d\u79f0"
+    },
+    "is_admin_created": {
+      "type": "boolean",
+      "default": false,
+      "description": "\u662f\u5426\u7531\u7ba1\u7406\u5458\u521b\u5efa"
+    },
+    "is_private": {
+      "type": "boolean",
+      "default": false,
+      "description": "\u662f\u5426\u4e3a\u4e0d\u516c\u5f00\u72b6\u6001\uff08\u4ec5\u521b\u5efa\u8005\u3001\u7ba1\u7406\u5458\u548cshared_with_emails\u4e2d\u7684\u7528\u6237\u53ef\u89c1\uff09"
+    },
+    "shared_with_emails": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "\u53ef\u67e5\u770b\u6b64\u79c1\u5bc6\u53d1\u8d27\u9700\u6c42\u7684\u7528\u6237\u90ae\u7bb1\u5217\u8868"
+    },
+    "unread_roles": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "\u6709\u672a\u8bfb\u6d88\u606f\u7684\u89d2\u8272\u5217\u8868\uff08admin/user\uff09",
+      "default": []
+    },
+    "transit_location_id": {
+      "type": "string",
+      "description": "\u4e2d\u8f6c\u5730ID"
+    },
+    "transit_location_name": {
+      "type": "string",
+      "description": "\u4e2d\u8f6c\u5730\u540d\u79f0\uff08\u5197\u4f59\u5b58\u50a8\uff09"
+    },
+    "final_address_id": {
+      "type": "string",
+      "description": "\u6700\u7ec8\u6536\u8d27\u5730\u5740ID\uff08\u4e2d\u8f6c\u5730\u62fc\u90ae\u540e\u53d1\u5f80\u6b64\u5730\u5740\uff09"
+    },
+    "shipping_method": {
+      "type": "string",
+      "description": "\u8fd0\u8f93\u65b9\u5f0f"
+    },
+    "scheduled_ship_date": {
+      "type": "string",
+      "format": "date",
+      "description": "\u8ba1\u5212\u53d1\u8d27\u65e5\u671f"
+    },
+    "destination_country": {
+      "type": "string",
+      "description": "\u76ee\u7684\u56fd\u5bb6"
+    },
+    "recipient_name": {
+      "type": "string",
+      "description": "\u6536\u4ef6\u4eba\u59d3\u540d"
+    },
+    "recipient_phone": {
+      "type": "string",
+      "description": "\u6536\u4ef6\u4eba\u7535\u8bdd"
+    },
+    "address_line1": {
+      "type": "string",
+      "description": "\u5730\u5740\u884c1"
+    },
+    "address_line2": {
+      "type": "string",
+      "description": "\u5730\u5740\u884c2"
+    },
+    "city": {
+      "type": "string",
+      "description": "\u57ce\u5e02"
+    },
+    "state": {
+      "type": "string",
+      "description": "\u5dde/\u7701"
+    },
+    "postal_code": {
+      "type": "string",
+      "description": "\u90ae\u7f16"
+    },
+    "total_weight_g": {
+      "type": "number",
+      "description": "\u603b\u91cd\u91cf(g)"
+    },
+    "estimated_fee": {
+      "type": "number",
+      "description": "\u9884\u4f30\u8fd0\u8d39"
+    },
+    "fee_currency": {
+      "type": "string",
+      "default": "CNY",
+      "description": "\u8fd0\u8d39\u8d27\u5e01"
+    },
+    "actual_fee": {
+      "type": "number",
+      "description": "\u5b9e\u9645\u8fd0\u8d39"
+    },
+    "tracking_number": {
+      "type": "string",
+      "description": "\u8fd0\u5355\u53f7"
+    },
+    "shipped_date": {
+      "type": "string",
+      "format": "date",
+      "description": "\u5b9e\u9645\u53d1\u8d27\u65e5\u671f"
+    },
+    "user_note": {
+      "type": "string",
+      "description": "\u7528\u6237\u5907\u6ce8"
+    },
+    "admin_note": {
+      "type": "string",
+      "description": "\u7ba1\u7406\u5458\u5907\u6ce8"
+    },
+    "messages": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "\u6c9f\u901a\u6d88\u606f\u8bb0\u5f55"
+    }
+  },
+  "required": [
+    "order_ids",
+    "creator_email"
+  ]
+}
