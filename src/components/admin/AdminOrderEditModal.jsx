@@ -453,13 +453,25 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
               {status === "purchased" && (
                 <div className="space-y-3 border border-teal-100 rounded-xl p-3 bg-teal-50">
                   <div className="text-sm font-medium text-teal-800">已下单 — 到货后入库</div>
-                  <label className="cursor-pointer block">
-                    <div className={`flex items-center justify-center gap-2 border-2 border-dashed rounded-lg p-3 text-sm transition-colors ${
-                      arrivalPhoto ? "border-green-300 bg-green-50 text-green-700" : "border-teal-200 bg-white text-gray-400"
+                  <label
+                    className="cursor-pointer block"
+                    onDragOver={e => e.preventDefault()}
+                    onDrop={e => {
+                      e.preventDefault();
+                      const file = e.dataTransfer.files[0];
+                      if (file && file.type.startsWith("image/")) uploadFile(file, setArrivalPhoto, setUploadingArrival);
+                    }}
+                  >
+                    <div className={`flex flex-col items-center justify-center gap-1.5 border-2 border-dashed rounded-lg p-3 text-sm transition-colors ${
+                      arrivalPhoto ? "border-green-300 bg-green-50 text-green-700" :
+                      uploadingArrival ? "border-blue-200 bg-blue-50 text-blue-500" :
+                      "border-teal-200 bg-white text-gray-400 hover:border-teal-400 hover:text-teal-600"
                     }`}>
                       {arrivalPhoto
-                        ? <><CheckCircle className="w-4 h-4" />到货图片已上传</>
-                        : <><Upload className="w-4 h-4" />{uploadingArrival ? "上传中..." : "上传到货图片（可选）"}</>}
+                        ? <><CheckCircle className="w-4 h-4" /><span>到货图片已上传，点击或拖拽可更换</span></>
+                        : uploadingArrival
+                        ? <><Loader2 className="w-4 h-4 animate-spin" /><span>上传中...</span></>
+                        : <><Upload className="w-4 h-4" /><span>点击选择或拖拽图片至此处</span></>}
                     </div>
                     <input type="file" accept="image/*" className="hidden"
                       onChange={e => uploadFile(e.target.files[0], setArrivalPhoto, setUploadingArrival)} />

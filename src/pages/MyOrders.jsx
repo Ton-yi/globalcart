@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Package, RefreshCw, Search, CreditCard, Truck, CheckCircle, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
+import { ImageWithViewer } from "@/components/common/ImageViewer";
 import BulkPaymentModal from "@/components/orders/BulkPaymentModal";
 import { matchStoreTagResult } from "@/lib/onlineStoreTag";
 import { Button } from "@/components/ui/button";
@@ -74,7 +75,9 @@ function CellValue({ col, order }) {
   switch (col.key) {
     case "product_image_url":
       return order.product_image_url
-        ? <img src={order.product_image_url} alt="" className="w-10 h-10 rounded-lg object-cover border border-gray-100" />
+        ? <ImageWithViewer src={order.product_image_url} alt={order.product_name}>
+            <img src={order.product_image_url} alt="" className="w-10 h-10 rounded-lg object-cover border border-gray-100" />
+          </ImageWithViewer>
         : <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
             <Package className="w-5 h-5 text-gray-300" />
           </div>;
@@ -105,7 +108,9 @@ function CellValue({ col, order }) {
       return <span className="text-xs text-gray-600 line-clamp-2 max-w-[200px]">{order.product_description || "-"}</span>;
     case "arrival_photo_url":
       return order.arrival_photo_url
-        ? <img src={order.arrival_photo_url} alt="" className="w-10 h-10 rounded object-cover border border-gray-100" />
+        ? <ImageWithViewer src={order.arrival_photo_url} alt="入库图片">
+            <img src={order.arrival_photo_url} alt="" className="w-10 h-10 rounded object-cover border border-gray-100" />
+          </ImageWithViewer>
         : <span className="text-xs text-gray-300">-</span>;
     case "admin_note":
       return <span className="text-xs text-gray-600 line-clamp-2 max-w-[200px]">{order.admin_note || "-"}</span>;
