@@ -26,6 +26,7 @@ export default function OrderDetailDrawer({ order, currentUser, initialUserPrefe
   const [paidReminder, setPaidReminder] = useState(initialPaidOrderReminder || "");
   const [editPool, setEditPool] = useState(null);
   const [loadingPool, setLoadingPool] = useState(false);
+  const [userProfileMap, setUserProfileMap] = useState({});
 
   useEffect(() => {
     // Clear user unread on open
@@ -52,6 +53,15 @@ export default function OrderDetailDrawer({ order, currentUser, initialUserPrefe
         })
         .catch(() => {});
     }
+
+    // Fetch user profile map for message displays
+    base44.functions.invoke('getTenantUsers', {})
+      .then(r => {
+        const profileMap = {};
+        (r.data?.users || []).forEach(u => { profileMap[u.email] = u; });
+        setUserProfileMap(profileMap);
+      })
+      .catch(() => {});
   }, [currentUser.email, order.order_status]);
 
   const status = order.order_status;
@@ -310,6 +320,7 @@ export default function OrderDetailDrawer({ order, currentUser, initialUserPrefe
               contactInfo={contactInfo}
               onMessageSent={handleMessageSent}
               hideHistory={hasMessages && !showMessages}
+              userProfileMap={userProfileMap}
             />
           </div>
         </div>

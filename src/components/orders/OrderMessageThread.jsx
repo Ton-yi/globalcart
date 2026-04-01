@@ -29,7 +29,7 @@ function Avatar({ name, imageUrl, size = "sm" }) {
   );
 }
 
-export default function OrderMessageThread({ order, currentUser, isAdmin, onMessageSent, contactInfo, composeOnly = false, hideHistory = false }) {
+export default function OrderMessageThread({ order, currentUser, isAdmin, onMessageSent, contactInfo, composeOnly = false, hideHistory = false, userProfileMap = {} }) {
   const [localMessages, setLocalMessages] = useState(order.messages || []);
   const [content, setContent] = useState("");
   const [imageUrl, setImageUrl] = useState("");
@@ -54,9 +54,13 @@ export default function OrderMessageThread({ order, currentUser, isAdmin, onMess
     if (!content.trim() && !imageUrl) return;
     setSending(true);
 
+    const userData = userProfileMap[currentUser.email] || {};
+    const displayName = userData.display_name || userData.full_name || currentUser.full_name || currentUser.email;
     const newMsg = {
       id: Date.now().toString(),
-      from: currentUser.email,
+      from: displayName,
+      from_email: currentUser.email,
+      avatar_url: userData.avatar_url || currentUser.avatar_url || '',
       role: isAdmin ? "admin" : "user",
       content: content.trim(),
       image_url: imageUrl || "",
@@ -87,9 +91,13 @@ export default function OrderMessageThread({ order, currentUser, isAdmin, onMess
 
   const getSenderName = (msg) => {
     if (msg.role === "admin") return "客服";
-    // Try to extract display name from email or use order user_name
-    if (msg.from === order.user_email) return order.user_name || msg.from;
-    return msg.from;
+    // Return msg.from which contains display_name or full_name
+    return msg.from || order.user_name || msg.from_email || "匿名";
+  };
+
+  const getSenderAvatar = (msg) => {
+    if (msg.role === "admin") return null; // admin avatars will be added later if needed
+    return msg.avatar_url || userProfileMap[msg.from_email]?.avatar_url || null;
   };
 
   return (
@@ -106,6 +114,7 @@ export default function OrderMessageThread({ order, currentUser, isAdmin, onMess
           {localMessages.map((msg) => {
             const isMine = isAdmin ? msg.role === "admin" : msg.role === "user";
             const senderName = getSenderName(msg);
+            const senderAvatar = getSenderAvatar(msg);
             const isAdminMsg = msg.role === "admin";
 
             return (
@@ -114,7 +123,7 @@ export default function OrderMessageThread({ order, currentUser, isAdmin, onMess
                 <div className="flex-shrink-0 mt-0.5">
                   <Avatar
                     name={isAdminMsg ? "客服" : senderName}
-                    imageUrl={isAdminMsg ? null : null} // can hook up real avatars here
+                    imageUrl={senderAvatar}
                   />
                 </div>
 
