@@ -33,7 +33,7 @@ const ALL_STATUSES = [
 ];
 
 export default function AdminOrderEditModal({ order, initialItemSizeTemplates, onClose, onSaved }) {
-  const [tab, setTab] = useState("actions"); // "actions" | "edit" | "messages"
+  const [tab, setTab] = useState((order.unread_roles || []).includes("admin") ? "messages" : "actions"); // "actions" | "edit" | "messages"
   const [saving, setSaving] = useState(false);
 
   // Alipay link generation
@@ -81,6 +81,14 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
       .then(templates => setItemSizeTemplates(templates || []))
       .catch(() => {});
   }, []);
+
+  // Clear admin unread on open
+  useEffect(() => {
+    if ((order.unread_roles || []).includes("admin")) {
+      const newRoles = (order.unread_roles || []).filter(r => r !== "admin");
+      updateOrder(order.id, { unread_roles: newRoles }).catch(() => {});
+    }
+  }, [order.id]);
 
   // ── Alipay link generation ──
   const handleGenerateAlipay = async () => {
@@ -252,14 +260,15 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
         <div className="flex border-b flex-shrink-0 text-xs">
           {[
             { key: "actions", label: "操作" },
-            { key: "messages", label: `留言${(order.messages || []).length > 0 ? `(${(order.messages || []).length})` : ""}` },
+            { key: "messages", label: `留言${(order.messages || []).length > 0 ? `(${(order.messages || []).length})` : ""}`, unread: (order.unread_roles || []).includes("admin") },
             { key: "edit", label: "编辑" },
           ].map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
-              className={`px-4 py-2.5 font-medium transition-colors border-b-2 ${
+              className={`px-4 py-2.5 font-medium transition-colors border-b-2 flex items-center gap-1.5 ${
                 tab === t.key ? "border-gray-900 text-gray-900" : "border-transparent text-gray-500 hover:text-gray-700"
               }`}>
               {t.label}
+              {t.unread && <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />}
             </button>
           ))}
         </div>

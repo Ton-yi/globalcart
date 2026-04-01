@@ -16,8 +16,8 @@ import UserNotifyShipmentModal from "./UserNotifyShipmentModal";
 import ShippingEditModal from "@/components/shippingpool/ShippingEditModal";
 
 export default function OrderDetailDrawer({ order, currentUser, initialUserPreference, initialPaidOrderReminder, onClose, onAction }) {
-  const hasReplyStatus = order.reply_status && order.reply_status !== "no_reply";
-  const [showMessages, setShowMessages] = useState(hasReplyStatus);
+  const hasUnreadOnOpen = (order.unread_roles || []).includes("user");
+  const [showMessages, setShowMessages] = useState(hasUnreadOnOpen);
   const [confirmingDelivered, setConfirmingDelivered] = useState(false);
   const [contactInfo, setContactInfo] = useState(initialUserPreference?.contact_info || "");
   const [showPayment, setShowPayment] = useState(false);
@@ -25,6 +25,14 @@ export default function OrderDetailDrawer({ order, currentUser, initialUserPrefe
   const [paidReminder, setPaidReminder] = useState(initialPaidOrderReminder || "");
   const [editPool, setEditPool] = useState(null);
   const [loadingPool, setLoadingPool] = useState(false);
+
+  useEffect(() => {
+    // Clear user unread on open
+    if ((order.unread_roles || []).includes("user")) {
+      const newRoles = (order.unread_roles || []).filter(r => r !== "user");
+      updateOrder(order.id, { unread_roles: newRoles }).catch(() => {});
+    }
+  }, [order.id]);
 
   useEffect(() => {
     // Only self-fetch if initial data was not provided by the parent page
@@ -49,7 +57,7 @@ export default function OrderDetailDrawer({ order, currentUser, initialUserPrefe
   const statusLabel = getStatusLabel(status, "user");
   const statusColor = getStatusColor(status, "user");
   const hasMessages = (order.messages || []).length > 0;
-  const unread = status === "admin_replied";
+  const unread = (order.unread_roles || []).includes("user");
 
   const handleConfirmDelivered = async () => {
     setConfirmingDelivered(true);

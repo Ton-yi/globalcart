@@ -59,8 +59,6 @@ function loadColumns() {
 
 const ALL_STATUSES = [
   { v: "pending_confirmation", l: "后付款待确认" },
-  { v: "awaiting_reply", l: "待回复" },
-  { v: "admin_replied", l: "管理员已回复" },
   { v: "payment_pending", l: "待付款" },
   { v: "paid", l: "已付款" },
   { v: "pending_purchase", l: "待下单" },
@@ -100,7 +98,14 @@ function CellValue({ col, order, onQuickOrdered, userAvatars }) {
       );
     }
     case "product_name":
-      return <span className="text-sm font-medium text-gray-900 truncate">{order.product_name}</span>;
+      return (
+        <div className="flex items-center gap-1.5">
+          <span className="text-sm font-medium text-gray-900 truncate">{order.product_name}</span>
+          {(order.unread_roles || []).includes("admin") && (
+            <span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0 animate-pulse" title="有新消息" />
+          )}
+        </div>
+      );
     case "estimated_jpy":
       return <span className="text-sm text-gray-700">{order.estimated_jpy ? `${Math.round(order.estimated_jpy).toLocaleString()} yen` : "-"}</span>;
     case "prepayment_amount":
@@ -130,10 +135,11 @@ function CellValue({ col, order, onQuickOrdered, userAvatars }) {
     case "payment_due_date":
       return <span className="text-xs text-gray-700">{order.payment_due_date || "-"}</span>;
     case "reply_status": {
-      const replyLabels = { no_reply: "无留言", awaiting_admin_reply: "待客服回复", awaiting_user_reply: "待用户回复" };
-      const replyColors = { no_reply: "bg-gray-100 text-gray-400", awaiting_admin_reply: "bg-orange-100 text-orange-700", awaiting_user_reply: "bg-blue-100 text-blue-700" };
-      const rs = order.reply_status || "no_reply";
-      return <Badge className={`text-xs ${replyColors[rs]}`}>{replyLabels[rs]}</Badge>;
+      const hasUnread = (order.unread_roles || []).includes("admin");
+      const hasMsgs = (order.messages || []).length > 0;
+      if (hasUnread) return <Badge className="text-xs bg-red-100 text-red-700">有新消息</Badge>;
+      if (hasMsgs) return <Badge className="text-xs bg-gray-100 text-gray-500">有留言</Badge>;
+      return <Badge className="text-xs bg-gray-100 text-gray-400">无留言</Badge>;
     }
     case "created_date":
       return <span className="text-xs text-gray-700">{order.created_date ? new Date(order.created_date).toLocaleDateString("zh-CN") : "-"}</span>;
@@ -201,8 +207,6 @@ export default function AdminOrders() {
     }
   };
 
-  const REPLY_STATUS_ORDER = { no_reply: 0, awaiting_admin_reply: 1, awaiting_user_reply: 2 };
-
   const filtered = orders.filter(o => {
     const matchStatus = statusFilter === "all" || o.order_status === statusFilter;
     const q = search.toLowerCase();
@@ -217,8 +221,9 @@ export default function AdminOrders() {
     const rk = sortKey === "submit_date" ? "created_date" : sortKey;
     let va = a[rk], vb = b[rk];
     if (sortKey === "reply_status") {
-      va = REPLY_STATUS_ORDER[va] ?? 0;
-      vb = REPLY_STATUS_ORDER[vb] ?? 0;
+      // Sort by unread: unread admin first
+      va = (a.unread_roles || []).includes("admin") ? 1 : 0;
+      vb = (b.unread_roles || []).includes("admin") ? 1 : 0;
     } else if (typeof va === "string" && typeof vb === "string") {
       va = va.toLowerCase(); vb = vb.toLowerCase();
     }

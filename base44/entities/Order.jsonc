@@ -1,0 +1,334 @@
+{
+  "name": "Order",
+  "type": "object",
+  "properties": {
+    "tenant_id": {
+      "type": "string",
+      "description": "\u6240\u5c5e\u79df\u6237ID"
+    },
+    "order_number": {
+      "type": "string",
+      "description": "\u8ba2\u5355\u7f16\u53f7"
+    },
+    "user_email": {
+      "type": "string",
+      "description": "\u7528\u6237\u90ae\u7bb1"
+    },
+    "user_name": {
+      "type": "string",
+      "description": "\u7528\u6237\u540d\u79f0"
+    },
+    "product_url": {
+      "type": "string",
+      "description": "\u5546\u54c1\u94fe\u63a5\uff08\u591a\u6761\u7528\u6362\u884c\u5206\u9694\uff09"
+    },
+    "product_name": {
+      "type": "string",
+      "description": "\u5546\u54c1\u540d\u79f0"
+    },
+    "product_description": {
+      "type": "string",
+      "description": "\u5546\u54c1\u63cf\u8ff0/\u89c4\u683c"
+    },
+    "quantity": {
+      "type": "number",
+      "description": "\u6570\u91cf",
+      "default": 1
+    },
+    "estimated_jpy": {
+      "type": "number",
+      "description": "\u4f30\u7b97\u65e5\u5143\u4ef7\u683c"
+    },
+    "estimated_usd": {
+      "type": "number",
+      "description": "\u4f30\u7b97\u7f8e\u5143\u4ef7\u683c"
+    },
+    "service_fee_rate": {
+      "type": "number",
+      "description": "\u670d\u52a1\u8d39\u7387%",
+      "default": 10
+    },
+    "prepayment_amount": {
+      "type": "number",
+      "description": "\u9884\u4ed8\u6b3e\u91d1\u989d\uff08\u7528\u6237\u8d27\u5e01\uff09"
+    },
+    "prepayment_currency": {
+      "type": "string",
+      "description": "\u9884\u4ed8\u6b3e\u8d27\u5e01",
+      "default": "CNY"
+    },
+    "paid_amount": {
+      "type": "number",
+      "description": "\u5b9e\u9645\u5df2\u4ed8\u91d1\u989d"
+    },
+    "balance_credit": {
+      "type": "number",
+      "description": "\u4f59\u989d\u62b5\u6263\uff08\u7528\u4e8e\u8fd0\u8d39\uff09",
+      "default": 0
+    },
+    "payment_method": {
+      "type": "string",
+      "enum": [
+        "alipay",
+        "wechatpay",
+        "paypay",
+        "paypal",
+        "credit_card",
+        "bank_transfer",
+        "other"
+      ],
+      "description": "\u652f\u4ed8\u65b9\u5f0f"
+    },
+    "payment_mode": {
+      "type": "string",
+      "enum": [
+        "prepay",
+        "deferred"
+      ],
+      "default": "prepay",
+      "description": "\u4ed8\u6b3e\u6a21\u5f0f"
+    },
+    "payment_status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "awaiting_payment",
+        "awaiting_confirmation",
+        "paid",
+        "underpaid",
+        "overpaid",
+        "confirmed"
+      ],
+      "default": "pending",
+      "description": "\u4ed8\u6b3e\u72b6\u6001"
+    },
+    "order_status": {
+      "type": "string",
+      "enum": [
+        "pending_confirmation",
+        "payment_pending",
+        "paid",
+        "pending_purchase",
+        "purchased",
+        "in_warehouse",
+        "notified_shipment",
+        "shipping_fee_pending",
+        "ready_to_ship",
+        "shipped",
+        "delivered",
+        "cancelled"
+      ],
+      "default": "pending_confirmation",
+      "description": "\u8ba2\u5355\u72b6\u6001"
+    },
+    "unread_roles": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "\u6709\u672a\u8bfb\u6d88\u606f\u7684\u89d2\u8272\u5217\u8868\uff08admin/user\uff09",
+      "default": []
+    },
+    "online_store_tag": {
+      "type": "string",
+      "description": "\u5546\u57ce\u6807\u7b7e\uff08\u81ea\u52a8\u8bc6\u522b\uff09",
+      "default": "\u5176\u5b83"
+    },
+    "online_store_tag_color": {
+      "type": "string",
+      "description": "\u5546\u57ce\u6807\u7b7e\u989c\u8272\uff08Tailwind class\uff09",
+      "default": "bg-gray-100 text-gray-700"
+    },
+    "cancel_reason": {
+      "type": "string",
+      "description": "\u53d6\u6d88\u7406\u7531"
+    },
+    "payment_due_date": {
+      "type": "string",
+      "format": "date",
+      "description": "\u4ed8\u6b3e\u622a\u6b62\u65e5\u671f"
+    },
+    "admin_confirmed_amount": {
+      "type": "number",
+      "description": "\u7ba1\u7406\u5458\u786e\u8ba4\u91d1\u989d"
+    },
+    "supplement_requested": {
+      "type": "boolean",
+      "default": false,
+      "description": "\u662f\u5426\u5df2\u8bf7\u6c42\u8865\u6b3e"
+    },
+    "supplement_amount": {
+      "type": "number",
+      "description": "\u9700\u8865\u6b3e\u91d1\u989d"
+    },
+    "admin_note": {
+      "type": "string",
+      "description": "\u7ba1\u7406\u5458\u5907\u6ce8"
+    },
+    "user_note": {
+      "type": "string",
+      "description": "\u7528\u6237\u5907\u6ce8"
+    },
+    "payment_proof_url": {
+      "type": "string",
+      "description": "\u4ed8\u6b3e\u51ed\u8bc1\u56fe\u7247URL"
+    },
+    "product_image_url": {
+      "type": "string",
+      "description": "\u5546\u54c1\u56fe\u7247URL"
+    },
+    "purchase_screenshot_url": {
+      "type": "string",
+      "description": "\u8d2d\u4e70\u622a\u56feURL\uff08\u7ba1\u7406\u5458\u4e0a\u4f20\uff09"
+    },
+    "arrival_photo_url": {
+      "type": "string",
+      "description": "\u5230\u8d27\u56fe\u7247URL\uff08\u7ba1\u7406\u5458\u4e0a\u4f20\uff09"
+    },
+    "weight_g": {
+      "type": "number",
+      "description": "\u8d27\u54c1\u91cd\u91cf(g)",
+      "default": 100
+    },
+    "shipping_method": {
+      "type": "string",
+      "description": "\u7528\u6237\u9009\u62e9\u7684\u53d1\u8d27\u65b9\u5f0f"
+    },
+    "consolidation_requested": {
+      "type": "boolean",
+      "default": false,
+      "description": "\u662f\u5426\u8bf7\u6c42\u62fc\u90ae"
+    },
+    "consolidation_deadline": {
+      "type": "string",
+      "format": "date",
+      "description": "\u62fc\u90ae\u622a\u6b62\u65e5\u671f"
+    },
+    "consolidation_min_weight_g": {
+      "type": "number",
+      "description": "\u62fc\u90ae\u6700\u4f4e\u91cd\u91cf(g)"
+    },
+    "consolidation_timeout_action": {
+      "type": "string",
+      "enum": [
+        "ship_individually",
+        "next_consolidation",
+        "return_to_storage"
+      ],
+      "description": "\u62fc\u90ae\u8d85\u65f6\u5904\u7406\u65b9\u5f0f"
+    },
+    "consolidation_pool_id": {
+      "type": "string",
+      "description": "\u6240\u5c5e\u62fc\u90ae\u6c60ID"
+    },
+    "shipping_fee_amount": {
+      "type": "number",
+      "description": "\u8fd0\u8d39\u91d1\u989d"
+    },
+    "shipping_fee_currency": {
+      "type": "string",
+      "default": "CNY",
+      "description": "\u8fd0\u8d39\u8d27\u5e01"
+    },
+    "shipping_total_weight_g": {
+      "type": "number",
+      "description": "\u51fa\u8d27\u603b\u91cd\u91cf(g)"
+    },
+    "tracking_number": {
+      "type": "string",
+      "description": "\u8fd0\u5355\u53f7"
+    },
+    "alipay_trade_no": {
+      "type": "string",
+      "description": "\u652f\u4ed8\u5b9d\u5546\u6237\u8ba2\u5355\u53f7(out_trade_no)"
+    },
+    "alipay_transaction_id": {
+      "type": "string",
+      "description": "\u652f\u4ed8\u5b9d\u4ea4\u6613\u6d41\u6c34\u53f7(trade_no)"
+    },
+    "shipping_alipay_trade_no": {
+      "type": "string",
+      "description": "\u8fd0\u8d39\u652f\u4ed8\u5b9d\u5546\u6237\u8ba2\u5355\u53f7"
+    },
+    "item_size_template_id": {
+      "type": "string",
+      "description": "\u7269\u54c1\u5c3a\u5bf8\u6a21\u677fID"
+    },
+    "item_size_title": {
+      "type": "string",
+      "description": "\u7269\u54c1\u5c3a\u5bf8\u540d\u79f0"
+    },
+    "item_size_extra_fee": {
+      "type": "number",
+      "description": "\u7269\u54c1\u5c3a\u5bf8\u989d\u5916\u8d39\u7528",
+      "default": 0
+    },
+    "item_size_fee_currency": {
+      "type": "string",
+      "description": "\u7269\u54c1\u5c3a\u5bf8\u8d39\u7528\u8d27\u5e01",
+      "default": "JPY"
+    },
+    "purchased_date": {
+      "type": "string",
+      "format": "date",
+      "description": "\u4e0b\u5355\u65e5"
+    },
+    "in_warehouse_date": {
+      "type": "string",
+      "format": "date",
+      "description": "\u5165\u5e93\u65e5"
+    },
+    "shipped_date": {
+      "type": "string",
+      "format": "date",
+      "description": "\u53d1\u8d27\u65e5"
+    },
+    "submit_date": {
+      "type": "string",
+      "format": "date",
+      "description": "\u63d0\u4ea4\u65e5"
+    },
+    "messages": {
+      "type": "array",
+      "description": "\u8ba2\u5355\u7559\u8a00\u5386\u53f2",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "user"
+            ]
+          },
+          "content": {
+            "type": "string"
+          },
+          "image_url": {
+            "type": "string"
+          },
+          "contact_info": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "pre_reply_status": {
+      "type": "string",
+      "description": "\u7559\u8a00\u72b6\u6001\u524d\u7684\u8ba2\u5355\u72b6\u6001\uff08\u517c\u5bb9\u5b57\u6bb5\uff09"
+    }
+  },
+  "required": [
+    "product_name",
+    "quantity"
+  ]
+}

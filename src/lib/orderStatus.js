@@ -8,18 +8,6 @@ export const ORDER_STATUS_CONFIG = {
     adminColor: "bg-purple-100 text-purple-700",
     userColor: "bg-blue-100 text-blue-700",
   },
-  awaiting_reply: {
-    admin: "待回复",
-    user: "已回复",
-    adminColor: "bg-orange-100 text-orange-700",
-    userColor: "bg-yellow-100 text-yellow-700",
-  },
-  admin_replied: {
-    admin: "已回复",
-    user: "已回复",
-    adminColor: "bg-yellow-100 text-yellow-700",
-    userColor: "bg-yellow-100 text-yellow-700",
-  },
   payment_pending: {
     admin: "待付款",
     user: "待付款",
@@ -106,7 +94,7 @@ export function getStatusColor(status, role = "user") {
 // Which statuses show a "pay" button for the user
 export const USER_CAN_PAY_STATUSES = ["payment_pending"];
 
-// Statuses where user can resubmit payment proof (awaiting confirmation)
+// Statuses where user can resubmit payment proof
 export const USER_CAN_RESUBMIT_PROOF_STATUSES = ["awaiting_payment_confirmation"];
 
 // Which statuses show "notify shipment" for user
@@ -117,7 +105,14 @@ export const COMPLETED_STATUSES = ["delivered"];
 
 // Active (non-terminal) statuses
 export const ACTIVE_STATUSES = [
-  "pending_confirmation", "awaiting_reply", "admin_replied", "payment_pending",
+  "pending_confirmation", "payment_pending",
   "awaiting_payment_confirmation", "paid", "pending_purchase", "purchased", "in_warehouse",
   "notified_shipment", "shipping_fee_pending", "ready_to_ship", "shipped"
 ];
+
+/**
+ * Check if an order has unread messages for a given role ("admin" or "user")
+ */
+export function hasUnreadMessages(order, role) {
+  return (order.unread_roles || []).includes(role);
+}

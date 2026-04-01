@@ -63,23 +63,17 @@ export default function Payment() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleUpload = async (e) => {
-    const file = e.target.files[0];
+  const handleUploadAndSubmit = async (file) => {
     if (!file) return;
     setUploading(true);
     const { file_url } = await base44.integrations.Core.UploadFile({ file });
     setProofFile(file_url);
     setUploading(false);
-  };
-
-  const handleConfirm = async () => {
-    if (!proofFile) return;
     await base44.functions.invoke('updateTenantOrder', {
       order_id: order.id,
-      payment_proof_url: proofFile,
+      payment_proof_url: file_url,
       payment_method: method,
-      payment_status: method === "alipay" ? "awaiting_payment" : "awaiting_confirmation",
-      order_status: method === "alipay" ? "payment_pending" : "awaiting_payment_confirmation",
+      payment_status: "awaiting_confirmation",
       paid_amount: order.prepayment_amount,
     });
     setSubmitted(true);
@@ -208,33 +202,36 @@ export default function Payment() {
         !submitted ? (
           <Card className="border-gray-200">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold text-gray-700">上传付款凭证</CardTitle>
+              <CardTitle className="text-sm font-semibold text-gray-700">上传付款凭证（上传后自动提交）</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <p className="text-xs text-gray-400">请在付款完成后上传付款截图或凭证，以便我们尽快确认</p>
-              <label className="cursor-pointer block">
-                <div className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${proofFile ? "border-green-300 bg-green-50" : "border-gray-200 hover:border-gray-300"}`}>
+              <p className="text-xs text-gray-400">请在付款完成后上传付款截图或凭证，上传后将自动提交</p>
+              <label
+                className="cursor-pointer block"
+                onDragOver={e => e.preventDefault()}
+                onDrop={e => {
+                  e.preventDefault();
+                  const file = e.dataTransfer.files[0];
+                  if (file && file.type.startsWith("image/")) handleUploadAndSubmit(file);
+                }}
+              >
+                <div className={`flex flex-col items-center gap-2 border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                  proofFile ? "border-green-300 bg-green-50 text-green-700" :
+                  uploading ? "border-blue-200 bg-blue-50 text-blue-500" :
+                  "border-gray-200 text-gray-400 hover:border-blue-300 hover:text-blue-500"
+                }`}>
                   {proofFile ? (
-                    <div className="text-green-600">
-                      <CheckCircle className="w-8 h-8 mx-auto mb-1" />
-                      <p className="text-sm font-medium">凭证已上传</p>
-                    </div>
+                    <><CheckCircle className="w-8 h-8" /><p className="text-sm font-medium">凭证已上传，正在提交...</p></>
+                  ) : uploading ? (
+                    <><Loader2 className="w-8 h-8 animate-spin" /><p className="text-sm">上传中...</p></>
                   ) : (
-                    <div className="text-gray-400">
-                      <Upload className="w-8 h-8 mx-auto mb-1" />
-                      <p className="text-sm">{uploading ? "上传中..." : "点击上传付款截图"}</p>
-                    </div>
+                    <><Upload className="w-8 h-8" /><p className="text-sm">点击选择图片或拖拽到此处</p></>
                   )}
                 </div>
-                <input type="file" accept="image/*" className="hidden" onChange={handleUpload} disabled={uploading} />
+                <input type="file" accept="image/*" className="hidden"
+                  onChange={e => { const f = e.target.files[0]; if (f) handleUploadAndSubmit(f); }}
+                  disabled={uploading} />
               </label>
-              <Button
-                className="w-full bg-blue-600 hover:bg-blue-700"
-                onClick={handleConfirm}
-                disabled={!proofFile || uploading}
-              >
-                <CheckCircle className="w-4 h-4 mr-2" />我已完成付款，提交凭证
-              </Button>
             </CardContent>
           </Card>
         ) : (

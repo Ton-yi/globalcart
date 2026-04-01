@@ -84,7 +84,14 @@ function CellValue({ col, order }) {
     case "order_number":
       return <span className="font-mono text-xs text-gray-500">{order.order_number || "-"}</span>;
     case "product_name":
-      return <span className="text-sm font-medium text-gray-900 truncate">{order.product_name}</span>;
+      return (
+        <div className="flex items-center gap-1.5">
+          <span className="text-sm font-medium text-gray-900 truncate">{order.product_name}</span>
+          {(order.unread_roles || []).includes("user") && (
+            <span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0 animate-pulse" title="有新消息" />
+          )}
+        </div>
+      );
     case "prepayment_amount": {
       const val = order.prepayment_amount;
       const cur = order.prepayment_currency;

@@ -72,14 +72,13 @@ export default function OrderMessageThread({ order, currentUser, isAdmin, onMess
     setContent("");
     setImageUrl("");
 
+    // 标记对方角色有未读消息
+    const unreadRoles = isAdmin ? ["user"] : ["admin"];
+
     const updates = {
       messages: updatedMessages,
-      reply_status: isAdmin ? "awaiting_user_reply" : "awaiting_admin_reply",
+      unread_roles: unreadRoles,
     };
-    // 保留旧的 order_status 同步逻辑（兼容现有流程）
-    if (!order.pre_reply_status) {
-      updates.pre_reply_status = order.order_status;
-    }
 
     await updateOrder(order.id, updates);
     setSending(false);
