@@ -5,6 +5,8 @@
  * Other: upload proof manually.
  */
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { createPageUrl } from "@/utils";
 import { X, CreditCard, ExternalLink, CheckCircle, Loader2, Upload } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { updateOrder } from "@/lib/tenantApi";
@@ -27,6 +29,7 @@ const METHODS = [
  * @param {function} onSuccess
  */
 export default function PaymentModal({ order, mode = "prepay", onClose, onSuccess }) {
+  const navigate = useNavigate();
   const isSupp = mode === "supplement";
   const isShipping = mode === "shipping";
 
@@ -88,15 +91,6 @@ export default function PaymentModal({ order, mode = "prepay", onClose, onSucces
     if (url) window.open(url, "_blank");
   };
 
-  const handleUploadProof = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    setUploading(true);
-    const { file_url } = await base44.integrations.Core.UploadFile({ file });
-    setProofUrl(file_url);
-    setUploading(false);
-  };
-
   // For non-alipay: manual confirm
   const handleManualSubmit = async () => {
     setSubmitting(true);
@@ -117,6 +111,35 @@ export default function PaymentModal({ order, mode = "prepay", onClose, onSucces
     }
     await updateOrder(order.id, updates);
     onSuccess?.();
+  };
+
+  // Upload proof then auto-submit and navigate to MyOrders
+  const handleProofUploaded = async (file) => {
+    setUploading(true);
+    const { file_url } = await base44.integrations.Core.UploadFile({ file });
+    setProofUrl(file_url);
+    setUploading(false);
+    // Auto-submit
+    setSubmitting(true);
+    const updates = {
+      payment_method: method,
+      payment_proof_url: file_url,
+      payment_status: "paid",
+    };
+    if (isShipping) {
+      updates.order_status = "ready_to_ship";
+    } else if (isSupp) {
+      updates.order_status = "paid";
+      updates.supplement_requested = false;
+      updates.paid_amount = (order.paid_amount || 0) + parseFloat(paidAmount);
+    } else {
+      updates.order_status = "paid";
+      updates.paid_amount = (order.paid_amount || 0) + parseFloat(paidAmount);
+    }
+    await updateOrder(order.id, updates);
+    setSubmitting(false);
+    onSuccess?.();
+    navigate(createPageUrl("MyOrders"));
   };
 
   return (
@@ -228,16 +251,30 @@ export default function PaymentModal({ order, mode = "prepay", onClose, onSucces
                 请联系客服获取收款账号，完成付款后上传凭证
               </div>
               <div>
-                <Label className="text-sm">上传付款凭证</Label>
-                <label className="cursor-pointer block mt-1">
-                  <div className={`flex items-center gap-2 px-3 py-2.5 border-2 border-dashed rounded-lg text-sm transition-colors justify-center ${
-                    proofUrl ? "border-green-300 bg-green-50 text-green-700" : "border-gray-200 text-gray-400 hover:border-gray-300"
+                <Label className="text-sm">上传付款凭证（上传后自动提交）</Label>
+                <label
+                  className="cursor-pointer block mt-1"
+                  onDragOver={e => e.preventDefault()}
+                  onDrop={e => {
+                    e.preventDefault();
+                    const file = e.dataTransfer.files[0];
+                    if (file && file.type.startsWith("image/")) handleProofUploaded(file);
+                  }}
+                >
+                  <div className={`flex flex-col items-center gap-1.5 px-3 py-5 border-2 border-dashed rounded-lg text-sm transition-colors ${
+                    proofUrl ? "border-green-300 bg-green-50 text-green-700" :
+                    uploading ? "border-blue-200 bg-blue-50 text-blue-500" :
+                    "border-gray-200 text-gray-400 hover:border-blue-300 hover:text-blue-500"
                   }`}>
                     {proofUrl
-                      ? <><CheckCircle className="w-4 h-4" />凭证已上传</>
-                      : <><Upload className="w-4 h-4" />{uploading ? "上传中..." : "点击上传截图"}</>}
+                      ? <><CheckCircle className="w-5 h-5" /><span>凭证已上传，正在提交...</span></>
+                      : uploading
+                      ? <><Loader2 className="w-5 h-5 animate-spin" /><span>上传中...</span></>
+                      : <><Upload className="w-5 h-5" /><span>点击选择图片或拖拽到此处</span></>}
                   </div>
-                  <input type="file" accept="image/*" className="hidden" onChange={handleUploadProof} disabled={uploading} />
+                  <input type="file" accept="image/*" className="hidden"
+                    onChange={e => { const f = e.target.files[0]; if (f) handleProofUploaded(f); }}
+                    disabled={uploading || submitting} />
                 </label>
               </div>
             </div>
@@ -245,13 +282,7 @@ export default function PaymentModal({ order, mode = "prepay", onClose, onSucces
         </div>
 
         <div className="px-5 py-3 border-t flex gap-2 justify-end">
-          <Button variant="outline" size="sm" onClick={onClose}>取消</Button>
-          {method && method !== "alipay" && (
-            <Button size="sm" disabled={!proofUrl || submitting} className="bg-red-600 hover:bg-red-700"
-              onClick={handleManualSubmit}>
-              {submitting ? "提交中..." : "确认已付款"}
-            </Button>
-          )}
+          <Button variant="outline" size="sm" onClick={onClose} disabled={submitting}>取消</Button>
         </div>
       </div>
     </div>

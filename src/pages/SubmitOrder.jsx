@@ -95,8 +95,7 @@ export default function SubmitOrder() {
 
   useEffect(() => { if (form.estimated_jpy) calculate(); }, [form.estimated_jpy, selectedAddons, settings]);
 
-  const handleImageUpload = async (e) => {
-    const file = e.target.files[0];
+  const handleImageUpload = async (file) => {
     if (!file) return;
     setUploading(true);
     const { file_url } = await base44.integrations.Core.UploadFile({ file });
@@ -255,8 +254,28 @@ export default function SubmitOrder() {
 
              <div>
                <Label className="text-sm">日元货款总价（包括日本运费）(¥) *</Label>
-               <Input type="number" placeholder="15000" required value={form.estimated_jpy}
-                 onChange={e => setForm(f => ({ ...f, estimated_jpy: e.target.value }))} className="mt-1" />
+               <Input
+                 type="text"
+                 inputMode="decimal"
+                 placeholder="15000 或 500+500"
+                 required
+                 value={form.estimated_jpy}
+                 onChange={e => setForm(f => ({ ...f, estimated_jpy: e.target.value }))}
+                 onBlur={e => {
+                   const raw = e.target.value.trim();
+                   if (/^[\d+\-*/().\s]+$/.test(raw)) {
+                     try {
+                       // eslint-disable-next-line no-new-func
+                       const result = Function('"use strict"; return (' + raw + ')')();
+                       if (typeof result === "number" && isFinite(result) && result > 0) {
+                         setForm(f => ({ ...f, estimated_jpy: String(Math.round(result)) }));
+                       }
+                     } catch (_) {}
+                   }
+                 }}
+                 className="mt-1"
+               />
+               <p className="text-xs text-gray-400 mt-1">支持四则运算，如 500+500</p>
              </div>
 
             {/* Addon options */}
@@ -286,16 +305,33 @@ export default function SubmitOrder() {
 
             <div>
               <Label className="text-sm">商品图片（可选）</Label>
-              <div className="mt-1 flex items-center gap-2">
-                <label className="cursor-pointer">
-                  <div className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded text-sm text-gray-600 hover:bg-gray-50">
-                    <Upload className="w-3.5 h-3.5" />
-                    {uploading ? "上传中..." : "上传图片"}
-                  </div>
-                  <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
-                </label>
-                {form.product_image_url && <span className="text-xs text-green-600">✓ 已上传</span>}
-              </div>
+              <label
+                className="cursor-pointer block mt-1"
+                onDragOver={e => e.preventDefault()}
+                onDrop={e => {
+                  e.preventDefault();
+                  const file = e.dataTransfer.files[0];
+                  if (file && file.type.startsWith("image/")) handleImageUpload(file);
+                }}
+              >
+                <div className={`flex flex-col items-center gap-1.5 px-3 py-4 border-2 border-dashed rounded-lg text-sm transition-colors ${
+                  form.product_image_url ? "border-green-300 bg-green-50 text-green-700" :
+                  uploading ? "border-blue-200 bg-blue-50 text-blue-500" :
+                  "border-gray-200 text-gray-500 hover:border-blue-300 hover:text-blue-500"
+                }`}>
+                  {form.product_image_url
+                    ? <>
+                        <img src={form.product_image_url} alt="" className="h-16 rounded object-cover" />
+                        <span className="text-xs text-green-600">✓ 已上传，点击或拖拽可更换</span>
+                      </>
+                    : uploading
+                    ? <><Upload className="w-4 h-4 animate-pulse" /><span>上传中...</span></>
+                    : <><Upload className="w-4 h-4" /><span>点击选择图片或拖拽到此处</span></>}
+                </div>
+                <input type="file" accept="image/*" className="hidden"
+                  onChange={e => { const f = e.target.files[0]; if (f) handleImageUpload(f); }}
+                  disabled={uploading} />
+              </label>
             </div>
           </CardContent>
         </Card>

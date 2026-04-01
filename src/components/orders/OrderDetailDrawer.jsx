@@ -165,6 +165,17 @@ export default function OrderDetailDrawer({ order, currentUser, initialUserPrefe
             </div>
           )}
 
+          {/* purchased status: remind user to wait for warehouse arrival */}
+          {status === "purchased" && (
+            <div className="bg-teal-50 border border-teal-100 rounded-lg px-3 py-2.5 flex items-start gap-2">
+              <span className="text-teal-500 mt-0.5">📦</span>
+              <div>
+                <div className="text-xs text-teal-600 font-medium mb-0.5">商品已下单</div>
+                <p className="text-sm text-teal-800">我们已帮您下单，请耐心等候商品入库。入库后您将可以通知发货。</p>
+              </div>
+            </div>
+          )}
+
           {/* Paid order reminder */}
           {status === "paid" && paidReminder && (
             <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2.5">
