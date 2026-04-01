@@ -77,7 +77,7 @@ function CellValue({ col, order }) {
       const imgW = col.imageWidth || 40;
       return order.product_image_url
         ? <ImageWithViewer src={order.product_image_url} alt={order.product_name}>
-            <img src={order.product_image_url} alt="" style={{ width: imgW, height: imgW }} className="rounded-lg object-cover border border-gray-100 cursor-pointer" />
+            <img src={order.product_image_url} alt="" style={{ maxWidth: imgW, maxHeight: imgW, width: "100%", height: "auto" }} className="rounded-lg object-cover border border-gray-100 cursor-pointer" />
           </ImageWithViewer>
         : <div style={{ width: imgW, height: imgW }} className="rounded-lg bg-gray-100 flex items-center justify-center">
             <Package className="w-5 h-5 text-gray-300" />
@@ -119,7 +119,7 @@ function CellValue({ col, order }) {
       const imgW2 = col.imageWidth || 40;
       return order.arrival_photo_url
         ? <ImageWithViewer src={order.arrival_photo_url} alt="入库图片">
-            <img src={order.arrival_photo_url} alt="" style={{ width: imgW2, height: imgW2 }} className="rounded object-cover border border-gray-100 cursor-pointer" />
+            <img src={order.arrival_photo_url} alt="" style={{ maxWidth: imgW2, maxHeight: imgW2, width: "100%", height: "auto" }} className="rounded object-cover border border-gray-100 cursor-pointer" />
           </ImageWithViewer>
         : <span className="text-xs text-gray-300">-</span>;
     }

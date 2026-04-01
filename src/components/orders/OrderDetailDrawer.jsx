@@ -5,6 +5,7 @@
  */
 import { useState, useEffect } from "react";
 import { X, ExternalLink, MessageCircle, Truck, CheckCircle, CreditCard, Upload, Edit2, Package } from "lucide-react";
+import { ImageWithViewer } from "@/components/common/ImageViewer";
 import { base44 } from "@/api/base44Client";
 import { updateOrder, fetchShippingPools, tenantEntity } from "@/lib/tenantApi";
 import { Button } from "@/components/ui/button";
@@ -208,21 +209,26 @@ export default function OrderDetailDrawer({ order, currentUser, initialUserPrefe
           )}
 
           {/* Images */}
-          <div className="flex gap-2 flex-wrap">
-            {order.product_image_url && (
-              <a href={order.product_image_url} target="_blank" rel="noopener noreferrer">
-                <img src={order.product_image_url} alt="商品图" className="h-20 rounded-lg border object-cover cursor-pointer" />
-              </a>
-            )}
-            {order.arrival_photo_url && (
-              <div>
-                <div className="text-xs text-gray-400 mb-1">到货图片</div>
-                <a href={order.arrival_photo_url} target="_blank" rel="noopener noreferrer">
-                  <img src={order.arrival_photo_url} alt="到货图" className="h-20 rounded-lg border object-cover cursor-pointer" />
-                </a>
-              </div>
-            )}
-          </div>
+          {(order.product_image_url || order.arrival_photo_url) && (
+            <div className="flex gap-3 flex-wrap">
+              {order.product_image_url && (
+                <div className="flex flex-col items-center gap-1">
+                  <ImageWithViewer src={order.product_image_url} alt="商品图">
+                    <img src={order.product_image_url} alt="商品图" className="h-20 w-20 rounded-lg border object-cover cursor-pointer hover:opacity-80 transition-opacity" />
+                  </ImageWithViewer>
+                  <span className="text-[10px] text-gray-400">商品图</span>
+                </div>
+              )}
+              {order.arrival_photo_url && (
+                <div className="flex flex-col items-center gap-1">
+                  <ImageWithViewer src={order.arrival_photo_url} alt="到货图片">
+                    <img src={order.arrival_photo_url} alt="到货图片" className="h-20 w-20 rounded-lg border object-cover cursor-pointer hover:opacity-80 transition-opacity" />
+                  </ImageWithViewer>
+                  <span className="text-[10px] text-gray-400">到货图片</span>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Action buttons */}
           <div className="space-y-2 pt-1">
