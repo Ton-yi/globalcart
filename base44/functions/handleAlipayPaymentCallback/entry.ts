@@ -56,22 +56,10 @@ Deno.serve(async (req) => {
   console.log('[DIAG][handleAlipayPaymentCallback] Base44-App-Id header (original):', req.headers.get('Base44-App-Id'));
 
   try {
-    // Alipay callback doesn't send the Base44-App-Id header — inject from env
-    const appId = Deno.env.get('BASE44_APP_ID');
-    console.log('[DIAG][handleAlipayPaymentCallback] BASE44_APP_ID from env:', appId ? 'present' : 'MISSING');
+    const base44 = createClientFromRequest(req);
 
     const bodyText = await req.text();
     console.log('[DIAG][handleAlipayPaymentCallback] raw body (first 500 chars):', bodyText.slice(0, 500));
-
-    const newHeaders = new Headers(req.headers);
-    if (appId) newHeaders.set('Base44-App-Id', appId);
-    const reqWithAppId = new Request(req.url, {
-      method: req.method,
-      headers: newHeaders,
-      body: bodyText,
-    });
-    const base44 = createClientFromRequest(reqWithAppId);
-    console.log('[DIAG][handleAlipayPaymentCallback] SDK client created with injected App-Id');
 
     // Parse form-encoded body
     const params = {};
