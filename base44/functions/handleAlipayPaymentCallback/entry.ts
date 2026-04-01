@@ -93,13 +93,42 @@ Deno.serve(async (req) => {
 
     const publicKeyPem = Deno.env.get('ALIPAY_PUBLIC_KEY');
     console.log('[DIAG][handleAlipayPaymentCallback] ALIPAY_PUBLIC_KEY present:', !!publicKeyPem);
+    // Log first 60 chars of public key (non-secret header) to confirm which key type it is
+    const keyPreview = publicKeyPem ? publicKeyPem.replace(/\s+/g, ' ').slice(0, 80) : 'null';
+    console.log('[DIAG][handleAlipayPaymentCallback] ALIPAY_PUBLIC_KEY preview (first 80 chars):', keyPreview);
+
+    // Build and log the exact string being signed for diagnosis
+    const signStr = (() => {
+      const sortedKeys = Object.keys(params).sort();
+      return sortedKeys
+        .filter(k => k !== 'sign' && k !== 'sign_type' && params[k] !== '' && params[k] != null)
+        .map(k => `${k}=${params[k]}`)
+        .join('&');
+    })();
+    console.log('[DIAG][handleAlipayPaymentCallback] sign_type in params:', params.sign_type);
+    console.log('[DIAG][handleAlipayPaymentCallback] sign present:', !!params.sign);
+    console.log('[DIAG][handleAlipayPaymentCallback] sign string to verify (first 200 chars):', signStr.slice(0, 200));
+    console.log('[DIAG][handleAlipayPaymentCallback] total params keys:', Object.keys(params).sort().join(','));
 
     // 1. Verify signature
-    const valid = await verifyAlipaySign(params, publicKeyPem);
-    console.log('[DIAG][handleAlipayPaymentCallback] signature valid:', valid);
+    let valid = false;
+    let verifyError = null;
+    try {
+      valid = await verifyAlipaySign(params, publicKeyPem);
+    } catch (e) {
+      verifyError = e.message;
+    }
+    console.log('[DIAG][handleAlipayPaymentCallback] signature valid:', valid, '| verifyError:', verifyError);
     if (!valid) {
       console.error('[DIAG][handleAlipayPaymentCallback] SIGNATURE VERIFICATION FAILED — returning fail');
-      return new Response('fail', { status: 200 });
+      console.error('[DIAG][handleAlipayPaymentCallback] verifyError:', verifyError);
+      // DIAG: temporarily skip sig verification to test order lookup and update
+      const skipSigForDiag = Deno.env.get('ALIPAY_SKIP_SIG_VERIFY') === 'true';
+      console.log('[DIAG][handleAlipayPaymentCallback] ALIPAY_SKIP_SIG_VERIFY:', skipSigForDiag);
+      if (!skipSigForDiag) {
+        return new Response('fail', { status: 200 });
+      }
+      console.warn('[DIAG][handleAlipayPaymentCallback] SKIPPING SIG VERIFY FOR DIAGNOSIS — proceeding');
     }
 
     // 2. Only process successful trades
