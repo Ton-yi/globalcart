@@ -222,11 +222,13 @@ export default function AdminOrders() {
   const filtered = orders.filter(o => {
     const matchStatus = statusFilter === "all" || o.order_status === statusFilter;
     const q = search.toLowerCase();
+    const displayName = (userProfileMap[o.user_email]?.display_name || o.user_name || "").toLowerCase();
     const matchSearch = !q ||
       (o.product_name || "").toLowerCase().includes(q) ||
       (o.order_number || "").toLowerCase().includes(q) ||
       (o.user_email || "").toLowerCase().includes(q) ||
-      (o.user_name || "").toLowerCase().includes(q);
+      (o.user_name || "").toLowerCase().includes(q) ||
+      displayName.includes(q);
     return matchStatus && matchSearch;
   }).sort((a, b) => {
     if (!sortKey) return 0;
