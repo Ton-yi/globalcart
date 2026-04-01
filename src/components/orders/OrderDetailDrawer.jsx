@@ -77,6 +77,14 @@ export default function OrderDetailDrawer({ order, currentUser, initialUserPrefe
   };
 
   const handleMessageSent = () => {
+    setShowMessages(true);
+    // 自动下拉至最新消息
+    setTimeout(() => {
+      const msgSection = document.getElementById("message-section");
+      if (msgSection) {
+        msgSection.scrollIntoView({ behavior: "smooth" });
+      }
+    }, 100);
     onAction?.("message_sent");
   };
 

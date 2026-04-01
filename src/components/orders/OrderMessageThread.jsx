@@ -64,7 +64,6 @@ export default function OrderMessageThread({ order, currentUser, isAdmin, onMess
       role: isAdmin ? "admin" : "user",
       content: content.trim(),
       image_url: imageUrl || "",
-      contact_info: contactInfo || "",
       timestamp: new Date().toISOString(),
       prev_status: order.order_status,
     };
@@ -146,11 +145,6 @@ export default function OrderMessageThread({ order, currentUser, isAdmin, onMess
                       <a href={msg.image_url} target="_blank" rel="noopener noreferrer">
                         <img src={msg.image_url} alt="附图" className="mt-2 rounded-lg max-h-40 cursor-pointer" />
                       </a>
-                    )}
-                    {msg.contact_info && (
-                      <p className={`text-xs mt-1.5 ${isMine ? "text-gray-300" : "text-gray-500"}`}>
-                        联系方式：{msg.contact_info}
-                      </p>
                     )}
                   </div>
                 </div>

@@ -148,6 +148,14 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
     setMessageText("");
     setImageFile(null);
     setSendingMsg(false);
+    
+    // Auto scroll to message section
+    setTimeout(() => {
+      const msgSection = document.querySelector('[data-message-section]');
+      if (msgSection) {
+        msgSection.scrollIntoView({ behavior: "smooth" });
+      }
+    }, 100);
   };
 
   const handleAdminSave = async () => {
@@ -688,7 +696,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
           )}
 
           {/* Message thread */}
-          <div>
+          <div data-message-section>
             <h3 className="text-sm font-semibold text-gray-700 mb-3">留言沟通</h3>
             {messages.length > 0 ? (
               <div className="space-y-2 mb-3 max-h-48 overflow-y-auto">
