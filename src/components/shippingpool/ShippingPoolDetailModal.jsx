@@ -695,18 +695,19 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                 {messages.map(msg => {
                   const msgSenderData = msg.from_email ? (tenantUserMap[msg.from_email] || {}) : {};
                   const senderAvatar = msg.avatar_url || msgSenderData.avatar_url || '';
-                  const senderInitial = (msg.from || "?")[0].toUpperCase();
+                  const senderDisplayName = msg.from || msgSenderData.display_name || msgSenderData.full_name || msg.from_email || "?";
+                  const senderInitial = senderDisplayName[0].toUpperCase();
                   return (
                     <div key={msg.id} className={`flex gap-2 ${msg.role === "admin" ? "flex-row-reverse" : ""}`}>
                       {senderAvatar ? (
-                        <img src={senderAvatar} alt={msg.from} className="w-6 h-6 rounded-full object-cover flex-shrink-0 self-start mt-0.5" />
+                        <img src={senderAvatar} alt={senderDisplayName} className="w-6 h-6 rounded-full object-cover flex-shrink-0 self-start mt-0.5" />
                       ) : (
                         <div className="w-6 h-6 rounded-full bg-gray-300 flex items-center justify-center text-gray-600 text-xs font-medium flex-shrink-0 self-start mt-0.5">
                           {senderInitial}
                         </div>
                       )}
                       <div className={`max-w-[75%] rounded-xl px-3 py-2 text-sm ${msg.role === "admin" ? "bg-red-50 text-red-900 rounded-tr-sm" : "bg-gray-100 text-gray-800 rounded-tl-sm"}`}>
-                        <p className="text-xs text-gray-400 mb-0.5 font-medium">{msg.from}</p>
+                        <p className="text-xs text-gray-400 mb-0.5 font-medium">{senderDisplayName}</p>
                         {msg.content && <p className="whitespace-pre-wrap">{msg.content}</p>}
                         {msg.image_url && <img src={msg.image_url} alt="" className="mt-1.5 max-w-full rounded-lg max-h-40 object-contain" />}
                       </div>
