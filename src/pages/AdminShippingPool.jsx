@@ -196,19 +196,24 @@ export default function AdminShippingPool() {
               <Truck className="w-12 h-12 mb-3 opacity-20" />
               <p className="text-sm">暂无发货申请</p>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-              {filtered.map(pool => (
-                <ShippingPoolCard
-                  key={pool.id}
-                  pool={pool}
-                  isAdmin={true}
-                  onClick={setSelectedPool}
-                  pendingEditCount={pendingEditRequests.filter(r => r.pool_id === pool.id).length}
-                />
-              ))}
-            </div>
-          )}
+          ) : (() => {
+            const userProfileMap = {};
+            (allUsers || []).forEach(u => { userProfileMap[u.email] = u; });
+            return (
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                {filtered.map(pool => (
+                  <ShippingPoolCard
+                    key={pool.id}
+                    pool={pool}
+                    isAdmin={true}
+                    onClick={setSelectedPool}
+                    pendingEditCount={pendingEditRequests.filter(r => r.pool_id === pool.id).length}
+                    userProfileMap={userProfileMap}
+                  />
+                ))}
+              </div>
+            );
+          })()}
         </>
       )}
 

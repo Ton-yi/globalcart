@@ -84,17 +84,23 @@ export default function ShippingPool() {
   const [strategyOpen, setStrategyOpen] = useState(false);
   const [shippingAddons, setShippingAddons] = useState([]);
   const [selectedAddonIds, setSelectedAddonIds] = useState([]);
+  const [userProfileMap, setUserProfileMap] = useState({});
 
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
   const fetchData = async (_u) => {
     setLoading(true);
     const t = timePage('ShippingPool');
-    const [allPools, myOrders, editReqs] = await Promise.all([
+    const [allPools, myOrders, editReqs, usersRes] = await Promise.all([
       t.timeCall('getTenantShippingPools', () => fetchShippingPools()),
       t.timeCall('getTenantOrders', () => base44.functions.invoke('getTenantOrders', {}).then(r => r.data?.orders || [])),
       base44.functions.invoke('getMyShippingEditRequests', {}).then(r => r.data?.requests || []).catch(() => []),
+      base44.functions.invoke('getTenantUsers', {}).then(r => r.data?.users || []).catch(() => []),
     ]);
+    // Build userProfileMap from users list
+    const profileMap = {};
+    (usersRes || []).forEach(u => { profileMap[u.email] = u; });
+    setUserProfileMap(profileMap);
     setPools(allPools);
     setPendingEditRequests(editReqs.filter(r => r.status === 'pending'));
 
@@ -719,6 +725,7 @@ export default function ShippingPool() {
                   pool={pool}
                   onClick={setSelectedPool}
                   pendingEditCount={pendingEditRequests.filter(r => r.pool_id === pool.id).length}
+                  userProfileMap={userProfileMap}
                 />
               ))}
             </div>

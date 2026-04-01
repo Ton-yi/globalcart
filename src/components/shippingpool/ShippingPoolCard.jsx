@@ -38,9 +38,13 @@ const METHOD_LABELS = {
   surface: "海运", small_packet_air: "小包空运", other: "其他"
 };
 
-export default function ShippingPoolCard({ pool, onClick, pendingEditCount = 0, isAdmin = false }) {
+export default function ShippingPoolCard({ pool, onClick, pendingEditCount = 0, isAdmin = false, userProfileMap = {} }) {
   const status = STATUS_CONFIG[pool.status] || STATUS_CONFIG.pending;
   const isConsolidation = pool.consolidation_type && pool.consolidation_type !== "";
+  
+  // Use display_name from userProfileMap if available, otherwise fall back to pool.creator_name
+  const creatorProfile = userProfileMap[pool.creator_email] || {};
+  const displayCreatorName = creatorProfile.display_name || creatorProfile.full_name || pool.creator_name;
 
   return (
     <div
@@ -139,10 +143,10 @@ export default function ShippingPoolCard({ pool, onClick, pendingEditCount = 0, 
               </span>
             </div>
           }
-          {pool.creator_name &&
+          {displayCreatorName &&
           <div className="flex items-center gap-1.5">
               <User className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-              <span className="truncate">{pool.creator_name}</span>
+              <span className="truncate">{displayCreatorName}</span>
             </div>
           }
         </div>
