@@ -20,7 +20,7 @@ import ShippingEditModal from "@/components/shippingpool/ShippingEditModal";
 const STORAGE_KEY = "my_orders_columns";
 
 const ALL_COLUMNS = [
-  { key: "product_image_url", label: "商品图片", defaultVisible: true, sortable: false },
+  { key: "product_image_url", label: "商品图片", defaultVisible: true, sortable: false, isImage: true },
   { key: "order_number", label: "订单号", defaultVisible: true, sortable: true },
   { key: "product_name", label: "商品名", defaultVisible: true, sortable: true },
   { key: "prepayment_amount", label: "付款金额", defaultVisible: true, sortable: true },
@@ -28,7 +28,7 @@ const ALL_COLUMNS = [
   { key: "order_status", label: "订单状态", defaultVisible: true, sortable: true },
   { key: "online_store_tag", label: "商城标签", defaultVisible: false, sortable: true },
   { key: "product_description", label: "商品描述", defaultVisible: false, sortable: true },
-  { key: "arrival_photo_url", label: "入库图片", defaultVisible: false, sortable: false },
+  { key: "arrival_photo_url", label: "入库图片", defaultVisible: false, sortable: false, isImage: true },
   { key: "admin_note", label: "管理员备注", defaultVisible: false, sortable: true },
   { key: "user_note", label: "用户备注", defaultVisible: false, sortable: true },
   { key: "payment_due_date", label: "付款截止日", defaultVisible: false, sortable: true },
@@ -49,7 +49,7 @@ function loadColumns() {
     return [
       ...parsed.map(p => {
         const def = ALL_COLUMNS.find(c => c.key === p.key);
-        return def ? { ...def, visible: p.visible } : null;
+        return def ? { ...def, visible: p.visible, ...(p.imageWidth ? { imageWidth: p.imageWidth } : {}) } : null;
       }).filter(Boolean),
       ...ALL_COLUMNS.filter(c => !keyOrder.includes(c.key)).map(c => ({ ...c, visible: c.defaultVisible })),
     ];
@@ -73,14 +73,16 @@ const STATUS_FILTERS = [
 
 function CellValue({ col, order }) {
   switch (col.key) {
-    case "product_image_url":
+    case "product_image_url": {
+      const imgW = col.imageWidth || 40;
       return order.product_image_url
         ? <ImageWithViewer src={order.product_image_url} alt={order.product_name}>
-            <img src={order.product_image_url} alt="" className="w-10 h-10 rounded-lg object-cover border border-gray-100" />
+            <img src={order.product_image_url} alt="" style={{ width: imgW, height: imgW }} className="rounded-lg object-cover border border-gray-100 cursor-pointer" />
           </ImageWithViewer>
-        : <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
+        : <div style={{ width: imgW, height: imgW }} className="rounded-lg bg-gray-100 flex items-center justify-center">
             <Package className="w-5 h-5 text-gray-300" />
           </div>;
+    }
     case "order_number":
       return <span className="font-mono text-xs text-gray-500">{order.order_number || "-"}</span>;
     case "product_name":
@@ -113,12 +115,14 @@ function CellValue({ col, order }) {
       );
     case "product_description":
       return <span className="text-xs text-gray-600 line-clamp-2 max-w-[200px]">{order.product_description || "-"}</span>;
-    case "arrival_photo_url":
+    case "arrival_photo_url": {
+      const imgW2 = col.imageWidth || 40;
       return order.arrival_photo_url
         ? <ImageWithViewer src={order.arrival_photo_url} alt="入库图片">
-            <img src={order.arrival_photo_url} alt="" className="w-10 h-10 rounded object-cover border border-gray-100" />
+            <img src={order.arrival_photo_url} alt="" style={{ width: imgW2, height: imgW2 }} className="rounded object-cover border border-gray-100 cursor-pointer" />
           </ImageWithViewer>
         : <span className="text-xs text-gray-300">-</span>;
+    }
     case "admin_note":
       return <span className="text-xs text-gray-600 line-clamp-2 max-w-[200px]">{order.admin_note || "-"}</span>;
     case "user_note":
@@ -187,7 +191,11 @@ export default function MyOrders() {
 
   const handleColumnsChange = (newCols) => {
     setColumns(newCols);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(newCols.map(c => ({ key: c.key, visible: c.visible }))));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(newCols.map(c => ({
+      key: c.key,
+      visible: c.visible,
+      ...(c.imageWidth ? { imageWidth: c.imageWidth } : {}),
+    }))));
   };
 
   const handleSort = (key) => {

@@ -10,6 +10,7 @@ import AdminOrderEditModal from "@/components/admin/AdminOrderEditModal";
 import { getStatusLabel, getStatusColor } from "@/lib/orderStatus";
 import ColumnCustomizer from "@/components/orders/ColumnCustomizer";
 import { matchStoreTagResult } from "@/lib/onlineStoreTag";
+import { ImageWithViewer } from "@/components/common/ImageViewer";
 
 const STORAGE_KEY = "admin_orders_columns";
 
@@ -27,8 +28,8 @@ const ALL_COLUMNS = [
   { key: "in_warehouse_date", label: "入库日", defaultVisible: false, sortable: true },
   { key: "shipped_date", label: "发货日", defaultVisible: false, sortable: true },
   { key: "submit_date", label: "订单提交日", defaultVisible: false, sortable: true },
-  { key: "product_image_url", label: "商品图片", defaultVisible: false, sortable: false },
-  { key: "arrival_photo_url", label: "入库图片", defaultVisible: false, sortable: false },
+  { key: "product_image_url", label: "商品图片", defaultVisible: false, sortable: false, isImage: true },
+  { key: "arrival_photo_url", label: "入库图片", defaultVisible: false, sortable: false, isImage: true },
   { key: "product_description", label: "商品描述", defaultVisible: false, sortable: true },
   { key: "admin_note", label: "管理员备注", defaultVisible: false, sortable: true },
   { key: "user_note", label: "用户备注", defaultVisible: false, sortable: true },
@@ -47,7 +48,7 @@ function loadColumns() {
     const merged = [
       ...parsed.map(p => {
         const def = ALL_COLUMNS.find(c => c.key === p.key);
-        return def ? { ...def, visible: p.visible } : null;
+        return def ? { ...def, visible: p.visible, ...(p.imageWidth ? { imageWidth: p.imageWidth } : {}) } : null;
       }).filter(Boolean),
       ...ALL_COLUMNS.filter(c => !keyOrder.includes(c.key)).map(c => ({ ...c, visible: c.defaultVisible })),
     ];
@@ -118,14 +119,22 @@ function CellValue({ col, order, onQuickOrdered, userAvatars }) {
           {getStatusLabel(order.order_status, "admin")}
         </Badge>
       );
-    case "product_image_url":
+    case "product_image_url": {
+      const imgW = col.imageWidth || 40;
       return order.product_image_url
-        ? <img src={order.product_image_url} alt="" className="w-10 h-10 rounded object-cover border border-gray-100" />
+        ? <ImageWithViewer src={order.product_image_url} alt={order.product_name}>
+            <img src={order.product_image_url} alt="" style={{ width: imgW, height: imgW }} className="rounded object-cover border border-gray-100 cursor-pointer" />
+          </ImageWithViewer>
         : <span className="text-xs text-gray-300">-</span>;
-    case "arrival_photo_url":
+    }
+    case "arrival_photo_url": {
+      const imgW = col.imageWidth || 40;
       return order.arrival_photo_url
-        ? <img src={order.arrival_photo_url} alt="" className="w-10 h-10 rounded object-cover border border-gray-100" />
+        ? <ImageWithViewer src={order.arrival_photo_url} alt="入库图片">
+            <img src={order.arrival_photo_url} alt="" style={{ width: imgW, height: imgW }} className="rounded object-cover border border-gray-100 cursor-pointer" />
+          </ImageWithViewer>
         : <span className="text-xs text-gray-300">-</span>;
+    }
     case "product_description":
       return <span className="text-xs text-gray-600 line-clamp-2 max-w-[200px]">{order.product_description || "-"}</span>;
     case "admin_note":
@@ -195,7 +204,11 @@ export default function AdminOrders() {
 
   const handleColumnsChange = (newCols) => {
     setColumns(newCols);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(newCols.map(c => ({ key: c.key, visible: c.visible }))));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(newCols.map(c => ({
+      key: c.key,
+      visible: c.visible,
+      ...(c.imageWidth ? { imageWidth: c.imageWidth } : {}),
+    }))));
   };
 
   const handleSort = (key) => {
