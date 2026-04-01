@@ -139,8 +139,10 @@ Deno.serve(async (req) => {
     const out_trade_no = `TY${shortRef.slice(0, 16)}${Date.now()}`;
 
     const appId_env = Deno.env.get('BASE44_APP_ID');
-    const appBaseUrl = `https://api.base44.com/api/apps/${appId_env}/functions`;
-    const notify_url = `${appBaseUrl}/handleAlipayPaymentCallback`;
+    // ALIPAY_NOTIFY_URL must be set to the direct Deno deploy URL of handleAlipayPaymentCallback
+    // e.g. https://xxxx.deno.dev/  (find it in Dashboard > Code > Functions > handleAlipayPaymentCallback)
+    const notify_url = Deno.env.get('ALIPAY_NOTIFY_URL')
+      || `https://api.base44.com/api/apps/${appId_env}/functions/handleAlipayPaymentCallback`;
     // Build return_url from Origin/Referer
     const origin = req.headers.get('origin') || req.headers.get('referer') || '';
     let frontendHost = '';
