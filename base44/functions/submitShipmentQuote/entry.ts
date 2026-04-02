@@ -1,15 +1,23 @@
 /**
  * submitShipmentQuote
  *
- * Admin submits (or re-submits) a shipment quotation.
- * Calculates per-user charges, freezes the quote, and advances
- * ShipmentRequest status to quote_ready.
+ * Admin submits a shipment quotation (first time or re-quotation).
  *
- * Re-submission is only allowed if the current quote is NOT yet frozen
- * (i.e. status is draft/submitted) OR if the ShipmentRequest status is
- * still quote_ready and the user has NOT yet confirmed.
- * Once a user confirms (waiting_payment / paid / shipped), the snapshot
- * is immutable and this function will reject the request.
+ * Freeze / re-quotation rules:
+ *   - A ShippingQuote record is frozen (is_frozen=true) immediately after creation.
+ *     It is NEVER mutated again.
+ *   - If a frozen quote already exists and admin submits new figures, a NEW quote
+ *     record is created with quote_version incremented.
+ *   - The old quote record is marked superseded_by = new quote ID (audit trail).
+ *   - ALL existing ShippingUserCharge records are replaced with fresh snapshots.
+ *   - ALL user_confirmed flags on the new charge records are reset to false.
+ *   - ShipmentRequest returns to quote_ready for fresh user confirmation.
+ *
+ * This means:
+ *   - Old frozen quote records are preserved for audit.
+ *   - Active charges always correspond to the latest quote version.
+ *   - Re-quotation is always allowed (no status gate blocking admin), as long as
+ *     the shipment has not yet been paid or shipped.
  *
  * All monetary values are stored as whole JPY integers.
  *
@@ -30,7 +38,6 @@
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
-// JPY has no fractional units — always round to nearest integer.
 const roundJpy = Math.round;
 const CALCULATION_VERSION = 1;
 
@@ -77,33 +84,12 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Only allow quoting when the shipment is in a pre-payment status.
-    // Once a user has confirmed (waiting_payment / paid / shipped / delivered),
-    // the charge snapshot is immutable.
-    const quotableStatuses = ['draft', 'submitted', 'quote_ready'];
-    if (!quotableStatuses.includes(sr.shipping_request_status)) {
+    // Re-quotation is blocked once payment is underway or shipment is complete.
+    const nonQuotableStatuses = ['waiting_payment', 'paid', 'packing', 'shipped', 'delivered', 'cancelled'];
+    if (nonQuotableStatuses.includes(sr.shipping_request_status)) {
       return Response.json({
-        error: `Cannot submit quote when status is '${sr.shipping_request_status}'. Charge snapshot is immutable once users have confirmed payment.`
+        error: `Cannot submit a new quote when status is '${sr.shipping_request_status}'.`
       }, { status: 400 });
-    }
-
-    // Additional guard: if quote already frozen AND any user has confirmed,
-    // reject to protect the immutable snapshot.
-    const existingQuotes = await base44.asServiceRole.entities.ShippingQuote.filter(
-      { shipping_request_id: shipment_request_id }
-    );
-    const existingQuote = existingQuotes[0] || null;
-
-    if (existingQuote?.is_frozen) {
-      const existingCharges = await base44.asServiceRole.entities.ShippingUserCharge.filter(
-        { shipping_request_id: shipment_request_id }
-      );
-      const anyConfirmed = existingCharges.some(c => c.user_confirmed === true);
-      if (anyConfirmed) {
-        return Response.json({
-          error: 'Cannot modify a frozen quote after users have confirmed. The charge snapshot is immutable.'
-        }, { status: 409 });
-      }
     }
 
     const {
@@ -117,13 +103,26 @@ Deno.serve(async (req) => {
     const isOtherAddress = destination_type === 'other_address';
     const isTransitLocation = destination_type === 'transit_location';
 
-    // ── 2. Upsert ShippingQuote (unfreeze for recalculation) ──────────────
+    // ── 2. Find existing active quote (if any) ─────────────────────────────
+    // Active quote = no superseded_by set (i.e. not yet replaced by a newer version).
+    const allQuotes = await base44.asServiceRole.entities.ShippingQuote.filter(
+      { shipping_request_id: shipment_request_id }
+    );
+    // The active quote is the one not superseded by anything
+    const supersededIds = new Set(allQuotes.map(q => q.superseded_by).filter(Boolean));
+    const activeQuote = allQuotes.find(q => !supersededIds.has(q.id) && !q.superseded_by) || allQuotes[allQuotes.length - 1] || null;
+
+    const nextVersion = activeQuote ? (activeQuote.quote_version || 1) + 1 : 1;
+
+    // ── 3. Prepare rounded fee values ─────────────────────────────────────
     const shippingFeeJpy = roundJpy(shipping_fee_jpy);
     const boxFeeJpy = roundJpy(box_fee_jpy);
 
-    const quoteData = {
+    // ── 4. Create the new frozen quote record ──────────────────────────────
+    const newQuoteData = {
       tenant_id,
       shipping_request_id: shipment_request_id,
+      quote_version: nextVersion,
       box_template_id: box_template_id || null,
       final_total_weight_g,
       shipping_fee_jpy: shippingFeeJpy,
@@ -131,21 +130,23 @@ Deno.serve(async (req) => {
       packing_fee_default_jpy: roundJpy(packing_fee_default_jpy),
       per_user_packing_fees,
       note: note || '',
-      is_frozen: false,
+      is_frozen: true,
       quote_step_status: 'draft_quote',
     };
 
-    if (packaging_image_urls !== undefined) quoteData.packaging_image_urls = packaging_image_urls;
-    if (shipping_label_image_urls !== undefined) quoteData.shipping_label_image_urls = shipping_label_image_urls;
+    if (packaging_image_urls !== undefined) newQuoteData.packaging_image_urls = packaging_image_urls;
+    if (shipping_label_image_urls !== undefined) newQuoteData.shipping_label_image_urls = shipping_label_image_urls;
 
-    let quote;
-    if (existingQuote) {
-      quote = await base44.asServiceRole.entities.ShippingQuote.update(existingQuote.id, quoteData);
-    } else {
-      quote = await base44.asServiceRole.entities.ShippingQuote.create(quoteData);
+    const newQuote = await base44.asServiceRole.entities.ShippingQuote.create(newQuoteData);
+
+    // ── 5. Mark old active quote as superseded (audit trail) ──────────────
+    if (activeQuote) {
+      await base44.asServiceRole.entities.ShippingQuote.update(activeQuote.id, {
+        superseded_by: newQuote.id,
+      });
     }
 
-    // ── 3. Load dependencies for charge calculation ────────────────────────
+    // ── 6. Load dependencies for charge calculation ────────────────────────
     const items = await base44.asServiceRole.entities.ShippingRequestItem.filter(
       { shipping_request_id: shipment_request_id }
     );
@@ -169,7 +170,7 @@ Deno.serve(async (req) => {
       if (locs[0]) transitHandlingFeeJpy = roundJpy(locs[0].handling_fee || 0);
     }
 
-    // ── 4. Group items by user ─────────────────────────────────────────────
+    // ── 7. Group items by user ─────────────────────────────────────────────
     const userItems = {};
     let totalWeightG = 0;
 
@@ -181,16 +182,16 @@ Deno.serve(async (req) => {
       totalWeightG += item.item_weight_g || 0;
     }
 
-    // ── 5. Calculate per-user charges (all amounts in whole JPY) ──────────
+    // ── 8. Calculate fresh per-user charges (all amounts in whole JPY) ─────
     const chargeResults = [];
 
     for (const [userId, userData] of Object.entries(userItems)) {
       const userWeightG = userData.weight_g;
       const weightRatio = totalWeightG > 0 ? userWeightG / totalWeightG : 0;
 
-      let tailBalanceJpy = 0;
+      let tailBalanceJpy   = 0;
       let sizeSurchargeJpy = 0;
-      let addonFeeJpy = 0;
+      let addonFeeJpy      = 0;
 
       for (const item of userData.items) {
         tailBalanceJpy   += item.tail_balance_snapshot || 0;
@@ -198,7 +199,6 @@ Deno.serve(async (req) => {
         addonFeeJpy      += item.addon_fee_snapshot || 0;
       }
 
-      // Snapshots should already be integers; round defensively
       tailBalanceJpy   = roundJpy(tailBalanceJpy);
       sizeSurchargeJpy = roundJpy(sizeSurchargeJpy);
       addonFeeJpy      = roundJpy(addonFeeJpy);
@@ -219,7 +219,6 @@ Deno.serve(async (req) => {
         + packingFeeJpy + addonFeeJpy + thisTransitShippingFeeJpy
       );
 
-      // Shared fees: each component rounded independently to nearest JPY
       const sharedIntlFeeJpy = roundJpy(weightRatio * shippingFeeJpy);
       const sharedBoxFeeJpy  = roundJpy(weightRatio * boxFeeJpy);
       const sharedFeeTotal   = sharedIntlFeeJpy + sharedBoxFeeJpy;
@@ -240,31 +239,26 @@ Deno.serve(async (req) => {
         transit_shipping_fee_jpy: thisTransitShippingFeeJpy,
         shared_international_shipping_fee_jpy: sharedIntlFeeJpy,
         shared_box_fee_jpy: sharedBoxFeeJpy,
-        weight_ratio: weightRatio, // float, not monetary
+        weight_ratio: weightRatio,
         user_item_weight_g: userWeightG,
+        user_confirmed: false,  // always reset — new quote requires fresh confirmation
         is_paid: false,
         calculation_version: CALCULATION_VERSION,
       });
     }
 
-    // ── 6. Replace ShippingUserCharge records ──────────────────────────────
-    const existingChargesAll = await base44.asServiceRole.entities.ShippingUserCharge.filter(
+    // ── 9. Replace ShippingUserCharge records with fresh snapshots ─────────
+    const existingCharges = await base44.asServiceRole.entities.ShippingUserCharge.filter(
       { shipping_request_id: shipment_request_id }
     );
-    for (const ec of existingChargesAll) {
+    for (const ec of existingCharges) {
       await base44.asServiceRole.entities.ShippingUserCharge.delete(ec.id);
     }
     for (const charge of chargeResults) {
       await base44.asServiceRole.entities.ShippingUserCharge.create(charge);
     }
 
-    // ── 7. Freeze the quote ────────────────────────────────────────────────
-    await base44.asServiceRole.entities.ShippingQuote.update(quote.id, {
-      is_frozen: true,
-      quote_step_status: 'draft_quote',
-    });
-
-    // ── 8. Advance ShipmentRequest to quote_ready ──────────────────────────
+    // ── 10. Reset ShipmentRequest to quote_ready for fresh confirmation ────
     await base44.asServiceRole.entities.ShipmentRequest.update(shipment_request_id, {
       shipping_request_status: 'quote_ready',
       user_confirmed_quote: false,
@@ -273,6 +267,8 @@ Deno.serve(async (req) => {
     return Response.json({
       success: true,
       shipment_request_id,
+      quote_version: nextVersion,
+      re_quoted: nextVersion > 1,
       total_weight_g: totalWeightG,
       user_charges: chargeResults,
     });

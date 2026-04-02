@@ -93,17 +93,20 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'ShippingQuote not found for this ShipmentRequest' }, { status: 404 });
     }
 
-    // Guard: refuse to overwrite a frozen snapshot if any user has already confirmed
-    if (quote.is_frozen) {
-      const existingCharges = await base44.asServiceRole.entities.ShippingUserCharge.filter(
-        { shipping_request_id: shipment_request_id }
-      );
-      const anyConfirmed = existingCharges.some(c => c.user_confirmed === true);
-      if (anyConfirmed) {
-        return Response.json({
-          error: 'Cannot recalculate charges on a frozen quote after users have confirmed. The snapshot is immutable.'
-        }, { status: 409 });
-      }
+    // Guard: this standalone function must not be used once payment is underway.
+    // For re-quotation, use submitShipmentQuote which creates a new versioned quote.
+    if (quote.is_frozen && quote.superseded_by) {
+      return Response.json({
+        error: 'This quote has been superseded. Use submitShipmentQuote to create a new quotation version.'
+      }, { status: 409 });
+    }
+
+    const nonRecalculableStatuses = ['waiting_payment', 'paid', 'packing', 'shipped', 'delivered'];
+    const srForCheck = (await base44.asServiceRole.entities.ShipmentRequest.filter({ id: shipment_request_id }))[0];
+    if (srForCheck && nonRecalculableStatuses.includes(srForCheck.shipping_request_status)) {
+      return Response.json({
+        error: `Cannot recalculate charges when shipment status is '${srForCheck.shipping_request_status}'.`
+      }, { status: 400 });
     }
 
     const internationalShippingFeeJpy = roundJpy(quote.shipping_fee_jpy || 0);
