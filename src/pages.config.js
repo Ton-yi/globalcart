@@ -50,11 +50,9 @@
 import Home from './pages/Home';
 import SubmitOrder from './pages/SubmitOrder';
 import MyOrders from './pages/MyOrders.jsx';
-import ShippingRequests from './pages/ShippingRequests';
 import UserPreferences from './pages/UserPreferences';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminOrders from './pages/AdminOrders.jsx';
-import AdminShipping from './pages/AdminShipping';
 import AdminUsers from './pages/AdminUsers';
 import AdminAnnouncements from './pages/AdminAnnouncements';
 import AdminSettings from './pages/AdminSettings';
@@ -69,11 +67,9 @@ export const PAGES = {
     "Home": Home,
     "SubmitOrder": SubmitOrder,
     "MyOrders": MyOrders,
-    "ShippingRequests": ShippingRequests,
     "UserPreferences": UserPreferences,
     "AdminDashboard": AdminDashboard,
     "AdminOrders": AdminOrders,
-    "AdminShipping": AdminShipping,
     "AdminUsers": AdminUsers,
     "AdminAnnouncements": AdminAnnouncements,
     "AdminSettings": AdminSettings,

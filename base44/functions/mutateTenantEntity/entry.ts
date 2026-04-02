@@ -18,7 +18,7 @@ function extractEmailFromJwt(req) {
 
 const ALLOWED_ENTITIES = [
   'Order',
-  'ShippingPool', 'ShippingRequest', 'ShippingEditRequest',
+  'ShippingPool', 'ShipmentRequest', 'ShippingEditRequest',
   'UserPreference', 'ItemSizeTemplate', 'OnlineStoreTagRule',
   'ShippingMethod', 'TransitShippingMethod', 'TransitLocation',
   'AddonOption', 'SiteSettings', 'Announcement',
