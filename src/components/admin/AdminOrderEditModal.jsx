@@ -290,7 +290,7 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
                 {order.prepayment_amount > 0 && (
                   <div className="bg-gray-50 rounded-lg p-2.5">
                     <div className="text-gray-400">预付款</div>
-                    <div className="font-medium">{cur} {order.prepayment_amount?.toFixed(2)}</div>
+                    <div className="font-medium">{cur} {order.prepayment_amount?.toFixed(0)}</div>
                   </div>
                 )}
                 {order.paid_amount > 0 && (
