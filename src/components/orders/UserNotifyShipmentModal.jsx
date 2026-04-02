@@ -385,21 +385,12 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
       ...(consType === "transit" ? { consolidation_transit_id: selectedTransitId, consolidation_final_address_id: finalAddressId } : {}),
     };
 
-    await Promise.all(
-      targetOrders.map(o =>
-        updateOrder(o.id, {
-          ...updates,
-          user_note: [o.user_note, note ? `发货备注：${note}` : ""].filter(Boolean).join("\n"),
-        })
-      )
-    );
-
-    // Create ShipmentRequest for new shipping flow
+    // Create ShipmentRequest - new unified flow
     const finalAddrId = consType === "transit" 
       ? (addressInputMode["final"] ? newAddress.id : finalAddressId)
       : (addressInputMode[consType === "other" ? "other" : "direct"] ? newAddress.id : selectedAddress);
     
-    const shipmentRes = await base44.functions.invoke('createShipmentRequest', {
+    await base44.functions.invoke('createShipmentRequest', {
       order_ids: orderIds,
       shipping_method: method,
       consolidation_requested: consolidation,
@@ -412,62 +403,6 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
       selected_addon_ids: selectedAddonIds,
       remark: note || "",
     });
-
-    if (joinDirectPool && selectedDirectPoolId) {
-      const directPool = directPools.find(p => p.id === selectedDirectPoolId);
-      if (directPool) {
-        await shippingPoolApi.update(directPool.id, {
-          order_ids: [...new Set([...(directPool.order_ids || []), ...orderIds])],
-          order_names: [...new Set([...(directPool.order_names || []), ...targetOrders.map(o => o.product_name || "")])],
-          total_weight_g: (directPool.total_weight_g || 0) + totalWeight,
-        });
-      }
-    } else if (isJoiningPool && selectedPool) {
-      await shippingPoolApi.update(selectedPool.id, {
-        order_ids: [...new Set([...(selectedPool.order_ids || []), ...orderIds])],
-        total_weight_g: (selectedPool.total_weight_g || 0) + totalWeight,
-      });
-    } else {
-      const transitLoc = transitLocations.find(l => l.id === selectedTransitId);
-      const prefix = consType === "transit" && transitLoc?.code_prefix
-        ? transitLoc.code_prefix.toUpperCase()
-        : "AAA";
-      const existingPools = await fetchShippingPools();
-      const prefixPools = existingPools.filter(p => p.pool_code && p.pool_code.startsWith(prefix));
-      const nextSeq = (prefixPools.length + 1).toString().padStart(5, "0");
-      const pool_code = `${prefix}${nextSeq}`;
-
-      const addrObj = consType === "transit"
-        ? (addressInputMode["final"] ? (newAddress.full_text ? { full_text: newAddress.full_text } : null) : savedAddresses.find(a => a.id === finalAddressId))
-        : (addressInputMode[consType === "other" ? "other" : "direct"] ? (newAddress.full_text ? { full_text: newAddress.full_text } : null) : savedAddresses.find(a => a.id === selectedAddress));
-      const selectedAddons = shippingAddons.filter(a => selectedAddonIds.includes(a.id));
-      const transitMethod = transitMethods.find(m => m.id === selectedTransitMethodId);
-
-      await shippingPoolApi.create({
-        pool_code,
-        consolidation_type: consType || "",
-        order_ids: orderIds,
-        order_names: targetOrders.map(o => o.product_name || ""),
-        creator_email: u.email,
-        creator_name: u.full_name || u.email,
-        is_admin_created: false,
-        shipping_method: method,
-        total_weight_g: totalWeight,
-        status: "pending",
-        transit_location_id: consType === "transit" ? selectedTransitId : "",
-        transit_location_name: transitLoc?.name || "",
-        final_address_id: consType === "transit" ? finalAddressId : "",
-        transit_shipping_method_id: selectedTransitMethodId || "",
-        transit_shipping_method_name: transitMethod?.name || "",
-        selected_addon_ids: selectedAddonIds,
-        selected_addons: selectedAddons.map(a => ({ id: a.id, name: a.name, fee: a.fee, fee_currency: a.fee_currency })),
-        user_note: note || "",
-        messages: [],
-        is_private: isPrivate,
-        shared_with_emails: isPrivate ? sharedWithEmails : [],
-        ...(addrObj ? { recipient_name: addrObj.full_text?.split("\n")[0] || "" } : {}),
-      });
-    }
 
     onSuccess?.();
   };

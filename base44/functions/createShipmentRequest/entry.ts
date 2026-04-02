@@ -3,6 +3,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 /**
  * Create a ShipmentRequest for user shipping notification
  * Called when user submits "通知发货" (notify shipment)
+ * Updates all related orders to shipping_request_status = "draft"
  */
 Deno.serve(async (req) => {
   try {
@@ -57,7 +58,18 @@ Deno.serve(async (req) => {
       shipping_request_status: 'draft',
       user_confirmed_quote: false,
       remark,
+      legacy_order_id: order_ids.length === 1 ? order_ids[0] : null,
     });
+
+    // Update all related orders to point to new shipping request
+    // Mark order_status as "shipping_request_created" to indicate new workflow
+    await Promise.all(
+      order_ids.map(orderId =>
+        base44.asServiceRole.entities.Order.update(orderId, {
+          order_status: 'shipping_request_created',
+        })
+      )
+    );
 
     return Response.json({
       success: true,

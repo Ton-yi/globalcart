@@ -15,7 +15,6 @@ import OrderDetailDrawer from "@/components/orders/OrderDetailDrawer";
 import ColumnCustomizer from "@/components/orders/ColumnCustomizer";
 import PaymentModal from "@/components/orders/PaymentModal";
 import UserNotifyShipmentModal from "@/components/orders/UserNotifyShipmentModal";
-import ShippingEditModal from "@/components/shippingpool/ShippingEditModal";
 
 const STORAGE_KEY = "my_orders_columns";
 
@@ -64,8 +63,7 @@ const STATUS_FILTERS = [
   { v: "paid", l: "已付款" },
   { v: "purchased", l: "已下单" },
   { v: "in_warehouse", l: "已入库" },
-  { v: "notified_shipment", l: "已通知出货" },
-  { v: "shipping_fee_pending", l: "待付运费" },
+  { v: "shipping_request_created", l: "已提交发货申请" },
   { v: "shipped", l: "已发出" },
   { v: "delivered", l: "已收货" },
   { v: "cancelled", l: "已取消" },
@@ -155,9 +153,6 @@ export default function MyOrders() {
   const [shipmentOrder, setShipmentOrder] = useState(null);
   const [shipmentOrders, setShipmentOrders] = useState(null); // multi-order bulk
   const [bulkPaymentOrders, setBulkPaymentOrders] = useState(null); // multi-order bulk payment
-  const [editShipOrder, setEditShipOrder] = useState(null); // order being edit-shipped
-  const [editShipPool, setEditShipPool] = useState(null); // current pool of that order
-  const [shippingPools, setShippingPools] = useState([]); // cached pools for lookup
   const [selectedIds, setSelectedIds] = useState([]);
   const [columns, setColumns] = useState(loadColumns);
   const [sortKey, setSortKey] = useState(null);
@@ -173,7 +168,6 @@ export default function MyOrders() {
     const r = await base44.functions.invoke('getMyOrdersPageData', {});
     const data = r.data || {};
     setOrders(data.orders || []);
-    setShippingPools(data.pools || []);
     setStoreTagRules(data.storeTagRules || []);
     setPageData(data);
     setPendingEditRequests(data.pendingEditRequests || []);
@@ -235,20 +229,6 @@ export default function MyOrders() {
     setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   };
 
-  const toggleAllInWarehouse = () => {
-    const ids = inWarehouseOrders.map(o => o.id);
-    const allSelected = ids.every(id => selectedIds.includes(id));
-    if (allSelected) setSelectedIds(prev => prev.filter(id => !ids.includes(id)));
-    else setSelectedIds(prev => [...new Set([...prev, ...ids])]);
-  };
-
-  const toggleAllPaymentPending = () => {
-    const ids = paymentPendingOrders.map(o => o.id);
-    const allSelected = ids.every(id => selectedIds.includes(id));
-    if (allSelected) setSelectedIds(prev => prev.filter(id => !ids.includes(id)));
-    else setSelectedIds(prev => [...new Set([...prev, ...ids])]);
-  };
-
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
@@ -277,17 +257,6 @@ export default function MyOrders() {
       </div>
 
       {/* Bulk action bars */}
-      {selectedInWarehouse.length > 0 && (
-        <div className="flex items-center gap-3 bg-teal-50 border border-teal-200 rounded-xl px-4 py-2.5">
-          <span className="text-sm text-teal-700 font-medium">已选 {selectedInWarehouse.length} 件已入库包裹</span>
-          <Button size="sm" className="h-7 text-xs bg-teal-600 hover:bg-teal-700 ml-auto"
-            onClick={() => setShipmentOrders(selectedInWarehouse)}>
-            <Truck className="w-3 h-3 mr-1" />批量通知发货
-          </Button>
-          <Button size="sm" variant="ghost" className="h-7 text-xs"
-            onClick={() => setSelectedIds([])}>取消</Button>
-        </div>
-      )}
       {selectedPaymentPending.length > 1 && (
         <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">
           <span className="text-sm text-red-700 font-medium">已选 {selectedPaymentPending.length} 笔待付款订单</span>
@@ -385,30 +354,6 @@ export default function MyOrders() {
                       <Truck className="w-3 h-3 mr-1" />通知发货
                     </Button>
                   )}
-                  {order.order_status === "notified_shipment" && (() => {
-                    const pool = shippingPools.find(p => (p.order_ids || []).includes(order.id));
-                    const hasPendingEdit = pendingEditRequests.some(r => r.order_id === order.id);
-                    return (
-                      <div className="flex flex-col gap-1 items-start">
-                        {pool && (
-                          <span className="text-xs font-mono text-purple-700 bg-purple-50 border border-purple-100 px-1.5 py-0.5 rounded">
-                            {pool.pool_code || pool.id.slice(-6).toUpperCase()}
-                          </span>
-                        )}
-                        {hasPendingEdit && (
-                          <span className="text-xs text-orange-600 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded flex items-center gap-1">
-                            ⏳ 申请更改中
-                          </span>
-                        )}
-                        {pool && pool.status !== "shipped" && pool.status !== "delivered" && !hasPendingEdit && (
-                          <Button size="sm" variant="outline" className="h-6 text-xs px-2"
-                            onClick={() => { setEditShipOrder(order); setEditShipPool(pool); }}>
-                            编辑出货
-                          </Button>
-                        )}
-                      </div>
-                    );
-                  })()}
                   {order.order_status === "shipped" && (
                     <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700"
                       onClick={() => handleConfirmDelivered(order)}>
@@ -487,20 +432,6 @@ export default function MyOrders() {
           onSuccess={() => {
             setBulkPaymentOrders(null);
             setSelectedIds([]);
-            fetchOrders(user);
-          }}
-        />
-      )}
-
-      {editShipOrder && editShipPool && user && (
-        <ShippingEditModal
-          order={editShipOrder}
-          currentPool={editShipPool}
-          currentUser={user}
-          onClose={() => { setEditShipOrder(null); setEditShipPool(null); }}
-          onSuccess={() => {
-            setEditShipOrder(null);
-            setEditShipPool(null);
             fetchOrders(user);
           }}
         />
