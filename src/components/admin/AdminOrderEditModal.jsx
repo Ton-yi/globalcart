@@ -296,7 +296,7 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
                 {order.paid_amount > 0 && (
                   <div className="bg-green-50 rounded-lg p-2.5">
                     <div className="text-gray-400">已付金额</div>
-                    <div className="font-medium text-green-700">{cur} {order.paid_amount?.toFixed(2)}</div>
+                    <div className="font-medium text-green-700">{cur} {order.paid_amount?.toFixed(0)}</div>
                   </div>
                 )}
                 {order.balance_credit > 0 && (
