@@ -143,12 +143,36 @@ export default function AddressForm({ value, onChange, className = "" }) {
       {/* 連絡先電話番号 */}
       <div>
         <FieldLabel jp="連絡先電話番号" zh="联系方式" required />
-        <Input
-          className="h-8 text-sm bg-white"
-          placeholder="例：+86 138 0000 0000"
-          value={value.phone || ""}
-          onChange={e => f("phone", e.target.value)}
-        />
+        <div className="flex items-center gap-2 mt-1">
+          {/* 国码显示部分 */}
+          {value.country && (
+            <div className="bg-blue-50 border border-blue-200 rounded px-3 py-2 text-sm font-medium text-blue-700 whitespace-nowrap flex-shrink-0">
+              {getCountryCallingCode(value.country) || "选择国家"}
+            </div>
+          )}
+          {/* 电话输入部分 */}
+          <Input
+            className="h-8 text-sm bg-white flex-1"
+            placeholder={value.country ? "输入电话号码（不含国码）" : "请先选择国家"}
+            value={(() => {
+              // 从 phone 中提取除了国码之外的部分
+              const phone = value.phone || "";
+              const callingCode = value.country ? getCountryCallingCode(value.country) : "";
+              if (callingCode && phone.startsWith(callingCode)) {
+                return phone.substring(callingCode.length).trim();
+              }
+              return phone;
+            })()}
+            onChange={e => {
+              const callingCode = value.country ? getCountryCallingCode(value.country) : "";
+              const phoneNumber = e.target.value.trim();
+              // 自动组合国码和号码
+              const fullPhone = callingCode && phoneNumber ? `${callingCode} ${phoneNumber}` : callingCode;
+              f("phone", fullPhone);
+            }}
+            disabled={!value.country}
+          />
+        </div>
       </div>
     </div>
   );
