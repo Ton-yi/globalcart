@@ -23,6 +23,20 @@
       "type": "string",
       "description": "\u9009\u7528\u7684\u7bb1\u5b50\u6a21\u677fID\uff08\u53ef\u9009\uff0c\u7ba1\u7406\u5458\u6307\u5b9a\uff09"
     },
+    "box_name_snapshot": {
+      "type": "string",
+      "description": "\u7bb1\u5b50\u540d\u79f0\u5feb\u7167\uff08\u62a5\u4ef7\u751f\u6210\u65f6\u8bb0\u5f55\uff0c\u9632\u6b62\u6a21\u677f\u4fee\u6539\u5f71\u54cd\u5386\u53f2\u6570\u636e\uff09"
+    },
+    "box_weight_g_snapshot": {
+      "type": "number",
+      "description": "\u7bb1\u5b50\u91cd\u91cf\u5feb\u7167\uff08\u514b\uff0c\u62a5\u4ef7\u751f\u6210\u65f6\u8bb0\u5f55\uff09",
+      "default": 0
+    },
+    "box_fee_jpy_snapshot": {
+      "type": "number",
+      "description": "\u7bb1\u5b50\u8d39\u7528\u5feb\u7167\uff08JPY\u6574\u6570\uff0c\u62a5\u4ef7\u751f\u6210\u65f6\u8bb0\u5f55\uff09",
+      "default": 0
+    },
     "final_total_weight_g": {
       "type": "number",
       "description": "\u6700\u7ec8\u8ba1\u8d39\u603b\u91cd\u91cf(g)\uff08\u542b\u7bb1\u91cd\uff09",

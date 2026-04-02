@@ -24,10 +24,10 @@
  * Payload:
  * {
  *   shipment_request_id: string,
- *   box_template_id?: string,
- *   final_total_weight_g: number,
+ *   box_template_id?: string,          // if provided, box_fee_jpy and box weight are auto-derived from the template snapshot
+ *   final_total_weight_g: number,      // total weight including box (admin measures this)
  *   shipping_fee_jpy: number,          // whole JPY
- *   box_fee_jpy?: number,              // whole JPY
+ *   box_fee_jpy?: number,              // whole JPY — ignored if box_template_id is provided (template value is used)
  *   packing_fee_default_jpy?: number,  // reference/display only, whole JPY
  *   per_user_packing_fees?: { [user_id]: number },  // whole JPY, can be negative
  *   note?: string,
@@ -114,16 +114,38 @@ Deno.serve(async (req) => {
 
     const nextVersion = activeQuote ? (activeQuote.quote_version || 1) + 1 : 1;
 
-    // ── 3. Prepare rounded fee values ─────────────────────────────────────
-    const shippingFeeJpy = roundJpy(shipping_fee_jpy);
-    const boxFeeJpy = roundJpy(box_fee_jpy);
+    // ── 3. Resolve box template snapshot (if provided) ────────────────────
+    let resolvedBoxFeeJpy = roundJpy(box_fee_jpy);
+    let boxNameSnapshot = null;
+    let boxWeightGSnapshot = 0;
+    let boxFeeJpySnapshot = 0;
 
-    // ── 4. Create the new frozen quote record ──────────────────────────────
+    if (box_template_id) {
+      const bts = await base44.asServiceRole.entities.BoxTemplate.filter({ id: box_template_id });
+      const bt = bts[0];
+      if (!bt) return Response.json({ error: 'BoxTemplate not found' }, { status: 404 });
+      if (!bt.is_active) return Response.json({ error: 'BoxTemplate is disabled' }, { status: 400 });
+      // Snapshot values — immutable after this point regardless of future template edits
+      boxNameSnapshot = bt.box_name;
+      boxWeightGSnapshot = bt.weight_g || 0;
+      boxFeeJpySnapshot = roundJpy(bt.price_jpy || 0);
+      // Override box_fee_jpy with template value
+      resolvedBoxFeeJpy = boxFeeJpySnapshot;
+    }
+
+    // ── 4. Prepare rounded fee values ─────────────────────────────────────
+    const shippingFeeJpy = roundJpy(shipping_fee_jpy);
+    const boxFeeJpy = resolvedBoxFeeJpy;
+
+    // ── 5. Create the new frozen quote record ──────────────────────────────
     const newQuoteData = {
       tenant_id,
       shipping_request_id: shipment_request_id,
       quote_version: nextVersion,
       box_template_id: box_template_id || null,
+      box_name_snapshot: boxNameSnapshot,
+      box_weight_g_snapshot: boxWeightGSnapshot,
+      box_fee_jpy_snapshot: boxFeeJpySnapshot,
       final_total_weight_g,
       shipping_fee_jpy: shippingFeeJpy,
       box_fee_jpy: boxFeeJpy,
@@ -139,14 +161,14 @@ Deno.serve(async (req) => {
 
     const newQuote = await base44.asServiceRole.entities.ShippingQuote.create(newQuoteData);
 
-    // ── 5. Mark old active quote as superseded (audit trail) ──────────────
+    // ── 6 (was 5). Mark old active quote as superseded (audit trail) ──────────────
     if (activeQuote) {
       await base44.asServiceRole.entities.ShippingQuote.update(activeQuote.id, {
         superseded_by: newQuote.id,
       });
     }
 
-    // ── 6. Load dependencies for charge calculation ────────────────────────
+    // ── 7 (was 6). Load dependencies for charge calculation ────────────────────────
     const items = await base44.asServiceRole.entities.ShippingRequestItem.filter(
       { shipping_request_id: shipment_request_id }
     );
@@ -170,7 +192,7 @@ Deno.serve(async (req) => {
       if (locs[0]) transitHandlingFeeJpy = roundJpy(locs[0].handling_fee || 0);
     }
 
-    // ── 7. Group items by user ─────────────────────────────────────────────
+    // ── 8 (was 7). Group items by user ─────────────────────────────────────────
     const userItems = {};
     let totalWeightG = 0;
 
@@ -182,7 +204,7 @@ Deno.serve(async (req) => {
       totalWeightG += item.item_weight_g || 0;
     }
 
-    // ── 8. Calculate fresh per-user charges (all amounts in whole JPY) ─────
+    // ── 9 (was 8). Calculate fresh per-user charges (all amounts in whole JPY) ─────
     const chargeResults = [];
 
     for (const [userId, userData] of Object.entries(userItems)) {
@@ -247,7 +269,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ── 9. Replace ShippingUserCharge records with fresh snapshots ─────────
+    // ── 10 (was 9). Replace ShippingUserCharge records with fresh snapshots ─────────
     const existingCharges = await base44.asServiceRole.entities.ShippingUserCharge.filter(
       { shipping_request_id: shipment_request_id }
     );
@@ -258,11 +280,13 @@ Deno.serve(async (req) => {
       await base44.asServiceRole.entities.ShippingUserCharge.create(charge);
     }
 
-    // ── 10. Reset ShipmentRequest to quote_ready for fresh confirmation ────
-    await base44.asServiceRole.entities.ShipmentRequest.update(shipment_request_id, {
+    // ── 11 (was 10). Reset ShipmentRequest to quote_ready for fresh confirmation ────
+    const srUpdate = {
       shipping_request_status: 'quote_ready',
       user_confirmed_quote: false,
-    });
+    };
+    if (box_template_id) srUpdate.selected_box_template_id = box_template_id;
+    await base44.asServiceRole.entities.ShipmentRequest.update(shipment_request_id, srUpdate);
 
     return Response.json({
       success: true,

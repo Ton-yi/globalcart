@@ -110,7 +110,13 @@ Deno.serve(async (req) => {
     }
 
     const internationalShippingFeeJpy = roundJpy(quote.shipping_fee_jpy || 0);
-    const boxFeeJpy = roundJpy(quote.box_fee_jpy || 0);
+    // Use snapshot value if available (preserves historical correctness even if box template is later modified).
+    // Fall back to box_fee_jpy for backwards compatibility with quotes created before snapshots were introduced.
+    const boxFeeJpy = roundJpy(
+      (quote.box_fee_jpy_snapshot != null && quote.box_fee_jpy_snapshot > 0)
+        ? quote.box_fee_jpy_snapshot
+        : (quote.box_fee_jpy || 0)
+    );
 
     // ── 3. Load ShippingRequestItems ──────────────────────────────────────
     const items = await base44.asServiceRole.entities.ShippingRequestItem.filter(
