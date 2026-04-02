@@ -2,21 +2,35 @@
  * calculateShipmentCharges
  *
  * Calculates per-user shipping charges for a ShipmentRequest and
- * writes/updates ShippingUserCharge records for each user.
+ * writes ShippingUserCharge records for each user.
  *
- * Called by admin when finalising a ShippingQuote before sending
- * payment requests to users.
+ * Called by admin after setting up a ShippingQuote.
+ * Re-running recalculates and replaces existing charge records.
  *
  * Payload:
- *   { shipment_request_id: string }
+ *   {
+ *     shipment_request_id: string,
+ *     per_user_packing_fees?: { [user_id]: number }  // admin-set per-user packing fee (JPY, can be negative)
+ *   }
  *
- * Rules:
- *  - Single shipment: one user pays everything directly
- *  - Pooled shipment: personal fees per-user, shared fees split by weight ratio
- *  - Pooled to other_address: creator does NOT pay transit_shipping_fee
- *  - packing_fee can be negative
- *  - All amounts in JPY, rounded to 2 decimal places
- *  - Snapshots on ShippingRequestItem lock in size/addon/tail_balance values
+ * Business rules:
+ *
+ *  Personal fee (per user):
+ *    - tail_balance          (sum of item.tail_balance_snapshot — is a PAYABLE component, not a deduction)
+ *    - size_surcharge        (sum of item.size_surcharge_snapshot)
+ *    - transit_handling_fee  (from TransitLocation.handling_fee, if transit_location)
+ *    - packing_fee           (admin-set per user, can be negative; NOT auto-split)
+ *    - addon_fee             (sum of item.addon_fee_snapshot)
+ *    - transit_shipping_fee  (from TransitShippingMethod.fee per user;
+ *                             if destination_type = other_address, creator is EXEMPT)
+ *
+ *  Shared fee (split by weight ratio):
+ *    - shared_international_shipping_fee = (user_weight / total_weight) * international_shipping_fee
+ *    - shared_box_fee                    = (user_weight / total_weight) * box_fee
+ *
+ *  final_payable = personal_fee_total + shared_fee_total
+ *
+ *  All amounts JPY, rounded to 2 decimal places.
  */
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
@@ -31,7 +45,9 @@ Deno.serve(async (req) => {
     return Response.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
   }
 
-  const { shipment_request_id } = await req.json();
+  const body = await req.json();
+  const { shipment_request_id, per_user_packing_fees = {} } = body;
+
   if (!shipment_request_id) {
     return Response.json({ error: 'shipment_request_id is required' }, { status: 400 });
   }
@@ -45,7 +61,6 @@ Deno.serve(async (req) => {
     return Response.json({ error: 'ShipmentRequest not found' }, { status: 404 });
   }
 
-  // Tenant isolation: ensure admin belongs to this tenant
   if (shipmentRequest.tenant_id !== user.tenant_id && user.role !== 'platform_admin') {
     return Response.json({ error: 'Forbidden' }, { status: 403 });
   }
@@ -55,10 +70,13 @@ Deno.serve(async (req) => {
     destination_type,
     creator_user_id,
     selected_transit_shipping_method,
+    transit_location_id,
+    tenant_id,
   } = shipmentRequest;
 
   const isPooled = request_type === 'pooled_shipment';
   const isOtherAddress = destination_type === 'other_address';
+  const isTransitLocation = destination_type === 'transit_location';
 
   // ── 2. Load ShippingQuote ────────────────────────────────────────────────
   const quotes = await base44.asServiceRole.entities.ShippingQuote.filter(
@@ -71,9 +89,6 @@ Deno.serve(async (req) => {
 
   const internationalShippingFeeJpy = quote.shipping_fee_jpy || 0;
   const boxFeeJpy = quote.box_fee_jpy || 0;
-  // packing_fee_default_jpy from quote is the default shared packing fee pool.
-  // For pooled: split by weight. For single: goes entirely to the one user.
-  const packingFeePoolJpy = quote.packing_fee_default_jpy || 0;
 
   // ── 3. Load ShippingRequestItems ─────────────────────────────────────────
   const items = await base44.asServiceRole.entities.ShippingRequestItem.filter(
@@ -83,21 +98,33 @@ Deno.serve(async (req) => {
     return Response.json({ error: 'No ShippingRequestItems found' }, { status: 400 });
   }
 
-  // ── 4. Load TransitShippingMethod fee if applicable ──────────────────────
-  let transitMethodFeeJpy = 0;
-  let transitMethodRecord = null;
+  // ── 4. Load TransitShippingMethod fee (personal fee per user) ────────────
+  let transitShippingMethodFeeJpy = 0;
   if (selected_transit_shipping_method) {
     const transitMethods = await base44.asServiceRole.entities.TransitShippingMethod.filter(
       { id: selected_transit_shipping_method }
     );
-    transitMethodRecord = transitMethods[0] || null;
-    if (transitMethodRecord) {
-      // fee stored on the method; snapshot at calc time
-      transitMethodFeeJpy = transitMethodRecord.fee || 0;
+    const method = transitMethods[0];
+    if (method) {
+      transitShippingMethodFeeJpy = method.fee || 0;
     }
   }
 
-  // ── 5. Group items by user ───────────────────────────────────────────────
+  // ── 5. Load TransitLocation handling fee (personal fee per user) ─────────
+  let transitHandlingFeeJpy = 0;
+  if (isTransitLocation && transit_location_id) {
+    const locations = await base44.asServiceRole.entities.TransitLocation.filter(
+      { id: transit_location_id }
+    );
+    const loc = locations[0];
+    if (loc && loc.handling_fee) {
+      // handling_fee is stored in loc.handling_fee_currency; convert to JPY if needed.
+      // For now, assume handling_fee is already in JPY per business rules.
+      transitHandlingFeeJpy = loc.handling_fee || 0;
+    }
+  }
+
+  // ── 6. Group items by user ───────────────────────────────────────────────
   const userItems = {}; // user_id -> { items[], weight_g }
   let totalWeightG = 0;
 
@@ -109,88 +136,80 @@ Deno.serve(async (req) => {
     totalWeightG += item.item_weight_g || 0;
   }
 
-  // ── 6. Calculate per-user charges ────────────────────────────────────────
+  // ── 7. Calculate per-user charges ────────────────────────────────────────
   const results = [];
 
   for (const [userId, userData] of Object.entries(userItems)) {
     const userWeightG = userData.weight_g;
     const weightRatio = totalWeightG > 0 ? userWeightG / totalWeightG : 0;
 
-    // Aggregate snapshots from this user's items
+    // Aggregate item-level snapshots
     let tailBalanceJpy = 0;
     let sizeSurchargeJpy = 0;
     let addonFeeJpy = 0;
 
     for (const item of userData.items) {
-      tailBalanceJpy    += item.tail_balance_snapshot || 0;
-      sizeSurchargeJpy  += item.size_surcharge_snapshot || 0;
-      addonFeeJpy       += item.addon_fee_snapshot || 0;
+      tailBalanceJpy   += item.tail_balance_snapshot || 0;
+      sizeSurchargeJpy += item.size_surcharge_snapshot || 0;
+      addonFeeJpy      += item.addon_fee_snapshot || 0;
     }
 
-    // Packing fee: for pooled, split by weight ratio; for single, full amount
-    const packingFeeJpy = isPooled
-      ? round2(weightRatio * packingFeePoolJpy)
-      : packingFeePoolJpy;
+    // Packing fee: admin-set per user, NOT auto-split, can be negative
+    const packingFeeJpy = per_user_packing_fees[userId] ?? 0;
 
-    // Transit shipping method fee:
-    // - Pooled + transit_location: all users pay
-    // - Pooled + other_address: everyone pays EXCEPT the creator
-    // - Single shipment: creator pays full transit fee
-    let transitShippingFeeJpy = 0;
-    if (selected_transit_shipping_method && transitMethodFeeJpy > 0) {
+    // Transit handling fee: personal, flat per user (not split)
+    const thisTransitHandlingFeeJpy = transitHandlingFeeJpy;
+
+    // Transit shipping method fee: personal fee per user
+    // Exception: if destination_type = other_address, the creator is exempt
+    let thisTransitShippingFeeJpy = 0;
+    if (transitShippingMethodFeeJpy > 0) {
       const isCreator = userId === creator_user_id;
-      const exempted = isPooled && isOtherAddress && isCreator;
-      if (!exempted) {
-        transitShippingFeeJpy = isPooled
-          ? round2(weightRatio * transitMethodFeeJpy)
-          : transitMethodFeeJpy;
+      const creatorExempt = isOtherAddress && isCreator;
+      if (!creatorExempt) {
+        thisTransitShippingFeeJpy = transitShippingMethodFeeJpy;
       }
     }
 
-    // Shared fees (only for pooled; for single, user pays 100%)
-    const sharedInternationalShippingFeeJpy = isPooled
-      ? round2(weightRatio * internationalShippingFeeJpy)
-      : internationalShippingFeeJpy;
-
-    const sharedBoxFeeJpy = isPooled
-      ? round2(weightRatio * boxFeeJpy)
-      : boxFeeJpy;
-
-    // Personal fee total (excludes shared intl. shipping + shared box)
+    // ── Personal fee total ──
+    // tail_balance is a PAYABLE component (positive = user owes more)
     const personalFeeTotal = round2(
-      sizeSurchargeJpy
-      + packingFeeJpy        // can be negative
+      tailBalanceJpy
+      + sizeSurchargeJpy
+      + thisTransitHandlingFeeJpy
+      + packingFeeJpy          // can be negative
       + addonFeeJpy
-      + transitShippingFeeJpy
+      + thisTransitShippingFeeJpy
     );
 
-    // Shared fee total
-    const sharedFeeTotal = round2(
-      sharedInternationalShippingFeeJpy
-      + sharedBoxFeeJpy
-    );
+    // ── Shared fee total ──
+    // Only international shipping fee + box fee, split by weight ratio
+    const sharedInternationalShippingFeeJpy = round2(weightRatio * internationalShippingFeeJpy);
+    const sharedBoxFeeJpy = round2(weightRatio * boxFeeJpy);
+    const sharedFeeTotal = round2(sharedInternationalShippingFeeJpy + sharedBoxFeeJpy);
 
-    // Final payable = personal + shared - tail_balance deduction
-    const finalFeeTotal = round2(personalFeeTotal + sharedFeeTotal - tailBalanceJpy);
+    // ── Final payable ──
+    const finalFeeTotal = round2(personalFeeTotal + sharedFeeTotal);
 
     results.push({
       user_id: userId,
-      tenant_id: shipmentRequest.tenant_id,
+      tenant_id,
       shipping_request_id: shipment_request_id,
 
-      // Summary
+      // Totals
       personal_fee_total_jpy: personalFeeTotal,
       shared_fee_total_jpy: sharedFeeTotal,
       final_fee_total_jpy: finalFeeTotal,
 
-      // Personal breakdown
+      // Personal fee breakdown
       tail_balance_jpy: tailBalanceJpy,
       size_surcharge_jpy: sizeSurchargeJpy,
+      transit_handling_fee_jpy: thisTransitHandlingFeeJpy,
       packing_fee_jpy: packingFeeJpy,
       addon_fee_jpy: addonFeeJpy,
-      transit_shipping_fee_jpy: transitShippingFeeJpy,
+      transit_shipping_fee_jpy: thisTransitShippingFeeJpy,
 
-      // Shared breakdown
+      // Shared fee breakdown
       shared_international_shipping_fee_jpy: sharedInternationalShippingFeeJpy,
       shared_box_fee_jpy: sharedBoxFeeJpy,
 
@@ -202,31 +221,29 @@ Deno.serve(async (req) => {
     });
   }
 
-  // ── 7. Upsert ShippingUserCharge records ─────────────────────────────────
-  // Delete existing charges for this request, then recreate (clean recalculation)
+  // ── 8. Replace existing ShippingUserCharge records ───────────────────────
   const existingCharges = await base44.asServiceRole.entities.ShippingUserCharge.filter(
     { shipping_request_id: shipment_request_id }
   );
   for (const ec of existingCharges) {
     await base44.asServiceRole.entities.ShippingUserCharge.delete(ec.id);
   }
-
-  const created = [];
   for (const charge of results) {
-    const record = await base44.asServiceRole.entities.ShippingUserCharge.create(charge);
-    created.push(record);
+    await base44.asServiceRole.entities.ShippingUserCharge.create(charge);
   }
 
-  // ── 8. Return full breakdown for admin preview ────────────────────────────
+  // ── 9. Return full breakdown for admin preview ────────────────────────────
   return Response.json({
     shipment_request_id,
     request_type,
     destination_type,
     total_weight_g: totalWeightG,
-    international_shipping_fee_jpy: internationalShippingFeeJpy,
-    box_fee_jpy: boxFeeJpy,
-    packing_fee_pool_jpy: packingFeePoolJpy,
-    transit_method_fee_jpy: transitMethodFeeJpy,
+    quote_summary: {
+      international_shipping_fee_jpy: internationalShippingFeeJpy,
+      box_fee_jpy: boxFeeJpy,
+    },
+    transit_method_fee_per_user_jpy: transitShippingMethodFeeJpy,
+    transit_handling_fee_per_user_jpy: transitHandlingFeeJpy,
     user_charges: results,
   });
 });
