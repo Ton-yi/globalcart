@@ -84,6 +84,11 @@
       "description": "\u8be5\u7528\u6237\u7269\u54c1\u603b\u91cd\u91cf\u5feb\u7167(g)\uff0c\u5ba1\u8ba1\u5206\u644a\u8ba1\u7b97\u7528",
       "default": 0
     },
+    "user_confirmed": {
+      "type": "boolean",
+      "default": false,
+      "description": "\u8be5\u7528\u6237\u662f\u5426\u5df2\u786e\u8ba4\u6b64\u62a5\u4ef7\uff08\u7528\u4e8e\u62fc\u90ae\u5168\u5458\u786e\u8ba4\u68c0\u67e5\uff09"
+    },
     "is_paid": {
       "type": "boolean",
       "default": false,

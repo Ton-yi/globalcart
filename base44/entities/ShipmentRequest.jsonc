@@ -66,6 +66,20 @@
       "default": "draft",
       "description": "\u53d1\u8d27\u7533\u8bf7\u72b6\u6001"
     },
+    "user_confirmed_quote": {
+      "type": "boolean",
+      "default": false,
+      "description": "\u7528\u6237\u662f\u5426\u5df2\u786e\u8ba4\u62a5\u4ef7\uff08\u786e\u8ba4\u540e\u72b6\u6001\u53d8\u4e3awaiting_payment\uff09"
+    },
+    "tracking_number": {
+      "type": "string",
+      "description": "\u56fd\u9645\u8fd0\u5355\u53f7\uff08\u53d1\u8d27\u540e\u586b\u5199\uff09"
+    },
+    "actual_shipped_date": {
+      "type": "string",
+      "format": "date",
+      "description": "\u5b9e\u9645\u53d1\u8d27\u65e5\u671f\uff08\u7ba1\u7406\u5458\u586b\u5199\uff09"
+    },
     "remark": {
       "type": "string",
       "description": "\u7528\u6237\u5907\u6ce8"
