@@ -394,6 +394,25 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
       )
     );
 
+    // Create ShipmentRequest for new shipping flow
+    const finalAddrId = consType === "transit" 
+      ? (addressInputMode["final"] ? newAddress.id : finalAddressId)
+      : (addressInputMode[consType === "other" ? "other" : "direct"] ? newAddress.id : selectedAddress);
+    
+    const shipmentRes = await base44.functions.invoke('createShipmentRequest', {
+      order_ids: orderIds,
+      shipping_method: method,
+      consolidation_requested: consolidation,
+      consolidation_deadline: deadline || null,
+      consolidation_min_weight_g: !isJoiningPool && consolidation && minWeight ? parseFloat(minWeight) : 0,
+      consolidation_timeout_action: !isJoiningPool && hasConsolidationConditions ? timeoutAction : null,
+      consolidation_type: consType || "",
+      transit_location_id: consType === "transit" ? selectedTransitId : "",
+      final_address_id: finalAddrId,
+      selected_addon_ids: selectedAddonIds,
+      remark: note || "",
+    });
+
     if (joinDirectPool && selectedDirectPoolId) {
       const directPool = directPools.find(p => p.id === selectedDirectPoolId);
       if (directPool) {
