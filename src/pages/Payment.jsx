@@ -74,6 +74,7 @@ export default function Payment() {
       payment_proof_url: file_url,
       payment_method: method,
       payment_status: "awaiting_confirmation",
+      order_status: "paid",
       paid_amount: order.prepayment_amount,
     });
     setSubmitted(true);
@@ -237,7 +238,7 @@ export default function Payment() {
         ) : (
           <Alert className="border-green-200 bg-green-50">
             <CheckCircle className="w-4 h-4 text-green-600" />
-            <AlertDescription className="text-green-800">付款凭证已提交！管理员确认后将更新订单状态。正在跳转...</AlertDescription>
+            <AlertDescription className="text-green-800">付款凭证已提交！订单已更新为已付款，管理员审核后将开始处理。正在跳转...</AlertDescription>
           </Alert>
         )
       )}
