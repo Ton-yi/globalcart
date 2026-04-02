@@ -843,7 +843,20 @@ function InfoBlock({ label, value, highlight }) {
 function ParticipantChip({ user, avatarUrl, contactInfo }) {
   const [tooltipVisible, setTooltipVisible] = useState(false);
   const [copied, setCopied] = useState(false);
+  const hideTimer = useRef(null);
   const initial = (user.name || "?")[0].toUpperCase();
+
+  const cancelHide = () => {
+    if (hideTimer.current) {
+      clearTimeout(hideTimer.current);
+      hideTimer.current = null;
+    }
+  };
+
+  const scheduleHide = () => {
+    cancelHide();
+    hideTimer.current = setTimeout(() => setTooltipVisible(false), 500);
+  };
 
   const handleCopyContact = () => {
     if (contactInfo) {
@@ -856,8 +869,8 @@ function ParticipantChip({ user, avatarUrl, contactInfo }) {
   return (
     <div
       className="relative flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-full pl-1 pr-2.5 py-0.5 cursor-default"
-      onMouseEnter={() => contactInfo && setTooltipVisible(true)}
-      onMouseLeave={() => setTooltipVisible(false)}
+      onMouseEnter={() => { if (contactInfo) { cancelHide(); setTooltipVisible(true); } }}
+      onMouseLeave={scheduleHide}
     >
       {avatarUrl ? (
         <img src={avatarUrl} alt={user.name} className="w-5 h-5 rounded-full object-cover flex-shrink-0" />
@@ -871,8 +884,8 @@ function ParticipantChip({ user, avatarUrl, contactInfo }) {
       {tooltipVisible && contactInfo && (
         <div
           className="absolute bottom-full left-0 mb-2 z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-3 space-y-2"
-          onMouseEnter={() => setTooltipVisible(true)}
-          onMouseLeave={() => setTooltipVisible(false)}
+          onMouseEnter={cancelHide}
+          onMouseLeave={scheduleHide}
         >
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs font-medium text-gray-500">联系方式</p>
