@@ -143,22 +143,9 @@ export default function AddressForm({ value, onChange, className = "" }) {
       {/* 連絡先電話番号 */}
       <div>
         <FieldLabel jp="連絡先電話番号" zh="联系方式" required />
-        {value.country && (
-          <div className="mb-2 flex items-center justify-between">
-            <span className="text-xs text-gray-500">国码</span>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-mono font-medium text-gray-700 px-2 py-1 bg-blue-50 rounded border border-blue-200">
-                {getCountryCallingCode(value.country)}
-              </span>
-              {value.phone && value.phone.startsWith(getCountryCallingCode(value.country)) && (
-                <span className="text-xs text-green-600 font-medium">✓ 已自动添加</span>
-              )}
-            </div>
-          </div>
-        )}
         <Input
           className="h-8 text-sm bg-white"
-          placeholder={value.country ? "请输入电话号码（不含国码）" : "例：138 0000 0000"}
+          placeholder="例：+86 138 0000 0000"
           value={value.phone || ""}
           onChange={e => f("phone", e.target.value)}
         />
