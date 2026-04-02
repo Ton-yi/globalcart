@@ -143,12 +143,27 @@ export default function AddressForm({ value, onChange, className = "" }) {
       {/* 連絡先電話番号 */}
       <div>
         <FieldLabel jp="連絡先電話番号" zh="联系方式" required />
-        <Input
-          className="h-8 text-sm bg-white"
-          placeholder="例：+86 138 0000 0000"
-          value={value.phone || ""}
-          onChange={e => f("phone", e.target.value)}
-        />
+        <div className="flex items-center gap-2 mt-1">
+          {/* Country calling code - read only */}
+          <div className="flex-shrink-0 min-w-[80px] h-8 rounded-md border border-input bg-gray-50 flex items-center justify-center">
+            <span className="text-sm font-medium text-gray-600">
+              {getCountryCallingCode(value.country || "") || "国码"}
+            </span>
+          </div>
+          {/* Phone number input */}
+          <Input
+            className="h-8 text-sm bg-white flex-1"
+            placeholder="例：138 0000 0000"
+            value={value.phone ? value.phone.replace(getCountryCallingCode(value.country || "") || "", "").trim() : ""}
+            onChange={e => {
+              const callingCode = getCountryCallingCode(value.country || "");
+              const phoneNumber = e.target.value.trim();
+              // Store as calling code + phone number
+              f("phone", callingCode ? `${callingCode} ${phoneNumber}`.trim() : phoneNumber);
+            }}
+          />
+        </div>
+        <p className="text-xs text-gray-400 mt-1">国码会根据选择的国家自动更新，请仅在右侧输入电话号码</p>
       </div>
     </div>
   );
