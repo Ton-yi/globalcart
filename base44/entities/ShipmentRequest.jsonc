@@ -84,6 +84,35 @@
       "format": "date",
       "description": "\u5b9e\u9645\u53d1\u8d27\u65e5\u671f\uff08\u7ba1\u7406\u5458\u586b\u5199\uff09"
     },
+    "final_total_weight_g": {
+      "type": "number",
+      "description": "\u6700\u7ec8\u8ba1\u8d39\u603b\u91cd\u91cf\uff08g\uff0c\u542b\u7bb1\u91cd\uff0c\u6253\u5305\u9636\u6bb5\u586b\u5199\uff09",
+      "default": 0
+    },
+    "packing_photos": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "\u6253\u5305\u5b9e\u62cd\u56fe\u7247URL\u5217\u8868\uff08\u7ba1\u7406\u5458\u4e0a\u4f20\uff09",
+      "default": []
+    },
+    "shipping_label_images": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "\u8fd0\u8f93\u6807\u7b7e\u56fe\u7247URL\u5217\u8868\uff08\u7ba1\u7406\u5458\u4e0a\u4f20\uff09",
+      "default": []
+    },
+    "packing_started_at": {
+      "type": "string",
+      "description": "\u6253\u5305\u5f00\u59cb\u65f6\u95f4\uff08ISO 8601\uff0c\u4ed3\u5e93\u64cd\u4f5c\u5ba1\u8ba1\u7528\uff09"
+    },
+    "shipped_at": {
+      "type": "string",
+      "description": "\u5b9e\u9645\u53d1\u51fa\u65f6\u95f4\uff08ISO 8601\uff0c\u4ed3\u5e93\u64cd\u4f5c\u5ba1\u8ba1\u7528\uff09"
+    },
     "remark": {
       "type": "string",
       "description": "\u7528\u6237\u5907\u6ce8"
