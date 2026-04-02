@@ -855,7 +855,7 @@ function ParticipantChip({ user, avatarUrl, contactInfo }) {
 
   const scheduleHide = () => {
     cancelHide();
-    hideTimer.current = setTimeout(() => setTooltipVisible(false), 500);
+    hideTimer.current = setTimeout(() => setTooltipVisible(false), 350);
   };
 
   const handleCopyContact = () => {
