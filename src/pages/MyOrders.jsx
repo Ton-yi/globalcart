@@ -257,6 +257,17 @@ export default function MyOrders() {
       </div>
 
       {/* Bulk action bars */}
+      {selectedInWarehouse.length > 0 && (
+        <div className="flex items-center gap-3 bg-teal-50 border border-teal-200 rounded-xl px-4 py-2.5">
+          <span className="text-sm text-teal-700 font-medium">已选 {selectedInWarehouse.length} 件已入库包裹</span>
+          <Button size="sm" className="h-7 text-xs bg-teal-600 hover:bg-teal-700 ml-auto"
+            onClick={() => setShipmentOrders(selectedInWarehouse)}>
+            <Truck className="w-3 h-3 mr-1" />批量通知发货
+          </Button>
+          <Button size="sm" variant="ghost" className="h-7 text-xs"
+            onClick={() => setSelectedIds([])}>取消</Button>
+        </div>
+      )}
       {selectedPaymentPending.length > 1 && (
         <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">
           <span className="text-sm text-red-700 font-medium">已选 {selectedPaymentPending.length} 笔待付款订单</span>
@@ -353,6 +364,9 @@ export default function MyOrders() {
                       onClick={() => setShipmentOrder(order)}>
                       <Truck className="w-3 h-3 mr-1" />通知发货
                     </Button>
+                  )}
+                  {order.order_status === "shipping_request_created" && (
+                    <span className="text-xs text-gray-400">已提交发货申请</span>
                   )}
                   {order.order_status === "shipped" && (
                     <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700"
