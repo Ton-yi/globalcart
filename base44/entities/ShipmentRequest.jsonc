@@ -1,5 +1,5 @@
 {
-  "name": "ShippingRequest2",
+  "name": "ShipmentRequest",
   "type": "object",
   "properties": {
     "tenant_id": {
