@@ -37,6 +37,8 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 
+const CALCULATION_VERSION = 1;
+
 Deno.serve(async (req) => {
   const base44 = createClientFromRequest(req);
 
@@ -141,6 +143,7 @@ Deno.serve(async (req) => {
 
   for (const [userId, userData] of Object.entries(userItems)) {
     const userWeightG = userData.weight_g;
+    // Divide-by-zero protection: if total weight is 0, weight ratio is 0 and shared fees are 0
     const weightRatio = totalWeightG > 0 ? userWeightG / totalWeightG : 0;
 
     // Aggregate item-level snapshots
@@ -183,7 +186,8 @@ Deno.serve(async (req) => {
     );
 
     // ── Shared fee total ──
-    // Only international shipping fee + box fee, split by weight ratio
+    // Only international shipping fee + box fee, split by weight ratio.
+    // weightRatio is already 0 when totalWeightG == 0, so division is safe.
     const sharedInternationalShippingFeeJpy = round2(weightRatio * internationalShippingFeeJpy);
     const sharedBoxFeeJpy = round2(weightRatio * boxFeeJpy);
     const sharedFeeTotal = round2(sharedInternationalShippingFeeJpy + sharedBoxFeeJpy);
@@ -218,6 +222,7 @@ Deno.serve(async (req) => {
       user_item_weight_g: userWeightG,
 
       is_paid: false,
+      calculation_version: CALCULATION_VERSION,
     });
   }
 

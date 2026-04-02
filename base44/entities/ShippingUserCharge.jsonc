@@ -14,6 +14,11 @@
       "type": "string",
       "description": "\u8be5\u8d39\u7528\u5f52\u5c5e\u7528\u6237email"
     },
+    "calculation_version": {
+      "type": "number",
+      "description": "\u8ba1\u7b97\u89c4\u5219\u7248\u672c\u53f7\uff0c\u7528\u4e8e\u533a\u5206\u5386\u53f2\u8bb0\u5f55\u4e0e\u89c4\u5219\u53d8\u66f4\u540e\u7684\u91cd\u65b0\u8ba1\u7b97\u7ed3\u679c",
+      "default": 1
+    },
     "personal_fee_total_jpy": {
       "type": "number",
       "description": "\u4e2a\u4eba\u4e13\u5c5e\u8d39\u7528\u5408\u8ba1\uff08JPY\uff09= tail_balance + size_surcharge + transit_handling_fee + packing_fee + addon_fee + transit_shipping_fee",
@@ -71,7 +76,7 @@
     },
     "weight_ratio": {
       "type": "number",
-      "description": "\u8be5\u7528\u6237\u7269\u54c1\u91cd\u91cf\u5360\u603b\u91cd\u6bd4\u4f8b\uff08\u5ba1\u8ba1\u7528\uff09",
+      "description": "\u8be5\u7528\u6237\u7269\u54c1\u91cd\u91cf\u5360\u603b\u91cd\u91cf\u6bd4\u4f8b\uff08\u900f\u660e\u5ea6\u7528\uff0c\u4f9b\u7528\u6237\u67e5\u770b\u5206\u644a\u4f9d\u636e\uff09",
       "default": 0
     },
     "user_item_weight_g": {
