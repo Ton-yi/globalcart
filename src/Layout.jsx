@@ -64,6 +64,7 @@ export default function Layout({ children, currentPageName }) {
     { label: "首页", icon: Home, page: "Home" },
     { label: "提交需求", icon: ShoppingBag, page: "SubmitOrder" },
     { label: "我的订单", icon: Package, page: "MyOrders" },
+    { label: "发货 & 拼邮", icon: Send, page: "ShippingPool" },
     { label: "个人设置", icon: User, page: "UserPreferences" },
   ];
 
