@@ -16,6 +16,7 @@
  */
 import CountrySelect from "@/components/common/CountrySelect";
 import { Input } from "@/components/ui/input";
+import { getCountryCallingCode } from "@/lib/countries";
 
 function FieldLabel({ jp, zh, required = true }) {
   return (
@@ -61,6 +62,15 @@ export function isAddressFormValid(v) {
 
 export default function AddressForm({ value, onChange, className = "" }) {
   const f = (k, v) => onChange({ ...value, [k]: v });
+  
+  const handleCountryChange = (countryCode) => {
+    f("country", countryCode);
+    // Auto-fill phone with country calling code if phone is empty
+    if (!value.phone || !value.phone.trim()) {
+      const callingCode = getCountryCallingCode(countryCode);
+      f("phone", callingCode);
+    }
+  };
 
   return (
     <div className={`space-y-3 ${className}`}>
@@ -80,7 +90,7 @@ export default function AddressForm({ value, onChange, className = "" }) {
         <FieldLabel jp="受取人国名" zh="收件国家" required />
         <CountrySelect
           value={value.country || ""}
-          onChange={v => f("country", v)}
+          onChange={handleCountryChange}
           placeholder="选择国家"
           className=""
         />
