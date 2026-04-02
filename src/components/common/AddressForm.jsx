@@ -67,6 +67,7 @@ export default function AddressForm({ value, onChange, className = "" }) {
   
   const handleCountryChange = (countryCode) => {
     f("country", countryCode);
+    // Country change will automatically update callingCode
   };
   
   // Extract phone number part (remove calling code prefix if exists)
