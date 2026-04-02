@@ -1,0 +1,40 @@
+{
+  "name": "BoxTemplate",
+  "type": "object",
+  "properties": {
+    "tenant_id": {
+      "type": "string",
+      "description": "\u6240\u5c5e\u79df\u6237ID"
+    },
+    "name": {
+      "type": "string",
+      "description": "\u7bb1\u5b50\u6a21\u677f\u540d\u79f0"
+    },
+    "description": {
+      "type": "string",
+      "description": "\u63cf\u8ff0/\u5907\u6ce8"
+    },
+    "image_url": {
+      "type": "string",
+      "description": "\u7bb1\u5b50\u56fe\u7247URL"
+    },
+    "weight_g": {
+      "type": "number",
+      "description": "\u7bb1\u5b50\u81ea\u91cd(g)",
+      "default": 0
+    },
+    "price_jpy": {
+      "type": "number",
+      "description": "\u7bb1\u5b50\u8d39\u7528\uff08JPY\uff09",
+      "default": 0
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "\u662f\u5426\u542f\u7528"
+    }
+  },
+  "required": [
+    "name"
+  ]
+}

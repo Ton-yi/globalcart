@@ -1,0 +1,82 @@
+{
+  "name": "ShippingRequest2",
+  "type": "object",
+  "properties": {
+    "tenant_id": {
+      "type": "string",
+      "description": "\u6240\u5c5e\u79df\u6237ID\uff08\u670d\u52a1\u7aef\u6d3e\u751f\uff0c\u4e0d\u4fe1\u4efb\u5ba2\u6237\u7aef\uff09"
+    },
+    "creator_user_id": {
+      "type": "string",
+      "description": "\u53d1\u8d77\u4eba\u7528\u6237ID\uff08email\uff09"
+    },
+    "request_type": {
+      "type": "string",
+      "enum": [
+        "single_shipment",
+        "pooled_shipment"
+      ],
+      "description": "\u53d1\u8d27\u7c7b\u578b\uff1a\u5355\u72ec\u53d1\u8d27 / \u62fc\u90ae"
+    },
+    "destination_type": {
+      "type": "string",
+      "enum": [
+        "transit_location",
+        "other_address"
+      ],
+      "description": "\u76ee\u7684\u5730\u7c7b\u578b\uff1a\u4e2d\u8f6c\u5730 / \u81ea\u5b9a\u4e49\u5730\u5740"
+    },
+    "destination_address_id": {
+      "type": "string",
+      "description": "\u76ee\u7684\u5730\u5730\u5740ID\uff08destination_type=other_address\u65f6\u4f7f\u7528\uff09"
+    },
+    "transit_location_id": {
+      "type": "string",
+      "description": "\u4e2d\u8f6c\u5730ID\uff08destination_type=transit_location\u65f6\u4f7f\u7528\uff09"
+    },
+    "selected_shipping_method": {
+      "type": "string",
+      "description": "\u9009\u5b9a\u7684\u56fd\u9645\u8fd0\u8f93\u65b9\u5f0fID\uff08\u5bf9\u5e94ShippingMethod\u5b9e\u4f53\uff09"
+    },
+    "selected_transit_shipping_method": {
+      "type": "string",
+      "description": "\u9009\u5b9a\u7684\u4e2d\u8f6c\u8fd0\u8f93\u65b9\u5f0fID\uff08\u5bf9\u5e94TransitShippingMethod\u5b9e\u4f53\uff0c\u4ec5\u4e2d\u8f6c\u53d1\u8d27\u65f6\u4f7f\u7528\uff09"
+    },
+    "customs_declaration_mode": {
+      "type": "string",
+      "enum": [
+        "admin_fill",
+        "user_fill"
+      ],
+      "description": "\u62a5\u5173\u586b\u5199\u65b9\u5f0f\uff1a\u7ba1\u7406\u5458\u586b\u5199 / \u7528\u6237\u586b\u5199"
+    },
+    "shipping_request_status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "submitted",
+        "quote_ready",
+        "waiting_payment",
+        "paid",
+        "packing",
+        "shipped",
+        "delivered",
+        "cancelled"
+      ],
+      "default": "draft",
+      "description": "\u53d1\u8d27\u7533\u8bf7\u72b6\u6001"
+    },
+    "remark": {
+      "type": "string",
+      "description": "\u7528\u6237\u5907\u6ce8"
+    },
+    "admin_note": {
+      "type": "string",
+      "description": "\u7ba1\u7406\u5458\u5185\u90e8\u5907\u6ce8"
+    }
+  },
+  "required": [
+    "request_type",
+    "destination_type"
+  ]
+}

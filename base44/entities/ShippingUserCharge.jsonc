@@ -1,0 +1,81 @@
+{
+  "name": "ShippingUserCharge",
+  "type": "object",
+  "properties": {
+    "tenant_id": {
+      "type": "string",
+      "description": "\u6240\u5c5e\u79df\u6237ID"
+    },
+    "shipping_request_id": {
+      "type": "string",
+      "description": "\u5173\u8054\u7684\u53d1\u8d27\u7533\u8bf7ID"
+    },
+    "user_id": {
+      "type": "string",
+      "description": "\u8be5\u8d39\u7528\u5f52\u5c5e\u7528\u6237email"
+    },
+    "personal_fee_total_jpy": {
+      "type": "number",
+      "description": "\u4e2a\u4eba\u4e13\u5c5e\u8d39\u7528\u5408\u8ba1\uff08JPY\uff09\uff1a\u5c3a\u5bf8\u9644\u52a0\u8d39 + \u589e\u503c\u670d\u52a1\u8d39",
+      "default": 0
+    },
+    "shared_fee_total_jpy": {
+      "type": "number",
+      "description": "\u5206\u644a\u8d39\u7528\u5408\u8ba1\uff08JPY\uff09\uff1a\u8fd0\u8d39\u5206\u644a + \u7bb1\u8d39\u5206\u644a + \u6253\u5305\u8d39\u5206\u644a",
+      "default": 0
+    },
+    "final_fee_total_jpy": {
+      "type": "number",
+      "description": "\u6700\u7ec8\u5e94\u4ed8\u5408\u8ba1\uff08JPY\uff09= personal + shared + transit - tail_balance",
+      "default": 0
+    },
+    "personal_packing_fee_jpy": {
+      "type": "number",
+      "description": "\u4e2a\u4eba\u4e13\u5c5e\u6253\u5305\u8d39\uff08JPY\uff0c\u5982\u6709\u7279\u6b8a\u5305\u88c5\uff09",
+      "default": 0
+    },
+    "shared_shipping_fee_jpy": {
+      "type": "number",
+      "description": "\u5206\u644a\u8fd0\u8d39\uff08JPY\uff09",
+      "default": 0
+    },
+    "shared_box_fee_jpy": {
+      "type": "number",
+      "description": "\u5206\u644a\u7bb1\u5b50\u8d39\uff08JPY\uff09",
+      "default": 0
+    },
+    "transit_fee_jpy": {
+      "type": "number",
+      "description": "\u4e2d\u8f6c\u8d39\u7528\uff08JPY\uff0c\u4e2d\u8f6c\u53d1\u8d27\u65f6\u4f7f\u7528\uff09",
+      "default": 0
+    },
+    "addon_fee_jpy": {
+      "type": "number",
+      "description": "\u589e\u503c\u670d\u52a1\u8d39\uff08JPY\uff0c\u6765\u81eaShippingRequestItem\u5feb\u7167\u6c47\u603b\uff09",
+      "default": 0
+    },
+    "size_surcharge_jpy": {
+      "type": "number",
+      "description": "\u5c3a\u5bf8\u9644\u52a0\u8d39\uff08JPY\uff0c\u6765\u81eaShippingRequestItem\u5feb\u7167\u6c47\u603b\uff09",
+      "default": 0
+    },
+    "tail_balance_jpy": {
+      "type": "number",
+      "description": "\u5c3e\u6b3e\u4f59\u989d\u62b5\u6263\uff08JPY\uff0c\u6b63\u6570=\u53ef\u62b5\u6263\u91d1\u989d\uff09",
+      "default": 0
+    },
+    "is_paid": {
+      "type": "boolean",
+      "default": false,
+      "description": "\u8be5\u7528\u6237\u662f\u5426\u5df2\u5b8c\u6210\u652f\u4ed8"
+    },
+    "payment_proof_url": {
+      "type": "string",
+      "description": "\u652f\u4ed8\u51ed\u8bc1\u56fe\u7247URL"
+    }
+  },
+  "required": [
+    "shipping_request_id",
+    "user_id"
+  ]
+}

@@ -1,0 +1,77 @@
+{
+  "name": "ShippingQuote",
+  "type": "object",
+  "properties": {
+    "tenant_id": {
+      "type": "string",
+      "description": "\u6240\u5c5e\u79df\u6237ID"
+    },
+    "shipping_request_id": {
+      "type": "string",
+      "description": "\u5173\u8054\u7684\u53d1\u8d27\u7533\u8bf7ID\uff08\u552f\u4e00\u5bf9\u5e94\uff09"
+    },
+    "box_template_id": {
+      "type": "string",
+      "description": "\u9009\u7528\u7684\u7bb1\u5b50\u6a21\u677fID\uff08\u53ef\u9009\uff0c\u7ba1\u7406\u5458\u6307\u5b9a\uff09"
+    },
+    "final_total_weight_g": {
+      "type": "number",
+      "description": "\u6700\u7ec8\u8ba1\u8d39\u603b\u91cd\u91cf(g)\uff08\u542b\u7bb1\u91cd\uff09",
+      "default": 0
+    },
+    "shipping_fee_jpy": {
+      "type": "number",
+      "description": "\u8fd0\u8d39\uff08JPY\uff09",
+      "default": 0
+    },
+    "box_fee_jpy": {
+      "type": "number",
+      "description": "\u7bb1\u5b50\u8d39\u7528\uff08JPY\uff09",
+      "default": 0
+    },
+    "packing_fee_default_jpy": {
+      "type": "number",
+      "description": "\u9ed8\u8ba4\u6253\u5305\u8d39\uff08JPY\uff0c\u62fc\u90ae\u65f6\u6309\u6bd4\u4f8b\u5206\u644a\uff09",
+      "default": 0
+    },
+    "note": {
+      "type": "string",
+      "description": "\u7ba1\u7406\u5458\u62a5\u4ef7\u5907\u6ce8"
+    },
+    "tracking_number": {
+      "type": "string",
+      "description": "\u8fd0\u5355\u53f7\uff08\u53d1\u8d27\u540e\u586b\u5199\uff09"
+    },
+    "quote_step_status": {
+      "type": "string",
+      "enum": [
+        "draft_quote",
+        "waiting_user_payment",
+        "paid",
+        "ready_to_ship",
+        "shipped"
+      ],
+      "default": "draft_quote",
+      "description": "\u62a5\u4ef7/\u7ed3\u7b97\u6b65\u9aa4\u72b6\u6001"
+    },
+    "shipping_label_image_urls": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "\u8fd0\u8f93\u6807\u7b7e\u56fe\u7247URL\u5217\u8868\uff08\u7ba1\u7406\u5458\u4e0a\u4f20\uff09",
+      "default": []
+    },
+    "packaging_image_urls": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "\u6253\u5305\u5b9e\u62cd\u56fe\u7247URL\u5217\u8868\uff08\u7ba1\u7406\u5458\u4e0a\u4f20\uff09",
+      "default": []
+    }
+  },
+  "required": [
+    "shipping_request_id"
+  ]
+}
