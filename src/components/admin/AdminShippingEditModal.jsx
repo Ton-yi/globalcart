@@ -97,6 +97,7 @@ export default function AdminShippingEditModal({ request, onClose, onSaved }) {
             <Label className="text-sm">管理员备注</Label>
             <Textarea rows={2} className="mt-1" value={form.admin_note} onChange={e => f("admin_note", e.target.value)} />
           </div>
+
         </div>
 
         <div className="px-5 py-3 border-t flex gap-2 justify-end">

@@ -8,59 +8,74 @@
     },
     "shipping_request_id": {
       "type": "string",
-      "description": "\u5173\u8054\u7684\u53d1\u8d27\u7533\u8bf7ID"
+      "description": "\u5173\u8054\u7684\u53d1\u8d27\u7533\u8bf7ID\uff08\u552f\u4e00\u5bf9\u5e94\uff09"
     },
     "filled_by": {
       "type": "string",
-      "description": "\u586b\u5199\u4ebaemail\uff08admin\u6216user\uff09"
+      "description": "\u6700\u540e\u586b\u5199\u4ebaemail\uff08admin\u6216user\uff09"
     },
-    "item_name_en": {
-      "type": "string",
-      "description": "\u7269\u54c1\u82f1\u6587\u540d\u79f0\uff08\u7528\u4e8e\u6d77\u5173\u7533\u62a5\uff09"
+    "items": {
+      "type": "array",
+      "description": "\u7533\u62a5\u7269\u54c1\u5217\u8868",
+      "items": {
+        "type": "object",
+        "properties": {
+          "item_name_en": {
+            "type": "string",
+            "description": "\u7269\u54c1\u82f1\u6587\u540d\u79f0\uff08\u4ec5\u82f1\u6587\u5b57\u6bcd\uff09"
+          },
+          "unit_price": {
+            "type": "number",
+            "description": "\u5355\u4ef6\u7533\u62a5\u4ef7\u683c"
+          },
+          "currency": {
+            "type": "string",
+            "description": "\u8d27\u5e01\u4ee3\u7801\uff08JPY/USD/CNY\u7b49\uff09",
+            "default": "JPY"
+          },
+          "quantity": {
+            "type": "number",
+            "description": "\u6570\u91cf",
+            "default": 1
+          },
+          "weight_g": {
+            "type": "number",
+            "description": "\u91cd\u91cf(g)"
+          },
+          "item_type": {
+            "type": "string",
+            "description": "\u7269\u54c1\u7c7b\u578b\uff08\u5982gift/merchandise\uff09",
+            "default": "gift"
+          },
+          "total_value": {
+            "type": "number",
+            "description": "\u7533\u62a5\u603b\u4ef7\u503c\uff08unit_price \u00d7 quantity\uff09"
+          }
+        }
+      },
+      "default": []
     },
-    "item_category": {
-      "type": "string",
-      "description": "\u7269\u54c1\u5206\u7c7b\uff08\u5982\uff1aclothing, electronics, toys\u7b49\uff09"
-    },
-    "unit_price": {
-      "type": "number",
-      "description": "\u5355\u4ef6\u7533\u62a5\u4ef7\u683c"
-    },
-    "currency": {
-      "type": "string",
-      "description": "\u7533\u62a5\u4ef7\u683c\u8d27\u5e01\u4ee3\u7801\uff08\u5982JPY/USD/CNY\uff09",
-      "default": "JPY"
-    },
-    "quantity": {
-      "type": "number",
-      "description": "\u7533\u62a5\u6570\u91cf",
-      "default": 1
-    },
-    "weight_g": {
-      "type": "number",
-      "description": "\u7533\u62a5\u91cd\u91cf(g)"
-    },
-    "total_value": {
-      "type": "number",
-      "description": "\u7533\u62a5\u603b\u4ef7\u503c\uff08unit_price \u00d7 quantity\uff0c\u5197\u4f59\u5b58\u50a8\uff09"
-    },
-    "dangerous_goods_confirmation": {
+    "dangerous_goods_confirmed": {
       "type": "boolean",
       "default": false,
-      "description": "\u7528\u6237\u786e\u8ba4\u4e0d\u542b\u5371\u9669\u54c1"
+      "description": "\u7528\u6237\u5df2\u786e\u8ba4\u4e0d\u542b\u5371\u9669\u54c1"
     },
     "undeliverable_instruction": {
       "type": "string",
       "enum": [
-        "return",
+        "return_to_sender",
         "abandon",
-        "other"
+        "forward_to_other_address"
       ],
-      "description": "\u65e0\u6cd5\u6295\u9012\u65f6\u5904\u7406\u65b9\u5f0f"
+      "description": "\u65e0\u6cd5\u6295\u9012\u65f6\u7684\u5904\u7406\u65b9\u5f0f"
     },
-    "return_shipping_method_if_return": {
+    "return_method": {
       "type": "string",
-      "description": "\u9000\u56de\u65f6\u4f7f\u7528\u7684\u8fd0\u8f93\u65b9\u5f0f\uff08undeliverable_instruction=return\u65f6\u586b\u5199\uff09"
+      "enum": [
+        "air",
+        "most_economical_route"
+      ],
+      "description": "\u9000\u56de\u8fd0\u8f93\u65b9\u5f0f\uff08undeliverable_instruction=return_to_sender\u65f6\u4f7f\u7528\uff09"
     }
   },
   "required": [

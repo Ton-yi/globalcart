@@ -30,6 +30,7 @@ const DEFAULT_SETTINGS = [
   { key: "line_id", value: "", description: "Line ID", category: "general" },
   { key: "wechat_id", value: "", description: "微信号", category: "general" },
   { key: "paid_order_reminder", value: "感谢付款！我们会尽快开始处理您的订单。", description: "已付款订单的提示消息", category: "general" },
+  { key: "customs_dangerous_goods_text", value: "I confirm that the shipment does not contain any prohibited or dangerous goods, including but not limited to flammable items, batteries, aerosols, or weapons.", description: "报关危险品确认文本（Markdown支持）", category: "general" },
   { key: "alipay_account", value: "", description: "支付宝账号", category: "payment" },
   { key: "alipay_account_name", value: "", description: "支付宝收款人姓名", category: "payment" },
   { key: "alipay_qr_url", value: "", description: "支付宝收款码图片URL", category: "payment" },
@@ -636,10 +637,14 @@ export default function AdminSettings() {
                 {isUnlocked && (
                   <CardContent className="space-y-3">
                     {items.map(s => (
-                      <div key={s.id} className="flex items-center gap-3">
+                      <div key={s.id} className="flex items-start gap-3">
                         <div className="flex-1">
                           <Label className="text-xs text-gray-500">{s.description || s.key}</Label>
-                          <Input className="mt-0.5 h-8 text-sm" value={s.value} onChange={e => updateSetting(s.id, "value", e.target.value)} />
+                          {s.key === 'customs_dangerous_goods_text' ? (
+                            <Textarea rows={4} className="mt-0.5 text-sm font-mono" value={s.value} onChange={e => updateSetting(s.id, "value", e.target.value)} placeholder="Supports Markdown" />
+                          ) : (
+                            <Input className="mt-0.5 h-8 text-sm" value={s.value} onChange={e => updateSetting(s.id, "value", e.target.value)} />
+                          )}
                         </div>
                         <Button variant="ghost" size="sm" className="h-7 text-xs text-red-400 mt-4" onClick={() => handleDelete(s.id)}>
                           <Trash2 className="w-3 h-3" />
