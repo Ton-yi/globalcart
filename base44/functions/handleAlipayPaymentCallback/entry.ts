@@ -174,7 +174,7 @@ Deno.serve(async (req) => {
       } else {
         updates = {
           payment_status: 'paid',
-          order_status: 'paid',
+          order_status: 'pending_purchase',
           paid_amount: (order.prepayment_amount || 0),
           alipay_transaction_id: trade_no,
           payment_method: 'alipay',
