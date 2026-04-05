@@ -151,12 +151,17 @@ export default function MyOrders() {
   const [alipayReturnMsg, setAlipayReturnMsg] = useState(null);
 
   // Handle Alipay sync return: clean up URL params and show a notice
+  const [isAlipayReturn, setIsAlipayReturn] = useState(() => {
+    // Check synchronously at init time before any history manipulation
+    return !!new URLSearchParams(window.location.search).get("out_trade_no");
+  });
+  const [alipayTradeNo] = useState(() => {
+    return new URLSearchParams(window.location.search).get("out_trade_no") || null;
+  });
+
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("out_trade_no")) {
-      const tradeNo = params.get("out_trade_no");
-      setAlipayReturnMsg(`支付宝付款已提交（单号: ${tradeNo}），系统将在数分钟内自动确认订单状态。`);
-      // Clean URL immediately to prevent any interference with auth/routing
+    if (alipayTradeNo) {
+      setAlipayReturnMsg(`支付宝付款已提交（单号: ${alipayTradeNo}），系统将在数分钟内自动确认订单状态。`);
       window.history.replaceState({}, "", window.location.pathname);
     }
   }, []);
@@ -198,10 +203,16 @@ export default function MyOrders() {
     if (user) {
       fetchOrders(user);
     } else if (!authLoading) {
-      // Auth finished but no user — stop loading spinner
       setLoading(false);
     }
   }, [user, authLoading]);
+
+  // On Alipay return: retry fetch after 2s in case the first fetch ran before auth token was ready
+  useEffect(() => {
+    if (!isAlipayReturn || !user) return;
+    const timer = setTimeout(() => fetchOrders(user), 2000);
+    return () => clearTimeout(timer);
+  }, [isAlipayReturn, user]);
 
   const handleColumnsChange = (newCols) => {
     setColumns(newCols);
