@@ -20,7 +20,6 @@ import CountrySelect from "@/components/common/CountrySelect";
 import ShippingPoolCard from "@/components/shippingpool/ShippingPoolCard";
 import ShippingPoolDetailModal from "@/components/shippingpool/ShippingPoolDetailModal";
 import CreateShippingPoolModal from "@/components/shippingpool/CreateShippingPoolModal";
-import ShipmentPackingModal from "@/components/admin/ShipmentPackingModal";
 
 const STATUS_FILTERS = [
   { v: "all", l: "全部状态" },
@@ -30,23 +29,8 @@ const STATUS_FILTERS = [
   { v: "delivered", l: "已签收" },
 ];
 
-const SR_STATUS = {
-  paid:    { label: "已付款",   color: "bg-green-100 text-green-700" },
-  packing: { label: "打包中",   color: "bg-purple-100 text-purple-700" },
-  shipped: { label: "已发货",   color: "bg-teal-100 text-teal-700" },
-};
-
-const SR_STATUS_FILTERS = [
-  { v: "active", l: "待处理（付款+打包中）" },
-  { v: "all", l: "全部状态" },
-  { v: "paid", l: "已付款" },
-  { v: "packing", l: "打包中" },
-  { v: "shipped", l: "已发货" },
-];
-
 const TABS = [
-  { key: "pools", label: "发货申请（旧）" },
-  { key: "shipments", label: "发货工单" },
+  { key: "pools", label: "发货申请" },
   { key: "locations", label: "中转地管理" },
 ];
 
@@ -69,10 +53,6 @@ export default function AdminShippingPool() {
   const [transitMethods, setTransitMethods] = useState([]);
   const [addonOptions, setAddonOptions] = useState([]);
   const [pendingEditRequests, setPendingEditRequests] = useState([]);
-  const [shipmentRequests, setShipmentRequests] = useState([]);
-  const [boxTemplates, setBoxTemplates] = useState([]);
-  const [selectedShipment, setSelectedShipment] = useState(null);
-  const [srStatusFilter, setSrStatusFilter] = useState("active");
 
   const fetchPageData = async () => {
     setLoading(true);
@@ -85,8 +65,6 @@ export default function AdminShippingPool() {
     setTransitMethods(data.transitMethods || []);
     setAddonOptions(data.addonOptions || []);
     setPendingEditRequests(data.pendingEditRequests || []);
-    setShipmentRequests(data.shipmentRequests || []);
-    setBoxTemplates(data.boxTemplates || []);
     setLoading(false);
     t.done('data ready');
   };
@@ -188,7 +166,6 @@ export default function AdminShippingPool() {
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${activeTab === tab.key ? "border-red-600 text-red-600" : "border-transparent text-gray-500 hover:text-gray-800"}`}>
             {tab.label}
             {tab.key === "pools" && <span className="ml-1.5 text-xs bg-gray-100 text-gray-600 rounded px-1.5 py-0.5">{pools.length}</span>}
-            {tab.key === "shipments" && <span className="ml-1.5 text-xs bg-gray-100 text-gray-600 rounded px-1.5 py-0.5">{shipmentRequests.filter(s => s.shipping_request_status === "paid" || s.shipping_request_status === "packing").length}</span>}
             {tab.key === "locations" && <span className="ml-1.5 text-xs bg-gray-100 text-gray-600 rounded px-1.5 py-0.5">{locations.length}</span>}
           </button>
         ))}
@@ -238,68 +215,6 @@ export default function AdminShippingPool() {
             );
           })()}
         </>
-      )}
-
-      {/* ---- SHIPMENTS TAB ---- */}
-      {activeTab === "shipments" && (
-        <div className="space-y-4">
-          <div className="flex items-center gap-3 flex-wrap">
-            <Select value={srStatusFilter} onValueChange={setSrStatusFilter}>
-              <SelectTrigger className="w-52 h-8 text-sm"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {SR_STATUS_FILTERS.map(s => <SelectItem key={s.v} value={s.v}>{s.l}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          {loading ? (
-            <div className="text-center py-16 text-gray-400 text-sm">加载中...</div>
-          ) : (() => {
-            const filtered = shipmentRequests.filter(sr => {
-              if (srStatusFilter === "active") return sr.shipping_request_status === "paid" || sr.shipping_request_status === "packing";
-              if (srStatusFilter === "all") return true;
-              return sr.shipping_request_status === srStatusFilter;
-            });
-            if (filtered.length === 0) return (
-              <div className="flex flex-col items-center py-20 text-gray-400">
-                <Truck className="w-12 h-12 mb-3 opacity-20" />
-                <p className="text-sm">暂无符合条件的发货工单</p>
-              </div>
-            );
-            return (
-              <div className="space-y-2">
-                {filtered.map(sr => {
-                  const cfg = SR_STATUS[sr.shipping_request_status] || { label: sr.shipping_request_status, color: "bg-gray-100 text-gray-600" };
-                  const bt = boxTemplates.find(b => b.id === sr.selected_box_template_id);
-                  return (
-                    <div key={sr.id}
-                      className="flex items-center gap-4 border border-gray-200 rounded-xl p-4 bg-white hover:bg-gray-50 cursor-pointer transition-colors"
-                      onClick={() => setSelectedShipment(sr)}>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <Badge className={`text-xs flex-shrink-0 ${cfg.color}`}>{cfg.label}</Badge>
-                          <span className="text-sm font-mono text-gray-600">#{sr.id.slice(-6).toUpperCase()}</span>
-                          {sr.tracking_number && (
-                            <span className="text-xs font-mono bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded">{sr.tracking_number}</span>
-                          )}
-                          {bt && <span className="text-xs text-gray-500 bg-gray-100 rounded px-1.5 py-0.5">{bt.box_name}</span>}
-                        </div>
-                        <div className="flex items-center gap-3 mt-1 text-xs text-gray-400 flex-wrap">
-                          <span>{sr.creator_user_id}</span>
-                          <span>{sr.request_type === "pooled_shipment" ? "拼邮" : "单独发货"}</span>
-                          {sr.packing_started_at && <span>打包: {new Date(sr.packing_started_at).toLocaleDateString("zh-CN")}</span>}
-                          <span>创建: {new Date(sr.created_date).toLocaleDateString("zh-CN")}</span>
-                        </div>
-                      </div>
-                      <div className="text-xs text-gray-400 flex-shrink-0">
-                        {sr.final_total_weight_g > 0 && <span>{sr.final_total_weight_g}g</span>}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          })()}
-        </div>
       )}
 
       {/* ---- LOCATIONS TAB ---- */}
@@ -519,18 +434,6 @@ export default function AdminShippingPool() {
           onClose={() => setSelectedPool(null)}
           onUpdated={() => {
             setSelectedPool(null);
-            fetchPageData();
-          }}
-        />
-      )}
-
-      {selectedShipment && (
-        <ShipmentPackingModal
-          shipmentRequest={selectedShipment}
-          boxTemplates={boxTemplates}
-          onClose={() => setSelectedShipment(null)}
-          onUpdated={() => {
-            setSelectedShipment(null);
             fetchPageData();
           }}
         />

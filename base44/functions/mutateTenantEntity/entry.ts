@@ -18,16 +18,16 @@ function extractEmailFromJwt(req) {
 
 const ALLOWED_ENTITIES = [
   'Order',
-  'ShippingPool', 'ShipmentRequest', 'ShippingEditRequest',
+  'ShippingPool', 'ShippingRequest', 'ShippingEditRequest',
   'UserPreference', 'ItemSizeTemplate', 'OnlineStoreTagRule',
   'ShippingMethod', 'TransitShippingMethod', 'TransitLocation',
-  'AddonOption', 'SiteSettings', 'Announcement', 'BoxTemplate',
+  'AddonOption', 'SiteSettings', 'Announcement',
 ];
 
 const ADMIN_ONLY_WRITE = [
   'ItemSizeTemplate', 'OnlineStoreTagRule', 'ShippingMethod',
   'TransitShippingMethod', 'TransitLocation', 'AddonOption',
-  'SiteSettings', 'Announcement', 'BoxTemplate',
+  'SiteSettings', 'Announcement',
 ];
 
 const ADMIN_ONLY_DELETE = ['Order'];

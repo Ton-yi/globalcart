@@ -16,7 +16,6 @@
  */
 import CountrySelect from "@/components/common/CountrySelect";
 import { Input } from "@/components/ui/input";
-import { getCountryCallingCode } from "@/lib/countries";
 
 function FieldLabel({ jp, zh, required = true }) {
   return (
@@ -62,35 +61,6 @@ export function isAddressFormValid(v) {
 
 export default function AddressForm({ value, onChange, className = "" }) {
   const f = (k, v) => onChange({ ...value, [k]: v });
-  
-  const callingCode = getCountryCallingCode(value.country || "");
-  
-  const handleCountryChange = (countryCode) => {
-    f("country", countryCode);
-    // Country change will automatically update callingCode
-  };
-  
-  // Extract phone number part (remove calling code prefix if exists)
-  const getPhoneNumberOnly = () => {
-    const phone = value.phone || "";
-    if (!phone) return "";
-    // Remove calling code prefix and extra spaces
-    const currentCode = callingCode;
-    if (currentCode && phone.startsWith(currentCode)) {
-      return phone.slice(currentCode.length).trim();
-    }
-    return phone;
-  };
-  
-  const handlePhoneChange = (phoneNumber) => {
-    const trimmed = phoneNumber.trim();
-    // Combine calling code + phone number for storage
-    if (callingCode) {
-      f("phone", trimmed ? `${callingCode} ${trimmed}` : callingCode);
-    } else {
-      f("phone", trimmed);
-    }
-  };
 
   return (
     <div className={`space-y-3 ${className}`}>
@@ -110,7 +80,7 @@ export default function AddressForm({ value, onChange, className = "" }) {
         <FieldLabel jp="受取人国名" zh="收件国家" required />
         <CountrySelect
           value={value.country || ""}
-          onChange={handleCountryChange}
+          onChange={v => f("country", v)}
           placeholder="选择国家"
           className=""
         />
@@ -160,25 +130,15 @@ export default function AddressForm({ value, onChange, className = "" }) {
         />
       </div>
 
-      {/* 國碼 */}
-      <div>
-        <FieldLabel jp="国コード" zh="国码" required={false} />
-        <div className="h-8 rounded-md border border-input bg-gray-50 flex items-center px-3">
-          <span className="text-sm font-medium text-gray-700">{callingCode || "未选择国家"}</span>
-        </div>
-        <p className="text-xs text-gray-400 mt-1">自动根据收件国家同步</p>
-      </div>
-
       {/* 連絡先電話番号 */}
       <div>
         <FieldLabel jp="連絡先電話番号" zh="联系方式" required />
         <Input
           className="h-8 text-sm bg-white"
-          placeholder="例：138 0000 0000"
-          value={getPhoneNumberOnly()}
-          onChange={e => handlePhoneChange(e.target.value)}
+          placeholder="例：+86 138 0000 0000"
+          value={value.phone || ""}
+          onChange={e => f("phone", e.target.value)}
         />
-        <p className="text-xs text-gray-400 mt-1">请输入电话号码，国码会自动添加到存储数据中</p>
       </div>
     </div>
   );

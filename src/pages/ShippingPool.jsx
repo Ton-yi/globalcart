@@ -194,17 +194,23 @@ export default function ShippingPool() {
     // Determine effective address fields
     const getAddrForSave = (addrObj) => {
       const { label, ...fields } = addrObj;
-      return { id: Date.now().toString(), label: label || "新地址", full_text: serializeAddressToText(fields), ...fields };
+      return { label: label || "新地址", full_text: serializeAddressToText(fields), ...fields };
     };
 
     const needSaveDirect = useNewAddress && saveAddress && isAddressFormValid(newAddress);
     const needSaveTransit = consType === "transit" && transitUseNewAddress && transitSaveAddress && isAddressFormValid(transitNewAddress);
 
     if (needSaveDirect || needSaveTransit) {
+      const existingPrefs = await tenantEntity.list('UserPreference', { user_email: user.email });
+      const existingAddrs = existingPrefs[0]?.saved_addresses || [];
       const newEntries = [];
-      if (needSaveDirect) newEntries.push(getAddrForSave(newAddress));
-      if (needSaveTransit) newEntries.push({ ...getAddrForSave(transitNewAddress), id: (Date.now() + 1).toString() });
-      await base44.functions.invoke('saveUserAddress', { addresses: newEntries });
+      if (needSaveDirect) newEntries.push({ id: Date.now().toString(), ...getAddrForSave(newAddress) });
+      if (needSaveTransit) newEntries.push({ id: (Date.now() + 1).toString(), ...getAddrForSave(transitNewAddress) });
+      if (existingPrefs.length > 0) {
+        await tenantEntity.update('UserPreference', existingPrefs[0].id, { saved_addresses: [...existingAddrs, ...newEntries] });
+      } else {
+        await tenantEntity.create('UserPreference', { user_email: user.email, saved_addresses: newEntries });
+      }
     }
 
     const transitLoc = transitLocations.find(l => l.id === form.transit_location_id);

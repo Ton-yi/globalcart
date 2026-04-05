@@ -85,7 +85,7 @@ Deno.serve(async (req) => {
     // Kick off rates fetch immediately (non-blocking — uses cache when warm)
     const ratesPromise = fetchRatesCached();
 
-    const [settings, addons, shippingMethods, transitMethods, itemSizeTemplates, storeTagRules, announcements, boxTemplates] = await Promise.all([
+    const [settings, addons, shippingMethods, transitMethods, itemSizeTemplates, storeTagRules, announcements] = await Promise.all([
       base44.asServiceRole.entities.SiteSettings.filter(filter),
       base44.asServiceRole.entities.AddonOption.filter(filter),
       base44.asServiceRole.entities.ShippingMethod.filter(filter),
@@ -93,9 +93,8 @@ Deno.serve(async (req) => {
       base44.asServiceRole.entities.ItemSizeTemplate.filter(filter),
       base44.asServiceRole.entities.OnlineStoreTagRule.filter(filter),
       base44.asServiceRole.entities.Announcement.filter({ ...filter, is_active: true }),
-      base44.asServiceRole.entities.BoxTemplate.filter(filter),
     ]);
-    console.log(`[TIMING] getAdminSettingsPageData | 8x entity queries: ${Date.now()-t3}ms`);
+    console.log(`[TIMING] getAdminSettingsPageData | 7x entity queries: ${Date.now()-t3}ms`);
 
     // Rates resolve independently — if already cached this is instant
     const rates = await ratesPromise;
@@ -108,7 +107,6 @@ Deno.serve(async (req) => {
       transitMethods: transitMethods || [],
       itemSizeTemplates: itemSizeTemplates || [],
       storeTagRules: storeTagRules || [],
-      boxTemplates: boxTemplates || [],
       announcements: announcements || [],
       rates,
     });

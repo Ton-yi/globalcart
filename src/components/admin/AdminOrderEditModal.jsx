@@ -290,13 +290,13 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
                 {order.prepayment_amount > 0 && (
                   <div className="bg-gray-50 rounded-lg p-2.5">
                     <div className="text-gray-400">预付款</div>
-                    <div className="font-medium">{cur} {order.prepayment_amount?.toFixed(0)}</div>
+                    <div className="font-medium">{cur} {order.prepayment_amount?.toFixed(2)}</div>
                   </div>
                 )}
                 {order.paid_amount > 0 && (
                   <div className="bg-green-50 rounded-lg p-2.5">
                     <div className="text-gray-400">已付金额</div>
-                    <div className="font-medium text-green-700">{cur} {order.paid_amount?.toFixed(0)}</div>
+                    <div className="font-medium text-green-700">{cur} {order.paid_amount?.toFixed(2)}</div>
                   </div>
                 )}
                 {order.balance_credit > 0 && (
@@ -464,25 +464,13 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
               {(status === "paid" || status === "pending_purchase") && (
                 <div className="space-y-3 border border-indigo-100 rounded-xl p-3 bg-indigo-50">
                   <div className="text-sm font-medium text-indigo-800">待下单 — 完成购买后上传截图</div>
-                  <label
-                    className="cursor-pointer block"
-                    onDragOver={e => e.preventDefault()}
-                    onDrop={e => {
-                      e.preventDefault();
-                      const file = e.dataTransfer.files[0];
-                      if (file && file.type.startsWith("image/")) uploadFile(file, setPurchaseScreenshot, setUploadingScreenshot);
-                    }}
-                  >
-                    <div className={`flex flex-col items-center justify-center gap-1.5 border-2 border-dashed rounded-lg p-3 text-sm transition-colors ${
-                      purchaseScreenshot ? "border-green-300 bg-green-50 text-green-700" :
-                      uploadingScreenshot ? "border-blue-200 bg-blue-50 text-blue-500" :
-                      "border-indigo-200 bg-white text-gray-400 hover:border-indigo-400 hover:text-indigo-600"
+                  <label className="cursor-pointer block">
+                    <div className={`flex items-center justify-center gap-2 border-2 border-dashed rounded-lg p-3 text-sm transition-colors ${
+                      purchaseScreenshot ? "border-green-300 bg-green-50 text-green-700" : "border-indigo-200 bg-white text-gray-400"
                     }`}>
                       {purchaseScreenshot
-                        ? <><CheckCircle className="w-4 h-4" /><span>截图已上传，点击或拖拽可更换</span></>
-                        : uploadingScreenshot
-                        ? <><Loader2 className="w-4 h-4 animate-spin" /><span>上传中...</span></>
-                        : <><Upload className="w-4 h-4" /><span>点击选择或拖拽图片至此处</span></>}
+                        ? <><CheckCircle className="w-4 h-4" />截图已上传</>
+                        : <><Upload className="w-4 h-4" />{uploadingScreenshot ? "上传中..." : "上传购买截图（可选）"}</>}
                     </div>
                     <input type="file" accept="image/*" className="hidden"
                       onChange={e => uploadFile(e.target.files[0], setPurchaseScreenshot, setUploadingScreenshot)} />

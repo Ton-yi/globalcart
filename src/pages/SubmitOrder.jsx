@@ -63,7 +63,7 @@ export default function SubmitOrder() {
     // Convert from other currencies to JPY
     const rateKey = `jpy_${feeCur.toLowerCase()}`;
     const rate = rates[rateKey] || 1;
-    return Math.round(fee / rate); // fee in feeCur → divide by rate to get JPY
+    return fee / rate; // fee in feeCur → divide by rate to get JPY
   };
 
   const getAddonTotal = () => selectedAddons.reduce((sum, id) => {
@@ -78,16 +78,16 @@ export default function SubmitOrder() {
     const serviceFeeRate = (settings.service_fee_rate || DEFAULT_SERVICE_FEE_RATE) / 100;
     const prepayRate = (settings.prepay_rate || DEFAULT_PREPAY_RATE) / 100;
     // Calculate all fees in JPY
-    const serviceFeeJpy = Math.round(jpy * serviceFeeRate);
-    const addonTotalJpy = Math.round(getAddonTotal());
-    const totalJpy = Math.round(jpy + serviceFeeJpy + addonTotalJpy);
-    const prepayJpy = Math.round(totalJpy * prepayRate);
+    const serviceFeeJpy = jpy * serviceFeeRate;
+    const addonTotalJpy = getAddonTotal();
+    const totalJpy = jpy + serviceFeeJpy + addonTotalJpy;
+    const prepayJpy = totalJpy * prepayRate;
     setCalculated({
       jpy: jpy,
-      serviceFeeJpy: serviceFeeJpy,
-      addonTotal: addonTotalJpy,
-      totalJpy: totalJpy,
-      prepayJpy: prepayJpy,
+      serviceFeeJpy: serviceFeeJpy.toFixed(2),
+      addonTotal: addonTotalJpy.toFixed(2),
+      totalJpy: totalJpy.toFixed(2),
+      prepayJpy: prepayJpy.toFixed(2),
       feeRate: (serviceFeeRate * 100).toFixed(0),
       prepayRate: (prepayRate * 100).toFixed(0)
     });
@@ -293,7 +293,7 @@ export default function SubmitOrder() {
                       <div className="flex-1">
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-medium text-gray-800">{opt.name}</span>
-                          <span className="text-sm text-red-600 font-medium">+{opt.fee_currency || "JPY"} {Math.round(parseFloat(opt.fee) || 0)}</span>
+                          <span className="text-sm text-red-600 font-medium">+{opt.fee_currency || "JPY"} {parseFloat(opt.fee).toFixed(2)}</span>
                         </div>
                         {opt.description && <p className="text-xs text-gray-400 mt-0.5">{opt.description}</p>}
                       </div>
