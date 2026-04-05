@@ -16,12 +16,8 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-
-const SHIPPING_METHODS = [
-  { value: "EMS", label: "EMS空运" },
-  { value: "surface", label: "海运" },
-  { value: "small_packet_air", label: "小型包装物空运" },
-];
+// Shared with UserNotifyShipmentModal — edit shippingFormConstants.js to sync both
+import { SHIPPING_METHODS } from "@/components/shippingpool/shippingFormConstants";
 
 export default function CreateShippingPoolModal({ isAdmin, onClose, onSuccess }) {
   const [step, setStep] = useState(1);

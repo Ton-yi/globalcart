@@ -18,18 +18,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-
-const SHIPPING_METHODS = [
-  { value: "EMS", label: "EMS空运" },
-  { value: "surface", label: "海运" },
-  { value: "small_packet_air", label: "小型包装物空运" },
-];
-
-const TIMEOUT_ACTIONS = [
-  { value: "ship_individually", label: "单独发货" },
-  { value: "next_consolidation", label: "加入下一次最快发出的拼邮" },
-  { value: "return_to_storage", label: "退回仓库暂存" },
-];
+// Shared with CreateShippingPoolModal — edit shippingFormConstants.js to sync both
+import { SHIPPING_METHODS, CONSOLIDATION_TIMEOUT_ACTIONS as TIMEOUT_ACTIONS } from "@/components/shippingpool/shippingFormConstants";
 
 function clampYear(dateStr) {
   if (!dateStr) return dateStr;
