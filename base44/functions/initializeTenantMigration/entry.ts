@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
 
     // Migrate all tenant-owned records
     const entityNames = [
-      'Order', 'ShippingPool', 'ShippingRequest', 'UserPreference',
+      'Order', 'ShippingPool', 'ShipmentRequest', 'UserPreference',
       'TransitLocation', 'ShippingMethod', 'TransitShippingMethod',
       'ItemSizeTemplate', 'OnlineStoreTagRule', 'AddonOption',
       'SiteSettings', 'ShippingEditRequest'
