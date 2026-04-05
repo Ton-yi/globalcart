@@ -73,7 +73,8 @@ export default function Payment() {
       order_id: order.id,
       payment_proof_url: file_url,
       payment_method: method,
-      payment_status: "awaiting_confirmation",
+      payment_status: "paid",
+      order_status: "pending_purchase",
       paid_amount: order.prepayment_amount,
     });
     setSubmitted(true);
