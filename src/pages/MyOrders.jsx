@@ -145,7 +145,7 @@ function CellValue({ col, order }) {
 }
 
 export default function MyOrders() {
-  const { user } = useCurrentUser();
+  const { user, loading: authLoading } = useCurrentUser();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [alipayReturnMsg, setAlipayReturnMsg] = useState(null);
@@ -156,10 +156,12 @@ export default function MyOrders() {
     if (params.get("out_trade_no")) {
       const tradeNo = params.get("out_trade_no");
       setAlipayReturnMsg(`支付宝付款已提交（单号: ${tradeNo}），系统将在数分钟内自动确认订单状态。`);
-      // Clean URL without reloading
+      // Clean URL immediately to prevent any interference with auth/routing
       window.history.replaceState({}, "", window.location.pathname);
     }
   }, []);
+
+
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -193,8 +195,13 @@ export default function MyOrders() {
   };
 
   useEffect(() => {
-    if (user) fetchOrders(user);
-  }, [user]);
+    if (user) {
+      fetchOrders(user);
+    } else if (!authLoading) {
+      // Auth finished but no user — stop loading spinner
+      setLoading(false);
+    }
+  }, [user, authLoading]);
 
   const handleColumnsChange = (newCols) => {
     setColumns(newCols);
