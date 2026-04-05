@@ -148,6 +148,18 @@ export default function MyOrders() {
   const { user } = useCurrentUser();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [alipayReturnMsg, setAlipayReturnMsg] = useState(null);
+
+  // Handle Alipay sync return: clean up URL params and show a notice
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("out_trade_no")) {
+      const tradeNo = params.get("out_trade_no");
+      setAlipayReturnMsg(`支付宝付款已提交（单号: ${tradeNo}），系统将在数分钟内自动确认订单状态。`);
+      // Clean URL without reloading
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -251,6 +263,13 @@ export default function MyOrders() {
 
   return (
     <div className="space-y-4">
+      {alipayReturnMsg && (
+        <div className="flex items-start gap-2 bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-800">
+          <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0 text-green-600" />
+          <span>{alipayReturnMsg}</span>
+          <button className="ml-auto text-green-500 hover:text-green-700" onClick={() => setAlipayReturnMsg(null)}>✕</button>
+        </div>
+      )}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h1 className="text-xl font-bold text-gray-900">我的订单</h1>
         <div className="flex items-center gap-2">
