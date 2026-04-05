@@ -165,7 +165,6 @@ Deno.serve(async (req) => {
       total_amount: total_amount_cny,
       subject: resolvedSubject,
       product_code: 'FAST_INSTANT_TRADE_PAY',
-      body: `订单IDs: ${orderIds.join(',')}`,
     });
 
     const params = {
