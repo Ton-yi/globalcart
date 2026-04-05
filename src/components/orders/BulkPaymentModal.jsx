@@ -54,7 +54,7 @@ export default function BulkPaymentModal({ orders, onClose, onSuccess }) {
         payment_method: method,
         payment_proof_url: proofUrl,
         payment_status: "paid",
-        order_status: "paid",
+        order_status: "pending_purchase",
         paid_amount: (o.paid_amount || 0) + (o.prepayment_amount || 0),
       })
     ));
