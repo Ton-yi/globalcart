@@ -76,7 +76,7 @@ const ALL_STATUSES = [
 function formatAmount(amount, currency) {
   if (!amount || amount <= 0) return "-";
   if (currency === "JPY") return `${Math.round(amount).toLocaleString()} yen`;
-  if (currency === "CNY") return `${amount.toFixed(2)} yuan`;
+  if (currency === "CNY") return `${Math.round(amount)} yuan`;
   return `${currency} ${amount.toFixed(2)}`;
 }
 

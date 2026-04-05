@@ -144,13 +144,21 @@ export default function OrderDetailDrawer({ order, currentUser, initialUserPrefe
             {order.balance_credit > 0 && (
               <div className="bg-blue-50 rounded-lg p-3">
                 <div className="text-xs text-gray-400">余额（可抵运费）</div>
-                <div className="font-medium text-blue-700">{order.prepayment_currency} {order.balance_credit?.toFixed(2)}</div>
+                <div className="font-medium text-blue-700">
+                  {order.prepayment_currency === "JPY"
+                    ? `${Math.round(order.balance_credit).toLocaleString()} yen`
+                    : `${order.prepayment_currency} ${Math.round(order.balance_credit)}`}
+                </div>
               </div>
             )}
             {order.shipping_fee_amount > 0 && (
               <div className="bg-yellow-50 rounded-lg p-3">
                 <div className="text-xs text-gray-400">运费</div>
-                <div className="font-medium text-yellow-700">{order.shipping_fee_currency} {order.shipping_fee_amount?.toFixed(2)}</div>
+                <div className="font-medium text-yellow-700">
+                  {order.shipping_fee_currency === "JPY"
+                    ? `${Math.round(order.shipping_fee_amount).toLocaleString()} yen`
+                    : `${order.shipping_fee_currency} ${Math.round(order.shipping_fee_amount)}`}
+                </div>
               </div>
             )}
             {order.item_size_extra_fee > 0 && (
@@ -293,7 +301,9 @@ export default function OrderDetailDrawer({ order, currentUser, initialUserPrefe
               <Button className="w-full bg-red-600 hover:bg-red-700 text-sm"
                 onClick={() => setShowPayment("shipping")}>
                 <CreditCard className="w-4 h-4 mr-2" />
-                付运费 {order.shipping_fee_currency} {order.shipping_fee_amount?.toFixed(2)}
+                付运费 {order.shipping_fee_currency === "JPY"
+                  ? `${Math.round(order.shipping_fee_amount).toLocaleString()} yen`
+                  : `${order.shipping_fee_currency} ${Math.round(order.shipping_fee_amount)}`}
               </Button>
             )}
             {status === "shipped" && (

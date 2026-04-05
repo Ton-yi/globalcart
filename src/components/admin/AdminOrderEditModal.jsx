@@ -290,19 +290,19 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
                 {order.prepayment_amount > 0 && (
                   <div className="bg-gray-50 rounded-lg p-2.5">
                     <div className="text-gray-400">预付款</div>
-                    <div className="font-medium">{cur} {order.prepayment_amount?.toFixed(2)}</div>
+                    <div className="font-medium">{cur === "JPY" ? `${Math.round(order.prepayment_amount).toLocaleString()} yen` : `${cur} ${Math.round(order.prepayment_amount)}`}</div>
                   </div>
                 )}
                 {order.paid_amount > 0 && (
                   <div className="bg-green-50 rounded-lg p-2.5">
                     <div className="text-gray-400">已付金额</div>
-                    <div className="font-medium text-green-700">{cur} {order.paid_amount?.toFixed(2)}</div>
+                    <div className="font-medium text-green-700">{cur === "JPY" ? `${Math.round(order.paid_amount).toLocaleString()} yen` : `${cur} ${Math.round(order.paid_amount)}`}</div>
                   </div>
                 )}
                 {order.balance_credit > 0 && (
                   <div className="bg-blue-50 rounded-lg p-2.5">
                     <div className="text-gray-400">余额</div>
-                    <div className="font-medium text-blue-700">{cur} {order.balance_credit?.toFixed(2)}</div>
+                    <div className="font-medium text-blue-700">{cur === "JPY" ? `${Math.round(order.balance_credit).toLocaleString()} yen` : `${cur} ${Math.round(order.balance_credit)}`}</div>
                   </div>
                 )}
               </div>
@@ -632,7 +632,7 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
                   </div>
                   {order.balance_credit > 0 && (
                     <p className="text-xs text-blue-600">
-                      用户余额 {cur} {order.balance_credit?.toFixed(2)}，将自动抵扣，实收 {shippingCurrency} {Math.max(0, parseFloat(shippingFee || 0) - parseFloat(order.balance_credit || 0)).toFixed(2)}
+                      用户余额 {cur === "JPY" ? `${Math.round(order.balance_credit).toLocaleString()} yen` : `${cur} ${Math.round(order.balance_credit)}`}，将自动抵扣，实收 {shippingCurrency === "JPY" ? `${Math.round(Math.max(0, parseFloat(shippingFee || 0) - parseFloat(order.balance_credit || 0))).toLocaleString()} yen` : `${shippingCurrency} ${Math.round(Math.max(0, parseFloat(shippingFee || 0) - parseFloat(order.balance_credit || 0)))}`}
                     </p>
                   )}
                   <div>

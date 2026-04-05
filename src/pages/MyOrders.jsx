@@ -95,7 +95,7 @@ function CellValue({ col, order }) {
       let display = "-";
       if (val > 0) {
         if (cur === "JPY") display = `${Math.round(val).toLocaleString()} yen`;
-        else if (cur === "CNY") display = `${val.toFixed(2)} yuan`;
+        else if (cur === "CNY") display = `${Math.round(val)} yuan`;
         else display = `${cur} ${val.toFixed(2)}`;
       }
       return <span className="text-sm text-gray-700">{display}</span>;
