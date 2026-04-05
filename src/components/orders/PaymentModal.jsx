@@ -44,11 +44,11 @@ export default function PaymentModal({ order, mode = "prepay", onClose, onSucces
   // For shipping: combine shipping fee + item size fee
   const itemSizeFee = isShipping && order.item_size_extra_fee > 0 ? order.item_size_extra_fee : 0;
 
-  // CNY amounts round to nearest integer (round half up)
+  // JPY and CNY amounts round to nearest integer
   const roundAmount = (val, currency) => {
     if (!val) return 0;
     const num = parseFloat(val);
-    return currency === "CNY" ? Math.round(num) : num;
+    return (currency === "CNY" || currency === "JPY") ? Math.round(num) : num;
   };
 
   const defaultAmount = roundAmount(rawAmount, cur);
@@ -57,7 +57,7 @@ export default function PaymentModal({ order, mode = "prepay", onClose, onSucces
   const amountLabel = cur === "JPY"
     ? `${title}金额：${Math.round(defaultAmount).toLocaleString()} yen`
     : cur === "CNY"
-    ? `${title}金额：${defaultAmount} yuan`
+    ? `${title}金额：${Math.round(defaultAmount)} yuan`
     : `${title}金额：${cur} ${parseFloat(defaultAmount || 0).toFixed(2)}`;
 
   const [method, setMethod] = useState("");
@@ -188,8 +188,8 @@ export default function PaymentModal({ order, mode = "prepay", onClose, onSucces
               </div>
             ) : (
               <Input type="number" className="mt-1" value={paidAmount}
-                onChange={e => setPaidAmount(cur === "CNY" ? String(Math.round(parseFloat(e.target.value) || 0)) : e.target.value)}
-                step={cur === "CNY" ? "1" : "0.01"} />
+                onChange={e => setPaidAmount((cur === "CNY" || cur === "JPY") ? String(Math.round(parseFloat(e.target.value) || 0)) : e.target.value)}
+                step={(cur === "CNY" || cur === "JPY") ? "1" : "0.01"} />
             )}
           </div>
 
