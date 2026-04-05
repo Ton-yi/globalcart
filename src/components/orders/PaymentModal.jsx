@@ -125,7 +125,7 @@ export default function PaymentModal({ order, mode = "prepay", onClose, onSucces
       payment_method: method,
       payment_proof_url: file_url,
       payment_status: "paid",
-      order_status: "paid",
+      order_status: "pending_purchase",
     };
     if (isShipping) {
       updates.order_status = "ready_to_ship";
