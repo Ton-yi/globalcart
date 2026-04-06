@@ -471,7 +471,7 @@ export default function AdminShippingInfoPanel({
             {isAwaitingPayment && (
               <>
                 <div className="bg-orange-50 border border-orange-100 rounded-lg px-3 py-2 text-sm text-orange-700">
-                  运费 <strong>¥{Math.round(pool.shipping_fee_jpy || 0).toLocaleString()} JPY</strong>，等待用户付款。
+                  运费 <strong>¥{Math.round(grandTotalJpy).toLocaleString()} JPY</strong>，等待用户付款。
                 </div>
                 {pool.payment_status === "awaiting_confirmation" && (
                   <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2.5 space-y-2">
