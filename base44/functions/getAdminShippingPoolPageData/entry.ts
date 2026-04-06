@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
     const filter = isPlatformAdmin ? {} : { tenant_id: tenantId };
 
     const t1 = Date.now();
-    const [pools, locations, allUsers, transitMethods, addonOptions, editRequests] = await Promise.all([
+    const [pools, locations, allUsers, transitMethods, addonOptions, editRequests, boxTemplates, siteSettings] = await Promise.all([
       isPlatformAdmin
         ? base44.asServiceRole.entities.ShippingPool.list()
         : base44.asServiceRole.entities.ShippingPool.filter({ tenant_id: tenantId }),
@@ -70,8 +70,10 @@ Deno.serve(async (req) => {
       isPlatformAdmin
         ? base44.asServiceRole.entities.ShippingEditRequest.filter({ status: 'pending' })
         : base44.asServiceRole.entities.ShippingEditRequest.filter({ tenant_id: tenantId, status: 'pending' }),
+      base44.asServiceRole.entities.BoxTemplate.filter(filter),
+      base44.asServiceRole.entities.SiteSettings.filter(filter),
     ]);
-    console.log(`[TIMING] getAdminShippingPoolPageData | 6x parallel queries: ${Date.now() - t1}ms`);
+    console.log(`[TIMING] getAdminShippingPoolPageData | 8x parallel queries: ${Date.now() - t1}ms`);
     console.log(`[TIMING] getAdminShippingPoolPageData | TOTAL: ${Date.now() - t0}ms`);
 
     // Shape users like listNonAdminUsers
@@ -82,6 +84,12 @@ Deno.serve(async (req) => {
         role: u.role || 'user', tenant_id: u.tenant_id || null,
       }));
 
+    // Extract packing fee defaults from site settings
+    const settingsMap = {};
+    (siteSettings || []).forEach(s => { settingsMap[s.key] = s.value; });
+    const defaultPackingFeeSingle = parseFloat(settingsMap['default_packing_fee_single'] || '0') || 0;
+    const defaultPackingFeeConsolidation = parseFloat(settingsMap['default_packing_fee_consolidation'] || '0') || 0;
+
     return Response.json({
       pools: pools || [],
       locations: locations || [],
@@ -89,6 +97,9 @@ Deno.serve(async (req) => {
       transitMethods: (transitMethods || []).filter(m => m.is_active !== false),
       addonOptions: (addonOptions || []).filter(a => a.addon_type === 'shipping' && a.is_active !== false),
       pendingEditRequests: editRequests || [],
+      boxTemplates: (boxTemplates || []).filter(b => b.is_active !== false),
+      defaultPackingFeeSingle,
+      defaultPackingFeeConsolidation,
     });
 
   } catch (error) {

@@ -54,6 +54,9 @@ export default function AdminShippingPool() {
   const [transitMethods, setTransitMethods] = useState([]);
   const [addonOptions, setAddonOptions] = useState([]);
   const [pendingEditRequests, setPendingEditRequests] = useState([]);
+  const [boxTemplates, setBoxTemplates] = useState([]);
+  const [defaultPackingFeeSingle, setDefaultPackingFeeSingle] = useState(0);
+  const [defaultPackingFeeConsolidation, setDefaultPackingFeeConsolidation] = useState(0);
 
   const fetchPageData = async () => {
     setLoading(true);
@@ -66,6 +69,9 @@ export default function AdminShippingPool() {
     setTransitMethods(data.transitMethods || []);
     setAddonOptions(data.addonOptions || []);
     setPendingEditRequests(data.pendingEditRequests || []);
+    setBoxTemplates(data.boxTemplates || []);
+    setDefaultPackingFeeSingle(data.defaultPackingFeeSingle || 0);
+    setDefaultPackingFeeConsolidation(data.defaultPackingFeeConsolidation || 0);
     setLoading(false);
     t.done('data ready');
   };
@@ -432,6 +438,9 @@ export default function AdminShippingPool() {
           isAdmin={true}
           currentUser={user}
           pendingEditRequests={pendingEditRequests.filter(r => r.pool_id === selectedPool.id)}
+          boxTemplates={boxTemplates}
+          defaultPackingFeeSingle={defaultPackingFeeSingle}
+          defaultPackingFeeConsolidation={defaultPackingFeeConsolidation}
           onClose={() => setSelectedPool(null)}
           onUpdated={() => {
             setSelectedPool(null);

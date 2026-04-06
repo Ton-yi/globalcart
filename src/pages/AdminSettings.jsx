@@ -18,12 +18,15 @@ import ShippingMethodManager from "@/components/admin/ShippingMethodManager";
 import OnlineStoreTagManager from "@/components/admin/OnlineStoreTagManager";
 import TransitShippingMethodManager from "@/components/admin/TransitShippingMethodManager";
 import ItemSizeTemplateManager from "@/components/admin/ItemSizeTemplateManager";
+import BoxTemplateManager from "@/components/admin/BoxTemplateManager";
 
 const DEFAULT_SETTINGS = [
   { key: "service_fee_rate", value: "10", description: "服务费率 (%)", category: "fee" },
   { key: "prepay_rate", value: "80", description: "预付款比率 (%)", category: "fee" },
   { key: "jpy_usd_increment", value: "0", description: "日元/美元汇率增量 (基于实时汇率)", category: "fee" },
   { key: "jpy_cny_increment", value: "0", description: "日元/人民币汇率增量 (基于实时汇率)", category: "fee" },
+  { key: "default_packing_fee_single", value: "0", description: "默认单独发货捆包作业手续费 (JPY)", category: "fee" },
+  { key: "default_packing_fee_consolidation", value: "0", description: "默认拼邮发货捆包手续费 (JPY)", category: "fee" },
   { key: "site_name", value: "同一物流", description: "网站名称", category: "general" },
   { key: "contact_email", value: "", description: "联系邮箱", category: "general" },
   { key: "whatsapp", value: "", description: "WhatsApp", category: "general" },
@@ -47,6 +50,7 @@ const TABS = [
   { key: "shipping_methods", label: "运输方式" },
   { key: "transit_methods", label: "中转运输方式" },
   { key: "item_sizes", label: "物品尺寸" },
+  { key: "box_templates", label: "外箱模板" },
   { key: "store_tags", label: "商城标签规则" },
   { key: "theme", label: "界面主题" },
   { key: "tenants", label: "租户管理" },
@@ -73,6 +77,7 @@ export default function AdminSettings() {
   const [transitMethods, setTransitMethods] = useState(null);
   const [itemSizeTemplates, setItemSizeTemplates] = useState(null);
   const [storeTagRules, setStoreTagRules] = useState(null);
+  const [boxTemplates, setBoxTemplates] = useState(null);
 
   const [tenants, setTenants] = useState([]);
   const [tenantsLoading, setTenantsLoading] = useState(false);
@@ -109,6 +114,7 @@ export default function AdminSettings() {
       setTransitMethods(data.transitMethods || []);
       setItemSizeTemplates(data.itemSizeTemplates || []);
       setStoreTagRules(data.storeTagRules || []);
+      setBoxTemplates(data.boxTemplates || []);
       if (data.rates) setLiveRates(data.rates);
 
       // Populate the shared config cache so Layout's fetchTenantConfig() is a cache-hit
@@ -308,6 +314,18 @@ export default function AdminSettings() {
         <Card className="border-gray-200">
           <CardContent className="pt-5">
             <ItemSizeTemplateManager initialData={itemSizeTemplates} />
+          </CardContent>
+        </Card>
+      )}
+
+      {activeTab === "box_templates" && (
+        <Card className="border-gray-200">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold text-gray-700">外箱模板管理</CardTitle>
+            <p className="text-xs text-gray-400 mt-1">管理员填写发货信息时可选取外箱，外箱自重和费用将计入发货记录。</p>
+          </CardHeader>
+          <CardContent>
+            <BoxTemplateManager initialData={boxTemplates || []} onReload={load} />
           </CardContent>
         </Card>
       )}

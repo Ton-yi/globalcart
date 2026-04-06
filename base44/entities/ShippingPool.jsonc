@@ -132,11 +132,40 @@
     },
     "total_weight_g": {
       "type": "number",
-      "description": "\u603b\u91cd\u91cf(g)"
+      "description": "\u603b\u91cd\u91cf(g)\uff08\u7269\u54c1\u5408\u8ba1\uff09"
+    },
+    "final_weight_g": {
+      "type": "number",
+      "description": "\u6700\u7ec8\u603b\u91cd\u91cf(g)\uff08\u542b\u5916\u7bb1\uff0c\u7ba1\u7406\u5458\u586b\u5199\uff09"
+    },
+    "box_template_id": {
+      "type": "string",
+      "description": "\u4f7f\u7528\u7684\u5916\u7bb1\u6a21\u677fID\uff08\u7ba1\u7406\u5458\u9009\u62e9\uff09"
+    },
+    "box_template_name": {
+      "type": "string",
+      "description": "\u4f7f\u7528\u7684\u5916\u7bb1\u6a21\u677f\u540d\u79f0\uff08\u5197\u4f59\u5b58\u50a8\uff09"
+    },
+    "box_price_jpy": {
+      "type": "number",
+      "description": "\u5916\u7bb1\u8d39\u7528 (JPY)",
+      "default": 0
     },
     "shipping_fee_jpy": {
       "type": "number",
       "description": "\u8fd0\u8d39\uff08\u65e5\u5143 JPY\uff0c\u7ba1\u7406\u5458\u586b\u5199\uff0c\u7528\u4e8e\u7528\u6237\u4ed8\u6b3e\uff09"
+    },
+    "packing_fee_jpy": {
+      "type": "number",
+      "description": "\u6346\u5305\u4f5c\u4e1a\u624b\u7eed\u8d39\u5408\u8ba1 (JPY)"
+    },
+    "packing_fees_per_user": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "\u6bcf\u4e2a\u7528\u6237\u7684\u6346\u5305\u8d39\u7528\u660e\u7ec6 [{user_email, fee_jpy}]",
+      "default": []
     },
     "estimated_fee": {
       "type": "number",
@@ -190,6 +219,22 @@
       "type": "string",
       "format": "date",
       "description": "\u5b9e\u9645\u53d1\u8d27\u65e5\u671f"
+    },
+    "label_image_urls": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "\u53d1\u8d27\u9762\u5355\u56fe\u7247URL\u5217\u8868",
+      "default": []
+    },
+    "packing_image_urls": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "\u6346\u5305\u72b6\u6001\u56fe\u7247URL\u5217\u8868",
+      "default": []
     },
     "user_note": {
       "type": "string",
