@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import ShippingEditModal from "@/components/shippingpool/ShippingEditModal";
 import AdminShippingInfoPanel from "@/components/shippingpool/AdminShippingInfoPanel";
 import ShippingFeeBreakdown from "@/components/shippingpool/ShippingFeeBreakdown";
+import { ImageWithViewer } from "@/components/common/ImageViewer";
 
 const STATUS_CONFIG = {
   pending:          { label: "待处理", color: "bg-amber-100 text-amber-700" },
@@ -721,9 +722,9 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                       <p className="text-xs text-gray-400 mb-1.5">捆包图片</p>
                       <div className="flex flex-wrap gap-2">
                         {pool.packing_image_urls.map((url, i) => (
-                          <a key={i} href={url} target="_blank" rel="noopener noreferrer">
-                            <img src={url} alt="" className="w-16 h-16 rounded object-cover border border-gray-200 hover:opacity-80 transition-opacity" />
-                          </a>
+                          <ImageWithViewer key={i} src={url} alt="捆包图片">
+                            <img src={url} alt="" className="w-16 h-16 rounded object-cover border border-gray-200 hover:opacity-80 transition-opacity cursor-pointer" />
+                          </ImageWithViewer>
                         ))}
                       </div>
                     </div>
@@ -734,9 +735,9 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                       <p className="text-xs text-gray-400 mb-1.5">发货面单</p>
                       <div className="flex flex-wrap gap-2">
                         {pool.label_image_urls.map((url, i) => (
-                          <a key={i} href={url} target="_blank" rel="noopener noreferrer">
-                            <img src={url} alt="" className="w-16 h-16 rounded object-cover border border-gray-200 hover:opacity-80 transition-opacity" />
-                          </a>
+                          <ImageWithViewer key={i} src={url} alt="发货面单">
+                            <img src={url} alt="" className="w-16 h-16 rounded object-cover border border-gray-200 hover:opacity-80 transition-opacity cursor-pointer" />
+                          </ImageWithViewer>
                         ))}
                       </div>
                     </div>
@@ -787,24 +788,25 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
 
                     {paymentMethod === "alipay" && (
                       <div className="space-y-2">
-                        {!alipayUrl ? (
-                          <Button className="w-full bg-blue-600 hover:bg-blue-700"
-                            onClick={handleGenerateAlipay} disabled={generatingAlipay}>
-                            {generatingAlipay
-                              ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />生成付款链接中...</>
-                              : <><ExternalLink className="w-4 h-4 mr-2" />生成支付宝付款链接</>}
-                          </Button>
-                        ) : (
-                          <div className="space-y-2">
-                            <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700 flex items-center gap-2">
-                              <CheckCircle className="w-4 h-4" />付款链接已生成，已自动在新标签打开
-                            </div>
-                            <a href={alipayUrl} target="_blank" rel="noopener noreferrer"
-                              className="flex items-center justify-center gap-2 w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 rounded-md transition-colors">
-                              <ExternalLink className="w-4 h-4" />重新打开支付宝付款页
-                            </a>
+                        {alipayUrl && (
+                          <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700 flex items-center gap-2">
+                            <CheckCircle className="w-4 h-4 flex-shrink-0" />付款链接已生成，请在新标签完成付款后刷新页面。
                           </div>
                         )}
+                        <div className="flex gap-2">
+                          <Button className="flex-1 bg-blue-600 hover:bg-blue-700"
+                            onClick={handleGenerateAlipay} disabled={generatingAlipay}>
+                            {generatingAlipay
+                              ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />生成中...</>
+                              : <><ExternalLink className="w-4 h-4 mr-2" />{alipayUrl ? "重新生成链接" : "生成支付宝付款链接"}</>}
+                          </Button>
+                          {alipayUrl && (
+                            <a href={alipayUrl} target="_blank" rel="noopener noreferrer"
+                              className="flex items-center justify-center gap-2 px-4 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-md transition-colors whitespace-nowrap">
+                              <ExternalLink className="w-4 h-4" />打开付款页
+                            </a>
+                          )}
+                        </div>
                       </div>
                     )}
 
