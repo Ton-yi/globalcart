@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
-import { Search, RefreshCw, Filter, ChevronUp, ChevronDown, ChevronsUpDown, Trash2, AlertCircle } from "lucide-react";
+import { Search, RefreshCw, Filter, ChevronUp, ChevronDown, ChevronsUpDown, Trash2, AlertCircle, Layers, Send, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +11,8 @@ import { getStatusLabel, getStatusColor } from "@/lib/orderStatus";
 import ColumnCustomizer from "@/components/orders/ColumnCustomizer";
 import { matchStoreTagResult } from "@/lib/onlineStoreTag";
 import { ImageWithViewer } from "@/components/common/ImageViewer";
+import ShippingPoolDetailModal from "@/components/shippingpool/ShippingPoolDetailModal";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 const STORAGE_KEY = "admin_orders_columns";
 
@@ -169,6 +171,7 @@ function CellValue({ col, order, onQuickOrdered, userAvatars }) {
 }
 
 export default function AdminOrders() {
+  const { user } = useCurrentUser();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -186,16 +189,19 @@ export default function AdminOrders() {
   const [itemSizeTemplates, setItemSizeTemplates] = useState([]);
   const [pendingEditRequests, setPendingEditRequests] = useState([]);
   const [userProfileMap, setUserProfileMap] = useState({});
+  const [shippingPools, setShippingPools] = useState([]);
+  const [selectedPool, setSelectedPool] = useState(null); // for opening pool detail modal
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
     const r = await base44.functions.invoke('getAdminOrdersPageData', {});
-    const { orders: data = [], storeTagRules: rules = [], itemSizeTemplates: templates = [], pendingEditRequests: edits = [], userProfileMap: profiles = {} } = r.data || {};
+    const { orders: data = [], storeTagRules: rules = [], itemSizeTemplates: templates = [], pendingEditRequests: edits = [], userProfileMap: profiles = {}, shippingPools: pools = [] } = r.data || {};
     setOrders(data);
     setStoreTagRules(rules);
     setItemSizeTemplates(templates);
     setPendingEditRequests(edits);
     setUserProfileMap(profiles);
+    setShippingPools(pools);
     setLoading(false);
   }, []);
 
@@ -302,6 +308,16 @@ export default function AdminOrders() {
     if (!window.confirm(`确认永久删除订单"${order.product_name}"？此操作不可撤销。`)) return;
     await base44.functions.invoke('mutateTenantEntity', { entity: 'Order', action: 'delete', id: order.id });
     fetchOrders();
+  };
+
+  // Find the shipping pool for a notified_shipment order
+  const getOrderPool = (order) => shippingPools.find(p => (p.order_ids || []).includes(order.id)) || null;
+
+  const handleOpenPool = async (pool) => {
+    // Fetch full pool data before opening modal
+    const r = await base44.functions.invoke('getTenantShippingPools', {});
+    const fullPool = (r.data?.pools || []).find(p => p.id === pool.id);
+    if (fullPool) setSelectedPool(fullPool);
   };
 
   return (
@@ -423,6 +439,24 @@ export default function AdminOrders() {
                         入库
                       </Button>
                     )}
+                    {order.order_status === "notified_shipment" && (() => {
+                      const pool = getOrderPool(order);
+                      if (!pool) return null;
+                      const isConsolidation = pool.consolidation_type && pool.consolidation_type !== "";
+                      return (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className={`h-6 text-xs px-2 ${isConsolidation ? "text-purple-600 border-purple-200 hover:bg-purple-50" : "text-teal-600 border-teal-200 hover:bg-teal-50"}`}
+                          onClick={() => handleOpenPool(pool)}
+                        >
+                          {isConsolidation
+                            ? <><Layers className="w-3 h-3 mr-1" />查看拼邮</>
+                            : <><Send className="w-3 h-3 mr-1" />查看发货需求</>
+                          }
+                        </Button>
+                      );
+                    })()}
                     {order.order_status === "cancelled" && (
                       <Button size="sm" variant="outline" className="h-6 text-xs px-2 text-red-600 border-red-200 hover:bg-red-50"
                         onClick={() => handleDeleteCancelled(order)}>
@@ -446,6 +480,18 @@ export default function AdminOrders() {
           initialItemSizeTemplates={itemSizeTemplates}
           onClose={() => setSelectedOrder(null)}
           onSaved={() => { setSelectedOrder(null); fetchOrders(); }}
+        />
+      )}
+
+      {selectedPool && user && (
+        <ShippingPoolDetailModal
+          pool={selectedPool}
+          isAdmin={true}
+          currentUser={user}
+          pendingEditRequests={[]}
+          boxTemplates={[]}
+          onClose={() => setSelectedPool(null)}
+          onUpdated={() => { setSelectedPool(null); fetchOrders(); }}
         />
       )}
     </div>

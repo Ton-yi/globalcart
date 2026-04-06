@@ -341,8 +341,9 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
     // Determine effective address object for each slot
     const getEffectiveAddr = (slot) => {
       if (addressInputMode[slot]) {
-        // user typed a new address
-        return newAddress.full_text ? { id: `new_${Date.now()}`, label: newAddress.label || "新地址", full_text: newAddress.full_text } : null;
+        // user typed a new address — compute full_text dynamically
+        if (!isAddressFormValid(newAddress)) return null;
+        return { id: `new_${Date.now()}`, label: newAddress.label || "新地址", full_text: serializeAddressToText(newAddress), ...newAddress };
       }
       const addrId = slot === "final" ? finalAddressId : selectedAddress;
       return savedAddresses.find(a => a.id === addrId) || null;
@@ -360,8 +361,12 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
       if (userPrefId) {
         await userPrefApi.update(userPrefId, { saved_addresses: updatedAddresses });
       } else {
-        await userPrefApi.create({ user_email: u.email, saved_addresses: updatedAddresses });
+        // Create a new UserPreference record with tenant context via mutateTenantEntity
+        const created = await userPrefApi.create({ user_email: u.email, saved_addresses: updatedAddresses });
+        if (created?.id) setUserPrefId(created.id);
       }
+      // Update local state so address is available immediately
+      setSavedAddresses(updatedAddresses);
     }
     const totalWeight = targetOrders.reduce((s, o) => s + (o.weight_g || 0), 0);
 
