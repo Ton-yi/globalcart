@@ -284,13 +284,13 @@ export default function AdminShippingInfoPanel({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label className="text-xs text-gray-500">最终总重量 (g)</Label>
-              <Input className="mt-1 h-8 text-sm" type="number" placeholder={pool.total_weight_g || "0"}
+              <Input className="mt-1 h-8 text-sm" type="text" inputMode="decimal" placeholder={pool.total_weight_g || "0"}
                 value={finalWeightG} onChange={e => setFinalWeightG(e.target.value)} />
               {boxWeight > 0 && <p className="text-xs text-gray-400 mt-0.5">含外箱 {boxWeight}g</p>}
             </div>
             <div>
               <Label className="text-xs text-gray-500">国际运费 (JPY) *</Label>
-              <Input className="mt-1 h-8 text-sm" type="number" placeholder="0"
+              <Input className="mt-1 h-8 text-sm" type="text" inputMode="decimal" placeholder="0"
                 value={shippingFeeJpy} onChange={e => setShippingFeeJpy(e.target.value)} />
             </div>
           </div>
@@ -305,7 +305,7 @@ export default function AdminShippingInfoPanel({
               {totalPackingFee > 0 && <span className="text-xs text-gray-500">合计 ¥{totalPackingFee}</span>}
             </div>
             {packingFeesPerUser.length <= 1 ? (
-              <Input className="h-8 text-sm" type="number" placeholder="0"
+              <Input className="h-8 text-sm" type="text" inputMode="decimal" placeholder="0"
                 value={packingFeesPerUser[0]?.fee_jpy || ""}
                 onChange={e => {
                   const fee = parseFloat(e.target.value) || 0;
@@ -320,8 +320,8 @@ export default function AdminShippingInfoPanel({
                 {packingFeesPerUser.map((uf, idx) => (
                   <div key={uf.user_email} className="flex items-center gap-2">
                     <span className="text-xs text-gray-600 flex-1 truncate">{uf.user_email}</span>
-                    <Input className="h-7 text-xs w-28" type="number" placeholder="0"
-                      value={uf.fee_jpy}
+                    <Input className="h-7 text-xs w-28" type="text" inputMode="decimal" placeholder="0"
+                     value={uf.fee_jpy}
                       onChange={e => setPackingFeesPerUser(prev =>
                         prev.map((u, i) => i === idx ? { ...u, fee_jpy: parseFloat(e.target.value) || 0 } : u)
                       )} />
