@@ -190,18 +190,20 @@ export default function AdminOrders() {
   const [pendingEditRequests, setPendingEditRequests] = useState([]);
   const [userProfileMap, setUserProfileMap] = useState({});
   const [shippingPools, setShippingPools] = useState([]);
+  const [boxTemplates, setBoxTemplates] = useState([]);
   const [selectedPool, setSelectedPool] = useState(null); // for opening pool detail modal
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
     const r = await base44.functions.invoke('getAdminOrdersPageData', {});
-    const { orders: data = [], storeTagRules: rules = [], itemSizeTemplates: templates = [], pendingEditRequests: edits = [], userProfileMap: profiles = {}, shippingPools: pools = [] } = r.data || {};
+    const { orders: data = [], storeTagRules: rules = [], itemSizeTemplates: templates = [], pendingEditRequests: edits = [], userProfileMap: profiles = {}, shippingPools: pools = [], boxTemplates: boxes = [] } = r.data || {};
     setOrders(data);
     setStoreTagRules(rules);
     setItemSizeTemplates(templates);
     setPendingEditRequests(edits);
     setUserProfileMap(profiles);
     setShippingPools(pools);
+    setBoxTemplates(boxes);
     setLoading(false);
   }, []);
 
@@ -488,8 +490,8 @@ export default function AdminOrders() {
           pool={selectedPool}
           isAdmin={true}
           currentUser={user}
-          pendingEditRequests={[]}
-          boxTemplates={[]}
+          pendingEditRequests={pendingEditRequests.filter(r => r.pool_id === selectedPool.id)}
+          boxTemplates={boxTemplates}
           onClose={() => setSelectedPool(null)}
           onUpdated={() => { setSelectedPool(null); fetchOrders(); }}
         />
