@@ -21,13 +21,13 @@ const ALLOWED_ENTITIES = [
   'ShippingPool', 'ShippingRequest', 'ShippingEditRequest',
   'UserPreference', 'ItemSizeTemplate', 'OnlineStoreTagRule',
   'ShippingMethod', 'TransitShippingMethod', 'TransitLocation',
-  'AddonOption', 'SiteSettings', 'Announcement',
+  'AddonOption', 'SiteSettings', 'Announcement', 'BoxTemplate',
 ];
 
 const ADMIN_ONLY_WRITE = [
   'ItemSizeTemplate', 'OnlineStoreTagRule', 'ShippingMethod',
   'TransitShippingMethod', 'TransitLocation', 'AddonOption',
-  'SiteSettings', 'Announcement',
+  'SiteSettings', 'Announcement', 'BoxTemplate',
 ];
 
 const ADMIN_ONLY_DELETE = ['Order'];
