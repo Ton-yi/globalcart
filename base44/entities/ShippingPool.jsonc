@@ -44,6 +44,13 @@
       },
       "description": "\u5173\u8054\u7684\u8ba2\u5355ID\u5217\u8868"
     },
+    "order_names": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "\u8ba2\u5355\u540d\u79f0\u5217\u8868\uff08\u5197\u4f59\u5b58\u50a8\uff0c\u7528\u4e8e\u5361\u7247\u663e\u793a\uff09"
+    },
     "creator_email": {
       "type": "string",
       "description": "\u521b\u5efa\u8005\u90ae\u7bb1"
@@ -84,6 +91,14 @@
     "transit_location_name": {
       "type": "string",
       "description": "\u4e2d\u8f6c\u5730\u540d\u79f0\uff08\u5197\u4f59\u5b58\u50a8\uff09"
+    },
+    "transit_shipping_method_id": {
+      "type": "string",
+      "description": "\u4e2d\u8f6c\u8fd0\u8f93\u65b9\u5f0fID"
+    },
+    "transit_shipping_method_name": {
+      "type": "string",
+      "description": "\u4e2d\u8f6c\u8fd0\u8f93\u65b9\u5f0f\u540d\u79f0\uff08\u5197\u4f59\u5b58\u50a8\uff09"
     },
     "final_address_id": {
       "type": "string",
@@ -165,6 +180,30 @@
         "type": "object"
       },
       "description": "\u6bcf\u4e2a\u7528\u6237\u7684\u6346\u5305\u8d39\u7528\u660e\u7ec6 [{user_email, fee_jpy}]",
+      "default": []
+    },
+    "fee_breakdown_per_user": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "\u6bcf\u4e2a\u7528\u6237\u7684\u5b8c\u6574\u8d39\u7528\u660e\u7ec6 [{user_email, items:[{label, amount_jpy}], total_jpy, shared_jpy, personal_total_jpy}]",
+      "default": []
+    },
+    "selected_addon_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "\u9009\u62e9\u7684\u53d1\u8d27\u589e\u503c\u670d\u52a1ID\u5217\u8868",
+      "default": []
+    },
+    "selected_addons": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "\u9009\u62e9\u7684\u53d1\u8d27\u589e\u503c\u670d\u52a1\u660e\u7ec6 [{id, name, fee, fee_currency}]",
       "default": []
     },
     "estimated_fee": {

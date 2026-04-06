@@ -441,6 +441,8 @@ export default function AdminShippingPool() {
           boxTemplates={boxTemplates}
           defaultPackingFeeSingle={defaultPackingFeeSingle}
           defaultPackingFeeConsolidation={defaultPackingFeeConsolidation}
+          transitLocations={locations}
+          transitShippingMethods={transitMethods}
           onClose={() => setSelectedPool(null)}
           onUpdated={() => {
             setSelectedPool(null);

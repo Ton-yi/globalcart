@@ -2,18 +2,12 @@
  * AdminShippingInfoPanel
  * Two-step admin panel for filling shipping info on a ShippingPool.
  *
- * Step 1 (pending/processing → awaiting_payment):
- *   Fill shipping info to send to user for payment confirmation.
- *   Tracking number is optional at this step.
+ * Step 1 (pending → awaiting_payment): fill info, notify user to pay.
+ * Step 2 (ready_to_ship → shipped): fill tracking number, confirm dispatch.
  *
- * Step 2 (ready_to_ship → shipped):
- *   Fill actual dispatch info — tracking number required.
- *
- * Both steps allow editing all fields. The distinction is:
- * - Step 1: tracking number optional, action = notify user to pay
- * - Step 2: tracking number required, action = confirm shipment
+ * Shows full per-user fee breakdown using calcFeeBreakdownPerUser.
  */
-import { useState, useRef } from "react";
+import { useState, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { shippingPoolApi, updateOrder } from "@/lib/tenantApi";
 import { Button } from "@/components/ui/button";
@@ -22,7 +16,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CreditCard, Truck, CheckCircle, ExternalLink, Upload, X, Plus, Loader2, Package } from "lucide-react";
+import { CreditCard, Truck, CheckCircle, ExternalLink, X, Plus, Loader2 } from "lucide-react";
+import { calcFeeBreakdownPerUser } from "@/lib/shippingFeeCalc";
+import ShippingFeeBreakdown from "@/components/shippingpool/ShippingFeeBreakdown";
 
 const STATUS_CONFIG = {
   pending:          { label: "待处理",  color: "bg-amber-100 text-amber-700" },
@@ -40,6 +36,8 @@ export default function AdminShippingInfoPanel({
   boxTemplates = [],
   defaultPackingFeeSingle = 0,
   defaultPackingFeeConsolidation = 0,
+  transitLocations = [],
+  transitShippingMethods = [],
   onPoolUpdated,
 }) {
   const isConsolidation = (initialPool.consolidation_type === "transit" || initialPool.consolidation_type === "other");
@@ -49,7 +47,6 @@ export default function AdminShippingInfoPanel({
     orders.filter(o => o.user_email).map(o => [o.user_email, { email: o.user_email, name: o.user_name || o.user_email }])
   ).values()];
 
-  // Initial packing fees per user
   const initPackingFeesPerUser = () => {
     if ((initialPool.packing_fees_per_user || []).length > 0) return initialPool.packing_fees_per_user;
     const defaultFee = isConsolidation ? defaultPackingFeeConsolidation : defaultPackingFeeSingle;
@@ -58,8 +55,9 @@ export default function AdminShippingInfoPanel({
 
   const [pool, setPool] = useState(initialPool);
   const [saving, setSaving] = useState(false);
+  const [confirmingSaving, setConfirmingSaving] = useState(false);
 
-  // Form fields (shared between step 1 and step 2)
+  // Form fields
   const [trackingNumber, setTrackingNumber] = useState(pool.tracking_number || "");
   const [boxTemplateId, setBoxTemplateId] = useState(pool.box_template_id || "none");
   const [finalWeightG, setFinalWeightG] = useState(pool.final_weight_g?.toString() || pool.total_weight_g?.toString() || "");
@@ -68,22 +66,46 @@ export default function AdminShippingInfoPanel({
   const [adminNote, setAdminNote] = useState(pool.admin_note || "");
   const [adminPackingNote, setAdminPackingNote] = useState(pool.admin_packing_note || "");
 
-  // Image upload state
+  // Image uploads
   const [labelImageUrls, setLabelImageUrls] = useState(pool.label_image_urls || []);
   const [packingImageUrls, setPackingImageUrls] = useState(pool.packing_image_urls || []);
   const [uploadingLabel, setUploadingLabel] = useState(false);
   const [uploadingPacking, setUploadingPacking] = useState(false);
-
-  // Payment confirmation (step 2: awaiting_payment → ready_to_ship)
-  const [confirmingSaving, setConfirmingSaving] = useState(false);
 
   const selectedBox = boxTemplates.find(b => b.id === boxTemplateId);
   const boxWeight = selectedBox?.weight_g || 0;
   const boxPrice = selectedBox?.price_jpy || 0;
   const totalPackingFee = packingFeesPerUser.reduce((s, u) => s + (parseFloat(u.fee_jpy) || 0), 0);
 
+  // Resolve transit location and shipping method from pool
+  const transitLocation = transitLocations.find(l => l.id === pool.transit_location_id) || null;
+  const transitShippingMethod = transitShippingMethods.find(m => m.id === pool.transit_shipping_method_id) || null;
+
+  // Live fee breakdown calculation
+  const feeBreakdowns = useMemo(() => {
+    if (orders.length === 0) return [];
+    return calcFeeBreakdownPerUser({
+      pool,
+      orders,
+      shippingFeeJpy: parseFloat(shippingFeeJpy) || 0,
+      boxPriceJpy: boxPrice,
+      packingFeesPerUser,
+      transitLocation,
+      transitShippingMethod,
+    });
+  }, [orders, shippingFeeJpy, boxPrice, packingFeesPerUser, pool.selected_addons, pool.transit_location_id, pool.transit_shipping_method_id]);
+
   const buildUpdatePayload = () => {
     const btId = boxTemplateId === "none" ? "" : boxTemplateId;
+    const breakdowns = calcFeeBreakdownPerUser({
+      pool,
+      orders,
+      shippingFeeJpy: parseFloat(shippingFeeJpy) || 0,
+      boxPriceJpy: btId ? boxPrice : 0,
+      packingFeesPerUser,
+      transitLocation,
+      transitShippingMethod,
+    });
     return {
       tracking_number: trackingNumber,
       box_template_id: btId,
@@ -95,6 +117,7 @@ export default function AdminShippingInfoPanel({
       fee_currency: "JPY",
       packing_fee_jpy: totalPackingFee,
       packing_fees_per_user: packingFeesPerUser,
+      fee_breakdown_per_user: breakdowns,
       admin_note: adminNote,
       admin_packing_note: adminPackingNote,
       label_image_urls: labelImageUrls,
@@ -102,7 +125,6 @@ export default function AdminShippingInfoPanel({
     };
   };
 
-  // Step 1 action: save info + set awaiting_payment
   const handleSetAwaitingPayment = async () => {
     if (!shippingFeeJpy) return;
     setSaving(true);
@@ -113,7 +135,6 @@ export default function AdminShippingInfoPanel({
     onPoolUpdated?.({ ...pool, ...payload });
   };
 
-  // Step 1 also allows just saving without changing status
   const handleSaveInfoOnly = async () => {
     setSaving(true);
     const payload = buildUpdatePayload();
@@ -123,7 +144,6 @@ export default function AdminShippingInfoPanel({
     onPoolUpdated?.({ ...pool, ...payload });
   };
 
-  // Admin confirms payment → ready_to_ship
   const handleConfirmPayment = async () => {
     setConfirmingSaving(true);
     const payload = {
@@ -138,7 +158,6 @@ export default function AdminShippingInfoPanel({
     onPoolUpdated?.({ ...pool, ...payload });
   };
 
-  // Step 2 action: fill tracking → shipped
   const handleShip = async () => {
     if (!trackingNumber) return;
     setSaving(true);
@@ -148,7 +167,6 @@ export default function AdminShippingInfoPanel({
       shipped_date: new Date().toISOString().split("T")[0],
     };
     await shippingPoolApi.update(pool.id, payload);
-    // Update all associated orders
     await Promise.all(
       (pool.order_ids || []).map(id =>
         updateOrder(id, {
@@ -185,7 +203,6 @@ export default function AdminShippingInfoPanel({
 
   return (
     <div className="border border-red-100 rounded-xl overflow-hidden">
-      {/* Header */}
       <div className="bg-red-50 px-4 py-2.5 border-b border-red-100 flex items-center justify-between">
         <span className="text-sm font-medium text-red-700">管理员操作</span>
         <Badge className={`text-xs ${STATUS_CONFIG[pool.status]?.color || ""}`}>
@@ -200,7 +217,6 @@ export default function AdminShippingInfoPanel({
         </div>
       )}
 
-      {/* Step 1 or Step 2 form fields — same form, shown in both steps */}
       {(isStep1 || isStep2 || isAwaitingPayment) && (
         <div className="p-4 space-y-4">
           {isStep1 && (
@@ -217,6 +233,23 @@ export default function AdminShippingInfoPanel({
             <p className="text-xs text-gray-500 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
               <strong>第二步：</strong>用户已付款，请填写运单号确认发货。
             </p>
+          )}
+
+          {/* Transit info (read-only, from pool) */}
+          {(transitLocation || pool.transit_shipping_method_name) && (
+            <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 text-xs text-blue-700 space-y-0.5">
+              {transitLocation && (
+                <div>中转地：<span className="font-medium">{transitLocation.name}</span>
+                  {transitLocation.handling_fee > 0 && <span className="ml-2 text-blue-500">手续费 ¥{transitLocation.handling_fee} {transitLocation.handling_fee_currency || "JPY"}/人</span>}
+                </div>
+              )}
+              {pool.transit_shipping_method_name && (
+                <div>中转运输：<span className="font-medium">{pool.transit_shipping_method_name}</span></div>
+              )}
+              {(pool.selected_addons || []).length > 0 && (
+                <div>增值服务：<span className="font-medium">{(pool.selected_addons || []).map(a => `${a.name}（¥${a.fee}）`).join("、")}</span></div>
+              )}
+            </div>
           )}
 
           {/* Box template */}
@@ -247,18 +280,16 @@ export default function AdminShippingInfoPanel({
             )}
           </div>
 
-          {/* Weight & fee */}
+          {/* Weight & shipping fee */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label className="text-xs text-gray-500">最终总重量 (g)</Label>
               <Input className="mt-1 h-8 text-sm" type="number" placeholder={pool.total_weight_g || "0"}
                 value={finalWeightG} onChange={e => setFinalWeightG(e.target.value)} />
-              {boxWeight > 0 && (
-                <p className="text-xs text-gray-400 mt-0.5">含外箱 {boxWeight}g</p>
-              )}
+              {boxWeight > 0 && <p className="text-xs text-gray-400 mt-0.5">含外箱 {boxWeight}g</p>}
             </div>
             <div>
-              <Label className="text-xs text-gray-500">运费 (JPY) *</Label>
+              <Label className="text-xs text-gray-500">国际运费 (JPY) *</Label>
               <Input className="mt-1 h-8 text-sm" type="number" placeholder="0"
                 value={shippingFeeJpy} onChange={e => setShippingFeeJpy(e.target.value)} />
             </div>
@@ -269,33 +300,21 @@ export default function AdminShippingInfoPanel({
             <div className="flex items-center justify-between mb-1.5">
               <Label className="text-xs text-gray-500">
                 捆包作业手续费 (JPY)
-                {isConsolidation && uniqueUsers.length > 1 && (
-                  <span className="ml-1 text-gray-400">（可按用户分别设置）</span>
-                )}
+                {isConsolidation && uniqueUsers.length > 1 && <span className="ml-1 text-gray-400">（按用户分别设置）</span>}
               </Label>
-              {totalPackingFee > 0 && (
-                <span className="text-xs text-gray-500">合计 ¥{totalPackingFee}</span>
-              )}
+              {totalPackingFee > 0 && <span className="text-xs text-gray-500">合计 ¥{totalPackingFee}</span>}
             </div>
-            {packingFeesPerUser.length === 0 && (
-              <div className="flex items-center gap-2">
-                <Input className="h-8 text-sm flex-1" type="number" placeholder="0"
-                  value={""}
-                  onChange={e => {
-                    const fee = parseFloat(e.target.value) || 0;
-                    // No users yet (shouldn't happen), just set global
+            {packingFeesPerUser.length <= 1 ? (
+              <Input className="h-8 text-sm" type="number" placeholder="0"
+                value={packingFeesPerUser[0]?.fee_jpy || ""}
+                onChange={e => {
+                  const fee = parseFloat(e.target.value) || 0;
+                  if (packingFeesPerUser.length === 0) {
                     setPackingFeesPerUser([{ user_email: "__all__", fee_jpy: fee }]);
-                  }} />
-              </div>
-            )}
-            {packingFeesPerUser.length === 1 && packingFeesPerUser[0].user_email === "__all__" ? (
-              <Input className="h-8 text-sm" type="number" placeholder="0"
-                value={packingFeesPerUser[0].fee_jpy}
-                onChange={e => setPackingFeesPerUser([{ user_email: "__all__", fee_jpy: parseFloat(e.target.value) || 0 }])} />
-            ) : packingFeesPerUser.length === 1 && !isConsolidation ? (
-              <Input className="h-8 text-sm" type="number" placeholder="0"
-                value={packingFeesPerUser[0].fee_jpy}
-                onChange={e => setPackingFeesPerUser([{ ...packingFeesPerUser[0], fee_jpy: parseFloat(e.target.value) || 0 }])} />
+                  } else {
+                    setPackingFeesPerUser([{ ...packingFeesPerUser[0], fee_jpy: fee }]);
+                  }
+                }} />
             ) : (
               <div className="space-y-1.5">
                 {packingFeesPerUser.map((uf, idx) => (
@@ -312,6 +331,19 @@ export default function AdminShippingInfoPanel({
               </div>
             )}
           </div>
+
+          {/* Fee breakdown preview */}
+          {(shippingFeeJpy || boxPrice > 0 || totalPackingFee > 0) && feeBreakdowns.length > 0 && (
+            <div>
+              <Label className="text-xs text-gray-500 mb-2 block">
+                费用明细{isConsolidation ? "（含平摊运费）" : ""}
+              </Label>
+              <ShippingFeeBreakdown
+                breakdowns={feeBreakdowns}
+                isConsolidation={isConsolidation}
+              />
+            </div>
+          )}
 
           {/* Tracking number */}
           <div>
@@ -340,7 +372,6 @@ export default function AdminShippingInfoPanel({
 
           {/* Image uploads */}
           <div className="grid grid-cols-2 gap-3">
-            {/* Label images */}
             <div>
               <Label className="text-xs text-gray-500 mb-1.5 block">发货面单图片</Label>
               <div className="flex flex-wrap gap-1.5 mb-1.5">
@@ -362,8 +393,6 @@ export default function AdminShippingInfoPanel({
                   onChange={e => { const f = e.target.files[0]; if (f) handleUploadLabelImage(f); }} />
               </label>
             </div>
-
-            {/* Packing images */}
             <div>
               <Label className="text-xs text-gray-500 mb-1.5 block">捆包状态图片</Label>
               <div className="flex flex-wrap gap-1.5 mb-1.5">
@@ -387,16 +416,6 @@ export default function AdminShippingInfoPanel({
             </div>
           </div>
 
-          {/* Summary */}
-          {(shippingFeeJpy || totalPackingFee > 0 || boxPrice > 0) && (
-            <div className="bg-gray-50 rounded-lg px-3 py-2.5 text-xs space-y-1">
-              <p className="font-medium text-gray-600 mb-1">费用汇总</p>
-              {shippingFeeJpy && <div className="flex justify-between"><span className="text-gray-500">运费</span><span className="font-medium">¥{Math.round(parseFloat(shippingFeeJpy) || 0).toLocaleString()} JPY</span></div>}
-              {boxPrice > 0 && <div className="flex justify-between"><span className="text-gray-500">外箱费用</span><span>¥{boxPrice} JPY</span></div>}
-              {totalPackingFee > 0 && <div className="flex justify-between"><span className="text-gray-500">捆包手续费</span><span>¥{totalPackingFee} JPY</span></div>}
-            </div>
-          )}
-
           {/* Action buttons */}
           <div className="space-y-2 pt-1">
             {isStep1 && (
@@ -409,7 +428,7 @@ export default function AdminShippingInfoPanel({
                 <Button size="sm" className="bg-orange-600 hover:bg-orange-700 w-full"
                   onClick={handleSetAwaitingPayment} disabled={saving || !shippingFeeJpy}>
                   <CreditCard className="w-3.5 h-3.5 mr-1.5" />
-                  {saving ? "保存中..." : `通知用户付款（¥${Math.round(parseFloat(shippingFeeJpy) || 0).toLocaleString()} JPY）`}
+                  {saving ? "保存中..." : `通知用户付款（总运费 ¥${Math.round(parseFloat(shippingFeeJpy) || 0).toLocaleString()} JPY）`}
                 </Button>
                 <Button size="sm" variant="outline" className="w-full text-xs"
                   onClick={handleSaveInfoOnly} disabled={saving}>

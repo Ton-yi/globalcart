@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import ShippingEditModal from "@/components/shippingpool/ShippingEditModal";
 import AdminShippingInfoPanel from "@/components/shippingpool/AdminShippingInfoPanel";
+import ShippingFeeBreakdown from "@/components/shippingpool/ShippingFeeBreakdown";
 
 const STATUS_CONFIG = {
   pending:          { label: "待处理", color: "bg-amber-100 text-amber-700" },
@@ -31,7 +32,7 @@ const METHOD_LABELS = {
   surface: "海运", small_packet_air: "小包空运", other: "其他",
 };
 
-export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, currentUser, pendingEditRequests: initialPendingEdits = [], boxTemplates = [], defaultPackingFeeSingle = 0, defaultPackingFeeConsolidation = 0, onClose, onUpdated }) {
+export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, currentUser, pendingEditRequests: initialPendingEdits = [], boxTemplates = [], defaultPackingFeeSingle = 0, defaultPackingFeeConsolidation = 0, transitLocations = [], transitShippingMethods = [], onClose, onUpdated }) {
   const [pool, setPool] = useState(initialPool);
   const [orders, setOrders] = useState([]);
   const [messageText, setMessageText] = useState("");
@@ -674,6 +675,8 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
               boxTemplates={boxTemplates}
               defaultPackingFeeSingle={defaultPackingFeeSingle}
               defaultPackingFeeConsolidation={defaultPackingFeeConsolidation}
+              transitLocations={transitLocations}
+              transitShippingMethods={transitShippingMethods}
               onPoolUpdated={handleAdminPoolUpdated}
             />
           )}
@@ -692,15 +695,27 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                   </div>
                 ) : (
                   <>
-                    <div className="bg-yellow-50 border border-yellow-100 rounded-lg px-3 py-2.5">
-                      <p className="text-sm font-medium text-yellow-800">
-                        运费：<span className="text-lg font-bold text-orange-600">¥{Math.round(pool.shipping_fee_jpy || 0).toLocaleString()}</span>
-                        <span className="text-xs text-yellow-600 ml-1">(JPY)</span>
-                      </p>
-                      {pool.admin_packing_note && (
-                        <p className="text-xs text-yellow-700 mt-1">{pool.admin_packing_note}</p>
-                      )}
-                    </div>
+                    {/* Fee breakdown for current user */}
+                    {(pool.fee_breakdown_per_user || []).length > 0 ? (
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 mb-2">费用明细</p>
+                        <ShippingFeeBreakdown
+                          breakdowns={pool.fee_breakdown_per_user}
+                          isConsolidation={pool.consolidation_type === "transit" || pool.consolidation_type === "other"}
+                          currentUserEmail={currentUser?.email}
+                        />
+                      </div>
+                    ) : (
+                      <div className="bg-yellow-50 border border-yellow-100 rounded-lg px-3 py-2.5">
+                        <p className="text-sm font-medium text-yellow-800">
+                          运费：<span className="text-lg font-bold text-orange-600">¥{Math.round(pool.shipping_fee_jpy || 0).toLocaleString()}</span>
+                          <span className="text-xs text-yellow-600 ml-1">(JPY)</span>
+                        </p>
+                        {pool.admin_packing_note && (
+                          <p className="text-xs text-yellow-700 mt-1">{pool.admin_packing_note}</p>
+                        )}
+                      </div>
+                    )}
                     <div>
                       <Label className="text-xs text-gray-500 font-medium mb-2 block">选择支付方式</Label>
                       <div className="grid grid-cols-2 gap-2">
