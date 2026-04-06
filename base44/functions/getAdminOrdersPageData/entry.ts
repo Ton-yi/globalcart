@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
     const filter = (isPlatformAdmin || !tenantId) ? {} : { tenant_id: tenantId };
 
     const t1 = Date.now();
-    const [orders, storeTagRules, itemSizeTemplates, pendingEditRequests, allTenantUsers, shippingPools, boxTemplates] = await Promise.all([
+    const [orders, storeTagRules, itemSizeTemplates, pendingEditRequests, allTenantUsers, shippingPools, boxTemplates, transitLocations, transitShippingMethods, siteSettings] = await Promise.all([
       base44.asServiceRole.entities.Order.filter(filter),
       base44.asServiceRole.entities.OnlineStoreTagRule.filter({ ...filter, is_active: true }),
       base44.asServiceRole.entities.ItemSizeTemplate.filter({ ...filter, is_active: true }),
@@ -62,6 +62,9 @@ Deno.serve(async (req) => {
       base44.asServiceRole.entities.User.filter(tenantId ? { tenant_id: tenantId } : {}),
       base44.asServiceRole.entities.ShippingPool.filter(filter),
       base44.asServiceRole.entities.BoxTemplate.filter({ ...filter, is_active: true }),
+      base44.asServiceRole.entities.TransitLocation.filter({ ...filter, is_active: true }),
+      base44.asServiceRole.entities.TransitShippingMethod.filter({ ...filter, is_active: true }),
+      base44.asServiceRole.entities.SiteSettings.filter(filter),
     ]);
     console.log(`[TIMING] getAdminOrdersPageData | parallel fetches: ${Date.now() - t1}ms`);
     console.log(`[TIMING] getAdminOrdersPageData | TOTAL: ${Date.now() - t0}ms`);
@@ -75,6 +78,12 @@ Deno.serve(async (req) => {
     // Sort store tag rules by priority descending (mirrors getOnlineStoreRules)
     const sortedRules = (storeTagRules || []).sort((a, b) => (b.priority || 0) - (a.priority || 0));
 
+    // Extract packing fee defaults from site settings
+    const settingsMap = {};
+    for (const s of (siteSettings || [])) { settingsMap[s.key] = s.value; }
+    const defaultPackingFeeSingle = parseFloat(settingsMap['packing_fee_single'] || settingsMap['default_packing_fee'] || '0') || 0;
+    const defaultPackingFeeConsolidation = parseFloat(settingsMap['packing_fee_consolidation'] || '0') || 0;
+
     return Response.json({
       orders: orders || [],
       storeTagRules: sortedRules,
@@ -82,6 +91,10 @@ Deno.serve(async (req) => {
       pendingEditRequests: pendingEditRequests || [],
       userProfileMap,
       boxTemplates: boxTemplates || [],
+      transitLocations: (transitLocations || []),
+      transitShippingMethods: (transitShippingMethods || []),
+      defaultPackingFeeSingle,
+      defaultPackingFeeConsolidation,
       shippingPools: (shippingPools || []).map(p => ({
         id: p.id, pool_code: p.pool_code, status: p.status,
         consolidation_type: p.consolidation_type, order_ids: p.order_ids || [],

@@ -71,11 +71,16 @@ export default function AdminShippingInfoPanel({
   const [packingImageUrls, setPackingImageUrls] = useState(pool.packing_image_urls || []);
   const [uploadingLabel, setUploadingLabel] = useState(false);
   const [uploadingPacking, setUploadingPacking] = useState(false);
+  const [draggingLabel, setDraggingLabel] = useState(false);
+  const [draggingPacking, setDraggingPacking] = useState(false);
 
   const selectedBox = boxTemplates.find(b => b.id === boxTemplateId);
   const boxWeight = selectedBox?.weight_g || 0;
   const boxPrice = selectedBox?.price_jpy || 0;
   const totalPackingFee = packingFeesPerUser.reduce((s, u) => s + (parseFloat(u.fee_jpy) || 0), 0);
+
+  // Grand total for button display: shipping + box + packing
+  const grandTotalJpy = (parseFloat(shippingFeeJpy) || 0) + boxPrice + totalPackingFee;
 
   // Resolve transit location and shipping method from pool
   const transitLocation = transitLocations.find(l => l.id === pool.transit_location_id) || null;
@@ -193,6 +198,16 @@ export default function AdminShippingInfoPanel({
     const { file_url } = await base44.integrations.Core.UploadFile({ file });
     setPackingImageUrls(prev => [...prev, file_url]);
     setUploadingPacking(false);
+  };
+
+  const handleDrop = async (e, type) => {
+    e.preventDefault();
+    if (type === "label") setDraggingLabel(false); else setDraggingPacking(false);
+    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith("image/"));
+    for (const file of files) {
+      if (type === "label") await handleUploadLabelImage(file);
+      else await handleUploadPackingImage(file);
+    }
   };
 
   const currentStatus = pool.status;
@@ -386,11 +401,15 @@ export default function AdminShippingInfoPanel({
                   </div>
                 ))}
               </div>
-              <label className="cursor-pointer flex items-center gap-1.5 px-2.5 py-1.5 border border-dashed border-gray-300 rounded-md text-xs text-gray-400 hover:border-gray-400 transition-colors w-fit">
-                {uploadingLabel ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
-                {uploadingLabel ? "上传中..." : "添加"}
-                <input type="file" accept="image/*" className="hidden" disabled={uploadingLabel}
-                  onChange={e => { const f = e.target.files[0]; if (f) handleUploadLabelImage(f); }} />
+              <label
+                className={`cursor-pointer flex flex-col items-center gap-1 px-2.5 py-3 border-2 border-dashed rounded-md text-xs transition-colors ${draggingLabel ? "border-blue-400 bg-blue-50 text-blue-500" : "border-gray-300 text-gray-400 hover:border-gray-400"}`}
+                onDragOver={e => { e.preventDefault(); setDraggingLabel(true); }}
+                onDragLeave={() => setDraggingLabel(false)}
+                onDrop={e => handleDrop(e, "label")}>
+                {uploadingLabel ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                <span>{uploadingLabel ? "上传中..." : "点击或拖拽上传"}</span>
+                <input type="file" accept="image/*" className="hidden" disabled={uploadingLabel} multiple
+                  onChange={e => { Array.from(e.target.files).forEach(f => handleUploadLabelImage(f)); }} />
               </label>
             </div>
             <div>
@@ -407,11 +426,15 @@ export default function AdminShippingInfoPanel({
                   </div>
                 ))}
               </div>
-              <label className="cursor-pointer flex items-center gap-1.5 px-2.5 py-1.5 border border-dashed border-gray-300 rounded-md text-xs text-gray-400 hover:border-gray-400 transition-colors w-fit">
-                {uploadingPacking ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
-                {uploadingPacking ? "上传中..." : "添加"}
-                <input type="file" accept="image/*" className="hidden" disabled={uploadingPacking}
-                  onChange={e => { const f = e.target.files[0]; if (f) handleUploadPackingImage(f); }} />
+              <label
+                className={`cursor-pointer flex flex-col items-center gap-1 px-2.5 py-3 border-2 border-dashed rounded-md text-xs transition-colors ${draggingPacking ? "border-blue-400 bg-blue-50 text-blue-500" : "border-gray-300 text-gray-400 hover:border-gray-400"}`}
+                onDragOver={e => { e.preventDefault(); setDraggingPacking(true); }}
+                onDragLeave={() => setDraggingPacking(false)}
+                onDrop={e => handleDrop(e, "packing")}>
+                {uploadingPacking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                <span>{uploadingPacking ? "上传中..." : "点击或拖拽上传"}</span>
+                <input type="file" accept="image/*" className="hidden" disabled={uploadingPacking} multiple
+                  onChange={e => { Array.from(e.target.files).forEach(f => handleUploadPackingImage(f)); }} />
               </label>
             </div>
           </div>
@@ -428,7 +451,7 @@ export default function AdminShippingInfoPanel({
                 <Button size="sm" className="bg-orange-600 hover:bg-orange-700 w-full"
                   onClick={handleSetAwaitingPayment} disabled={saving || !shippingFeeJpy}>
                   <CreditCard className="w-3.5 h-3.5 mr-1.5" />
-                  {saving ? "保存中..." : `通知用户付款（总运费 ¥${Math.round(parseFloat(shippingFeeJpy) || 0).toLocaleString()} JPY）`}
+                  {saving ? "保存中..." : `通知用户付款（合计 ¥${Math.round(grandTotalJpy).toLocaleString()} JPY）`}
                 </Button>
                 <Button size="sm" variant="outline" className="w-full text-xs"
                   onClick={handleSaveInfoOnly} disabled={saving}>

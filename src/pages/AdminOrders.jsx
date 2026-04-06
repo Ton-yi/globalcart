@@ -191,12 +191,16 @@ export default function AdminOrders() {
   const [userProfileMap, setUserProfileMap] = useState({});
   const [shippingPools, setShippingPools] = useState([]);
   const [boxTemplates, setBoxTemplates] = useState([]);
+  const [transitLocations, setTransitLocations] = useState([]);
+  const [transitShippingMethods, setTransitShippingMethods] = useState([]);
+  const [defaultPackingFeeSingle, setDefaultPackingFeeSingle] = useState(0);
+  const [defaultPackingFeeConsolidation, setDefaultPackingFeeConsolidation] = useState(0);
   const [selectedPool, setSelectedPool] = useState(null); // for opening pool detail modal
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
     const r = await base44.functions.invoke('getAdminOrdersPageData', {});
-    const { orders: data = [], storeTagRules: rules = [], itemSizeTemplates: templates = [], pendingEditRequests: edits = [], userProfileMap: profiles = {}, shippingPools: pools = [], boxTemplates: boxes = [] } = r.data || {};
+    const { orders: data = [], storeTagRules: rules = [], itemSizeTemplates: templates = [], pendingEditRequests: edits = [], userProfileMap: profiles = {}, shippingPools: pools = [], boxTemplates: boxes = [], transitLocations: locs = [], transitShippingMethods: tMethods = [], defaultPackingFeeSingle: pfs = 0, defaultPackingFeeConsolidation: pfc = 0 } = r.data || {};
     setOrders(data);
     setStoreTagRules(rules);
     setItemSizeTemplates(templates);
@@ -204,6 +208,10 @@ export default function AdminOrders() {
     setUserProfileMap(profiles);
     setShippingPools(pools);
     setBoxTemplates(boxes);
+    setTransitLocations(locs);
+    setTransitShippingMethods(tMethods);
+    setDefaultPackingFeeSingle(pfs);
+    setDefaultPackingFeeConsolidation(pfc);
     setLoading(false);
   }, []);
 
@@ -492,6 +500,10 @@ export default function AdminOrders() {
           currentUser={user}
           pendingEditRequests={pendingEditRequests.filter(r => r.pool_id === selectedPool.id)}
           boxTemplates={boxTemplates}
+          transitLocations={transitLocations}
+          transitShippingMethods={transitShippingMethods}
+          defaultPackingFeeSingle={defaultPackingFeeSingle}
+          defaultPackingFeeConsolidation={defaultPackingFeeConsolidation}
           onClose={() => setSelectedPool(null)}
           onUpdated={() => { setSelectedPool(null); fetchOrders(); }}
         />

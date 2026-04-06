@@ -18,6 +18,7 @@ export default function BoxTemplateManager({ initialData = [], onReload }) {
   const [form, setForm] = useState(EMPTY);
   const [adding, setAdding] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [dragging, setDragging] = useState(false);
 
   const handleAdd = async () => {
     if (!form.name) return;
@@ -127,9 +128,13 @@ export default function BoxTemplateManager({ initialData = [], onReload }) {
           <div className="col-span-2">
             <Label className="text-xs text-gray-400">图片</Label>
             <div className="mt-0.5 flex items-center gap-2">
-              <label className="cursor-pointer flex items-center gap-1.5 px-3 py-1.5 border border-dashed border-gray-300 rounded-md text-xs text-gray-500 hover:border-gray-400 transition-colors">
+              <label
+                className={`cursor-pointer flex items-center gap-1.5 px-3 py-2 border-2 border-dashed rounded-md text-xs transition-colors ${dragging ? "border-blue-400 bg-blue-50 text-blue-500" : "border-gray-300 text-gray-500 hover:border-gray-400"}`}
+                onDragOver={e => { e.preventDefault(); setDragging(true); }}
+                onDragLeave={() => setDragging(false)}
+                onDrop={e => { e.preventDefault(); setDragging(false); const f = e.dataTransfer.files[0]; if (f && f.type.startsWith("image/")) handleUploadImage(f); }}>
                 {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-                {uploading ? "上传中..." : "上传图片"}
+                {uploading ? "上传中..." : "点击或拖拽上传"}
                 <input type="file" accept="image/*" className="hidden"
                   onChange={e => { const f = e.target.files[0]; if (f) handleUploadImage(f); }}
                   disabled={uploading} />
