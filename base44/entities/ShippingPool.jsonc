@@ -18,13 +18,14 @@
       "type": "string",
       "enum": [
         "pending",
-        "processing",
+        "awaiting_payment",
+        "ready_to_ship",
         "shipped",
         "delivered",
         "cancelled"
       ],
       "default": "pending",
-      "description": "\u53d1\u8d27\u6c60\u72b6\u6001"
+      "description": "\u53d1\u8d27\u6c60\u72b6\u6001\uff1apending=\u5f85\u5904\u7406, awaiting_payment=\u5f85\u4ed8\u6b3e, ready_to_ship=\u5f85\u53d1\u8d27, shipped=\u5df2\u53d1\u8d27, delivered=\u5df2\u7b7e\u6536"
     },
     "consolidation_type": {
       "type": "string",
@@ -133,18 +134,53 @@
       "type": "number",
       "description": "\u603b\u91cd\u91cf(g)"
     },
+    "shipping_fee_jpy": {
+      "type": "number",
+      "description": "\u8fd0\u8d39\uff08\u65e5\u5143 JPY\uff0c\u7ba1\u7406\u5458\u586b\u5199\uff0c\u7528\u4e8e\u7528\u6237\u4ed8\u6b3e\uff09"
+    },
     "estimated_fee": {
       "type": "number",
-      "description": "\u9884\u4f30\u8fd0\u8d39"
+      "description": "\u9884\u4f30\u8fd0\u8d39\uff08\u65e7\u5b57\u6bb5\uff0c\u4fdd\u7559\u517c\u5bb9\uff09"
     },
     "fee_currency": {
       "type": "string",
-      "default": "CNY",
+      "default": "JPY",
       "description": "\u8fd0\u8d39\u8d27\u5e01"
     },
     "actual_fee": {
       "type": "number",
-      "description": "\u5b9e\u9645\u8fd0\u8d39"
+      "description": "\u5b9e\u9645\u8fd0\u8d39\uff08\u65e5\u5143\uff09"
+    },
+    "payment_status": {
+      "type": "string",
+      "enum": [
+        "unpaid",
+        "awaiting_confirmation",
+        "paid"
+      ],
+      "default": "unpaid",
+      "description": "\u8fd0\u8d39\u4ed8\u6b3e\u72b6\u6001\uff1aunpaid=\u672a\u4ed8\u6b3e, awaiting_confirmation=\u7b49\u5f85\u786e\u8ba4, paid=\u5df2\u4ed8\u6b3e"
+    },
+    "payment_method": {
+      "type": "string",
+      "description": "\u8fd0\u8d39\u652f\u4ed8\u65b9\u5f0f\uff08alipay\u7b49\uff09"
+    },
+    "payment_proof_url": {
+      "type": "string",
+      "description": "\u8fd0\u8d39\u4ed8\u6b3e\u51ed\u8bc1URL"
+    },
+    "alipay_trade_no": {
+      "type": "string",
+      "description": "\u652f\u4ed8\u5b9d\u5546\u6237\u8ba2\u5355\u53f7\uff08\u8fd0\u8d39\uff09"
+    },
+    "alipay_transaction_id": {
+      "type": "string",
+      "description": "\u652f\u4ed8\u5b9d\u4ea4\u6613\u6d41\u6c34\u53f7\uff08\u8fd0\u8d39\uff09"
+    },
+    "admin_confirmed_payment": {
+      "type": "boolean",
+      "default": false,
+      "description": "\u7ba1\u7406\u5458\u662f\u5426\u5df2\u786e\u8ba4\u6536\u6b3e"
     },
     "tracking_number": {
       "type": "string",
@@ -162,6 +198,10 @@
     "admin_note": {
       "type": "string",
       "description": "\u7ba1\u7406\u5458\u5907\u6ce8"
+    },
+    "admin_packing_note": {
+      "type": "string",
+      "description": "\u7ba1\u7406\u5458\u6346\u5305\u5907\u6ce8\uff08\u586b\u5199\u53d1\u8d27\u4fe1\u606f\u65f6\uff09"
     },
     "messages": {
       "type": "array",

@@ -22,11 +22,12 @@ import ShippingPoolDetailModal from "@/components/shippingpool/ShippingPoolDetai
 import CreateShippingPoolModal from "@/components/shippingpool/CreateShippingPoolModal";
 
 const STATUS_FILTERS = [
-  { v: "all", l: "全部状态" },
-  { v: "pending", l: "待处理" },
-  { v: "processing", l: "处理中" },
-  { v: "shipped", l: "已发货" },
-  { v: "delivered", l: "已签收" },
+  { v: "all",              l: "全部状态" },
+  { v: "pending",          l: "待处理" },
+  { v: "awaiting_payment", l: "待付款" },
+  { v: "ready_to_ship",    l: "待发货" },
+  { v: "shipped",          l: "已发货" },
+  { v: "delivered",        l: "已签收" },
 ];
 
 const TABS = [

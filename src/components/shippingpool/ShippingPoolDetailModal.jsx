@@ -4,7 +4,7 @@
  * Admin can edit tracking number, actual fee.
  */
 import { useState, useEffect, useRef } from "react";
-import { X, Package, Send, Image, Truck, Edit2, Save, MoreVertical, ArrowRight, RotateCcw, Loader2, Search, Trash2, AlertCircle, CheckCircle, XCircle } from "lucide-react";
+import { X, Package, Send, Image, Truck, Edit2, Save, MoreVertical, ArrowRight, RotateCcw, Loader2, Search, Trash2, AlertCircle, CheckCircle, XCircle, CreditCard, ExternalLink, Upload } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { updateOrder, tenantEntity, shippingPoolApi } from "@/lib/tenantApi";
 import { Button } from "@/components/ui/button";
@@ -16,11 +16,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import ShippingEditModal from "@/components/shippingpool/ShippingEditModal";
 
 const STATUS_CONFIG = {
-  pending:    { label: "待处理", color: "bg-gray-100 text-gray-600" },
-  processing: { label: "处理中", color: "bg-blue-100 text-blue-700" },
-  shipped:    { label: "已发货", color: "bg-green-100 text-green-700" },
-  delivered:  { label: "已签收", color: "bg-emerald-100 text-emerald-700" },
-  cancelled:  { label: "已取消", color: "bg-red-100 text-red-600" },
+  pending:          { label: "待处理", color: "bg-amber-100 text-amber-700" },
+  awaiting_payment: { label: "待付款", color: "bg-orange-100 text-orange-700" },
+  ready_to_ship:    { label: "待发货", color: "bg-blue-100 text-blue-700" },
+  shipped:          { label: "已发货", color: "bg-green-100 text-green-700" },
+  delivered:        { label: "已签收", color: "bg-emerald-100 text-emerald-700" },
+  cancelled:        { label: "已取消", color: "bg-red-100 text-red-600" },
+  processing:       { label: "处理中", color: "bg-blue-100 text-blue-700" },
 };
 
 const METHOD_LABELS = {
@@ -53,9 +55,16 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
 
   // Admin edit fields
   const [trackingNumber, setTrackingNumber] = useState(pool.tracking_number || "");
-  const [actualFee, setActualFee] = useState(pool.actual_fee?.toString() || "");
+  const [shippingFeeJpy, setShippingFeeJpy] = useState(pool.shipping_fee_jpy?.toString() || "");
   const [adminNote, setAdminNote] = useState(pool.admin_note || "");
+  const [adminPackingNote, setAdminPackingNote] = useState(pool.admin_packing_note || "");
   const [editMode, setEditMode] = useState(true); // Always expanded for admin
+
+  // User payment state
+  const [paymentMethod, setPaymentMethod] = useState("");
+  const [generatingAlipay, setGeneratingAlipay] = useState(false);
+  const [alipayUrl, setAlipayUrl] = useState(null);
+  const [uploadingProof, setUploadingProof] = useState(false);
 
   const [tenantUserMap, setTenantUserMap] = useState({});
   const [allPoolsMap, setAllPoolsMap] = useState({}); // id -> pool_code for target pool display
@@ -158,38 +167,96 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
     }, 100);
   };
 
-  const handleAdminSave = async () => {
-    if (!trackingNumber && !actualFee && !adminNote) return;
+  // Admin: fill packing info → status becomes awaiting_payment
+  const handleAdminSetAwaitingPayment = async () => {
+    if (!shippingFeeJpy) return;
     setSaving(true);
-
-    const updateData = { admin_note: adminNote };
-    if (trackingNumber) {
-      updateData.tracking_number = trackingNumber;
-      updateData.status = "shipped";
-      updateData.shipped_date = new Date().toISOString().split("T")[0];
-    }
-    if (actualFee) {
-      updateData.actual_fee = parseFloat(actualFee);
-    }
-
+    const updateData = {
+      status: "awaiting_payment",
+      shipping_fee_jpy: parseFloat(shippingFeeJpy),
+      actual_fee: parseFloat(shippingFeeJpy),
+      fee_currency: "JPY",
+      admin_note: adminNote,
+      admin_packing_note: adminPackingNote,
+      payment_status: "unpaid",
+    };
     await shippingPoolApi.update(pool.id, updateData);
-
-    if (trackingNumber) {
-      await Promise.all(
-        (pool.order_ids || []).map(id =>
-          updateOrder(id, {
-            order_status: "shipped",
-            tracking_number: trackingNumber,
-            shipped_date: new Date().toISOString().split("T")[0],
-          })
-        )
-      );
-    }
-
     setPool(p => ({ ...p, ...updateData }));
-    setEditMode(false);
     setSaving(false);
     onUpdated?.();
+  };
+
+  // Admin: confirm payment and set ready_to_ship (if user uploaded proof)
+  const handleAdminConfirmPayment = async () => {
+    setSaving(true);
+    const updateData = {
+      status: "ready_to_ship",
+      payment_status: "paid",
+      admin_confirmed_payment: true,
+    };
+    await shippingPoolApi.update(pool.id, updateData);
+    setPool(p => ({ ...p, ...updateData }));
+    setSaving(false);
+    onUpdated?.();
+  };
+
+  // Admin: fill tracking number → shipped
+  const handleAdminShip = async () => {
+    if (!trackingNumber) return;
+    setSaving(true);
+    const updateData = {
+      status: "shipped",
+      tracking_number: trackingNumber,
+      shipped_date: new Date().toISOString().split("T")[0],
+      admin_note: adminNote,
+    };
+    await shippingPoolApi.update(pool.id, updateData);
+    await Promise.all(
+      (pool.order_ids || []).map(id =>
+        updateOrder(id, {
+          order_status: "shipped",
+          tracking_number: trackingNumber,
+          shipped_date: new Date().toISOString().split("T")[0],
+        })
+      )
+    );
+    setPool(p => ({ ...p, ...updateData }));
+    setSaving(false);
+    onUpdated?.();
+  };
+
+  // User: generate Alipay payment link for shipping fee
+  const handleGenerateAlipay = async () => {
+    setGeneratingAlipay(true);
+    const res = await base44.functions.invoke("generateAlipayPaymentLink", {
+      orderId: pool.id,
+      amount: pool.shipping_fee_jpy,
+      currency: "JPY",
+      subject: `同一物流运费 - ${pool.pool_code || pool.id.slice(-6)}`,
+      paymentType: "shipping_pool",
+      poolId: pool.id,
+    });
+    const url = res.data?.paymentUrl;
+    setAlipayUrl(url);
+    setGeneratingAlipay(false);
+    if (url) {
+      window.open(url, "_blank");
+      await shippingPoolApi.update(pool.id, { payment_status: "awaiting_confirmation", payment_method: "alipay" });
+      setPool(p => ({ ...p, payment_status: "awaiting_confirmation", payment_method: "alipay" }));
+    }
+  };
+
+  // User: upload payment proof (non-alipay)
+  const handleUploadProof = async (file) => {
+    setUploadingProof(true);
+    const { file_url } = await base44.integrations.Core.UploadFile({ file });
+    await shippingPoolApi.update(pool.id, {
+      payment_status: "awaiting_confirmation",
+      payment_method: paymentMethod,
+      payment_proof_url: file_url,
+    });
+    setPool(p => ({ ...p, payment_status: "awaiting_confirmation", payment_method: paymentMethod, payment_proof_url: file_url }));
+    setUploadingProof(false);
   };
 
   const handlePoolEditSave = async () => {
@@ -657,40 +724,197 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
             </div>
           )}
 
-          {/* Admin edit panel - always expanded */}
+          {/* Admin panel — step-based */}
           {isAdmin && (
             <div className="border border-red-100 rounded-xl overflow-hidden">
-              <div className="bg-red-50 px-4 py-2.5 border-b border-red-100">
+              <div className="bg-red-50 px-4 py-2.5 border-b border-red-100 flex items-center justify-between">
                 <span className="text-sm font-medium text-red-700">管理员操作</span>
+                <Badge className={`text-xs ${STATUS_CONFIG[pool.status]?.color || ""}`}>
+                  {STATUS_CONFIG[pool.status]?.label}
+                </Badge>
               </div>
               <div className="p-4 space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label className="text-xs text-gray-500">运单号</Label>
-                    <Input className="mt-1 h-8 text-sm font-mono" placeholder="填写后状态变为已发货"
-                      value={trackingNumber} onChange={e => setTrackingNumber(e.target.value)} />
-                  </div>
-                  <div>
-                    <Label className="text-xs text-gray-500">实际运费（日元 JPY）</Label>
-                    <Input className="mt-1 h-8 text-sm" type="number" placeholder="0"
-                      value={actualFee} onChange={e => setActualFee(e.target.value)} />
-                  </div>
-                </div>
-                <div>
-                  <Label className="text-xs text-gray-500">管理员备注</Label>
-                  <Textarea rows={2} className="mt-1 text-sm"
-                    value={adminNote} onChange={e => setAdminNote(e.target.value)} />
-                </div>
-                {trackingNumber && (
-                  <div className="bg-orange-50 border border-orange-100 rounded-lg px-3 py-2 text-xs text-orange-700">
-                    ⚠️ 填写运单号后，发货申请状态将变为"已发货"，且关联的所有订单也将同步更新为"已发货"。
+
+                {/* STEP 1: pending → fill info → awaiting_payment */}
+                {(pool.status === "pending" || pool.status === "processing") && (
+                  <>
+                    <p className="text-xs text-gray-500">捆包后填写运费，通知用户付款。</p>
+                    <div>
+                      <Label className="text-xs text-gray-500">运费金额（JPY）*</Label>
+                      <Input className="mt-1 h-8 text-sm" type="number" placeholder="0"
+                        value={shippingFeeJpy} onChange={e => setShippingFeeJpy(e.target.value)} />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-gray-500">捆包备注（可选）</Label>
+                      <Input className="mt-1 h-8 text-sm" placeholder="如：已合并为1箱，尺寸 30×20×15cm"
+                        value={adminPackingNote} onChange={e => setAdminPackingNote(e.target.value)} />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-gray-500">管理员备注</Label>
+                      <Textarea rows={2} className="mt-1 text-sm"
+                        value={adminNote} onChange={e => setAdminNote(e.target.value)} />
+                    </div>
+                    <Button size="sm" className="bg-orange-600 hover:bg-orange-700 w-full"
+                      onClick={handleAdminSetAwaitingPayment} disabled={saving || !shippingFeeJpy}>
+                      <CreditCard className="w-3.5 h-3.5 mr-1.5" />
+                      {saving ? "保存中..." : "通知用户付款（运费 JPY " + (shippingFeeJpy || "0") + "）"}
+                    </Button>
+                  </>
+                )}
+
+                {/* STEP 2: awaiting_payment — waiting for user to pay */}
+                {pool.status === "awaiting_payment" && (
+                  <>
+                    <div className="bg-orange-50 border border-orange-100 rounded-lg px-3 py-2 text-sm text-orange-700">
+                      运费 <strong>JPY {Math.round(pool.shipping_fee_jpy || 0).toLocaleString()}</strong>，等待用户付款。
+                    </div>
+                    {pool.payment_status === "awaiting_confirmation" && (
+                      <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2.5 space-y-2">
+                        <p className="text-xs text-blue-700 font-medium">用户已提交付款，请核实后确认。</p>
+                        {pool.payment_proof_url && (
+                          <a href={pool.payment_proof_url} target="_blank" rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 text-xs text-blue-600 hover:underline">
+                            <ExternalLink className="w-3.5 h-3.5" />查看付款凭证
+                          </a>
+                        )}
+                        <Button size="sm" className="bg-green-600 hover:bg-green-700 w-full"
+                          onClick={handleAdminConfirmPayment} disabled={saving}>
+                          <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
+                          {saving ? "确认中..." : "确认收款，进入待发货"}
+                        </Button>
+                      </div>
+                    )}
+                    <div>
+                      <Label className="text-xs text-gray-500">管理员备注</Label>
+                      <Textarea rows={2} className="mt-1 text-sm"
+                        value={adminNote} onChange={e => setAdminNote(e.target.value)} />
+                    </div>
+                  </>
+                )}
+
+                {/* STEP 3: ready_to_ship → fill tracking → shipped */}
+                {pool.status === "ready_to_ship" && (
+                  <>
+                    <div className="bg-green-50 border border-green-100 rounded-lg px-3 py-2 text-sm text-green-700">
+                      ✅ 用户已付款，请发货并填写运单号。
+                    </div>
+                    <div>
+                      <Label className="text-xs text-gray-500">运单号 *</Label>
+                      <Input className="mt-1 h-8 text-sm font-mono" placeholder="填写后状态变为已发货"
+                        value={trackingNumber} onChange={e => setTrackingNumber(e.target.value)} />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-gray-500">管理员备注</Label>
+                      <Textarea rows={2} className="mt-1 text-sm"
+                        value={adminNote} onChange={e => setAdminNote(e.target.value)} />
+                    </div>
+                    {trackingNumber && (
+                      <div className="bg-orange-50 border border-orange-100 rounded-lg px-3 py-2 text-xs text-orange-700">
+                        ⚠️ 填写运单号后，所有关联订单将同步更新为"已发货"。
+                      </div>
+                    )}
+                    <Button size="sm" className="bg-red-600 hover:bg-red-700 w-full"
+                      onClick={handleAdminShip} disabled={saving || !trackingNumber}>
+                      <Truck className="w-3.5 h-3.5 mr-1.5" />
+                      {saving ? "保存中..." : "确认发货"}
+                    </Button>
+                  </>
+                )}
+
+                {/* shipped / delivered: read-only info */}
+                {(pool.status === "shipped" || pool.status === "delivered") && (
+                  <div className="text-sm text-gray-500 text-center py-2">
+                    {pool.status === "shipped" ? "📦 已发货" : "✅ 已签收"}
+                    {pool.tracking_number && <span className="ml-2 font-mono text-gray-700">{pool.tracking_number}</span>}
                   </div>
                 )}
-                <Button size="sm" className="bg-red-600 hover:bg-red-700 w-full"
-                  onClick={handleAdminSave} disabled={saving}>
-                  <Truck className="w-3.5 h-3.5 mr-1.5" />
-                  {saving ? "保存中..." : "保存"}
-                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* User payment panel — shown when pool is awaiting_payment */}
+          {!isAdmin && pool.status === "awaiting_payment" && (
+            <div className="border border-orange-200 rounded-xl overflow-hidden">
+              <div className="bg-orange-50 px-4 py-2.5 border-b border-orange-200 flex items-center gap-2">
+                <CreditCard className="w-4 h-4 text-orange-600" />
+                <span className="text-sm font-medium text-orange-700">运费待付款</span>
+              </div>
+              <div className="p-4 space-y-3">
+                {pool.payment_status === "awaiting_confirmation" ? (
+                  <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2.5 text-sm text-blue-700">
+                    ✅ 付款信息已提交，等待管理员确认中。
+                  </div>
+                ) : (
+                  <>
+                    <div className="bg-yellow-50 border border-yellow-100 rounded-lg px-3 py-2.5">
+                      <p className="text-sm font-medium text-yellow-800">
+                        运费：<span className="text-lg font-bold text-orange-600">¥{Math.round(pool.shipping_fee_jpy || 0).toLocaleString()}</span>
+                        <span className="text-xs text-yellow-600 ml-1">(JPY)</span>
+                      </p>
+                      {pool.admin_packing_note && (
+                        <p className="text-xs text-yellow-700 mt-1">{pool.admin_packing_note}</p>
+                      )}
+                    </div>
+                    <div>
+                      <Label className="text-xs text-gray-500 font-medium mb-2 block">选择支付方式</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[
+                          { value: "alipay", label: "支付宝" },
+                          { value: "wechatpay", label: "微信支付" },
+                          { value: "bank_transfer", label: "银行转账" },
+                          { value: "other", label: "其他" },
+                        ].map(m => (
+                          <button key={m.value} type="button"
+                            onClick={() => { setPaymentMethod(m.value); setAlipayUrl(null); }}
+                            className={`p-2.5 rounded-lg border-2 text-sm font-medium transition-all ${paymentMethod === m.value ? "border-orange-500 bg-orange-50 text-orange-700" : "border-gray-200 text-gray-500 hover:border-gray-300"}`}>
+                            {m.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {paymentMethod === "alipay" && (
+                      <div className="space-y-2">
+                        {!alipayUrl ? (
+                          <Button className="w-full bg-blue-600 hover:bg-blue-700"
+                            onClick={handleGenerateAlipay} disabled={generatingAlipay}>
+                            {generatingAlipay
+                              ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />生成付款链接中...</>
+                              : <><ExternalLink className="w-4 h-4 mr-2" />生成支付宝付款链接</>}
+                          </Button>
+                        ) : (
+                          <div className="space-y-2">
+                            <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700 flex items-center gap-2">
+                              <CheckCircle className="w-4 h-4" />付款链接已生成，已自动在新标签打开
+                            </div>
+                            <a href={alipayUrl} target="_blank" rel="noopener noreferrer"
+                              className="flex items-center justify-center gap-2 w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 rounded-md transition-colors">
+                              <ExternalLink className="w-4 h-4" />重新打开支付宝付款页
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {paymentMethod && paymentMethod !== "alipay" && (
+                      <div className="space-y-2">
+                        <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-500 text-center">
+                          请联系客服获取收款账号，完成付款后上传凭证
+                        </div>
+                        <label className="cursor-pointer block">
+                          <div className={`flex flex-col items-center gap-1.5 px-3 py-5 border-2 border-dashed rounded-lg text-sm transition-colors ${uploadingProof ? "border-blue-200 bg-blue-50 text-blue-500" : "border-gray-200 text-gray-400 hover:border-orange-300 hover:text-orange-500"}`}>
+                            {uploadingProof
+                              ? <><Loader2 className="w-5 h-5 animate-spin" /><span>上传中...</span></>
+                              : <><Upload className="w-5 h-5" /><span>点击上传付款凭证</span></>}
+                          </div>
+                          <input type="file" accept="image/*" className="hidden"
+                            onChange={e => { const f = e.target.files[0]; if (f) handleUploadProof(f); }}
+                            disabled={uploadingProof} />
+                        </label>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             </div>
           )}

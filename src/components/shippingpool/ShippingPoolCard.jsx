@@ -1,4 +1,4 @@
-import { Calendar, Package, Scale, MapPin, Truck, DollarSign, User, Layers, ChevronRight, AlertCircle, MessageCircle } from "lucide-react";
+import { Calendar, Package, Scale, MapPin, Truck, DollarSign, User, Layers, ChevronRight, AlertCircle, MessageCircle, CreditCard } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getCountry } from "@/lib/countries";
 
@@ -26,11 +26,14 @@ function PackagesSummary({ orderIds, orderNames }) {
 }
 
 const STATUS_CONFIG = {
-  pending: { label: "待处理", color: "bg-amber-100 text-amber-700" },
-  processing: { label: "处理中", color: "bg-blue-100 text-blue-700" },
-  shipped: { label: "已发货", color: "bg-green-100 text-green-700" },
-  delivered: { label: "已签收", color: "bg-emerald-100 text-emerald-700" },
-  cancelled: { label: "已取消", color: "bg-red-100 text-red-600" }
+  pending:          { label: "待处理",   color: "bg-amber-100 text-amber-700" },
+  awaiting_payment: { label: "待付款",   color: "bg-orange-100 text-orange-700" },
+  ready_to_ship:    { label: "待发货",   color: "bg-blue-100 text-blue-700" },
+  shipped:          { label: "已发货",   color: "bg-green-100 text-green-700" },
+  delivered:        { label: "已签收",   color: "bg-emerald-100 text-emerald-700" },
+  cancelled:        { label: "已取消",   color: "bg-red-100 text-red-600" },
+  // legacy compat
+  processing:       { label: "处理中",   color: "bg-blue-100 text-blue-700" },
 };
 
 const METHOD_LABELS = {
@@ -75,6 +78,14 @@ export default function ShippingPoolCard({ pool, onClick, pendingEditCount = 0, 
               
               {pool.status === "pending" && pool.asap &&
               <Badge className="text-xs bg-orange-100 text-orange-600 border-orange-200">⚡ 尽快</Badge>
+              }
+              {pool.status === "awaiting_payment" && pool.shipping_fee_jpy > 0 &&
+              <Badge className="text-xs bg-orange-100 text-orange-700 border-orange-200">
+                <CreditCard className="w-2.5 h-2.5 mr-1 inline" />¥{Math.round(pool.shipping_fee_jpy).toLocaleString()} 待付
+              </Badge>
+              }
+              {pool.status === "ready_to_ship" &&
+              <Badge className="text-xs bg-blue-100 text-blue-700 border-blue-200">等待发货</Badge>
               }
               {pool.tracking_number &&
               <span className="text-xs font-mono text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
