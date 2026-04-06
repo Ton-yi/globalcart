@@ -7,7 +7,7 @@
  *
  * Shows full per-user fee breakdown using calcFeeBreakdownPerUser.
  */
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { shippingPoolApi, updateOrder } from "@/lib/tenantApi";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CreditCard, Truck, CheckCircle, ExternalLink, X, Plus, Loader2 } from "lucide-react";
 import { calcFeeBreakdownPerUser } from "@/lib/shippingFeeCalc";
+import { getExchangeRates } from "@/lib/exchangeRates";
 import ShippingFeeBreakdown from "@/components/shippingpool/ShippingFeeBreakdown";
 
 const STATUS_CONFIG = {
@@ -56,6 +57,11 @@ export default function AdminShippingInfoPanel({
   const [pool, setPool] = useState(initialPool);
   const [saving, setSaving] = useState(false);
   const [confirmingSaving, setConfirmingSaving] = useState(false);
+  const [exchangeRates, setExchangeRates] = useState(null);
+
+  useEffect(() => {
+    getExchangeRates().then(rates => setExchangeRates(rates)).catch(() => {});
+  }, []);
 
   // Form fields
   const [trackingNumber, setTrackingNumber] = useState(pool.tracking_number || "");
@@ -79,14 +85,11 @@ export default function AdminShippingInfoPanel({
   const boxPrice = selectedBox?.price_jpy || 0;
   const totalPackingFee = packingFeesPerUser.reduce((s, u) => s + (parseFloat(u.fee_jpy) || 0), 0);
 
-  // Grand total for button display: shipping + box + packing
-  const grandTotalJpy = (parseFloat(shippingFeeJpy) || 0) + boxPrice + totalPackingFee;
-
   // Resolve transit location and shipping method from pool
   const transitLocation = transitLocations.find(l => l.id === pool.transit_location_id) || null;
   const transitShippingMethod = transitShippingMethods.find(m => m.id === pool.transit_shipping_method_id) || null;
 
-  // Live fee breakdown calculation
+  // Live fee breakdown calculation (includes packing fees, transit fees with currency conversion)
   const feeBreakdowns = useMemo(() => {
     if (orders.length === 0) return [];
     return calcFeeBreakdownPerUser({
@@ -97,8 +100,12 @@ export default function AdminShippingInfoPanel({
       packingFeesPerUser,
       transitLocation,
       transitShippingMethod,
+      exchangeRates,
     });
-  }, [orders, shippingFeeJpy, boxPrice, packingFeesPerUser, pool.selected_addons, pool.transit_location_id, pool.transit_shipping_method_id]);
+  }, [orders, shippingFeeJpy, boxPrice, packingFeesPerUser, pool.selected_addons, pool.transit_location_id, pool.transit_shipping_method_id, exchangeRates]);
+
+  // Grand total = sum of all users' total_jpy from the live breakdown
+  const grandTotalJpy = feeBreakdowns.reduce((s, b) => s + (b.total_jpy || 0), 0);
 
   const buildUpdatePayload = () => {
     const btId = boxTemplateId === "none" ? "" : boxTemplateId;
@@ -110,6 +117,7 @@ export default function AdminShippingInfoPanel({
       packingFeesPerUser,
       transitLocation,
       transitShippingMethod,
+      exchangeRates,
     });
     return {
       tracking_number: trackingNumber,

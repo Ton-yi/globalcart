@@ -23,6 +23,7 @@
  * @param {Array}  params.packingFeesPerUser - [{user_email, fee_jpy}]
  * @param {object|null} params.transitLocation - TransitLocation record (for handling_fee)
  * @param {object|null} params.transitShippingMethod - TransitShippingMethod record (for fee)
+ * @param {object} params.exchangeRates - {jpy_cny, jpy_usd, ...} for currency conversion
  * @returns {Array} [{user_email, items: [{label, amount_jpy}], personal_total_jpy, shared_jpy, total_jpy}]
  */
 export function calcFeeBreakdownPerUser({
@@ -33,6 +34,7 @@ export function calcFeeBreakdownPerUser({
   packingFeesPerUser = [],
   transitLocation = null,
   transitShippingMethod = null,
+  exchangeRates = null,
 }) {
   const isConsolidation = pool.consolidation_type === "transit" || pool.consolidation_type === "other";
   const totalWeightG = orders.reduce((s, o) => s + (o.weight_g || 0), 0);
@@ -45,21 +47,28 @@ export function calcFeeBreakdownPerUser({
     userOrderMap[email].push(order);
   }
 
+  // If packingFeesPerUser uses "__all__" (single user shorthand), expand to all users
+  const expandedPackingFees = expandPackingFees(packingFeesPerUser, Object.keys(userOrderMap));
+
   // Selected addons from pool (stored as [{id, name, fee, fee_currency}])
   const selectedAddons = pool.selected_addons || [];
   const totalAddonFeeJpy = selectedAddons.reduce((s, a) => s + (parseFloat(a.fee) || 0), 0);
 
-  // Transit location handling fee (JPY, per user)
-  const transitHandlingFee = transitLocation?.handling_fee || 0;
+  // Transit location handling fee — convert to JPY if needed
+  const transitHandlingFee = convertToJpy(
+    transitLocation?.handling_fee || 0,
+    transitLocation?.handling_fee_currency || "JPY",
+    exchangeRates
+  );
 
-  // Transit shipping method fee
-  const transitShippingFee = calcTransitShippingFee(transitShippingMethod);
+  // Transit shipping method fee — convert to JPY based on its fee_currency
+  const transitShippingFee = calcTransitShippingFeeJpy(transitShippingMethod, exchangeRates);
 
   const result = [];
 
   for (const [email, userOrders] of Object.entries(userOrderMap)) {
     const userWeightG = userOrders.reduce((s, o) => s + (o.weight_g || 0), 0);
-    const packingEntry = packingFeesPerUser.find(p => p.user_email === email);
+    const packingEntry = expandedPackingFees.find(p => p.user_email === email);
     const packingFee = parseFloat(packingEntry?.fee_jpy) || 0;
 
     // Item size extra fees sum for this user's orders
@@ -130,18 +139,54 @@ export function calcFeeBreakdownPerUser({
 }
 
 /**
- * Calculate transit shipping method fee (JPY).
- * Uses simple_rates[0] first weight fee as a base estimate.
+ * Expand "__all__" packing fee shorthand to all user emails.
  */
-function calcTransitShippingFee(method) {
+function expandPackingFees(packingFeesPerUser, userEmails) {
+  if (packingFeesPerUser.length === 0) return [];
+  // If single entry with __all__, apply same fee to every user
+  if (packingFeesPerUser.length === 1 && packingFeesPerUser[0].user_email === "__all__") {
+    const fee = packingFeesPerUser[0].fee_jpy;
+    return userEmails.map(email => ({ user_email: email, fee_jpy: fee }));
+  }
+  return packingFeesPerUser;
+}
+
+/**
+ * Convert an amount in the given currency to JPY using provided exchange rates.
+ * Falls back to the amount as-is (assumed JPY) if no rates available.
+ */
+function convertToJpy(amount, currency, exchangeRates) {
+  if (!amount || amount === 0) return 0;
+  if (!currency || currency === "JPY") return parseFloat(amount) || 0;
+  if (!exchangeRates) return parseFloat(amount) || 0; // fallback: treat as JPY
+  const rateKey = `jpy_${currency.toLowerCase()}`;
+  const rate = exchangeRates[rateKey];
+  if (!rate || rate === 0) return parseFloat(amount) || 0;
+  // rate is jpy→foreign, so foreign→jpy = amount / rate
+  return Math.round((parseFloat(amount) || 0) / rate);
+}
+
+/**
+ * Calculate transit shipping method fee in JPY.
+ * Converts from fee_currency to JPY using exchange rates.
+ */
+function calcTransitShippingFeeJpy(method, exchangeRates) {
   if (!method) return 0;
+  let rawFee = 0;
   if (method.rate_mode === "fixed") {
-    return parseFloat(method.fee) || 0;
+    rawFee = parseFloat(method.fee) || 0;
+  } else {
+    // Simple rate: use first rate's first_weight_fee as a base estimate
+    const rates = method.simple_rates || [];
+    if (rates.length > 0) {
+      const r = rates[0];
+      // Use the rate's own currency if available
+      const rateFee = parseFloat(r.first_weight_fee) || 0;
+      const rateCurrency = r.currency || method.fee_currency || "JPY";
+      return convertToJpy(rateFee, rateCurrency, exchangeRates);
+    }
+    rawFee = parseFloat(method.fee) || 0;
   }
-  // Simple rate: use first rate's first_weight_fee as a base
-  const rates = method.simple_rates || [];
-  if (rates.length > 0) {
-    return parseFloat(rates[0].first_weight_fee) || 0;
-  }
-  return parseFloat(method.fee) || 0;
+  const currency = method.fee_currency || "JPY";
+  return convertToJpy(rawFee, currency, exchangeRates);
 }
