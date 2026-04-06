@@ -171,12 +171,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
   // User: generate Alipay payment link for shipping fee
   const handleGenerateAlipay = async () => {
     setGeneratingAlipay(true);
-    const res = await base44.functions.invoke("generateAlipayPaymentLink", {
-      orderId: pool.id,
-      amount: pool.shipping_fee_jpy,
-      currency: "JPY",
-      subject: `同一物流运费 - ${pool.pool_code || pool.id.slice(-6)}`,
-      paymentType: "shipping_pool",
+    const res = await base44.functions.invoke("generateAlipayShippingPoolPayment", {
       poolId: pool.id,
     });
     const url = res.data?.paymentUrl;
@@ -184,7 +179,6 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
     setGeneratingAlipay(false);
     if (url) {
       window.open(url, "_blank");
-      await shippingPoolApi.update(pool.id, { payment_status: "awaiting_confirmation", payment_method: "alipay" });
       setPool(p => ({ ...p, payment_status: "awaiting_confirmation", payment_method: "alipay" }));
     }
   };
@@ -689,6 +683,66 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                 <span className="text-sm font-medium text-orange-700">运费待付款</span>
               </div>
               <div className="p-4 space-y-3">
+                {/* Shipping info filled by admin */}
+                <div className="bg-gray-50 border border-gray-100 rounded-lg p-3 space-y-2.5 text-sm">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">发货信息</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {pool.final_weight_g > 0 && (
+                      <div>
+                        <p className="text-xs text-gray-400">最终总重量</p>
+                        <p className="font-medium text-gray-800">{pool.final_weight_g}g</p>
+                      </div>
+                    )}
+                    {pool.box_template_name && (
+                      <div>
+                        <p className="text-xs text-gray-400">外箱</p>
+                        <p className="font-medium text-gray-800">{pool.box_template_name}</p>
+                      </div>
+                    )}
+                    {pool.shipping_method && (
+                      <div>
+                        <p className="text-xs text-gray-400">运输方式</p>
+                        <p className="font-medium text-gray-800">{METHOD_LABELS[pool.shipping_method] || pool.shipping_method}</p>
+                      </div>
+                    )}
+                    {pool.transit_location_name && (
+                      <div>
+                        <p className="text-xs text-gray-400">中转地</p>
+                        <p className="font-medium text-gray-800">{pool.transit_location_name}</p>
+                      </div>
+                    )}
+                  </div>
+                  {pool.admin_packing_note && (
+                    <p className="text-xs text-gray-600 bg-white border border-gray-100 rounded px-2 py-1.5 whitespace-pre-wrap">{pool.admin_packing_note}</p>
+                  )}
+                  {/* Packing images */}
+                  {(pool.packing_image_urls || []).length > 0 && (
+                    <div>
+                      <p className="text-xs text-gray-400 mb-1.5">捆包图片</p>
+                      <div className="flex flex-wrap gap-2">
+                        {pool.packing_image_urls.map((url, i) => (
+                          <a key={i} href={url} target="_blank" rel="noopener noreferrer">
+                            <img src={url} alt="" className="w-16 h-16 rounded object-cover border border-gray-200 hover:opacity-80 transition-opacity" />
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {/* Label images */}
+                  {(pool.label_image_urls || []).length > 0 && (
+                    <div>
+                      <p className="text-xs text-gray-400 mb-1.5">发货面单</p>
+                      <div className="flex flex-wrap gap-2">
+                        {pool.label_image_urls.map((url, i) => (
+                          <a key={i} href={url} target="_blank" rel="noopener noreferrer">
+                            <img src={url} alt="" className="w-16 h-16 rounded object-cover border border-gray-200 hover:opacity-80 transition-opacity" />
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {pool.payment_status === "awaiting_confirmation" ? (
                   <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2.5 text-sm text-blue-700">
                     ✅ 付款信息已提交，等待管理员确认中。
@@ -711,9 +765,6 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                           运费：<span className="text-lg font-bold text-orange-600">¥{Math.round(pool.shipping_fee_jpy || 0).toLocaleString()}</span>
                           <span className="text-xs text-yellow-600 ml-1">(JPY)</span>
                         </p>
-                        {pool.admin_packing_note && (
-                          <p className="text-xs text-yellow-700 mt-1">{pool.admin_packing_note}</p>
-                        )}
                       </div>
                     )}
                     <div>
