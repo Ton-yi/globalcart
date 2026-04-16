@@ -520,7 +520,7 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
                   <div>
                     <Label className="text-xs">货品重量 (g)（默认100g）</Label>
                     <Input type="number" placeholder="100" value={form.weight_g || ""}
-                      onChange={e => f("weight_g", e.target.value)} className="mt-1" />
+                      onChange={e => f("weight_g", e.target.value)} className="mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
                   </div>
 
                   {itemSizeTemplates.length > 0 && (

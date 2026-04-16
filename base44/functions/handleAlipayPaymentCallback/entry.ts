@@ -166,10 +166,6 @@ Deno.serve(async (req) => {
           order_status: 'ready_to_ship',
           alipay_transaction_id: trade_no,
           payment_method: 'alipay',
-          admin_note: [
-            order.admin_note,
-            `运费支付宝自动确认 | 买家:${buyer_logon_id || '-'} | 流水号:${trade_no} | ${new Date().toISOString()}`
-          ].filter(Boolean).join('\n'),
         };
       } else {
         updates = {
@@ -178,10 +174,6 @@ Deno.serve(async (req) => {
           paid_amount: (order.prepayment_amount || 0),
           alipay_transaction_id: trade_no,
           payment_method: 'alipay',
-          admin_note: [
-            order.admin_note,
-            `支付宝自动确认 | 买家:${buyer_logon_id || '-'} | 流水号:${trade_no} | ${new Date().toISOString()}`
-          ].filter(Boolean).join('\n'),
         };
       }
       console.log(`[DIAG][handleAlipayPaymentCallback] updating order ${order.id}: status ${order.order_status} → ${updates.order_status}, payment ${order.payment_status} → ${updates.payment_status}`);

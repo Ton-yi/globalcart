@@ -207,12 +207,16 @@ export default function MyOrders() {
     }
   }, [user, authLoading]);
 
-  // On Alipay return: retry fetch after 2s in case the first fetch ran before auth token was ready
+  // On Alipay return: the page was fully reloaded, so auth may not be ready on first render.
+  // We wait for user to be ready, then fetch. Also retry once after 3s for the callback to settle.
   useEffect(() => {
     if (!isAlipayReturn || !user) return;
-    const timer = setTimeout(() => fetchOrders(user), 2000);
+    // Immediate fetch (user is now ready)
+    fetchOrders(user);
+    // Retry after 3s in case alipay callback hasn't updated the order yet
+    const timer = setTimeout(() => fetchOrders(user), 3000);
     return () => clearTimeout(timer);
-  }, [isAlipayReturn, user]);
+  }, [isAlipayReturn, user?.email]);
 
   const handleColumnsChange = (newCols) => {
     setColumns(newCols);

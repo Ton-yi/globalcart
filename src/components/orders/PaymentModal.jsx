@@ -88,7 +88,8 @@ export default function PaymentModal({ order, mode = "prepay", onClose, onSucces
     const url = res.data?.paymentUrl;
     setAlipayUrl(url);
     setGenerating(false);
-    if (url) window.open(url, "_blank");
+    // Navigate current tab to alipay — return_url will bring user back to MyOrders
+    if (url) window.location.href = url;
   };
 
   // For non-alipay: manual confirm
@@ -213,33 +214,15 @@ export default function PaymentModal({ order, mode = "prepay", onClose, onSucces
           {/* Alipay flow */}
           {method === "alipay" && (
             <div className="space-y-3">
-              {!alipayUrl ? (
-                <Button className="w-full bg-blue-600 hover:bg-blue-700"
-                  onClick={handleGenerateAlipay} disabled={generating || !paidAmount}>
-                  {generating
-                    ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />生成付款链接中...</>
-                    : <><ExternalLink className="w-4 h-4 mr-2" />生成支付宝付款链接</>}
-                </Button>
-              ) : (
-                <div className="space-y-3">
-                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                    <div className="flex items-center gap-2 text-green-700 text-sm font-medium mb-2">
-                      <CheckCircle className="w-4 h-4" />付款链接已生成，已自动在新标签打开
-                    </div>
-                    <a href={alipayUrl} target="_blank" rel="noopener noreferrer"
-                      className="flex items-center justify-center gap-2 w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 rounded-md transition-colors">
-                      <ExternalLink className="w-4 h-4" />重新打开支付宝付款页
-                    </a>
-                  </div>
-                  <p className="text-xs text-gray-400 text-center">
-                    支付宝付款成功后系统将自动更新订单状态，无需手动确认
-                  </p>
-                  <Button variant="outline" size="sm" className="w-full text-xs"
-                    onClick={() => { setAlipayUrl(null); }}>
-                    重新生成链接
-                  </Button>
-                </div>
-              )}
+              <Button className="w-full bg-blue-600 hover:bg-blue-700"
+                onClick={handleGenerateAlipay} disabled={generating || !paidAmount}>
+                {generating
+                  ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />跳转支付宝中...</>
+                  : <><ExternalLink className="w-4 h-4 mr-2" />前往支付宝付款</>}
+              </Button>
+              <p className="text-xs text-gray-400 text-center">
+                点击后将跳转至支付宝，付款成功后自动返回订单页面
+              </p>
             </div>
           )}
 

@@ -17,6 +17,30 @@
 import CountrySelect from "@/components/common/CountrySelect";
 import { Input } from "@/components/ui/input";
 
+// Map country code → phone dial code
+const COUNTRY_PHONE_CODES = {
+  CN: "+86", TW: "+886", KR: "+82", HK: "+852", MO: "+853",
+  JP: "+81", US: "+1", CA: "+1", MX: "+52",
+  AU: "+61", NZ: "+64",
+  GB: "+44", DE: "+49", FR: "+33", IT: "+39", ES: "+34",
+  NL: "+31", BE: "+32", AT: "+43", CH: "+41", SE: "+46",
+  NO: "+47", DK: "+45", FI: "+358", PL: "+48", PT: "+351",
+  RU: "+7", UA: "+380", CZ: "+420", SK: "+421", HU: "+36",
+  RO: "+40", BG: "+359", HR: "+385", GR: "+30", IE: "+353",
+  TR: "+90", IL: "+972", SA: "+966", AE: "+971", QA: "+974",
+  KW: "+965", OM: "+968", BH: "+973", JO: "+962", LB: "+961",
+  IN: "+91", ID: "+62", TH: "+66", VN: "+84", MY: "+60",
+  SG: "+65", PH: "+63", PK: "+92", BD: "+880", NP: "+977",
+  LK: "+94", MM: "+95", MN: "+976",
+  BR: "+55", AR: "+54", CL: "+56", CO: "+57", PE: "+51",
+  VE: "+58", MX: "+52",
+  ZA: "+27", EG: "+20", NG: "+234", KE: "+254",
+};
+
+function getPhoneCode(countryCode) {
+  return COUNTRY_PHONE_CODES[countryCode] || "";
+}
+
 function FieldLabel({ jp, zh, required = true }) {
   return (
     <label className="block mb-1">
@@ -61,6 +85,8 @@ export function isAddressFormValid(v) {
 
 export default function AddressForm({ value, onChange, className = "" }) {
   const f = (k, v) => onChange({ ...value, [k]: v });
+
+  const phoneCode = getPhoneCode(value.country);
 
   return (
     <div className={`space-y-3 ${className}`}>
@@ -133,12 +159,19 @@ export default function AddressForm({ value, onChange, className = "" }) {
       {/* 連絡先電話番号 */}
       <div>
         <FieldLabel jp="連絡先電話番号" zh="联系方式" required />
-        <Input
-          className="h-8 text-sm bg-white"
-          placeholder="例：+86 138 0000 0000"
-          value={value.phone || ""}
-          onChange={e => f("phone", e.target.value)}
-        />
+        <div className="flex items-center gap-2">
+          {phoneCode && (
+            <div className="flex-shrink-0 h-8 px-2.5 flex items-center rounded-md border border-input bg-muted text-sm text-gray-600 font-medium select-none">
+              {phoneCode}
+            </div>
+          )}
+          <Input
+            className="h-8 text-sm bg-white flex-1"
+            placeholder="例：138 0000 0000"
+            value={value.phone || ""}
+            onChange={e => f("phone", e.target.value)}
+          />
+        </div>
       </div>
     </div>
   );

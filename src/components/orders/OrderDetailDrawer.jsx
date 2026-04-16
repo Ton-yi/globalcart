@@ -184,8 +184,8 @@ export default function OrderDetailDrawer({ order, currentUser, initialUserPrefe
             )}
           </div>
 
-          {/* Notes */}
-          {order.admin_note && (
+          {/* Notes - hide alipay auto-confirm system notes */}
+          {order.admin_note && !order.admin_note.includes("支付宝自动确认") && (
             <div className="bg-yellow-50 border border-yellow-100 rounded-lg px-3 py-2.5">
               <div className="text-xs text-yellow-600 font-medium mb-0.5">客服备注</div>
               <p className="text-sm text-yellow-800 whitespace-pre-wrap">{order.admin_note}</p>
