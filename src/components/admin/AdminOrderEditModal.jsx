@@ -464,13 +464,23 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
               {(status === "paid" || status === "pending_purchase") && (
                 <div className="space-y-3 border border-indigo-100 rounded-xl p-3 bg-indigo-50">
                   <div className="text-sm font-medium text-indigo-800">待下单 — 完成购买后上传截图</div>
-                  <label className="cursor-pointer block">
+                  <label
+                    className="cursor-pointer block"
+                    onDragOver={e => e.preventDefault()}
+                    onDrop={e => {
+                      e.preventDefault();
+                      const file = e.dataTransfer.files[0];
+                      if (file && file.type.startsWith("image/")) uploadFile(file, setPurchaseScreenshot, setUploadingScreenshot);
+                    }}
+                  >
                     <div className={`flex items-center justify-center gap-2 border-2 border-dashed rounded-lg p-3 text-sm transition-colors ${
-                      purchaseScreenshot ? "border-green-300 bg-green-50 text-green-700" : "border-indigo-200 bg-white text-gray-400"
+                      purchaseScreenshot ? "border-green-300 bg-green-50 text-green-700" : uploadingScreenshot ? "border-blue-200 bg-blue-50 text-blue-500" : "border-indigo-200 bg-white text-gray-400 hover:border-indigo-400"
                     }`}>
                       {purchaseScreenshot
-                        ? <><CheckCircle className="w-4 h-4" />截图已上传</>
-                        : <><Upload className="w-4 h-4" />{uploadingScreenshot ? "上传中..." : "上传购买截图（可选）"}</>}
+                        ? <><CheckCircle className="w-4 h-4" />截图已上传，点击或拖拽可更换</>
+                        : uploadingScreenshot
+                        ? <><Loader2 className="w-4 h-4 animate-spin" />上传中...</>
+                        : <><Upload className="w-4 h-4" />点击或拖拽上传购买截图（可选）</>}
                     </div>
                     <input type="file" accept="image/*" className="hidden"
                       onChange={e => uploadFile(e.target.files[0], setPurchaseScreenshot, setUploadingScreenshot)} />
@@ -520,7 +530,9 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
                   <div>
                     <Label className="text-xs">货品重量 (g)（默认100g）</Label>
                     <Input type="number" placeholder="100" value={form.weight_g || ""}
-                      onChange={e => f("weight_g", e.target.value)} className="mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                      onChange={e => f("weight_g", e.target.value)}
+                      onWheel={e => e.target.blur()}
+                      className="mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
                   </div>
 
                   {itemSizeTemplates.length > 0 && (

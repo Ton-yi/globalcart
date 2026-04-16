@@ -35,6 +35,7 @@ export default function AdminShippingInfoPanel({
   pool: initialPool,
   orders = [],
   boxTemplates = [],
+  shippingMethods = [],
   defaultPackingFeeSingle = 0,
   defaultPackingFeeConsolidation = 0,
   transitLocations = [],
@@ -68,6 +69,7 @@ export default function AdminShippingInfoPanel({
   const [boxTemplateId, setBoxTemplateId] = useState(pool.box_template_id || "none");
   const [finalWeightG, setFinalWeightG] = useState(pool.final_weight_g?.toString() || pool.total_weight_g?.toString() || "");
   const [shippingFeeJpy, setShippingFeeJpy] = useState(pool.shipping_fee_jpy?.toString() || "");
+  const [feeAutoCalced, setFeeAutoCalced] = useState(false);
   const [packingFeesPerUser, setPackingFeesPerUser] = useState(initPackingFeesPerUser);
   const [adminNote, setAdminNote] = useState(pool.admin_note || "");
   const [adminPackingNote, setAdminPackingNote] = useState(pool.admin_packing_note || "");
@@ -84,6 +86,38 @@ export default function AdminShippingInfoPanel({
   const boxWeight = selectedBox?.weight_g || 0;
   const boxPrice = selectedBox?.price_jpy || 0;
   const totalPackingFee = packingFeesPerUser.reduce((s, u) => s + (parseFloat(u.fee_jpy) || 0), 0);
+
+  // Find the shipping method matching pool's shipping_method code
+  const matchedShippingMethod = shippingMethods.find(m =>
+    m.code === pool.shipping_method || m.name === pool.shipping_method
+  ) || null;
+
+  // Auto-calculate shipping fee from weight using the matched shipping method's rates
+  const calcFeeFromWeight = (weightG) => {
+    if (!matchedShippingMethod || !pool.destination_country) return null;
+    const country = pool.destination_country;
+    if (matchedShippingMethod.rate_mode === "detailed") {
+      const rates = (matchedShippingMethod.detailed_rates || []).filter(r => r.country === country);
+      if (rates.length === 0) return null;
+      const bracket = rates.find(r => weightG >= r.weight_from_g && weightG <= r.weight_to_g);
+      if (!bracket) return null;
+      const fee = Math.round(parseFloat(bracket.fee) || 0);
+      const currency = bracket.currency || "JPY";
+      return { fee, currency };
+    } else {
+      const rates = (matchedShippingMethod.simple_rates || []).filter(r => r.country === country);
+      if (rates.length === 0) return null;
+      const r = rates[0];
+      const firstWeightG = parseFloat(r.first_weight_g) || 0;
+      const firstFee = parseFloat(r.first_weight_fee) || 0;
+      const addUnitG = parseFloat(r.additional_unit_g) || 0;
+      const addUnitFee = parseFloat(r.additional_unit_fee) || 0;
+      if (weightG <= firstWeightG) return { fee: Math.round(firstFee), currency: r.currency || "JPY" };
+      if (addUnitG <= 0) return { fee: Math.round(firstFee), currency: r.currency || "JPY" };
+      const extra = Math.ceil((weightG - firstWeightG) / addUnitG) * addUnitFee;
+      return { fee: Math.round(firstFee + extra), currency: r.currency || "JPY" };
+    }
+  };
 
   // Resolve transit location and shipping method from pool
   const transitLocation = transitLocations.find(l => l.id === pool.transit_location_id) || null;
@@ -279,28 +313,39 @@ export default function AdminShippingInfoPanel({
           <div>
             <Label className="text-xs text-gray-500">外箱选择</Label>
             <Select value={boxTemplateId} onValueChange={setBoxTemplateId}>
-              <SelectTrigger className="mt-1 h-8 text-sm">
-                <SelectValue placeholder="未使用外箱" />
+              <SelectTrigger className="mt-1 h-auto min-h-8 text-sm py-1.5">
+                {boxTemplateId === "none" ? (
+                  <span className="text-gray-400">未使用外箱</span>
+                ) : selectedBox ? (
+                  <div className="flex items-center gap-2">
+                    {selectedBox.image_url && <img src={selectedBox.image_url} alt="" className="w-6 h-6 rounded object-cover border border-gray-100 flex-shrink-0" />}
+                    <span className="font-medium">{selectedBox.name}</span>
+                    {selectedBox.weight_g > 0 && <span className="text-gray-400 text-xs">{selectedBox.weight_g}g</span>}
+                    {selectedBox.price_jpy > 0 && <span className="text-orange-600 text-xs">¥{Math.round(selectedBox.price_jpy)}</span>}
+                  </div>
+                ) : <SelectValue />}
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">未使用外箱</SelectItem>
                 {boxTemplates.filter(b => b.is_active !== false).map(b => (
                   <SelectItem key={b.id} value={b.id}>
-                    {b.name}
-                    {b.weight_g > 0 && ` (${b.weight_g}g)`}
-                    {b.price_jpy > 0 && ` ¥${b.price_jpy}`}
+                    <div className="flex items-center gap-2 py-0.5">
+                      {b.image_url
+                        ? <img src={b.image_url} alt="" className="w-8 h-8 rounded object-cover border border-gray-100 flex-shrink-0" />
+                        : <div className="w-8 h-8 rounded bg-gray-100 flex-shrink-0" />}
+                      <div>
+                        <div className="font-medium text-sm">{b.name}</div>
+                        <div className="text-xs text-gray-400 flex gap-2">
+                          {b.weight_g > 0 && <span>自重 {b.weight_g}g</span>}
+                          {b.price_jpy > 0 && <span className="text-orange-600">¥{Math.round(b.price_jpy)}</span>}
+                          {b.description && <span>{b.description}</span>}
+                        </div>
+                      </div>
+                    </div>
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            {selectedBox && (
-              <div className="mt-1.5 flex items-center gap-2 text-xs text-gray-500">
-                {selectedBox.image_url && <img src={selectedBox.image_url} alt="" className="w-6 h-6 rounded object-cover border border-gray-100" />}
-                <span>{selectedBox.description}</span>
-                {boxWeight > 0 && <span className="text-gray-400">自重 {boxWeight}g</span>}
-                {boxPrice > 0 && <span className="text-orange-600">¥{boxPrice} JPY</span>}
-              </div>
-            )}
           </div>
 
           {/* Weight & shipping fee */}
@@ -308,13 +353,30 @@ export default function AdminShippingInfoPanel({
             <div>
               <Label className="text-xs text-gray-500">最终总重量 (g)</Label>
               <Input className="mt-1 h-8 text-sm" type="text" inputMode="decimal" placeholder={pool.total_weight_g || "0"}
-                value={finalWeightG} onChange={e => setFinalWeightG(e.target.value)} />
+                value={finalWeightG}
+                onChange={e => {
+                  const w = e.target.value;
+                  setFinalWeightG(w);
+                  // Auto-calc fee from weight if method has rates
+                  const wNum = parseFloat(w);
+                  if (!isNaN(wNum) && wNum > 0) {
+                    const calc = calcFeeFromWeight(wNum);
+                    if (calc && calc.currency === "JPY") {
+                      setShippingFeeJpy(String(calc.fee));
+                      setFeeAutoCalced(true);
+                    }
+                  }
+                }} />
               {boxWeight > 0 && <p className="text-xs text-gray-400 mt-0.5">含外箱 {boxWeight}g</p>}
             </div>
             <div>
-              <Label className="text-xs text-gray-500">国际运费 (JPY) *</Label>
+              <Label className="text-xs text-gray-500 flex items-center gap-1">
+                国际运费 (JPY) *
+                {feeAutoCalced && matchedShippingMethod && <span className="text-blue-500 font-normal">（按{matchedShippingMethod.name || pool.shipping_method}费率自动计算）</span>}
+              </Label>
               <Input className="mt-1 h-8 text-sm" type="text" inputMode="decimal" placeholder="0"
-                value={shippingFeeJpy} onChange={e => setShippingFeeJpy(e.target.value)} />
+                value={shippingFeeJpy}
+                onChange={e => { setShippingFeeJpy(e.target.value); setFeeAutoCalced(false); }} />
             </div>
           </div>
 

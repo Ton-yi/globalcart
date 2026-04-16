@@ -58,7 +58,7 @@ export default function PaymentModal({ order, mode = "prepay", onClose, onSucces
     ? `${title}金额：${Math.round(defaultAmount).toLocaleString()} yen`
     : cur === "CNY"
     ? `${title}金额：${Math.round(defaultAmount)} yuan`
-    : `${title}金额：${cur} ${parseFloat(defaultAmount || 0).toFixed(2)}`;
+    : `${title}金额：${cur} ${Math.round(defaultAmount)}`;
 
   const [method, setMethod] = useState("");
   const [paidAmount, setPaidAmount] = useState(String(defaultAmount));

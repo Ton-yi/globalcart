@@ -114,9 +114,14 @@ function CellValue({ col, order, onQuickOrdered, userAvatars }) {
       return <span className="text-sm text-gray-700">{order.weight_g ? `${order.weight_g}g` : "-"}</span>;
     case "order_status":
       return (
-        <Badge className={`text-xs ${getStatusColor(order.order_status, "admin")}`}>
-          {getStatusLabel(order.order_status, "admin")}
-        </Badge>
+        <div className="flex flex-col gap-0.5">
+          <Badge className={`text-xs ${getStatusColor(order.order_status, "admin")}`}>
+            {getStatusLabel(order.order_status, "admin")}
+          </Badge>
+          {order.order_status === "notified_shipment" && order.shipping_fee_amount > 0 && (
+            <Badge className="text-xs bg-orange-100 text-orange-700 w-fit">待付运费</Badge>
+          )}
+        </div>
       );
     case "product_image_url": {
       const imgW = col.imageWidth || 40;
@@ -500,6 +505,7 @@ export default function AdminOrders() {
           currentUser={user}
           pendingEditRequests={pendingEditRequests.filter(r => r.pool_id === selectedPool.id)}
           boxTemplates={boxTemplates}
+          shippingMethods={[]}
           transitLocations={transitLocations}
           transitShippingMethods={transitShippingMethods}
           defaultPackingFeeSingle={defaultPackingFeeSingle}

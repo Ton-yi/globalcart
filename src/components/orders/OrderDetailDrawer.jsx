@@ -127,7 +127,7 @@ export default function OrderDetailDrawer({ order, currentUser, initialUserPrefe
                 <div className="font-medium text-gray-800">
                   {order.prepayment_currency === "JPY"
                     ? `${Math.round(order.prepayment_amount).toLocaleString()} yen`
-                    : `${order.prepayment_currency} ${order.prepayment_amount?.toFixed(2)}`}
+                    : `${order.prepayment_currency} ${Math.round(order.prepayment_amount)}`}
                 </div>
               </div>
             )}
@@ -137,7 +137,7 @@ export default function OrderDetailDrawer({ order, currentUser, initialUserPrefe
                 <div className="font-medium text-green-700">
                   {order.prepayment_currency === "JPY"
                     ? `${Math.round(order.paid_amount).toLocaleString()} yen`
-                    : `${order.prepayment_currency} ${order.paid_amount?.toFixed(2)}`}
+                    : `${order.prepayment_currency} ${Math.round(order.paid_amount)}`}
                 </div>
               </div>
             )}

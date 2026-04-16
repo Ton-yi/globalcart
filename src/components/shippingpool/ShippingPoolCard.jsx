@@ -79,11 +79,17 @@ export default function ShippingPoolCard({ pool, onClick, pendingEditCount = 0, 
               {pool.status === "pending" && pool.asap &&
               <Badge className="text-xs bg-orange-100 text-orange-600 border-orange-200">⚡ 尽快</Badge>
               }
-              {pool.status === "awaiting_payment" && pool.shipping_fee_jpy > 0 &&
-              <Badge className="text-xs bg-orange-100 text-orange-700 border-orange-200">
-                <CreditCard className="w-2.5 h-2.5 mr-1 inline" />¥{Math.round(pool.shipping_fee_jpy).toLocaleString()} 待付
-              </Badge>
-              }
+              {pool.status === "awaiting_payment" && (() => {
+                // Use grand total from fee_breakdown_per_user if available, else shipping_fee_jpy
+                const breakdownTotal = (pool.fee_breakdown_per_user || []).reduce((s, b) => s + (b.total_jpy || 0), 0);
+                const displayAmt = breakdownTotal > 0 ? breakdownTotal : (pool.shipping_fee_jpy || 0);
+                if (displayAmt <= 0) return null;
+                return (
+                  <Badge className="text-xs bg-orange-100 text-orange-700 border-orange-200">
+                    <CreditCard className="w-2.5 h-2.5 mr-1 inline" />¥{Math.round(displayAmt).toLocaleString()} 待付
+                  </Badge>
+                );
+              })()}
               {pool.status === "ready_to_ship" &&
               <Badge className="text-xs bg-blue-100 text-blue-700 border-blue-200">等待发货</Badge>
               }
@@ -150,7 +156,7 @@ export default function ShippingPoolCard({ pool, onClick, pendingEditCount = 0, 
               <span>
                 {pool.actual_fee ?
               `JPY ${Math.round(pool.actual_fee).toLocaleString()}` :
-              `≈ ${pool.fee_currency || "CNY"} ${pool.estimated_fee?.toFixed(2)}`}
+              `≈ ${pool.fee_currency || "CNY"} ${Math.round(pool.estimated_fee)}`}
               </span>
             </div>
           }

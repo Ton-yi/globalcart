@@ -55,6 +55,7 @@ export default function AdminShippingPool() {
   const [addonOptions, setAddonOptions] = useState([]);
   const [pendingEditRequests, setPendingEditRequests] = useState([]);
   const [boxTemplates, setBoxTemplates] = useState([]);
+  const [shippingMethods, setShippingMethods] = useState([]);
   const [defaultPackingFeeSingle, setDefaultPackingFeeSingle] = useState(0);
   const [defaultPackingFeeConsolidation, setDefaultPackingFeeConsolidation] = useState(0);
 
@@ -70,6 +71,7 @@ export default function AdminShippingPool() {
     setAddonOptions(data.addonOptions || []);
     setPendingEditRequests(data.pendingEditRequests || []);
     setBoxTemplates(data.boxTemplates || []);
+    setShippingMethods(data.shippingMethods || []);
     setDefaultPackingFeeSingle(data.defaultPackingFeeSingle || 0);
     setDefaultPackingFeeConsolidation(data.defaultPackingFeeConsolidation || 0);
     setLoading(false);
@@ -439,6 +441,7 @@ export default function AdminShippingPool() {
           currentUser={user}
           pendingEditRequests={pendingEditRequests.filter(r => r.pool_id === selectedPool.id)}
           boxTemplates={boxTemplates}
+          shippingMethods={shippingMethods}
           defaultPackingFeeSingle={defaultPackingFeeSingle}
           defaultPackingFeeConsolidation={defaultPackingFeeConsolidation}
           transitLocations={locations}

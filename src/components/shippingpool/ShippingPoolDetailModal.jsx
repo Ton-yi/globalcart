@@ -33,7 +33,7 @@ const METHOD_LABELS = {
   surface: "海运", small_packet_air: "小包空运", other: "其他",
 };
 
-export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, currentUser, pendingEditRequests: initialPendingEdits = [], boxTemplates = [], defaultPackingFeeSingle = 0, defaultPackingFeeConsolidation = 0, transitLocations = [], transitShippingMethods = [], onClose, onUpdated }) {
+export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, currentUser, pendingEditRequests: initialPendingEdits = [], boxTemplates = [], shippingMethods = [], defaultPackingFeeSingle = 0, defaultPackingFeeConsolidation = 0, transitLocations = [], transitShippingMethods = [], onClose, onUpdated }) {
   const [pool, setPool] = useState(initialPool);
   const [orders, setOrders] = useState([]);
   const [messageText, setMessageText] = useState("");
@@ -401,7 +401,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
               <InfoBlock label="总重量" value={`${pool.total_weight_g}g`} />
             )}
             {pool.actual_fee && (
-              <InfoBlock label="实际运费" value={`${pool.fee_currency || "CNY"} ${pool.actual_fee}`} highlight />
+              <InfoBlock label="实际运费" value={`${pool.fee_currency || "JPY"} ${Math.round(pool.actual_fee).toLocaleString()}`} highlight />
             )}
             {pool.transit_location_name && (
               <InfoBlock label="中转地" value={pool.transit_location_name} />
@@ -668,6 +668,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
               pool={pool}
               orders={orders}
               boxTemplates={boxTemplates}
+              shippingMethods={shippingMethods}
               defaultPackingFeeSingle={defaultPackingFeeSingle}
               defaultPackingFeeConsolidation={defaultPackingFeeConsolidation}
               transitLocations={transitLocations}

@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
     const filter = isPlatformAdmin ? {} : { tenant_id: tenantId };
 
     const t1 = Date.now();
-    const [pools, locations, allUsers, transitMethods, addonOptions, editRequests, boxTemplates, siteSettings] = await Promise.all([
+    const [pools, locations, allUsers, transitMethods, addonOptions, editRequests, boxTemplates, siteSettings, shippingMethods] = await Promise.all([
       isPlatformAdmin
         ? base44.asServiceRole.entities.ShippingPool.list()
         : base44.asServiceRole.entities.ShippingPool.filter({ tenant_id: tenantId }),
@@ -72,6 +72,7 @@ Deno.serve(async (req) => {
         : base44.asServiceRole.entities.ShippingEditRequest.filter({ tenant_id: tenantId, status: 'pending' }),
       base44.asServiceRole.entities.BoxTemplate.filter(filter),
       base44.asServiceRole.entities.SiteSettings.filter(filter),
+      base44.asServiceRole.entities.ShippingMethod.filter(filter),
     ]);
     console.log(`[TIMING] getAdminShippingPoolPageData | 8x parallel queries: ${Date.now() - t1}ms`);
     console.log(`[TIMING] getAdminShippingPoolPageData | TOTAL: ${Date.now() - t0}ms`);
@@ -98,6 +99,7 @@ Deno.serve(async (req) => {
       addonOptions: (addonOptions || []).filter(a => a.addon_type === 'shipping' && a.is_active !== false),
       pendingEditRequests: editRequests || [],
       boxTemplates: (boxTemplates || []).filter(b => b.is_active !== false),
+      shippingMethods: (shippingMethods || []).filter(m => m.is_active !== false),
       defaultPackingFeeSingle,
       defaultPackingFeeConsolidation,
     });
