@@ -431,26 +431,46 @@ export default function AdminShippingInfoPanel({
               {totalPackingFee > 0 && <span className="text-xs text-gray-500">合计 ¥{totalPackingFee}</span>}
             </div>
             {packingFeesPerUser.length <= 1 ? (
-              <Input className="h-8 text-sm" type="text" inputMode="decimal" placeholder="0"
-                value={packingFeesPerUser[0]?.fee_jpy || ""}
-                onChange={e => {
-                  const fee = parseFloat(e.target.value) || 0;
-                  if (packingFeesPerUser.length === 0) {
-                    setPackingFeesPerUser([{ user_email: "__all__", fee_jpy: fee }]);
-                  } else {
-                    setPackingFeesPerUser([{ ...packingFeesPerUser[0], fee_jpy: fee }]);
-                  }
-                }} />
+              <div className="flex items-center gap-1.5">
+                <button type="button" onClick={() => {
+                  const cur = parseFloat(packingFeesPerUser[0]?.fee_jpy) || 0;
+                  const fee = Math.max(0, cur - 100);
+                  if (packingFeesPerUser.length === 0) setPackingFeesPerUser([{ user_email: "__all__", fee_jpy: fee }]);
+                  else setPackingFeesPerUser([{ ...packingFeesPerUser[0], fee_jpy: fee }]);
+                }} className="h-8 px-2 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 flex-shrink-0">-100</button>
+                <Input className="h-8 text-sm flex-1" type="text" inputMode="decimal" placeholder="0"
+                  value={packingFeesPerUser[0]?.fee_jpy || ""}
+                  onChange={e => {
+                    const fee = parseFloat(e.target.value) || 0;
+                    if (packingFeesPerUser.length === 0) {
+                      setPackingFeesPerUser([{ user_email: "__all__", fee_jpy: fee }]);
+                    } else {
+                      setPackingFeesPerUser([{ ...packingFeesPerUser[0], fee_jpy: fee }]);
+                    }
+                  }} />
+                <button type="button" onClick={() => {
+                  const cur = parseFloat(packingFeesPerUser[0]?.fee_jpy) || 0;
+                  const fee = cur + 100;
+                  if (packingFeesPerUser.length === 0) setPackingFeesPerUser([{ user_email: "__all__", fee_jpy: fee }]);
+                  else setPackingFeesPerUser([{ ...packingFeesPerUser[0], fee_jpy: fee }]);
+                }} className="h-8 px-2 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 flex-shrink-0">+100</button>
+              </div>
             ) : (
               <div className="space-y-1.5">
                 {packingFeesPerUser.map((uf, idx) => (
-                  <div key={uf.user_email} className="flex items-center gap-2">
+                  <div key={uf.user_email} className="flex items-center gap-1.5">
                     <span className="text-xs text-gray-600 flex-1 truncate">{uf.user_email}</span>
-                    <Input className="h-7 text-xs w-28" type="text" inputMode="decimal" placeholder="0"
-                     value={uf.fee_jpy}
+                    <button type="button" onClick={() => setPackingFeesPerUser(prev =>
+                      prev.map((u, i) => i === idx ? { ...u, fee_jpy: Math.max(0, (parseFloat(u.fee_jpy) || 0) - 100) } : u)
+                    )} className="h-7 px-1.5 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 flex-shrink-0">-100</button>
+                    <Input className="h-7 text-xs w-24" type="text" inputMode="decimal" placeholder="0"
+                      value={uf.fee_jpy}
                       onChange={e => setPackingFeesPerUser(prev =>
                         prev.map((u, i) => i === idx ? { ...u, fee_jpy: parseFloat(e.target.value) || 0 } : u)
                       )} />
+                    <button type="button" onClick={() => setPackingFeesPerUser(prev =>
+                      prev.map((u, i) => i === idx ? { ...u, fee_jpy: (parseFloat(u.fee_jpy) || 0) + 100 } : u)
+                    )} className="h-7 px-1.5 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 flex-shrink-0">+100</button>
                     <span className="text-xs text-gray-400">JPY</span>
                   </div>
                 ))}
