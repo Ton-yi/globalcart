@@ -487,11 +487,18 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
 
                     <div className="space-y-2 px-3 py-2">
                           <div className="flex items-start gap-3">
-                            {o.product_image_url &&
-                        <ImageWithViewer src={o.product_image_url} alt="产品图片">
-                                <img src={o.product_image_url} alt="" className="w-12 h-12 rounded object-cover border border-gray-200 cursor-pointer hover:opacity-80 transition-opacity flex-shrink-0" />
-                              </ImageWithViewer>
-                        }
+                            <div className="flex gap-2 flex-shrink-0">
+                              {o.product_image_url &&
+                          <ImageWithViewer src={o.product_image_url} alt="产品图片">
+                                  <img src={o.product_image_url} alt="" className="w-12 h-12 rounded object-cover border border-gray-200 cursor-pointer hover:opacity-80 transition-opacity" />
+                                </ImageWithViewer>
+                          }
+                              {o.arrival_photo_url &&
+                          <ImageWithViewer src={o.arrival_photo_url} alt="入库图片">
+                                  <img src={o.arrival_photo_url} alt="" className="w-12 h-12 rounded object-cover border border-blue-200 cursor-pointer hover:opacity-80 transition-opacity" title="入库图片" />
+                                </ImageWithViewer>
+                          }
+                            </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-sm text-gray-800 truncate">{o.product_name}</p>
                               <p className="text-xs text-gray-400">{o.order_number} · {o.weight_g || 0}g{o.user_email ? ` · ${tenantUserMap[o.user_email]?.display_name || tenantUserMap[o.user_email]?.full_name || o.user_name || ""}` : ""}</p>
