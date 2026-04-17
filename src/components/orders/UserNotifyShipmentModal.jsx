@@ -331,6 +331,9 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
   const handleSubmit = async () => {
     if (!method) return;
     if (consType === "transit" && !selectedTransitId) return;
+    if (consType === "transit" && !finalAddressId && !addressInputMode["final"]) return;
+    if (consType === "" && !selectedAddress && !addressInputMode["direct"]) return;
+    if (consType === "other" && !selectedAddress && !addressInputMode["other"]) return;
     if (joinExistingPool && !selectedPoolId) return;
     setSubmitting(true);
 
@@ -566,7 +569,7 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
           {consType === "" && !joinDirectPool && (
             <AddressBlock
               slot="direct"
-              label="收货地址"
+              label="收货地址 *"
               savedAddresses={savedAddresses}
               selectedId={selectedAddress}
               isNewMode={!!addressInputMode["direct"]}
@@ -603,7 +606,7 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
               </div>
               <AddressBlock
                 slot="final"
-                label="最终收货地址（货品从中转地发往此处）"
+                label="最终收货地址（货品从中转地发往此处）*"
                 savedAddresses={savedAddresses}
                 selectedId={finalAddressId}
                 isNewMode={!!addressInputMode["final"]}
@@ -806,7 +809,7 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
           {consType === "other" && (
             <AddressBlock
               slot="other"
-              label="拼邮目标地址"
+              label="拼邮目标地址 *"
               savedAddresses={savedAddresses}
               selectedId={selectedAddress}
               isNewMode={!!addressInputMode["other"]}
@@ -855,6 +858,9 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
             disabled={
               (!method && !joinDirectPool) || submitting ||
               (consType === "transit" && !selectedTransitId) ||
+              (consType === "transit" && !finalAddressId && !addressInputMode["final"]) ||
+              (consType === "" && !selectedAddress && !addressInputMode["direct"]) ||
+              (consType === "other" && !selectedAddress && !addressInputMode["other"]) ||
               (joinExistingPool && !selectedPoolId) ||
               (joinDirectPool && !selectedDirectPoolId)
             }
