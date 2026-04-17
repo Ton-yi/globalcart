@@ -321,36 +321,56 @@ export default function SubmitOrder() {
 
             <div>
               <Label className="text-sm">商品图片（可选）</Label>
-              <div
-                className={`mt-1 cursor-text p-3 border-2 rounded-lg transition-colors focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                  form.product_image_url ? "border-green-300 bg-green-50" :
-                  uploading ? "border-blue-200 bg-blue-50" :
-                  "border-gray-200 hover:border-blue-300"
-                }`}
-                onDragOver={e => e.preventDefault()}
-                onDrop={e => {
-                  e.preventDefault();
-                  const file = e.dataTransfer.files[0];
-                  if (file && file.type.startsWith("image/")) handleImageUpload(file);
-                }}
-                onPaste={e => {
-                  const item = Array.from(e.clipboardData.items).find(i => i.type.startsWith("image/"));
-                  if (item) {
-                    const file = item.getAsFile();
-                    if (file) handleImageUpload(file);
-                  }
-                }}
-                onClick={() => document.getElementById("product-image-input")?.click()}
-                tabIndex={0}
-              >
-                {form.product_image_url
-                  ? <div className="flex items-center gap-3">
-                      <img src={form.product_image_url} alt="" className="h-12 rounded object-cover" />
-                      <div className="text-sm text-green-700">✓ 已上传，点击、粘贴或拖拽可更换</div>
-                    </div>
-                  : uploading
-                  ? <div className="flex items-center gap-2 text-blue-500 text-sm"><Upload className="w-4 h-4 animate-pulse" /><span>上传中...</span></div>
-                  : <div className="text-sm text-gray-500">粘贴图片、点击选择或拖拽图片到此处上传</div>}
+              <div className="space-y-2">
+                <div
+                  className={`cursor-text p-3 border-2 rounded-lg transition-colors focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                    form.product_image_url ? "border-green-300 bg-green-50" :
+                    uploading ? "border-blue-200 bg-blue-50" :
+                    "border-gray-200 hover:border-blue-300"
+                  }`}
+                  onDragOver={e => e.preventDefault()}
+                  onDrop={e => {
+                    e.preventDefault();
+                    const file = e.dataTransfer.files[0];
+                    if (file && file.type.startsWith("image/")) handleImageUpload(file);
+                  }}
+                  onPaste={e => {
+                    const item = Array.from(e.clipboardData.items).find(i => i.type.startsWith("image/"));
+                    if (item) {
+                      const file = item.getAsFile();
+                      if (file) handleImageUpload(file);
+                    }
+                  }}
+                  onClick={() => document.getElementById("product-image-input")?.click()}
+                  tabIndex={0}
+                >
+                  {form.product_image_url
+                    ? <div className="flex items-center gap-3">
+                        <img src={form.product_image_url} alt="" className="h-12 rounded object-cover" />
+                        <div className="text-sm text-green-700">✓ 已上传，点击、粘贴或拖拽可更换</div>
+                      </div>
+                    : uploading
+                    ? <div className="flex items-center gap-2 text-blue-500 text-sm"><Upload className="w-4 h-4 animate-pulse" /><span>上传中...</span></div>
+                    : <div className="text-sm text-gray-500">粘贴图片、点击选择或拖拽图片到此处上传</div>}
+                </div>
+                <div>
+                  <Label className="text-xs text-gray-500">或粘贴图片URL</Label>
+                  <Input
+                    type="text"
+                    placeholder="https://example.com/image.jpg"
+                    value={form.product_image_url || ""}
+                    onChange={e => setForm(f => ({ ...f, product_image_url: e.target.value }))}
+                    onPaste={e => {
+                      const item = Array.from(e.clipboardData.items).find(i => i.type.startsWith("image/"));
+                      if (item) {
+                        e.preventDefault();
+                        const file = item.getAsFile();
+                        if (file) handleImageUpload(file);
+                      }
+                    }}
+                    className="mt-1 text-sm"
+                  />
+                </div>
               </div>
               <input
                 id="product-image-input"
