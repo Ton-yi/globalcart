@@ -34,7 +34,7 @@ const ALL_COLUMNS = [
   { key: "arrival_photo_url", label: "入库图片", defaultVisible: false, sortable: false, isImage: true },
   { key: "product_description", label: "商品描述", defaultVisible: false, sortable: true },
   { key: "admin_note", label: "管理员备注", defaultVisible: false, sortable: true },
-  { key: "user_note", label: "用户备注", defaultVisible: false, sortable: true },
+  { key: "user_note", label: "用户订单备注", defaultVisible: false, sortable: true },
   { key: "payment_due_date", label: "付款截止日期", defaultVisible: false, sortable: true },
 ];
 

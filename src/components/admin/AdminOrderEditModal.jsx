@@ -374,18 +374,21 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
                 </div>
               )}
 
-              {/* User notes */}
-              {order.user_note && (
-                <div className="bg-yellow-50 border border-yellow-100 rounded-lg px-3 py-2 text-sm text-yellow-800 whitespace-pre-wrap">
-                  <div className="text-xs text-yellow-500 mb-0.5">用户备注</div>
-                  {order.user_note}
-                </div>
-              )}
-
-              {order.product_description && (
-                <div className="bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-700 whitespace-pre-wrap">
-                  <div className="text-xs text-gray-400 mb-0.5">商品描述</div>
-                  {order.product_description}
+              {/* User notes and product description */}
+              {(order.user_note || order.product_description) && (
+                <div className="space-y-2">
+                  {order.product_description && (
+                    <div className="bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-700 whitespace-pre-wrap">
+                      <div className="text-xs text-gray-400 mb-0.5">商品描述</div>
+                      {order.product_description}
+                    </div>
+                  )}
+                  {order.user_note && (
+                    <div className="bg-yellow-50 border border-yellow-100 rounded-lg px-3 py-2 text-sm text-yellow-800 whitespace-pre-wrap">
+                      <div className="text-xs text-yellow-500 mb-0.5">用户订单备注</div>
+                      {order.user_note}
+                    </div>
+                  )}
                 </div>
               )}
 
