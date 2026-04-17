@@ -387,6 +387,23 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
         </div>
 
         <div className="px-6 py-5 space-y-6">
+          {/* Shipping destination address */}
+          {(pool.address_line1 || pool.final_address_id) && (
+            <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2.5">
+              <p className="text-xs text-blue-600 font-medium mb-1">发货目的地</p>
+              <p className="text-sm text-blue-900">
+                {pool.address_line1}{pool.address_line2 ? ` ${pool.address_line2}` : ""}
+                <br />
+                {pool.city && `${pool.city} `}
+                {pool.state && `${pool.state} `}
+                {pool.postal_code && `${pool.postal_code}`}
+                <br />
+                {pool.recipient_name && `${pool.recipient_name}`}
+                {pool.recipient_phone && ` · ${pool.recipient_phone}`}
+              </p>
+            </div>
+          )}
+
           {/* Info grid */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
             {pool.scheduled_ship_date && (
