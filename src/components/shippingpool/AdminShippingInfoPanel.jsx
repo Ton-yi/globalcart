@@ -17,7 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CreditCard, Truck, CheckCircle, ExternalLink, X, Plus, Loader2, MapPin } from "lucide-react";
-import { getCountry } from "@/lib/countries";
+import { getCountry, getCountryZone } from "@/lib/countries";
 import { calcFeeBreakdownPerUser } from "@/lib/shippingFeeCalc";
 import { getExchangeRates } from "@/lib/exchangeRates";
 import ShippingFeeBreakdown from "@/components/shippingpool/ShippingFeeBreakdown";
@@ -97,8 +97,14 @@ export default function AdminShippingInfoPanel({
   const calcFeeFromWeight = (weightG) => {
     if (!matchedShippingMethod || !pool.destination_country) return null;
     const country = pool.destination_country;
+    // Resolve zone code: if rates are stored by zone (e.g. "zone1"), map the country code first
+    const zoneCode = getCountryZone(country); // e.g. "CN" → "zone1"
     if (matchedShippingMethod.rate_mode === "detailed") {
-      const rates = (matchedShippingMethod.detailed_rates || []).filter(r => r.country === country);
+      // Try exact country match first, then fall back to zone match
+      let rates = (matchedShippingMethod.detailed_rates || []).filter(r => r.country === country);
+      if (rates.length === 0 && zoneCode) {
+        rates = (matchedShippingMethod.detailed_rates || []).filter(r => r.country === zoneCode);
+      }
       if (rates.length === 0) return null;
       const bracket = rates.find(r => weightG >= r.weight_from_g && weightG <= r.weight_to_g);
       if (!bracket) return null;
@@ -106,7 +112,11 @@ export default function AdminShippingInfoPanel({
       const currency = bracket.currency || "JPY";
       return { fee, currency };
     } else {
-      const rates = (matchedShippingMethod.simple_rates || []).filter(r => r.country === country);
+      // Try exact country match first, then fall back to zone match
+      let rates = (matchedShippingMethod.simple_rates || []).filter(r => r.country === country);
+      if (rates.length === 0 && zoneCode) {
+        rates = (matchedShippingMethod.simple_rates || []).filter(r => r.country === zoneCode);
+      }
       if (rates.length === 0) return null;
       const r = rates[0];
       const firstWeightG = parseFloat(r.first_weight_g) || 0;
