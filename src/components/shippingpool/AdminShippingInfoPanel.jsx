@@ -16,7 +16,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CreditCard, Truck, CheckCircle, ExternalLink, X, Plus, Loader2 } from "lucide-react";
+import { CreditCard, Truck, CheckCircle, ExternalLink, X, Plus, Loader2, MapPin } from "lucide-react";
+import { getCountry } from "@/lib/countries";
 import { calcFeeBreakdownPerUser } from "@/lib/shippingFeeCalc";
 import { getExchangeRates } from "@/lib/exchangeRates";
 import ShippingFeeBreakdown from "@/components/shippingpool/ShippingFeeBreakdown";
@@ -290,6 +291,21 @@ export default function AdminShippingInfoPanel({
             <p className="text-xs text-gray-500 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
               <strong>第二步：</strong>用户已付款，请填写运单号确认发货。
             </p>
+          )}
+
+          {/* User's shipping destination address (read-only) */}
+          {(pool.recipient_name || pool.address_line1 || pool.state) && (
+            <div className="bg-green-50 border border-green-100 rounded-lg px-3 py-2 text-xs text-green-800 space-y-0.5">
+              <div className="flex items-center gap-1.5 font-medium text-green-700 mb-1">
+                <MapPin className="w-3.5 h-3.5" />发货目的地（用户填写）
+              </div>
+              {pool.recipient_name && <div>收件人：<span className="font-medium">{pool.recipient_name}</span>{pool.recipient_phone && <span className="ml-2 text-green-600">{pool.recipient_phone}</span>}</div>}
+              {pool.destination_country && <div>国家：<span className="font-medium">{getCountry(pool.destination_country)?.name || pool.destination_country}</span></div>}
+              {pool.state && <div>省/州：<span className="font-medium">{pool.state}</span></div>}
+              {pool.city && <div>城市/区：<span className="font-medium">{pool.city}</span></div>}
+              {pool.address_line1 && <div>街道地址：<span className="font-medium">{pool.address_line1}</span></div>}
+              {pool.address_line2 && <div>详细地址：<span className="font-medium">{pool.address_line2}</span></div>}
+            </div>
           )}
 
           {/* Transit info (read-only, from pool) */}

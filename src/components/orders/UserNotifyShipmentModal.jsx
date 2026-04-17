@@ -389,7 +389,7 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
       targetOrders.map(o =>
         updateOrder(o.id, {
           ...updates,
-          user_note: [o.user_note, note ? `发货备注：${note}` : ""].filter(Boolean).join("\n"),
+          user_note: [o.user_note, note].filter(Boolean).join("\n"),
         })
       )
     );
@@ -450,7 +450,13 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
         is_private: isPrivate,
         shared_with_emails: isPrivate ? sharedWithEmails : [],
         destination_country: destCountry,
-        ...(addrObj ? { recipient_name: addrObj.full_text?.split("\n")[0] || "" } : {}),
+        recipient_name: addrObj?.recipient_name || "",
+        recipient_phone: addrObj?.phone || "",
+        address_line1: addrObj?.addr2 || "",
+        address_line2: addrObj?.addr1 || "",
+        city: addrObj?.addr3 || "",
+        state: addrObj?.state || "",
+        postal_code: "",
       });
     }
 
@@ -837,8 +843,8 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
 
           {/* Note */}
           <div>
-            <label className="text-xs text-gray-500 font-medium uppercase tracking-wide">备注 / 收货地址（可选）</label>
-            <Textarea rows={3} placeholder="收件地址或特殊要求..." value={note} onChange={e => setNote(e.target.value)} className="mt-1.5" />
+            <label className="text-xs text-gray-500 font-medium uppercase tracking-wide">备注（可选）</label>
+            <Textarea rows={3} placeholder="特殊要求或补充说明..." value={note} onChange={e => setNote(e.target.value)} className="mt-1.5" />
           </div>
         </div>
 
