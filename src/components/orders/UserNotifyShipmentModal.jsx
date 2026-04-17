@@ -350,8 +350,12 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
       return savedAddresses.find(a => a.id === addrId) || null;
     };
 
-    // Save new address to UserPreference if requested
-    if (saveNewAddress && isAddressFormValid(newAddress) && Object.values(addressInputMode).some(v => v)) {
+    // Save new address to UserPreference if requested.
+    // addressInputMode[slot]=true only when user explicitly picks "输入新地址" from dropdown.
+    // But when there are NO saved addresses, the form is shown directly (no dropdown) and
+    // addressInputMode stays empty — so we also check if saveNewAddress is on and address is valid.
+    const isInNewAddressMode = Object.values(addressInputMode).some(v => v) || savedAddresses.length === 0;
+    if (saveNewAddress && isAddressFormValid(newAddress) && isInNewAddressMode) {
       const newEntry = {
         id: `addr_${Date.now()}`,
         label: newAddress.label || "新地址",
