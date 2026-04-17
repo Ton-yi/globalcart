@@ -501,6 +501,14 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                               {o.estimated_jpy &&
                           <p className="text-xs text-gray-500 mt-0.5">估价：<span className="font-medium text-orange-600">¥{Math.round(o.estimated_jpy).toLocaleString()}</span></p>
                           }
+                              {o.arrival_photo_url &&
+                          <div className="flex items-center gap-1.5 mt-1">
+                                <ImageWithViewer src={o.arrival_photo_url} alt="入库图片">
+                                  <img src={o.arrival_photo_url} alt="入库图片" className="w-8 h-8 rounded border border-gray-200 object-cover cursor-pointer hover:opacity-80 transition-opacity" />
+                                </ImageWithViewer>
+                                <span className="text-xs text-gray-400">入库图片</span>
+                              </div>
+                          }
                             </div>
                             <div className="flex items-center gap-1">
                               {/* Admin can edit any order */}
