@@ -29,6 +29,7 @@ const ALL_COLUMNS = [
   { key: "online_store_tag", label: "商城标签", defaultVisible: false, sortable: true },
   { key: "product_description", label: "商品描述", defaultVisible: false, sortable: true },
   { key: "arrival_photo_url", label: "入库图片", defaultVisible: false, sortable: false, isImage: true },
+  { key: "purchase_screenshot_url", label: "购买截图", defaultVisible: false, sortable: false, isImage: true },
   { key: "admin_note", label: "管理员备注", defaultVisible: false, sortable: true },
   { key: "user_note", label: "用户备注", defaultVisible: false, sortable: true },
   { key: "payment_due_date", label: "付款截止日", defaultVisible: false, sortable: true },
@@ -115,6 +116,14 @@ function CellValue({ col, order }) {
       return order.arrival_photo_url
         ? <ImageWithViewer src={order.arrival_photo_url} alt="入库图片">
             <img src={order.arrival_photo_url} alt="" style={{ maxWidth: imgW2, maxHeight: imgW2, width: "100%", height: "auto" }} className="rounded object-cover border border-gray-100 cursor-pointer" />
+          </ImageWithViewer>
+        : <span className="text-xs text-gray-300">-</span>;
+    }
+    case "purchase_screenshot_url": {
+      const imgW3 = col.imageWidth || 40;
+      return order.purchase_screenshot_url
+        ? <ImageWithViewer src={order.purchase_screenshot_url} alt="购买截图">
+            <img src={order.purchase_screenshot_url} alt="" style={{ maxWidth: imgW3, maxHeight: imgW3, width: "100%", height: "auto" }} className="rounded object-cover border border-gray-100 cursor-pointer" />
           </ImageWithViewer>
         : <span className="text-xs text-gray-300">-</span>;
     }

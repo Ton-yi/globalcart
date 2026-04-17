@@ -124,9 +124,12 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
   // pending_confirmation → payment_pending
   const handleConfirmOrder = async () => {
     setSaving(true);
+    const rawAmt = parseFloat(form.prepayment_amount) || order.prepayment_amount || 0;
+    // Round JPY amounts to integer
+    const finalAmt = cur === "JPY" ? Math.round(rawAmt) : rawAmt;
     await updateOrder(order.id, {
       order_status: "payment_pending",
-      prepayment_amount: parseFloat(form.prepayment_amount) || order.prepayment_amount,
+      prepayment_amount: finalAmt,
       payment_due_date: form.payment_due_date || null,
       admin_note: form.admin_note,
     });
@@ -386,6 +389,20 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
                 </div>
               )}
 
+              {(order.selected_addons || []).length > 0 && (
+                <div className="bg-purple-50 border border-purple-100 rounded-lg px-3 py-2.5">
+                  <div className="text-xs text-purple-600 font-medium mb-1.5">增值服务</div>
+                  <div className="space-y-1">
+                    {(order.selected_addons || []).map((a, i) => (
+                      <div key={i} className="flex items-center justify-between text-xs">
+                        <span className="text-gray-700">{a.name}</span>
+                        <span className="font-medium text-purple-700">+{a.fee_currency || "JPY"} {a.fee_currency === "JPY" ? Math.round(parseFloat(a.fee || 0)) : a.fee}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div>
                 <Label className="text-sm">管理员备注</Label>
                 <Textarea rows={2} className="mt-1 text-sm" value={form.admin_note}
@@ -400,8 +417,8 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
                   <div className="text-sm font-medium text-purple-800">后付款待确认 — 请选择处理方式</div>
                   <div className="space-y-2">
                     <Label className="text-xs">确认后设置付款金额 ({cur})</Label>
-                    <Input type="number" step="0.01" placeholder="0.00" value={form.prepayment_amount}
-                      onChange={e => f("prepayment_amount", e.target.value)} />
+                    <Input type="number" step={cur === "JPY" ? "1" : "0.01"} placeholder="0" value={form.prepayment_amount}
+                      onChange={e => f("prepayment_amount", cur === "JPY" ? Math.round(parseFloat(e.target.value) || 0) || "" : e.target.value)} />
                     <Label className="text-xs">付款截止日期（可选）</Label>
                     <Input type="date" value={form.payment_due_date}
                       onChange={e => f("payment_due_date", e.target.value)} />
@@ -529,10 +546,18 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
                   </label>
                   <div>
                     <Label className="text-xs">货品重量 (g)（默认100g）</Label>
-                    <Input type="number" placeholder="100" value={form.weight_g || ""}
-                      onChange={e => f("weight_g", e.target.value)}
-                      onWheel={e => e.target.blur()}
-                      className="mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                    <div className="flex items-center gap-1 mt-1">
+                      <Input type="number" placeholder="100" value={form.weight_g || ""}
+                        onChange={e => f("weight_g", e.target.value)}
+                        onWheel={e => e.target.blur()}
+                        className="flex-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                      <button type="button" onClick={() => f("weight_g", Math.max(0, (parseFloat(form.weight_g) || 0) + 100))}
+                        className="px-2 py-1.5 text-xs border border-gray-200 rounded bg-white hover:bg-gray-50 text-gray-600 whitespace-nowrap">+100</button>
+                      <button type="button" onClick={() => f("weight_g", Math.max(0, (parseFloat(form.weight_g) || 0) + 1000))}
+                        className="px-2 py-1.5 text-xs border border-gray-200 rounded bg-white hover:bg-gray-50 text-gray-600 whitespace-nowrap">+1000</button>
+                      <button type="button" onClick={() => f("weight_g", Math.max(0, (parseFloat(form.weight_g) || 0) - 100))}
+                        className="px-2 py-1.5 text-xs border border-gray-200 rounded bg-white hover:bg-gray-50 text-gray-600 whitespace-nowrap">-100</button>
+                    </div>
                   </div>
 
                   {itemSizeTemplates.length > 0 && (
@@ -599,61 +624,23 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
                 </div>
               )}
 
-              {/* notified_shipment → set shipping fee */}
+              {/* notified_shipment → link to shipping pool detail */}
               {status === "notified_shipment" && (
                 <div className="space-y-3 border border-cyan-100 rounded-xl p-3 bg-cyan-50">
-                  <div className="text-sm font-medium text-cyan-800">待出货 — 填写运费信息</div>
+                  <div className="text-sm font-medium text-cyan-800">已通知出货 — 通过发货池管理发货</div>
                   {order.shipping_method && (
                     <div className="text-xs text-gray-600">发货方式：{order.shipping_method}
                       {order.consolidation_requested && " · 拼邮"}
                     </div>
                   )}
-
-                  {/* Item size fee info */}
-                  {order.item_size_title && (
-                    <div className="bg-white border border-cyan-200 rounded-lg p-2.5 space-y-1">
-                      <p className="text-xs font-medium text-gray-700">物品尺寸</p>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-600">{order.item_size_title}</span>
-                        <span className="text-xs font-mono text-cyan-700">
-                          +{order.item_size_fee_currency} {order.item_size_extra_fee}
-                        </span>
-                      </div>
+                  {order.consolidation_pool_id && (
+                    <div className="text-xs text-gray-500">
+                      发货申请ID：<span className="font-mono text-cyan-700">{order.consolidation_pool_id.slice(-6).toUpperCase()}</span>
                     </div>
                   )}
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <Label className="text-xs">出货总重量 (g)</Label>
-                      <Input type="number" className="mt-1" value={shippingWeight}
-                        onChange={e => setShippingWeight(e.target.value)} />
-                    </div>
-                    <div>
-                      <Label className="text-xs">运费金额</Label>
-                      <div className="flex gap-1 mt-1">
-                        <Input type="number" step="0.01" value={shippingFee}
-                          onChange={e => setShippingFee(e.target.value)} />
-                        <Select value={shippingCurrency} onValueChange={setShippingCurrency}>
-                          <SelectTrigger className="w-20 text-xs"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            {["CNY","USD","JPY","TWD","HKD"].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  </div>
-                  {order.balance_credit > 0 && (
-                    <p className="text-xs text-blue-600">
-                      用户余额 {cur === "JPY" ? `${Math.round(order.balance_credit).toLocaleString()} yen` : `${cur} ${Math.round(order.balance_credit)}`}，将自动抵扣，实收 {shippingCurrency === "JPY" ? `${Math.round(Math.max(0, parseFloat(shippingFee || 0) - parseFloat(order.balance_credit || 0))).toLocaleString()} yen` : `${shippingCurrency} ${Math.round(Math.max(0, parseFloat(shippingFee || 0) - parseFloat(order.balance_credit || 0)))}`}
-                    </p>
-                  )}
-                  <div>
-                    <Label className="text-xs">运单号（可选）</Label>
-                    <Input className="mt-1" value={trackingNumber} onChange={e => setTrackingNumber(e.target.value)} />
-                  </div>
                   <Button size="sm" className="w-full bg-cyan-600 hover:bg-cyan-700 text-xs"
-                    onClick={handleSetShippingFee} disabled={!shippingFee || saving}>
-                    ✓ 通知用户付运费
+                    onClick={() => { onClose(); window.location.href = "/AdminShippingPool"; }}>
+                    查看发货需求详情
                   </Button>
                 </div>
               )}

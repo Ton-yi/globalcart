@@ -84,10 +84,10 @@ export default function SubmitOrder() {
     const prepayJpy = totalJpy * prepayRate;
     setCalculated({
       jpy: jpy,
-      serviceFeeJpy: serviceFeeJpy.toFixed(2),
-      addonTotal: addonTotalJpy.toFixed(2),
-      totalJpy: totalJpy.toFixed(2),
-      prepayJpy: prepayJpy.toFixed(2),
+      serviceFeeJpy: Math.round(serviceFeeJpy),
+      addonTotal: Math.round(addonTotalJpy),
+      totalJpy: Math.round(totalJpy),
+      prepayJpy: Math.round(prepayJpy),
       feeRate: (serviceFeeRate * 100).toFixed(0),
       prepayRate: (prepayRate * 100).toFixed(0)
     });
@@ -130,7 +130,7 @@ export default function SubmitOrder() {
     const todayCount = await fetchOrderCountForPrefix(prefix);
     const seq = String(todayCount + 1).padStart(4, "0");
     const orderNum = `${prefix}${seq}`;
-    const selectedAddonNames = selectedAddons.map(id => addonOptions.find(a => a.id === id)?.name).filter(Boolean).join(", ");
+    const selectedAddonObjects = selectedAddons.map(id => addonOptions.find(a => a.id === id)).filter(Boolean);
     const urlsText = urlMode === "textarea"
       ? (productUrls[0] || "").split("\n").map(s => s.trim()).filter(Boolean).join("\n")
       : productUrls.filter(u => u.trim()).join("\n");
@@ -153,7 +153,9 @@ export default function SubmitOrder() {
       payment_mode: isDeferred ? "deferred" : "prepay",
       order_status: isDeferred ? "pending_confirmation" : "payment_pending",
       payment_status: isDeferred ? "pending" : "awaiting_payment",
-      user_note: [form.user_note, selectedAddonNames ? `增值服务：${selectedAddonNames}` : ""].filter(Boolean).join("\n"),
+      user_note: form.user_note || "",
+      selected_addon_ids: selectedAddons,
+      selected_addons: selectedAddonObjects.map(a => ({ id: a.id, name: a.name, fee: a.fee, fee_currency: a.fee_currency })),
     });
     const order = res.data?.order;
     if (isDeferred) {
@@ -293,7 +295,7 @@ export default function SubmitOrder() {
                       <div className="flex-1">
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-medium text-gray-800">{opt.name}</span>
-                          <span className="text-sm text-red-600 font-medium">+{opt.fee_currency || "JPY"} {parseFloat(opt.fee).toFixed(2)}</span>
+                          <span className="text-sm text-red-600 font-medium">+{opt.fee_currency || "JPY"} {opt.fee_currency === "JPY" ? Math.round(parseFloat(opt.fee)) : parseFloat(opt.fee)}</span>
                         </div>
                         {opt.description && <p className="text-xs text-gray-400 mt-0.5">{opt.description}</p>}
                       </div>

@@ -184,6 +184,21 @@ export default function OrderDetailDrawer({ order, currentUser, initialUserPrefe
             )}
           </div>
 
+          {/* Selected addons */}
+          {(order.selected_addons || []).length > 0 && (
+            <div className="bg-purple-50 border border-purple-100 rounded-lg px-3 py-2.5">
+              <div className="text-xs text-purple-600 font-medium mb-1.5">增值服务</div>
+              <div className="space-y-1">
+                {(order.selected_addons || []).map((a, i) => (
+                  <div key={i} className="flex items-center justify-between text-xs">
+                    <span className="text-gray-700">{a.name}</span>
+                    <span className="font-medium text-purple-700">+{a.fee_currency || "JPY"} {a.fee_currency === "JPY" ? Math.round(parseFloat(a.fee || 0)) : a.fee}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Notes - hide alipay auto-confirm system notes */}
           {order.admin_note && !order.admin_note.includes("支付宝自动确认") && (
             <div className="bg-yellow-50 border border-yellow-100 rounded-lg px-3 py-2.5">
@@ -235,7 +250,7 @@ export default function OrderDetailDrawer({ order, currentUser, initialUserPrefe
           )}
 
           {/* Images */}
-          {(order.product_image_url || order.arrival_photo_url) && (
+          {(order.product_image_url || order.arrival_photo_url || order.purchase_screenshot_url) && (
             <div className="flex gap-3 flex-wrap">
               {order.product_image_url && (
                 <div className="flex flex-col items-center gap-1">
@@ -243,6 +258,14 @@ export default function OrderDetailDrawer({ order, currentUser, initialUserPrefe
                     <img src={order.product_image_url} alt="商品图" className="h-20 w-20 rounded-lg border object-cover cursor-pointer hover:opacity-80 transition-opacity" />
                   </ImageWithViewer>
                   <span className="text-[10px] text-gray-400">商品图</span>
+                </div>
+              )}
+              {order.purchase_screenshot_url && (
+                <div className="flex flex-col items-center gap-1">
+                  <ImageWithViewer src={order.purchase_screenshot_url} alt="购买截图">
+                    <img src={order.purchase_screenshot_url} alt="购买截图" className="h-20 w-20 rounded-lg border object-cover cursor-pointer hover:opacity-80 transition-opacity" />
+                  </ImageWithViewer>
+                  <span className="text-[10px] text-gray-400">购买截图</span>
                 </div>
               )}
               {order.arrival_photo_url && (

@@ -129,13 +129,13 @@ Deno.serve(async (req) => {
       console.log(`[TIMING] mutateTenantEntity | ${entity}.filter (ownership check): ${Date.now()-t4}ms`);
       const record = existing?.[0];
       if (!record) return Response.json({ error: 'Record not found' }, { status: 404 });
-      if (!isPlatformAdmin && record.tenant_id !== tenantId) {
-        return Response.json({ error: 'Forbidden: Record does not belong to your tenant' }, { status: 403 });
-      }
-      if (entity === 'UserPreference' && !isTenantAdmin && !isPlatformAdmin) {
-        if (record.user_email !== user.email) {
+      // For UserPreference, allow update if user_email matches (covers legacy records without tenant_id)
+      if (entity === 'UserPreference') {
+        if (!isPlatformAdmin && record.user_email !== user.email) {
           return Response.json({ error: 'Forbidden: Can only update your own preferences' }, { status: 403 });
         }
+      } else if (!isPlatformAdmin && record.tenant_id !== tenantId) {
+        return Response.json({ error: 'Forbidden: Record does not belong to your tenant' }, { status: 403 });
       }
       if (entity === 'ShippingPool' && !isTenantAdmin && !isPlatformAdmin && !isStaff) {
         if (record.creator_email !== user.email) {
