@@ -322,7 +322,6 @@ export default function SubmitOrder() {
             <div>
               <Label className="text-sm">商品图片（可选）</Label>
               <div
-                ref={el => el && (uploadInputRef = el)}
                 className={`mt-1 cursor-text p-3 border-2 rounded-lg transition-colors focus:outline-none focus:ring-1 focus:ring-blue-500 ${
                   form.product_image_url ? "border-green-300 bg-green-50" :
                   uploading ? "border-blue-200 bg-blue-50" :
