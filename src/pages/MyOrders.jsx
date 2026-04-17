@@ -172,6 +172,14 @@ export default function MyOrders() {
     if (alipayTradeNo) {
       setAlipayReturnMsg(`支付宝付款已提交（单号: ${alipayTradeNo}），系统将在数分钟内自动确认订单状态。`);
       window.history.replaceState({}, "", window.location.pathname);
+      // If this tab was opened as a popup by the payment flow, close it and let the opener refresh
+      if (window.opener && !window.opener.closed) {
+        try {
+          // Notify the opener to refresh orders
+          window.opener.postMessage({ type: "alipay_payment_done", tradeNo: alipayTradeNo }, "*");
+        } catch (_) {}
+        window.close();
+      }
     }
   }, []);
 
@@ -226,6 +234,20 @@ export default function MyOrders() {
     const timer = setTimeout(() => fetchOrders(user), 3000);
     return () => clearTimeout(timer);
   }, [isAlipayReturn, user?.email]);
+
+  // Listen for postMessage from Alipay popup tab after payment completes
+  useEffect(() => {
+    const handleMessage = (e) => {
+      if (e.data?.type === "alipay_payment_done" && user) {
+        setAlipayReturnMsg(`支付宝付款已提交（单号: ${e.data.tradeNo}），系统将在数分钟内自动确认订单状态。`);
+        fetchOrders(user);
+        // Retry after 3s for callback to settle
+        setTimeout(() => fetchOrders(user), 3000);
+      }
+    };
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [user?.email]);
 
   const handleColumnsChange = (newCols) => {
     setColumns(newCols);

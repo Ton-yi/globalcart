@@ -33,7 +33,7 @@ const ALL_STATUSES = [
   { v: "cancelled", l: "已取消" },
 ];
 
-export default function AdminOrderEditModal({ order, initialItemSizeTemplates, onClose, onSaved }) {
+export default function AdminOrderEditModal({ order, initialItemSizeTemplates, onClose, onSaved, onOpenPool }) {
   const [tab, setTab] = useState((order.unread_roles || []).includes("admin") ? "messages" : "actions"); // "actions" | "edit" | "messages"
   const [saving, setSaving] = useState(false);
 
@@ -624,7 +624,7 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
                 </div>
               )}
 
-              {/* notified_shipment → link to shipping pool detail */}
+              {/* notified_shipment → open pool detail modal */}
               {status === "notified_shipment" && (
                 <div className="space-y-3 border border-cyan-100 rounded-xl p-3 bg-cyan-50">
                   <div className="text-sm font-medium text-cyan-800">已通知出货 — 通过发货池管理发货</div>
@@ -638,10 +638,17 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
                       发货申请ID：<span className="font-mono text-cyan-700">{order.consolidation_pool_id.slice(-6).toUpperCase()}</span>
                     </div>
                   )}
-                  <Button size="sm" className="w-full bg-cyan-600 hover:bg-cyan-700 text-xs"
-                    onClick={() => { onClose(); window.location.href = "/AdminShippingPool"; }}>
-                    查看发货需求详情
-                  </Button>
+                  {onOpenPool ? (
+                    <Button size="sm" className="w-full bg-cyan-600 hover:bg-cyan-700 text-xs"
+                      onClick={() => { onClose(); onOpenPool(order.consolidation_pool_id); }}>
+                      查看发货需求详情
+                    </Button>
+                  ) : (
+                    <Button size="sm" className="w-full bg-cyan-600 hover:bg-cyan-700 text-xs"
+                      onClick={() => { onClose(); window.location.href = "/AdminShippingPool"; }}>
+                      查看发货需求详情
+                    </Button>
+                  )}
                 </div>
               )}
 

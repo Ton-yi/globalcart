@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
-import { Search, RefreshCw, Filter, ChevronUp, ChevronDown, ChevronsUpDown, Trash2, AlertCircle, Layers, Send, ExternalLink } from "lucide-react";
+import { Search, RefreshCw, Filter, ChevronUp, ChevronDown, ChevronsUpDown, Trash2, AlertCircle, Layers, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -495,6 +495,13 @@ export default function AdminOrders() {
           initialItemSizeTemplates={itemSizeTemplates}
           onClose={() => setSelectedOrder(null)}
           onSaved={() => { setSelectedOrder(null); fetchOrders(); }}
+          onOpenPool={async (poolId) => {
+            setSelectedOrder(null);
+            if (!poolId) return;
+            const r = await base44.functions.invoke('getTenantShippingPools', {});
+            const pool = (r.data?.pools || []).find(p => p.id === poolId);
+            if (pool) setSelectedPool(pool);
+          }}
         />
       )}
 

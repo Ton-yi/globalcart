@@ -88,8 +88,8 @@ export default function PaymentModal({ order, mode = "prepay", onClose, onSucces
     const url = res.data?.paymentUrl;
     setAlipayUrl(url);
     setGenerating(false);
-    // Navigate current tab to alipay — return_url will bring user back to MyOrders
-    if (url) window.location.href = url;
+    // Open Alipay in a new tab; after payment, that tab auto-closes and notifies this page via postMessage
+    if (url) window.open(url, "_blank");
   };
 
   // For non-alipay: manual confirm
@@ -217,12 +217,19 @@ export default function PaymentModal({ order, mode = "prepay", onClose, onSucces
               <Button className="w-full bg-blue-600 hover:bg-blue-700"
                 onClick={handleGenerateAlipay} disabled={generating || !paidAmount}>
                 {generating
-                  ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />跳转支付宝中...</>
-                  : <><ExternalLink className="w-4 h-4 mr-2" />前往支付宝付款</>}
+                  ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />生成链接中...</>
+                  : <><ExternalLink className="w-4 h-4 mr-2" />{alipayUrl ? "重新打开支付宝付款" : "打开支付宝付款"}</>}
               </Button>
-              <p className="text-xs text-gray-400 text-center">
-                点击后将跳转至支付宝，付款成功后自动返回订单页面
-              </p>
+              {alipayUrl && (
+                <p className="text-xs text-green-600 text-center bg-green-50 border border-green-100 rounded-lg px-3 py-2">
+                  ✓ 支付宝已在新标签打开，付款完成后该标签将自动关闭并刷新此页面
+                </p>
+              )}
+              {!alipayUrl && (
+                <p className="text-xs text-gray-400 text-center">
+                  点击后将在新标签打开支付宝，付款成功后自动关闭并返回
+                </p>
+              )}
             </div>
           )}
 
