@@ -6,7 +6,7 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { updateOrder, tenantEntity } from "@/lib/tenantApi";
-import { X, ExternalLink, Copy, Loader2, CheckCircle, Upload, AlertTriangle, MessageCircle, Package } from "lucide-react";
+import { X, ExternalLink, Copy, Loader2, CheckCircle, Upload, AlertTriangle, MessageCircle, Package, Send } from "lucide-react";
 import { ImageWithViewer } from "@/components/common/ImageViewer";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -645,9 +645,9 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
                       发货申请ID：<span className="font-mono text-cyan-700">{order.consolidation_pool_id.slice(-6).toUpperCase()}</span>
                     </div>
                   )}
-                  <Button size="sm" className="w-full bg-cyan-600 hover:bg-cyan-700 text-xs"
+                  <Button size="sm" variant="outline" className="w-full text-xs text-teal-600 border-teal-200 hover:bg-teal-50"
                     onClick={() => { onClose(); onOpenPool?.(order.consolidation_pool_id); }}>
-                    查看发货需求详情
+                    <Send className="w-3.5 h-3.5 mr-1.5" />查看发货需求详情
                   </Button>
                 </div>
               )}
