@@ -408,6 +408,28 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
             )}
           </div>
 
+          {/* Selected shipping addons */}
+          {((pool.selected_addons || []).length > 0 || (pool.selected_addon_ids || []).length > 0) && (
+            <div className="bg-yellow-50 border border-yellow-100 rounded-lg px-3 py-2.5">
+              <p className="text-xs text-yellow-700 font-medium mb-1.5">发货增值服务</p>
+              <div className="space-y-1">
+                {(pool.selected_addons || []).length > 0
+                  ? (pool.selected_addons).map((a, i) => (
+                      <div key={i} className="flex items-center justify-between text-xs">
+                        <span className="text-gray-700">{a.name || a.id}</span>
+                        {parseFloat(a.fee) > 0 && (
+                          <span className="font-medium text-yellow-700">+{a.fee_currency || "JPY"} {Math.round(parseFloat(a.fee))}</span>
+                        )}
+                      </div>
+                    ))
+                  : (pool.selected_addon_ids || []).map((id, i) => (
+                      <div key={i} className="text-xs text-gray-500 font-mono">{id}</div>
+                    ))
+                }
+              </div>
+            </div>
+          )}
+
           {/* Items list */}
           <div>
             <h3 className="text-sm font-semibold text-gray-700 mb-2">包裹清单 ({(pool.order_ids || []).length} 件)</h3>

@@ -138,6 +138,7 @@ function TransitAddonSection({ consType, selectedTransitId, transitLocations, sh
     ? (transitLocations.find(l => l.id === selectedTransitId)?.disabled_addon_ids || [])
     : [];
   const visibleAddons = shippingAddons.filter(a => !disabledAddonIds.includes(a.id));
+  // Show addons for all shipping types (not just transit)
   if (visibleAddons.length === 0) return null;
 
   return (
@@ -814,14 +815,17 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
             setSelectedTransitMethodId={setSelectedTransitMethodId}
           />
 
-          <TransitAddonSection
-            consType={consType}
-            selectedTransitId={selectedTransitId}
-            transitLocations={transitLocations}
-            shippingAddons={shippingAddons}
-            selectedAddonIds={selectedAddonIds}
-            setSelectedAddonIds={setSelectedAddonIds}
-          />
+          {/* Show shipping addons for all shipment types */}
+          {!isJoiningPool && !joinDirectPool && (
+            <TransitAddonSection
+              consType={consType}
+              selectedTransitId={selectedTransitId}
+              transitLocations={transitLocations}
+              shippingAddons={shippingAddons}
+              selectedAddonIds={selectedAddonIds}
+              setSelectedAddonIds={setSelectedAddonIds}
+            />
+          )}
 
           {/* Note */}
           <div>
