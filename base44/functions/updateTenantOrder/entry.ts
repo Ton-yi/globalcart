@@ -52,6 +52,46 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Forbidden: You can only update your own orders' }, { status: 403 });
     }
 
+    // If admin is changing order_status away from notified_shipment, remove order from its shipping pool
+    const isAdmin = user.role === 'admin' || user.role === 'platform_admin' || user.role === 'staff';
+    const newStatus = updateData.order_status;
+    if (isAdmin && newStatus && newStatus !== order.order_status) {
+      // Case 1: order was in notified_shipment and is being moved to another status → remove from pool
+      if (order.order_status === 'notified_shipment' && newStatus !== 'notified_shipment') {
+        const poolId = order.consolidation_pool_id;
+        if (poolId) {
+          const poolResults = await base44.asServiceRole.entities.ShippingPool.filter({ id: poolId });
+          const pool = Array.isArray(poolResults) ? poolResults[0] : poolResults;
+          if (pool) {
+            const updatedIds = (pool.order_ids || []).filter(id => id !== order_id);
+            const updatedWeight = Math.max(0, (pool.total_weight_g || 0) - (order.weight_g || 0));
+            await base44.asServiceRole.entities.ShippingPool.update(poolId, {
+              order_ids: updatedIds,
+              total_weight_g: updatedWeight,
+            });
+          }
+          // Clear pool reference from order
+          updateData.consolidation_pool_id = '';
+        }
+      }
+
+      // Case 2: order is being set to notified_shipment — if it was already in another pool, remove from that one
+      // (handles re-submission scenario)
+      if (newStatus === 'notified_shipment' && order.consolidation_pool_id && updateData.consolidation_pool_id && updateData.consolidation_pool_id !== order.consolidation_pool_id) {
+        const oldPoolId = order.consolidation_pool_id;
+        const oldPoolResults = await base44.asServiceRole.entities.ShippingPool.filter({ id: oldPoolId });
+        const oldPool = Array.isArray(oldPoolResults) ? oldPoolResults[0] : oldPoolResults;
+        if (oldPool) {
+          const updatedIds = (oldPool.order_ids || []).filter(id => id !== order_id);
+          const updatedWeight = Math.max(0, (oldPool.total_weight_g || 0) - (order.weight_g || 0));
+          await base44.asServiceRole.entities.ShippingPool.update(oldPoolId, {
+            order_ids: updatedIds,
+            total_weight_g: updatedWeight,
+          });
+        }
+      }
+    }
+
     // Update order
     const updatedOrder = await base44.asServiceRole.entities.Order.update(order_id, updateData);
 

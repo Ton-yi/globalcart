@@ -638,17 +638,10 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
                       发货申请ID：<span className="font-mono text-cyan-700">{order.consolidation_pool_id.slice(-6).toUpperCase()}</span>
                     </div>
                   )}
-                  {onOpenPool ? (
-                    <Button size="sm" className="w-full bg-cyan-600 hover:bg-cyan-700 text-xs"
-                      onClick={() => { onClose(); onOpenPool(order.consolidation_pool_id); }}>
-                      查看发货需求详情
-                    </Button>
-                  ) : (
-                    <Button size="sm" className="w-full bg-cyan-600 hover:bg-cyan-700 text-xs"
-                      onClick={() => { onClose(); window.location.href = "/AdminShippingPool"; }}>
-                      查看发货需求详情
-                    </Button>
-                  )}
+                  <Button size="sm" className="w-full bg-cyan-600 hover:bg-cyan-700 text-xs"
+                    onClick={() => { onClose(); onOpenPool?.(order.consolidation_pool_id); }}>
+                    查看发货需求详情
+                  </Button>
                 </div>
               )}
 

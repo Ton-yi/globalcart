@@ -118,7 +118,7 @@ function CellValue({ col, order, onQuickOrdered, userAvatars }) {
           <Badge className={`text-xs ${getStatusColor(order.order_status, "admin")}`}>
             {getStatusLabel(order.order_status, "admin")}
           </Badge>
-          {order.order_status === "notified_shipment" && order.shipping_fee_amount > 0 && (
+          {order.order_status === "shipping_fee_pending" && (
             <Badge className="text-xs bg-orange-100 text-orange-700 w-fit">待付运费</Badge>
           )}
         </div>

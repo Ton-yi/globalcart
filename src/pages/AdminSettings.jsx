@@ -65,6 +65,8 @@ export default function AdminSettings() {
   const [showPayment, setShowPayment] = useState(false);
   const [liveRates, setLiveRates] = useState(null);
   const [newAddon, setNewAddon] = useState({ name: "", description: "", fee: "", fee_currency: "JPY", addon_type: "order" });
+  const [editingAddon, setEditingAddon] = useState(null); // id of addon being edited
+  const [editAddonFields, setEditAddonFields] = useState({});
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [newKey, setNewKey] = useState("");
@@ -258,6 +260,17 @@ export default function AdminSettings() {
 
   const handleDeleteAddon = async (id) => {
     await tenantEntity.delete('AddonOption', id);
+    await load();
+  };
+
+  const handleEditAddon = (a) => {
+    setEditingAddon(a.id);
+    setEditAddonFields({ name: a.name, description: a.description || "", fee: String(a.fee), fee_currency: a.fee_currency || "JPY", addon_type: a.addon_type || "order" });
+  };
+
+  const handleSaveAddon = async (id) => {
+    await tenantEntity.update('AddonOption', id, { ...editAddonFields, fee: parseFloat(editAddonFields.fee) || 0 });
+    setEditingAddon(null);
     await load();
   };
 
@@ -688,17 +701,36 @@ export default function AdminSettings() {
                   <p className="text-xs text-gray-400 py-1">暂无，在下方添加</p>
                 )}
                 {addons.filter(a => !a.addon_type || a.addon_type === "order").map(a => (
-                  <div key={a.id} className={`flex items-center gap-3 p-2 rounded-lg border mb-1.5 ${a.is_active ? "border-gray-200" : "border-gray-100 opacity-50"}`}>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-gray-800">{a.name}</span>
-                        <span className="text-sm text-red-600">+{a.fee_currency || "JPY"} {parseFloat(a.fee).toFixed(0)}</span>
-                        {!a.is_active && <Badge className="text-xs bg-gray-100 text-gray-400">已禁用</Badge>}
+                  <div key={a.id} className={`rounded-lg border mb-1.5 ${a.is_active ? "border-gray-200" : "border-gray-100 opacity-50"}`}>
+                    <div className="flex items-center gap-3 p-2">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-gray-800">{a.name}</span>
+                          <span className="text-sm text-red-600">+{a.fee_currency || "JPY"} {parseFloat(a.fee).toFixed(0)}</span>
+                          {!a.is_active && <Badge className="text-xs bg-gray-100 text-gray-400">已禁用</Badge>}
+                        </div>
+                        {a.description && <p className="text-xs text-gray-400">{a.description}</p>}
                       </div>
-                      {a.description && <p className="text-xs text-gray-400">{a.description}</p>}
+                      <Button variant="ghost" size="sm" className="h-7 text-xs text-blue-500" onClick={() => editingAddon === a.id ? setEditingAddon(null) : handleEditAddon(a)}>编辑</Button>
+                      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => toggleAddon(a)}>{a.is_active ? "禁用" : "启用"}</Button>
+                      <Button variant="ghost" size="sm" className="h-7 text-xs text-red-400" onClick={() => handleDeleteAddon(a.id)}><Trash2 className="w-3 h-3" /></Button>
                     </div>
-                    <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => toggleAddon(a)}>{a.is_active ? "禁用" : "启用"}</Button>
-                    <Button variant="ghost" size="sm" className="h-7 text-xs text-red-400" onClick={() => handleDeleteAddon(a.id)}><Trash2 className="w-3 h-3" /></Button>
+                    {editingAddon === a.id && (
+                      <div className="border-t border-gray-100 p-3 bg-gray-50 space-y-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          <div><Label className="text-xs text-gray-500">名称</Label><Input className="mt-0.5 h-7 text-sm" value={editAddonFields.name} onChange={e => setEditAddonFields(p => ({ ...p, name: e.target.value }))} /></div>
+                          <div><Label className="text-xs text-gray-500">说明</Label><Input className="mt-0.5 h-7 text-sm" value={editAddonFields.description} onChange={e => setEditAddonFields(p => ({ ...p, description: e.target.value }))} /></div>
+                          <div><Label className="text-xs text-gray-500">费用</Label><Input type="number" className="mt-0.5 h-7 text-sm" value={editAddonFields.fee} onChange={e => setEditAddonFields(p => ({ ...p, fee: e.target.value }))} /></div>
+                          <div><Label className="text-xs text-gray-500">货币</Label>
+                            <Select value={editAddonFields.fee_currency} onValueChange={v => setEditAddonFields(p => ({ ...p, fee_currency: v }))}>
+                              <SelectTrigger className="mt-0.5 h-7 text-sm"><SelectValue /></SelectTrigger>
+                              <SelectContent>{["JPY","CNY","USD","TWD","HKD","EUR","SGD"].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <div className="flex gap-2"><Button size="sm" className="h-7 text-xs bg-blue-600 hover:bg-blue-700" onClick={() => handleSaveAddon(a.id)}>保存</Button><Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditingAddon(null)}>取消</Button></div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -713,17 +745,36 @@ export default function AdminSettings() {
                   <p className="text-xs text-gray-400 py-1">暂无，在下方添加</p>
                 )}
                 {addons.filter(a => a.addon_type === "shipping").map(a => (
-                  <div key={a.id} className={`flex items-center gap-3 p-2 rounded-lg border mb-1.5 ${a.is_active ? "border-gray-200" : "border-gray-100 opacity-50"}`}>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-gray-800">{a.name}</span>
-                        <span className="text-sm text-red-600">+{a.fee_currency || "JPY"} {parseFloat(a.fee).toFixed(0)}</span>
-                        {!a.is_active && <Badge className="text-xs bg-gray-100 text-gray-400">已禁用</Badge>}
+                  <div key={a.id} className={`rounded-lg border mb-1.5 ${a.is_active ? "border-gray-200" : "border-gray-100 opacity-50"}`}>
+                    <div className="flex items-center gap-3 p-2">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-gray-800">{a.name}</span>
+                          <span className="text-sm text-red-600">+{a.fee_currency || "JPY"} {parseFloat(a.fee).toFixed(0)}</span>
+                          {!a.is_active && <Badge className="text-xs bg-gray-100 text-gray-400">已禁用</Badge>}
+                        </div>
+                        {a.description && <p className="text-xs text-gray-400">{a.description}</p>}
                       </div>
-                      {a.description && <p className="text-xs text-gray-400">{a.description}</p>}
+                      <Button variant="ghost" size="sm" className="h-7 text-xs text-blue-500" onClick={() => editingAddon === a.id ? setEditingAddon(null) : handleEditAddon(a)}>编辑</Button>
+                      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => toggleAddon(a)}>{a.is_active ? "禁用" : "启用"}</Button>
+                      <Button variant="ghost" size="sm" className="h-7 text-xs text-red-400" onClick={() => handleDeleteAddon(a.id)}><Trash2 className="w-3 h-3" /></Button>
                     </div>
-                    <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => toggleAddon(a)}>{a.is_active ? "禁用" : "启用"}</Button>
-                    <Button variant="ghost" size="sm" className="h-7 text-xs text-red-400" onClick={() => handleDeleteAddon(a.id)}><Trash2 className="w-3 h-3" /></Button>
+                    {editingAddon === a.id && (
+                      <div className="border-t border-gray-100 p-3 bg-gray-50 space-y-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          <div><Label className="text-xs text-gray-500">名称</Label><Input className="mt-0.5 h-7 text-sm" value={editAddonFields.name} onChange={e => setEditAddonFields(p => ({ ...p, name: e.target.value }))} /></div>
+                          <div><Label className="text-xs text-gray-500">说明</Label><Input className="mt-0.5 h-7 text-sm" value={editAddonFields.description} onChange={e => setEditAddonFields(p => ({ ...p, description: e.target.value }))} /></div>
+                          <div><Label className="text-xs text-gray-500">费用</Label><Input type="number" className="mt-0.5 h-7 text-sm" value={editAddonFields.fee} onChange={e => setEditAddonFields(p => ({ ...p, fee: e.target.value }))} /></div>
+                          <div><Label className="text-xs text-gray-500">货币</Label>
+                            <Select value={editAddonFields.fee_currency} onValueChange={v => setEditAddonFields(p => ({ ...p, fee_currency: v }))}>
+                              <SelectTrigger className="mt-0.5 h-7 text-sm"><SelectValue /></SelectTrigger>
+                              <SelectContent>{["JPY","CNY","USD","TWD","HKD","EUR","SGD"].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <div className="flex gap-2"><Button size="sm" className="h-7 text-xs bg-blue-600 hover:bg-blue-700" onClick={() => handleSaveAddon(a.id)}>保存</Button><Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditingAddon(null)}>取消</Button></div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
