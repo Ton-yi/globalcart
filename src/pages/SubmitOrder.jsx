@@ -199,7 +199,7 @@ export default function SubmitOrder() {
                   <div className="group relative">
                     <HelpCircle className="w-4 h-4 text-gray-400 hover:text-gray-600 cursor-help" />
                     <div className="invisible group-hover:visible absolute left-0 top-full mt-1 bg-gray-800 text-white text-xs rounded-lg px-3 py-2 w-48 z-10 pointer-events-none whitespace-normal">
-                      {settings.product_url_tips ? settings.product_url_tips : "https://www.melonbooks.co.jp/detail/detail.php?product_id=26026 2件%nhttps://www.melonbooks.co.jp/detail/detail.php?product_id=17543 1件%nhttps://www.melonbooks.co.jp/detail/detail.php?product_id=148282 5件"}
+                      {settings.product_url_tips ? settings.product_url_tips : "？？？"}
                     </div>
                   </div>
                 </div>
