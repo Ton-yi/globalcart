@@ -388,26 +388,44 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
 
         <div className="px-6 py-5 space-y-6">
           {/* Info grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
-            {pool.scheduled_ship_date && (
-              <InfoBlock label="计划发货日" value={pool.scheduled_ship_date} />
-            )}
-            {pool.destination_country && (
-              <InfoBlock label="目的国家" value={pool.destination_country} />
-            )}
-            {pool.shipping_method && (
-              <InfoBlock label="运输方式" value={METHOD_LABELS[pool.shipping_method] || pool.shipping_method} />
-            )}
-            {pool.total_weight_g > 0 && (
-              <InfoBlock label="总重量" value={`${pool.total_weight_g}g`} />
-            )}
-            {pool.actual_fee && (
-              <InfoBlock label="实际运费" value={`${pool.fee_currency || "JPY"} ${Math.round(pool.actual_fee).toLocaleString()}`} highlight />
-            )}
-            {pool.transit_location_name && (
-              <InfoBlock label="中转地" value={pool.transit_location_name} />
-            )}
-          </div>
+           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+             {pool.scheduled_ship_date && (
+               <InfoBlock label="计划发货日" value={pool.scheduled_ship_date} />
+             )}
+             {pool.destination_country && (
+               <InfoBlock label="目的国家" value={pool.destination_country} />
+             )}
+             {pool.shipping_method && (
+               <InfoBlock label="运输方式" value={METHOD_LABELS[pool.shipping_method] || pool.shipping_method} />
+             )}
+             {pool.total_weight_g > 0 && (
+               <InfoBlock label="总重量" value={`${pool.total_weight_g}g`} />
+             )}
+             {pool.actual_fee && (
+               <InfoBlock label="实际运费" value={`${pool.fee_currency || "JPY"} ${Math.round(pool.actual_fee).toLocaleString()}`} highlight />
+             )}
+             {pool.transit_location_name && (
+               <InfoBlock label="中转地" value={pool.transit_location_name} />
+             )}
+           </div>
+
+           {/* Destination address */}
+           {(pool.recipient_name || pool.address_line1 || pool.city || pool.country) && (
+             <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2.5">
+               <p className="text-xs text-blue-600 font-medium mb-1">发货目的地</p>
+               <div className="text-sm text-blue-800 space-y-0.5">
+                 {pool.recipient_name && <p className="font-medium">{pool.recipient_name}</p>}
+                 {pool.recipient_phone && <p className="text-xs">{pool.recipient_phone}</p>}
+                 <p className="whitespace-pre-wrap">
+                   {pool.address_line1}{pool.address_line2 ? ` ${pool.address_line2}` : ""}<br />
+                   {pool.city && `${pool.city} `}
+                   {pool.state && `${pool.state} `}
+                   {pool.postal_code && `${pool.postal_code}`}<br />
+                   {pool.country}
+                 </p>
+               </div>
+             </div>
+           )}
 
           {/* Selected shipping addons */}
           {((pool.selected_addons || []).length > 0 || (pool.selected_addon_ids || []).length > 0) && (
