@@ -185,16 +185,23 @@ export default function OrderDetailDrawer({ order, currentUser, initialUserPrefe
           </div>
 
           {/* Selected addons */}
-          {(order.selected_addons || []).length > 0 && (
+          {((order.selected_addons || []).length > 0 || (order.selected_addon_ids || []).length > 0) && (
             <div className="bg-purple-50 border border-purple-100 rounded-lg px-3 py-2.5">
               <div className="text-xs text-purple-600 font-medium mb-1.5">增值服务</div>
               <div className="space-y-1">
-                {(order.selected_addons || []).map((a, i) => (
-                  <div key={i} className="flex items-center justify-between text-xs">
-                    <span className="text-gray-700">{a.name}</span>
-                    <span className="font-medium text-purple-700">+{a.fee_currency || "JPY"} {a.fee_currency === "JPY" ? Math.round(parseFloat(a.fee || 0)) : a.fee}</span>
-                  </div>
-                ))}
+                {(order.selected_addons || []).length > 0
+                  ? (order.selected_addons).map((a, i) => (
+                      <div key={i} className="flex items-center justify-between text-xs">
+                        <span className="text-gray-700">{a.name || a.id}</span>
+                        <span className="font-medium text-purple-700">+{a.fee_currency || "JPY"} {Math.round(parseFloat(a.fee || 0))}</span>
+                      </div>
+                    ))
+                  : (order.selected_addon_ids).map((id, i) => (
+                      <div key={i} className="flex items-center text-xs">
+                        <span className="text-gray-500 font-mono">{id}</span>
+                      </div>
+                    ))
+                }
               </div>
             </div>
           )}
