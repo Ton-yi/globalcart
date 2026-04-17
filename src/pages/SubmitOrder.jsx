@@ -112,6 +112,12 @@ export default function SubmitOrder() {
       e.preventDefault();
       setProductUrls(prev => [...prev.slice(0, idx + 1), "", ...prev.slice(idx + 1)]);
     }
+    if (e.ctrlKey && e.shiftKey && e.code === "KeyS") {
+      e.preventDefault();
+      const urlsText = productUrls.filter(u => u.trim()).join("\n");
+      setUrlMode("textarea");
+      setProductUrls([urlsText]);
+    }
   };
 
   const addUrl = () => setProductUrls(prev => [...prev, ""]);
@@ -237,7 +243,7 @@ export default function SubmitOrder() {
                 </div>
               )}
               <p className="text-xs text-gray-400 mt-1.5">
-                分行模式：Shift+Enter 快速添加下一条 · 请按商城为单位提交，不同商城请分开提交
+                分行模式：Shift+Enter 快速添加下一条 · Ctrl+Shift+S 切换文本框 · 请按商城为单位提交，不同商城请分开提交
               </p>
             </div>
 
