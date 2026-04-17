@@ -349,36 +349,51 @@ export default function AdminShippingInfoPanel({
           </div>
 
           {/* Weight & shipping fee */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-xs text-gray-500">最终总重量 (g)</Label>
-              <Input className="mt-1 h-8 text-sm" type="text" inputMode="decimal" placeholder={pool.total_weight_g || "0"}
-                value={finalWeightG}
-                onChange={e => {
-                  const w = e.target.value;
-                  setFinalWeightG(w);
-                  // Auto-calc fee from weight if method has rates
-                  const wNum = parseFloat(w);
-                  if (!isNaN(wNum) && wNum > 0) {
-                    const calc = calcFeeFromWeight(wNum);
-                    if (calc && calc.currency === "JPY") {
-                      setShippingFeeJpy(String(calc.fee));
-                      setFeeAutoCalced(true);
-                    }
-                  }
-                }} />
-              {boxWeight > 0 && <p className="text-xs text-gray-400 mt-0.5">含外箱 {boxWeight}g</p>}
-            </div>
-            <div>
-              <Label className="text-xs text-gray-500 flex items-center gap-1">
-                国际运费 (JPY) *
-                {feeAutoCalced && matchedShippingMethod && <span className="text-blue-500 font-normal">（按{matchedShippingMethod.name || pool.shipping_method}费率自动计算）</span>}
-              </Label>
-              <Input className="mt-1 h-8 text-sm" type="text" inputMode="decimal" placeholder="0"
-                value={shippingFeeJpy}
-                onChange={e => { setShippingFeeJpy(e.target.value); setFeeAutoCalced(false); }} />
-            </div>
-          </div>
+          {(() => {
+            const wNum = parseFloat(finalWeightG);
+            const calcResult = (!isNaN(wNum) && wNum > 0) ? calcFeeFromWeight(wNum) : null;
+            return (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs text-gray-500">最终总重量 (g)</Label>
+                  <Input className="mt-1 h-8 text-sm" type="text" inputMode="decimal" placeholder={pool.total_weight_g || "0"}
+                    value={finalWeightG}
+                    onChange={e => {
+                      const w = e.target.value;
+                      setFinalWeightG(w);
+                      // Auto-calc fee from weight if method has rates in JPY
+                      const wN = parseFloat(w);
+                      if (!isNaN(wN) && wN > 0) {
+                        const calc = calcFeeFromWeight(wN);
+                        if (calc && calc.currency === "JPY") {
+                          setShippingFeeJpy(String(calc.fee));
+                          setFeeAutoCalced(true);
+                        }
+                      } else {
+                        setFeeAutoCalced(false);
+                      }
+                    }} />
+                  {boxWeight > 0 && <p className="text-xs text-gray-400 mt-0.5">含外箱 {boxWeight}g</p>}
+                </div>
+                <div>
+                  <Label className="text-xs text-gray-500 flex items-center gap-1 flex-wrap">
+                    国际运费 ({calcResult ? calcResult.currency : "JPY"}) *
+                    {matchedShippingMethod && calcResult && (
+                      <span className="text-blue-500 font-normal">
+                        按{matchedShippingMethod.name || pool.shipping_method}费率：{calcResult.currency} {calcResult.fee.toLocaleString()}
+                      </span>
+                    )}
+                    {matchedShippingMethod && !calcResult && finalWeightG && (
+                      <span className="text-orange-400 font-normal">（该重量无匹配区间）</span>
+                    )}
+                  </Label>
+                  <Input className="mt-1 h-8 text-sm" type="text" inputMode="decimal" placeholder="0"
+                    value={shippingFeeJpy}
+                    onChange={e => { setShippingFeeJpy(e.target.value); setFeeAutoCalced(false); }} />
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Packing fees per user */}
           <div>
