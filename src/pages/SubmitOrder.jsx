@@ -155,7 +155,7 @@ export default function SubmitOrder() {
       payment_status: isDeferred ? "pending" : "awaiting_payment",
       user_note: form.user_note || "",
       selected_addon_ids: selectedAddons,
-      selected_addons: selectedAddonObjects.map(a => ({ id: a.id, name: a.name, fee: a.fee, fee_currency: a.fee_currency })),
+      selected_addons: selectedAddonObjects.map(a => ({ id: a.id, name: a.name, fee: parseFloat(a.fee) || 0, fee_currency: a.fee_currency || "JPY" })),
     });
     const order = res.data?.order;
     if (isDeferred) {

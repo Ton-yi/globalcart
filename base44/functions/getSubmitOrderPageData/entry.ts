@@ -102,7 +102,7 @@ Deno.serve(async (req) => {
     };
 
     return Response.json({
-      addons: (addons || []).filter(a => a.addon_type === 'order' && a.is_active !== false),
+      addons: (addons || []).filter(a => (!a.addon_type || a.addon_type === 'order') && a.is_active !== false),
       settings: settingsMap,
       rates,
     });
