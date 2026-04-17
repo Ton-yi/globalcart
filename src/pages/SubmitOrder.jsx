@@ -219,7 +219,7 @@ export default function SubmitOrder() {
               </div>
               {urlMode === "textarea" ? (
                 <Textarea
-                  placeholder={"https://www.amazon.co.jp/...\nhttps://www.rakuten.co.jp/..."}
+                  placeholder={"https://www.melonbooks.co.jp/detail/detail.php?product_id=148282 3件\nhttps://www.melonbooks.co.jp/detail/detail.php?product_id=17543 1件 \nhttps://www.melonbooks.co.jp/detail/detail.php?product_id=26026 5件 ..."}
                   value={productUrls[0] || ""}
                   onChange={e => setProductUrls([e.target.value])}
                   className="mt-1 text-sm"
