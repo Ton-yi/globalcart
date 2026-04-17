@@ -491,27 +491,47 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
               {(status === "paid" || status === "pending_purchase") && (
                 <div className="space-y-3 border border-indigo-100 rounded-xl p-3 bg-indigo-50">
                   <div className="text-sm font-medium text-indigo-800">待下单 — 完成购买后上传截图</div>
-                  <label
-                    className="cursor-pointer block"
-                    onDragOver={e => e.preventDefault()}
-                    onDrop={e => {
-                      e.preventDefault();
-                      const file = e.dataTransfer.files[0];
-                      if (file && file.type.startsWith("image/")) uploadFile(file, setPurchaseScreenshot, setUploadingScreenshot);
-                    }}
-                  >
-                    <div className={`flex items-center justify-center gap-2 border-2 border-dashed rounded-lg p-3 text-sm transition-colors ${
-                      purchaseScreenshot ? "border-green-300 bg-green-50 text-green-700" : uploadingScreenshot ? "border-blue-200 bg-blue-50 text-blue-500" : "border-indigo-200 bg-white text-gray-400 hover:border-indigo-400"
-                    }`}>
-                      {purchaseScreenshot
-                        ? <><CheckCircle className="w-4 h-4" />截图已上传，点击或拖拽可更换</>
-                        : uploadingScreenshot
-                        ? <><Loader2 className="w-4 h-4 animate-spin" />上传中...</>
-                        : <><Upload className="w-4 h-4" />点击或拖拽上传购买截图（可选）</>}
+                  <div className="space-y-2">
+                    <label
+                      className="cursor-pointer block"
+                      onDragOver={e => e.preventDefault()}
+                      onDrop={e => {
+                        e.preventDefault();
+                        const file = e.dataTransfer.files[0];
+                        if (file && file.type.startsWith("image/")) uploadFile(file, setPurchaseScreenshot, setUploadingScreenshot);
+                      }}
+                    >
+                      <div className={`flex items-center justify-center gap-2 border-2 border-dashed rounded-lg p-3 text-sm transition-colors ${
+                        purchaseScreenshot ? "border-green-300 bg-green-50 text-green-700" : uploadingScreenshot ? "border-blue-200 bg-blue-50 text-blue-500" : "border-indigo-200 bg-white text-gray-400 hover:border-indigo-400"
+                      }`}>
+                        {purchaseScreenshot
+                          ? <><CheckCircle className="w-4 h-4" />截图已上传，点击或拖拽可更换</>
+                          : uploadingScreenshot
+                          ? <><Loader2 className="w-4 h-4 animate-spin" />上传中...</>
+                          : <><Upload className="w-4 h-4" />点击或拖拽上传购买截图（可选）</>}
+                      </div>
+                      <input type="file" accept="image/*" className="hidden"
+                        onChange={e => uploadFile(e.target.files[0], setPurchaseScreenshot, setUploadingScreenshot)} />
+                    </label>
+                    <div>
+                      <Label className="text-xs text-gray-500">或粘贴截图URL</Label>
+                      <Input
+                        type="text"
+                        placeholder="https://example.com/screenshot.jpg"
+                        value={purchaseScreenshot || ""}
+                        onChange={e => setPurchaseScreenshot(e.target.value)}
+                        onPaste={e => {
+                          const item = Array.from(e.clipboardData.items).find(i => i.type.startsWith("image/"));
+                          if (item) {
+                            e.preventDefault();
+                            const file = item.getAsFile();
+                            if (file) uploadFile(file, setPurchaseScreenshot, setUploadingScreenshot);
+                          }
+                        }}
+                        className="mt-1 text-xs"
+                      />
                     </div>
-                    <input type="file" accept="image/*" className="hidden"
-                      onChange={e => uploadFile(e.target.files[0], setPurchaseScreenshot, setUploadingScreenshot)} />
-                  </label>
+                  </div>
                   <Input placeholder="取消理由（取消时必填）" value={form.cancel_reason}
                     onChange={e => f("cancel_reason", e.target.value)} className="text-xs" />
                   <div className="flex gap-2">
@@ -531,29 +551,49 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
               {status === "purchased" && (
                 <div className="space-y-3 border border-teal-100 rounded-xl p-3 bg-teal-50">
                   <div className="text-sm font-medium text-teal-800">已下单 — 到货后入库</div>
-                  <label
-                    className="cursor-pointer block"
-                    onDragOver={e => e.preventDefault()}
-                    onDrop={e => {
-                      e.preventDefault();
-                      const file = e.dataTransfer.files[0];
-                      if (file && file.type.startsWith("image/")) uploadFile(file, setArrivalPhoto, setUploadingArrival);
-                    }}
-                  >
-                    <div className={`flex flex-col items-center justify-center gap-1.5 border-2 border-dashed rounded-lg p-3 text-sm transition-colors ${
-                      arrivalPhoto ? "border-green-300 bg-green-50 text-green-700" :
-                      uploadingArrival ? "border-blue-200 bg-blue-50 text-blue-500" :
-                      "border-teal-200 bg-white text-gray-400 hover:border-teal-400 hover:text-teal-600"
-                    }`}>
-                      {arrivalPhoto
-                        ? <><CheckCircle className="w-4 h-4" /><span>到货图片已上传，点击或拖拽可更换</span></>
-                        : uploadingArrival
-                        ? <><Loader2 className="w-4 h-4 animate-spin" /><span>上传中...</span></>
-                        : <><Upload className="w-4 h-4" /><span>点击选择或拖拽图片至此处</span></>}
+                  <div className="space-y-2">
+                    <label
+                      className="cursor-pointer block"
+                      onDragOver={e => e.preventDefault()}
+                      onDrop={e => {
+                        e.preventDefault();
+                        const file = e.dataTransfer.files[0];
+                        if (file && file.type.startsWith("image/")) uploadFile(file, setArrivalPhoto, setUploadingArrival);
+                      }}
+                    >
+                      <div className={`flex flex-col items-center justify-center gap-1.5 border-2 border-dashed rounded-lg p-3 text-sm transition-colors ${
+                        arrivalPhoto ? "border-green-300 bg-green-50 text-green-700" :
+                        uploadingArrival ? "border-blue-200 bg-blue-50 text-blue-500" :
+                        "border-teal-200 bg-white text-gray-400 hover:border-teal-400 hover:text-teal-600"
+                      }`}>
+                        {arrivalPhoto
+                          ? <><CheckCircle className="w-4 h-4" /><span>到货图片已上传，点击或拖拽可更换</span></>
+                          : uploadingArrival
+                          ? <><Loader2 className="w-4 h-4 animate-spin" /><span>上传中...</span></>
+                          : <><Upload className="w-4 h-4" /><span>点击选择或拖拽图片至此处</span></>}
+                      </div>
+                      <input type="file" accept="image/*" className="hidden"
+                        onChange={e => uploadFile(e.target.files[0], setArrivalPhoto, setUploadingArrival)} />
+                    </label>
+                    <div>
+                      <Label className="text-xs text-gray-500">或粘贴图片URL</Label>
+                      <Input
+                        type="text"
+                        placeholder="https://example.com/photo.jpg"
+                        value={arrivalPhoto || ""}
+                        onChange={e => setArrivalPhoto(e.target.value)}
+                        onPaste={e => {
+                          const item = Array.from(e.clipboardData.items).find(i => i.type.startsWith("image/"));
+                          if (item) {
+                            e.preventDefault();
+                            const file = item.getAsFile();
+                            if (file) uploadFile(file, setArrivalPhoto, setUploadingArrival);
+                          }
+                        }}
+                        className="mt-1 text-xs"
+                      />
                     </div>
-                    <input type="file" accept="image/*" className="hidden"
-                      onChange={e => uploadFile(e.target.files[0], setArrivalPhoto, setUploadingArrival)} />
-                  </label>
+                  </div>
                   <div>
                     <Label className="text-xs">货品重量 (g)（默认100g）</Label>
                     <div className="flex items-center gap-1 mt-1">
