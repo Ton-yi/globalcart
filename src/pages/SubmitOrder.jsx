@@ -6,7 +6,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { timePage } from "@/lib/timing";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { ShoppingBag, Calculator, Info, Upload, Plus, X, ChevronsUpDown } from "lucide-react";
+import { ShoppingBag, Calculator, Info, Upload, Plus, X, ChevronsUpDown, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -194,7 +194,15 @@ export default function SubmitOrder() {
             {/* Multi-URL input */}
             <div>
               <div className="flex items-center justify-between mb-1">
-                <Label className="text-sm">商品链接</Label>
+                <div className="flex items-center gap-1.5">
+                  <Label className="text-sm">商品链接</Label>
+                  <div className="group relative">
+                    <HelpCircle className="w-4 h-4 text-gray-400 hover:text-gray-600 cursor-help" />
+                    <div className="invisible group-hover:visible absolute left-0 top-full mt-1 bg-gray-800 text-white text-xs rounded-lg px-3 py-2 w-48 z-10 pointer-events-none whitespace-normal">
+                      {settings.product_url_tips ? settings.product_url_tips : "请填写商品的完整链接，支持多条链接"}
+                    </div>
+                  </div>
+                </div>
                 <button type="button" onClick={() => {
                   if (urlMode === "multi") {
                     setUrlMode("textarea");
