@@ -467,40 +467,55 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                           </div>
                         </div>
                       ) : (
-                        <div className="flex items-center gap-3 px-3 py-2">
-                          <Package className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm text-gray-800 truncate">{o.product_name}</p>
-                            <p className="text-xs text-gray-400">{o.order_number} · {o.weight_g || 0}g{o.user_email ? ` · ${(tenantUserMap[o.user_email]?.display_name || tenantUserMap[o.user_email]?.full_name || o.user_name) || ""}` : ""}</p>
+                        <div className="space-y-2 px-3 py-2">
+                          <div className="flex items-start gap-3">
+                            {o.product_image_url && (
+                              <ImageWithViewer src={o.product_image_url} alt="产品图片">
+                                <img src={o.product_image_url} alt="" className="w-12 h-12 rounded object-cover border border-gray-200 cursor-pointer hover:opacity-80 transition-opacity flex-shrink-0" />
+                              </ImageWithViewer>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm text-gray-800 truncate">{o.product_name}</p>
+                              <p className="text-xs text-gray-400">{o.order_number} · {o.weight_g || 0}g{o.user_email ? ` · ${(tenantUserMap[o.user_email]?.display_name || tenantUserMap[o.user_email]?.full_name || o.user_name) || ""}` : ""}</p>
+                              {o.order_status && (
+                                <p className="text-xs text-gray-500 mt-1">状态：<span className="font-medium text-gray-700">{o.order_status}</span></p>
+                              )}
+                              {o.estimated_jpy && (
+                                <p className="text-xs text-gray-500 mt-0.5">估价：<span className="font-medium text-orange-600">¥{Math.round(o.estimated_jpy).toLocaleString()}</span></p>
+                              )}
+                            </div>
                           </div>
-                          {/* Admin can edit any order */}
-                           {isAdmin && pool.status !== "shipped" && pool.status !== "delivered" && (
-                             <div className="flex items-center gap-1">
-                               <button
-                                 onClick={() => setEditingOrderData({ ...o })}
-                                 className="flex-shrink-0 p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600 transition-colors"
-                                 title="编辑包裹信息">
-                                 <Edit2 className="w-3.5 h-3.5" />
-                               </button>
-                               <button
-                                 onClick={() => { setShowOrderActions(showOrderActions === o.id ? null : o.id); if (showOrderActions !== o.id) loadOtherPools(o); }}
-                                 className="flex-shrink-0 p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600 transition-colors"
-                                 title="更多操作">
-                                 <MoreVertical className="w-3.5 h-3.5" />
-                               </button>
-                             </div>
-                           )}
-                          {/* User can edit their own orders */}
-                          {!isAdmin && o.user_email === currentUser?.email && pool.status !== "shipped" && pool.status !== "delivered" && (
-                            <button
-                              onClick={() => setEditingOrder(o)}
-                              className="flex-shrink-0 p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600 transition-colors"
-                              title="编辑发货参数">
-                              <Edit2 className="w-3.5 h-3.5" />
-                            </button>
+                          </div>
+                            <div className="flex items-center gap-1 justify-end pt-2 border-t border-gray-100">
+                              {/* Admin can edit any order */}
+                               {isAdmin && pool.status !== "shipped" && pool.status !== "delivered" && (
+                                 <div className="flex items-center gap-1">
+                                   <button
+                                     onClick={() => setEditingOrderData({ ...o })}
+                                     className="flex-shrink-0 p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600 transition-colors"
+                                     title="编辑包裹信息">
+                                     <Edit2 className="w-3.5 h-3.5" />
+                                   </button>
+                                   <button
+                                     onClick={() => { setShowOrderActions(showOrderActions === o.id ? null : o.id); if (showOrderActions !== o.id) loadOtherPools(o); }}
+                                     className="flex-shrink-0 p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600 transition-colors"
+                                     title="更多操作">
+                                     <MoreVertical className="w-3.5 h-3.5" />
+                                   </button>
+                                 </div>
+                               )}
+                               {/* User can edit their own orders */}
+                               {!isAdmin && o.user_email === currentUser?.email && pool.status !== "shipped" && pool.status !== "delivered" && (
+                                 <button
+                                   onClick={() => setEditingOrder(o)}
+                                   className="flex-shrink-0 p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600 transition-colors"
+                                   title="编辑发货参数">
+                                   <Edit2 className="w-3.5 h-3.5" />
+                                 </button>
+                               )}
+                            </div>
+                          </div>
                           )}
-                        </div>
-                      )}
                       {/* Admin actions panel */}
                       {isAdmin && showOrderActions === o.id && (
                         <div className="border-t border-gray-100 bg-gray-50 px-3 py-2.5 space-y-2">
