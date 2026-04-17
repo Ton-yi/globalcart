@@ -99,10 +99,10 @@ export default function AddonManager({ addons, editingAddon, editAddonFields, ne
     <div className="space-y-4">
       {/* Order addons */}
       <div>
-        <p className="text-xs font-semibold text-gray-600 mb-2 flex items-center gap-1.5">
+        <div className="text-xs font-semibold text-gray-600 mb-2 flex items-center gap-1.5">
           <Badge className="text-xs bg-blue-100 text-blue-700">下单增值选项</Badge>
           <span className="text-gray-400 font-normal">提交订单时展示，费用计入订单付款金额</span>
-        </p>
+        </div>
         {orderAddons.length === 0 && <p className="text-xs text-gray-400 py-1">暂无，在下方添加</p>}
         {orderAddons.map(a => (
           <AddonRow key={a.id} a={a}
@@ -120,10 +120,10 @@ export default function AddonManager({ addons, editingAddon, editAddonFields, ne
 
       {/* Shipping addons */}
       <div className="border-t pt-3">
-        <p className="text-xs font-semibold text-gray-600 mb-2 flex items-center gap-1.5">
+        <div className="text-xs font-semibold text-gray-600 mb-2 flex items-center gap-1.5">
           <Badge className="text-xs bg-orange-100 text-orange-700">发货增值选项</Badge>
           <span className="text-gray-400 font-normal">提交发货申请时展示，费用计入发货运费</span>
-        </p>
+        </div>
         {shippingAddons.length === 0 && <p className="text-xs text-gray-400 py-1">暂无，在下方添加</p>}
         {shippingAddons.map(a => (
           <AddonRow key={a.id} a={a}
