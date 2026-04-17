@@ -6,7 +6,7 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { updateOrder, tenantEntity } from "@/lib/tenantApi";
-import { X, ExternalLink, Copy, Loader2, CheckCircle, Upload, AlertTriangle, MessageCircle, Package, Send } from "lucide-react";
+import { X, ExternalLink, Copy, Loader2, CheckCircle, Upload, AlertTriangle, MessageCircle, Package, Send, Layers } from "lucide-react";
 import { ImageWithViewer } from "@/components/common/ImageViewer";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -33,7 +33,7 @@ const ALL_STATUSES = [
   { v: "cancelled", l: "已取消" },
 ];
 
-export default function AdminOrderEditModal({ order, initialItemSizeTemplates, onClose, onSaved, onOpenPool }) {
+export default function AdminOrderEditModal({ order, initialItemSizeTemplates, onClose, onSaved, onOpenPool, shippingPools = [] }) {
   const [tab, setTab] = useState((order.unread_roles || []).includes("admin") ? "messages" : "actions"); // "actions" | "edit" | "messages"
   const [saving, setSaving] = useState(false);
 
@@ -632,25 +632,36 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
               )}
 
               {/* notified_shipment → open pool detail modal */}
-              {status === "notified_shipment" && (
-                <div className="space-y-3 border border-cyan-100 rounded-xl p-3 bg-cyan-50">
-                  <div className="text-sm font-medium text-cyan-800">已通知出货 — 通过发货池管理发货</div>
-                  {order.shipping_method && (
-                    <div className="text-xs text-gray-600">发货方式：{order.shipping_method}
-                      {order.consolidation_requested && " · 拼邮"}
-                    </div>
-                  )}
-                  {order.consolidation_pool_id && (
-                    <div className="text-xs text-gray-500">
-                      发货申请ID：<span className="font-mono text-cyan-700">{order.consolidation_pool_id.slice(-6).toUpperCase()}</span>
-                    </div>
-                  )}
-                  <Button size="sm" variant="outline" className="w-full text-xs text-teal-600 border-teal-200 hover:bg-teal-50"
-                    onClick={() => { onClose(); onOpenPool?.(order.consolidation_pool_id); }}>
-                    <Send className="w-3.5 h-3.5 mr-1.5" />查看发货需求详情
-                  </Button>
-                </div>
-              )}
+              {status === "notified_shipment" && (() => {
+                // Find pool by order_ids (same logic as table action column)
+                const pool = shippingPools.find(p => (p.order_ids || []).includes(order.id))
+                  || (order.consolidation_pool_id ? shippingPools.find(p => p.id === order.consolidation_pool_id) : null);
+                const poolId = pool?.id || order.consolidation_pool_id;
+                const isConsolidation = pool?.consolidation_type && pool.consolidation_type !== "";
+                return (
+                  <div className="space-y-3 border border-cyan-100 rounded-xl p-3 bg-cyan-50">
+                    <div className="text-sm font-medium text-cyan-800">已通知出货 — 通过发货池管理发货</div>
+                    {order.shipping_method && (
+                      <div className="text-xs text-gray-600">发货方式：{order.shipping_method}
+                        {order.consolidation_requested && " · 拼邮"}
+                      </div>
+                    )}
+                    {poolId && (
+                      <div className="text-xs text-gray-500">
+                        发货申请ID：<span className="font-mono text-cyan-700">{poolId.slice(-6).toUpperCase()}</span>
+                      </div>
+                    )}
+                    <Button size="sm" variant="outline"
+                      className={`w-full text-xs ${isConsolidation ? "text-purple-600 border-purple-200 hover:bg-purple-50" : "text-teal-600 border-teal-200 hover:bg-teal-50"}`}
+                      disabled={!poolId}
+                      onClick={() => { onClose(); onOpenPool?.(poolId); }}>
+                      {isConsolidation
+                        ? <><Layers className="w-3.5 h-3.5 mr-1.5" />查看拼邮详情</>
+                        : <><Send className="w-3.5 h-3.5 mr-1.5" />查看发货需求详情</>}
+                    </Button>
+                  </div>
+                );
+              })()}
 
               {/* shipping_fee_pending / ready_to_ship → shipped */}
               {(status === "shipping_fee_pending" || status === "ready_to_ship") && (

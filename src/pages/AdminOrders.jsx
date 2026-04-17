@@ -493,11 +493,15 @@ export default function AdminOrders() {
         <AdminOrderEditModal
           order={selectedOrder}
           initialItemSizeTemplates={itemSizeTemplates}
+          shippingPools={shippingPools}
           onClose={() => setSelectedOrder(null)}
           onSaved={() => { setSelectedOrder(null); fetchOrders(); }}
           onOpenPool={async (poolId) => {
             setSelectedOrder(null);
             if (!poolId) return;
+            // Use already-loaded shippingPools first, fall back to fresh fetch
+            const existing = shippingPools.find(p => p.id === poolId);
+            if (existing) { setSelectedPool(existing); return; }
             const r = await base44.functions.invoke('getTenantShippingPools', {});
             const pool = (r.data?.pools || []).find(p => p.id === poolId);
             if (pool) setSelectedPool(pool);
