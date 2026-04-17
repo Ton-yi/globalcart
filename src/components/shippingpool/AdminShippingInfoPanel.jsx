@@ -21,6 +21,7 @@ import { getCountry, getCountryZone } from "@/lib/countries";
 import { calcFeeBreakdownPerUser } from "@/lib/shippingFeeCalc";
 import { getExchangeRates } from "@/lib/exchangeRates";
 import ShippingFeeBreakdown from "@/components/shippingpool/ShippingFeeBreakdown";
+import { ImageWithViewer } from "@/components/common/ImageViewer";
 
 const STATUS_CONFIG = {
   pending:          { label: "待处理",  color: "bg-amber-100 text-amber-700" },
@@ -526,7 +527,9 @@ export default function AdminShippingInfoPanel({
               <div className="flex flex-wrap gap-1.5 mb-1.5">
                 {labelImageUrls.map((url, i) => (
                   <div key={i} className="relative group">
-                    <img src={url} alt="" className="w-12 h-12 rounded object-cover border border-gray-200" />
+                    <ImageWithViewer src={url} alt="发货面单">
+                      <img src={url} alt="" className="w-12 h-12 rounded object-cover border border-gray-200 cursor-pointer hover:opacity-80 transition-opacity" />
+                    </ImageWithViewer>
                     <button
                       onClick={() => setLabelImageUrls(prev => prev.filter((_, j) => j !== i))}
                       className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
@@ -551,7 +554,9 @@ export default function AdminShippingInfoPanel({
               <div className="flex flex-wrap gap-1.5 mb-1.5">
                 {packingImageUrls.map((url, i) => (
                   <div key={i} className="relative group">
-                    <img src={url} alt="" className="w-12 h-12 rounded object-cover border border-gray-200" />
+                    <ImageWithViewer src={url} alt="捆包状态图片">
+                      <img src={url} alt="" className="w-12 h-12 rounded object-cover border border-gray-200 cursor-pointer hover:opacity-80 transition-opacity" />
+                    </ImageWithViewer>
                     <button
                       onClick={() => setPackingImageUrls(prev => prev.filter((_, j) => j !== i))}
                       className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
