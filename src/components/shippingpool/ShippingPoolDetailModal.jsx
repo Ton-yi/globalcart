@@ -492,6 +492,11 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                                 <img src={o.product_image_url} alt="" className="w-12 h-12 rounded object-cover border border-gray-200 cursor-pointer hover:opacity-80 transition-opacity flex-shrink-0" />
                               </ImageWithViewer>
                             )}
+                            {o.arrival_photo_url && (
+                              <ImageWithViewer src={o.arrival_photo_url} alt="入库图片">
+                                <img src={o.arrival_photo_url} alt="" className="w-12 h-12 rounded object-cover border border-green-200 cursor-pointer hover:opacity-80 transition-opacity flex-shrink-0" />
+                              </ImageWithViewer>
+                            )}
                             <div className="flex-1 min-w-0">
                               <p className="text-sm text-gray-800 truncate">{o.product_name}</p>
                               <p className="text-xs text-gray-400">{o.order_number} · {o.weight_g || 0}g{o.user_email ? ` · ${(tenantUserMap[o.user_email]?.display_name || tenantUserMap[o.user_email]?.full_name || o.user_name) || ""}` : ""}</p>
