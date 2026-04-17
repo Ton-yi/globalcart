@@ -1091,7 +1091,8 @@ function ParticipantChip({ user, avatarUrl, contactInfo }) {
       {contactInfo && <span className="w-1.5 h-1.5 rounded-full bg-green-400 flex-shrink-0 cursor-pointer" title="点击查看联系方式" onClick={() => setTooltipVisible(!tooltipVisible)} />}
       {tooltipVisible && contactInfo && (
         <div
-          className="absolute bottom-full left-0 mb-2 z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-3 space-y-2"
+          className="absolute bottom-full left-0 mb-2 z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-3 space-y-2 whitespace-nowrap"
+          style={{ width: `max(auto, ${Math.max(80, Math.min(contactInfo.length * 7 + 60, 300))}px)` }}
           onMouseEnter={cancelHide}
           onMouseLeave={scheduleHide}
         >
@@ -1099,7 +1100,7 @@ function ParticipantChip({ user, avatarUrl, contactInfo }) {
             <p className="text-xs font-medium text-gray-500">联系方式</p>
             <button
               onClick={handleCopyContact}
-              className="text-xs px-2 py-1 rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
+              className="text-xs px-2 py-1 rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors flex-shrink-0"
               title="复制联系方式"
             >
               {copied ? "已复制" : "复制"}
