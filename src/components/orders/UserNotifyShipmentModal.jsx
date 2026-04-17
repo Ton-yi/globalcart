@@ -419,10 +419,13 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
       const pool_code = `${prefix}${nextSeq}`;
 
       const addrObj = consType === "transit"
-        ? (addressInputMode["final"] ? (newAddress.full_text ? { full_text: newAddress.full_text } : null) : savedAddresses.find(a => a.id === finalAddressId))
-        : (addressInputMode[consType === "other" ? "other" : "direct"] ? (newAddress.full_text ? { full_text: newAddress.full_text } : null) : savedAddresses.find(a => a.id === selectedAddress));
+        ? (addressInputMode["final"] ? (isAddressFormValid(newAddress) ? newAddress : null) : savedAddresses.find(a => a.id === finalAddressId))
+        : (addressInputMode[consType === "other" ? "other" : "direct"] ? (isAddressFormValid(newAddress) ? newAddress : null) : savedAddresses.find(a => a.id === selectedAddress));
       const selectedAddons = shippingAddons.filter(a => selectedAddonIds.includes(a.id));
       const transitMethod = transitMethods.find(m => m.id === selectedTransitMethodId);
+
+      // Extract destination country from the address object
+      const destCountry = addrObj?.country || null;
 
       await shippingPoolApi.create({
         pool_code,
@@ -446,6 +449,7 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
         messages: [],
         is_private: isPrivate,
         shared_with_emails: isPrivate ? sharedWithEmails : [],
+        destination_country: destCountry,
         ...(addrObj ? { recipient_name: addrObj.full_text?.split("\n")[0] || "" } : {}),
       });
     }
