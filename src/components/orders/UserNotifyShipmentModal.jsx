@@ -298,8 +298,6 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
         setFinalAddressId(val);
       } else {
         setSelectedAddress(val);
-        const addr = savedAddresses.find(a => a.id === val);
-        if (addr) setNote(addr.full_text || "");
       }
     }
   };
