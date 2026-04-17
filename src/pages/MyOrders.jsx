@@ -208,11 +208,14 @@ export default function MyOrders() {
     setLoading(true);
     const r = await base44.functions.invoke('getMyOrdersPageData', {});
     const data = r.data || {};
-    setOrders(data.orders || []);
+    const freshOrders = data.orders || [];
+    setOrders(freshOrders);
     setShippingPools(data.pools || []);
     setStoreTagRules(data.storeTagRules || []);
     setPageData(data);
     setPendingEditRequests(data.pendingEditRequests || []);
+    // Keep selectedOrder in sync with latest data after refresh
+    setSelectedOrder(prev => prev ? (freshOrders.find(o => o.id === prev.id) || prev) : null);
     setLoading(false);
   };
 

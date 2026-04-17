@@ -193,10 +193,12 @@ export default function OrderDetailDrawer({ order, currentUser, initialUserPrefe
                   ? (order.selected_addons).map((a, i) => (
                       <div key={i} className="flex items-center justify-between text-xs">
                         <span className="text-gray-700">{a.name || a.id}</span>
-                        <span className="font-medium text-purple-700">+{a.fee_currency || "JPY"} {Math.round(parseFloat(a.fee || 0))}</span>
+                        {(parseFloat(a.fee) > 0) && (
+                          <span className="font-medium text-purple-700">+{a.fee_currency || "JPY"} {Math.round(parseFloat(a.fee))}</span>
+                        )}
                       </div>
                     ))
-                  : (order.selected_addon_ids).map((id, i) => (
+                  : (order.selected_addon_ids || []).map((id, i) => (
                       <div key={i} className="flex items-center text-xs">
                         <span className="text-gray-500 font-mono">{id}</span>
                       </div>
