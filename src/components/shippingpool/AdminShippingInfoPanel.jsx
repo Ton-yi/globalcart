@@ -382,23 +382,26 @@ export default function AdminShippingInfoPanel({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-xs text-gray-500">最终总重量 (g)</Label>
-                  <Input className="mt-1 h-8 text-sm" type="text" inputMode="decimal" placeholder={pool.total_weight_g || "0"}
-                    value={finalWeightG}
-                    onChange={e => {
-                      const w = e.target.value;
-                      setFinalWeightG(w);
-                      // Auto-calc fee from weight if method has rates in JPY
-                      const wN = parseFloat(w);
-                      if (!isNaN(wN) && wN > 0) {
-                        const calc = calcFeeFromWeight(wN);
-                        if (calc && calc.currency === "JPY") {
-                          setShippingFeeJpy(String(calc.fee));
-                          setFeeAutoCalced(true);
-                        }
-                      } else {
-                        setFeeAutoCalced(false);
-                      }
-                    }} />
+                  {(() => {
+                    const applyWeight = (w) => {
+                      setFinalWeightG(String(w));
+                      if (w > 0) {
+                        const calc = calcFeeFromWeight(w);
+                        if (calc && calc.currency === "JPY") { setShippingFeeJpy(String(calc.fee)); setFeeAutoCalced(true); }
+                      } else { setFeeAutoCalced(false); }
+                    };
+                    return (
+                      <div className="mt-1 flex items-center gap-1.5">
+                        <button type="button" onClick={() => applyWeight(Math.max(0, (parseFloat(finalWeightG) || 0) - 100))}
+                          className="h-8 px-2 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 flex-shrink-0">-100</button>
+                        <Input className="h-8 text-sm flex-1" type="text" inputMode="decimal" placeholder={pool.total_weight_g || "0"}
+                          value={finalWeightG}
+                          onChange={e => applyWeight(parseFloat(e.target.value) || 0)} />
+                        <button type="button" onClick={() => applyWeight((parseFloat(finalWeightG) || 0) + 100)}
+                          className="h-8 px-2 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 flex-shrink-0">+100</button>
+                      </div>
+                    );
+                  })()}
                   {boxWeight > 0 && <p className="text-xs text-gray-400 mt-0.5">含外箱 {boxWeight}g</p>}
                 </div>
                 <div>
