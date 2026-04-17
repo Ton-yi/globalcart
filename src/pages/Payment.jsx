@@ -167,20 +167,6 @@ export default function Payment() {
               </div>
             )}
 
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-              <div className="flex items-center gap-1.5 mb-1">
-                <AlertCircle className="w-3.5 h-3.5 text-yellow-600" />
-                <span className="text-xs font-medium text-yellow-800">付款备注</span>
-              </div>
-              <p className="text-xs text-yellow-700">{alipayNote}</p>
-              <div className="mt-1 flex items-center gap-2">
-                <code className="text-xs bg-yellow-100 px-2 py-0.5 rounded font-mono text-yellow-800">{order.order_number}</code>
-                <Button variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={() => handleCopy(order.order_number)}>
-                  复制
-                </Button>
-              </div>
-            </div>
-
             <div className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-3 border border-gray-200">
               <span className="text-sm text-gray-700">付款金额</span>
               <span className="text-lg font-bold text-red-600">{amount} yen</span>
