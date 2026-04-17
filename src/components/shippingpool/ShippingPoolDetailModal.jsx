@@ -55,6 +55,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
   const [deleting, setDeleting] = useState(false);
   const [pendingEdits, setPendingEdits] = useState(initialPendingEdits);
   const [processingEditId, setProcessingEditId] = useState(null);
+  const [composeDragOver, setComposeDragOver] = useState(false);
 
   // User payment state
   const [paymentMethod, setPaymentMethod] = useState("");
@@ -889,68 +890,54 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
             )}
 
             {/* Compose */}
-            {(() => {
-              const [dragOver, setDragOver] = useState(false);
-              const handleComposeDrop = (e) => {
-                e.preventDefault();
-                setDragOver(false);
-                const file = Array.from(e.dataTransfer.files).find(f => f.type.startsWith("image/"));
-                if (file) setImageFile(file);
-              };
-              const handleComposePaste = (e) => {
-                const item = Array.from(e.clipboardData.items).find(i => i.type.startsWith("image/"));
-                if (item) {
-                  const file = item.getAsFile();
+            <div className="space-y-2">
+              <div
+                className={`relative rounded-md border transition-colors ${composeDragOver ? "border-blue-400 bg-blue-50" : "border-input"}`}
+                onDragOver={e => { e.preventDefault(); setComposeDragOver(true); }}
+                onDragLeave={() => setComposeDragOver(false)}
+                onDrop={e => {
+                  e.preventDefault();
+                  setComposeDragOver(false);
+                  const file = Array.from(e.dataTransfer.files).find(f => f.type.startsWith("image/"));
                   if (file) setImageFile(file);
-                }
-              };
-              return (
-                <div className="space-y-2">
-                  <div
-                    className={`relative rounded-md border transition-colors ${dragOver ? "border-blue-400 bg-blue-50" : "border-input"}`}
-                    onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-                    onDragLeave={() => setDragOver(false)}
-                    onDrop={handleComposeDrop}
-                  >
-                    <Textarea
-                      rows={2}
-                      placeholder="输入留言…可拖拽或粘贴图片"
-                      className={`text-sm border-0 shadow-none focus-visible:ring-0 bg-transparent resize-none ${dragOver ? "opacity-40 pointer-events-none" : ""}`}
-                      value={messageText}
-                      onChange={e => setMessageText(e.target.value)}
-                      onPaste={handleComposePaste}
-                    />
-                    {dragOver && (
-                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <p className="text-xs text-blue-500 font-medium">放开以附加图片</p>
-                      </div>
-                    )}
+                }}
+              >
+                <Textarea
+                  rows={2}
+                  placeholder="输入留言…可拖拽或粘贴图片"
+                  className={`text-sm border-0 shadow-none focus-visible:ring-0 bg-transparent resize-none ${composeDragOver ? "opacity-40 pointer-events-none" : ""}`}
+                  value={messageText}
+                  onChange={e => setMessageText(e.target.value)}
+                  onPaste={e => {
+                    const item = Array.from(e.clipboardData.items).find(i => i.type.startsWith("image/"));
+                    if (item) { const file = item.getAsFile(); if (file) setImageFile(file); }
+                  }}
+                />
+                {composeDragOver && (
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <p className="text-xs text-blue-500 font-medium">放开以附加图片</p>
                   </div>
-                  {imageFile && (
-                    <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded px-2 py-1.5">
-                      <img
-                        src={URL.createObjectURL(imageFile)}
-                        alt="预览"
-                        className="w-8 h-8 rounded object-cover border border-gray-200"
-                      />
-                      <span className="text-xs text-gray-600 flex-1 truncate">{imageFile.name}</span>
-                      <button type="button" onClick={() => setImageFile(null)} className="text-gray-400 hover:text-red-500 text-xs">×</button>
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between">
-                    <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer hover:text-gray-700">
-                      <Image className="w-3.5 h-3.5" />
-                      {imageFile ? "更换图片" : "附加图片"}
-                      <input type="file" accept="image/*" className="hidden" onChange={e => setImageFile(e.target.files[0])} />
-                    </label>
-                    <Button size="sm" className="h-7 text-xs bg-gray-800 hover:bg-gray-900"
-                      onClick={handleSendMessage} disabled={sendingMsg || (!messageText.trim() && !imageFile)}>
-                      <Send className="w-3 h-3 mr-1" />{sendingMsg ? "发送中..." : "发送"}
-                    </Button>
-                  </div>
+                )}
+              </div>
+              {imageFile && (
+                <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded px-2 py-1.5">
+                  <img src={URL.createObjectURL(imageFile)} alt="预览" className="w-8 h-8 rounded object-cover border border-gray-200" />
+                  <span className="text-xs text-gray-600 flex-1 truncate">{imageFile.name}</span>
+                  <button type="button" onClick={() => setImageFile(null)} className="text-gray-400 hover:text-red-500 text-xs">×</button>
                 </div>
-              );
-            })()}
+              )}
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer hover:text-gray-700">
+                  <Image className="w-3.5 h-3.5" />
+                  {imageFile ? "更换图片" : "附加图片"}
+                  <input type="file" accept="image/*" className="hidden" onChange={e => setImageFile(e.target.files[0])} />
+                </label>
+                <Button size="sm" className="h-7 text-xs bg-gray-800 hover:bg-gray-900"
+                  onClick={handleSendMessage} disabled={sendingMsg || (!messageText.trim() && !imageFile)}>
+                  <Send className="w-3 h-3 mr-1" />{sendingMsg ? "发送中..." : "发送"}
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
 
