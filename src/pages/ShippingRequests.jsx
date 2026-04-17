@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Truck, Plus, Eye, X } from "lucide-react";
+import { Truck, Plus, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,7 +21,6 @@ export default function ShippingRequests() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ order_id: "", recipient_name: "", recipient_phone: "", address_line1: "", address_line2: "", city: "", state: "", postal_code: "", country: "", shipping_method: "EMS", user_note: "" });
   const [submitting, setSubmitting] = useState(false);
-  const [selectedRequest, setSelectedRequest] = useState(null);
 
   useEffect(() => {
     base44.auth.me().then(async u => {
@@ -161,14 +160,7 @@ export default function ShippingRequests() {
             <tbody className="divide-y divide-gray-100">
               {requests.map(r => (
                 <tr key={r.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-gray-900">{r.recipient_name}</span>
-                      <button onClick={() => setSelectedRequest(r)} className="text-gray-400 hover:text-blue-600">
-                        <Eye className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
+                  <td className="px-4 py-3 font-medium text-gray-900">{r.recipient_name}</td>
                   <td className="px-4 py-3 text-gray-600 hidden sm:table-cell">{r.country}{r.city ? `, ${r.city}` : ""}</td>
                   <td className="px-4 py-3 text-gray-600 hidden md:table-cell">{r.shipping_method}</td>
                   <td className="px-4 py-3">
@@ -185,80 +177,6 @@ export default function ShippingRequests() {
               ))}
             </tbody>
           </table>
-        </div>
-      )}
-
-      {/* Detail Modal */}
-      {selectedRequest && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4">
-          <Card className="w-full max-w-md max-h-[85vh] overflow-y-auto">
-            <div className="p-6 space-y-4 sticky top-0 bg-white border-b">
-              <div className="flex items-center justify-between">
-                <h2 className="font-semibold text-gray-900">发货申请详情</h2>
-                <button onClick={() => setSelectedRequest(null)} className="text-gray-400 hover:text-gray-600">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-            <CardContent className="p-6 space-y-4">
-              <div>
-                <Label className="text-xs text-gray-500">收件人</Label>
-                <p className="text-sm font-medium text-gray-900 mt-1">{selectedRequest.recipient_name}</p>
-              </div>
-              {selectedRequest.recipient_phone && (
-                <div>
-                  <Label className="text-xs text-gray-500">联系电话</Label>
-                  <p className="text-sm text-gray-700 mt-1">{selectedRequest.recipient_phone}</p>
-                </div>
-              )}
-              <div>
-                <Label className="text-xs text-gray-500">发货目的地</Label>
-                <p className="text-sm text-gray-700 mt-1">
-                  {selectedRequest.address_line1}{selectedRequest.address_line2 ? ` ${selectedRequest.address_line2}` : ""}
-                  <br />
-                  {selectedRequest.city && `${selectedRequest.city} `}
-                  {selectedRequest.state && `${selectedRequest.state} `}
-                  {selectedRequest.postal_code && `${selectedRequest.postal_code}`}
-                  <br />
-                  {selectedRequest.country}
-                </p>
-              </div>
-              <div>
-                <Label className="text-xs text-gray-500">运输方式</Label>
-                <p className="text-sm text-gray-700 mt-1">{selectedRequest.shipping_method}</p>
-              </div>
-              <div>
-                <Label className="text-xs text-gray-500">状态</Label>
-                <Badge className={`text-xs mt-1 ${STATUS_COLORS[selectedRequest.status] || "bg-gray-100 text-gray-600"}`}>
-                  {STATUS_LABELS[selectedRequest.status] || selectedRequest.status}
-                </Badge>
-              </div>
-              {selectedRequest.tracking_number && (
-                <div>
-                  <Label className="text-xs text-gray-500">追踪号</Label>
-                  <p className="text-sm font-mono text-blue-600 mt-1">{selectedRequest.tracking_number}</p>
-                </div>
-              )}
-              {selectedRequest.actual_shipping_fee || selectedRequest.estimated_shipping_fee ? (
-                <div>
-                  <Label className="text-xs text-gray-500">运费</Label>
-                  <p className="text-sm text-gray-700 mt-1">
-                    {selectedRequest.actual_shipping_fee ? `USD ${selectedRequest.actual_shipping_fee.toFixed(2)}` : `≈ USD ${selectedRequest.estimated_shipping_fee.toFixed(2)}`}
-                    {selectedRequest.credit_applied > 0 && <span className="text-green-600 text-xs ml-1">(-{selectedRequest.credit_applied.toFixed(2)} 抵扣)</span>}
-                  </p>
-                </div>
-              ) : null}
-              {selectedRequest.user_note && (
-                <div>
-                  <Label className="text-xs text-gray-500">备注</Label>
-                  <p className="text-sm text-gray-700 mt-1">{selectedRequest.user_note}</p>
-                </div>
-              )}
-              <Button type="button" variant="outline" className="w-full" onClick={() => setSelectedRequest(null)}>
-                关闭
-              </Button>
-            </CardContent>
-          </Card>
         </div>
       )}
     </div>
