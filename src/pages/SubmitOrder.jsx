@@ -329,6 +329,13 @@ export default function SubmitOrder() {
                   const file = e.dataTransfer.files[0];
                   if (file && file.type.startsWith("image/")) handleImageUpload(file);
                 }}
+                onPaste={e => {
+                  const item = Array.from(e.clipboardData.items).find(i => i.type.startsWith("image/"));
+                  if (item) {
+                    const file = item.getAsFile();
+                    if (file) handleImageUpload(file);
+                  }
+                }}
               >
                 <div className={`flex flex-col items-center gap-1.5 px-3 py-4 border-2 border-dashed rounded-lg text-sm transition-colors ${
                   form.product_image_url ? "border-green-300 bg-green-50 text-green-700" :
