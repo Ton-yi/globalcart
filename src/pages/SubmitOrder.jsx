@@ -321,8 +321,13 @@ export default function SubmitOrder() {
 
             <div>
               <Label className="text-sm">商品图片（可选）</Label>
-              <label
-                className="cursor-pointer block mt-1"
+              <div
+                ref={el => el && (uploadInputRef = el)}
+                className={`mt-1 cursor-text p-3 border-2 rounded-lg transition-colors focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                  form.product_image_url ? "border-green-300 bg-green-50" :
+                  uploading ? "border-blue-200 bg-blue-50" :
+                  "border-gray-200 hover:border-blue-300"
+                }`}
                 onDragOver={e => e.preventDefault()}
                 onDrop={e => {
                   e.preventDefault();
@@ -336,25 +341,26 @@ export default function SubmitOrder() {
                     if (file) handleImageUpload(file);
                   }
                 }}
+                onClick={() => document.getElementById("product-image-input")?.click()}
+                tabIndex={0}
               >
-                <div className={`flex flex-col items-center gap-1.5 px-3 py-4 border-2 border-dashed rounded-lg text-sm transition-colors ${
-                  form.product_image_url ? "border-green-300 bg-green-50 text-green-700" :
-                  uploading ? "border-blue-200 bg-blue-50 text-blue-500" :
-                  "border-gray-200 text-gray-500 hover:border-blue-300 hover:text-blue-500"
-                }`}>
-                  {form.product_image_url
-                    ? <>
-                        <img src={form.product_image_url} alt="" className="h-16 rounded object-cover" />
-                        <span className="text-xs text-green-600">✓ 已上传，点击或拖拽可更换</span>
-                      </>
-                    : uploading
-                    ? <><Upload className="w-4 h-4 animate-pulse" /><span>上传中...</span></>
-                    : <><Upload className="w-4 h-4" /><span>点击选择图片或拖拽到此处</span></>}
-                </div>
-                <input type="file" accept="image/*" className="hidden"
-                  onChange={e => { const f = e.target.files[0]; if (f) handleImageUpload(f); }}
-                  disabled={uploading} />
-              </label>
+                {form.product_image_url
+                  ? <div className="flex items-center gap-3">
+                      <img src={form.product_image_url} alt="" className="h-12 rounded object-cover" />
+                      <div className="text-sm text-green-700">✓ 已上传，点击、粘贴或拖拽可更换</div>
+                    </div>
+                  : uploading
+                  ? <div className="flex items-center gap-2 text-blue-500 text-sm"><Upload className="w-4 h-4 animate-pulse" /><span>上传中...</span></div>
+                  : <div className="text-sm text-gray-500">粘贴图片、点击选择或拖拽图片到此处上传</div>}
+              </div>
+              <input
+                id="product-image-input"
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={e => { const f = e.target.files[0]; if (f) handleImageUpload(f); }}
+                disabled={uploading}
+              />
             </div>
           </CardContent>
         </Card>
