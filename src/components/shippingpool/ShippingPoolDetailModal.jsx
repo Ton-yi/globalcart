@@ -879,7 +879,11 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                       <div className={`max-w-[75%] rounded-xl px-3 py-2 text-sm ${msg.role === "admin" ? "bg-red-50 text-red-900 rounded-tr-sm" : "bg-gray-100 text-gray-800 rounded-tl-sm"}`}>
                         <p className="text-xs text-gray-400 mb-0.5 font-medium">{senderDisplayName}</p>
                         {msg.content && <p className="whitespace-pre-wrap">{msg.content}</p>}
-                        {msg.image_url && <img src={msg.image_url} alt="" className="mt-1.5 max-w-full rounded-lg max-h-40 object-contain" />}
+                        {msg.image_url && (
+                          <ImageWithViewer src={msg.image_url} alt="留言图片">
+                            <img src={msg.image_url} alt="" className="mt-1.5 max-w-full rounded-lg max-h-40 object-contain cursor-pointer hover:opacity-80 transition-opacity" />
+                          </ImageWithViewer>
+                        )}
                       </div>
                     </div>
                   );
