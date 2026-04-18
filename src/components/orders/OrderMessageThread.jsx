@@ -95,8 +95,8 @@ export default function OrderMessageThread({ order, currentUser, isAdmin, onMess
   };
 
   const getSenderAvatar = (msg) => {
-    if (msg.role === "admin") return null; // admin avatars will be added later if needed
-    return msg.avatar_url || userProfileMap[msg.from_email]?.avatar_url || null;
+    // First try the avatar stored on the message itself, then look up the profile map
+    return msg.avatar_url || (msg.from_email ? userProfileMap[msg.from_email]?.avatar_url : null) || null;
   };
 
   return (

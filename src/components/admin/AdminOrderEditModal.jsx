@@ -33,7 +33,7 @@ const ALL_STATUSES = [
   { v: "cancelled", l: "已取消" },
 ];
 
-export default function AdminOrderEditModal({ order, initialItemSizeTemplates, onClose, onSaved, onOpenPool, shippingPools = [] }) {
+export default function AdminOrderEditModal({ order, initialItemSizeTemplates, onClose, onSaved, onOpenPool, shippingPools = [], currentUser = null, userProfileMap = {} }) {
   const [tab, setTab] = useState((order.unread_roles || []).includes("admin") ? "messages" : "actions"); // "actions" | "edit" | "messages"
   const [saving, setSaving] = useState(false);
 
@@ -740,9 +740,10 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
           {tab === "messages" && (
             <OrderMessageThread
               order={order}
-              currentUser={{ email: "admin" }}
+              currentUser={currentUser || { email: "admin" }}
               isAdmin={true}
               contactInfo=""
+              userProfileMap={userProfileMap}
               onMessageSent={() => {}}
             />
           )}

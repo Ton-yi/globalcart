@@ -496,6 +496,8 @@ export default function AdminOrders() {
           order={selectedOrder}
           initialItemSizeTemplates={itemSizeTemplates}
           shippingPools={shippingPools}
+          currentUser={user}
+          userProfileMap={userProfileMap}
           onClose={() => setSelectedOrder(null)}
           onSaved={() => { setSelectedOrder(null); fetchOrders(); }}
           onOpenPool={async (poolId) => {
