@@ -503,7 +503,7 @@ export default function AdminOrders() {
                   return userProfileMap[order.user_email]?.display_name || order.user_name || order.user_email || "未知用户";
                 }
                 if (groupBy === "order_status") {
-                  return ALL_STATUSES.find(s => s.v === order.order_status)?.l || order.order_status || "未知状态";
+                  return ALL_STATUSES.find(s => s.v === order.order_status)?.l || getStatusLabel(order.order_status, "admin") || order.order_status || "未知状态";
                 }
                 if (groupBy === "online_store_tag") {
                   const firstUrl = (order.product_url || "").split("\n").map(s => s.trim()).filter(Boolean)[0] || "";
@@ -519,7 +519,21 @@ export default function AdminOrders() {
                 groups[key].push(order);
               });
 
-              return Object.entries(groups).flatMap(([groupKey, groupOrders]) => {
+              // Sort groups: for order_status, follow ALL_STATUSES order; others alphabetically
+              const groupEntries = Object.entries(groups);
+              if (groupBy === "order_status") {
+                const statusOrder = ALL_STATUSES.map(s => s.l);
+                groupEntries.sort(([a], [b]) => {
+                  const ai = statusOrder.indexOf(a);
+                  const bi = statusOrder.indexOf(b);
+                  if (ai === -1 && bi === -1) return a.localeCompare(b);
+                  if (ai === -1) return 1;
+                  if (bi === -1) return -1;
+                  return ai - bi;
+                });
+              }
+
+              return groupEntries.flatMap(([groupKey, groupOrders]) => {
                 const isCollapsed = collapsedGroups[groupKey] !== false;
                 // Find avatar for user_name grouping
                 const groupUserEmail = groupBy === "user_name" ? groupOrders[0]?.user_email : null;
