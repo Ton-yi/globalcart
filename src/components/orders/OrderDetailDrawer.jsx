@@ -16,7 +16,7 @@ import PaymentModal from "./PaymentModal";
 import UserNotifyShipmentModal from "./UserNotifyShipmentModal";
 import ShippingEditModal from "@/components/shippingpool/ShippingEditModal";
 
-export default function OrderDetailDrawer({ order, currentUser, initialUserPreference, initialPaidOrderReminder, onClose, onAction }) {
+export default function OrderDetailDrawer({ order, currentUser, initialUserPreference, initialPaidOrderReminder, initialUserProfileMap = {}, onClose, onAction }) {
   const [showMessages, setShowMessages] = useState(true);
   const [confirmingDelivered, setConfirmingDelivered] = useState(false);
   const [contactInfo, setContactInfo] = useState(initialUserPreference?.contact_info || "");
@@ -25,7 +25,7 @@ export default function OrderDetailDrawer({ order, currentUser, initialUserPrefe
   const [paidReminder, setPaidReminder] = useState(initialPaidOrderReminder || "");
   const [editPool, setEditPool] = useState(null);
   const [loadingPool, setLoadingPool] = useState(false);
-  const [userProfileMap, setUserProfileMap] = useState({});
+  const [userProfileMap, setUserProfileMap] = useState(initialUserProfileMap);
 
   useEffect(() => {
     // Clear user unread on open
@@ -53,14 +53,18 @@ export default function OrderDetailDrawer({ order, currentUser, initialUserPrefe
         .catch(() => {});
     }
 
-    // Fetch user profile map for message displays
-    base44.functions.invoke('getTenantUsers', {})
-      .then(r => {
-        const profileMap = {};
-        (r.data?.users || []).forEach(u => { profileMap[u.email] = u; });
-        setUserProfileMap(profileMap);
-      })
-      .catch(() => {});
+    // Fetch user profile map for message displays only if not pre-supplied by parent
+    if (Object.keys(initialUserProfileMap).length === 0) {
+      base44.functions.invoke('getTenantUsers', {})
+        .then(r => {
+          const profileMap = {};
+          (r.data?.users || []).forEach(u => {
+            if (u.email) profileMap[u.email] = { display_name: u.display_name || u.full_name || null, avatar_url: u.avatar_url || null };
+          });
+          setUserProfileMap(profileMap);
+        })
+        .catch(() => {});
+    }
   }, [currentUser.email, order.order_status]);
 
   const status = order.order_status;

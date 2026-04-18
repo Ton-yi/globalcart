@@ -212,7 +212,7 @@ export default function MyOrders() {
     setOrders(freshOrders);
     setShippingPools(data.pools || []);
     setStoreTagRules(data.storeTagRules || []);
-    setPageData(data);
+    setPageData(data); // includes userProfileMap
     setPendingEditRequests(data.pendingEditRequests || []);
     // Keep selectedOrder in sync with latest data after refresh
     setSelectedOrder(prev => prev ? (freshOrders.find(o => o.id === prev.id) || prev) : null);
@@ -506,6 +506,7 @@ export default function MyOrders() {
           currentUser={user}
           initialUserPreference={pageData.userPreference}
           initialPaidOrderReminder={pageData.paidOrderReminder}
+          initialUserProfileMap={pageData.userProfileMap || {}}
           onClose={() => setSelectedOrder(null)}
           onAction={(action) => {
             fetchOrders(user);

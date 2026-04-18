@@ -111,6 +111,17 @@ Deno.serve(async (req) => {
       u.email !== user.email && nonAdminRoles.includes(u.role)
     );
 
+    // Build email → { display_name, avatar_url } map for message thread rendering
+    const userProfileMap = {};
+    for (const u of (allTenantUsers || [])) {
+      if (u.email) {
+        userProfileMap[u.email] = {
+          display_name: u.display_name || u.full_name || null,
+          avatar_url: u.avatar_url || null,
+        };
+      }
+    }
+
     return Response.json({
       orders: orders || [],
       pools: accessiblePools,
@@ -122,6 +133,7 @@ Deno.serve(async (req) => {
       paidOrderReminder: siteSettings?.[0]?.value || null,
       nonAdminUsers,
       pendingEditRequests: myEditRequests || [],
+      userProfileMap,
     });
 
   } catch (error) {

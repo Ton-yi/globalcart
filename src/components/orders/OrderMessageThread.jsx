@@ -97,7 +97,8 @@ export default function OrderMessageThread({ order, currentUser, isAdmin, onMess
 
   const getSenderAvatar = (msg) => {
     // Always prefer the avatar stored on the message itself (set at send time)
-    return msg.avatar_url || (msg.from_email ? userProfileMap[msg.from_email]?.avatar_url : null) || null;
+    // Treat empty string as missing (falsy check covers both null and "")
+    return (msg.avatar_url || null) || (msg.from_email ? (userProfileMap[msg.from_email]?.avatar_url || null) : null);
   };
 
   return (
