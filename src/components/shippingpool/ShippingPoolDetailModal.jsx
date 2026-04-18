@@ -900,16 +900,16 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                     onChange={(e) => {const f = e.target.files[0];if (f) handleUploadProof(f);}}
                     disabled={uploadingProof} />
                         </label>
-                        <div
-                          className="w-full px-3 py-2 text-xs border border-dashed border-gray-300 rounded-md bg-gray-50 text-gray-400 text-center focus:outline-none focus:border-orange-400 focus:bg-orange-50 focus:text-orange-500 transition-colors cursor-text select-none"
-                          tabIndex={0}
+                        <input
+                          type="text"
+                          placeholder="点击此处后粘贴截图（Ctrl+V / ⌘V）"
+                          className="w-full h-9 px-3 text-xs border border-gray-300 rounded-md bg-white text-gray-500 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-orange-400 focus:border-orange-400 transition-colors"
                           onPaste={(e) => {
                             const item = Array.from(e.clipboardData.items).find(i => i.type.startsWith("image/"));
-                            if (item) { const f = item.getAsFile(); if (f) handleUploadProof(f); }
+                            if (item) { e.preventDefault(); const f = item.getAsFile(); if (f) handleUploadProof(f); }
                           }}
-                        >
-                          点击此处后粘贴截图（Ctrl+V / ⌘V）
-                        </div>
+                          onChange={() => {}}
+                        />
                       </div>
                 }
                   </>
