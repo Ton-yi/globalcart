@@ -68,6 +68,8 @@ const ALL_STATUSES = [
   { v: "purchased", l: "已下单" },
   { v: "in_warehouse", l: "已入库" },
   { v: "notified_shipment", l: "已通知出货" },
+  { v: "notified_shipment_fee_pending", l: "待出货待付运费" },
+  { v: "notified_shipment_fee_paid", l: "待出货已付运费" },
   { v: "shipping_fee_pending", l: "待付运费" },
   { v: "ready_to_ship", l: "准备发货" },
   { v: "shipped", l: "已发出" },
@@ -503,6 +505,11 @@ export default function AdminOrders() {
                   return userProfileMap[order.user_email]?.display_name || order.user_name || order.user_email || "未知用户";
                 }
                 if (groupBy === "order_status") {
+                  // Merge all notified_shipment* into one group
+                  const NOTIFIED_GROUP = "已通知出货";
+                  if (["notified_shipment", "notified_shipment_fee_pending", "notified_shipment_fee_paid"].includes(order.order_status)) {
+                    return NOTIFIED_GROUP;
+                  }
                   return ALL_STATUSES.find(s => s.v === order.order_status)?.l || getStatusLabel(order.order_status, "admin") || order.order_status || "未知状态";
                 }
                 if (groupBy === "online_store_tag") {

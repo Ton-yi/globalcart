@@ -50,6 +50,18 @@ export const ORDER_STATUS_CONFIG = {
     adminColor: "bg-cyan-100 text-cyan-700",
     userColor: "bg-cyan-100 text-cyan-700",
   },
+  notified_shipment_fee_pending: {
+    admin: "待出货待付运费",
+    user: "待付运费",
+    adminColor: "bg-orange-100 text-orange-700",
+    userColor: "bg-orange-100 text-orange-700",
+  },
+  notified_shipment_fee_paid: {
+    admin: "待出货已付运费",
+    user: "运费已付",
+    adminColor: "bg-lime-100 text-lime-700",
+    userColor: "bg-lime-100 text-lime-700",
+  },
   shipping_fee_pending: {
     admin: "已付运费",
     user: "待发货",
@@ -107,7 +119,8 @@ export const COMPLETED_STATUSES = ["delivered"];
 export const ACTIVE_STATUSES = [
   "pending_confirmation", "payment_pending",
   "awaiting_payment_confirmation", "paid", "pending_purchase", "purchased", "in_warehouse",
-  "notified_shipment", "shipping_fee_pending", "ready_to_ship", "shipped"
+  "notified_shipment", "notified_shipment_fee_pending", "notified_shipment_fee_paid",
+  "shipping_fee_pending", "ready_to_ship", "shipped"
 ];
 
 /**

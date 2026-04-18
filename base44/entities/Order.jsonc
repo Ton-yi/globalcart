@@ -112,6 +112,8 @@
         "purchased",
         "in_warehouse",
         "notified_shipment",
+        "notified_shipment_fee_pending",
+        "notified_shipment_fee_paid",
         "shipping_fee_pending",
         "ready_to_ship",
         "shipped",

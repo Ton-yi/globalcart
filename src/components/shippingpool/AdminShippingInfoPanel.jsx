@@ -189,6 +189,12 @@ export default function AdminShippingInfoPanel({
     setSaving(true);
     const payload = { ...buildUpdatePayload(), status: "awaiting_payment", payment_status: "unpaid" };
     await shippingPoolApi.update(pool.id, payload);
+    // Update all orders in this pool to notified_shipment_fee_pending
+    await Promise.all(
+      (pool.order_ids || []).map(id =>
+        updateOrder(id, { order_status: "notified_shipment_fee_pending" })
+      )
+    );
     setPool(p => ({ ...p, ...payload }));
     setSaving(false);
     onPoolUpdated?.({ ...pool, ...payload });
@@ -212,6 +218,12 @@ export default function AdminShippingInfoPanel({
       admin_confirmed_payment: true,
     };
     await shippingPoolApi.update(pool.id, payload);
+    // Update all orders in this pool to notified_shipment_fee_paid
+    await Promise.all(
+      (pool.order_ids || []).map(id =>
+        updateOrder(id, { order_status: "notified_shipment_fee_paid" })
+      )
+    );
     setPool(p => ({ ...p, ...payload }));
     setConfirmingSaving(false);
     onPoolUpdated?.({ ...pool, ...payload });
