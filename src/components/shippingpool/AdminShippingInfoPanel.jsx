@@ -557,6 +557,21 @@ export default function AdminShippingInfoPanel({
                 <input type="file" accept="image/*" className="hidden" disabled={uploadingLabel} multiple
                   onChange={e => { Array.from(e.target.files).forEach(f => handleUploadLabelImage(f)); }} />
               </label>
+              <input
+                type="text"
+                placeholder="粘贴图片URL或剪切板图片（Ctrl+V）"
+                className="mt-1.5 w-full h-7 rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                onPaste={e => {
+                  const item = Array.from(e.clipboardData.items).find(i => i.type.startsWith("image/"));
+                  if (item) { e.preventDefault(); const f = item.getAsFile(); if (f) handleUploadLabelImage(f); }
+                }}
+                onKeyDown={e => {
+                  if (e.key === "Enter") {
+                    const url = e.target.value.trim();
+                    if (url) { setLabelImageUrls(prev => [...prev, url]); e.target.value = ""; }
+                  }
+                }}
+              />
             </div>
             <div>
               <Label className="text-xs text-gray-500 mb-1.5 block">捆包状态图片</Label>
@@ -584,6 +599,21 @@ export default function AdminShippingInfoPanel({
                 <input type="file" accept="image/*" className="hidden" disabled={uploadingPacking} multiple
                   onChange={e => { Array.from(e.target.files).forEach(f => handleUploadPackingImage(f)); }} />
               </label>
+              <input
+                type="text"
+                placeholder="粘贴图片URL或剪切板图片（Ctrl+V）"
+                className="mt-1.5 w-full h-7 rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                onPaste={e => {
+                  const item = Array.from(e.clipboardData.items).find(i => i.type.startsWith("image/"));
+                  if (item) { e.preventDefault(); const f = item.getAsFile(); if (f) handleUploadPackingImage(f); }
+                }}
+                onKeyDown={e => {
+                  if (e.key === "Enter") {
+                    const url = e.target.value.trim();
+                    if (url) { setPackingImageUrls(prev => [...prev, url]); e.target.value = ""; }
+                  }
+                }}
+              />
             </div>
           </div>
 
