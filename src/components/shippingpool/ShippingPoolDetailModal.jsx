@@ -224,11 +224,16 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
 
   const handleDeletePool = async () => {
     setDeleting(true);
-    await Promise.all(
-      (pool.order_ids || []).map((id) =>
-      updateOrder(id, { order_status: "in_warehouse", consolidation_pool_id: "" })
-      )
-    );
+    await Promise.all([
+      // Return all orders to warehouse
+      ...(pool.order_ids || []).map((id) =>
+        updateOrder(id, { order_status: "in_warehouse", consolidation_pool_id: "" })
+      ),
+      // Auto-resolve all pending edit requests for this pool so they don't linger
+      ...pendingEdits
+        .filter((r) => r.status === "pending")
+        .map((r) => tenantEntity.update("ShippingEditRequest", r.id, { status: "auto_applied" })),
+    ]);
     await shippingPoolApi.delete(pool.id);
     setDeleting(false);
     onClose?.();
