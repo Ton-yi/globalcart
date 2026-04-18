@@ -503,10 +503,10 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                               <p className="text-sm text-gray-800 truncate">{o.product_name}</p>
                               <p className="text-xs text-gray-400">{o.order_number} · {o.weight_g || 0}g{o.user_email ? ` · ${tenantUserMap[o.user_email]?.display_name || tenantUserMap[o.user_email]?.full_name || o.user_name || ""}` : ""}</p>
                               {o.order_status &&
-                          <p className="text-xs text-gray-500 mt-1">状态：<span className="font-medium text-gray-700">{o.order_status}</span></p>
+                          <p className="text-xs text-gray-500 mt-1 hidden">状态：<span className="font-medium text-gray-700">{o.order_status}</span></p>
                           }
                               {o.estimated_jpy &&
-                          <p className="text-xs text-gray-500 mt-0.5">估价：<span className="font-medium text-orange-600">¥{Math.round(o.estimated_jpy).toLocaleString()}</span></p>
+                          <p className="text-xs text-gray-500 mt-0.5 hidden">估价：<span className="font-medium text-orange-600">¥{Math.round(o.estimated_jpy).toLocaleString()}</span></p>
                           }
                             </div>
                             <div className="flex items-center gap-1">
