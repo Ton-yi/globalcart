@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
-import { Search, RefreshCw, Filter, ChevronUp, ChevronDown, ChevronsUpDown, Trash2, AlertCircle, Layers, Send } from "lucide-react";
+import { Search, RefreshCw, Filter, ChevronUp, ChevronDown, ChevronsUpDown, Trash2, AlertCircle, Layers, Send, LayoutList } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -189,6 +189,8 @@ export default function AdminOrders() {
 
   const [sortKey, setSortKey] = useState(null);
   const [sortDir, setSortDir] = useState("asc");
+  const [groupBy, setGroupBy] = useState("none");
+  const [collapsedGroups, setCollapsedGroups] = useState({});
   const [storeTagRules, setStoreTagRules] = useState([]);
 
   const [itemSizeTemplates, setItemSizeTemplates] = useState([]);
@@ -366,6 +368,18 @@ export default function AdminOrders() {
             {ALL_STATUSES.map(s => <SelectItem key={s.v} value={s.v}>{s.l}</SelectItem>)}
           </SelectContent>
         </Select>
+        <Select value={groupBy} onValueChange={v => { setGroupBy(v); setCollapsedGroups({}); }}>
+          <SelectTrigger className="w-36 h-8 text-sm">
+            <LayoutList className="w-3.5 h-3.5 mr-1.5 text-gray-400" />
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">不分组</SelectItem>
+            <SelectItem value="user_name">按用户名</SelectItem>
+            <SelectItem value="order_status">按订单状态</SelectItem>
+            <SelectItem value="online_store_tag">按商城标签</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Bulk actions */}
@@ -419,72 +433,111 @@ export default function AdminOrders() {
               <tr><td colSpan={visibleCols.length + 2} className="text-center py-12 text-gray-400 text-sm">加载中...</td></tr>
             ) : filtered.length === 0 ? (
               <tr><td colSpan={visibleCols.length + 2} className="text-center py-12 text-gray-400 text-sm">暂无订单</td></tr>
-            ) : filtered.map(order => {
-              const pendingEdit = pendingEditRequests.find(r => r.order_id === order.id);
-              return (
-              <tr key={order.id} className={`hover:bg-gray-50 cursor-pointer ${pendingEdit ? "bg-orange-50/60" : ""}`} onClick={() => handleStatusClick(order)}>
-                <td className="px-3 py-3" onClick={e => e.stopPropagation()}>
-                  <Checkbox checked={selectedIds.includes(order.id)} onCheckedChange={() => toggleSelect(order.id)} />
-                </td>
-                {visibleCols.map(col => (
-                  <td key={col.key} className="px-3 py-3 max-w-[220px]">
-                   <CellValue col={{ ...col, _rules: storeTagRules }} order={order} onQuickOrdered={handleQuickOrdered} userAvatars={userProfileMap} />
-                  </td>
-                ))}
-                <td className="px-3 py-3 whitespace-nowrap" onClick={e => e.stopPropagation()}>
-                  <div className="flex flex-wrap gap-1 items-center">
-                    {(order.unread_roles || []).includes("admin") && (
-                      <span className="inline-flex items-center gap-1 text-xs bg-red-100 text-red-600 border border-red-200 px-1.5 py-0.5 rounded-full font-medium animate-pulse">
-                        <span className="w-1.5 h-1.5 rounded-full bg-red-500" />新消息
-                      </span>
-                    )}
-                    {pendingEdit && (
-                      <span className="inline-flex items-center gap-1 text-xs bg-orange-100 text-orange-700 border border-orange-300 px-1.5 py-0.5 rounded-full font-medium">
-                        <AlertCircle className="w-3 h-3" />
-                        {pendingEdit.edit_type === 'cancel_shipment' ? '申请重新入库' : '申请移至其他发货申请'}
-                      </span>
-                    )}
-                    {(order.order_status === "paid" || order.order_status === "pending_purchase") && (
-                      <Button size="sm" variant="outline" className="h-6 text-xs px-2 text-indigo-600 border-indigo-200"
-                        onClick={() => handleQuickOrdered(order)}>
-                        已下单
-                      </Button>
-                    )}
-                    {order.order_status === "purchased" && (
-                      <Button size="sm" variant="outline" className="h-6 text-xs px-2 text-teal-600 border-teal-200"
-                        onClick={() => handleQuickInWarehouse(order)}>
-                        入库
-                      </Button>
-                    )}
-                    {order.order_status === "notified_shipment" && (() => {
-                      const pool = getOrderPool(order);
-                      if (!pool) return null;
-                      const isConsolidation = pool.consolidation_type && pool.consolidation_type !== "";
-                      return (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className={`h-6 text-xs px-2 ${isConsolidation ? "text-purple-600 border-purple-200 hover:bg-purple-50" : "text-teal-600 border-teal-200 hover:bg-teal-50"}`}
-                          onClick={() => handleOpenPool(pool)}
-                        >
-                          {isConsolidation
-                            ? <><Layers className="w-3 h-3 mr-1" />查看拼邮</>
-                            : <><Send className="w-3 h-3 mr-1" />查看发货需求</>
-                          }
-                        </Button>
-                      );
-                    })()}
-                    {order.order_status === "cancelled" && (
-                      <Button size="sm" variant="outline" className="h-6 text-xs px-2 text-red-600 border-red-200 hover:bg-red-50"
-                        onClick={() => handleDeleteCancelled(order)}>
-                        <Trash2 className="w-3 h-3 mr-1" />删除
-                      </Button>
-                    )}
-                  </div>
-                </td>
-              </tr>
-              );
-            })}
+            ) : (() => {
+              const renderOrderRow = (order) => {
+                const pendingEdit = pendingEditRequests.find(r => r.order_id === order.id);
+                return (
+                  <tr key={order.id} className={`hover:bg-gray-50 cursor-pointer ${pendingEdit ? "bg-orange-50/60" : ""}`} onClick={() => handleStatusClick(order)}>
+                    <td className="px-3 py-3" onClick={e => e.stopPropagation()}>
+                      <Checkbox checked={selectedIds.includes(order.id)} onCheckedChange={() => toggleSelect(order.id)} />
+                    </td>
+                    {visibleCols.map(col => (
+                      <td key={col.key} className="px-3 py-3 max-w-[220px]">
+                        <CellValue col={{ ...col, _rules: storeTagRules }} order={order} onQuickOrdered={handleQuickOrdered} userAvatars={userProfileMap} />
+                      </td>
+                    ))}
+                    <td className="px-3 py-3 whitespace-nowrap" onClick={e => e.stopPropagation()}>
+                      <div className="flex flex-wrap gap-1 items-center">
+                        {(order.unread_roles || []).includes("admin") && (
+                          <span className="inline-flex items-center gap-1 text-xs bg-red-100 text-red-600 border border-red-200 px-1.5 py-0.5 rounded-full font-medium animate-pulse">
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-500" />新消息
+                          </span>
+                        )}
+                        {pendingEdit && (
+                          <span className="inline-flex items-center gap-1 text-xs bg-orange-100 text-orange-700 border border-orange-300 px-1.5 py-0.5 rounded-full font-medium">
+                            <AlertCircle className="w-3 h-3" />
+                            {pendingEdit.edit_type === 'cancel_shipment' ? '申请重新入库' : '申请移至其他发货申请'}
+                          </span>
+                        )}
+                        {(order.order_status === "paid" || order.order_status === "pending_purchase") && (
+                          <Button size="sm" variant="outline" className="h-6 text-xs px-2 text-indigo-600 border-indigo-200"
+                            onClick={() => handleQuickOrdered(order)}>
+                            已下单
+                          </Button>
+                        )}
+                        {order.order_status === "purchased" && (
+                          <Button size="sm" variant="outline" className="h-6 text-xs px-2 text-teal-600 border-teal-200"
+                            onClick={() => handleQuickInWarehouse(order)}>
+                            入库
+                          </Button>
+                        )}
+                        {order.order_status === "notified_shipment" && (() => {
+                          const pool = getOrderPool(order);
+                          if (!pool) return null;
+                          const isConsolidation = pool.consolidation_type && pool.consolidation_type !== "";
+                          return (
+                            <Button size="sm" variant="outline"
+                              className={`h-6 text-xs px-2 ${isConsolidation ? "text-purple-600 border-purple-200 hover:bg-purple-50" : "text-teal-600 border-teal-200 hover:bg-teal-50"}`}
+                              onClick={() => handleOpenPool(pool)}>
+                              {isConsolidation ? <><Layers className="w-3 h-3 mr-1" />查看拼邮</> : <><Send className="w-3 h-3 mr-1" />查看发货需求</>}
+                            </Button>
+                          );
+                        })()}
+                        {order.order_status === "cancelled" && (
+                          <Button size="sm" variant="outline" className="h-6 text-xs px-2 text-red-600 border-red-200 hover:bg-red-50"
+                            onClick={() => handleDeleteCancelled(order)}>
+                            <Trash2 className="w-3 h-3 mr-1" />删除
+                          </Button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              };
+
+              if (groupBy === "none") return filtered.map(renderOrderRow);
+
+              // Build groups
+              const getGroupKey = (order) => {
+                if (groupBy === "user_name") {
+                  return userProfileMap[order.user_email]?.display_name || order.user_name || order.user_email || "未知用户";
+                }
+                if (groupBy === "order_status") {
+                  return ALL_STATUSES.find(s => s.v === order.order_status)?.l || order.order_status || "未知状态";
+                }
+                if (groupBy === "online_store_tag") {
+                  const firstUrl = (order.product_url || "").split("\n").map(s => s.trim()).filter(Boolean)[0] || "";
+                  return matchStoreTagResult(firstUrl, storeTagRules).tag_label || "其它";
+                }
+                return "其它";
+              };
+
+              const groups = {};
+              filtered.forEach(order => {
+                const key = getGroupKey(order);
+                if (!groups[key]) groups[key] = [];
+                groups[key].push(order);
+              });
+
+              return Object.entries(groups).flatMap(([groupKey, groupOrders]) => {
+                const isCollapsed = collapsedGroups[groupKey];
+                return [
+                  <tr key={`group-${groupKey}`} className="bg-gray-100 border-y border-gray-200">
+                    <td colSpan={visibleCols.length + 2} className="px-3 py-2">
+                      <button
+                        className="flex items-center gap-2 text-xs font-semibold text-gray-700 hover:text-gray-900 w-full text-left"
+                        onClick={() => setCollapsedGroups(prev => ({ ...prev, [groupKey]: !prev[groupKey] }))}
+                      >
+                        <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isCollapsed ? "-rotate-90" : ""}`} />
+                        <span>{groupKey}</span>
+                        <span className="font-normal text-gray-400">({groupOrders.length} 条)</span>
+                      </button>
+                    </td>
+                  </tr>,
+                  ...(isCollapsed ? [] : groupOrders.map(renderOrderRow)),
+                ];
+              });
+            })()}
           </tbody>
         </table>
       </div>
