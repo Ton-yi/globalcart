@@ -521,6 +521,10 @@ export default function AdminOrders() {
 
               return Object.entries(groups).flatMap(([groupKey, groupOrders]) => {
                 const isCollapsed = collapsedGroups[groupKey] !== false;
+                // Find avatar for user_name grouping
+                const groupUserEmail = groupBy === "user_name" ? groupOrders[0]?.user_email : null;
+                const groupUserProfile = groupUserEmail ? (userProfileMap[groupUserEmail] || {}) : null;
+                const groupAvatarUrl = groupUserProfile?.avatar_url || null;
                 return [
                   <tr key={`group-${groupKey}`} className="bg-gray-100 border-y border-gray-200">
                     <td colSpan={visibleCols.length + 2} className="px-3 py-2">
@@ -529,6 +533,11 @@ export default function AdminOrders() {
                         onClick={() => setCollapsedGroups(prev => ({ ...prev, [groupKey]: !prev[groupKey] }))}
                       >
                         <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isCollapsed ? "-rotate-90" : ""}`} />
+                        {groupBy === "user_name" && (
+                          groupAvatarUrl
+                            ? <img src={groupAvatarUrl} alt="" className="w-5 h-5 rounded-full object-cover border border-gray-200 flex-shrink-0" />
+                            : <div className="w-5 h-5 rounded-full bg-gray-300 flex items-center justify-center text-gray-600 text-[10px] font-medium flex-shrink-0">{groupKey[0]?.toUpperCase()}</div>
+                        )}
                         <span>{groupKey}</span>
                         <span className="font-normal text-gray-400">({groupOrders.length} 条)</span>
                       </button>
