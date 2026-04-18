@@ -676,10 +676,16 @@ export default function AdminShippingInfoPanel({
                     用户已提交付款（¥{Math.round(grandTotalJpy).toLocaleString()} JPY），请核实后确认收款。
                   </p>
                   {pool.payment_proof_url && (
-                    <a href={pool.payment_proof_url} target="_blank" rel="noopener noreferrer"
-                      className="flex items-center gap-1.5 text-xs text-blue-600 hover:underline">
-                      <ExternalLink className="w-3.5 h-3.5" />查看付款凭证
-                    </a>
+                    <div>
+                      <p className="text-xs text-blue-600 mb-1">付款凭证：</p>
+                      <img
+                        src={pool.payment_proof_url}
+                        alt="付款凭证"
+                        className="max-w-full max-h-48 rounded-lg border border-blue-200 object-contain cursor-pointer hover:opacity-90 transition-opacity"
+                        onClick={() => window.open(pool.payment_proof_url, "_blank")}
+                        title="点击在新标签页查看大图"
+                      />
+                    </div>
                   )}
                   <Button size="sm" className="bg-green-600 hover:bg-green-700 w-full"
                     onClick={handleConfirmPayment} disabled={confirmingSaving}>
