@@ -902,9 +902,9 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
             {messages.length > 0 ?
             <div className="space-y-2 mb-3 max-h-48 overflow-y-auto">
                 {messages.map((msg) => {
-                const msgSenderData = msg.from_email ? tenantUserMap[msg.from_email] || {} : {};
-                const senderAvatar = msg.avatar_url || msgSenderData.avatar_url || '';
-                const senderDisplayName = msg.from || msgSenderData.display_name || msgSenderData.full_name || msg.from_email || "?";
+                // Prefer data stored on the message itself (set at send time)
+                const senderAvatar = msg.avatar_url || (msg.from_email ? tenantUserMap[msg.from_email]?.avatar_url : '') || '';
+                const senderDisplayName = msg.from || (msg.from_email ? (tenantUserMap[msg.from_email]?.display_name || tenantUserMap[msg.from_email]?.full_name) : null) || msg.from_email || "?";
                 const senderInitial = senderDisplayName[0].toUpperCase();
                 return (
                   <div key={msg.id} className={`flex gap-2 ${msg.role === "admin" ? "flex-row-reverse" : ""}`}>

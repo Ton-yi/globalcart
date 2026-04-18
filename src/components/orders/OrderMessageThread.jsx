@@ -89,13 +89,14 @@ export default function OrderMessageThread({ order, currentUser, isAdmin, onMess
   };
 
   const getSenderName = (msg) => {
+    // Always prefer the name stored on the message itself (set at send time with display_name)
+    if (msg.from) return msg.from;
     if (msg.role === "admin") return "客服";
-    // Return msg.from which contains display_name or full_name
-    return msg.from || order.user_name || msg.from_email || "匿名";
+    return msg.from_email ? (userProfileMap[msg.from_email]?.display_name || msg.from_email) : (order.user_name || "匿名");
   };
 
   const getSenderAvatar = (msg) => {
-    // First try the avatar stored on the message itself, then look up the profile map
+    // Always prefer the avatar stored on the message itself (set at send time)
     return msg.avatar_url || (msg.from_email ? userProfileMap[msg.from_email]?.avatar_url : null) || null;
   };
 
