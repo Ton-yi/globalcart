@@ -331,10 +331,10 @@ export default function AdminOrders() {
   const getOrderPool = (order) => shippingPools.find(p => (p.order_ids || []).includes(order.id)) || null;
 
   const handleOpenPool = async (pool) => {
-    // Fetch full pool data before opening modal
+    // Always fetch full pool data (shippingPools in state is a trimmed summary)
     const r = await base44.functions.invoke('getTenantShippingPools', {});
     const fullPool = (r.data?.pools || []).find(p => p.id === pool.id);
-    if (fullPool) setSelectedPool(fullPool);
+    setSelectedPool(fullPool || pool);
   };
 
   return (
@@ -503,9 +503,7 @@ export default function AdminOrders() {
           onOpenPool={async (poolId) => {
             setSelectedOrder(null);
             if (!poolId) return;
-            // Use already-loaded shippingPools first, fall back to fresh fetch
-            const existing = shippingPools.find(p => p.id === poolId);
-            if (existing) { setSelectedPool(existing); return; }
+            // Always fetch full pool data (local shippingPools is a trimmed summary)
             const r = await base44.functions.invoke('getTenantShippingPools', {});
             const pool = (r.data?.pools || []).find(p => p.id === poolId);
             if (pool) setSelectedPool(pool);
