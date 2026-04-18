@@ -1,30 +1,36 @@
 /**
  * AvatarCropModal
- * Lets the user select a circular crop region from an uploaded image,
- * then returns the cropped blob for upload.
+ * Circular avatar crop modal using react-image-crop.
+ * Zoom is applied via rendered image width (NOT CSS transform) so
+ * ReactCrop's drag coordinates stay accurate.
  */
 import { useState, useRef, useCallback } from "react";
 import ReactCrop, { centerCrop, makeAspectCrop } from "react-image-crop";
 import "react-image-crop/dist/ReactCrop.css";
-import { X, Check, ZoomIn, ZoomOut } from "lucide-react";
+import { X, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-function centerAspectCrop(mediaWidth, mediaHeight) {
+const OUTPUT_SIZE = 400; // final avatar px
+
+function centerAspectCrop(w, h) {
   return centerCrop(
-    makeAspectCrop({ unit: "%", width: 70 }, 1, mediaWidth, mediaHeight),
-    mediaWidth,
-    mediaHeight
+    makeAspectCrop({ unit: "%", width: 80 }, 1, w, h),
+    w,
+    h
   );
 }
 
 export default function AvatarCropModal({ imageSrc, onConfirm, onCancel, uploading }) {
   const imgRef = useRef(null);
+  const naturalSize = useRef({ w: 0, h: 0 });
   const [crop, setCrop] = useState();
   const [completedCrop, setCompletedCrop] = useState(null);
-  const [scale, setScale] = useState(1);
+  // zoom = rendered image width in px (base 320px, range 200-800)
+  const [zoom, setZoom] = useState(320);
 
   const onImageLoad = useCallback((e) => {
     const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
+    naturalSize.current = { w, h };
     setCrop(centerAspectCrop(w, h));
   }, []);
 
@@ -33,16 +39,16 @@ export default function AvatarCropModal({ imageSrc, onConfirm, onCancel, uploadi
 
     const image = imgRef.current;
     const canvas = document.createElement("canvas");
-    const SIZE = 400; // output px
-    canvas.width = SIZE;
-    canvas.height = SIZE;
+    canvas.width = OUTPUT_SIZE;
+    canvas.height = OUTPUT_SIZE;
     const ctx = canvas.getContext("2d");
 
-    // Draw circular clip
+    // Circular clip
     ctx.beginPath();
-    ctx.arc(SIZE / 2, SIZE / 2, SIZE / 2, 0, Math.PI * 2);
+    ctx.arc(OUTPUT_SIZE / 2, OUTPUT_SIZE / 2, OUTPUT_SIZE / 2, 0, Math.PI * 2);
     ctx.clip();
 
+    // completedCrop is in px relative to the *rendered* image size
     const scaleX = image.naturalWidth / image.width;
     const scaleY = image.naturalHeight / image.height;
 
@@ -54,13 +60,11 @@ export default function AvatarCropModal({ imageSrc, onConfirm, onCancel, uploadi
       completedCrop.height * scaleY,
       0,
       0,
-      SIZE,
-      SIZE
+      OUTPUT_SIZE,
+      OUTPUT_SIZE
     );
 
-    canvas.toBlob((blob) => {
-      if (blob) onConfirm(blob);
-    }, "image/jpeg", 0.92);
+    canvas.toBlob((blob) => { if (blob) onConfirm(blob); }, "image/jpeg", 0.92);
   };
 
   return (
@@ -77,41 +81,42 @@ export default function AvatarCropModal({ imageSrc, onConfirm, onCancel, uploadi
           </button>
         </div>
 
-        {/* Crop area */}
-        <div className="flex-1 overflow-auto p-4 flex items-center justify-center bg-gray-100 min-h-[300px]">
-          <ReactCrop
-            crop={crop}
-            onChange={(c) => setCrop(c)}
-            onComplete={(c) => setCompletedCrop(c)}
-            aspect={1}
-            circularCrop
-            keepSelection
-          >
-            <img
-              ref={imgRef}
-              src={imageSrc}
-              alt="裁剪预览"
-              style={{ transform: `scale(${scale})`, transformOrigin: "top left", maxWidth: "100%", maxHeight: "60vh" }}
-              onLoad={onImageLoad}
-            />
-          </ReactCrop>
+        {/* Crop area — scrollable so zoomed image is reachable */}
+        <div className="overflow-auto bg-gray-100 flex items-center justify-center" style={{ minHeight: 300, maxHeight: "55vh" }}>
+          <div className="p-4">
+            <ReactCrop
+              crop={crop}
+              onChange={(c) => setCrop(c)}
+              onComplete={(c) => setCompletedCrop(c)}
+              aspect={1}
+              circularCrop
+              keepSelection
+            >
+              <img
+                ref={imgRef}
+                src={imageSrc}
+                alt="裁剪预览"
+                width={zoom}
+                style={{ display: "block", maxWidth: "none" }}
+                onLoad={onImageLoad}
+              />
+            </ReactCrop>
+          </div>
         </div>
 
-        {/* Zoom controls */}
-        <div className="flex items-center justify-center gap-3 px-5 py-3 border-t bg-gray-50">
-          <button
-            onClick={() => setScale(s => Math.max(0.5, parseFloat((s - 0.1).toFixed(1))))}
-            className="p-1.5 rounded-lg hover:bg-gray-200 text-gray-600 transition-colors"
-          >
-            <ZoomOut className="w-4 h-4" />
-          </button>
-          <span className="text-xs text-gray-500 w-12 text-center">{Math.round(scale * 100)}%</span>
-          <button
-            onClick={() => setScale(s => Math.min(3, parseFloat((s + 0.1).toFixed(1))))}
-            className="p-1.5 rounded-lg hover:bg-gray-200 text-gray-600 transition-colors"
-          >
-            <ZoomIn className="w-4 h-4" />
-          </button>
+        {/* Zoom slider */}
+        <div className="flex items-center gap-3 px-5 py-3 border-t bg-gray-50">
+          <span className="text-xs text-gray-400 flex-shrink-0">缩小</span>
+          <input
+            type="range"
+            min={150}
+            max={800}
+            step={10}
+            value={zoom}
+            onChange={(e) => setZoom(Number(e.target.value))}
+            className="flex-1 accent-red-600"
+          />
+          <span className="text-xs text-gray-400 flex-shrink-0">放大</span>
         </div>
 
         {/* Footer */}
