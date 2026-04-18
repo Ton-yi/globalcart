@@ -17,8 +17,7 @@ import UserNotifyShipmentModal from "./UserNotifyShipmentModal";
 import ShippingEditModal from "@/components/shippingpool/ShippingEditModal";
 
 export default function OrderDetailDrawer({ order, currentUser, initialUserPreference, initialPaidOrderReminder, onClose, onAction }) {
-  const hasUnreadOnOpen = (order.unread_roles || []).includes("user");
-  const [showMessages, setShowMessages] = useState(hasUnreadOnOpen);
+  const [showMessages, setShowMessages] = useState(true);
   const [confirmingDelivered, setConfirmingDelivered] = useState(false);
   const [contactInfo, setContactInfo] = useState(initialUserPreference?.contact_info || "");
   const [showPayment, setShowPayment] = useState(false);
