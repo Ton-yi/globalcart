@@ -520,7 +520,7 @@ export default function AdminOrders() {
               });
 
               return Object.entries(groups).flatMap(([groupKey, groupOrders]) => {
-                const isCollapsed = collapsedGroups[groupKey];
+                const isCollapsed = collapsedGroups[groupKey] !== false;
                 return [
                   <tr key={`group-${groupKey}`} className="bg-gray-100 border-y border-gray-200">
                     <td colSpan={visibleCols.length + 2} className="px-3 py-2">
