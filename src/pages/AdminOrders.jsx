@@ -195,6 +195,7 @@ export default function AdminOrders() {
   const [pendingEditRequests, setPendingEditRequests] = useState([]);
   const [userProfileMap, setUserProfileMap] = useState({});
   const [shippingPools, setShippingPools] = useState([]);
+  const [shippingMethods, setShippingMethods] = useState([]);
   const [boxTemplates, setBoxTemplates] = useState([]);
   const [transitLocations, setTransitLocations] = useState([]);
   const [transitShippingMethods, setTransitShippingMethods] = useState([]);
@@ -205,13 +206,14 @@ export default function AdminOrders() {
   const fetchOrders = useCallback(async () => {
     setLoading(true);
     const r = await base44.functions.invoke('getAdminOrdersPageData', {});
-    const { orders: data = [], storeTagRules: rules = [], itemSizeTemplates: templates = [], pendingEditRequests: edits = [], userProfileMap: profiles = {}, shippingPools: pools = [], boxTemplates: boxes = [], transitLocations: locs = [], transitShippingMethods: tMethods = [], defaultPackingFeeSingle: pfs = 0, defaultPackingFeeConsolidation: pfc = 0 } = r.data || {};
+    const { orders: data = [], storeTagRules: rules = [], itemSizeTemplates: templates = [], pendingEditRequests: edits = [], userProfileMap: profiles = {}, shippingPools: pools = [], shippingMethods: sMethods = [], boxTemplates: boxes = [], transitLocations: locs = [], transitShippingMethods: tMethods = [], defaultPackingFeeSingle: pfs = 0, defaultPackingFeeConsolidation: pfc = 0 } = r.data || {};
     setOrders(data);
     setStoreTagRules(rules);
     setItemSizeTemplates(templates);
     setPendingEditRequests(edits);
     setUserProfileMap(profiles);
     setShippingPools(pools);
+    setShippingMethods(sMethods);
     setBoxTemplates(boxes);
     setTransitLocations(locs);
     setTransitShippingMethods(tMethods);
@@ -516,7 +518,7 @@ export default function AdminOrders() {
           currentUser={user}
           pendingEditRequests={pendingEditRequests.filter(r => r.pool_id === selectedPool.id)}
           boxTemplates={boxTemplates}
-          shippingMethods={[]}
+          shippingMethods={shippingMethods}
           transitLocations={transitLocations}
           transitShippingMethods={transitShippingMethods}
           defaultPackingFeeSingle={defaultPackingFeeSingle}

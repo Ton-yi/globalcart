@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
     const filter = (isPlatformAdmin || !tenantId) ? {} : { tenant_id: tenantId };
 
     const t1 = Date.now();
-    const [orders, storeTagRules, itemSizeTemplates, pendingEditRequests, allTenantUsers, shippingPools, boxTemplates, transitLocations, transitShippingMethods, siteSettings] = await Promise.all([
+    const [orders, storeTagRules, itemSizeTemplates, pendingEditRequests, allTenantUsers, shippingPools, boxTemplates, transitLocations, transitShippingMethods, siteSettings, shippingMethods] = await Promise.all([
       base44.asServiceRole.entities.Order.filter(filter),
       base44.asServiceRole.entities.OnlineStoreTagRule.filter({ ...filter, is_active: true }),
       base44.asServiceRole.entities.ItemSizeTemplate.filter({ ...filter, is_active: true }),
@@ -65,6 +65,7 @@ Deno.serve(async (req) => {
       base44.asServiceRole.entities.TransitLocation.filter({ ...filter, is_active: true }),
       base44.asServiceRole.entities.TransitShippingMethod.filter({ ...filter, is_active: true }),
       base44.asServiceRole.entities.SiteSettings.filter(filter),
+      base44.asServiceRole.entities.ShippingMethod.filter({ ...filter, is_active: true }),
     ]);
     console.log(`[TIMING] getAdminOrdersPageData | parallel fetches: ${Date.now() - t1}ms`);
     console.log(`[TIMING] getAdminOrdersPageData | TOTAL: ${Date.now() - t0}ms`);
@@ -93,6 +94,7 @@ Deno.serve(async (req) => {
       boxTemplates: boxTemplates || [],
       transitLocations: (transitLocations || []),
       transitShippingMethods: (transitShippingMethods || []),
+      shippingMethods: (shippingMethods || []),
       defaultPackingFeeSingle,
       defaultPackingFeeConsolidation,
       shippingPools: (shippingPools || []).map(p => ({
