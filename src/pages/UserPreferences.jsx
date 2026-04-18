@@ -4,6 +4,7 @@ import { tenantEntity, userPrefApi } from "@/lib/tenantApi";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAuth } from "@/lib/AuthContext";
 import { User, Save, Camera, Plus, Trash2, MapPin, Edit2, Check, Star, Palette } from "lucide-react";
+import AvatarCropModal from "@/components/common/AvatarCropModal";
 import ThemeSelector from "@/components/common/ThemeSelector";
 import { getCountry } from "@/lib/countries";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ export default function UserPreferences() {
   const [displayName, setDisplayName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [cropSrc, setCropSrc] = useState(null); // base64 src for crop modal
   const [form, setForm] = useState({
     contact_info: "",
     contact_public: true,
@@ -77,12 +79,22 @@ export default function UserPreferences() {
     }).catch(() => {});
   }, [user?.email]);
 
-  const handleAvatarUpload = async (e) => {
+  const handleAvatarFileSelect = (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    // Reset input so same file can be re-selected
+    e.target.value = "";
+    const reader = new FileReader();
+    reader.onload = () => setCropSrc(reader.result);
+    reader.readAsDataURL(file);
+  };
+
+  const handleCropConfirm = async (blob) => {
     setUploadingAvatar(true);
+    const file = new File([blob], "avatar.jpg", { type: "image/jpeg" });
     const { file_url } = await base44.integrations.Core.UploadFile({ file });
     setAvatarUrl(file_url);
+    setCropSrc(null);
     setUploadingAvatar(false);
   };
 
@@ -154,6 +166,15 @@ export default function UserPreferences() {
   const isEditing = editingAddr !== null;
 
   return (
+    <>
+    {cropSrc && (
+      <AvatarCropModal
+        imageSrc={cropSrc}
+        uploading={uploadingAvatar}
+        onConfirm={handleCropConfirm}
+        onCancel={() => setCropSrc(null)}
+      />
+    )}
     <div className="max-w-lg mx-auto space-y-5">
       <div>
         <h1 className="text-xl font-bold text-gray-900">个人偏好设定</h1>
@@ -176,7 +197,7 @@ export default function UserPreferences() {
                 </div>
                 <label className="absolute -bottom-1 -right-1 w-6 h-6 bg-red-600 rounded-full flex items-center justify-center cursor-pointer hover:bg-red-700">
                   <Camera className="w-3 h-3 text-white" />
-                  <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} disabled={uploadingAvatar} />
+                  <input type="file" accept="image/*" className="hidden" onChange={handleAvatarFileSelect} disabled={uploadingAvatar} />
                 </label>
               </div>
               <div className="flex-1">
@@ -391,5 +412,6 @@ export default function UserPreferences() {
         {saved ? "已保存 ✓" : saving ? "保存中..." : "保存设置"}
       </Button>
     </div>
+    </>
   );
 }
