@@ -947,10 +947,16 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                 
                 <Textarea
                   rows={2}
-                  placeholder="输入留言…可拖拽或粘贴图片"
+                  placeholder="输入留言… Enter 发送，Shift+Enter 换行，可拖拽或粘贴图片"
                   className={`text-sm border-0 shadow-none focus-visible:ring-0 bg-transparent resize-none ${composeDragOver ? "opacity-40 pointer-events-none" : ""}`}
                   value={messageText}
                   onChange={(e) => setMessageText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendMessage();
+                    }
+                  }}
                   onPaste={(e) => {
                     const item = Array.from(e.clipboardData.items).find((i) => i.type.startsWith("image/"));
                     if (item) {const file = item.getAsFile();if (file) setImageFile(file);}

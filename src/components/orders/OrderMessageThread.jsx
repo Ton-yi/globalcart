@@ -158,10 +158,16 @@ export default function OrderMessageThread({ order, currentUser, isAdmin, onMess
       {/* Compose */}
       <div className="border border-gray-200 rounded-xl p-3 space-y-2.5 bg-gray-50">
         <Textarea
-          placeholder="输入留言内容..."
+          placeholder="输入留言内容... (Enter 发送，Shift+Enter 换行)"
           rows={3}
           value={content}
           onChange={e => setContent(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              handleSend();
+            }
+          }}
           className="bg-white text-sm resize-none"
         />
         <div className="flex items-center justify-between">
