@@ -19,13 +19,14 @@
       "enum": [
         "pending",
         "awaiting_payment",
+        "awaiting_payment_confirmation",
         "ready_to_ship",
         "shipped",
         "delivered",
         "cancelled"
       ],
       "default": "pending",
-      "description": "\u53d1\u8d27\u6c60\u72b6\u6001\uff1apending=\u5f85\u5904\u7406, awaiting_payment=\u5f85\u4ed8\u6b3e, ready_to_ship=\u5f85\u53d1\u8d27, shipped=\u5df2\u53d1\u8d27, delivered=\u5df2\u7b7e\u6536"
+      "description": "\u53d1\u8d27\u6c60\u72b6\u6001\uff1apending=\u5f85\u5904\u7406, awaiting_payment=\u5f85\u4ed8\u6b3e, awaiting_payment_confirmation=\u5f85\u786e\u8ba4\u4ed8\u6b3e, ready_to_ship=\u5f85\u53d1\u8d27, shipped=\u5df2\u53d1\u8d27, delivered=\u5df2\u7b7e\u6536"
     },
     "consolidation_type": {
       "type": "string",

@@ -24,13 +24,14 @@ import ShippingFeeBreakdown from "@/components/shippingpool/ShippingFeeBreakdown
 import { ImageWithViewer } from "@/components/common/ImageViewer";
 
 const STATUS_CONFIG = {
-  pending:          { label: "待处理",  color: "bg-amber-100 text-amber-700" },
-  awaiting_payment: { label: "待付款",  color: "bg-orange-100 text-orange-700" },
-  ready_to_ship:    { label: "待发货",  color: "bg-blue-100 text-blue-700" },
-  shipped:          { label: "已发货",  color: "bg-green-100 text-green-700" },
-  delivered:        { label: "已签收",  color: "bg-emerald-100 text-emerald-700" },
-  cancelled:        { label: "已取消",  color: "bg-red-100 text-red-600" },
-  processing:       { label: "处理中",  color: "bg-blue-100 text-blue-700" },
+  pending:                       { label: "待处理",    color: "bg-amber-100 text-amber-700" },
+  awaiting_payment:              { label: "待付款",    color: "bg-orange-100 text-orange-700" },
+  awaiting_payment_confirmation: { label: "待确认付款", color: "bg-blue-100 text-blue-700" },
+  ready_to_ship:                 { label: "待发货",    color: "bg-lime-100 text-lime-700" },
+  shipped:                       { label: "已发货",    color: "bg-green-100 text-green-700" },
+  delivered:                     { label: "已签收",    color: "bg-emerald-100 text-emerald-700" },
+  cancelled:                     { label: "已取消",    color: "bg-red-100 text-red-600" },
+  processing:                    { label: "处理中",    color: "bg-blue-100 text-blue-700" },
 };
 
 export default function AdminShippingInfoPanel({
@@ -279,6 +280,7 @@ export default function AdminShippingInfoPanel({
   const currentStatus = pool.status;
   const isStep1 = currentStatus === "pending" || currentStatus === "processing";
   const isAwaitingPayment = currentStatus === "awaiting_payment";
+  const isAwaitingConfirmation = currentStatus === "awaiting_payment_confirmation";
   const isStep2 = currentStatus === "ready_to_ship";
   const isDone = currentStatus === "shipped" || currentStatus === "delivered";
 
@@ -298,7 +300,7 @@ export default function AdminShippingInfoPanel({
         </div>
       )}
 
-      {(isStep1 || isStep2 || isAwaitingPayment) && (
+      {(isStep1 || isStep2 || isAwaitingPayment || isAwaitingConfirmation) && (
         <div className="p-4 space-y-4">
           {isStep1 && (
             <p className="text-xs text-gray-500 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
@@ -307,7 +309,12 @@ export default function AdminShippingInfoPanel({
           )}
           {isAwaitingPayment && (
             <p className="text-xs text-gray-500 bg-orange-50 border border-orange-100 rounded-lg px-3 py-2">
-              等待用户付款中。可继续修改发货信息，或确认收款进入待发货状态。
+              等待用户付款中。可继续修改发货信息。
+            </p>
+          )}
+          {isAwaitingConfirmation && (
+            <p className="text-xs text-gray-500 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+              用户已提交付款，请核实后确认收款，进入待发货状态。
             </p>
           )}
           {isStep2 && (
@@ -655,22 +662,31 @@ export default function AdminShippingInfoPanel({
                 <div className="bg-orange-50 border border-orange-100 rounded-lg px-3 py-2 text-sm text-orange-700">
                   运费 <strong>¥{Math.round(grandTotalJpy).toLocaleString()} JPY</strong>，等待用户付款。
                 </div>
-                {pool.payment_status === "awaiting_confirmation" && (
-                  <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2.5 space-y-2">
-                    <p className="text-xs text-blue-700 font-medium">用户已提交付款，请核实后确认。</p>
-                    {pool.payment_proof_url && (
-                      <a href={pool.payment_proof_url} target="_blank" rel="noopener noreferrer"
-                        className="flex items-center gap-1.5 text-xs text-blue-600 hover:underline">
-                        <ExternalLink className="w-3.5 h-3.5" />查看付款凭证
-                      </a>
-                    )}
-                    <Button size="sm" className="bg-green-600 hover:bg-green-700 w-full"
-                      onClick={handleConfirmPayment} disabled={confirmingSaving}>
-                      <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
-                      {confirmingSaving ? "确认中..." : "确认收款，进入待发货"}
-                    </Button>
-                  </div>
-                )}
+                <Button size="sm" variant="outline" className="w-full text-xs"
+                  onClick={handleSaveInfoOnly} disabled={saving}>
+                  {saving ? "保存中..." : "保存信息修改"}
+                </Button>
+              </>
+            )}
+
+            {isAwaitingConfirmation && (
+              <>
+                <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2.5 space-y-2">
+                  <p className="text-xs text-blue-700 font-medium">
+                    用户已提交付款（¥{Math.round(grandTotalJpy).toLocaleString()} JPY），请核实后确认收款。
+                  </p>
+                  {pool.payment_proof_url && (
+                    <a href={pool.payment_proof_url} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 text-xs text-blue-600 hover:underline">
+                      <ExternalLink className="w-3.5 h-3.5" />查看付款凭证
+                    </a>
+                  )}
+                  <Button size="sm" className="bg-green-600 hover:bg-green-700 w-full"
+                    onClick={handleConfirmPayment} disabled={confirmingSaving}>
+                    <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
+                    {confirmingSaving ? "确认中..." : "确认收款，进入待发货"}
+                  </Button>
+                </div>
                 <Button size="sm" variant="outline" className="w-full text-xs"
                   onClick={handleSaveInfoOnly} disabled={saving}>
                   {saving ? "保存中..." : "保存信息修改"}

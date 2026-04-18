@@ -19,13 +19,14 @@ import ShippingFeeBreakdown from "@/components/shippingpool/ShippingFeeBreakdown
 import { ImageWithViewer } from "@/components/common/ImageViewer";
 
 const STATUS_CONFIG = {
-  pending: { label: "待处理", color: "bg-amber-100 text-amber-700" },
-  awaiting_payment: { label: "待付款", color: "bg-orange-100 text-orange-700" },
-  ready_to_ship: { label: "待发货", color: "bg-blue-100 text-blue-700" },
-  shipped: { label: "已发货", color: "bg-green-100 text-green-700" },
-  delivered: { label: "已签收", color: "bg-emerald-100 text-emerald-700" },
-  cancelled: { label: "已取消", color: "bg-red-100 text-red-600" },
-  processing: { label: "处理中", color: "bg-blue-100 text-blue-700" }
+  pending:                       { label: "待处理",    color: "bg-amber-100 text-amber-700" },
+  awaiting_payment:              { label: "待付款",    color: "bg-orange-100 text-orange-700" },
+  awaiting_payment_confirmation: { label: "待确认付款", color: "bg-blue-100 text-blue-700" },
+  ready_to_ship:                 { label: "待发货",    color: "bg-lime-100 text-lime-700" },
+  shipped:                       { label: "已发货",    color: "bg-green-100 text-green-700" },
+  delivered:                     { label: "已签收",    color: "bg-emerald-100 text-emerald-700" },
+  cancelled:                     { label: "已取消",    color: "bg-red-100 text-red-600" },
+  processing:                    { label: "处理中",    color: "bg-blue-100 text-blue-700" },
 };
 
 const METHOD_LABELS = {
@@ -181,7 +182,12 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
     setGeneratingAlipay(false);
     if (url) {
       window.open(url, "_blank");
-      setPool((p) => ({ ...p, payment_status: "awaiting_confirmation", payment_method: "alipay" }));
+      await shippingPoolApi.update(pool.id, {
+        payment_status: "awaiting_confirmation",
+        payment_method: "alipay",
+        status: "awaiting_payment_confirmation",
+      });
+      setPool((p) => ({ ...p, payment_status: "awaiting_confirmation", payment_method: "alipay", status: "awaiting_payment_confirmation" }));
     }
   };
 
@@ -192,9 +198,10 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
     await shippingPoolApi.update(pool.id, {
       payment_status: "awaiting_confirmation",
       payment_method: paymentMethod,
-      payment_proof_url: file_url
+      payment_proof_url: file_url,
+      status: "awaiting_payment_confirmation",
     });
-    setPool((p) => ({ ...p, payment_status: "awaiting_confirmation", payment_method: paymentMethod, payment_proof_url: file_url }));
+    setPool((p) => ({ ...p, payment_status: "awaiting_confirmation", payment_method: paymentMethod, payment_proof_url: file_url, status: "awaiting_payment_confirmation" }));
     setUploadingProof(false);
   };
 
@@ -740,7 +747,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
           }
 
           {/* User payment panel — shown when pool is awaiting_payment */}
-          {!isAdmin && pool.status === "awaiting_payment" &&
+          {!isAdmin && (pool.status === "awaiting_payment" || pool.status === "awaiting_payment_confirmation") &&
           <div className="border border-orange-200 rounded-xl overflow-hidden">
               <div className="bg-orange-50 px-4 py-2.5 border-b border-orange-200 flex items-center gap-2">
                 <CreditCard className="w-4 h-4 text-orange-600" />
@@ -807,7 +814,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                 }
                 </div>
 
-                {pool.payment_status === "awaiting_confirmation" ?
+                {(pool.payment_status === "awaiting_confirmation" || pool.status === "awaiting_payment_confirmation") ?
               <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2.5 text-sm text-blue-700">
                     ✅ 付款信息已提交，等待管理员确认中。
                   </div> :

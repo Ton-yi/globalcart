@@ -26,14 +26,14 @@ function PackagesSummary({ orderIds, orderNames }) {
 }
 
 const STATUS_CONFIG = {
-  pending:          { label: "待处理",   color: "bg-amber-100 text-amber-700" },
-  awaiting_payment: { label: "待付款",   color: "bg-orange-100 text-orange-700" },
-  ready_to_ship:    { label: "待发货",   color: "bg-blue-100 text-blue-700" },
-  shipped:          { label: "已发货",   color: "bg-green-100 text-green-700" },
-  delivered:        { label: "已签收",   color: "bg-emerald-100 text-emerald-700" },
-  cancelled:        { label: "已取消",   color: "bg-red-100 text-red-600" },
-  // legacy compat
-  processing:       { label: "处理中",   color: "bg-blue-100 text-blue-700" },
+  pending:                       { label: "待处理",    color: "bg-amber-100 text-amber-700" },
+  awaiting_payment:              { label: "待付款",    color: "bg-orange-100 text-orange-700" },
+  awaiting_payment_confirmation: { label: "待确认付款", color: "bg-blue-100 text-blue-700" },
+  ready_to_ship:                 { label: "待发货",    color: "bg-lime-100 text-lime-700" },
+  shipped:                       { label: "已发货",    color: "bg-green-100 text-green-700" },
+  delivered:                     { label: "已签收",    color: "bg-emerald-100 text-emerald-700" },
+  cancelled:                     { label: "已取消",    color: "bg-red-100 text-red-600" },
+  processing:                    { label: "处理中",    color: "bg-blue-100 text-blue-700" },
 };
 
 const METHOD_LABELS = {
@@ -79,14 +79,13 @@ export default function ShippingPoolCard({ pool, onClick, pendingEditCount = 0, 
               {pool.status === "pending" && pool.asap &&
               <Badge className="text-xs bg-orange-100 text-orange-600 border-orange-200">⚡ 尽快</Badge>
               }
-              {pool.status === "awaiting_payment" && (() => {
-                // Use grand total from fee_breakdown_per_user if available, else shipping_fee_jpy
+              {(pool.status === "awaiting_payment" || pool.status === "awaiting_payment_confirmation") && (() => {
                 const breakdownTotal = (pool.fee_breakdown_per_user || []).reduce((s, b) => s + (b.total_jpy || 0), 0);
                 const displayAmt = breakdownTotal > 0 ? breakdownTotal : (pool.shipping_fee_jpy || 0);
                 if (displayAmt <= 0) return null;
                 return (
-                  <Badge className="text-xs bg-orange-100 text-orange-700 border-orange-200">
-                    <CreditCard className="w-2.5 h-2.5 mr-1 inline" />¥{Math.round(displayAmt).toLocaleString()} 待付
+                  <Badge className={`text-xs border ${pool.status === "awaiting_payment_confirmation" ? "bg-blue-100 text-blue-700 border-blue-200" : "bg-orange-100 text-orange-700 border-orange-200"}`}>
+                    <CreditCard className="w-2.5 h-2.5 mr-1 inline" />¥{Math.round(displayAmt).toLocaleString()} {pool.status === "awaiting_payment_confirmation" ? "待确认" : "待付"}
                   </Badge>
                 );
               })()}
