@@ -34,6 +34,49 @@ const STATUS_CONFIG = {
   processing:                    { label: "处理中",    color: "bg-blue-100 text-blue-700" },
 };
 
+function PaymentProofImage({ url }) {
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  return (
+    <>
+      <div>
+        <p className="text-xs text-blue-600 mb-1">付款凭证：</p>
+        <img
+          src={url}
+          alt="付款凭证"
+          className="max-w-full max-h-48 rounded-lg border border-blue-200 object-contain cursor-zoom-in hover:opacity-90 transition-opacity"
+          onClick={() => setLightboxOpen(true)}
+          title="点击查看大图"
+        />
+      </div>
+      {lightboxOpen && (
+        <div
+          className="fixed inset-0 bg-black/80 z-[9999] flex items-center justify-center p-4"
+          onClick={() => setLightboxOpen(false)}
+        >
+          <div className="relative flex flex-col items-center gap-3" onClick={e => e.stopPropagation()}>
+            <button className="absolute -top-8 right-0 text-white/70 hover:text-white" onClick={() => setLightboxOpen(false)}>
+              <X className="w-5 h-5" />
+            </button>
+            <img
+              src={url}
+              alt="付款凭证大图"
+              className="max-w-[85vw] max-h-[75vh] rounded-xl object-contain shadow-2xl cursor-pointer"
+              onClick={() => window.open(url, "_blank")}
+              title="点击在新标签页打开"
+            />
+            <button
+              className="flex items-center gap-1.5 text-white/60 hover:text-white text-xs"
+              onClick={() => window.open(url, "_blank")}
+            >
+              <ExternalLink className="w-3.5 h-3.5" />在新标签页打开
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 export default function AdminShippingInfoPanel({
   pool: initialPool,
   orders = [],
@@ -676,16 +719,7 @@ export default function AdminShippingInfoPanel({
                     用户已提交付款（¥{Math.round(grandTotalJpy).toLocaleString()} JPY），请核实后确认收款。
                   </p>
                   {pool.payment_proof_url && (
-                    <div>
-                      <p className="text-xs text-blue-600 mb-1">付款凭证：</p>
-                      <img
-                        src={pool.payment_proof_url}
-                        alt="付款凭证"
-                        className="max-w-full max-h-48 rounded-lg border border-blue-200 object-contain cursor-pointer hover:opacity-90 transition-opacity"
-                        onClick={() => window.open(pool.payment_proof_url, "_blank")}
-                        title="点击在新标签页查看大图"
-                      />
-                    </div>
+                    <PaymentProofImage url={pool.payment_proof_url} />
                   )}
                   <Button size="sm" className="bg-green-600 hover:bg-green-700 w-full"
                     onClick={handleConfirmPayment} disabled={confirmingSaving}>
