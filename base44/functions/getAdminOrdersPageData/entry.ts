@@ -82,8 +82,8 @@ Deno.serve(async (req) => {
       if (u.email) {
         const pref = prefMap[u.email] || {};
         userProfileMap[u.email] = {
-          display_name: pref.display_name || u.full_name || null,
-          avatar_url: pref.avatar_url || null,
+          display_name: u.display_name || pref.display_name || u.full_name || null,
+          avatar_url: u.avatar_url || null,
         };
       }
     }
