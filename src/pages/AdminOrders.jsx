@@ -473,7 +473,7 @@ export default function AdminOrders() {
                             入库
                           </Button>
                         )}
-                        {order.order_status === "notified_shipment" && (() => {
+                        {(() => {
                           const pool = getOrderPool(order);
                           if (!pool) return null;
                           const isConsolidation = pool.consolidation_type && pool.consolidation_type !== "";
@@ -481,7 +481,7 @@ export default function AdminOrders() {
                             <Button size="sm" variant="outline"
                               className={`h-6 text-xs px-2 ${isConsolidation ? "text-purple-600 border-purple-200 hover:bg-purple-50" : "text-teal-600 border-teal-200 hover:bg-teal-50"}`}
                               onClick={() => handleOpenPool(pool)}>
-                              {isConsolidation ? <><Layers className="w-3 h-3 mr-1" />查看拼邮</> : <><Send className="w-3 h-3 mr-1" />查看发货需求</>}
+                              {isConsolidation ? <><Layers className="w-3 h-3 mr-1" />查看拼邮</> : <><Send className="w-3 h-3 mr-1" />查看发货申请</>}
                             </Button>
                           );
                         })()}
