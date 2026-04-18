@@ -379,47 +379,56 @@ export default function AdminShippingInfoPanel({
           {(() => {
             const wNum = parseFloat(finalWeightG);
             const calcResult = (!isNaN(wNum) && wNum > 0) ? calcFeeFromWeight(wNum) : null;
+            const feeCurrency = calcResult ? calcResult.currency : "JPY";
+            const applyWeight = (w) => {
+              setFinalWeightG(String(w));
+              if (w > 0) {
+                const calc = calcFeeFromWeight(w);
+                if (calc) { setShippingFeeJpy(String(calc.fee)); setFeeAutoCalced(true); }
+              } else { setFeeAutoCalced(false); }
+            };
             return (
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-xs text-gray-500">最终总重量 (g)</Label>
-                  {(() => {
-                    const applyWeight = (w) => {
-                      setFinalWeightG(String(w));
-                      if (w > 0) {
-                        const calc = calcFeeFromWeight(w);
-                        if (calc && calc.currency === "JPY") { setShippingFeeJpy(String(calc.fee)); setFeeAutoCalced(true); }
-                      } else { setFeeAutoCalced(false); }
-                    };
-                    return (
-                      <div className="mt-1 flex items-center gap-1.5">
-                         <Input className="h-8 text-sm flex-1" type="text" inputMode="decimal" placeholder={pool.total_weight_g || "0"}
-                           value={finalWeightG}
-                           onChange={e => applyWeight(parseFloat(e.target.value) || 0)} />
-                         <button type="button" onClick={() => applyWeight((parseFloat(finalWeightG) || 0) + 100)}
-                           className="h-8 px-2 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 flex-shrink-0">+100</button>
-                         <button type="button" onClick={() => applyWeight(Math.max(0, (parseFloat(finalWeightG) || 0) - 100))}
-                           className="h-8 px-2 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 flex-shrink-0">-100</button>
-                       </div>
-                    );
-                  })()}
+                  <div className="mt-1 flex items-center gap-1.5">
+                    <Input className="h-8 text-sm flex-1" type="text" inputMode="decimal" placeholder={pool.total_weight_g || "0"}
+                      value={finalWeightG}
+                      onChange={e => {
+                        const raw = e.target.value;
+                        setFinalWeightG(raw);
+                        const w = parseFloat(raw);
+                        if (!isNaN(w) && w > 0) {
+                          const calc = calcFeeFromWeight(w);
+                          if (calc) { setShippingFeeJpy(String(calc.fee)); setFeeAutoCalced(true); }
+                        } else { setFeeAutoCalced(false); }
+                      }} />
+                    <button type="button" onClick={() => applyWeight((parseFloat(finalWeightG) || 0) + 100)}
+                      className="h-8 px-2 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 flex-shrink-0">+100</button>
+                    <button type="button" onClick={() => applyWeight(Math.max(0, (parseFloat(finalWeightG) || 0) - 100))}
+                      className="h-8 px-2 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 flex-shrink-0">-100</button>
+                  </div>
                   {boxWeight > 0 && <p className="text-xs text-gray-400 mt-0.5">含外箱 {boxWeight}g</p>}
                 </div>
                 <div>
                   <Label className="text-xs text-gray-500 flex items-center gap-1 flex-wrap">
-                    国际运费 ({calcResult ? calcResult.currency : "JPY"}) *
-                    {matchedShippingMethod && calcResult && (
-                      <span className="text-blue-500 font-normal">
-                        按{matchedShippingMethod.name || pool.shipping_method}费率：{calcResult.currency} {calcResult.fee.toLocaleString()}
-                      </span>
-                    )}
+                    国际运费 ({feeCurrency}) *
                     {matchedShippingMethod && !calcResult && finalWeightG && (
                       <span className="text-orange-400 font-normal">（该重量无匹配区间）</span>
                     )}
+                    {!matchedShippingMethod && <span className="text-gray-400 font-normal">（手动填写）</span>}
                   </Label>
-                  <Input className="mt-1 h-8 text-sm" type="text" inputMode="decimal" placeholder="0"
-                    value={shippingFeeJpy}
-                    onChange={e => { setShippingFeeJpy(e.target.value); setFeeAutoCalced(false); }} />
+                  <div className="mt-1 relative">
+                    <Input className="h-8 text-sm pr-14" type="text" inputMode="decimal" placeholder="0"
+                      value={shippingFeeJpy}
+                      onChange={e => { setShippingFeeJpy(e.target.value); setFeeAutoCalced(false); }} />
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">{feeCurrency}</span>
+                  </div>
+                  {matchedShippingMethod && calcResult && (
+                    <p className="text-xs mt-0.5 text-blue-500">
+                      按{matchedShippingMethod.name || pool.shipping_method}费率{feeAutoCalced ? "（已自动填入）" : `：${feeCurrency} ${calcResult.fee.toLocaleString()}`}
+                    </p>
+                  )}
                 </div>
               </div>
             );
