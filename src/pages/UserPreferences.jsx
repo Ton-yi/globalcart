@@ -3,7 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { tenantEntity, userPrefApi } from "@/lib/tenantApi";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAuth } from "@/lib/AuthContext";
-import { User, Save, Camera, Plus, Trash2, MapPin, Edit2, Check, Star, Palette } from "lucide-react";
+import { User, Save, Camera, Plus, Trash2, MapPin, Edit2, Check, Star, Palette, Archive } from "lucide-react";
 import AvatarCropModal from "@/components/common/AvatarCropModal";
 import ThemeSelector from "@/components/common/ThemeSelector";
 import { getCountry } from "@/lib/countries";
@@ -34,6 +34,8 @@ export default function UserPreferences() {
     prefer_consolidation: false,
     notification_email: true,
     default_address_id: "",
+    auto_archive_order_days: 7,
+    auto_archive_pool_days: 7,
   });
   const [transitMethods, setTransitMethods] = useState([]);
   // Unified address list: each has { id, label, country, full_text }
@@ -66,6 +68,8 @@ export default function UserPreferences() {
           prefer_consolidation: p.prefer_consolidation || false,
           notification_email: p.notification_email !== false,
           default_address_id: p.default_address_id || "",
+          auto_archive_order_days: p.auto_archive_order_days !== undefined ? p.auto_archive_order_days : 7,
+          auto_archive_pool_days: p.auto_archive_pool_days !== undefined ? p.auto_archive_pool_days : 7,
         });
         // Merge saved_addresses from ALL pref records (deduplicate by id)
         const allAddrs = sorted.flatMap(r => r.saved_addresses || []);
@@ -404,6 +408,54 @@ export default function UserPreferences() {
           })}
 
           <p className="text-xs text-gray-400">默认收货地址将在发货申请时自动填入</p>
+        </CardContent>
+      </Card>
+
+      {/* 自动存档设置 */}
+      <Card className="border-gray-200">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+            <Archive className="w-4 h-4" />自动存档设置
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-xs text-gray-400">已收货/已签收后，经过设定天数会自动存档，不再显示在主列表中。设为 0 则不自动存档。</p>
+          <div>
+            <Label className="text-sm">订单收货后自动存档</Label>
+            <div className="flex items-center gap-2 mt-1">
+              <Select
+                value={String(form.auto_archive_order_days)}
+                onValueChange={v => f("auto_archive_order_days", Number(v))}>
+                <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0">不自动存档</SelectItem>
+                  <SelectItem value="1">1 天后</SelectItem>
+                  <SelectItem value="3">3 天后</SelectItem>
+                  <SelectItem value="7">1 周后（默认）</SelectItem>
+                  <SelectItem value="14">2 周后</SelectItem>
+                  <SelectItem value="30">1 个月后</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div>
+            <Label className="text-sm">发货申请签收后自动存档</Label>
+            <div className="flex items-center gap-2 mt-1">
+              <Select
+                value={String(form.auto_archive_pool_days)}
+                onValueChange={v => f("auto_archive_pool_days", Number(v))}>
+                <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0">不自动存档</SelectItem>
+                  <SelectItem value="1">1 天后</SelectItem>
+                  <SelectItem value="3">3 天后</SelectItem>
+                  <SelectItem value="7">1 周后（默认）</SelectItem>
+                  <SelectItem value="14">2 周后</SelectItem>
+                  <SelectItem value="30">1 个月后</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </CardContent>
       </Card>
 

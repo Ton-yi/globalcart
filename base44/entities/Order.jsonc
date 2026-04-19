@@ -123,6 +123,15 @@
       "default": "pending_confirmation",
       "description": "\u8ba2\u5355\u72b6\u6001"
     },
+    "is_archived": {
+      "type": "boolean",
+      "default": false,
+      "description": "\u662f\u5426\u5df2\u5b58\u6863\uff08\u5df2\u6536\u8d27\u8ba2\u5355\u7528\u6237\u53ef\u5b58\u6863\uff0c\u5b58\u6863\u540e\u4e0d\u663e\u793a\u5728\u6211\u7684\u8ba2\u5355\u9875\uff09"
+    },
+    "archived_at": {
+      "type": "string",
+      "description": "\u5b58\u6863\u65f6\u95f4\uff08ISO\u65f6\u95f4\u6233\uff09"
+    },
     "unread_roles": {
       "type": "array",
       "items": {

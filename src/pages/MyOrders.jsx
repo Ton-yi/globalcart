@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { Package, RefreshCw, Search, CreditCard, Truck, CheckCircle, ChevronUp, ChevronDown, ChevronsUpDown, Send } from "lucide-react";
+import { Package, RefreshCw, Search, CreditCard, Truck, CheckCircle, ChevronUp, ChevronDown, ChevronsUpDown, Send, Archive, ArchiveRestore } from "lucide-react";
 import { ImageWithViewer } from "@/components/common/ImageViewer";
 import BulkPaymentModal from "@/components/orders/BulkPaymentModal";
 import { matchStoreTagResult } from "@/lib/onlineStoreTag";
@@ -203,6 +203,7 @@ export default function MyOrders() {
   const [sortDir, setSortDir] = useState("asc");
   const [storeTagRules, setStoreTagRules] = useState([]);
 
+  const [showArchived, setShowArchived] = useState(false);
   const [pageData, setPageData] = useState({});
   const [pendingEditRequests, setPendingEditRequests] = useState([]);
 
@@ -279,7 +280,23 @@ export default function MyOrders() {
     fetchOrders(user);
   };
 
+  const handleArchiveOrder = async (order) => {
+    await base44.functions.invoke('updateTenantOrder', { order_id: order.id, is_archived: true, archived_at: new Date().toISOString() });
+    fetchOrders(user);
+  };
+
+  const handleBulkArchive = async () => {
+    const deliveredSelected = filtered.filter(o => selectedIds.includes(o.id) && o.order_status === "delivered");
+    await Promise.all(deliveredSelected.map(o =>
+      base44.functions.invoke('updateTenantOrder', { order_id: o.id, is_archived: true, archived_at: new Date().toISOString() })
+    ));
+    setSelectedIds([]);
+    fetchOrders(user);
+  };
+
   const filtered = orders.filter(o => {
+    if (!showArchived && o.is_archived) return false;
+    if (showArchived && !o.is_archived) return false;
     const matchStatus = statusFilter === "all" || o.order_status === statusFilter;
     const q = search.toLowerCase();
     const matchSearch = !q ||
@@ -306,6 +323,10 @@ export default function MyOrders() {
   // Orders eligible for bulk payment
   const paymentPendingOrders = filtered.filter(o => o.order_status === "payment_pending" && o.payment_status !== "awaiting_confirmation");
   const selectedPaymentPending = filtered.filter(o => selectedIds.includes(o.id) && o.order_status === "payment_pending" && o.payment_status !== "awaiting_confirmation");
+
+  // Orders eligible for bulk archive
+  const deliveredOrders = filtered.filter(o => o.order_status === "delivered" && !o.is_archived);
+  const selectedDelivered = filtered.filter(o => selectedIds.includes(o.id) && o.order_status === "delivered" && !o.is_archived);
 
   const toggleSelect = (id) => {
     setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
@@ -338,6 +359,9 @@ export default function MyOrders() {
         <h1 className="text-xl font-bold text-gray-900">我的订单</h1>
         <div className="flex items-center gap-2">
           <ColumnCustomizer columns={columns} onChange={handleColumnsChange} />
+          <Button variant="outline" size="sm" onClick={() => { setShowArchived(v => !v); setSelectedIds([]); }}>
+            {showArchived ? <><ArchiveRestore className="w-3.5 h-3.5 mr-1.5" />返回订单列表</> : <><Archive className="w-3.5 h-3.5 mr-1.5" />查看已存档</>}
+          </Button>
           <Button variant="outline" size="sm" onClick={() => fetchOrders(user)}>
             <RefreshCw className="w-3.5 h-3.5 mr-1.5" />刷新
           </Button>
@@ -382,6 +406,17 @@ export default function MyOrders() {
             onClick={() => setSelectedIds([])}>取消</Button>
         </div>
       )}
+      {selectedDelivered.length > 0 && (
+        <div className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5">
+          <span className="text-sm text-gray-700 font-medium">已选 {selectedDelivered.length} 件已收货订单</span>
+          <Button size="sm" className="h-7 text-xs bg-gray-600 hover:bg-gray-700 ml-auto"
+            onClick={handleBulkArchive}>
+            <Archive className="w-3 h-3 mr-1" />批量存档
+          </Button>
+          <Button size="sm" variant="ghost" className="h-7 text-xs"
+            onClick={() => setSelectedIds([])}>取消</Button>
+        </div>
+      )}
 
       {/* Orders table */}
       <div className="border border-gray-200 rounded-xl overflow-x-auto">
@@ -389,14 +424,14 @@ export default function MyOrders() {
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200">
               <th className="w-8 px-3 py-2">
-                {(inWarehouseOrders.length > 0 || paymentPendingOrders.length > 0) && (
+                {(inWarehouseOrders.length > 0 || paymentPendingOrders.length > 0 || deliveredOrders.length > 0) && !showArchived && (
                   <Checkbox
                     checked={
-                      [...inWarehouseOrders, ...paymentPendingOrders].length > 0 &&
-                      [...inWarehouseOrders, ...paymentPendingOrders].every(o => selectedIds.includes(o.id))
+                      [...inWarehouseOrders, ...paymentPendingOrders, ...deliveredOrders].length > 0 &&
+                      [...inWarehouseOrders, ...paymentPendingOrders, ...deliveredOrders].every(o => selectedIds.includes(o.id))
                     }
                     onCheckedChange={() => {
-                      const all = [...inWarehouseOrders, ...paymentPendingOrders];
+                      const all = [...inWarehouseOrders, ...paymentPendingOrders, ...deliveredOrders];
                       const allSelected = all.every(o => selectedIds.includes(o.id));
                       if (allSelected) setSelectedIds(prev => prev.filter(id => !all.map(o => o.id).includes(id)));
                       else setSelectedIds(prev => [...new Set([...prev, ...all.map(o => o.id)])]);
@@ -437,12 +472,12 @@ export default function MyOrders() {
               <tr key={order.id} className={`hover:bg-gray-50 cursor-pointer ${selectedIds.includes(order.id) ? "bg-teal-50/50" : ""}`}
                 onClick={() => setSelectedOrder(order)}>
                 <td className="px-3 py-3" onClick={e => e.stopPropagation()}>
-                  {(order.order_status === "in_warehouse" || (order.order_status === "payment_pending" && order.payment_status !== "awaiting_confirmation")) && (
-                    <Checkbox
-                      checked={selectedIds.includes(order.id)}
-                      onCheckedChange={() => toggleSelect(order.id)}
-                    />
-                  )}
+                  {!showArchived && (order.order_status === "in_warehouse" || (order.order_status === "payment_pending" && order.payment_status !== "awaiting_confirmation") || (order.order_status === "delivered" && !order.is_archived)) && (
+                   <Checkbox
+                     checked={selectedIds.includes(order.id)}
+                     onCheckedChange={() => toggleSelect(order.id)}
+                   />
+                 )}
                 </td>
                 {visibleCols.map(col => (
                   <td key={col.key} className="px-3 py-3 max-w-[220px]">
@@ -519,6 +554,12 @@ export default function MyOrders() {
                       </div>
                     );
                   })()}
+                  {order.order_status === "delivered" && !order.is_archived && (
+                    <Button size="sm" variant="outline" className="h-7 text-xs px-2 text-gray-500"
+                      onClick={() => handleArchiveOrder(order)}>
+                      <Archive className="w-3 h-3 mr-1" />存档
+                    </Button>
+                  )}
                   </div>
                 </td>
               </tr>
@@ -527,7 +568,9 @@ export default function MyOrders() {
         </table>
       </div>
 
-      <div className="text-xs text-gray-400 text-right">共 {filtered.length} 条</div>
+      <div className="text-xs text-gray-400 text-right">
+        {showArchived ? `已存档订单：${filtered.length} 条` : `共 ${filtered.length} 条`}
+      </div>
 
       {selectedOrder && user && (
         <OrderDetailDrawer

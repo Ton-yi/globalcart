@@ -79,6 +79,16 @@
         "type": "object"
       },
       "description": "\u4fdd\u5b58\u7684\u5730\u5740\u5217\u8868\uff08\u6bcf\u6761\u542bid, label, country, full_text\uff09"
+    },
+    "auto_archive_order_days": {
+      "type": "number",
+      "description": "\u8ba2\u5355\u6536\u8d27\u540e\u81ea\u52a8\u5b58\u6863\u5929\u6570\uff080=\u4e0d\u81ea\u52a8\u5b58\u6863\uff0c\u9ed8\u8ba47\u5929\uff09",
+      "default": 7
+    },
+    "auto_archive_pool_days": {
+      "type": "number",
+      "description": "\u53d1\u8d27\u7533\u8bf7\u7b7e\u6536\u540e\u81ea\u52a8\u5b58\u6863\u5929\u6570\uff080=\u4e0d\u81ea\u52a8\u5b58\u6863\uff0c\u9ed8\u8ba47\u5929\uff09",
+      "default": 7
     }
   },
   "required": [

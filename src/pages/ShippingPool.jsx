@@ -4,10 +4,10 @@
  */
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { fetchShippingPools, tenantEntity, fetchTenantConfig } from "@/lib/tenantApi";
+import { fetchShippingPools, tenantEntity, fetchTenantConfig, shippingPoolApi } from "@/lib/tenantApi";
 import { timePage } from "@/lib/timing";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { Plus, RefreshCw, Truck, X, Package, MapPin, ChevronRight, ChevronLeft, Check, Scale, Calendar, Info, Layers, Lock, Users, Search, PlusCircle } from "lucide-react";
+import { Plus, RefreshCw, Truck, X, Package, MapPin, ChevronRight, ChevronLeft, Check, Scale, Calendar, Info, Layers, Lock, Users, Search, PlusCircle, Archive, ArchiveRestore } from "lucide-react";
 import { getCountry } from "@/lib/countries";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,6 +53,7 @@ export default function ShippingPool() {
   const [activeTab, setActiveTab] = useState("pools");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedPool, setSelectedPool] = useState(null);
+  const [showArchivedPools, setShowArchivedPools] = useState(false);
 
   // Inline create form state
   const [showCreate, setShowCreate] = useState(false);
@@ -278,7 +279,16 @@ export default function ShippingPool() {
     fetchData(user);
   };
 
-  const filtered = pools.filter(p => statusFilter === "all" || p.status === statusFilter);
+  const handleArchivePool = async (pool) => {
+    await shippingPoolApi.update(pool.id, { is_archived: true, archived_at: new Date().toISOString() });
+    fetchData(user);
+  };
+
+  const filtered = pools.filter(p => {
+    if (!showArchivedPools && p.is_archived) return false;
+    if (showArchivedPools && !p.is_archived) return false;
+    return statusFilter === "all" || p.status === statusFilter;
+  });
   const consTotalWeight = consolidationOrders.reduce((s, o) => s + (o.weight_g || 0), 0);
   const consGroups = consolidationOrders.reduce((acc, o) => {
     const key = o.consolidation_pool_id || o.shipping_method || "unknown";
@@ -296,10 +306,13 @@ export default function ShippingPool() {
           <p className="text-sm text-gray-400 mt-0.5">管理您的发货申请与拼邮包裹</p>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setShowArchivedPools(v => !v)}>
+            {showArchivedPools ? <><ArchiveRestore className="w-3.5 h-3.5 mr-1.5" />返回发货列表</> : <><Archive className="w-3.5 h-3.5 mr-1.5" />查看已存档</>}
+          </Button>
           <Button variant="outline" size="sm" onClick={() => user && fetchData(user)}>
             <RefreshCw className="w-3.5 h-3.5 mr-1.5" />刷新
           </Button>
-          {!showCreate && (
+          {!showCreate && !showArchivedPools && (
             <Button size="sm" className="bg-red-600 hover:bg-red-700" onClick={handleOpenCreate}>
               <Plus className="w-3.5 h-3.5 mr-1.5" />新增发货申请
             </Button>
@@ -727,6 +740,7 @@ export default function ShippingPool() {
                   onClick={setSelectedPool}
                   pendingEditCount={pendingEditRequests.filter(r => r.pool_id === pool.id).length}
                   userProfileMap={userProfileMap}
+                  onArchive={!pool.is_archived && pool.status === "delivered" ? () => handleArchivePool(pool) : null}
                 />
               ))}
             </div>

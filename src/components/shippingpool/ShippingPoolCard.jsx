@@ -1,4 +1,4 @@
-import { Calendar, Package, Scale, MapPin, Truck, DollarSign, User, Layers, ChevronRight, AlertCircle, MessageCircle, CreditCard } from "lucide-react";
+import { Calendar, Package, Scale, MapPin, Truck, DollarSign, User, Layers, ChevronRight, AlertCircle, MessageCircle, CreditCard, Archive } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getCountry } from "@/lib/countries";
 
@@ -41,7 +41,7 @@ const METHOD_LABELS = {
   surface: "海运", small_packet_air: "小包空运", other: "其他"
 };
 
-export default function ShippingPoolCard({ pool, onClick, pendingEditCount = 0, isAdmin = false, userProfileMap = {} }) {
+export default function ShippingPoolCard({ pool, onClick, pendingEditCount = 0, isAdmin = false, userProfileMap = {}, onArchive = null }) {
   const status = STATUS_CONFIG[pool.status] || STATUS_CONFIG.pending;
   const isConsolidation = pool.consolidation_type && pool.consolidation_type !== "";
   
@@ -182,6 +182,13 @@ export default function ShippingPoolCard({ pool, onClick, pendingEditCount = 0, 
               <span className="inline-flex items-center gap-1 text-xs bg-red-100 text-red-600 border border-red-200 px-1.5 py-0.5 rounded-full font-medium animate-pulse">
                 <MessageCircle className="w-3 h-3" />有新留言
               </span>
+            )}
+            {onArchive && (
+              <button
+                onClick={e => { e.stopPropagation(); onArchive(); }}
+                className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-gray-700 px-1.5 py-0.5 rounded hover:bg-gray-100 transition-colors">
+                <Archive className="w-3 h-3" />存档
+              </button>
             )}
             <span className="text-xs text-gray-400 flex items-center gap-0.5 hover:text-gray-600">
               查看详情 <ChevronRight className="w-3 h-3" />
