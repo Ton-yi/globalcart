@@ -79,6 +79,8 @@ Deno.serve(async (req) => {
       base44.asServiceRole.entities.UserPreference.filter(filter),
     ]);
     console.log(`[TIMING] getAdminShippingPoolPageData | 8x parallel queries: ${Date.now() - t1}ms`);
+    console.log(`[DEBUG] getAdminShippingPoolPageData | pending edit requests count: ${editRequests?.length || 0}`);
+    console.log(`[DEBUG] getAdminShippingPoolPageData | pending edit requests:`, editRequests?.map(r => ({ id: r.id, pool_id: r.pool_id, order_id: r.order_id, status: r.status, edit_type: r.edit_type })));
     console.log(`[TIMING] getAdminShippingPoolPageData | TOTAL: ${Date.now() - t0}ms`);
 
     // Build userPreference map (email -> { display_name, avatar_url })
