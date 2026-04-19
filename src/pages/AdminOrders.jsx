@@ -473,9 +473,22 @@ export default function AdminOrders() {
                             入库
                           </Button>
                         )}
+                        {order.order_status === "shipping_fee_pending" && (() => {
+                          const pool = getOrderPool(order);
+                          if (!pool) return null;
+                          const isConsolidation = pool.consolidation_type && pool.consolidation_type !== "";
+                          return (
+                            <Button size="sm" variant="outline"
+                              className={`h-6 text-xs px-2 ${isConsolidation ? "text-purple-600 border-purple-200 hover:bg-purple-50" : "text-orange-600 border-orange-200 hover:bg-orange-50"}`}
+                              onClick={() => handleOpenPool(pool)}>
+                              {isConsolidation ? <><Layers className="w-3 h-3 mr-1" />查看拼邮</> : <><Send className="w-3 h-3 mr-1" />查看发货申请</>}
+                            </Button>
+                          );
+                        })()}
                         {(() => {
                           const pool = getOrderPool(order);
                           if (!pool) return null;
+                          if (order.order_status === "shipping_fee_pending") return null; // already shown above
                           const isConsolidation = pool.consolidation_type && pool.consolidation_type !== "";
                           return (
                             <Button size="sm" variant="outline"
