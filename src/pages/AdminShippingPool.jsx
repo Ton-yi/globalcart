@@ -7,7 +7,7 @@ import { base44 } from "@/api/base44Client";
 import { tenantEntity } from "@/lib/tenantApi";
 import { timePage } from "@/lib/timing";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { Plus, RefreshCw, Truck, MapPin, Edit2, Trash2, Check, X as XIcon, AlertCircle, Layers, Archive, ArchiveRestore } from "lucide-react";
+import { Plus, RefreshCw, Truck, MapPin, Edit2, Trash2, Check, X as XIcon, AlertCircle, Layers, Archive, ArchiveRestore, Settings2 } from "lucide-react";
 import { getCountry } from "@/lib/countries";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,6 +48,7 @@ export default function AdminShippingPool() {
   const [selectedPool, setSelectedPool] = useState(null);
   const [showCreate, setShowCreate] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
+  const [showPoolSorter, setShowPoolSorter] = useState(false);
 
   // Location form
   const [showLocForm, setShowLocForm] = useState(false);
@@ -198,6 +199,11 @@ export default function AdminShippingPool() {
                   {showArchived ? <><ArchiveRestore className="w-3.5 h-3.5 mr-1.5" />返回列表</> : <><Archive className="w-3.5 h-3.5 mr-1.5" />查看已存档</>}
                 </Button>
               )}
+              {activeTab === "official_kanban" && (
+                <Button variant="outline" size="sm" onClick={() => setShowPoolSorter(v => !v)}>
+                  <Settings2 className="w-3.5 h-3.5 mr-1.5" />排序拼邮
+                </Button>
+              )}
               <Button variant="outline" size="sm" onClick={() => { console.log('手动刷新发货池页面'); fetchPageData(); }}>
                 <RefreshCw className="w-3.5 h-3.5 mr-1.5" />刷新
               </Button>
@@ -331,6 +337,8 @@ export default function AdminShippingPool() {
               allOrders={allOrders}
               currentUser={user}
               isAdmin={true}
+              showPoolSorter={showPoolSorter}
+              setShowPoolSorter={setShowPoolSorter}
               onPoolClick={setSelectedPool}
               onRefresh={fetchPageData}
             />

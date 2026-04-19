@@ -25,7 +25,7 @@ const STATUS_CONFIG = {
   cancelled: { label: "已取消", color: "bg-red-100 text-red-600" }
 };
 
-export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAdmin, onPoolClick, onRefresh }) {
+export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAdmin, onPoolClick, onRefresh, showPoolSorter, setShowPoolSorter }) {
   const [draggingOrderId, setDraggingOrderId] = useState(null);
   const [draggingFromPoolId, setDraggingFromPoolId] = useState(null);
   const [dragOverPoolId, setDragOverPoolId] = useState(null);
@@ -35,7 +35,6 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
   const [taskColumnName, setTaskColumnName] = useState("待拼邮订单");
   const [savingTaskColumn, setSavingTaskColumn] = useState(false);
   const [showCreateOfficialPool, setShowCreateOfficialPool] = useState(false);
-  const [showPoolSorter, setShowPoolSorter] = useState(false);
   const [sortedPools, setSortedPools] = useState(pools);
 
   // Load saved pool order on mount
@@ -667,18 +666,7 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
           setEditingTaskColumn={setEditingTaskColumn}
         />
 
-        {/* Sort Pools Button Column (admin only) */}
-        {isAdmin && (
-          <div
-            className="flex-shrink-0 flex flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50 cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all px-3 py-2"
-            onClick={() => setShowPoolSorter(!showPoolSorter)}
-          >
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center mb-1.5 ${showPoolSorter ? 'bg-blue-100' : 'bg-gray-200'}`}>
-              <Settings2 className={`w-4 h-4 ${showPoolSorter ? 'text-blue-600' : 'text-gray-600'}`} />
-            </div>
-            <p className="text-xs font-medium text-gray-600 text-center whitespace-nowrap">排序拼邮</p>
-          </div>
-        )}
+
 
         {/* Create Official Pool Button Column (always last, on the far right - compact & aligned to task column top) */}
         {isAdmin && (
