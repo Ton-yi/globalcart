@@ -496,12 +496,23 @@ export default function MyOrders() {
                       </Button>
                     );
                   })()}
-                  {order.order_status === "shipped" && (
-                    <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700"
-                      onClick={() => handleConfirmDelivered(order)}>
-                      <CheckCircle className="w-3 h-3 mr-1" />收货
-                    </Button>
-                  )}
+                  {order.order_status === "shipped" && (() => {
+                    const pool = shippingPools.find(p => (p.order_ids || []).includes(order.id));
+                    return (
+                      <div className="flex flex-col gap-1 items-start">
+                        {pool && (
+                          <Button size="sm" variant="outline" className="h-7 text-xs px-2"
+                            onClick={() => setViewPool(pool)}>
+                            <Package className="w-3 h-3 mr-1" />发货详情
+                          </Button>
+                        )}
+                        <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700"
+                          onClick={() => handleConfirmDelivered(order)}>
+                          <CheckCircle className="w-3 h-3 mr-1" />收货
+                        </Button>
+                      </div>
+                    );
+                  })()}
                   </div>
                 </td>
               </tr>
