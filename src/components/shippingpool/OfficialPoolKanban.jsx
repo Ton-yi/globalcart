@@ -11,7 +11,7 @@ import { Package, GripVertical, Users, Loader2, Scale, ChevronRight, Edit2, Save
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { shippingPoolApi, updateOrder } from "@/lib/tenantApi";
-import CreateShippingPoolModal from "@/components/shippingpool/CreateShippingPoolModal";
+import CreateOfficialPoolModal from "@/components/shippingpool/CreateOfficialPoolModal";
 
 const STATUS_CONFIG = {
   pending: { label: "待处理", color: "bg-amber-100 text-amber-700" },
@@ -388,25 +388,24 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
 
         })}
 
-        {/* Create Pool Button Column (always last, on the far right - compact & aligned to task column top) */}
+        {/* Create Official Pool Button Column (always last, on the far right - compact & aligned to task column top) */}
         {isAdmin && (
           <div
             className="flex-shrink-0 flex flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50 cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all px-3 py-2"
-            onClick={() => setShowCreatePool(true)}
+            onClick={() => setShowCreateOfficialPool(true)}
           >
             <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mb-1.5">
               <Plus className="w-4 h-4 text-blue-600" />
             </div>
-            <p className="text-xs font-medium text-gray-600 text-center whitespace-nowrap">创建拼邮</p>
+            <p className="text-xs font-medium text-gray-600 text-center whitespace-nowrap">创建官方拼邮</p>
           </div>
         )}
       </div>
-      {showCreatePool && (
-        <CreateShippingPoolModal
-          isAdmin={true}
-          onClose={() => setShowCreatePool(false)}
+      {showCreateOfficialPool && (
+        <CreateOfficialPoolModal
+          onClose={() => setShowCreateOfficialPool(false)}
           onSuccess={() => {
-            setShowCreatePool(false);
+            setShowCreateOfficialPool(false);
             onRefresh?.();
           }}
         />
