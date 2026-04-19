@@ -54,13 +54,19 @@ Deno.serve(async (req) => {
     const filter = (isPlatformAdmin || !tenantId) ? {} : { tenant_id: tenantId };
 
     const t1 = Date.now();
-    const [orders, storeTagRules, itemSizeTemplates, pendingEditRequests, allTenantUsers, shippingPools, boxTemplates, transitLocations, transitShippingMethods, siteSettings, shippingMethods, userPreferences] = await Promise.all([
+    // Split into two batches to avoid rate limiting (12 parallel queries → 2x6)
+    const [orders, storeTagRules, itemSizeTemplates, pendingEditRequests, allTenantUsers, shippingPools] = await Promise.all([
       base44.asServiceRole.entities.Order.filter(filter),
       base44.asServiceRole.entities.OnlineStoreTagRule.filter({ ...filter, is_active: true }),
       base44.asServiceRole.entities.ItemSizeTemplate.filter({ ...filter, is_active: true }),
       base44.asServiceRole.entities.ShippingEditRequest.filter({ ...filter, status: 'pending' }),
       base44.asServiceRole.entities.User.filter(tenantId ? { tenant_id: tenantId } : {}),
       base44.asServiceRole.entities.ShippingPool.filter(filter),
+    ]);
+    console.log(`[TIMING] getAdminOrdersPageData | batch1: ${Date.now() - t1}ms`);
+
+    const t2 = Date.now();
+    const [boxTemplates, transitLocations, transitShippingMethods, siteSettings, shippingMethods, userPreferences] = await Promise.all([
       base44.asServiceRole.entities.BoxTemplate.filter({ ...filter, is_active: true }),
       base44.asServiceRole.entities.TransitLocation.filter({ ...filter, is_active: true }),
       base44.asServiceRole.entities.TransitShippingMethod.filter({ ...filter, is_active: true }),
@@ -68,7 +74,7 @@ Deno.serve(async (req) => {
       base44.asServiceRole.entities.ShippingMethod.filter({ ...filter, is_active: true }),
       base44.asServiceRole.entities.UserPreference.filter(filter),
     ]);
-    console.log(`[TIMING] getAdminOrdersPageData | parallel fetches: ${Date.now() - t1}ms`);
+    console.log(`[TIMING] getAdminOrdersPageData | batch2: ${Date.now() - t2}ms`);
     console.log(`[TIMING] getAdminOrdersPageData | TOTAL: ${Date.now() - t0}ms`);
 
     // Build email → { display_name, avatar_url } map
