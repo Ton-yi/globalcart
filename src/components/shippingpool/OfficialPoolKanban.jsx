@@ -194,9 +194,9 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
           onDrop={(e) => handleDrop(e, "pending")}>
           
           {/* Column header - clickable to edit */}
-          <div
-            className="px-4 py-3 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-blue-100 rounded-t-xl cursor-pointer hover:from-blue-100 hover:to-blue-200 transition-colors"
-            onClick={() => isAdmin && setEditingTaskColumn(true)}>
+          <div className="bg-[#f0cccc] px-4 py-3 rounded-t-xl border-b border-gray-200 from-blue-50 to-blue-100 cursor-pointer hover:from-blue-100 hover:to-blue-200 transition-colors"
+
+          onClick={() => isAdmin && setEditingTaskColumn(true)}>
             
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0 flex-1">
