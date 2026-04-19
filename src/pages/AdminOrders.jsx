@@ -257,6 +257,12 @@ export default function AdminOrders() {
     fetchOrders();
   };
 
+  const handleDeleteOrder = async (order) => {
+    if (!window.confirm(`确认永久删除订单"${order.product_name}"？此操作不可撤销。`)) return;
+    await base44.functions.invoke('mutateTenantEntity', { entity: 'Order', action: 'delete', id: order.id });
+    fetchOrders();
+  };
+
   const filtered = orders.filter(o => {
     if (showArchived ? !o.is_archived : !!o.is_archived) return false;
     const matchStatus = statusFilter === "all" || o.order_status === statusFilter;
@@ -526,10 +532,16 @@ export default function AdminOrders() {
                           </Button>
                         )}
                         {showArchived && (
-                          <Button size="sm" variant="outline" className="h-6 text-xs px-2 text-blue-500 border-blue-200 hover:bg-blue-50"
-                            onClick={() => handleUnarchiveOrder(order)}>
-                            <ArchiveRestore className="w-3 h-3 mr-1" />取消存档
-                          </Button>
+                          <>
+                            <Button size="sm" variant="outline" className="h-6 text-xs px-2 text-blue-500 border-blue-200 hover:bg-blue-50"
+                              onClick={() => handleUnarchiveOrder(order)}>
+                              <ArchiveRestore className="w-3 h-3 mr-1" />取消存档
+                            </Button>
+                            <Button size="sm" variant="outline" className="h-6 text-xs px-2 text-red-500 border-red-200 hover:bg-red-50"
+                              onClick={() => handleDeleteOrder(order)}>
+                              <Trash2 className="w-3 h-3 mr-1" />删除
+                            </Button>
+                          </>
                         )}
                       </div>
                     </td>

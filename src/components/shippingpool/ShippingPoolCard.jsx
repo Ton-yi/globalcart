@@ -1,4 +1,4 @@
-import { Calendar, Package, Scale, MapPin, Truck, DollarSign, User, Layers, ChevronRight, AlertCircle, MessageCircle, CreditCard, Archive, ArchiveRestore } from "lucide-react";
+import { Calendar, Package, Scale, MapPin, Truck, DollarSign, User, Layers, ChevronRight, AlertCircle, MessageCircle, CreditCard, Archive, ArchiveRestore, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getCountry } from "@/lib/countries";
 
@@ -41,7 +41,7 @@ const METHOD_LABELS = {
   surface: "海运", small_packet_air: "小包空运", other: "其他"
 };
 
-export default function ShippingPoolCard({ pool, onClick, pendingEditCount = 0, isAdmin = false, userProfileMap = {}, onArchive = null, onUnarchive = null }) {
+export default function ShippingPoolCard({ pool, onClick, pendingEditCount = 0, isAdmin = false, userProfileMap = {}, onArchive = null, onUnarchive = null, onDelete = null }) {
   const status = STATUS_CONFIG[pool.status] || STATUS_CONFIG.pending;
   const isConsolidation = pool.consolidation_type && pool.consolidation_type !== "";
   
@@ -195,6 +195,13 @@ export default function ShippingPoolCard({ pool, onClick, pendingEditCount = 0, 
                 onClick={e => { e.stopPropagation(); onUnarchive(); }}
                 className="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-700 px-1.5 py-0.5 rounded hover:bg-blue-50 transition-colors">
                 <ArchiveRestore className="w-3 h-3" />取消存档
+              </button>
+            )}
+            {onDelete && (
+              <button
+                onClick={e => { e.stopPropagation(); onDelete(); }}
+                className="inline-flex items-center gap-1 text-xs text-red-400 hover:text-red-700 px-1.5 py-0.5 rounded hover:bg-red-50 transition-colors">
+                <Trash2 className="w-3 h-3" />删除
               </button>
             )}
             <span className="text-xs text-gray-400 flex items-center gap-0.5 hover:text-gray-600">

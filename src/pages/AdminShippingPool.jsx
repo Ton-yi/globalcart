@@ -113,6 +113,12 @@ export default function AdminShippingPool() {
     fetchPageData();
   };
 
+  const handleDeletePool = async (pool) => {
+    if (!window.confirm(`确认永久删除发货申请"${pool.pool_code || pool.id.slice(-6)}"？此操作不可撤销。`)) return;
+    await base44.functions.invoke('mutateTenantEntity', { entity: 'ShippingPool', action: 'delete', id: pool.id });
+    fetchPageData();
+  };
+
   // "发货申请" tab: direct (non-consolidation) pools
   const directPools = pools.filter(p =>
     (!p.consolidation_type || p.consolidation_type === "") &&
@@ -264,6 +270,8 @@ export default function AdminShippingPool() {
                   userProfileMap={userProfileMap}
                   onArchive={!pool.is_archived && pool.status === "delivered" ? () => handleArchivePool(pool) : null}
                   onUnarchive={pool.is_archived ? () => handleUnarchivePool(pool) : null}
+                  onDelete={pool.is_archived ? () => handleDeletePool(pool) : null}
+                  onDelete={pool.is_archived ? () => handleDeletePool(pool) : null}
                 />
               ))}
               </div>
