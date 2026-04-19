@@ -403,18 +403,16 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
 
         })}
       </div>
+      {showCreatePool && (
+        <CreateShippingPoolModal
+          isAdmin={true}
+          onClose={() => setShowCreatePool(false)}
+          onSuccess={() => {
+            setShowCreatePool(false);
+            onRefresh?.();
+          }}
+        />
+      )}
     </div>
-
-    {showCreatePool && (
-      <CreateShippingPoolModal
-        isAdmin={true}
-        onClose={() => setShowCreatePool(false)}
-        onSuccess={() => {
-          setShowCreatePool(false);
-          onRefresh?.();
-        }}
-      />
-    )}
   );
-
 }
