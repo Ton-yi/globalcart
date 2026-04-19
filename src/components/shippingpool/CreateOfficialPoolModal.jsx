@@ -5,7 +5,7 @@
  * Users can later add their own orders to the pool.
  */
 import { useState, useEffect } from "react";
-import { X, MapPin, Plus } from "lucide-react";
+import { X, MapPin } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { shippingPoolApi, tenantEntity } from "@/lib/tenantApi";
 import { Button } from "@/components/ui/button";
@@ -111,30 +111,26 @@ export default function CreateOfficialPoolModal({ onClose, onSuccess }) {
               value={form.title} onChange={e => f("title", e.target.value)} />
           </div>
 
-          {/* Combined address selector - transit location first */}
+          {/* Address selector - transit locations only */}
           <div>
             <Label className="text-xs text-gray-500 font-medium flex items-center gap-1.5 mb-1.5">
               <MapPin className="w-3.5 h-3.5" />收货/中转地址
             </Label>
             <Select 
-              value={form.transit_location_id || (form.recipient_name ? "__manual__" : "")} 
+              value={form.transit_location_id} 
               onValueChange={(v) => {
-                if (v === "__manual__") {
-                  f("transit_location_id", "");
-                } else if (v) {
-                  const loc = transitLocations.find(l => l.id === v);
-                  if (loc) {
-                    f("transit_location_id", v);
-                    f("recipient_name", loc.manager_contact || "");
-                    f("address_line1", loc.address || "");
-                    f("city", loc.province || "");
-                    f("destination_country", loc.country || "");
-                  }
+                const loc = transitLocations.find(l => l.id === v);
+                if (loc) {
+                  f("transit_location_id", v);
+                  f("recipient_name", loc.manager_contact || "");
+                  f("address_line1", loc.address || "");
+                  f("city", loc.province || "");
+                  f("destination_country", loc.country || "");
                 }
               }}
             >
               <SelectTrigger>
-                <SelectValue placeholder="优先选择中转地，或手动输入地址..." />
+                <SelectValue placeholder="选择中转地..." />
               </SelectTrigger>
               <SelectContent>
                 {transitLocations.map(l => (
@@ -142,52 +138,9 @@ export default function CreateOfficialPoolModal({ onClose, onSuccess }) {
                     📍 {l.name} {l.code_prefix ? `(${l.code_prefix})` : ""} - {l.address || "地址待补充"}
                   </SelectItem>
                 ))}
-                <SelectItem value="__manual__">
-                  <span className="flex items-center gap-1.5 text-blue-600">
-                    <Plus className="w-3.5 h-3.5" />手动输入地址
-                  </span>
-                </SelectItem>
               </SelectContent>
             </Select>
           </div>
-
-          {/* Manual address form */}
-          {!form.transit_location_id && (
-            <div className="space-y-3 border border-gray-100 rounded-lg p-3 bg-gray-50">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs text-gray-500">收件人姓名 *</Label>
-                  <Input className="mt-1 h-8 text-sm" value={form.recipient_name} onChange={e => f("recipient_name", e.target.value)} />
-                </div>
-                <div>
-                  <Label className="text-xs text-gray-500">联系电话</Label>
-                  <Input className="mt-1 h-8 text-sm" value={form.recipient_phone} onChange={e => f("recipient_phone", e.target.value)} />
-                </div>
-              </div>
-              <div>
-                <Label className="text-xs text-gray-500">地址行 1</Label>
-                <Input className="mt-1 h-8 text-sm" placeholder="街道、门牌号" value={form.address_line1} onChange={e => f("address_line1", e.target.value)} />
-              </div>
-              <div>
-                <Label className="text-xs text-gray-500">地址行 2</Label>
-                <Input className="mt-1 h-8 text-sm" placeholder="单元、楼层（可选）" value={form.address_line2} onChange={e => f("address_line2", e.target.value)} />
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <Label className="text-xs text-gray-500">城市</Label>
-                  <Input className="mt-1 h-8 text-sm" value={form.city} onChange={e => f("city", e.target.value)} />
-                </div>
-                <div>
-                  <Label className="text-xs text-gray-500">州/省</Label>
-                  <Input className="mt-1 h-8 text-sm" value={form.state} onChange={e => f("state", e.target.value)} />
-                </div>
-                <div>
-                  <Label className="text-xs text-gray-500">邮编</Label>
-                  <Input className="mt-1 h-8 text-sm" value={form.postal_code} onChange={e => f("postal_code", e.target.value)} />
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* Country + shipping method */}
           <div className="grid grid-cols-2 gap-3">
@@ -229,7 +182,7 @@ export default function CreateOfficialPoolModal({ onClose, onSuccess }) {
         <div className="px-6 py-4 border-t flex items-center justify-between">
           <Button variant="outline" size="sm" onClick={onClose}>取消</Button>
           <Button size="sm" className="bg-red-600 hover:bg-red-700"
-            disabled={submitting || !form.destination_country || !form.recipient_name}
+            disabled={submitting || !form.transit_location_id}
             onClick={handleSubmit}>
             {submitting ? "创建中..." : "创建拼邮需求"}
           </Button>
