@@ -7,7 +7,7 @@ import { base44 } from "@/api/base44Client";
 import { tenantEntity } from "@/lib/tenantApi";
 import { timePage } from "@/lib/timing";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { Plus, RefreshCw, Truck, MapPin, Edit2, Trash2, Check, X as XIcon, AlertCircle } from "lucide-react";
+import { Plus, RefreshCw, Truck, MapPin, Edit2, Trash2, Check, X as XIcon, AlertCircle, Layers } from "lucide-react";
 import { getCountry } from "@/lib/countries";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +20,7 @@ import CountrySelect from "@/components/common/CountrySelect";
 import ShippingPoolCard from "@/components/shippingpool/ShippingPoolCard";
 import ShippingPoolDetailModal from "@/components/shippingpool/ShippingPoolDetailModal";
 import CreateShippingPoolModal from "@/components/shippingpool/CreateShippingPoolModal";
+import OfficialPoolKanban from "@/components/shippingpool/OfficialPoolKanban";
 
 const STATUS_FILTERS = [
   { v: "all",              l: "全部状态" },
@@ -32,6 +33,8 @@ const STATUS_FILTERS = [
 
 const TABS = [
   { key: "pools", label: "发货申请" },
+  { key: "consolidation", label: "用户拼邮" },
+  { key: "official_kanban", label: "官方拼邮看板" },
   { key: "locations", label: "中转地管理" },
 ];
 
@@ -58,6 +61,7 @@ export default function AdminShippingPool() {
   const [shippingMethods, setShippingMethods] = useState([]);
   const [defaultPackingFeeSingle, setDefaultPackingFeeSingle] = useState(0);
   const [defaultPackingFeeConsolidation, setDefaultPackingFeeConsolidation] = useState(0);
+  const [allOrders, setAllOrders] = useState([]);
 
   const fetchPageData = async () => {
     setLoading(true);
@@ -74,6 +78,7 @@ export default function AdminShippingPool() {
     setShippingMethods(data.shippingMethods || []);
     setDefaultPackingFeeSingle(data.defaultPackingFeeSingle || 0);
     setDefaultPackingFeeConsolidation(data.defaultPackingFeeConsolidation || 0);
+    setAllOrders(data.orders || []);
     setLoading(false);
     t.done('data ready');
   };
@@ -96,7 +101,22 @@ export default function AdminShippingPool() {
     fetchPageData();
   }, [user]);
 
-  const filtered = pools.filter(p => statusFilter === "all" || p.status === statusFilter);
+  // "发货申请" tab: direct (non-consolidation) pools
+  const directPools = pools.filter(p =>
+    (!p.consolidation_type || p.consolidation_type === "") &&
+    (statusFilter === "all" || p.status === statusFilter)
+  );
+
+  // "用户拼邮" tab: user-initiated consolidation pools
+  const userConsPools = pools.filter(p =>
+    p.consolidation_type && p.consolidation_type !== "" && !p.is_admin_created &&
+    (statusFilter === "all" || p.status === statusFilter)
+  );
+
+  // "官方拼邮看板" tab: admin-created consolidation pools
+  const officialConsPools = pools.filter(p =>
+    p.consolidation_type && p.consolidation_type !== "" && !!p.is_admin_created
+  );
 
   // Location handlers
   const lf = (k, v) => setLocForm(p => ({ ...p, [k]: v }));
@@ -150,9 +170,9 @@ export default function AdminShippingPool() {
           <p className="text-sm text-gray-400 mt-0.5">管理所有发货申请与中转地配置</p>
         </div>
         <div className="flex items-center gap-2">
-          {activeTab === "pools" && (
+          {(activeTab === "pools" || activeTab === "consolidation" || activeTab === "official_kanban") && (
             <>
-              <Button variant="outline" size="sm" onClick={fetchPools}>
+              <Button variant="outline" size="sm" onClick={fetchPageData}>
                 <RefreshCw className="w-3.5 h-3.5 mr-1.5" />刷新
               </Button>
               <Button size="sm" className="bg-red-600 hover:bg-red-700" onClick={() => setShowCreate(true)}>
@@ -174,7 +194,9 @@ export default function AdminShippingPool() {
           <button key={tab.key} onClick={() => setActiveTab(tab.key)}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${activeTab === tab.key ? "border-red-600 text-red-600" : "border-transparent text-gray-500 hover:text-gray-800"}`}>
             {tab.label}
-            {tab.key === "pools" && <span className="ml-1.5 text-xs bg-gray-100 text-gray-600 rounded px-1.5 py-0.5">{pools.length}</span>}
+            {tab.key === "pools" && <span className="ml-1.5 text-xs bg-gray-100 text-gray-600 rounded px-1.5 py-0.5">{directPools.length}</span>}
+            {tab.key === "consolidation" && <span className="ml-1.5 text-xs bg-gray-100 text-gray-600 rounded px-1.5 py-0.5">{userConsPools.length}</span>}
+            {tab.key === "official_kanban" && <span className="ml-1.5 text-xs bg-gray-100 text-gray-600 rounded px-1.5 py-0.5">{officialConsPools.length}</span>}
             {tab.key === "locations" && <span className="ml-1.5 text-xs bg-gray-100 text-gray-600 rounded px-1.5 py-0.5">{locations.length}</span>}
           </button>
         ))}
@@ -200,7 +222,7 @@ export default function AdminShippingPool() {
 
           {loading ? (
             <div className="text-center py-16 text-gray-400 text-sm">加载中...</div>
-          ) : filtered.length === 0 ? (
+          ) : directPools.length === 0 ? (
             <div className="flex flex-col items-center py-20 text-gray-400">
               <Truck className="w-12 h-12 mb-3 opacity-20" />
               <p className="text-sm">暂无发货申请</p>
@@ -210,7 +232,7 @@ export default function AdminShippingPool() {
             (allUsers || []).forEach(u => { userProfileMap[u.email] = u; });
             return (
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                {filtered.map(pool => (
+                {directPools.map(pool => (
                   <ShippingPoolCard
                     key={pool.id}
                     pool={pool}
@@ -223,6 +245,63 @@ export default function AdminShippingPool() {
               </div>
             );
           })()}
+        </>
+      )}
+
+      {/* ---- USER CONSOLIDATION TAB ---- */}
+      {activeTab === "consolidation" && (
+        <>
+          <div className="flex items-center gap-3 flex-wrap">
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-36 h-8 text-sm"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {STATUS_FILTERS.map(s => <SelectItem key={s.v} value={s.v}>{s.l}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          {loading ? (
+            <div className="text-center py-16 text-gray-400 text-sm">加载中...</div>
+          ) : userConsPools.length === 0 ? (
+            <div className="flex flex-col items-center py-20 text-gray-400">
+              <Layers className="w-12 h-12 mb-3 opacity-20" />
+              <p className="text-sm">暂无用户拼邮请求</p>
+            </div>
+          ) : (() => {
+            const userProfileMap = {};
+            (allUsers || []).forEach(u => { userProfileMap[u.email] = u; });
+            return (
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                {userConsPools.map(pool => (
+                  <ShippingPoolCard
+                    key={pool.id}
+                    pool={pool}
+                    isAdmin={true}
+                    onClick={setSelectedPool}
+                    pendingEditCount={pendingEditRequests.filter(r => r.pool_id === pool.id).length}
+                    userProfileMap={userProfileMap}
+                  />
+                ))}
+              </div>
+            );
+          })()}
+        </>
+      )}
+
+      {/* ---- OFFICIAL KANBAN TAB ---- */}
+      {activeTab === "official_kanban" && (
+        <>
+          {loading ? (
+            <div className="text-center py-16 text-gray-400 text-sm">加载中...</div>
+          ) : (
+            <OfficialPoolKanban
+              pools={officialConsPools}
+              allOrders={allOrders}
+              currentUser={user}
+              isAdmin={true}
+              onPoolClick={setSelectedPool}
+              onRefresh={fetchPageData}
+            />
+          )}
         </>
       )}
 
