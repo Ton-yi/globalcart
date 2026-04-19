@@ -383,6 +383,60 @@ export default function AdminShippingInfoPanel({
     onPoolUpdated?.({ ...pool, ...fullPayload });
   };
 
+  // Notify user of supplement AND immediately move pool to ready_to_ship
+  const handleNotifyFeeUpdateAndReadyToShip = async () => {
+    setSaving(true);
+    const payload = buildUpdatePayload();
+    const prevPaidJpy = savedGrandTotalJpy;
+    const newTotalJpy = Math.round(grandTotalJpy);
+    const diff = newTotalJpy - Math.round(prevPaidJpy);
+
+    const supplementAmountPerUser = diff > 0
+      ? feeBreakdowns.map(b => {
+          const prevB = (pool.fee_breakdown_per_user || []).find(pb => pb.user_email === b.user_email);
+          const prevTotal = Math.round(prevB ? (prevB.total_jpy || 0) : 0);
+          const newTotal = Math.round(b.total_jpy || 0);
+          return {
+            user_email: b.user_email,
+            supplement_jpy: Math.max(0, newTotal - prevTotal),
+            previous_total_jpy: prevTotal,
+            new_total_jpy: newTotal,
+          };
+        })
+      : [];
+
+    const msgContent = `管理员已更新运费并确认发货，新合计金额为 ¥${newTotalJpy.toLocaleString()} JPY，比原付金额多 ¥${diff.toLocaleString()} JPY，请补交差额后等待发货。`;
+    const sysMsg = {
+      id: Date.now().toString(),
+      from: "系统通知",
+      from_email: "__system__",
+      role: "admin",
+      content: msgContent,
+      timestamp: new Date().toISOString(),
+    };
+    const updatedMessages = [...(pool.messages || []), sysMsg];
+    const updatedUnread = [...new Set([...(pool.unread_roles || []), "user"])];
+
+    const fullPayload = {
+      ...payload,
+      status: "ready_to_ship",
+      payment_status: "unpaid",
+      admin_confirmed_payment: false,
+      supplement_amount_per_user: supplementAmountPerUser,
+      messages: updatedMessages,
+      unread_roles: updatedUnread,
+    };
+    await shippingPoolApi.update(pool.id, fullPayload);
+    await Promise.all(
+      (pool.order_ids || []).map(id =>
+        updateOrder(id, { order_status: "notified_shipment_fee_pending" })
+      )
+    );
+    setPool(p => ({ ...p, ...fullPayload }));
+    setSaving(false);
+    onPoolUpdated?.({ ...pool, ...fullPayload });
+  };
+
   const handleShip = async () => {
     if (!trackingNumber) return;
     setSaving(true);
@@ -862,6 +916,13 @@ export default function AdminShippingInfoPanel({
                         <CreditCard className="w-3.5 h-3.5 mr-1.5" />
                         {saving ? "处理中..." : diff > 0 ? "通知用户补交差额" : "确认退款差额，进入待发货"}
                       </Button>
+                      {diff > 0 && (
+                        <Button size="sm" className="bg-green-600 hover:bg-green-700 w-full"
+                          onClick={handleNotifyFeeUpdateAndReadyToShip} disabled={saving}>
+                          <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
+                          {saving ? "处理中..." : "通知用户补交差额 + 进入待发货"}
+                        </Button>
+                      )}
                     </div>
                   );
                 })()}
@@ -892,6 +953,13 @@ export default function AdminShippingInfoPanel({
                         <CreditCard className="w-3.5 h-3.5 mr-1.5" />
                         {saving ? "处理中..." : diff > 0 ? "通知用户补交差额" : "确认退款差额，更新金额"}
                       </Button>
+                      {diff > 0 && (
+                        <Button size="sm" className="bg-green-600 hover:bg-green-700 w-full"
+                          onClick={handleNotifyFeeUpdateAndReadyToShip} disabled={saving}>
+                          <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
+                          {saving ? "处理中..." : "通知用户补交差额 + 进入待发货"}
+                        </Button>
+                      )}
                     </div>
                   );
                 })()}
