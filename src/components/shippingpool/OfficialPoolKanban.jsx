@@ -32,7 +32,7 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
   const [editingTaskColumn, setEditingTaskColumn] = useState(false);
   const [taskColumnName, setTaskColumnName] = useState("待拼邮订单");
   const [savingTaskColumn, setSavingTaskColumn] = useState(false);
-  const [showCreatePool, setShowCreatePool] = useState(false);
+  const [showCreateOfficialPool, setShowCreateOfficialPool] = useState(false);
 
   // Build a map: orderId -> order data
   const orderMap = {};
