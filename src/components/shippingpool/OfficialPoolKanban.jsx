@@ -391,7 +391,7 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
         {/* Create Pool Button Column (always last, on the far right - compact & aligned to task column top) */}
         {isAdmin && (
           <div
-            className="flex-shrink-0 w-36 flex flex-col items-center justify-start rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all"
+            className="flex-shrink-0 w-36 flex flex-col items-center justify-start rounded-lg border border-dashed border-gray-300 bg-gray-50 cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all"
             onClick={() => setShowCreatePool(true)}
             style={{ minHeight: 100 }}
           >
