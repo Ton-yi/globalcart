@@ -273,6 +273,91 @@ export default function AdminShippingInfoPanel({
     onPoolUpdated?.({ ...pool, ...payload });
   };
 
+  // Notify user of fee update (for awaiting_payment pools)
+  const handleNotifyFeeUpdate = async () => {
+    setSaving(true);
+    const payload = buildUpdatePayload();
+    const sysMsg = {
+      id: Date.now().toString(),
+      from: "系统通知",
+      from_email: "__system__",
+      role: "admin",
+      content: `管理员已更新应付运费，新金额为 ¥${Math.round(grandTotalJpy).toLocaleString()} JPY，请重新确认并付款。`,
+      timestamp: new Date().toISOString(),
+    };
+    const updatedMessages = [...(pool.messages || []), sysMsg];
+    const updatedUnread = [...new Set([...(pool.unread_roles || []), "user"])];
+    await shippingPoolApi.update(pool.id, {
+      ...payload,
+      messages: updatedMessages,
+      unread_roles: updatedUnread,
+    });
+    setPool(p => ({ ...p, ...payload, messages: updatedMessages, unread_roles: updatedUnread }));
+    setSaving(false);
+    onPoolUpdated?.({ ...pool, ...payload, messages: updatedMessages, unread_roles: updatedUnread });
+  };
+
+  // Notify user of fee update for already-paid pools (ready_to_ship or awaiting_payment_confirmation)
+  const handleNotifyFeeUpdatePaid = async () => {
+    setSaving(true);
+    const payload = buildUpdatePayload();
+    const prevPaidJpy = parseFloat(pool.shipping_fee_jpy) || parseFloat(pool.actual_fee) || 0;
+    const newTotalJpy = Math.round(grandTotalJpy);
+    const diff = newTotalJpy - Math.round(prevPaidJpy);
+
+    let newStatus = pool.status;
+    let newPaymentStatus = pool.payment_status;
+    let msgContent = "";
+
+    if (diff > 0) {
+      // User underpaid — require additional payment
+      newStatus = "awaiting_payment";
+      newPaymentStatus = "unpaid";
+      msgContent = `管理员已更新运费，新合计金额为 ¥${newTotalJpy.toLocaleString()} JPY，比原付金额多 ¥${diff.toLocaleString()} JPY，请补交差额。`;
+    } else {
+      // User overpaid — proceed to ready_to_ship, admin will refund via message
+      newStatus = "ready_to_ship";
+      newPaymentStatus = "paid";
+      msgContent = `管理员已调整运费，新合计金额为 ¥${newTotalJpy.toLocaleString()} JPY，比原付金额少 ¥${Math.abs(diff).toLocaleString()} JPY，多余款项将另行退还，请留意管理员留言。`;
+    }
+
+    const sysMsg = {
+      id: Date.now().toString(),
+      from: "系统通知",
+      from_email: "__system__",
+      role: "admin",
+      content: msgContent,
+      timestamp: new Date().toISOString(),
+    };
+    const updatedMessages = [...(pool.messages || []), sysMsg];
+    const updatedUnread = [...new Set([...(pool.unread_roles || []), "user"])];
+    const fullPayload = {
+      ...payload,
+      status: newStatus,
+      payment_status: newPaymentStatus,
+      admin_confirmed_payment: diff <= 0,
+      messages: updatedMessages,
+      unread_roles: updatedUnread,
+    };
+    await shippingPoolApi.update(pool.id, fullPayload);
+    if (diff > 0) {
+      await Promise.all(
+        (pool.order_ids || []).map(id =>
+          updateOrder(id, { order_status: "notified_shipment_fee_pending" })
+        )
+      );
+    } else {
+      await Promise.all(
+        (pool.order_ids || []).map(id =>
+          updateOrder(id, { order_status: "notified_shipment_fee_paid" })
+        )
+      );
+    }
+    setPool(p => ({ ...p, ...fullPayload }));
+    setSaving(false);
+    onPoolUpdated?.({ ...pool, ...fullPayload });
+  };
+
   const handleShip = async () => {
     if (!trackingNumber) return;
     setSaving(true);
@@ -705,9 +790,19 @@ export default function AdminShippingInfoPanel({
                 <div className="bg-orange-50 border border-orange-100 rounded-lg px-3 py-2 text-sm text-orange-700">
                   运费 <strong>¥{Math.round(grandTotalJpy).toLocaleString()} JPY</strong>，等待用户付款。
                 </div>
+                {Math.round(grandTotalJpy) !== Math.round(parseFloat(pool.shipping_fee_jpy) || parseFloat(pool.actual_fee) || 0) && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2 text-xs text-yellow-700">
+                    ⚠️ 金额已修改（原 ¥{Math.round(parseFloat(pool.shipping_fee_jpy) || parseFloat(pool.actual_fee) || 0).toLocaleString()} → 新 ¥{Math.round(grandTotalJpy).toLocaleString()} JPY）
+                  </div>
+                )}
+                <Button size="sm" className="bg-yellow-600 hover:bg-yellow-700 w-full"
+                  onClick={handleNotifyFeeUpdate} disabled={saving || !shippingFeeJpy}>
+                  <CreditCard className="w-3.5 h-3.5 mr-1.5" />
+                  {saving ? "保存中..." : `通知用户金额更新（¥${Math.round(grandTotalJpy).toLocaleString()} JPY）`}
+                </Button>
                 <Button size="sm" variant="outline" className="w-full text-xs"
                   onClick={handleSaveInfoOnly} disabled={saving}>
-                  {saving ? "保存中..." : "保存信息修改"}
+                  {saving ? "保存中..." : "仅保存（不通知用户）"}
                 </Button>
               </>
             )}
@@ -727,6 +822,24 @@ export default function AdminShippingInfoPanel({
                     {confirmingSaving ? "确认中..." : "确认收款，进入待发货"}
                   </Button>
                 </div>
+                {(() => {
+                  const prevJpy = Math.round(parseFloat(pool.shipping_fee_jpy) || parseFloat(pool.actual_fee) || 0);
+                  const newJpy = Math.round(grandTotalJpy);
+                  const diff = newJpy - prevJpy;
+                  if (diff === 0) return null;
+                  return (
+                    <div className="space-y-1.5">
+                      <div className={`rounded-lg px-3 py-2 text-xs ${diff > 0 ? "bg-red-50 border border-red-100 text-red-700" : "bg-green-50 border border-green-100 text-green-700"}`}>
+                        金额已修改：原 ¥{prevJpy.toLocaleString()} → 新 ¥{newJpy.toLocaleString()} JPY（{diff > 0 ? `+¥${diff.toLocaleString()}，用户需补交` : `-¥${Math.abs(diff).toLocaleString()}，退还用户`}）
+                      </div>
+                      <Button size="sm" className="bg-orange-600 hover:bg-orange-700 w-full"
+                        onClick={handleNotifyFeeUpdatePaid} disabled={saving}>
+                        <CreditCard className="w-3.5 h-3.5 mr-1.5" />
+                        {saving ? "处理中..." : diff > 0 ? "通知用户补交差额" : "确认退款差额，进入待发货"}
+                      </Button>
+                    </div>
+                  );
+                })()}
                 <Button size="sm" variant="outline" className="w-full text-xs"
                   onClick={handleSaveInfoOnly} disabled={saving}>
                   {saving ? "保存中..." : "保存信息修改"}
@@ -739,6 +852,24 @@ export default function AdminShippingInfoPanel({
                 <div className="bg-green-50 border border-green-100 rounded-lg px-3 py-2 text-sm text-green-700">
                   ✅ 用户已付款，请填写运单号确认发货。
                 </div>
+                {(() => {
+                  const prevJpy = Math.round(parseFloat(pool.shipping_fee_jpy) || parseFloat(pool.actual_fee) || 0);
+                  const newJpy = Math.round(grandTotalJpy);
+                  const diff = newJpy - prevJpy;
+                  if (diff === 0) return null;
+                  return (
+                    <div className="space-y-1.5">
+                      <div className={`rounded-lg px-3 py-2 text-xs ${diff > 0 ? "bg-red-50 border border-red-100 text-red-700" : "bg-yellow-50 border border-yellow-100 text-yellow-700"}`}>
+                        金额已修改：原 ¥{prevJpy.toLocaleString()} → 新 ¥{newJpy.toLocaleString()} JPY（{diff > 0 ? `+¥${diff.toLocaleString()}，用户需补交` : `-¥${Math.abs(diff).toLocaleString()}，退还用户`}）
+                      </div>
+                      <Button size="sm" className="bg-orange-600 hover:bg-orange-700 w-full"
+                        onClick={handleNotifyFeeUpdatePaid} disabled={saving}>
+                        <CreditCard className="w-3.5 h-3.5 mr-1.5" />
+                        {saving ? "处理中..." : diff > 0 ? "通知用户补交差额" : "确认退款差额，更新金额"}
+                      </Button>
+                    </div>
+                  );
+                })()}
                 {trackingNumber && (
                   <div className="bg-orange-50 border border-orange-100 rounded-lg px-3 py-2 text-xs text-orange-700">
                     ⚠️ 确认发货后，所有关联订单将同步更新为"已发货"。
