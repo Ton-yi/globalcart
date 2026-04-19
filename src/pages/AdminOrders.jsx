@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
-import { Search, RefreshCw, Filter, ChevronUp, ChevronDown, ChevronsUpDown, Trash2, AlertCircle, Layers, Send, LayoutList } from "lucide-react";
+import { Search, RefreshCw, Filter, ChevronUp, ChevronDown, ChevronsUpDown, Trash2, AlertCircle, Layers, Send, LayoutList, Archive, ArchiveRestore } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -206,6 +206,7 @@ export default function AdminOrders() {
   const [defaultPackingFeeSingle, setDefaultPackingFeeSingle] = useState(0);
   const [defaultPackingFeeConsolidation, setDefaultPackingFeeConsolidation] = useState(0);
   const [selectedPool, setSelectedPool] = useState(null); // for opening pool detail modal
+  const [showArchived, setShowArchived] = useState(false);
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
@@ -246,7 +247,18 @@ export default function AdminOrders() {
     }
   };
 
+  const handleArchiveOrder = async (order) => {
+    await base44.functions.invoke('updateTenantOrder', { order_id: order.id, is_archived: true, archived_at: new Date().toISOString() });
+    fetchOrders();
+  };
+
+  const handleUnarchiveOrder = async (order) => {
+    await base44.functions.invoke('updateTenantOrder', { order_id: order.id, is_archived: false, archived_at: "" });
+    fetchOrders();
+  };
+
   const filtered = orders.filter(o => {
+    if (showArchived ? !o.is_archived : !!o.is_archived) return false;
     const matchStatus = statusFilter === "all" || o.order_status === statusFilter;
     const q = search.toLowerCase();
     const displayName = (userProfileMap[o.user_email]?.display_name || o.user_name || "").toLowerCase();
@@ -347,6 +359,9 @@ export default function AdminOrders() {
         <h1 className="text-xl font-bold text-gray-900">订单管理</h1>
         <div className="flex items-center gap-2">
           <ColumnCustomizer columns={columns} onChange={handleColumnsChange} />
+          <Button variant="outline" size="sm" onClick={() => { setShowArchived(v => !v); setSelectedIds([]); }}>
+            {showArchived ? <><ArchiveRestore className="w-3.5 h-3.5 mr-1.5" />返回订单列表</> : <><Archive className="w-3.5 h-3.5 mr-1.5" />查看已存档</>}
+          </Button>
           <Button variant="outline" size="sm" onClick={fetchOrders}>
             <RefreshCw className="w-3.5 h-3.5 mr-1.5" />刷新
           </Button>
@@ -504,6 +519,18 @@ export default function AdminOrders() {
                             <Trash2 className="w-3 h-3 mr-1" />删除
                           </Button>
                         )}
+                        {!showArchived && (order.order_status === "delivered" || order.order_status === "cancelled") && !order.is_archived && (
+                          <Button size="sm" variant="outline" className="h-6 text-xs px-2 text-gray-500 border-gray-200 hover:bg-gray-50"
+                            onClick={() => handleArchiveOrder(order)}>
+                            <Archive className="w-3 h-3 mr-1" />存档
+                          </Button>
+                        )}
+                        {showArchived && (
+                          <Button size="sm" variant="outline" className="h-6 text-xs px-2 text-blue-500 border-blue-200 hover:bg-blue-50"
+                            onClick={() => handleUnarchiveOrder(order)}>
+                            <ArchiveRestore className="w-3 h-3 mr-1" />取消存档
+                          </Button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -585,7 +612,7 @@ export default function AdminOrders() {
         </table>
       </div>
 
-      <div className="text-xs text-gray-400 text-right">共 {filtered.length} 条</div>
+      <div className="text-xs text-gray-400 text-right">{showArchived ? `已存档订单：${filtered.length} 条` : `共 ${filtered.length} 条`}</div>
 
       {selectedOrder && (
         <AdminOrderEditModal

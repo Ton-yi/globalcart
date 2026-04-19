@@ -7,7 +7,7 @@ import { base44 } from "@/api/base44Client";
 import { tenantEntity } from "@/lib/tenantApi";
 import { timePage } from "@/lib/timing";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { Plus, RefreshCw, Truck, MapPin, Edit2, Trash2, Check, X as XIcon, AlertCircle, Layers } from "lucide-react";
+import { Plus, RefreshCw, Truck, MapPin, Edit2, Trash2, Check, X as XIcon, AlertCircle, Layers, Archive, ArchiveRestore } from "lucide-react";
 import { getCountry } from "@/lib/countries";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,6 +47,7 @@ export default function AdminShippingPool() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedPool, setSelectedPool] = useState(null);
   const [showCreate, setShowCreate] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
 
   // Location form
   const [showLocForm, setShowLocForm] = useState(false);
@@ -101,21 +102,35 @@ export default function AdminShippingPool() {
     fetchPageData();
   }, [user]);
 
+  // Archive handler for pools
+  const handleArchivePool = async (pool) => {
+    await base44.functions.invoke('mutateTenantEntity', { entity: 'ShippingPool', action: 'update', id: pool.id, data: { is_archived: true, archived_at: new Date().toISOString() } });
+    fetchPageData();
+  };
+
+  const handleUnarchivePool = async (pool) => {
+    await base44.functions.invoke('mutateTenantEntity', { entity: 'ShippingPool', action: 'update', id: pool.id, data: { is_archived: false, archived_at: "" } });
+    fetchPageData();
+  };
+
   // "发货申请" tab: direct (non-consolidation) pools
   const directPools = pools.filter(p =>
     (!p.consolidation_type || p.consolidation_type === "") &&
+    (showArchived ? !!p.is_archived : !p.is_archived) &&
     (statusFilter === "all" || p.status === statusFilter)
   );
 
   // "用户拼邮" tab: user-initiated consolidation pools
   const userConsPools = pools.filter(p =>
     p.consolidation_type && p.consolidation_type !== "" && !p.is_admin_created &&
+    (showArchived ? !!p.is_archived : !p.is_archived) &&
     (statusFilter === "all" || p.status === statusFilter)
   );
 
   // "官方拼邮看板" tab: admin-created consolidation pools
   const officialConsPools = pools.filter(p =>
-    p.consolidation_type && p.consolidation_type !== "" && !!p.is_admin_created
+    p.consolidation_type && p.consolidation_type !== "" && !!p.is_admin_created &&
+    !p.is_archived
   );
 
   // Location handlers
@@ -172,12 +187,19 @@ export default function AdminShippingPool() {
         <div className="flex items-center gap-2">
           {(activeTab === "pools" || activeTab === "consolidation" || activeTab === "official_kanban") && (
             <>
+              {(activeTab === "pools" || activeTab === "consolidation") && (
+                <Button variant="outline" size="sm" onClick={() => setShowArchived(v => !v)}>
+                  {showArchived ? <><ArchiveRestore className="w-3.5 h-3.5 mr-1.5" />返回列表</> : <><Archive className="w-3.5 h-3.5 mr-1.5" />查看已存档</>}
+                </Button>
+              )}
               <Button variant="outline" size="sm" onClick={fetchPageData}>
                 <RefreshCw className="w-3.5 h-3.5 mr-1.5" />刷新
               </Button>
-              <Button size="sm" className="bg-red-600 hover:bg-red-700" onClick={() => setShowCreate(true)}>
-                <Plus className="w-3.5 h-3.5 mr-1.5" />创建发货申请
-              </Button>
+              {!showArchived && (
+                <Button size="sm" className="bg-red-600 hover:bg-red-700" onClick={() => setShowCreate(true)}>
+                  <Plus className="w-3.5 h-3.5 mr-1.5" />创建发货申请
+                </Button>
+              )}
             </>
           )}
           {activeTab === "locations" && (
@@ -237,9 +259,11 @@ export default function AdminShippingPool() {
                     key={pool.id}
                     pool={pool}
                     isAdmin={true}
-                    onClick={setSelectedPool}
+                    onClick={showArchived ? undefined : setSelectedPool}
                     pendingEditCount={pendingEditRequests.filter(r => r.pool_id === pool.id).length}
                     userProfileMap={userProfileMap}
+                    onArchive={!pool.is_archived && pool.status === "delivered" ? () => handleArchivePool(pool) : null}
+                    onUnarchive={pool.is_archived ? () => handleUnarchivePool(pool) : null}
                   />
                 ))}
               </div>
@@ -276,9 +300,11 @@ export default function AdminShippingPool() {
                     key={pool.id}
                     pool={pool}
                     isAdmin={true}
-                    onClick={setSelectedPool}
+                    onClick={showArchived ? undefined : setSelectedPool}
                     pendingEditCount={pendingEditRequests.filter(r => r.pool_id === pool.id).length}
                     userProfileMap={userProfileMap}
+                    onArchive={!pool.is_archived && pool.status === "delivered" ? () => handleArchivePool(pool) : null}
+                    onUnarchive={pool.is_archived ? () => handleUnarchivePool(pool) : null}
                   />
                 ))}
               </div>
