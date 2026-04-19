@@ -191,6 +191,14 @@
       "description": "\u6bcf\u4e2a\u7528\u6237\u7684\u5b8c\u6574\u8d39\u7528\u660e\u7ec6 [{user_email, items:[{label, amount_jpy}], total_jpy, shared_jpy, personal_total_jpy}]",
       "default": []
     },
+    "supplement_amount_per_user": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "\u7ba1\u7406\u5458\u66f4\u65b0\u91d1\u989d\u540e\u9700\u8981\u8865\u6b3e\u7684\u5dee\u989d\u660e\u7ec6 [{user_email, supplement_jpy, previous_total_jpy, new_total_jpy}]",
+      "default": []
+    },
     "selected_addon_ids": {
       "type": "array",
       "items": {

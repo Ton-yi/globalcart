@@ -344,8 +344,14 @@ export default function AdminShippingInfoPanel({
     const supplementAmountPerUser = diff > 0
       ? feeBreakdowns.map(b => {
           const prevB = (pool.fee_breakdown_per_user || []).find(pb => pb.user_email === b.user_email);
-          const prevTotal = prevB ? (prevB.total_jpy || 0) : 0;
-          return { user_email: b.user_email, supplement_jpy: Math.max(0, Math.round(b.total_jpy - prevTotal)) };
+          const prevTotal = Math.round(prevB ? (prevB.total_jpy || 0) : 0);
+          const newTotal = Math.round(b.total_jpy || 0);
+          return {
+            user_email: b.user_email,
+            supplement_jpy: Math.max(0, newTotal - prevTotal),
+            previous_total_jpy: prevTotal,
+            new_total_jpy: newTotal,
+          };
         })
       : [];
 

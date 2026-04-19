@@ -839,19 +839,31 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                         : null;
 
                       if (mySupplement) {
-                        // Show supplement amount only
+                        const prevTotal = mySupplement.previous_total_jpy ?? null;
+                        const newTotal = mySupplement.new_total_jpy ?? null;
+                        const supplementJpy = Math.round(mySupplement.supplement_jpy || 0);
                         return (
                           <div className="space-y-2">
-                            <div className="bg-orange-50 border border-orange-200 rounded-lg px-3 py-2.5">
-                              <p className="text-xs text-orange-600 font-medium mb-1">管理员已更新运费，需补交差额</p>
-                              <p className="text-sm font-medium text-orange-800">
-                                需补交：<span className="text-xl font-bold text-orange-600">¥{Math.round(mySupplement.supplement_jpy || 0).toLocaleString()}</span>
-                                <span className="text-xs text-orange-500 ml-1">(JPY)</span>
-                              </p>
+                            {/* Summary box: show both new total and supplement clearly */}
+                            <div className="bg-orange-50 border border-orange-200 rounded-lg px-3 py-3 space-y-2">
+                              <p className="text-xs text-orange-600 font-semibold">⚠️ 管理员已更新运费，需补交差额</p>
+                              {prevTotal !== null && newTotal !== null && (
+                                <div className="flex items-center gap-2 text-xs text-gray-500">
+                                  <span>原金额 <span className="font-medium text-gray-700">¥{prevTotal.toLocaleString()}</span></span>
+                                  <span>→</span>
+                                  <span>新金额 <span className="font-semibold text-orange-700">¥{newTotal.toLocaleString()}</span></span>
+                                  <span className="text-orange-400">(JPY)</span>
+                                </div>
+                              )}
+                              <div className="flex items-center justify-between border-t border-orange-200 pt-2 mt-1">
+                                <span className="text-sm font-semibold text-orange-700">本次需补交</span>
+                                <span className="text-2xl font-bold text-orange-600">¥{supplementJpy.toLocaleString()} <span className="text-sm font-normal">JPY</span></span>
+                              </div>
                             </div>
+                            {/* Full breakdown expandable */}
                             {(pool.fee_breakdown_per_user || []).length > 0 && (
                               <details className="text-xs">
-                                <summary className="text-gray-400 cursor-pointer hover:text-gray-600 py-1">查看完整费用明细</summary>
+                                <summary className="text-gray-400 cursor-pointer hover:text-gray-600 py-1 select-none">查看完整费用明细（更新后）</summary>
                                 <div className="mt-1">
                                   <ShippingFeeBreakdown
                                     breakdowns={pool.fee_breakdown_per_user}
