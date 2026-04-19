@@ -254,18 +254,18 @@ export default function AdminShippingPool() {
             (allUsers || []).forEach(u => { userProfileMap[u.email] = u; });
             return (
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                {directPools.map(pool => (
-                  <ShippingPoolCard
-                    key={pool.id}
-                    pool={pool}
-                    isAdmin={true}
-                    onClick={showArchived ? undefined : setSelectedPool}
-                    pendingEditCount={pendingEditRequests.filter(r => r.pool_id === pool.id).length}
-                    userProfileMap={userProfileMap}
-                    onArchive={!pool.is_archived && pool.status === "delivered" ? () => handleArchivePool(pool) : null}
-                    onUnarchive={pool.is_archived ? () => handleUnarchivePool(pool) : null}
-                  />
-                ))}
+              {directPools.map(pool => (
+                <ShippingPoolCard
+                  key={pool.id}
+                  pool={pool}
+                  isAdmin={true}
+                  onClick={setSelectedPool}
+                  pendingEditCount={pendingEditRequests.filter(r => r.pool_id === pool.id).length}
+                  userProfileMap={userProfileMap}
+                  onArchive={!pool.is_archived && pool.status === "delivered" ? () => handleArchivePool(pool) : null}
+                  onUnarchive={pool.is_archived ? () => handleUnarchivePool(pool) : null}
+                />
+              ))}
               </div>
             );
           })()}
@@ -300,7 +300,7 @@ export default function AdminShippingPool() {
                     key={pool.id}
                     pool={pool}
                     isAdmin={true}
-                    onClick={showArchived ? undefined : setSelectedPool}
+                    onClick={setSelectedPool}
                     pendingEditCount={pendingEditRequests.filter(r => r.pool_id === pool.id).length}
                     userProfileMap={userProfileMap}
                     onArchive={!pool.is_archived && pool.status === "delivered" ? () => handleArchivePool(pool) : null}
