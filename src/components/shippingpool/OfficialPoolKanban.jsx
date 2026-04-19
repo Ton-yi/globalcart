@@ -391,14 +391,13 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
         {/* Create Pool Button Column (always last, on the far right - compact & aligned to task column top) */}
         {isAdmin && (
           <div
-            className="flex-shrink-0 w-36 flex flex-col items-center justify-start rounded-lg border border-dashed border-gray-300 bg-gray-50 cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all"
+            className="flex-shrink-0 flex flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50 cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all px-3 py-2"
             onClick={() => setShowCreatePool(true)}
-            style={{ minHeight: 100 }}
           >
-            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mb-1.5 mt-2">
+            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mb-1.5">
               <Plus className="w-4 h-4 text-blue-600" />
             </div>
-            <p className="text-xs font-medium text-gray-600 text-center px-1">创建拼邮</p>
+            <p className="text-xs font-medium text-gray-600 text-center whitespace-nowrap">创建拼邮</p>
           </div>
         )}
       </div>
