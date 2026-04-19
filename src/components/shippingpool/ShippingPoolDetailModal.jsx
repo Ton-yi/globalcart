@@ -94,6 +94,11 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
         const map = {};
         (r.data?.pools || []).forEach((p) => {map[p.id] = p;});
         setAllPoolsMap(map);
+        // Refresh current pool with latest data (ensures supplement_amount_per_user etc. are up to date)
+        const freshPool = map[initialPool.id];
+        if (freshPool) {
+          setPool(p => ({ ...p, ...freshPool }));
+        }
       }).
       catch(() => {})
     );
