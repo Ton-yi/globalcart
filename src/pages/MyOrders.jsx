@@ -17,6 +17,7 @@ import PaymentModal from "@/components/orders/PaymentModal";
 import UserNotifyShipmentModal from "@/components/orders/UserNotifyShipmentModal";
 import ShippingEditModal from "@/components/shippingpool/ShippingEditModal";
 import ShippingPoolDetailModal from "@/components/shippingpool/ShippingPoolDetailModal";
+import { shippingPoolApi } from "@/lib/tenantApi";
 
 const STORAGE_KEY = "my_orders_columns";
 
@@ -270,6 +271,11 @@ export default function MyOrders() {
 
   const handleConfirmDelivered = async (order) => {
     await base44.functions.invoke('updateTenantOrder', { order_id: order.id, order_status: "delivered" });
+    // Also mark the associated shipping pool as delivered
+    const pool = shippingPools.find(p => (p.order_ids || []).includes(order.id));
+    if (pool && pool.status === "shipped") {
+      await shippingPoolApi.update(pool.id, { status: "delivered" });
+    }
     fetchOrders(user);
   };
 
