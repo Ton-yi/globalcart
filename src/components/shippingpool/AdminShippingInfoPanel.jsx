@@ -197,6 +197,14 @@ export default function AdminShippingInfoPanel({
   // Grand total = sum of all users' total_jpy from the live breakdown
   const grandTotalJpy = feeBreakdowns.reduce((s, b) => s + (b.total_jpy || 0), 0);
 
+  // Previously notified/paid total = sum of saved fee_breakdown_per_user (the actual amount user was told to pay)
+  // Fall back to shipping_fee_jpy only if no breakdown exists (legacy data)
+  const savedGrandTotalJpy = Math.round(
+    (pool.fee_breakdown_per_user || []).length > 0
+      ? (pool.fee_breakdown_per_user || []).reduce((s, b) => s + (b.total_jpy || 0), 0)
+      : (parseFloat(pool.shipping_fee_jpy) || parseFloat(pool.actual_fee) || 0)
+  );
+
   const buildUpdatePayload = () => {
     const btId = boxTemplateId === "none" ? "" : boxTemplateId;
     const breakdowns = calcFeeBreakdownPerUser({
@@ -301,7 +309,7 @@ export default function AdminShippingInfoPanel({
   const handleNotifyFeeUpdatePaid = async () => {
     setSaving(true);
     const payload = buildUpdatePayload();
-    const prevPaidJpy = parseFloat(pool.shipping_fee_jpy) || parseFloat(pool.actual_fee) || 0;
+    const prevPaidJpy = savedGrandTotalJpy;
     const newTotalJpy = Math.round(grandTotalJpy);
     const diff = newTotalJpy - Math.round(prevPaidJpy);
 
@@ -790,9 +798,9 @@ export default function AdminShippingInfoPanel({
                 <div className="bg-orange-50 border border-orange-100 rounded-lg px-3 py-2 text-sm text-orange-700">
                   运费 <strong>¥{Math.round(grandTotalJpy).toLocaleString()} JPY</strong>，等待用户付款。
                 </div>
-                {Math.round(grandTotalJpy) !== Math.round(parseFloat(pool.shipping_fee_jpy) || parseFloat(pool.actual_fee) || 0) && (
+                {Math.round(grandTotalJpy) !== savedGrandTotalJpy && (
                   <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2 text-xs text-yellow-700">
-                    ⚠️ 金额已修改（原 ¥{Math.round(parseFloat(pool.shipping_fee_jpy) || parseFloat(pool.actual_fee) || 0).toLocaleString()} → 新 ¥{Math.round(grandTotalJpy).toLocaleString()} JPY）
+                    ⚠️ 金额已修改（原 ¥{savedGrandTotalJpy.toLocaleString()} → 新 ¥{Math.round(grandTotalJpy).toLocaleString()} JPY）
                   </div>
                 )}
                 <Button size="sm" className="bg-yellow-600 hover:bg-yellow-700 w-full"
@@ -823,7 +831,7 @@ export default function AdminShippingInfoPanel({
                   </Button>
                 </div>
                 {(() => {
-                  const prevJpy = Math.round(parseFloat(pool.shipping_fee_jpy) || parseFloat(pool.actual_fee) || 0);
+                  const prevJpy = savedGrandTotalJpy;
                   const newJpy = Math.round(grandTotalJpy);
                   const diff = newJpy - prevJpy;
                   if (diff === 0) return null;
@@ -853,7 +861,7 @@ export default function AdminShippingInfoPanel({
                   ✅ 用户已付款，请填写运单号确认发货。
                 </div>
                 {(() => {
-                  const prevJpy = Math.round(parseFloat(pool.shipping_fee_jpy) || parseFloat(pool.actual_fee) || 0);
+                  const prevJpy = savedGrandTotalJpy;
                   const newJpy = Math.round(grandTotalJpy);
                   const diff = newJpy - prevJpy;
                   if (diff === 0) return null;
