@@ -438,7 +438,32 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
       )}
 
       <div className="flex gap-4 overflow-x-auto pb-4" style={{ minHeight: 400 }}>
-        {/* Render columns in order: sorted pools first, then task column */}
+        {/* Render task column FIRST (at the far left, before all pools) */}
+        <TaskColumn
+          taskColumnName={taskColumnName}
+          pendingOrders={pendingOrders}
+          userGroups={userGroups}
+          draggingOrderId={draggingOrderId}
+          dragOverPoolId={dragOverPoolId}
+          handleDragStart={handleDragStart}
+          handleDragEnd={handleDragEnd}
+          handleDragEnter={handleDragEnter}
+          handleDragLeave={handleDragLeave}
+          handleDragOver={handleDragOver}
+          handleDrop={handleDrop}
+          orderMap={orderMap}
+          currentUser={currentUser}
+          isAdmin={isAdmin}
+          onEditName={() => setEditingTaskColumn(true)}
+          editingTaskColumn={editingTaskColumn}
+          taskColumnNameState={taskColumnName}
+          setTaskColumnName={setTaskColumnName}
+          handleSaveTaskColumnName={handleSaveTaskColumnName}
+          savingTaskColumn={savingTaskColumn}
+          setEditingTaskColumn={setEditingTaskColumn}
+        />
+
+        {/* Render sorted pools after task column */}
         {sortedPools.map((pool, index) => {
           const poolOrders = (pool.order_ids || []).
           map((id) => orderMap[id]).
@@ -536,31 +561,6 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
             </div>);
 
         })}
-
-        {/* Render task column at the end (after all pools) - default position */}
-        <TaskColumn
-          taskColumnName={taskColumnName}
-          pendingOrders={pendingOrders}
-          userGroups={userGroups}
-          draggingOrderId={draggingOrderId}
-          dragOverPoolId={dragOverPoolId}
-          handleDragStart={handleDragStart}
-          handleDragEnd={handleDragEnd}
-          handleDragEnter={handleDragEnter}
-          handleDragLeave={handleDragLeave}
-          handleDragOver={handleDragOver}
-          handleDrop={handleDrop}
-          orderMap={orderMap}
-          currentUser={currentUser}
-          isAdmin={isAdmin}
-          onEditName={() => setEditingTaskColumn(true)}
-          editingTaskColumn={editingTaskColumn}
-          taskColumnNameState={taskColumnName}
-          setTaskColumnName={setTaskColumnName}
-          handleSaveTaskColumnName={handleSaveTaskColumnName}
-          savingTaskColumn={savingTaskColumn}
-          setEditingTaskColumn={setEditingTaskColumn}
-        />
 
 
 
