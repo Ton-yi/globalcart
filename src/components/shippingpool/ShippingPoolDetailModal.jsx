@@ -187,11 +187,16 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
     setGeneratingAlipay(false);
     if (url) {
       window.open(url, "_blank");
-      await shippingPoolApi.update(pool.id, {
-        payment_status: "awaiting_confirmation",
-        payment_method: "alipay",
-        status: "awaiting_payment_confirmation",
-      });
+      await Promise.all([
+        shippingPoolApi.update(pool.id, {
+          payment_status: "awaiting_confirmation",
+          payment_method: "alipay",
+          status: "awaiting_payment_confirmation",
+        }),
+        ...(pool.order_ids || []).map(id =>
+          updateOrder(id, { order_status: "notified_shipment_fee_paid" })
+        ),
+      ]);
       setPool((p) => ({ ...p, payment_status: "awaiting_confirmation", payment_method: "alipay", status: "awaiting_payment_confirmation" }));
     }
   };
@@ -200,12 +205,17 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
   const handleUploadProof = async (file) => {
     setUploadingProof(true);
     const { file_url } = await base44.integrations.Core.UploadFile({ file });
-    await shippingPoolApi.update(pool.id, {
-      payment_status: "awaiting_confirmation",
-      payment_method: paymentMethod,
-      payment_proof_url: file_url,
-      status: "awaiting_payment_confirmation",
-    });
+    await Promise.all([
+      shippingPoolApi.update(pool.id, {
+        payment_status: "awaiting_confirmation",
+        payment_method: paymentMethod,
+        payment_proof_url: file_url,
+        status: "awaiting_payment_confirmation",
+      }),
+      ...(pool.order_ids || []).map(id =>
+        updateOrder(id, { order_status: "notified_shipment_fee_paid" })
+      ),
+    ]);
     setPool((p) => ({ ...p, payment_status: "awaiting_confirmation", payment_method: paymentMethod, payment_proof_url: file_url, status: "awaiting_payment_confirmation" }));
     setUploadingProof(false);
   };
