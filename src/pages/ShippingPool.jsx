@@ -19,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import ShippingPoolCard from "@/components/shippingpool/ShippingPoolCard";
 import ShippingPoolDetailModal from "@/components/shippingpool/ShippingPoolDetailModal";
+import OfficialPoolKanban from "@/components/shippingpool/OfficialPoolKanban";
 
 const SHIPPING_METHODS = [
   { value: "EMS", label: "EMS空运" },
@@ -37,7 +38,8 @@ const STATUS_FILTERS = [
 
 const TABS = [
   { key: "pools", label: "发货申请" },
-  { key: "consolidation", label: "拼邮池" },
+  { key: "consolidation", label: "用户拼邮" },
+  { key: "official_kanban", label: "官方拼邮看板" },
 ];
 
 const METHOD_LABELS = {
@@ -87,6 +89,7 @@ export default function ShippingPool() {
   const [shippingAddons, setShippingAddons] = useState([]);
   const [selectedAddonIds, setSelectedAddonIds] = useState([]);
   const [userProfileMap, setUserProfileMap] = useState({});
+  const [allOrders, setAllOrders] = useState([]);
 
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
@@ -104,6 +107,7 @@ export default function ShippingPool() {
     (usersRes || []).forEach(u => { profileMap[u.email] = u; });
     setUserProfileMap(profileMap);
     setPools(allPools);
+    setAllOrders(myOrders);
     setPendingEditRequests(editReqs.filter(r => r.status === 'pending'));
 
     const consPools = allPools.filter(p => p.consolidation_type && p.consolidation_type !== "");
@@ -284,11 +288,35 @@ export default function ShippingPool() {
     fetchData(user);
   };
 
-  const filtered = pools.filter(p => {
+  const isAdmin = user?.role === "admin" || user?.role === "platform_admin" || user?.role === "tenant_admin" || user?.role === "staff";
+
+  // "发货申请" tab: direct (non-consolidation) pools
+  // Admin sees all; regular users only see their own
+  const directPools = pools.filter(p => {
+    if (p.consolidation_type && p.consolidation_type !== "") return false;
+    if (!isAdmin && p.creator_email !== user?.email) return false;
     if (!showArchivedPools && p.is_archived) return false;
     if (showArchivedPools && !p.is_archived) return false;
     return statusFilter === "all" || p.status === statusFilter;
   });
+
+  // "用户拼邮" tab: user-initiated consolidation pools (is_admin_created = false)
+  const userConsPools = pools.filter(p => {
+    if (!p.consolidation_type || p.consolidation_type === "") return false;
+    if (p.is_admin_created) return false;
+    if (!showArchivedPools && p.is_archived) return false;
+    if (showArchivedPools && !p.is_archived) return false;
+    return statusFilter === "all" || p.status === statusFilter;
+  });
+
+  // "官方拼邮看板" tab: admin-created consolidation pools only
+  const officialConsPools = pools.filter(p => {
+    if (!p.consolidation_type || p.consolidation_type === "") return false;
+    return !!p.is_admin_created;
+  });
+
+  // Legacy: for the consolidation tab display (user-initiated)
+  const filtered = directPools; // kept for existing pool tab code reuse
   const consTotalWeight = consolidationOrders.reduce((s, o) => s + (o.weight_g || 0), 0);
   const consGroups = consolidationOrders.reduce((acc, o) => {
     const key = o.consolidation_pool_id || o.shipping_method || "unknown";
@@ -705,8 +733,9 @@ export default function ShippingPool() {
           <button key={tab.key} onClick={() => setActiveTab(tab.key)}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${activeTab === tab.key ? "border-red-600 text-red-600" : "border-transparent text-gray-500 hover:text-gray-800"}`}>
             {tab.label}
-            {tab.key === "pools" && <span className="ml-1.5 text-xs bg-gray-100 text-gray-500 rounded px-1.5 py-0.5">{pools.length}</span>}
-            {tab.key === "consolidation" && <span className="ml-1.5 text-xs bg-gray-100 text-gray-500 rounded px-1.5 py-0.5">{pools.filter(p => p.consolidation_type && p.consolidation_type !== "").length}</span>}
+            {tab.key === "pools" && <span className="ml-1.5 text-xs bg-gray-100 text-gray-500 rounded px-1.5 py-0.5">{directPools.length}</span>}
+            {tab.key === "consolidation" && <span className="ml-1.5 text-xs bg-gray-100 text-gray-500 rounded px-1.5 py-0.5">{userConsPools.length}</span>}
+            {tab.key === "official_kanban" && <span className="ml-1.5 text-xs bg-gray-100 text-gray-500 rounded px-1.5 py-0.5">{officialConsPools.length}</span>}
           </button>
         ))}
       </div>
@@ -725,7 +754,7 @@ export default function ShippingPool() {
 
           {loading ? (
             <div className="text-center py-16 text-gray-400 text-sm">加载中...</div>
-          ) : filtered.length === 0 ? (
+          ) : directPools.length === 0 ? (
             <div className="flex flex-col items-center py-20 text-gray-400">
               <Truck className="w-12 h-12 mb-3 opacity-20" />
               <p className="text-sm">暂无发货申请</p>
@@ -733,7 +762,7 @@ export default function ShippingPool() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-              {filtered.map(pool => (
+              {directPools.map(pool => (
                 <ShippingPoolCard
                   key={pool.id}
                   pool={pool}
@@ -775,15 +804,15 @@ export default function ShippingPool() {
 
           {loading ? (
             <div className="text-center py-16 text-gray-400 text-sm">加载中...</div>
-          ) : consolidationOrders.length === 0 ? (
+          ) : userConsPools.length === 0 ? (
             <div className="flex flex-col items-center py-20 text-gray-400">
               <Layers className="w-12 h-12 mb-3 opacity-20" />
-              <p className="text-sm">暂无等待拼邮的包裹</p>
-              <p className="text-xs mt-1">通知发货时选择"申请拼邮"即可加入拼邮池</p>
+              <p className="text-sm">暂无用户拼邮请求</p>
+              <p className="text-xs mt-1">通知发货时选择"申请拼邮"即可加入</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-              {pools.filter(p => p.consolidation_type && p.consolidation_type !== "").map(pool => {
+              {userConsPools.map(pool => {
                 const poolOrders = (pool.order_ids || [])
                   .map(id => consolidationOrders.find(o => o.id === id))
                   .filter(Boolean);
@@ -859,10 +888,34 @@ export default function ShippingPool() {
         </>
       )}
 
+      {/* ---- TAB: OFFICIAL CONSOLIDATION KANBAN ---- */}
+      {activeTab === "official_kanban" && (
+        <>
+          {!isAdmin && (
+            <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-sm text-blue-800">
+              <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
+              <p>官方拼邮看板展示管理员组织的拼邮请求。您可以将自己的包裹拖拽到其它拼邮请求中。</p>
+            </div>
+          )}
+          {loading ? (
+            <div className="text-center py-16 text-gray-400 text-sm">加载中...</div>
+          ) : (
+            <OfficialPoolKanban
+              pools={officialConsPools}
+              allOrders={allOrders}
+              currentUser={user}
+              isAdmin={isAdmin}
+              onPoolClick={setSelectedPool}
+              onRefresh={() => fetchData(user)}
+            />
+          )}
+        </>
+      )}
+
       {selectedPool && user && (
         <ShippingPoolDetailModal
           pool={selectedPool}
-          isAdmin={false}
+          isAdmin={isAdmin}
           currentUser={user}
           pendingEditRequests={pendingEditRequests.filter(r => r.pool_id === selectedPool.id)}
           onClose={() => setSelectedPool(null)}
