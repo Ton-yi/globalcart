@@ -198,7 +198,7 @@ export default function AdminShippingPool() {
                   {showArchived ? <><ArchiveRestore className="w-3.5 h-3.5 mr-1.5" />返回列表</> : <><Archive className="w-3.5 h-3.5 mr-1.5" />查看已存档</>}
                 </Button>
               )}
-              <Button variant="outline" size="sm" onClick={fetchPageData}>
+              <Button variant="outline" size="sm" onClick={() => { console.log('手动刷新发货池页面'); fetchPageData(); }}>
                 <RefreshCw className="w-3.5 h-3.5 mr-1.5" />刷新
               </Button>
               {!showArchived && (
