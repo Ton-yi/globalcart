@@ -6,10 +6,12 @@
  * Regular users can only drag their own orders.
  * First column = "待拼邮订单" task column (not a pool, just a staging area).
  */
-import { useState, useRef } from "react";
-import { Package, GripVertical, Users, Loader2, Scale, ChevronRight, Edit2, Save, X, Plus } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Package, GripVertical, Users, Loader2, Scale, ChevronRight, Edit2, Save, X, Plus, Settings2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { shippingPoolApi, updateOrder, tenantEntity } from "@/lib/tenantApi";
 import CreateOfficialPoolModal from "@/components/shippingpool/CreateOfficialPoolModal";
 
@@ -33,6 +35,37 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
   const [taskColumnName, setTaskColumnName] = useState("待拼邮订单");
   const [savingTaskColumn, setSavingTaskColumn] = useState(false);
   const [showCreateOfficialPool, setShowCreateOfficialPool] = useState(false);
+  const [showPoolSorter, setShowPoolSorter] = useState(false);
+  const [sortedPools, setSortedPools] = useState(pools);
+
+  // Load saved pool order on mount
+  useEffect(() => {
+    if (!isAdmin || !pools.length) return;
+    
+    const loadPoolOrder = async () => {
+      try {
+        const settings = await tenantEntity.list('SiteSettings', { key: 'official_pool_order' });
+        if (settings.length > 0 && settings[0].value) {
+          const savedOrder = JSON.parse(settings[0].value);
+          // Reorder pools based on saved order
+          const poolMap = {};
+          pools.forEach(p => { poolMap[p.id] = p; });
+          const reordered = savedOrder.map(id => poolMap[id]).filter(Boolean);
+          // Add any pools not in saved order (newly created)
+          pools.forEach(p => {
+            if (!savedOrder.includes(p.id)) reordered.push(p);
+          });
+          setSortedPools(reordered);
+          return;
+        }
+      } catch (e) {
+        console.error('Failed to load pool order:', e);
+      }
+      setSortedPools(pools);
+    };
+
+    loadPoolOrder();
+  }, [pools, isAdmin]);
 
   // Build a map: orderId -> order data
   const orderMap = {};
@@ -168,6 +201,42 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
     // In future, could save to SiteSettings for persistence
     setSavingTaskColumn(false);
     setEditingTaskColumn(false);
+  };
+
+  // Handle pool reordering
+  const handlePoolDragEnd = async (result) => {
+    if (!result.destination || result.source.index === result.destination.index) {
+      setShowPoolSorter(false);
+      return;
+    }
+
+    // Reorder pools array
+    const reordered = Array.from(pools);
+    const [removed] = reordered.splice(result.source.index, 1);
+    reordered.splice(result.destination.index, 0, removed);
+    
+    // Save order to SiteSettings for persistence
+    try {
+      const poolOrder = reordered.map(p => p.id);
+      // First check if setting exists
+      const existing = await tenantEntity.list('SiteSettings', { key: 'official_pool_order' });
+      if (existing.length > 0) {
+        await tenantEntity.update('SiteSettings', existing[0].id, { value: JSON.stringify(poolOrder) });
+      } else {
+        await tenantEntity.create('SiteSettings', {
+          tenant_id: pools[0]?.tenant_id,
+          key: 'official_pool_order',
+          value: JSON.stringify(poolOrder),
+          category: 'general'
+        });
+      }
+    } catch (e) {
+      console.error('Failed to save pool order:', e);
+    }
+
+    setSortedPools(reordered);
+    setShowPoolSorter(false);
+    onRefresh?.();
   };
 
   const totalWeight = pendingOrders.reduce((s, o) => s + (o.weight_g || 0), 0);
@@ -315,6 +384,60 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
           <Loader2 className="w-6 h-6 animate-spin text-gray-500" />
         </div>
       }
+
+      {/* Pool Sorter Modal */}
+      {showPoolSorter && isAdmin && (
+        <div className="absolute top-0 right-0 z-50 bg-white border border-gray-200 rounded-xl shadow-xl w-80 p-3">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-semibold text-gray-700">拖拽排序官方拼邮需求</span>
+            <button onClick={() => setShowPoolSorter(false)}><X className="w-3.5 h-3.5 text-gray-400" /></button>
+          </div>
+          <DragDropContext onDragEnd={handlePoolDragEnd}>
+            <Droppable droppableId="pools">
+              {(provided) => (
+                <div ref={provided.innerRef} {...provided.droppableProps} className="space-y-1 max-h-96 overflow-y-auto">
+                  {pools.map((pool, index) => {
+                    const status = STATUS_CONFIG[pool.status] || STATUS_CONFIG.pending;
+                    return (
+                      <Draggable key={pool.id} draggableId={pool.id} index={index}>
+                        {(provided, snapshot) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.draggableProps}
+                            className={`rounded-lg text-xs select-none transition-colors border ${
+                              snapshot.isDragging ? "bg-blue-50 border-blue-300 shadow-md" : "bg-white border-gray-200 hover:bg-gray-50"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 px-2 py-1.5">
+                              <span {...provided.dragHandleProps} className="text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing">
+                                <GripVertical className="w-3.5 h-3.5" />
+                              </span>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-mono text-xs text-purple-600">{pool.pool_code || `#${pool.id.slice(-4)}`}</span>
+                                  <span className="font-medium text-gray-800 truncate">
+                                    {pool.title || `拼邮 #${pool.id.slice(-4).toUpperCase()}`}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2 mt-0.5 text-[11px] text-gray-400">
+                                  <span className="flex items-center gap-1"><Package className="w-2.5 h-2.5" />{(pool.order_ids || []).length}件</span>
+                                  <Badge className={`text-[10px] ${status.color}`}>{status.label}</Badge>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </Draggable>
+                    );
+                  })}
+                  {provided.placeholder}
+                </div>
+              )}
+            </Droppable>
+          </DragDropContext>
+        </div>
+      )}
+
       <div className="flex gap-4 overflow-x-auto pb-4" style={{ minHeight: 400 }}>
         {/* Task Column - Pending Orders (always at the end, after all pools) */}
         <div
@@ -420,8 +543,8 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
           </div>
         </div>
 
-        {/* Render columns in order: pools first, then task column based on taskColumnOrder */}
-        {pools.map((pool, index) => {
+        {/* Render columns in order: sorted pools first, then task column */}
+        {sortedPools.map((pool, index) => {
           const poolOrders = (pool.order_ids || []).
           map((id) => orderMap[id]).
           filter(Boolean);
@@ -543,6 +666,19 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
           savingTaskColumn={savingTaskColumn}
           setEditingTaskColumn={setEditingTaskColumn}
         />
+
+        {/* Sort Pools Button Column (admin only) */}
+        {isAdmin && (
+          <div
+            className="flex-shrink-0 flex flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50 cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all px-3 py-2"
+            onClick={() => setShowPoolSorter(!showPoolSorter)}
+          >
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center mb-1.5 ${showPoolSorter ? 'bg-blue-100' : 'bg-gray-200'}`}>
+              <Settings2 className={`w-4 h-4 ${showPoolSorter ? 'text-blue-600' : 'text-gray-600'}`} />
+            </div>
+            <p className="text-xs font-medium text-gray-600 text-center whitespace-nowrap">排序拼邮</p>
+          </div>
+        )}
 
         {/* Create Official Pool Button Column (always last, on the far right - compact & aligned to task column top) */}
         {isAdmin && (
