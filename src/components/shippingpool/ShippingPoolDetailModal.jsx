@@ -4,7 +4,7 @@
  * Admin can edit tracking number, actual fee.
  */
 import { useState, useEffect, useRef } from "react";
-import { X, Package, Send, Image, Edit2, Save, MoreVertical, ArrowRight, RotateCcw, Loader2, Search, Trash2, AlertCircle, CheckCircle, XCircle, CreditCard, ExternalLink, Upload } from "lucide-react";
+import { X, Package, Send, Image, Edit2, Save, MoreVertical, ArrowRight, RotateCcw, Loader2, Search, Trash2, AlertCircle, CheckCircle, XCircle, CreditCard, ExternalLink, Upload, Truck, MapPin } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { updateOrder, tenantEntity, shippingPoolApi } from "@/lib/tenantApi";
 import { Button } from "@/components/ui/button";
@@ -63,6 +63,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
   const [generatingAlipay, setGeneratingAlipay] = useState(false);
   const [alipayUrl, setAlipayUrl] = useState(null);
   const [uploadingProof, setUploadingProof] = useState(false);
+  const [confirmingDelivery, setConfirmingDelivery] = useState(false);
 
   const [tenantUserMap, setTenantUserMap] = useState({});
   const [allPoolsMap, setAllPoolsMap] = useState({}); // id -> pool_code for target pool display
@@ -168,6 +169,19 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
         msgSection.scrollIntoView({ behavior: "smooth" });
       }
     }, 100);
+  };
+
+  // User: confirm delivery
+  const handleConfirmDelivery = async () => {
+    setConfirmingDelivery(true);
+    const updatedPool = { ...pool, status: "delivered" };
+    await shippingPoolApi.update(pool.id, { status: "delivered" });
+    await Promise.all(
+      (pool.order_ids || []).map(id => updateOrder(id, { order_status: "delivered" }))
+    );
+    setPool(updatedPool);
+    setConfirmingDelivery(false);
+    onUpdated?.();
   };
 
   // Admin panel update callback
@@ -755,6 +769,50 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
             onPoolUpdated={handleAdminPoolUpdated} />
 
           }
+
+          {/* User: shipped panel — tracking + confirm delivery */}
+          {!isAdmin && pool.status === "shipped" && (
+            <div className="border border-green-200 rounded-xl overflow-hidden">
+              <div className="bg-green-50 px-4 py-2.5 border-b border-green-200 flex items-center gap-2">
+                <Truck className="w-4 h-4 text-green-600" />
+                <span className="text-sm font-medium text-green-700">包裹已发货</span>
+              </div>
+              <div className="p-4 space-y-3">
+                {pool.shipped_date && (
+                  <p className="text-xs text-gray-500">发货日期：{pool.shipped_date}</p>
+                )}
+                {pool.tracking_number ? (
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 space-y-2">
+                    <p className="text-xs text-gray-400">运单号</p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-mono text-base font-bold text-gray-800 select-all">{pool.tracking_number}</span>
+                      <button
+                        onClick={() => navigator.clipboard.writeText(pool.tracking_number)}
+                        className="text-xs text-blue-500 hover:text-blue-700 underline">
+                        复制
+                      </button>
+                    </div>
+                    <a
+                      href={`https://trackings.post.japanpost.jp/services/srv/search/direct?reqCodeNo1=${pool.tracking_number}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center gap-1.5 w-full px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors">
+                      <MapPin className="w-4 h-4" />查询物流状态（日本邮政）
+                    </a>
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-400">运单号待管理员填写</p>
+                )}
+                <Button
+                  className="w-full bg-emerald-600 hover:bg-emerald-700"
+                  onClick={handleConfirmDelivery}
+                  disabled={confirmingDelivery}>
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  {confirmingDelivery ? "确认中..." : "确认收货"}
+                </Button>
+              </div>
+            </div>
+          )}
 
           {/* User payment panel — shown when pool is awaiting_payment */}
           {!isAdmin && (pool.status === "awaiting_payment" || pool.status === "awaiting_payment_confirmation") &&
