@@ -186,7 +186,7 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
       <div className="flex gap-4 overflow-x-auto pb-4" style={{ minHeight: 400 }}>
         {/* Task Column - Pending Orders */}
         <div
-          key="pending" className="bg-gray-50 mx-3 px-1 rounded-xl flex-shrink-0 w-72 flex flex-col border-2 transition-all border-gray-200"
+          key="pending" className="bg-gray-50 px-5 opacity-90 rounded-[14px] flex-shrink-0 w-72 flex flex-col border-2 transition-all border-gray-200"
 
           onDragEnter={(e) => handleDragEnter(e, "pending")}
           onDragLeave={(e) => handleDragLeave(e, "pending")}
