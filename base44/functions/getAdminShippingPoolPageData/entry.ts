@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
     const filter = isPlatformAdmin ? {} : { tenant_id: tenantId };
 
     const t1 = Date.now();
-    const [pools, locations, allUsers, transitMethods, addonOptions, editRequests, boxTemplates, siteSettings, shippingMethods, orders] = await Promise.all([
+    const [pools, locations, allUsers, transitMethods, addonOptions, editRequests, boxTemplates, siteSettings, shippingMethods, orders, userPreferences] = await Promise.all([
       isPlatformAdmin
         ? base44.asServiceRole.entities.ShippingPool.list()
         : base44.asServiceRole.entities.ShippingPool.filter({ tenant_id: tenantId }),
@@ -76,17 +76,34 @@ Deno.serve(async (req) => {
       isPlatformAdmin
         ? base44.asServiceRole.entities.Order.list()
         : base44.asServiceRole.entities.Order.filter({ tenant_id: tenantId }),
+      base44.asServiceRole.entities.UserPreference.filter(filter),
     ]);
     console.log(`[TIMING] getAdminShippingPoolPageData | 8x parallel queries: ${Date.now() - t1}ms`);
     console.log(`[TIMING] getAdminShippingPoolPageData | TOTAL: ${Date.now() - t0}ms`);
 
-    // Shape users like listNonAdminUsers
+    // Build userPreference map (email -> { display_name, avatar_url })
+    const prefMap = {};
+    (userPreferences || []).forEach(p => {
+      if (p.user_email) {
+        prefMap[p.user_email] = {
+          display_name: p.display_name || null,
+          avatar_url: p.avatar_url || null,
+        };
+      }
+    });
+
+    // Shape users like listNonAdminUsers, include display_name from UserPreference
     const formattedUsers = (allUsers || [])
       .filter(u => u.email !== user.email || isPlatformAdmin)
-      .map(u => ({
-        id: u.id, email: u.email, full_name: u.full_name || '',
-        role: u.role || 'user', tenant_id: u.tenant_id || null,
-      }));
+      .map(u => {
+        const pref = prefMap[u.email] || {};
+        return {
+          id: u.id, email: u.email, full_name: u.full_name || '',
+          display_name: pref.display_name || null,
+          avatar_url: pref.avatar_url || null,
+          role: u.role || 'user', tenant_id: u.tenant_id || null,
+        };
+      });
 
     // Extract packing fee defaults from site settings
     const settingsMap = {};
