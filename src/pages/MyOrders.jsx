@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { Package, RefreshCw, Search, CreditCard, Truck, CheckCircle, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
+import { Package, RefreshCw, Search, CreditCard, Truck, CheckCircle, ChevronUp, ChevronDown, ChevronsUpDown, Send } from "lucide-react";
 import { ImageWithViewer } from "@/components/common/ImageViewer";
 import BulkPaymentModal from "@/components/orders/BulkPaymentModal";
 import { matchStoreTagResult } from "@/lib/onlineStoreTag";
@@ -16,6 +16,7 @@ import ColumnCustomizer from "@/components/orders/ColumnCustomizer";
 import PaymentModal from "@/components/orders/PaymentModal";
 import UserNotifyShipmentModal from "@/components/orders/UserNotifyShipmentModal";
 import ShippingEditModal from "@/components/shippingpool/ShippingEditModal";
+import ShippingPoolDetailModal from "@/components/shippingpool/ShippingPoolDetailModal";
 
 const STORAGE_KEY = "my_orders_columns";
 
@@ -193,6 +194,7 @@ export default function MyOrders() {
   const [bulkPaymentOrders, setBulkPaymentOrders] = useState(null); // multi-order bulk payment
   const [editShipOrder, setEditShipOrder] = useState(null); // order being edit-shipped
   const [editShipPool, setEditShipPool] = useState(null); // current pool of that order
+  const [viewPool, setViewPool] = useState(null); // pool detail modal for shipping_fee_pending
   const [shippingPools, setShippingPools] = useState([]); // cached pools for lookup
   const [selectedIds, setSelectedIds] = useState([]);
   const [columns, setColumns] = useState(loadColumns);
@@ -484,6 +486,16 @@ export default function MyOrders() {
                       </div>
                     );
                   })()}
+                  {order.order_status === "shipping_fee_pending" && (() => {
+                    const pool = shippingPools.find(p => (p.order_ids || []).includes(order.id));
+                    if (!pool) return null;
+                    return (
+                      <Button size="sm" variant="outline" className="h-7 text-xs px-2 text-orange-600 border-orange-200 hover:bg-orange-50"
+                        onClick={() => setViewPool(pool)}>
+                        <Send className="w-3 h-3 mr-1" />查看发货申请
+                      </Button>
+                    );
+                  })()}
                   {order.order_status === "shipped" && (
                     <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700"
                       onClick={() => handleConfirmDelivered(order)}>
@@ -565,6 +577,16 @@ export default function MyOrders() {
             setSelectedIds([]);
             fetchOrders(user);
           }}
+        />
+      )}
+
+      {viewPool && user && (
+        <ShippingPoolDetailModal
+          pool={viewPool}
+          isAdmin={false}
+          currentUser={user}
+          onClose={() => setViewPool(null)}
+          onUpdated={() => { setViewPool(null); fetchOrders(user); }}
         />
       )}
 
