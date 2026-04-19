@@ -825,24 +825,61 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                   </div> :
 
               <>
-                    {/* Fee breakdown for current user */}
-                    {(pool.fee_breakdown_per_user || []).length > 0 ?
-                <div>
-                        <p className="text-xs font-medium text-gray-500 mb-2">费用明细</p>
-                        <ShippingFeeBreakdown
-                    breakdowns={pool.fee_breakdown_per_user}
-                    isConsolidation={pool.consolidation_type === "transit" || pool.consolidation_type === "other"}
-                    currentUserEmail={currentUser?.email} />
-                  
-                      </div> :
+                    {/* Fee display for current user */}
+                    {(() => {
+                      // Check if this is a supplement (top-up) request
+                      const supplements = pool.supplement_amount_per_user || [];
+                      const mySupplement = supplements.length > 0
+                        ? supplements.find(s => s.user_email === currentUser?.email)
+                        : null;
 
-                <div className="bg-yellow-50 border border-yellow-100 rounded-lg px-3 py-2.5">
-                        <p className="text-sm font-medium text-yellow-800">
-                          运费：<span className="text-lg font-bold text-orange-600">¥{Math.round(pool.shipping_fee_jpy || 0).toLocaleString()}</span>
-                          <span className="text-xs text-yellow-600 ml-1">(JPY)</span>
-                        </p>
-                      </div>
-                }
+                      if (mySupplement) {
+                        // Show supplement amount only
+                        return (
+                          <div className="space-y-2">
+                            <div className="bg-orange-50 border border-orange-200 rounded-lg px-3 py-2.5">
+                              <p className="text-xs text-orange-600 font-medium mb-1">管理员已更新运费，需补交差额</p>
+                              <p className="text-sm font-medium text-orange-800">
+                                需补交：<span className="text-xl font-bold text-orange-600">¥{Math.round(mySupplement.supplement_jpy || 0).toLocaleString()}</span>
+                                <span className="text-xs text-orange-500 ml-1">(JPY)</span>
+                              </p>
+                            </div>
+                            {(pool.fee_breakdown_per_user || []).length > 0 && (
+                              <details className="text-xs">
+                                <summary className="text-gray-400 cursor-pointer hover:text-gray-600 py-1">查看完整费用明细</summary>
+                                <div className="mt-1">
+                                  <ShippingFeeBreakdown
+                                    breakdowns={pool.fee_breakdown_per_user}
+                                    isConsolidation={pool.consolidation_type === "transit" || pool.consolidation_type === "other"}
+                                    currentUserEmail={currentUser?.email} />
+                                </div>
+                              </details>
+                            )}
+                          </div>
+                        );
+                      }
+
+                      if ((pool.fee_breakdown_per_user || []).length > 0) {
+                        return (
+                          <div>
+                            <p className="text-xs font-medium text-gray-500 mb-2">费用明细</p>
+                            <ShippingFeeBreakdown
+                              breakdowns={pool.fee_breakdown_per_user}
+                              isConsolidation={pool.consolidation_type === "transit" || pool.consolidation_type === "other"}
+                              currentUserEmail={currentUser?.email} />
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="bg-yellow-50 border border-yellow-100 rounded-lg px-3 py-2.5">
+                          <p className="text-sm font-medium text-yellow-800">
+                            运费：<span className="text-lg font-bold text-orange-600">¥{Math.round(pool.shipping_fee_jpy || 0).toLocaleString()}</span>
+                            <span className="text-xs text-yellow-600 ml-1">(JPY)</span>
+                          </p>
+                        </div>
+                      );
+                    })()}
                     <div>
                       <Label className="text-xs text-gray-500 font-medium mb-2 block">选择支付方式</Label>
                       <div className="grid grid-cols-2 gap-2">
