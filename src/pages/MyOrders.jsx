@@ -486,13 +486,13 @@ export default function MyOrders() {
                       </div>
                     );
                   })()}
-                  {order.order_status === "shipping_fee_pending" && (() => {
+                  {(order.order_status === "shipping_fee_pending" || order.order_status === "notified_shipment_fee_pending") && (() => {
                     const pool = shippingPools.find(p => (p.order_ids || []).includes(order.id));
                     if (!pool) return null;
                     return (
-                      <Button size="sm" variant="outline" className="h-7 text-xs px-2 text-orange-600 border-orange-200 hover:bg-orange-50"
+                      <Button size="sm" className="h-7 text-xs bg-orange-600 hover:bg-orange-700"
                         onClick={() => setViewPool(pool)}>
-                        <Send className="w-3 h-3 mr-1" />查看发货申请
+                        <CreditCard className="w-3 h-3 mr-1" />去付运费
                       </Button>
                     );
                   })()}
