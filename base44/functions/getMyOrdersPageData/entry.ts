@@ -111,13 +111,25 @@ Deno.serve(async (req) => {
       u.email !== user.email && nonAdminRoles.includes(u.role)
     );
 
+    // Fetch UserPreferences for all tenant users to get avatar_url (stored in UserPreference, not User)
+    const allTenantEmails = (allTenantUsers || []).map(u => u.email).filter(Boolean);
+    let tenantUserPrefs = [];
+    if (allTenantEmails.length > 0) {
+      tenantUserPrefs = await base44.asServiceRole.entities.UserPreference.filter({ tenant_id: tenantId });
+    }
+    const prefsByEmail = {};
+    for (const p of tenantUserPrefs) {
+      if (p.user_email) prefsByEmail[p.user_email] = p;
+    }
+
     // Build email → { display_name, avatar_url } map for message thread rendering
     const userProfileMap = {};
     for (const u of (allTenantUsers || [])) {
       if (u.email) {
+        const pref = prefsByEmail[u.email] || {};
         userProfileMap[u.email] = {
           display_name: u.display_name || u.full_name || null,
-          avatar_url: u.avatar_url || null,
+          avatar_url: pref.avatar_url || u.avatar_url || null,
         };
       }
     }
