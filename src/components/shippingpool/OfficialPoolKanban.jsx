@@ -11,7 +11,7 @@ import { Package, GripVertical, Users, Loader2, Scale, ChevronRight, Edit2, Save
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { shippingPoolApi, updateOrder } from "@/lib/tenantApi";
-import CreateShippingPoolModal from "@/components/shippingpool/CreateShippingPoolModal";
+import CreateOfficialPoolModal from "@/components/shippingpool/CreateOfficialPoolModal";
 
 const STATUS_CONFIG = {
   pending: { label: "待处理", color: "bg-amber-100 text-amber-700" },
@@ -404,8 +404,7 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
         })}
       </div>
       {showCreatePool && (
-        <CreateShippingPoolModal
-          isAdmin={true}
+        <CreateOfficialPoolModal
           onClose={() => setShowCreatePool(false)}
           onSuccess={() => {
             setShowCreatePool(false);
