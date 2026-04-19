@@ -11,7 +11,7 @@ import { Package, GripVertical, Users, Loader2, Scale, ChevronRight, Edit2, Save
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { shippingPoolApi, updateOrder } from "@/lib/tenantApi";
-import CreateOfficialPoolModal from "@/components/shippingpool/CreateOfficialPoolModal";
+import CreateShippingPoolModal from "@/components/shippingpool/CreateShippingPoolModal";
 
 const STATUS_CONFIG = {
   pending: { label: "待处理", color: "bg-amber-100 text-amber-700" },
@@ -186,7 +186,22 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
         </div>
       }
       <div className="flex gap-4 overflow-x-auto pb-4" style={{ minHeight: 400 }}>
-        {/* Task Column - Pending Orders (always first) */}
+        {/* Create Pool Button Column */}
+        {isAdmin && (
+          <div
+            className="flex-shrink-0 w-72 flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all"
+            onClick={() => setShowCreatePool(true)}
+            style={{ minHeight: 400 }}
+          >
+            <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center mb-2">
+              <Plus className="w-6 h-6 text-blue-600" />
+            </div>
+            <p className="text-sm font-medium text-gray-600">创建官方拼邮</p>
+            <p className="text-xs text-gray-400 mt-1">点击添加新的拼邮需求</p>
+          </div>
+        )}
+
+        {/* Task Column - Pending Orders */}
         <div
           key="pending" className="bg-gray-50 px-5 opacity-90 rounded-none flex-shrink-0 w-72 flex flex-col border-2 transition-all border-gray-200"
 
@@ -387,24 +402,10 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
             </div>);
 
         })}
-
-        {/* Create Pool Button Column (always last, on the far right) */}
-        {isAdmin && (
-          <div
-            className="flex-shrink-0 w-72 flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all"
-            onClick={() => setShowCreatePool(true)}
-            style={{ minHeight: 400 }}
-          >
-            <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center mb-2">
-              <Plus className="w-6 h-6 text-blue-600" />
-            </div>
-            <p className="text-sm font-medium text-gray-600">创建官方拼邮</p>
-            <p className="text-xs text-gray-400 mt-1">点击添加新的拼邮需求</p>
-          </div>
-        )}
       </div>
       {showCreatePool && (
-        <CreateOfficialPoolModal
+        <CreateShippingPoolModal
+          isAdmin={true}
           onClose={() => setShowCreatePool(false)}
           onSuccess={() => {
             setShowCreatePool(false);
