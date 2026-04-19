@@ -268,6 +268,7 @@ export default function AdminShippingInfoPanel({
       status: "ready_to_ship",
       payment_status: "paid",
       admin_confirmed_payment: true,
+      supplement_amount_per_user: [], // clear supplement after payment confirmed
     };
     await shippingPoolApi.update(pool.id, payload);
     // Update all orders in this pool to notified_shipment_fee_paid
@@ -318,7 +319,7 @@ export default function AdminShippingInfoPanel({
     let msgContent = "";
 
     if (diff > 0) {
-      // User underpaid — require additional payment
+      // User underpaid — require additional payment (diff only)
       newStatus = "awaiting_payment";
       newPaymentStatus = "unpaid";
       msgContent = `管理员已更新运费，新合计金额为 ¥${newTotalJpy.toLocaleString()} JPY，比原付金额多 ¥${diff.toLocaleString()} JPY，请补交差额。`;
@@ -339,11 +340,21 @@ export default function AdminShippingInfoPanel({
     };
     const updatedMessages = [...(pool.messages || []), sysMsg];
     const updatedUnread = [...new Set([...(pool.unread_roles || []), "user"])];
+    // Build per-user supplement amounts so the payment function charges only the diff
+    const supplementAmountPerUser = diff > 0
+      ? feeBreakdowns.map(b => {
+          const prevB = (pool.fee_breakdown_per_user || []).find(pb => pb.user_email === b.user_email);
+          const prevTotal = prevB ? (prevB.total_jpy || 0) : 0;
+          return { user_email: b.user_email, supplement_jpy: Math.max(0, Math.round(b.total_jpy - prevTotal)) };
+        })
+      : [];
+
     const fullPayload = {
       ...payload,
       status: newStatus,
       payment_status: newPaymentStatus,
       admin_confirmed_payment: diff <= 0,
+      supplement_amount_per_user: supplementAmountPerUser,
       messages: updatedMessages,
       unread_roles: updatedUnread,
     };

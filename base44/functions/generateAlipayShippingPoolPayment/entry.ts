@@ -59,20 +59,27 @@ Deno.serve(async (req) => {
     if (!pool) return Response.json({ error: 'ShippingPool not found' }, { status: 404 });
     if (pool.tenant_id !== tenantId) return Response.json({ error: 'Forbidden' }, { status: 403 });
 
-    // Determine amount in JPY for this user
-    // Use fee_breakdown_per_user if available; otherwise use pool.shipping_fee_jpy
+    // Determine amount in JPY for this user.
+    // If supplement_amount_per_user is set (admin requested a top-up), charge only the diff.
+    // Otherwise charge the full fee from fee_breakdown_per_user (or shipping_fee_jpy fallback).
     let amountJpy = 0;
-    const breakdowns = pool.fee_breakdown_per_user || [];
-    if (breakdowns.length > 0) {
-      const myBreakdown = breakdowns.find(b => b.user_email === user.email);
-      if (myBreakdown) {
-        amountJpy = myBreakdown.total_jpy || 0;
+    const supplements = pool.supplement_amount_per_user || [];
+    if (supplements.length > 0) {
+      const mySupplement = supplements.find(s => s.user_email === user.email);
+      if (mySupplement) {
+        amountJpy = mySupplement.supplement_jpy || 0;
       } else {
-        // Single-user pool or admin-set fee
-        amountJpy = pool.shipping_fee_jpy || 0;
+        // supplement list exists but no entry for this user — nothing to pay
+        amountJpy = 0;
       }
     } else {
-      amountJpy = pool.shipping_fee_jpy || 0;
+      const breakdowns = pool.fee_breakdown_per_user || [];
+      if (breakdowns.length > 0) {
+        const myBreakdown = breakdowns.find(b => b.user_email === user.email);
+        amountJpy = myBreakdown ? (myBreakdown.total_jpy || 0) : (pool.shipping_fee_jpy || 0);
+      } else {
+        amountJpy = pool.shipping_fee_jpy || 0;
+      }
     }
 
     if (!amountJpy || amountJpy <= 0) {
