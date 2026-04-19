@@ -271,7 +271,6 @@ export default function AdminShippingPool() {
                   onArchive={!pool.is_archived && pool.status === "delivered" ? () => handleArchivePool(pool) : null}
                   onUnarchive={pool.is_archived ? () => handleUnarchivePool(pool) : null}
                   onDelete={pool.is_archived ? () => handleDeletePool(pool) : null}
-                  onDelete={pool.is_archived ? () => handleDeletePool(pool) : null}
                 />
               ))}
               </div>
