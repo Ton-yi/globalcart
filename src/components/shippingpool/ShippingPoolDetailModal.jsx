@@ -4,7 +4,7 @@
  * Admin can edit tracking number, actual fee.
  */
 import { useState, useEffect, useRef } from "react";
-import { X, Package, Send, Image, Edit2, Save, MoreVertical, ArrowRight, RotateCcw, Loader2, Search, Trash2, AlertCircle, CheckCircle, XCircle, CreditCard, ExternalLink, Upload, Truck, MapPin } from "lucide-react";
+import { X, Package, Send, Image, Edit2, Save, MoreVertical, ArrowRight, RotateCcw, Loader2, Search, Trash2, AlertCircle, CheckCircle, XCircle, CreditCard, ExternalLink, Upload } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { updateOrder, tenantEntity, shippingPoolApi } from "@/lib/tenantApi";
 import { Button } from "@/components/ui/button";
@@ -64,7 +64,6 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
   const [alipayUrl, setAlipayUrl] = useState(null);
   const [uploadingProof, setUploadingProof] = useState(false);
 
-  const [confirmingDelivery, setConfirmingDelivery] = useState(false);
   const [tenantUserMap, setTenantUserMap] = useState({});
   const [allPoolsMap, setAllPoolsMap] = useState({}); // id -> pool_code for target pool display
 
@@ -171,20 +170,6 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
     }, 100);
   };
 
-  // User: confirm delivery
-  const handleConfirmDelivery = async () => {
-    setConfirmingDelivery(true);
-    await Promise.all([
-      shippingPoolApi.update(pool.id, { status: "delivered" }),
-      ...(pool.order_ids || []).map(id =>
-        updateOrder(id, { order_status: "delivered" })
-      ),
-    ]);
-    setPool(p => ({ ...p, status: "delivered" }));
-    setConfirmingDelivery(false);
-    onUpdated?.();
-  };
-
   // Admin panel update callback
   const handleAdminPoolUpdated = (updatedPool) => {
     setPool(updatedPool);
@@ -202,16 +187,11 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
     setGeneratingAlipay(false);
     if (url) {
       window.open(url, "_blank");
-      await Promise.all([
-        shippingPoolApi.update(pool.id, {
-          payment_status: "awaiting_confirmation",
-          payment_method: "alipay",
-          status: "awaiting_payment_confirmation",
-        }),
-        ...(pool.order_ids || []).map(id =>
-          updateOrder(id, { order_status: "notified_shipment_fee_paid" })
-        ),
-      ]);
+      await shippingPoolApi.update(pool.id, {
+        payment_status: "awaiting_confirmation",
+        payment_method: "alipay",
+        status: "awaiting_payment_confirmation",
+      });
       setPool((p) => ({ ...p, payment_status: "awaiting_confirmation", payment_method: "alipay", status: "awaiting_payment_confirmation" }));
     }
   };
@@ -220,17 +200,12 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
   const handleUploadProof = async (file) => {
     setUploadingProof(true);
     const { file_url } = await base44.integrations.Core.UploadFile({ file });
-    await Promise.all([
-      shippingPoolApi.update(pool.id, {
-        payment_status: "awaiting_confirmation",
-        payment_method: paymentMethod,
-        payment_proof_url: file_url,
-        status: "awaiting_payment_confirmation",
-      }),
-      ...(pool.order_ids || []).map(id =>
-        updateOrder(id, { order_status: "notified_shipment_fee_paid" })
-      ),
-    ]);
+    await shippingPoolApi.update(pool.id, {
+      payment_status: "awaiting_confirmation",
+      payment_method: paymentMethod,
+      payment_proof_url: file_url,
+      status: "awaiting_payment_confirmation",
+    });
     setPool((p) => ({ ...p, payment_status: "awaiting_confirmation", payment_method: paymentMethod, payment_proof_url: file_url, status: "awaiting_payment_confirmation" }));
     setUploadingProof(false);
   };
@@ -391,21 +366,9 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <Badge className={`text-xs ${status.color}`}>{status.label}</Badge>
-              {pool.tracking_number && (
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-mono bg-blue-50 text-blue-700 px-2 py-0.5 rounded">{pool.tracking_number}</span>
-                  {(pool.status === "shipped" || pool.status === "delivered") && (
-                    <a
-                      href={`https://trackings.post.japanpost.jp/services/srv/search/direct?reqCodeNo1=${pool.tracking_number}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs bg-green-50 text-green-700 border border-green-200 px-2 py-0.5 rounded hover:bg-green-100 transition-colors"
-                      title="查询物流状态">
-                      <MapPin className="w-3 h-3" />物流查询
-                    </a>
-                  )}
-                </div>
-              )}
+              {pool.tracking_number &&
+              <span className="text-xs font-mono bg-blue-50 text-blue-700 px-2 py-0.5 rounded">{pool.tracking_number}</span>
+              }
               {(initialPool.unread_roles || []).includes(isAdmin ? "admin" : "user") &&
               <Badge className="text-xs bg-red-100 text-red-600 animate-pulse">有新留言</Badge>
               }
@@ -777,50 +740,6 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
               <p className="text-sm text-blue-800 whitespace-pre-wrap">{pool.admin_note}</p>
             </div>
           }
-
-          {/* User: shipped panel — tracking + confirm delivery */}
-          {!isAdmin && pool.status === "shipped" && (
-            <div className="border border-green-200 rounded-xl overflow-hidden">
-              <div className="bg-green-50 px-4 py-2.5 border-b border-green-200 flex items-center gap-2">
-                <Truck className="w-4 h-4 text-green-600" />
-                <span className="text-sm font-medium text-green-700">包裹已发货</span>
-              </div>
-              <div className="p-4 space-y-3">
-                {pool.shipped_date && (
-                  <p className="text-xs text-gray-500">发货日期：{pool.shipped_date}</p>
-                )}
-                {pool.tracking_number ? (
-                  <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 space-y-2">
-                    <p className="text-xs text-gray-400">运单号</p>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-mono text-base font-bold text-gray-800 select-all">{pool.tracking_number}</span>
-                      <button
-                        onClick={() => navigator.clipboard.writeText(pool.tracking_number)}
-                        className="text-xs text-blue-500 hover:text-blue-700 underline">
-                        复制
-                      </button>
-                    </div>
-                    <a
-                      href={`https://trackings.post.japanpost.jp/services/srv/search/direct?reqCodeNo1=${pool.tracking_number}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center justify-center gap-1.5 w-full px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors">
-                      <MapPin className="w-4 h-4" />查询物流状态（日本邮政）
-                    </a>
-                  </div>
-                ) : (
-                  <p className="text-xs text-gray-400">运单号待管理员填写</p>
-                )}
-                <Button
-                  className="w-full bg-emerald-600 hover:bg-emerald-700"
-                  onClick={handleConfirmDelivery}
-                  disabled={confirmingDelivery}>
-                  <CheckCircle className="w-4 h-4 mr-2" />
-                  {confirmingDelivery ? "确认中..." : "确认收货"}
-                </Button>
-              </div>
-            </div>
-          )}
 
           {/* Admin panel — step-based (extracted component) */}
           {isAdmin &&
