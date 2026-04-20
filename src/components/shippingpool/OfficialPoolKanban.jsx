@@ -37,34 +37,10 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
   const [showCreateOfficialPool, setShowCreateOfficialPool] = useState(false);
   const [sortedPools, setSortedPools] = useState(pools);
 
-  // Load saved pool order on mount
+  // Sync sortedPools when pools prop changes (already pre-sorted by backend)
   useEffect(() => {
-    if (!isAdmin || !pools.length) return;
-    
-    const loadPoolOrder = async () => {
-      try {
-        const settings = await tenantEntity.list('SiteSettings', { key: 'official_pool_order' });
-        if (settings.length > 0 && settings[0].value) {
-          const savedOrder = JSON.parse(settings[0].value);
-          // Reorder pools based on saved order
-          const poolMap = {};
-          pools.forEach(p => { poolMap[p.id] = p; });
-          const reordered = savedOrder.map(id => poolMap[id]).filter(Boolean);
-          // Add any pools not in saved order (newly created)
-          pools.forEach(p => {
-            if (!savedOrder.includes(p.id)) reordered.push(p);
-          });
-          setSortedPools(reordered);
-          return;
-        }
-      } catch (e) {
-        console.error('Failed to load pool order:', e);
-      }
-      setSortedPools(pools);
-    };
-
-    loadPoolOrder();
-  }, [pools, isAdmin]);
+    setSortedPools(pools);
+  }, [pools]);
 
   // Build a map: orderId -> order data
   const orderMap = {};

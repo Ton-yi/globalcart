@@ -113,8 +113,24 @@ Deno.serve(async (req) => {
     const defaultPackingFeeSingle = parseFloat(settingsMap['default_packing_fee_single'] || '0') || 0;
     const defaultPackingFeeConsolidation = parseFloat(settingsMap['default_packing_fee_consolidation'] || '0') || 0;
 
+    // Apply saved official pool order if present
+    const officialPoolOrderSetting = (siteSettings || []).find(s => s.key === 'official_pool_order');
+    let sortedPools = pools || [];
+    if (officialPoolOrderSetting?.value) {
+      try {
+        const savedOrder = JSON.parse(officialPoolOrderSetting.value);
+        const poolMap = {};
+        sortedPools.forEach(p => { poolMap[p.id] = p; });
+        const reordered = savedOrder.map(id => poolMap[id]).filter(Boolean);
+        sortedPools.forEach(p => { if (!savedOrder.includes(p.id)) reordered.push(p); });
+        sortedPools = reordered;
+      } catch (e) {
+        console.error('Failed to apply pool order:', e);
+      }
+    }
+
     return Response.json({
-      pools: pools || [],
+      pools: sortedPools,
       locations: locations || [],
       users: formattedUsers,
       transitMethods: (transitMethods || []).filter(m => m.is_active !== false),
