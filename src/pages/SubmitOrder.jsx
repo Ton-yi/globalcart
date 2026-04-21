@@ -190,7 +190,7 @@ export default function SubmitOrder() {
     if (isDeferred || isCredit) {
       navigate(createPageUrl("MyOrders"));
     } else {
-      navigate(createPageUrl(`Payment?order_id=${order.id}&method=${paymentMethod}`));
+      navigate(`/Payment?order_id=${order.id}&method=${paymentMethod || "other"}`);
     }
   };
 
