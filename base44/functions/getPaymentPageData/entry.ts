@@ -1,4 +1,17 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+
+// Simple exchange rate fetch (JPY base)
+async function fetchRates() {
+  try {
+    const res = await fetch('https://v6.exchangerate-api.com/v6/89e2f91c758d92aa2c06667b/latest/JPY');
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data?.result === 'success' && data?.conversion_rates) {
+      return data.conversion_rates; // e.g. { CNY: 0.046, USD: 0.0065, ... }
+    }
+  } catch (_) {}
+  return null;
+}
 
 Deno.serve(async (req) => {
   console.log('[DIAG][getPaymentPageData] === REQUEST START ===');
@@ -57,8 +70,12 @@ Deno.serve(async (req) => {
 
     // Sort payment methods by sort_order
     const sortedMethods = (paymentMethods || []).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+
+    // Fetch exchange rates for currency conversion display
+    const rates = await fetchRates();
+
     console.log('[DIAG][getPaymentPageData] SUCCESS returning order:', order.id);
-    return Response.json({ order, settings, paymentMethods: sortedMethods });
+    return Response.json({ order, settings, paymentMethods: sortedMethods, rates });
 
   } catch (error) {
     console.error('[DIAG][getPaymentPageData] ERROR:', error.message, error.stack);

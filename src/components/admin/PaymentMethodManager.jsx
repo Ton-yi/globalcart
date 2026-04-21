@@ -53,9 +53,11 @@ const SUPPORTED_PROVIDERS = [
   },
 ];
 
+const CURRENCIES = ["JPY", "CNY", "USD", "TWD", "HKD", "EUR", "SGD"];
+
 const EMPTY_FORM = {
   name: "", description: "", icon: "", color: "bg-gray-100 text-gray-700",
-  image_url: "", payment_note: "", provider_key: "",
+  image_url: "", payment_note: "", provider_key: "", payment_currency: "JPY",
 };
 
 export default function PaymentMethodManager({ onReload }) {
@@ -129,6 +131,7 @@ export default function PaymentMethodManager({ onReload }) {
     setEditForm({
       name: m.name, description: m.description || '', icon: m.icon || '',
       color: m.color || '', image_url: m.image_url || '', payment_note: m.payment_note || '',
+      payment_currency: m.payment_currency || 'JPY',
     });
   };
 
@@ -194,6 +197,13 @@ export default function PaymentMethodManager({ onReload }) {
                       </label>
                     </div>
                   </div>
+                  <div>
+                    <Label className="text-xs text-gray-500">支付货币</Label>
+                    <select className="mt-0.5 h-8 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                      value={editForm.payment_currency || 'JPY'} onChange={e => setEditForm(f => ({ ...f, payment_currency: e.target.value }))}>
+                      {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
                   <div className="col-span-2">
                     <Label className="text-xs text-gray-500">说明</Label>
                     <Input className="mt-0.5 h-8 text-sm" value={editForm.description} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))} />
@@ -226,6 +236,9 @@ export default function PaymentMethodManager({ onReload }) {
                   </div>
                   {m.description && <p className="text-xs text-gray-400 mt-0.5 truncate">{m.description}</p>}
                   {m.payment_note && <p className="text-xs text-blue-500 mt-0.5 truncate">说明：{m.payment_note}</p>}
+                  {m.payment_currency && m.payment_currency !== 'JPY' && (
+                    <Badge className="text-[10px] bg-orange-50 text-orange-600 border-orange-100 mt-0.5">付款币种：{m.payment_currency}</Badge>
+                  )}
                 </div>
                 {m.image_url && (
                   <img src={m.image_url} alt="" className="h-8 w-8 rounded object-cover border border-gray-100 flex-shrink-0" />
@@ -357,6 +370,14 @@ export default function PaymentMethodManager({ onReload }) {
                 </label>
               </div>
               {uploading && <p className="text-xs text-blue-500 mt-0.5">上传中...</p>}
+            </div>
+            <div>
+              <Label className="text-xs text-gray-500">支付货币</Label>
+              <select className="mt-0.5 h-8 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                value={form.payment_currency || 'JPY'} onChange={e => setForm(f => ({ ...f, payment_currency: e.target.value }))}>
+                {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <p className="text-xs text-gray-400 mt-0.5">付款页将按汇率换算此货币的应付金额</p>
             </div>
             <div className="col-span-2">
               <Label className="text-xs text-gray-500">支付方式说明</Label>

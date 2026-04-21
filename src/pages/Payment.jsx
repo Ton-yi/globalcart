@@ -19,6 +19,7 @@ export default function Payment() {
   const [order, setOrder] = useState(null);
   const [settings, setSettings] = useState({});
   const [paymentMethods, setPaymentMethods] = useState([]);
+  const [rates, setRates] = useState(null);
   const [proofFile, setProofFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -35,6 +36,7 @@ export default function Payment() {
         setOrder(data.order);
         setSettings(data.settings || {});
         setPaymentMethods(data.paymentMethods || []);
+        setRates(data.rates || null);
         setLoading(false);
       });
   }, [orderId]);
@@ -76,8 +78,8 @@ export default function Payment() {
 
   if (loading) return <div className="text-center py-20 text-gray-400">加载中...</div>;
 
-  const cur = "JPY";
-  const amount = order?.prepayment_amount?.toFixed(0) || "0";
+  const amountJpy = order?.prepayment_amount || 0;
+  const amountJpyDisplay = Math.round(amountJpy).toLocaleString();
 
   // Find the configured payment method for current selection
   const activeMethod = paymentMethods.find(m => (m.provider_key || m.name) === method);
@@ -85,8 +87,20 @@ export default function Payment() {
   const alipayAccount = settings["alipay_account"] || "";
   const alipayName = settings["alipay_account_name"] || "";
   const alipayQr = activeMethod?.image_url || settings["alipay_qr_url"] || "";
-  const alipayNote = activeMethod?.payment_note || settings["alipay_payment_note"] || "请在备注中填写订单号";
   const methodLabel = activeMethod?.name || method;
+
+  // Currency conversion
+  const payCurrency = activeMethod?.payment_currency || "JPY";
+  const isJpy = payCurrency === "JPY";
+  let convertedAmount = null;
+  let convertedDisplay = null;
+  if (!isJpy && rates && rates[payCurrency]) {
+    const converted = amountJpy * rates[payCurrency];
+    // Round to 2 decimals for most currencies, 0 for TWD/HKD
+    const decimals = ["TWD", "HKD", "CNY"].includes(payCurrency) ? 1 : 2;
+    convertedAmount = converted.toFixed(decimals);
+    convertedDisplay = `${payCurrency} ${parseFloat(convertedAmount).toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
+  }
 
   return (
     <div className="max-w-lg mx-auto space-y-5">
@@ -106,8 +120,11 @@ export default function Payment() {
               <div className="text-xs text-gray-400 mt-0.5">订单号：{order.order_number}</div>
             </div>
             <div className="text-right">
-              <div className="text-xs text-gray-400">预付款金额</div>
-              <div className="text-2xl font-bold text-red-600">{amount} yen</div>
+              <div className="text-xs text-gray-400">预付款金额（JPY）</div>
+              <div className="text-2xl font-bold text-red-600">¥{amountJpyDisplay}</div>
+              {convertedDisplay && (
+                <div className="text-sm font-semibold text-orange-600 mt-0.5">≈ {convertedDisplay}</div>
+              )}
             </div>
           </div>
         </CardContent>
@@ -163,9 +180,17 @@ export default function Payment() {
               </div>
             )}
 
-            <div className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-3 border border-gray-200">
-              <span className="text-sm text-gray-700">付款金额</span>
-              <span className="text-lg font-bold text-red-600">{amount} yen</span>
+            <div className="bg-gray-50 rounded-lg px-4 py-3 border border-gray-200 space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-700">付款金额（JPY）</span>
+                <span className="text-lg font-bold text-red-600">¥{amountJpyDisplay}</span>
+              </div>
+              {convertedDisplay && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-orange-600">实付金额（{payCurrency}）</span>
+                  <span className="text-lg font-bold text-orange-600">{convertedDisplay}</span>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -194,9 +219,17 @@ export default function Payment() {
             ) : (
               <p className="text-sm text-gray-400 text-center">请联系客服获取付款信息</p>
             )}
-            <div className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-3 border border-gray-200">
-              <span className="text-sm text-gray-700">付款金额</span>
-              <span className="text-lg font-bold text-red-600">{amount} yen</span>
+            <div className="bg-gray-50 rounded-lg px-4 py-3 border border-gray-200 space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-700">付款金额（JPY）</span>
+                <span className="text-lg font-bold text-red-600">¥{amountJpyDisplay}</span>
+              </div>
+              {convertedDisplay && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-orange-600">实付金额（{payCurrency}）</span>
+                  <span className="text-lg font-bold text-orange-600">{convertedDisplay}</span>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
