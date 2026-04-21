@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-const CYCLE_LABELS = { weekly: "周结（每周一结算）", monthly: "月结（每月1日结算）" };
+const CYCLE_LABELS = { weekly: "周结（记账日起7天结算）", monthly: "月结（每月1日结算）" };
 
 export default function CreditPanel({ creditApplicationEnabled }) {
   const [credit, setCredit] = useState(null);
@@ -254,7 +254,7 @@ export default function CreditPanel({ creditApplicationEnabled }) {
               <Select value={applyForm.requested_cycle} onValueChange={v => af("requested_cycle", v)}>
                 <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="weekly">周结（每周一结算）</SelectItem>
+                  <SelectItem value="weekly">周结（记账日起7天结算）</SelectItem>
                   <SelectItem value="monthly">月结（每月1日结算）</SelectItem>
                 </SelectContent>
               </Select>

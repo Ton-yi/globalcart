@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
-const CYCLE_LABELS = { weekly: "周结", monthly: "月结" };
+const CYCLE_LABELS = { weekly: "周结（7天）", monthly: "月结（月初）" };
 const STATUS_LABELS = {
   pending: { label: "待审核", color: "bg-amber-100 text-amber-700" },
   approved: { label: "已通过", color: "bg-green-100 text-green-700" },

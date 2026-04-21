@@ -115,11 +115,9 @@ Deno.serve(async (req) => {
           const now = new Date();
           let nextDue;
           if (cycle === 'weekly') {
-            // Next Monday
-            const day = now.getDay();
-            const daysUntilMonday = day === 0 ? 1 : 8 - day;
+            // 7 days from approval date
             nextDue = new Date(now);
-            nextDue.setDate(now.getDate() + daysUntilMonday);
+            nextDue.setDate(now.getDate() + 7);
           } else {
             // First of next month
             nextDue = new Date(now.getFullYear(), now.getMonth() + 1, 1);
@@ -195,15 +193,14 @@ Deno.serve(async (req) => {
           updateData.credit_start_date = now.toISOString().slice(0, 10);
           const cycle = credit_cycle || targetUsers[0].credit_cycle;
           if (cycle) {
-            let nextDue;
-            if (cycle === 'weekly') {
-              const day = now.getDay();
-              const daysUntilMonday = day === 0 ? 1 : 8 - day;
-              nextDue = new Date(now);
-              nextDue.setDate(now.getDate() + daysUntilMonday);
-            } else {
-              nextDue = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-            }
+          let nextDue;
+          if (cycle === 'weekly') {
+            // 7 days from activation date
+            nextDue = new Date(now);
+            nextDue.setDate(now.getDate() + 7);
+          } else {
+            nextDue = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+          }
             updateData.credit_next_due_date = nextDue.toISOString().slice(0, 10);
           }
           updateData.credit_balance_jpy = 0;
