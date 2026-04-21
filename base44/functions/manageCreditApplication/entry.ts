@@ -216,19 +216,28 @@ Deno.serve(async (req) => {
     if (action === 'admin_update_user_credit') {
       if (!isAdmin) return Response.json({ error: 'Forbidden' }, { status: 403 });
 
-      const { target_user_id, member_tier_id, member_tier_name, credit_enabled, credit_limit_jpy, credit_cycle } = body;
-      if (!target_user_id) return Response.json({ error: 'target_user_id required' }, { status: 400 });
+      const { target_user_id, target_user_email, member_tier_id, member_tier_name, credit_enabled, credit_limit_jpy, credit_cycle, credit_balance_jpy } = body;
+      if (!target_user_id && !target_user_email) return Response.json({ error: 'target_user_id or target_user_email required' }, { status: 400 });
 
+      // Resolve user by email if id not provided
+      if (!target_user_id && target_user_email) {
+        const found = await base44.asServiceRole.entities.User.filter({ email: target_user_email });
+        if (!found || found.length === 0) return Response.json({ error: 'User not found' }, { status: 404 });
+        body.target_user_id = found[0].id;
+      }
+
+      const resolvedUserId = body.target_user_id || target_user_id;
       const updateData = {};
       if (member_tier_id !== undefined) updateData.member_tier_id = member_tier_id;
       if (member_tier_name !== undefined) updateData.member_tier_name = member_tier_name;
       if (credit_enabled !== undefined) updateData.credit_enabled = credit_enabled;
       if (credit_limit_jpy !== undefined) updateData.credit_limit_jpy = parseFloat(credit_limit_jpy) || 0;
       if (credit_cycle !== undefined) updateData.credit_cycle = credit_cycle;
+      if (credit_balance_jpy !== undefined) updateData.credit_balance_jpy = parseFloat(credit_balance_jpy) || 0;
 
       // If enabling credit for the first time, set start date
       if (credit_enabled === true) {
-        const targetUsers = await base44.asServiceRole.entities.User.filter({ id: target_user_id });
+        const targetUsers = await base44.asServiceRole.entities.User.filter({ id: resolvedUserId });
         if (targetUsers && targetUsers.length > 0 && !targetUsers[0].credit_enabled) {
           const now = new Date();
           updateData.credit_start_date = now.toISOString().slice(0, 10);
@@ -248,7 +257,7 @@ Deno.serve(async (req) => {
         }
       }
 
-      await base44.asServiceRole.entities.User.update(target_user_id, updateData);
+      await base44.asServiceRole.entities.User.update(resolvedUserId, updateData);
       return Response.json({ success: true });
     }
 

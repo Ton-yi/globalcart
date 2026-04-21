@@ -21,15 +21,20 @@ const STATUS_LABELS = {
 
 export default function CreditApplicationManager({ compact = false }) {
   const [applications, setApplications] = useState([]);
+  const [memberTiers, setMemberTiers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(!compact);
   const [reviewing, setReviewing] = useState(null); // application_id being reviewed
-  const [reviewData, setReviewData] = useState({ admin_note: "", override_limit_jpy: "", override_cycle: "" });
+  const [reviewData, setReviewData] = useState({ admin_note: "", override_limit_jpy: "", override_cycle: "", member_tier_id: "" });
 
   const load = async () => {
     setLoading(true);
-    const r = await base44.functions.invoke('manageCreditApplication', { action: 'list' });
-    setApplications(r.data?.applications || []);
+    const [appsRes, tiersRes] = await Promise.all([
+      base44.functions.invoke('manageCreditApplication', { action: 'list' }),
+      base44.functions.invoke('mutateTenantEntity', { action: 'list', entity: 'MemberTier', filter: { is_active: true } }).catch(() => ({ data: { records: [] } })),
+    ]);
+    setApplications(appsRes.data?.applications || []);
+    setMemberTiers(tiersRes.data?.records || []);
     setLoading(false);
   };
 
@@ -47,8 +52,18 @@ export default function CreditApplicationManager({ compact = false }) {
       override_limit_jpy: reviewData.override_limit_jpy || undefined,
       override_cycle: reviewData.override_cycle || undefined,
     });
+    // If assigning a member tier, update via admin_update_user_credit
+    if (decision === 'approved' && reviewData.member_tier_id) {
+      const tier = memberTiers.find(t => t.id === reviewData.member_tier_id);
+      await base44.functions.invoke('manageCreditApplication', {
+        action: 'admin_update_user_credit',
+        target_user_email: app.user_email,
+        member_tier_id: reviewData.member_tier_id,
+        member_tier_name: tier?.name || "",
+      });
+    }
     setReviewing(null);
-    setReviewData({ admin_note: "", override_limit_jpy: "", override_cycle: "" });
+    setReviewData({ admin_note: "", override_limit_jpy: "", override_cycle: "", member_tier_id: "" });
     await load();
   };
 
@@ -122,6 +137,20 @@ export default function CreditApplicationManager({ compact = false }) {
                         </Select>
                       </div>
                     </div>
+                    {memberTiers.length > 0 && (
+                      <div>
+                        <Label className="text-xs text-gray-500">同时设定会员阶级（可选）</Label>
+                        <Select value={reviewData.member_tier_id || "__none__"} onValueChange={v => setReviewData(d => ({ ...d, member_tier_id: v === "__none__" ? "" : v }))}>
+                          <SelectTrigger className="mt-1 h-7 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">不设定</SelectItem>
+                            {memberTiers.map(t => (
+                              <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                     <div>
                       <Label className="text-xs text-gray-500">审核备注（可选）</Label>
                       <Textarea rows={1} className="mt-1 text-xs" placeholder="备注原因..."
