@@ -6,7 +6,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { timePage } from "@/lib/timing";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { ShoppingBag, Calculator, Info, Upload, Plus, X, ChevronsUpDown, HelpCircle, CreditCard } from "lucide-react";
+import { ShoppingBag, Calculator, Info, Upload, Plus, X, ChevronsUpDown, HelpCircle, CreditCard, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -40,6 +40,7 @@ export default function SubmitOrder() {
   const [paymentMethod, setPaymentMethod] = useState("alipay");
   const [paymentMode, setPaymentMode] = useState("prepay"); // "prepay" | "deferred" | "credit_weekly" | "credit_monthly"
   const [userCredit, setUserCredit] = useState(null); // user's credit status
+  const [creditDowngradeMsg, setCreditDowngradeMsg] = useState(null); // shown after submit if credit downgraded
 
   useEffect(() => {
     const t = timePage('SubmitOrder');
@@ -170,6 +171,16 @@ export default function SubmitOrder() {
       selected_addons: selectedAddonObjects.map(a => ({ id: a.id, name: a.name, fee: parseFloat(a.fee) || 0, fee_currency: a.fee_currency || "JPY" })),
     });
     const order = res.data?.order;
+
+    // Backend downgraded credit order to deferred due to insufficient limit
+    if (res.data?.credit_downgraded) {
+      setCreditDowngradeMsg(res.data.credit_downgrade_reason);
+      setSubmitting(false);
+      // Show the alert then redirect after a brief delay so user sees it
+      setTimeout(() => navigate(createPageUrl("MyOrders")), 4000);
+      return;
+    }
+
     if (isDeferred || isCredit) {
       navigate(createPageUrl("MyOrders"));
     } else {
@@ -183,6 +194,17 @@ export default function SubmitOrder() {
         <h1 className="text-xl font-bold text-gray-900">提交购买需求</h1>
         <p className="text-sm text-gray-500 mt-1">填写您想购买的日本商品信息，我们将为您代购</p>
       </div>
+
+      {/* Credit downgrade warning — shown after submit when credit limit exceeded */}
+      {creditDowngradeMsg && (
+        <Alert className="border-orange-300 bg-orange-50">
+          <AlertTriangle className="w-4 h-4 text-orange-600" />
+          <AlertDescription className="text-orange-800 text-sm font-medium">
+            {creditDowngradeMsg}
+            <p className="text-xs mt-1 font-normal text-orange-700">正在跳转到订单列表，请前往付款页完成支付…</p>
+          </AlertDescription>
+        </Alert>
+      )}
 
       <Alert className="border-blue-200 bg-blue-50">
          <Info className="w-4 h-4 text-blue-600" />
@@ -497,12 +519,23 @@ export default function SubmitOrder() {
 
             {/* Credit balance info */}
             {(paymentMode === "credit_weekly" || paymentMode === "credit_monthly") && userCredit && (
-              <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2.5 text-xs text-blue-700 space-y-1">
+              <div className={`border rounded-lg px-3 py-2.5 text-xs space-y-1 ${
+                calculated && calculated.totalJpy > Math.max(0, (userCredit.credit_limit_jpy || 0) - (userCredit.credit_balance_jpy || 0))
+                  ? "bg-orange-50 border-orange-200 text-orange-800"
+                  : "bg-blue-50 border-blue-100 text-blue-700"
+              }`}>
                 <p>当前欠款：<span className="font-bold">¥{(userCredit.credit_balance_jpy || 0).toLocaleString()}</span></p>
                 <p>欠款上限：¥{(userCredit.credit_limit_jpy || 0).toLocaleString()}</p>
+                <p>剩余可用额度：<span className="font-bold">¥{Math.max(0, (userCredit.credit_limit_jpy || 0) - (userCredit.credit_balance_jpy || 0)).toLocaleString()}</span></p>
                 {userCredit.credit_next_due_date && <p>下次结帐日：{userCredit.credit_next_due_date}</p>}
                 {calculated && (
                   <p className="font-medium">本次将记账：¥{calculated.totalJpy.toLocaleString()} JPY（全额）</p>
+                )}
+                {calculated && calculated.totalJpy > Math.max(0, (userCredit.credit_limit_jpy || 0) - (userCredit.credit_balance_jpy || 0)) && (
+                  <p className="font-semibold flex items-center gap-1">
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    额度不足，提交后将自动改为后付款方式
+                  </p>
                 )}
               </div>
             )}
