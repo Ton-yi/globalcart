@@ -160,8 +160,15 @@ Deno.serve(async (req) => {
             nextDue = new Date(now);
             nextDue.setDate(now.getDate() + 7);
           } else {
-            // First of next month
-            nextDue = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+            // 5 days before end of current month (i.e. last day - 4)
+            const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+            const dueDay = lastDayOfMonth - 4;
+            nextDue = new Date(now.getFullYear(), now.getMonth(), dueDay);
+            // If we've already passed this month's due date, move to next month
+            if (nextDue <= now) {
+              const lastDayOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 2, 0).getDate();
+              nextDue = new Date(now.getFullYear(), now.getMonth() + 1, lastDayOfNextMonth - 4);
+            }
           }
 
           const updateData = {
@@ -243,14 +250,21 @@ Deno.serve(async (req) => {
           updateData.credit_start_date = now.toISOString().slice(0, 10);
           const cycle = credit_cycle || targetUsers[0].credit_cycle;
           if (cycle) {
-          let nextDue;
-          if (cycle === 'weekly') {
-            // 7 days from activation date
-            nextDue = new Date(now);
-            nextDue.setDate(now.getDate() + 7);
-          } else {
-            nextDue = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-          }
+            let nextDue;
+            if (cycle === 'weekly') {
+              // 7 days from activation date
+              nextDue = new Date(now);
+              nextDue.setDate(now.getDate() + 7);
+            } else {
+              // 5 days before end of current month
+              const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+              const dueDay = lastDayOfMonth - 4;
+              nextDue = new Date(now.getFullYear(), now.getMonth(), dueDay);
+              if (nextDue <= now) {
+                const lastDayOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 2, 0).getDate();
+                nextDue = new Date(now.getFullYear(), now.getMonth() + 1, lastDayOfNextMonth - 4);
+              }
+            }
             updateData.credit_next_due_date = nextDue.toISOString().slice(0, 10);
           }
           updateData.credit_balance_jpy = 0;

@@ -170,7 +170,7 @@ function EditUserModal({ user: targetUser, currentUser, memberTiers, onClose, on
                     <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="weekly">周结（每周一）</SelectItem>
-                      <SelectItem value="monthly">月结（每月1日）</SelectItem>
+                      <SelectItem value="monthly">月结（每月结束前5天）</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

@@ -276,7 +276,7 @@ export default function CreditPanel({ creditApplicationEnabled, refreshKey }) {
                     <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="weekly">周结（记账日起7天结算）</SelectItem>
-                      <SelectItem value="monthly">月结（每月1日结算）</SelectItem>
+                      <SelectItem value="monthly">月结（每月结束前5天结算）</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
