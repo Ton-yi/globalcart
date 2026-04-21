@@ -22,6 +22,7 @@ import BoxTemplateManager from "@/components/admin/BoxTemplateManager";
 import AddonManager from "@/components/admin/AddonManager";
 import MemberTierManager from "@/components/admin/MemberTierManager";
 import CreditApplicationManager from "@/components/admin/CreditApplicationManager";
+import PaymentMethodManager from "@/components/admin/PaymentMethodManager";
 
 const DEFAULT_SETTINGS = [
   { key: "service_fee_rate", value: "10", description: "服务费率 (%)", category: "fee" },
@@ -50,6 +51,7 @@ const CAT_COLORS = { fee: "bg-yellow-100 text-yellow-700", payment: "bg-green-10
 
 const TABS = [
   { key: "general", label: "基本设置" },
+  { key: "payment_methods", label: "支付方式" },
   { key: "member_tiers", label: "会员阶级" },
   { key: "shipping_methods", label: "运输方式" },
   { key: "transit_methods", label: "中转运输方式" },
@@ -85,6 +87,7 @@ export default function AdminSettings() {
   const [storeTagRules, setStoreTagRules] = useState(null);
   const [boxTemplates, setBoxTemplates] = useState(null);
   const [memberTiers, setMemberTiers] = useState([]);
+  const [paymentMethods, setPaymentMethods] = useState([]);
 
   const [tenants, setTenants] = useState([]);
   const [tenantsLoading, setTenantsLoading] = useState(false);
@@ -129,6 +132,7 @@ export default function AdminSettings() {
       setStoreTagRules(data.storeTagRules || []);
       setBoxTemplates(data.boxTemplates || []);
       setMemberTiers(data.memberTiers || []);
+      setPaymentMethods(data.paymentMethods || []);
       if (data.rates) setLiveRates(data.rates);
 
       // Populate the shared config cache so Layout's fetchTenantConfig() is a cache-hit
@@ -349,6 +353,18 @@ export default function AdminSettings() {
           </button>
         ))}
       </div>
+
+      {activeTab === "payment_methods" && (
+        <Card className="border-gray-200">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold text-gray-700">支付方式管理</CardTitle>
+            <p className="text-xs text-gray-400 mt-1">管理可供用户使用的支付方式。已支援的方式（如支付宝）需在环境变量中配置对应密钥方可启用自动回调。</p>
+          </CardHeader>
+          <CardContent>
+            <PaymentMethodManager initialData={paymentMethods} onReload={load} />
+          </CardContent>
+        </Card>
+      )}
 
       {activeTab === "member_tiers" && (
         <div className="space-y-4">
