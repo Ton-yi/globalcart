@@ -67,11 +67,7 @@ export default function CreditPanel({ creditApplicationEnabled }) {
 
   const handlePayCredit = async () => {
     setPayingCredit(true);
-    // Generate alipay link for credit balance payment
-    const r = await base44.functions.invoke('generateAlipayShippingPoolPayment', {
-      creditPayment: true,
-      amount_jpy: credit?.credit_balance_jpy || 0,
-    });
+    const r = await base44.functions.invoke('generateAlipayCreditPayment', {});
     const url = r.data?.paymentUrl;
     if (url) window.open(url, '_blank');
     setPayingCredit(false);
