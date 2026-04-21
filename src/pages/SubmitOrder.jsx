@@ -464,34 +464,34 @@ export default function SubmitOrder() {
                 <div className="text-xs mt-0.5 opacity-70">提交后等待客服确认报价</div>
               </button>
 
-              {/* Credit payment options — only shown to users with credit enabled */}
-              {userCredit?.credit_enabled && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMode("credit_weekly")}
-                    className={`p-3 rounded-lg border-2 text-sm font-medium transition-all text-left ${
-                      paymentMode === "credit_weekly" ? "border-blue-500 bg-blue-50 text-blue-700" : "border-gray-200 text-gray-500 hover:border-gray-300"
-                    }`}
-                  >
-                    <div className="font-semibold flex items-center gap-1">
-                      <CreditCard className="w-3.5 h-3.5" />记账周结
-                    </div>
-                    <div className="text-xs mt-0.5 opacity-70">每周一结清欠款</div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMode("credit_monthly")}
-                    className={`p-3 rounded-lg border-2 text-sm font-medium transition-all text-left ${
-                      paymentMode === "credit_monthly" ? "border-blue-500 bg-blue-50 text-blue-700" : "border-gray-200 text-gray-500 hover:border-gray-300"
-                    }`}
-                  >
-                    <div className="font-semibold flex items-center gap-1">
-                      <CreditCard className="w-3.5 h-3.5" />记账月结
-                    </div>
-                    <div className="text-xs mt-0.5 opacity-70">每月1日结清欠款</div>
-                  </button>
-                </>
+              {/* Credit payment options — only shown to users with credit enabled, restricted to their assigned cycle */}
+              {userCredit?.credit_enabled && userCredit?.credit_cycle === 'weekly' && (
+                <button
+                  type="button"
+                  onClick={() => setPaymentMode("credit_weekly")}
+                  className={`p-3 rounded-lg border-2 text-sm font-medium transition-all text-left ${
+                    paymentMode === "credit_weekly" ? "border-blue-500 bg-blue-50 text-blue-700" : "border-gray-200 text-gray-500 hover:border-gray-300"
+                  }`}
+                >
+                  <div className="font-semibold flex items-center gap-1">
+                    <CreditCard className="w-3.5 h-3.5" />记账周结
+                  </div>
+                  <div className="text-xs mt-0.5 opacity-70">记账日起7天结清</div>
+                </button>
+              )}
+              {userCredit?.credit_enabled && userCredit?.credit_cycle === 'monthly' && (
+                <button
+                  type="button"
+                  onClick={() => setPaymentMode("credit_monthly")}
+                  className={`p-3 rounded-lg border-2 text-sm font-medium transition-all text-left ${
+                    paymentMode === "credit_monthly" ? "border-blue-500 bg-blue-50 text-blue-700" : "border-gray-200 text-gray-500 hover:border-gray-300"
+                  }`}
+                >
+                  <div className="font-semibold flex items-center gap-1">
+                    <CreditCard className="w-3.5 h-3.5" />记账月结
+                  </div>
+                  <div className="text-xs mt-0.5 opacity-70">每月1日结清欠款</div>
+                </button>
               )}
             </div>
 
