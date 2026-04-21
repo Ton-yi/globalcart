@@ -34,7 +34,7 @@ export default function CreditApplicationManager({ compact = false }) {
       base44.functions.invoke('mutateTenantEntity', { action: 'list', entity: 'MemberTier', filter: { is_active: true } }).catch(() => ({ data: { records: [] } })),
     ]);
     setApplications(appsRes.data?.applications || []);
-    setMemberTiers(tiersRes.data?.records || []);
+    setMemberTiers(tiersRes.data?.results || tiersRes.data?.records || []);
     setLoading(false);
   };
 
