@@ -68,6 +68,19 @@
     "credit_next_due_date": {
       "type": "string",
       "description": "\u4e0b\u6b21\u7ed3\u5e10\u65e5\u671f\uff08ISO\u65e5\u671f\uff09"
+    },
+    "credit_pending_trade_no": {
+      "type": "string",
+      "description": "\u5f85\u786e\u8ba4\u7684\u652f\u4ed8\u5b9d\u8fd8\u6b3e\u5355\u53f7\uff08\u56de\u8c03\u540e\u6e05\u9664\uff09"
+    },
+    "credit_last_payment_date": {
+      "type": "string",
+      "description": "\u6700\u540e\u4e00\u6b21\u8fd8\u6b3e\u65e5\u671f\uff08ISO\u65e5\u671f\uff09"
+    },
+    "credit_last_payment_amount": {
+      "type": "number",
+      "description": "\u6700\u540e\u4e00\u6b21\u8fd8\u6b3e\u91d1\u989d\uff08JPY\uff09",
+      "default": 0
     }
   },
   "required": [

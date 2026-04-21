@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { tenantEntity, userPrefApi } from "@/lib/tenantApi";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -46,6 +46,20 @@ export default function UserPreferences() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [creditApplicationEnabled, setCreditApplicationEnabled] = useState(false);
+  const [creditRefreshKey, setCreditRefreshKey] = useState(0);
+
+  // Detect return from Alipay credit payment and trigger CreditPanel refresh
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('credit_paid') === '1') {
+      // Remove the param from URL without reload
+      const url = new URL(window.location.href);
+      url.searchParams.delete('credit_paid');
+      window.history.replaceState({}, '', url.toString());
+      // Wait a moment for the async callback to process, then refresh
+      setTimeout(() => setCreditRefreshKey(k => k + 1), 2000);
+    }
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -466,7 +480,7 @@ export default function UserPreferences() {
       </Card>
 
       {/* 记账结算 */}
-      <CreditPanel creditApplicationEnabled={creditApplicationEnabled} />
+      <CreditPanel creditApplicationEnabled={creditApplicationEnabled} refreshKey={creditRefreshKey} />
 
       <Button className="w-full bg-red-600 hover:bg-red-700" onClick={handleSave} disabled={saving}>
         <Save className="w-4 h-4 mr-2" />

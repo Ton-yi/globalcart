@@ -87,7 +87,7 @@ Deno.serve(async (req) => {
     const notify_url = appDomain
       ? `${appDomain}/functions/handleAlipayPaymentCallback`
       : `https://api.base44.com/api/apps/${appId_env}/functions/handleAlipayPaymentCallback`;
-    const return_url = appDomain ? `${appDomain}/UserPreferences` : `https://${appId_env}.base44.app/UserPreferences`;
+    const return_url = appDomain ? `${appDomain}/UserPreferences?credit_paid=1` : `https://${appId_env}.base44.app/UserPreferences?credit_paid=1`;
 
     const bizContent = JSON.stringify({
       out_trade_no,
@@ -117,6 +117,11 @@ Deno.serve(async (req) => {
       .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
       .join('&');
     const paymentUrl = `${gatewayUrl}?${query}`;
+
+    // Store out_trade_no on user record so callback can match it
+    await base44.asServiceRole.entities.User.update(userRecord.id, {
+      credit_pending_trade_no: out_trade_no,
+    });
 
     return Response.json({ paymentUrl, out_trade_no });
 

@@ -125,6 +125,27 @@ Deno.serve(async (req) => {
       return new Response('success', { status: 200 });
     }
 
+    // 3a. Check if this is a credit repayment (out_trade_no starts with 'CR')
+    if (out_trade_no && out_trade_no.startsWith('CR')) {
+      console.log('[DIAG][handleAlipayPaymentCallback] detected credit repayment trade_no:', out_trade_no);
+      // Find user with this pending trade no
+      const allUsers = await base44.asServiceRole.entities.User.list('-created_date', 1000);
+      const matchedUser = (allUsers || []).find(u => u.credit_pending_trade_no === out_trade_no);
+      if (matchedUser) {
+        console.log('[DIAG][handleAlipayPaymentCallback] matched credit user:', matchedUser.email, 'clearing balance:', matchedUser.credit_balance_jpy);
+        await base44.asServiceRole.entities.User.update(matchedUser.id, {
+          credit_balance_jpy: 0,
+          credit_pending_trade_no: null,
+          credit_last_payment_date: new Date().toISOString().slice(0, 10),
+          credit_last_payment_amount: matchedUser.credit_balance_jpy || 0,
+        });
+        console.log('[DIAG][handleAlipayPaymentCallback] credit balance cleared for user:', matchedUser.email);
+      } else {
+        console.error('[DIAG][handleAlipayPaymentCallback] no user matched credit_pending_trade_no:', out_trade_no);
+      }
+      return new Response('success', { status: 200 });
+    }
+
     // 3. Find matching orders — list all and filter manually (SDK filter() unreliable for custom fields)
     console.log('[DIAG][handleAlipayPaymentCallback] fetching all orders to match out_trade_no:', out_trade_no);
     const allOrders = await base44.asServiceRole.entities.Order.list('-created_date', 500);

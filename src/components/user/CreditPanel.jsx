@@ -16,7 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const CYCLE_LABELS = { weekly: "周结（记账日起7天结算）", monthly: "月结（每月1日结算）" };
 
-export default function CreditPanel({ creditApplicationEnabled }) {
+export default function CreditPanel({ creditApplicationEnabled, refreshKey }) {
   const [credit, setCredit] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showApplyForm, setShowApplyForm] = useState(false);
@@ -41,7 +41,7 @@ export default function CreditPanel({ creditApplicationEnabled }) {
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [refreshKey]);
 
   const af = (k, v) => setApplyForm(p => ({ ...p, [k]: v }));
 
