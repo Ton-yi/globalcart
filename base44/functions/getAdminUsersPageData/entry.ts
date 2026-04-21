@@ -70,8 +70,15 @@ Deno.serve(async (req) => {
       .map(u => ({
         id: u.id, email: u.email, full_name: u.full_name || '',
         role: u.role || 'user', tenant_id: u.tenant_id || null,
-        is_active: u.is_active !== false, // default true
+        is_active: u.is_active !== false,
         created_date: u.created_date,
+        // Credit & tier fields
+        credit_enabled: u.credit_enabled || false,
+        credit_limit_jpy: u.credit_limit_jpy || 0,
+        credit_cycle: u.credit_cycle || null,
+        credit_balance_jpy: u.credit_balance_jpy || 0,
+        member_tier_id: u.member_tier_id || null,
+        member_tier_name: u.member_tier_name || null,
       }));
 
     // Tenant map: id -> { id, name, code }
