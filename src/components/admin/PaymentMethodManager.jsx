@@ -58,13 +58,15 @@ const EMPTY_FORM = {
   image_url: "", payment_note: "", provider_key: "",
 };
 
-export default function PaymentMethodManager({ initialData = [], onReload }) {
-  const [methods, setMethods] = useState(initialData);
+export default function PaymentMethodManager({ onReload }) {
+  const [methods, setMethods] = useState([]);
+  const [loadingMethods, setLoadingMethods] = useState(true);
 
-  // Sync when initialData changes (parent page reloads)
+  // Always self-load on mount to get accurate data
   useEffect(() => {
-    setMethods(initialData);
-  }, [initialData]);
+    reload();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [showAddPanel, setShowAddPanel] = useState(false);
   const [addMode, setAddMode] = useState(null); // "supported" | "custom"
   const [selectedProvider, setSelectedProvider] = useState(null);
@@ -76,8 +78,10 @@ export default function PaymentMethodManager({ initialData = [], onReload }) {
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
   const reload = async () => {
+    setLoadingMethods(true);
     const r = await base44.functions.invoke('managePaymentMethod', { action: 'list' });
     setMethods(r.data?.methods || []);
+    setLoadingMethods(false);
     onReload?.();
   };
 
@@ -153,9 +157,11 @@ export default function PaymentMethodManager({ initialData = [], onReload }) {
   return (
     <div className="space-y-4">
       {/* Existing methods list */}
-      {methods.length === 0 && !showAddPanel && (
+      {loadingMethods ? (
+        <p className="text-xs text-gray-400 text-center py-4">加载中...</p>
+      ) : methods.length === 0 && !showAddPanel ? (
         <p className="text-xs text-gray-400 text-center py-4">暂无支付方式，点击下方添加。</p>
-      )}
+      ) : null}
 
       <div className="space-y-2">
         {methods.map(m => (

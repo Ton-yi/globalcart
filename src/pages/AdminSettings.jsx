@@ -361,7 +361,7 @@ export default function AdminSettings() {
             <p className="text-xs text-gray-400 mt-1">管理可供用户使用的支付方式。已支援的方式（如支付宝）需在环境变量中配置对应密钥方可启用自动回调。</p>
           </CardHeader>
           <CardContent>
-            <PaymentMethodManager initialData={paymentMethods} onReload={load} />
+            <PaymentMethodManager onReload={load} />
           </CardContent>
         </Card>
       )}
