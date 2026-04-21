@@ -46,11 +46,12 @@ export default function CreditPanel({ creditApplicationEnabled }) {
   const af = (k, v) => setApplyForm(p => ({ ...p, [k]: v }));
 
   const handleSubmitApply = async () => {
-    if (!applyForm.requested_cycle || !applyForm.requested_limit_jpy) return;
+    if (applyForm.application_type !== 'disable' && (!applyForm.requested_cycle || !applyForm.requested_limit_jpy)) return;
     setSubmitting(true);
     setSubmitMsg(null);
+    const action = applyForm.application_type === 'disable' ? 'disable' : 'apply';
     const r = await base44.functions.invoke('manageCreditApplication', {
-      action: 'apply',
+      action,
       ...applyForm,
       requested_limit_jpy: parseFloat(applyForm.requested_limit_jpy) || 0,
     });
@@ -212,6 +213,14 @@ export default function CreditPanel({ creditApplicationEnabled }) {
               onClick={() => { setApplyForm(p => ({ ...p, application_type: 'adjust' })); setShowApplyForm(true); }}>
               申请调整记账额度/周期
             </Button>
+
+            {/* Disable credit button — only if no pending app and balance is 0 */}
+            {!hasPending && balance === 0 && (
+              <Button size="sm" variant="outline" className="w-full text-xs text-red-500 border-red-200 hover:bg-red-50"
+                onClick={() => { setApplyForm(p => ({ ...p, application_type: 'disable' })); setShowApplyForm(true); }}>
+                申请关闭记账功能
+              </Button>
+            )}
           </div>
         )}
 
@@ -245,36 +254,48 @@ export default function CreditPanel({ creditApplicationEnabled }) {
 
         {/* Application form */}
         {showApplyForm && (
-          <div className="border border-blue-200 rounded-xl p-4 bg-blue-50/30 space-y-3">
+          <div className={`border rounded-xl p-4 space-y-3 ${applyForm.application_type === 'disable' ? 'border-red-200 bg-red-50/30' : 'border-blue-200 bg-blue-50/30'}`}>
             <div className="flex items-center justify-between">
               <h4 className="text-sm font-semibold text-gray-800">
-                {applyForm.application_type === 'apply' ? '申请开启记账' : '申请调整记账'}
+                {applyForm.application_type === 'apply' ? '申请开启记账' :
+                 applyForm.application_type === 'adjust' ? '申请调整记账' : '申请关闭记账'}
               </h4>
               <button onClick={() => { setShowApplyForm(false); setSubmitMsg(null); }}>
                 <span className="text-gray-400 text-xs">取消</span>
               </button>
             </div>
 
-            <div>
-              <Label className="text-xs text-gray-500">申请结帐周期 *</Label>
-              <Select value={applyForm.requested_cycle} onValueChange={v => af("requested_cycle", v)}>
-                <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="weekly">周结（记账日起7天结算）</SelectItem>
-                  <SelectItem value="monthly">月结（每月1日结算）</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {applyForm.application_type === 'disable' && (
+              <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-xs text-red-700">
+                <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                关闭后将无法使用记账付款，如需重新开启须重新申请。
+              </div>
+            )}
+
+            {applyForm.application_type !== 'disable' && (
+              <>
+                <div>
+                  <Label className="text-xs text-gray-500">申请结帐周期 *</Label>
+                  <Select value={applyForm.requested_cycle} onValueChange={v => af("requested_cycle", v)}>
+                    <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="weekly">周结（记账日起7天结算）</SelectItem>
+                      <SelectItem value="monthly">月结（每月1日结算）</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label className="text-xs text-gray-500">申请欠款上限（JPY）*</Label>
+                  <Input type="number" className="mt-1 h-8 text-sm" placeholder="如：50000"
+                    value={applyForm.requested_limit_jpy} onChange={e => af("requested_limit_jpy", e.target.value)} />
+                </div>
+              </>
+            )}
 
             <div>
-              <Label className="text-xs text-gray-500">申请欠款上限（JPY）*</Label>
-              <Input type="number" className="mt-1 h-8 text-sm" placeholder="如：50000"
-                value={applyForm.requested_limit_jpy} onChange={e => af("requested_limit_jpy", e.target.value)} />
-            </div>
-
-            <div>
-              <Label className="text-xs text-gray-500">申请理由</Label>
-              <Textarea rows={2} className="mt-1 text-sm" placeholder="简述申请原因（可选）..."
+              <Label className="text-xs text-gray-500">{applyForm.application_type === 'disable' ? '关闭原因（可选）' : '申请理由'}</Label>
+              <Textarea rows={2} className="mt-1 text-sm" placeholder="简述原因（可选）..."
                 value={applyForm.reason} onChange={e => af("reason", e.target.value)} />
             </div>
 
@@ -284,9 +305,10 @@ export default function CreditPanel({ creditApplicationEnabled }) {
               </p>
             )}
 
-            <Button size="sm" className="w-full bg-blue-600 hover:bg-blue-700"
+            <Button size="sm"
+              className={`w-full ${applyForm.application_type === 'disable' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}
               onClick={handleSubmitApply}
-              disabled={submitting || !applyForm.requested_cycle || !applyForm.requested_limit_jpy}>
+              disabled={submitting || (applyForm.application_type !== 'disable' && (!applyForm.requested_cycle || !applyForm.requested_limit_jpy))}>
               {submitting ? "提交中..." : "提交申请"}
             </Button>
           </div>

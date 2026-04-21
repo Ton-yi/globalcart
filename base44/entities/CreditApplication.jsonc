@@ -18,9 +18,10 @@
       "type": "string",
       "enum": [
         "apply",
-        "adjust"
+        "adjust",
+        "disable"
       ],
-      "description": "\u7533\u8bf7\u7c7b\u578b\uff1aapply=\u9996\u6b21\u7533\u8bf7\u8bb0\u8d26\uff0cadjust=\u7533\u8bf7\u8c03\u6574\u989d\u5ea6/\u5468\u671f"
+      "description": "\u7533\u8bf7\u7c7b\u578b\uff1aapply=\u9996\u6b21\u7533\u8bf7\u8bb0\u8d26\uff0cadjust=\u7533\u8bf7\u8c03\u6574\u989d\u5ea6/\u5468\u671f\uff0cdisable=\u7533\u8bf7\u5173\u95ed\u8bb0\u8d26"
     },
     "requested_cycle": {
       "type": "string",
@@ -28,7 +29,7 @@
         "weekly",
         "monthly"
       ],
-      "description": "\u7533\u8bf7\u7684\u7ed3\u5e10\u5468\u671f"
+      "description": "\u7533\u8bf7\u7684\u7ed3\u5e10\u5468\u671f\uff08disable\u7c7b\u578b\u53ef\u4e3a\u7a7a\uff09"
     },
     "requested_limit_jpy": {
       "type": "number",

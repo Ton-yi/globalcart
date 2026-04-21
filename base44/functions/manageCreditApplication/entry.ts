@@ -39,6 +39,36 @@ Deno.serve(async (req) => {
 
     const isAdmin = user.role === 'admin' || user.role === 'tenant_admin' || user.role === 'platform_admin';
 
+    // === USER: apply to disable credit ===
+    if (action === 'disable') {
+      // Must currently have credit enabled
+      if (!userRecord.credit_enabled) {
+        return Response.json({ error: '您的记账功能未开启，无需申请关闭' }, { status: 400 });
+      }
+      // Check for existing pending application
+      const existing = await base44.asServiceRole.entities.CreditApplication.filter({
+        user_email: user.email,
+        status: 'pending'
+      });
+      if (existing.length > 0) {
+        return Response.json({ error: '您已有待审核的申请，请等待管理员处理后再提交新申请' }, { status: 400 });
+      }
+      const { reason } = body;
+      // Block if user still has outstanding balance
+      if ((userRecord.credit_balance_jpy || 0) > 0) {
+        return Response.json({ error: `您当前仍有欠款 ¥${userRecord.credit_balance_jpy} JPY，请结清后再申请关闭记账` }, { status: 400 });
+      }
+      const application = await base44.asServiceRole.entities.CreditApplication.create({
+        tenant_id: tenantId,
+        user_email: user.email,
+        user_name: user.full_name || user.email,
+        application_type: 'disable',
+        reason: reason || '',
+        status: 'pending',
+      });
+      return Response.json({ application });
+    }
+
     // === USER: submit application ===
     if (action === 'apply') {
       const { application_type, requested_cycle, requested_limit_jpy, reason } = body;
@@ -108,6 +138,17 @@ Deno.serve(async (req) => {
         const targetUsers = await base44.asServiceRole.entities.User.filter({ email: app.user_email });
         if (targetUsers && targetUsers.length > 0) {
           const targetUser = targetUsers[0];
+
+          // Handle disable application — turn off credit
+          if (app.application_type === 'disable') {
+            await base44.asServiceRole.entities.User.update(targetUser.id, {
+              credit_enabled: false,
+              credit_start_date: null,
+              credit_next_due_date: null,
+            });
+            return Response.json({ success: true });
+          }
+
           const cycle = override_cycle || app.requested_cycle;
           const limitJpy = parseFloat(override_limit_jpy) || parseFloat(app.requested_limit_jpy) || 0;
 

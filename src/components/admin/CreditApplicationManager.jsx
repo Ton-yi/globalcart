@@ -86,8 +86,8 @@ export default function CreditApplicationManager({ compact = false }) {
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-sm font-medium text-gray-800">{app.user_name || app.user_email}</span>
                         <Badge className={`text-xs ${STATUS_LABELS[app.status]?.color}`}>{STATUS_LABELS[app.status]?.label}</Badge>
-                        <Badge className="text-xs bg-blue-100 text-blue-700">
-                          {app.application_type === 'apply' ? '首次申请记账' : '申请调整额度'}
+                        <Badge className={`text-xs ${app.application_type === 'disable' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
+                          {app.application_type === 'apply' ? '首次申请记账' : app.application_type === 'adjust' ? '申请调整额度' : '申请关闭记账'}
                         </Badge>
                       </div>
                       <p className="text-xs text-gray-400 mt-0.5">{app.user_email}</p>
@@ -155,7 +155,7 @@ export default function CreditApplicationManager({ compact = false }) {
                     <Badge className={`text-[10px] ${STATUS_LABELS[app.status]?.color}`}>{STATUS_LABELS[app.status]?.label}</Badge>
                     <span>{app.user_name || app.user_email}</span>
                     <span className="text-gray-300">·</span>
-                    <span>{app.application_type === 'apply' ? '首次申请' : '调整申请'}</span>
+                    <span>{app.application_type === 'apply' ? '首次申请' : app.application_type === 'adjust' ? '调整申请' : '关闭申请'}</span>
                     <span className="text-gray-300">·</span>
                     <span>{CYCLE_LABELS[app.requested_cycle]}</span>
                     <span className="text-gray-300">·</span>
