@@ -6,7 +6,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { timePage } from "@/lib/timing";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { ShoppingBag, Calculator, Info, Upload, Plus, X, ChevronsUpDown, HelpCircle } from "lucide-react";
+import { ShoppingBag, Calculator, Info, Upload, Plus, X, ChevronsUpDown, HelpCircle, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -38,20 +38,24 @@ export default function SubmitOrder() {
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("alipay");
-  const [paymentMode, setPaymentMode] = useState("prepay"); // "prepay" | "deferred"
+  const [paymentMode, setPaymentMode] = useState("prepay"); // "prepay" | "deferred" | "credit_weekly" | "credit_monthly"
+  const [userCredit, setUserCredit] = useState(null); // user's credit status
 
   useEffect(() => {
     const t = timePage('SubmitOrder');
-    t.timeCall('getSubmitOrderPageData', () => base44.functions.invoke('getSubmitOrderPageData', {}))
-      .then(r => {
-        const data = r.data || {};
-        setAddonOptions(data.addons || []);
-        setRates(data.rates || null);
-        const parsed = {};
-        Object.entries(data.settings || {}).forEach(([k, v]) => { parsed[k] = parseFloat(v) || 0; });
-        setSettings(parsed);
-        t.done('data ready');
-      }).catch(() => {});
+    Promise.all([
+      t.timeCall('getSubmitOrderPageData', () => base44.functions.invoke('getSubmitOrderPageData', {})),
+      base44.functions.invoke('manageCreditApplication', { action: 'get_user_credit' }),
+    ]).then(([r, creditR]) => {
+      const data = r.data || {};
+      setAddonOptions(data.addons || []);
+      setRates(data.rates || null);
+      const parsed = {};
+      Object.entries(data.settings || {}).forEach(([k, v]) => { parsed[k] = parseFloat(v) || 0; });
+      setSettings(parsed);
+      setUserCredit(creditR.data || null);
+      t.done('data ready');
+    }).catch(() => {});
   }, []);
 
   // Convert addon fee to JPY (all calculations in JPY)
@@ -140,6 +144,7 @@ export default function SubmitOrder() {
     const urlsText = urlMode === "textarea"
       ? (productUrls[0] || "").split("\n").map(s => s.trim()).filter(Boolean).join("\n")
       : productUrls.filter(u => u.trim()).join("\n");
+    const isCredit = paymentMode === "credit_weekly" || paymentMode === "credit_monthly";
     const isDeferred = paymentMode === "deferred";
     const tagResult = await detectPrimaryStoreTagResult(urlsText);
     // createTenantOrder auto-assigns tenant_id from session
@@ -156,15 +161,16 @@ export default function SubmitOrder() {
       prepayment_currency: "JPY",
       online_store_tag: tagResult.tag_label,
       online_store_tag_color: tagResult.tag_color,
-      payment_mode: isDeferred ? "deferred" : "prepay",
-      order_status: isDeferred ? "pending_confirmation" : "payment_pending",
-      payment_status: isDeferred ? "pending" : "awaiting_payment",
+      payment_mode: isCredit ? "credit" : isDeferred ? "deferred" : "prepay",
+      credit_cycle: isCredit ? (paymentMode === "credit_weekly" ? "weekly" : "monthly") : null,
+      order_status: (isDeferred || isCredit) ? "paid" : "payment_pending",
+      payment_status: (isDeferred || isCredit) ? "paid" : "awaiting_payment",
       user_note: form.user_note || "",
       selected_addon_ids: selectedAddons,
       selected_addons: selectedAddonObjects.map(a => ({ id: a.id, name: a.name, fee: parseFloat(a.fee) || 0, fee_currency: a.fee_currency || "JPY" })),
     });
     const order = res.data?.order;
-    if (isDeferred) {
+    if (isDeferred || isCredit) {
       navigate(createPageUrl("MyOrders"));
     } else {
       navigate(createPageUrl(`Payment?order_id=${order.id}&method=${paymentMethod}`));
@@ -457,7 +463,49 @@ export default function SubmitOrder() {
                 <div className="font-semibold">后付款</div>
                 <div className="text-xs mt-0.5 opacity-70">提交后等待客服确认报价</div>
               </button>
+
+              {/* Credit payment options — only shown to users with credit enabled */}
+              {userCredit?.credit_enabled && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMode("credit_weekly")}
+                    className={`p-3 rounded-lg border-2 text-sm font-medium transition-all text-left ${
+                      paymentMode === "credit_weekly" ? "border-blue-500 bg-blue-50 text-blue-700" : "border-gray-200 text-gray-500 hover:border-gray-300"
+                    }`}
+                  >
+                    <div className="font-semibold flex items-center gap-1">
+                      <CreditCard className="w-3.5 h-3.5" />记账周结
+                    </div>
+                    <div className="text-xs mt-0.5 opacity-70">每周一结清欠款</div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMode("credit_monthly")}
+                    className={`p-3 rounded-lg border-2 text-sm font-medium transition-all text-left ${
+                      paymentMode === "credit_monthly" ? "border-blue-500 bg-blue-50 text-blue-700" : "border-gray-200 text-gray-500 hover:border-gray-300"
+                    }`}
+                  >
+                    <div className="font-semibold flex items-center gap-1">
+                      <CreditCard className="w-3.5 h-3.5" />记账月结
+                    </div>
+                    <div className="text-xs mt-0.5 opacity-70">每月1日结清欠款</div>
+                  </button>
+                </>
+              )}
             </div>
+
+            {/* Credit balance info */}
+            {(paymentMode === "credit_weekly" || paymentMode === "credit_monthly") && userCredit && (
+              <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2.5 text-xs text-blue-700 space-y-1">
+                <p>当前欠款：<span className="font-bold">¥{(userCredit.credit_balance_jpy || 0).toLocaleString()}</span></p>
+                <p>欠款上限：¥{(userCredit.credit_limit_jpy || 0).toLocaleString()}</p>
+                {userCredit.credit_next_due_date && <p>下次结帐日：{userCredit.credit_next_due_date}</p>}
+                {calculated && (
+                  <p className="font-medium">本次将记账：¥{calculated.totalJpy.toLocaleString()} JPY（全额）</p>
+                )}
+              </div>
+            )}
 
             {paymentMode === "prepay" && (
               <div className="grid grid-cols-3 gap-2">
@@ -486,7 +534,9 @@ export default function SubmitOrder() {
 
         <Button type="submit" disabled={submitting || !form.product_name} className="w-full bg-red-600 hover:bg-red-700">
           <ShoppingBag className="w-4 h-4 mr-2" />
-          {submitting ? "提交中..." : paymentMode === "deferred" ? "提交需求（后付款）" : "提交并前往付款"}
+          {submitting ? "提交中..." :
+            (paymentMode === "credit_weekly" || paymentMode === "credit_monthly") ? "提交需求（记账）" :
+            paymentMode === "deferred" ? "提交需求（后付款）" : "提交并前往付款"}
         </Button>
       </form>
     </div>

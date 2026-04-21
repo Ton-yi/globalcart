@@ -1,0 +1,50 @@
+{
+  "name": "MemberTier",
+  "type": "object",
+  "properties": {
+    "tenant_id": {
+      "type": "string",
+      "description": "\u6240\u5c5e\u79df\u6237ID"
+    },
+    "name": {
+      "type": "string",
+      "description": "\u4f1a\u5458\u9636\u7ea7\u540d\u79f0\uff08\u5982\uff1a\u5468\u7ed3\u4f1a\u5458\u3001\u6708\u7ed3\u4f1a\u5458\uff09"
+    },
+    "color": {
+      "type": "string",
+      "description": "\u663e\u793a\u989c\u8272\uff08Tailwind class\uff0c\u5982 bg-blue-100 text-blue-700\uff09",
+      "default": "bg-gray-100 text-gray-700"
+    },
+    "credit_enabled": {
+      "type": "boolean",
+      "default": false,
+      "description": "\u662f\u5426\u5f00\u542f\u8bb0\u8d26\u529f\u80fd"
+    },
+    "default_credit_limit_jpy": {
+      "type": "number",
+      "description": "\u9ed8\u8ba4\u6b20\u6b3e\u4e0a\u9650\u91d1\u989d\uff08JPY\uff09",
+      "default": 0
+    },
+    "credit_cycle": {
+      "type": "string",
+      "enum": [
+        "weekly",
+        "monthly"
+      ],
+      "description": "\u6b20\u6b3e\u7ed3\u5e10\u5468\u671f\uff1aweekly=\u5468\u7ed3\uff0cmonthly=\u6708\u7ed3"
+    },
+    "credit_overdue_limit_days": {
+      "type": "number",
+      "description": "\u6b20\u6b3e\u7ed3\u5e10\u903e\u671f\u4e0a\u9650\uff08\u5929\uff09",
+      "default": 7
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "\u662f\u5426\u542f\u7528"
+    }
+  },
+  "required": [
+    "name"
+  ]
+}

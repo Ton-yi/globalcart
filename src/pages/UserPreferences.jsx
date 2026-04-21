@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { User, Save, Camera, Plus, Trash2, MapPin, Edit2, Check, Star, Palette, Archive } from "lucide-react";
 import AvatarCropModal from "@/components/common/AvatarCropModal";
 import ThemeSelector from "@/components/common/ThemeSelector";
+import CreditPanel from "@/components/user/CreditPanel";
 import { getCountry } from "@/lib/countries";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -44,6 +45,7 @@ export default function UserPreferences() {
   const [addrForm, setAddrForm] = useState({ label: "", ...EMPTY_ADDRESS_FORM });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [creditApplicationEnabled, setCreditApplicationEnabled] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -52,7 +54,11 @@ export default function UserPreferences() {
     Promise.all([
       userPrefApi.list({ user_email: user.email }),
       tenantEntity.list('TransitShippingMethod', { is_active: true }),
-    ]).then(([prefs, tMethods]) => {
+      tenantEntity.list('SiteSettings', { key: 'credit_application_enabled' }).catch(() => []),
+    ]).then(([prefs, tMethods, creditSettings]) => {
+      if (creditSettings && creditSettings.length > 0) {
+        setCreditApplicationEnabled(creditSettings[0].value === 'true');
+      }
       if (prefs.length > 0) {
         // Use the most recently updated record as the primary pref record
         const sorted = [...prefs].sort((a, b) => new Date(b.updated_date || 0) - new Date(a.updated_date || 0));
@@ -81,7 +87,7 @@ export default function UserPreferences() {
       }
       setTransitMethods(tMethods || []);
     }).catch(() => {});
-  }, [user?.email]);
+  }, [user?.email]);  // eslint-disable-line
 
   const handleAvatarFileSelect = (e) => {
     const file = e.target.files[0];
@@ -458,6 +464,9 @@ export default function UserPreferences() {
           </div>
         </CardContent>
       </Card>
+
+      {/* 记账结算 */}
+      <CreditPanel creditApplicationEnabled={creditApplicationEnabled} />
 
       <Button className="w-full bg-red-600 hover:bg-red-700" onClick={handleSave} disabled={saving}>
         <Save className="w-4 h-4 mr-2" />

@@ -20,6 +20,8 @@ import TransitShippingMethodManager from "@/components/admin/TransitShippingMeth
 import ItemSizeTemplateManager from "@/components/admin/ItemSizeTemplateManager";
 import BoxTemplateManager from "@/components/admin/BoxTemplateManager";
 import AddonManager from "@/components/admin/AddonManager";
+import MemberTierManager from "@/components/admin/MemberTierManager";
+import CreditApplicationManager from "@/components/admin/CreditApplicationManager";
 
 const DEFAULT_SETTINGS = [
   { key: "service_fee_rate", value: "10", description: "服务费率 (%)", category: "fee" },
@@ -48,6 +50,7 @@ const CAT_COLORS = { fee: "bg-yellow-100 text-yellow-700", payment: "bg-green-10
 
 const TABS = [
   { key: "general", label: "基本设置" },
+  { key: "member_tiers", label: "会员阶级" },
   { key: "shipping_methods", label: "运输方式" },
   { key: "transit_methods", label: "中转运输方式" },
   { key: "item_sizes", label: "物品尺寸" },
@@ -81,6 +84,7 @@ export default function AdminSettings() {
   const [itemSizeTemplates, setItemSizeTemplates] = useState(null);
   const [storeTagRules, setStoreTagRules] = useState(null);
   const [boxTemplates, setBoxTemplates] = useState(null);
+  const [memberTiers, setMemberTiers] = useState([]);
 
   const [tenants, setTenants] = useState([]);
   const [tenantsLoading, setTenantsLoading] = useState(false);
@@ -118,6 +122,7 @@ export default function AdminSettings() {
       setItemSizeTemplates(data.itemSizeTemplates || []);
       setStoreTagRules(data.storeTagRules || []);
       setBoxTemplates(data.boxTemplates || []);
+      setMemberTiers(data.memberTiers || []);
       if (data.rates) setLiveRates(data.rates);
 
       // Populate the shared config cache so Layout's fetchTenantConfig() is a cache-hit
@@ -318,6 +323,66 @@ export default function AdminSettings() {
           </button>
         ))}
       </div>
+
+      {activeTab === "member_tiers" && (
+        <div className="space-y-4">
+          <Card className="border-gray-200">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                会员阶级管理
+              </CardTitle>
+              <p className="text-xs text-gray-400 mt-1">设置会员阶级，为不同等级用户配置记账功能和结帐规则。</p>
+            </CardHeader>
+            <CardContent>
+              <MemberTierManager initialData={memberTiers} onReload={load} />
+            </CardContent>
+          </Card>
+
+          {/* Credit application enable toggle */}
+          <Card className="border-gray-200">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold text-gray-700">记账申请设置</CardTitle>
+              <p className="text-xs text-gray-400 mt-1">开启后，没有记账权限的普通用户可在个人设置中申请开启记账功能。</p>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {(() => {
+                const setting = settings.find(s => s.key === 'credit_application_enabled');
+                return (
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-sm">允许用户申请记账功能</Label>
+                      <p className="text-xs text-gray-400 mt-0.5">开启后用户可在个人设置中提交记账申请</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const newVal = setting?.value === 'true' ? 'false' : 'true';
+                        if (setting) {
+                          await tenantEntity.update('SiteSettings', setting.id, { value: newVal });
+                        } else {
+                          await tenantEntity.create('SiteSettings', {
+                            key: 'credit_application_enabled',
+                            value: newVal,
+                            description: '允许用户申请记账功能',
+                            category: 'general'
+                          });
+                        }
+                        await load();
+                      }}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${setting?.value === 'true' ? 'bg-blue-600' : 'bg-gray-200'}`}
+                    >
+                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${setting?.value === 'true' ? 'translate-x-6' : 'translate-x-1'}`} />
+                    </button>
+                  </div>
+                );
+              })()}
+            </CardContent>
+          </Card>
+
+          {/* Pending credit applications */}
+          <CreditApplicationManager />
+        </div>
+      )}
 
       {activeTab === "shipping_methods" && (
         <Card className="border-gray-200">

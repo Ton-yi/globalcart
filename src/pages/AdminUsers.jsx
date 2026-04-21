@@ -3,12 +3,15 @@ import { base44 } from "@/api/base44Client";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
   Search, UserPlus, Shield, AlertTriangle, ChevronDown, ChevronUp,
-  Pencil, Trash2, Ban, CheckCircle, X
+  Pencil, Trash2, Ban, CheckCircle, X, CreditCard
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import CreditApplicationManager from "@/components/admin/CreditApplicationManager";
 
 const ROLE_LABELS = {
   platform_admin: { label: "平台管理员", color: "bg-purple-100 text-purple-700" },
@@ -18,11 +21,28 @@ const ROLE_LABELS = {
   user:           { label: "用户",       color: "bg-gray-100 text-gray-600" },
 };
 
-function EditUserModal({ user: targetUser, currentUser, onClose, onSaved }) {
+function EditUserModal({ user: targetUser, currentUser, memberTiers, onClose, onSaved }) {
   const isPlatformAdmin = currentUser?.role === 'platform_admin';
   const [role, setRole] = useState(targetUser.role || 'user');
+  const [memberTierId, setMemberTierId] = useState(targetUser.member_tier_id || "");
+  const [creditEnabled, setCreditEnabled] = useState(targetUser.credit_enabled || false);
+  const [creditLimitJpy, setCreditLimitJpy] = useState(targetUser.credit_limit_jpy || 0);
+  const [creditCycle, setCreditCycle] = useState(targetUser.credit_cycle || "monthly");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  // When member tier changes, prefill credit defaults from the tier
+  const handleTierChange = (tierId) => {
+    setMemberTierId(tierId);
+    const tier = memberTiers.find(t => t.id === tierId);
+    if (tier) {
+      if (tier.credit_enabled) {
+        setCreditEnabled(true);
+        if (tier.default_credit_limit_jpy) setCreditLimitJpy(tier.default_credit_limit_jpy);
+        if (tier.credit_cycle) setCreditCycle(tier.credit_cycle);
+      }
+    }
+  };
 
   const roleOptions = isPlatformAdmin
     ? [
@@ -42,6 +62,7 @@ function EditUserModal({ user: targetUser, currentUser, onClose, onSaved }) {
   const handleSave = async () => {
     setSaving(true);
     setError("");
+    // Update role
     const res = await base44.functions.invoke('manageUser', {
       action: 'update_role',
       target_user_id: targetUser.id,
@@ -50,24 +71,38 @@ function EditUserModal({ user: targetUser, currentUser, onClose, onSaved }) {
     if (res.data?.error) {
       setError(res.data.error);
       setSaving(false);
-    } else {
-      onSaved();
+      return;
     }
+    // Update credit & tier settings
+    const selectedTier = memberTiers.find(t => t.id === memberTierId);
+    await base44.functions.invoke('manageCreditApplication', {
+      action: 'admin_update_user_credit',
+      target_user_id: targetUser.id,
+      member_tier_id: memberTierId || null,
+      member_tier_name: selectedTier?.name || null,
+      credit_enabled: creditEnabled,
+      credit_limit_jpy: parseFloat(creditLimitJpy) || 0,
+      credit_cycle: creditCycle,
+    });
+    onSaved();
   };
+
+  const selectedTier = memberTiers.find(t => t.id === memberTierId);
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-5">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-5 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-gray-900">编辑用户权限</h3>
+          <h3 className="font-semibold text-gray-900">编辑用户</h3>
           <button onClick={onClose}><X className="w-4 h-4 text-gray-400" /></button>
         </div>
-        <div className="space-y-3">
+        <div className="space-y-4">
           <div>
             <p className="text-xs text-gray-500 mb-0.5">用户</p>
             <p className="text-sm font-medium text-gray-800">{targetUser.full_name || "-"}</p>
             <p className="text-xs text-gray-400">{targetUser.email}</p>
           </div>
+
           <div>
             <p className="text-xs text-gray-500 mb-1">角色</p>
             <Select value={role} onValueChange={setRole}>
@@ -79,6 +114,60 @@ function EditUserModal({ user: targetUser, currentUser, onClose, onSaved }) {
               </SelectContent>
             </Select>
           </div>
+
+          {/* Member Tier */}
+          <div className="border-t pt-3 space-y-3">
+            <p className="text-xs font-semibold text-gray-600">会员阶级 & 记账设置</p>
+            <div>
+              <Label className="text-xs text-gray-500">会员阶级</Label>
+              <Select value={memberTierId || "__none__"} onValueChange={v => handleTierChange(v === "__none__" ? "" : v)}>
+                <SelectTrigger className="mt-1 w-full text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">无（普通用户）</SelectItem>
+                  {memberTiers.filter(t => t.is_active !== false).map(t => (
+                    <SelectItem key={t.id} value={t.id}>
+                      <span className="flex items-center gap-2">
+                        <span>{t.name}</span>
+                        {t.credit_enabled && <CreditCard className="w-3 h-3 text-blue-500" />}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center justify-between py-1">
+              <div>
+                <Label className="text-sm">开启记账功能</Label>
+                <p className="text-xs text-gray-400 mt-0.5">开启后用户可使用记账付款</p>
+              </div>
+              <Switch checked={creditEnabled} onCheckedChange={setCreditEnabled} />
+            </div>
+
+            {creditEnabled && (
+              <div className="space-y-3 bg-blue-50 border border-blue-100 rounded-lg p-3">
+                <div>
+                  <Label className="text-xs text-gray-500">欠款上限（JPY）</Label>
+                  <Input type="number" className="mt-1 h-8 text-sm"
+                    placeholder={selectedTier?.default_credit_limit_jpy || "0"}
+                    value={creditLimitJpy}
+                    onChange={e => setCreditLimitJpy(e.target.value)} />
+                  <p className="text-xs text-gray-400 mt-0.5">覆盖会员阶级默认值</p>
+                </div>
+                <div>
+                  <Label className="text-xs text-gray-500">结帐周期</Label>
+                  <Select value={creditCycle} onValueChange={setCreditCycle}>
+                    <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="weekly">周结（每周一）</SelectItem>
+                      <SelectItem value="monthly">月结（每月1日）</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+          </div>
+
           {error && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded px-2 py-1">{error}</p>}
         </div>
         <div className="flex gap-2 justify-end mt-5">
@@ -96,6 +185,7 @@ export default function AdminUsers() {
   const [users, setUsers] = useState([]);
   const [orders, setOrders] = useState([]);
   const [tenantMap, setTenantMap] = useState({});
+  const [memberTiers, setMemberTiers] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [inviteEmail, setInviteEmail] = useState("");
@@ -119,14 +209,18 @@ export default function AdminUsers() {
 
   const loadData = () => {
     setLoading(true);
-    base44.functions.invoke('getAdminUsersPageData', {}).then(r => {
-      const { users: u = [], orders: o = [], tenants = [], diagnose } = r.data || {};
+    Promise.all([
+      base44.functions.invoke('getAdminUsersPageData', {}),
+      base44.functions.invoke('getAdminSettingsPageData', {}),
+    ]).then(([r1, r2]) => {
+      const { users: u = [], orders: o = [], tenants = [], diagnose } = r1.data || {};
       const map = {};
       tenants.forEach(t => { map[t.id] = t; });
       setTenantMap(map);
       setUsers(u);
       setOrders(o);
       if (diagnose) setDiagData(diagnose);
+      setMemberTiers(r2.data?.memberTiers || []);
       setLoading(false);
     }).catch(() => setLoading(false));
   };
@@ -323,10 +417,22 @@ export default function AdminUsers() {
                   </td>
                   <td className="px-4 py-3 text-gray-500 text-xs hidden sm:table-cell">{u.email}</td>
                   <td className="px-4 py-3">
-                    <Badge className={`text-xs ${roleInfo.color}`}>
-                      {u.role === 'platform_admin' && <Shield className="w-2.5 h-2.5 mr-1 inline" />}
-                      {roleInfo.label}
-                    </Badge>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <Badge className={`text-xs ${roleInfo.color}`}>
+                        {u.role === 'platform_admin' && <Shield className="w-2.5 h-2.5 mr-1 inline" />}
+                        {roleInfo.label}
+                      </Badge>
+                      {u.member_tier_name && (
+                        <Badge className={`text-xs ${memberTiers.find(t => t.id === u.member_tier_id)?.color || 'bg-blue-100 text-blue-700'}`}>
+                          {u.member_tier_name}
+                        </Badge>
+                      )}
+                      {u.credit_enabled && (
+                        <Badge className="text-xs bg-indigo-100 text-indigo-700">
+                          <CreditCard className="w-2.5 h-2.5 mr-0.5 inline" />记账
+                        </Badge>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-gray-700 hidden md:table-cell">{getUserOrderCount(u.email)}</td>
                   <td className="px-4 py-3 text-xs text-gray-400 hidden md:table-cell">
@@ -386,10 +492,14 @@ export default function AdminUsers() {
         </table>
       </div>
 
+      {/* Credit Application Manager */}
+      <CreditApplicationManager />
+
       {editingUser && (
         <EditUserModal
           user={editingUser}
           currentUser={currentUser}
+          memberTiers={memberTiers}
           onClose={() => setEditingUser(null)}
           onSaved={() => { setEditingUser(null); loadData(); }}
         />
