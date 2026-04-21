@@ -97,6 +97,12 @@ export default function AdminSettings() {
   const [savingTenant, setSavingTenant] = useState(false);
   const isPlatformAdmin = user?.role === 'platform_admin';
 
+  // Platform base domain state
+  const [platformBaseDomain, setPlatformBaseDomain] = useState("");
+  const [editingDomain, setEditingDomain] = useState("");
+  const [savingDomain, setSavingDomain] = useState(false);
+  const [domainMsg, setDomainMsg] = useState(null);
+
   const load = async () => {
     const t = timePage('AdminSettings');
     try {
@@ -164,9 +170,29 @@ export default function AdminSettings() {
 
   const loadTenants = async () => {
     setTenantsLoading(true);
-    const r = await base44.functions.invoke('manageTenants', { action: 'list' });
-    setTenants(r.data?.tenants || []);
+    const [tenantsRes, domainRes] = await Promise.all([
+      base44.functions.invoke('manageTenants', { action: 'list' }),
+      base44.functions.invoke('manageTenants', { action: 'get_platform_domain' }),
+    ]);
+    setTenants(tenantsRes.data?.tenants || []);
+    const domain = domainRes.data?.platform_base_domain || "";
+    setPlatformBaseDomain(domain);
+    setEditingDomain(domain);
     setTenantsLoading(false);
+  };
+
+  const handleSaveDomain = async () => {
+    setSavingDomain(true);
+    setDomainMsg(null);
+    const r = await base44.functions.invoke('manageTenants', { action: 'set_platform_domain', platform_base_domain: editingDomain });
+    if (r.data?.error) {
+      setDomainMsg({ type: 'error', text: r.data.error });
+    } else {
+      setPlatformBaseDomain(r.data.platform_base_domain);
+      setDomainMsg({ type: 'success', text: '平台域名已保存' });
+      setTimeout(() => setDomainMsg(null), 3000);
+    }
+    setSavingDomain(false);
   };
 
   useEffect(() => {
@@ -430,6 +456,46 @@ export default function AdminSettings() {
 
       {activeTab === "tenants" && (
         <div className="space-y-5">
+          {/* Platform base domain — platform_admin only */}
+          {isPlatformAdmin && (
+            <Card className="border-purple-200">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-purple-500" />平台二级域名
+                </CardTitle>
+                <p className="text-xs text-gray-400 mt-1">
+                  设置后，租户的三级域名格式为：<span className="font-mono">{"<slug>."}{platformBaseDomain || "yourdomain.com"}</span>
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div>
+                  <Label className="text-xs text-gray-500">二级域名（不含 http://，不含末尾斜杠）</Label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Input
+                      className="h-8 text-sm font-mono flex-1"
+                      placeholder="例：app.yourcompany.com"
+                      value={editingDomain}
+                      onChange={e => setEditingDomain(e.target.value)}
+                    />
+                    <Button size="sm" className="h-8 bg-purple-600 hover:bg-purple-700" onClick={handleSaveDomain} disabled={savingDomain}>
+                      <Save className="w-3.5 h-3.5 mr-1" />{savingDomain ? "保存中..." : "保存"}
+                    </Button>
+                  </div>
+                  {platformBaseDomain && (
+                    <p className="text-xs text-purple-600 mt-1.5">
+                      ✓ 当前：租户访问地址格式 = <span className="font-mono font-medium">{"<slug>."}{platformBaseDomain}</span>
+                    </p>
+                  )}
+                  {domainMsg && (
+                    <p className={`text-xs mt-1.5 px-2 py-1 rounded ${domainMsg.type === 'success' ? 'text-green-700 bg-green-50' : 'text-red-700 bg-red-50'}`}>
+                      {domainMsg.text}
+                    </p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Create tenant — platform_admin only */}
           {isPlatformAdmin && (
             <Card className="border-blue-200">
@@ -449,7 +515,7 @@ export default function AdminSettings() {
                     <Label className="text-xs text-gray-500">代码/子域名 (唯一) *</Label>
                     <Input className="mt-0.5 h-8 text-sm font-mono" placeholder="例：tongyi" value={newTenant.code}
                       onChange={e => setNewTenant(p => ({ ...p, code: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') }))} />
-                    <p className="text-xs text-gray-400 mt-0.5">访问地址：{newTenant.code || "code"}.yourdomain.com</p>
+                    <p className="text-xs text-gray-400 mt-0.5">访问地址：{newTenant.code || "slug"}.{platformBaseDomain || "yourdomain.com"}</p>
                   </div>
                   <div>
                     <Label className="text-xs text-gray-500">品牌显示名</Label>
@@ -530,7 +596,7 @@ export default function AdminSettings() {
                             {!t.is_active && <Badge className="text-xs bg-red-100 text-red-600">停用</Badge>}
                           </div>
                           <p className="text-xs text-gray-400 mt-0.5">
-                            {t.subdomain || (t.code || '').toLowerCase()}.yourdomain.com
+                            <span className="font-mono">{t.subdomain || (t.code || '').toLowerCase()}.{platformBaseDomain || "yourdomain.com"}</span>
                             {t.contact_info && <span className="ml-2 text-gray-300">·</span>}
                             {t.contact_info && <span className="ml-2">{t.contact_info}</span>}
                           </p>
@@ -572,14 +638,22 @@ export default function AdminSettings() {
                                 <p className="text-xs text-gray-400 mt-0.5">用于系统识别租户（唯一）</p>
                               </div>
                             )}
-                            {isPlatformAdmin && (
-                              <div>
-                                <Label className="text-xs text-gray-500">子域名 Slug <span className="text-orange-500">（仅平台管理员）</span></Label>
-                                <Input className="mt-0.5 h-8 text-sm font-mono" value={editTenantFields.subdomain}
+                            <div>
+                              <Label className="text-xs text-gray-500">
+                                三级域名 Slug
+                                {!isPlatformAdmin && <span className="text-blue-500 ml-1">（可自行设定）</span>}
+                              </Label>
+                              <div className="flex items-center gap-1 mt-0.5">
+                                <Input className="h-8 text-sm font-mono flex-1" value={editTenantFields.subdomain}
                                   onChange={e => setEditTenantFields(p => ({ ...p, subdomain: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') }))} />
-                                <p className="text-xs text-gray-400 mt-0.5">域名读取此值匹配租户</p>
+                                {platformBaseDomain && (
+                                  <span className="text-xs text-gray-400 whitespace-nowrap">.{platformBaseDomain}</span>
+                                )}
                               </div>
-                            )}
+                              <p className="text-xs text-gray-400 mt-0.5">
+                                完整访问地址：<span className="font-mono">{editTenantFields.subdomain || "slug"}.{platformBaseDomain || "yourdomain.com"}</span>
+                              </p>
+                            </div>
                             <div>
                               <Label className="text-xs text-gray-500">登录页标题</Label>
                               <Input className="mt-0.5 h-8 text-sm" value={editTenantFields.login_title}

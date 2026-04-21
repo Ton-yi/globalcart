@@ -61,7 +61,39 @@ Deno.serve(async (req) => {
       return Response.json({ tenant });
     }
 
-    // ── update (platform_admin: all fields; admin: branding only, own tenant) ──
+    // ── get_platform_domain (any admin) ─────────────────────────────────────
+    if (action === 'get_platform_domain') {
+      // Read the platform-level base domain setting (tenant_id is null or empty)
+      const allSettings = await base44.asServiceRole.entities.SiteSettings.filter({ key: 'platform_base_domain' });
+      const setting = (allSettings || []).find(s => !s.tenant_id || s.tenant_id === '');
+      return Response.json({ platform_base_domain: setting?.value || '' });
+    }
+
+    // ── set_platform_domain (platform_admin only) ─────────────────────────
+    if (action === 'set_platform_domain') {
+      if (!isPlatformAdmin) return Response.json({ error: 'Forbidden: only platform_admin can set platform domain' }, { status: 403 });
+      const { platform_base_domain } = body;
+      if (platform_base_domain === undefined) return Response.json({ error: 'platform_base_domain required' }, { status: 400 });
+      // Normalize: strip protocol, trailing slash
+      const normalized = (platform_base_domain || '').trim().replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+      // Upsert: find existing platform-level setting
+      const allSettings = await base44.asServiceRole.entities.SiteSettings.filter({ key: 'platform_base_domain' });
+      const existing = (allSettings || []).find(s => !s.tenant_id || s.tenant_id === '');
+      if (existing) {
+        await base44.asServiceRole.entities.SiteSettings.update(existing.id, { value: normalized });
+      } else {
+        await base44.asServiceRole.entities.SiteSettings.create({
+          key: 'platform_base_domain',
+          value: normalized,
+          description: '平台二级域名（租户三级域名的基础）',
+          category: 'general',
+          tenant_id: '',
+        });
+      }
+      return Response.json({ platform_base_domain: normalized });
+    }
+
+    // ── update (platform_admin: all fields; admin: branding + subdomain of own tenant) ──
     if (action === 'update') {
       const { id, ...fields } = body;
       if (!id) return Response.json({ error: 'id required' }, { status: 400 });
@@ -74,10 +106,18 @@ Deno.serve(async (req) => {
         if (!userRecord?.tenant_id || userRecord.tenant_id !== id) {
           return Response.json({ error: 'Forbidden: you can only edit your own tenant' }, { status: 403 });
         }
-        // Restrict: cannot change subdomain, code, is_active
-        delete fields.subdomain;
+        // Restrict: cannot change code or is_active; CAN change subdomain
         delete fields.code;
         delete fields.is_active;
+        // Validate and normalize subdomain if provided
+        if (fields.subdomain !== undefined) {
+          const normalizedSubdomain = (fields.subdomain || '').toLowerCase().replace(/[^a-z0-9-]/g, '');
+          if (!normalizedSubdomain) return Response.json({ error: 'subdomain cannot be empty' }, { status: 400 });
+          fields.subdomain = normalizedSubdomain;
+          const existing = await base44.asServiceRole.entities.Tenant.filter({ subdomain: normalizedSubdomain });
+          const conflict = (existing || []).find(t => t.id !== id);
+          if (conflict) return Response.json({ error: `子域名 "${normalizedSubdomain}" 已被其他租户占用` }, { status: 409 });
+        }
       } else {
         // platform_admin: if subdomain is being changed, enforce uniqueness
         if (fields.subdomain) {
