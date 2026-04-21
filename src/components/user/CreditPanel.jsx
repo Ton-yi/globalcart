@@ -145,16 +145,22 @@ export default function CreditPanel({ creditApplicationEnabled }) {
                     {credit.credit_cycle === 'weekly' ? '周结' : '月结'}
                   </p>
                 </div>
-                {credit.credit_next_due_date && (
+                {/* 周结且无欠款时不显示日期，有欠款或月结才显示 */}
+                {(credit.credit_cycle !== 'weekly' || balance > 0) && credit.credit_next_due_date && (
                   <div>
                     <p className="text-blue-500 flex items-center gap-1"><Calendar className="w-3 h-3" />下次结帐日</p>
                     <p className="font-medium text-blue-800 mt-0.5">{credit.credit_next_due_date}</p>
                   </div>
                 )}
-                {credit.credit_start_date && (
+                {(credit.credit_cycle !== 'weekly' || balance > 0) && credit.credit_start_date && (
                   <div>
                     <p className="text-blue-500">记账开始日</p>
                     <p className="font-medium text-blue-800 mt-0.5">{credit.credit_start_date}</p>
+                  </div>
+                )}
+                {credit.credit_cycle === 'weekly' && balance === 0 && (
+                  <div className="col-span-2">
+                    <p className="text-blue-400 italic">产生欠款后将自动计算结帐周期</p>
                   </div>
                 )}
               </div>
