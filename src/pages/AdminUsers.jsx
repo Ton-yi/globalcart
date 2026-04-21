@@ -28,6 +28,7 @@ function EditUserModal({ user: targetUser, currentUser, memberTiers, onClose, on
   const [creditEnabled, setCreditEnabled] = useState(targetUser.credit_enabled || false);
   const [creditLimitJpy, setCreditLimitJpy] = useState(targetUser.credit_limit_jpy || 0);
   const [creditCycle, setCreditCycle] = useState(targetUser.credit_cycle || "monthly");
+  const [creditBalanceJpy, setCreditBalanceJpy] = useState(targetUser.credit_balance_jpy || 0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -83,6 +84,7 @@ function EditUserModal({ user: targetUser, currentUser, memberTiers, onClose, on
       credit_enabled: creditEnabled,
       credit_limit_jpy: parseFloat(creditLimitJpy) || 0,
       credit_cycle: creditCycle,
+      credit_balance_jpy: parseFloat(creditBalanceJpy) || 0,
     });
     onSaved();
   };
@@ -153,6 +155,14 @@ function EditUserModal({ user: targetUser, currentUser, memberTiers, onClose, on
                     value={creditLimitJpy}
                     onChange={e => setCreditLimitJpy(e.target.value)} />
                   <p className="text-xs text-gray-400 mt-0.5">覆盖会员阶级默认值</p>
+                </div>
+                <div>
+                  <Label className="text-xs text-gray-500">调整欠款余额（JPY）</Label>
+                  <Input type="number" className="mt-1 h-8 text-sm"
+                    placeholder="0"
+                    value={creditBalanceJpy}
+                    onChange={e => setCreditBalanceJpy(e.target.value)} />
+                  <p className="text-xs text-gray-400 mt-0.5">谨慎操作，直接覆盖当前余额</p>
                 </div>
                 <div>
                   <Label className="text-xs text-gray-500">结帐周期</Label>
