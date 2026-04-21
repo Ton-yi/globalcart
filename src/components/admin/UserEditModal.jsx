@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { base44 } from "@/api/base44Client";
-import { X, Shield, Trash2 } from "lucide-react";
+import { X, Shield, Trash2, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 
@@ -12,6 +13,12 @@ export default function UserEditModal({ user, isPlatformAdmin, onClose, onSaved 
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
+  // Credit balance adjustment (only shown if user has credit enabled)
+  const [creditBalance, setCreditBalance] = useState(
+    user.credit_balance_jpy !== undefined ? String(user.credit_balance_jpy) : ""
+  );
+  const [creditNote, setCreditNote] = useState("");
+
   const invoke = (action, extra = {}) =>
     base44.functions.invoke('manageUser', { action, target_user_id: user.id, ...extra });
 
@@ -19,6 +26,17 @@ export default function UserEditModal({ user, isPlatformAdmin, onClose, onSaved 
     setSaving(true);
     await invoke('update_role', { role });
     await invoke('toggle_active', { is_active: isActive });
+
+    // Update credit balance if the user has credit enabled and value changed
+    if (user.credit_enabled && creditBalance !== "" &&
+        parseFloat(creditBalance) !== parseFloat(user.credit_balance_jpy || 0)) {
+      await base44.functions.invoke('manageCreditApplication', {
+        action: 'admin_update_user_credit',
+        target_user_id: user.id,
+        credit_balance_jpy: parseFloat(creditBalance) || 0,
+      });
+    }
+
     setSaving(false);
     onSaved();
   };
@@ -90,6 +108,27 @@ export default function UserEditModal({ user, isPlatformAdmin, onClose, onSaved 
               </button>
             </div>
           </div>
+
+          {/* Credit Balance Adjustment — only for credit-enabled users */}
+          {user.credit_enabled && (
+            <div className="border border-blue-100 rounded-lg p-3 space-y-2 bg-blue-50/40">
+              <label className="text-sm font-medium text-gray-700 flex items-center gap-1.5">
+                <CreditCard className="w-3.5 h-3.5 text-blue-600" />
+                调整欠款余额
+                <span className="text-xs font-normal text-gray-400 ml-1">（当前：¥{(user.credit_balance_jpy || 0).toLocaleString()} JPY）</span>
+              </label>
+              <Input
+                type="number"
+                min="0"
+                step="1"
+                value={creditBalance}
+                onChange={e => setCreditBalance(e.target.value)}
+                placeholder={String(user.credit_balance_jpy || 0)}
+                className="h-8 text-sm"
+              />
+              <p className="text-xs text-gray-400">直接设定新的欠款余额（JPY），可用于处理差额补扣或手动结清</p>
+            </div>
+          )}
 
           {/* Delete zone */}
           <div className="border-t pt-3">
