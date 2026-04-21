@@ -30,9 +30,10 @@ Deno.serve(async (req) => {
     }
 
     // Fetch all user orders for tenant, then find by id
-    const [allOrders, siteSettings] = await Promise.all([
+    const [allOrders, siteSettings, paymentMethods] = await Promise.all([
       base44.asServiceRole.entities.Order.filter({ tenant_id: tenantId, user_email: user.email }),
       base44.asServiceRole.entities.SiteSettings.filter({ tenant_id: tenantId }),
+      base44.asServiceRole.entities.PaymentMethod.filter({ tenant_id: tenantId, is_active: true }),
     ]);
     console.log('[DIAG][getPaymentPageData] orders fetched for user:', allOrders?.length, '| settings:', siteSettings?.length);
 
@@ -54,8 +55,10 @@ Deno.serve(async (req) => {
     const settings = {};
     (siteSettings || []).forEach(s => { settings[s.key] = s.value; });
 
+    // Sort payment methods by sort_order
+    const sortedMethods = (paymentMethods || []).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
     console.log('[DIAG][getPaymentPageData] SUCCESS returning order:', order.id);
-    return Response.json({ order, settings });
+    return Response.json({ order, settings, paymentMethods: sortedMethods });
 
   } catch (error) {
     console.error('[DIAG][getPaymentPageData] ERROR:', error.message, error.stack);

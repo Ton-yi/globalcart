@@ -17,6 +17,7 @@ import ShippingEditModal from "@/components/shippingpool/ShippingEditModal";
 import AdminShippingInfoPanel from "@/components/shippingpool/AdminShippingInfoPanel";
 import ShippingFeeBreakdown from "@/components/shippingpool/ShippingFeeBreakdown";
 import { ImageWithViewer } from "@/components/common/ImageViewer";
+import PaymentMethodSelector from "@/components/common/PaymentMethodSelector";
 
 const STATUS_CONFIG = {
   pending:                       { label: "待处理",    color: "bg-amber-100 text-amber-700" },
@@ -60,6 +61,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
 
   // User payment state
   const [paymentMethod, setPaymentMethod] = useState("");
+  const [selectedMethodMeta, setSelectedMethodMeta] = useState(null);
   const [generatingAlipay, setGeneratingAlipay] = useState(false);
   const [alipayUrl, setAlipayUrl] = useState(null);
   const [uploadingProof, setUploadingProof] = useState(false);
@@ -957,20 +959,11 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                     })()}
                     <div>
                       <Label className="text-xs text-gray-500 font-medium mb-2 block">选择支付方式</Label>
-                      <div className="grid grid-cols-2 gap-2">
-                        {[
-                    { value: "alipay", label: "支付宝" },
-                    { value: "wechatpay", label: "微信支付" },
-                    { value: "bank_transfer", label: "银行转账" },
-                    { value: "other", label: "其他" }].
-                    map((m) =>
-                    <button key={m.value} type="button"
-                    onClick={() => {setPaymentMethod(m.value);setAlipayUrl(null);}}
-                    className={`p-2.5 rounded-lg border-2 text-sm font-medium transition-all ${paymentMethod === m.value ? "border-orange-500 bg-orange-50 text-orange-700" : "border-gray-200 text-gray-500 hover:border-gray-300"}`}>
-                            {m.label}
-                          </button>
-                    )}
-                      </div>
+                      <PaymentMethodSelector
+                        value={paymentMethod}
+                        onChange={m => { setPaymentMethod(m.value); setSelectedMethodMeta(m); setAlipayUrl(null); }}
+                        activeColor="border-orange-500 bg-orange-50 text-orange-700"
+                      />
                     </div>
 
                     {paymentMethod === "alipay" &&
@@ -999,9 +992,22 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
 
                     {paymentMethod && paymentMethod !== "alipay" &&
                 <div className="space-y-2">
-                        <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-500 text-center">
-                          请联系客服获取收款账号，完成付款后上传凭证
-                        </div>
+                        {(selectedMethodMeta?.payment_note || selectedMethodMeta?.image_url) ? (
+                          <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg space-y-2">
+                            {selectedMethodMeta.image_url && (
+                              <div className="text-center">
+                                <img src={selectedMethodMeta.image_url} alt="收款码" className="h-40 mx-auto rounded object-contain border border-gray-200" />
+                              </div>
+                            )}
+                            {selectedMethodMeta.payment_note && (
+                              <p className="text-sm text-gray-700 whitespace-pre-wrap text-center">{selectedMethodMeta.payment_note}</p>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-500 text-center">
+                            请联系客服获取收款账号，完成付款后上传凭证
+                          </div>
+                        )}
                         <label className="cursor-pointer block">
                           <div className={`flex flex-col items-center gap-1.5 px-3 py-5 border-2 border-dashed rounded-lg text-sm transition-colors ${uploadingProof ? "border-blue-200 bg-blue-50 text-blue-500" : "border-gray-200 text-gray-400 hover:border-orange-300 hover:text-orange-500"}`}>
                             {uploadingProof ?

@@ -9,16 +9,11 @@ import { base44 } from "@/api/base44Client";
 import { updateOrder } from "@/lib/tenantApi";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-
-const METHODS = [
-  { value: "alipay",        label: "支付宝" },
-  { value: "wechatpay",     label: "微信支付" },
-  { value: "bank_transfer", label: "银行转账" },
-  { value: "other",         label: "其他" },
-];
+import PaymentMethodSelector from "@/components/common/PaymentMethodSelector";
 
 export default function BulkPaymentModal({ orders, onClose, onSuccess }) {
   const [method, setMethod] = useState("");
+  const [selectedMethodMeta, setSelectedMethodMeta] = useState(null);
   const [proofUrl, setProofUrl] = useState("");
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -121,18 +116,10 @@ export default function BulkPaymentModal({ orders, onClose, onSuccess }) {
           {/* Method selection */}
           <div>
             <Label className="text-sm mb-2 block">选择支付方式</Label>
-            <div className="grid grid-cols-2 gap-2">
-              {METHODS.map(m => (
-                <button key={m.value} type="button"
-                  onClick={() => { setMethod(m.value); setAlipayUrl(null); setProofUrl(""); }}
-                  className={`p-3 rounded-lg border-2 text-sm font-medium transition-all ${
-                    method === m.value
-                      ? "border-blue-500 bg-blue-50 text-blue-700 ring-2 ring-blue-200"
-                      : "border-gray-200 text-gray-500 hover:border-gray-300"
-                  }`}
-                >{m.label}</button>
-              ))}
-            </div>
+            <PaymentMethodSelector
+              value={method}
+              onChange={m => { setMethod(m.value); setSelectedMethodMeta(m); setAlipayUrl(null); setProofUrl(""); }}
+            />
           </div>
 
           {/* Alipay: single combined link */}
@@ -169,9 +156,22 @@ export default function BulkPaymentModal({ orders, onClose, onSuccess }) {
           {/* Other methods: single proof upload */}
           {method && method !== "alipay" && (
             <div className="space-y-3">
-              <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-500 text-center">
-                请联系客服获取收款账号，付款后上传凭证（可上传同一张截图）
-              </div>
+              {(selectedMethodMeta?.payment_note || selectedMethodMeta?.image_url) ? (
+                <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg space-y-2">
+                  {selectedMethodMeta.image_url && (
+                    <div className="text-center">
+                      <img src={selectedMethodMeta.image_url} alt="收款码" className="h-40 mx-auto rounded object-contain border border-gray-200" />
+                    </div>
+                  )}
+                  {selectedMethodMeta.payment_note && (
+                    <p className="text-sm text-gray-700 whitespace-pre-wrap text-center">{selectedMethodMeta.payment_note}</p>
+                  )}
+                </div>
+              ) : (
+                <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-500 text-center">
+                  请联系客服获取收款账号，付款后上传凭证（可上传同一张截图）
+                </div>
+              )}
               <div>
                 <Label className="text-sm">上传付款凭证</Label>
                 <label className="cursor-pointer block mt-1">

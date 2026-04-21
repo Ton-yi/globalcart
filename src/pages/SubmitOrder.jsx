@@ -7,6 +7,7 @@ import { timePage } from "@/lib/timing";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { ShoppingBag, Calculator, Info, Upload, Plus, X, ChevronsUpDown, HelpCircle, CreditCard, AlertTriangle } from "lucide-react";
+import PaymentMethodSelector from "@/components/common/PaymentMethodSelector";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -37,7 +38,8 @@ export default function SubmitOrder() {
   const [calculated, setCalculated] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState("alipay");
+  const [paymentMethod, setPaymentMethod] = useState("");
+  const [paymentMethods, setPaymentMethods] = useState([]);
   const [paymentMode, setPaymentMode] = useState("prepay"); // "prepay" | "deferred" | "credit_weekly" | "credit_monthly"
   const [userCredit, setUserCredit] = useState(null); // user's credit status
   const [creditDowngradeMsg, setCreditDowngradeMsg] = useState(null); // shown after submit if credit downgraded
@@ -57,6 +59,10 @@ export default function SubmitOrder() {
       setUserCredit(creditR.data || null);
       t.done('data ready');
     }).catch(() => {});
+    // Load payment methods separately (lightweight)
+    base44.functions.invoke('managePaymentMethod', { action: 'list' })
+      .then(r => { setPaymentMethods(r.data?.methods || []); })
+      .catch(() => {});
   }, []);
 
   // Convert addon fee to JPY (all calculations in JPY)
@@ -541,26 +547,12 @@ export default function SubmitOrder() {
             )}
 
             {paymentMode === "prepay" && (
-              <div className="grid grid-cols-3 gap-2">
-                {[
-                  { value: "alipay", label: "支付宝" },
-                  { value: "wechatpay", label: "微信支付" },
-                  { value: "other", label: "其他" },
-                ].map(m => (
-                  <button
-                    key={m.value}
-                    type="button"
-                    onClick={() => setPaymentMethod(m.value)}
-                    className={`p-2.5 rounded-lg border-2 text-xs font-medium transition-all ${
-                      paymentMethod === m.value
-                        ? "border-red-500 bg-red-50 text-red-700"
-                        : "border-gray-200 text-gray-500 hover:border-gray-300"
-                    }`}
-                  >
-                    {m.label}
-                  </button>
-                ))}
-              </div>
+              <PaymentMethodSelector
+                value={paymentMethod}
+                onChange={m => setPaymentMethod(m.value)}
+                prefetched={paymentMethods.length > 0 ? paymentMethods : null}
+                activeColor="border-red-500 bg-red-50 text-red-700"
+              />
             )}
           </CardContent>
         </Card>

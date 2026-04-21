@@ -10,15 +10,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
-const METHOD_LABELS = {
-  alipay: "支付宝",
-  wechatpay: "微信支付",
-  paypay: "PayPay",
-  paypal: "PayPal",
-  bank_transfer: "银行转账",
-  other: "其他"
-};
-
 export default function Payment() {
   const navigate = useNavigate();
   const urlParams = new URLSearchParams(window.location.search);
@@ -27,6 +18,7 @@ export default function Payment() {
 
   const [order, setOrder] = useState(null);
   const [settings, setSettings] = useState({});
+  const [paymentMethods, setPaymentMethods] = useState([]);
   const [proofFile, setProofFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -42,6 +34,7 @@ export default function Payment() {
         if (!data.order) { navigate(createPageUrl("MyOrders")); return; }
         setOrder(data.order);
         setSettings(data.settings || {});
+        setPaymentMethods(data.paymentMethods || []);
         setLoading(false);
       });
   }, [orderId]);
@@ -86,11 +79,14 @@ export default function Payment() {
   const cur = "JPY";
   const amount = order?.prepayment_amount?.toFixed(0) || "0";
 
-  // Alipay gateway info from settings
+  // Find the configured payment method for current selection
+  const activeMethod = paymentMethods.find(m => (m.provider_key || m.name) === method);
+  // Alipay gateway info: prefer PaymentMethod entity, fall back to SiteSettings
   const alipayAccount = settings["alipay_account"] || "";
   const alipayName = settings["alipay_account_name"] || "";
-  const alipayQr = settings["alipay_qr_url"] || "";
-  const alipayNote = settings["alipay_payment_note"] || "请在备注中填写订单号";
+  const alipayQr = activeMethod?.image_url || settings["alipay_qr_url"] || "";
+  const alipayNote = activeMethod?.payment_note || settings["alipay_payment_note"] || "请在备注中填写订单号";
+  const methodLabel = activeMethod?.name || method;
 
   return (
     <div className="max-w-lg mx-auto space-y-5">
@@ -175,11 +171,33 @@ export default function Payment() {
         </Card>
       )}
 
-      {/* Other methods placeholder */}
+      {/* Other methods — show QR and note from admin config */}
       {method !== "alipay" && (
         <Card className="border-gray-200">
-          <CardContent className="pt-6 pb-6 text-center text-sm text-gray-400">
-            {METHOD_LABELS[method] || method} 付款方式，请联系客服获取付款信息
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+              {activeMethod?.icon && <span className="text-base">{activeMethod.icon}</span>}
+              {methodLabel} 付款
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {activeMethod?.image_url && (
+              <div className="text-center">
+                <p className="text-xs text-gray-500 mb-2">扫描二维码付款</p>
+                <img src={activeMethod.image_url} alt="收款码" className="w-48 h-48 mx-auto border border-gray-200 rounded-lg object-contain" />
+              </div>
+            )}
+            {activeMethod?.payment_note ? (
+              <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-3">
+                <p className="text-sm text-gray-700 whitespace-pre-wrap">{activeMethod.payment_note}</p>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-400 text-center">请联系客服获取付款信息</p>
+            )}
+            <div className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-3 border border-gray-200">
+              <span className="text-sm text-gray-700">付款金额</span>
+              <span className="text-lg font-bold text-red-600">{amount} yen</span>
+            </div>
           </CardContent>
         </Card>
       )}

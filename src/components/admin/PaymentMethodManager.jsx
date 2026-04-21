@@ -3,7 +3,7 @@
  * Supports: built-in providers (Alipay, etc.) and custom methods.
  * CRUD: add, edit, delete, toggle enable/disable.
  */
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -60,6 +60,11 @@ const EMPTY_FORM = {
 
 export default function PaymentMethodManager({ initialData = [], onReload }) {
   const [methods, setMethods] = useState(initialData);
+
+  // Sync when initialData changes (parent page reloads)
+  useEffect(() => {
+    setMethods(initialData);
+  }, [initialData]);
   const [showAddPanel, setShowAddPanel] = useState(false);
   const [addMode, setAddMode] = useState(null); // "supported" | "custom"
   const [selectedProvider, setSelectedProvider] = useState(null);
