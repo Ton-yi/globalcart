@@ -1,4 +1,19 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+
+// ── Multi-tenant Alipay config resolver ────────────────────────────────────
+async function getAlipayConfig(base44, tenantId) {
+  let settings = [];
+  if (tenantId) {
+    settings = await base44.asServiceRole.entities.SiteSettings.filter({ tenant_id: tenantId });
+  }
+  const map = {};
+  (settings || []).forEach(s => { map[s.key] = s.value; });
+  return {
+    appId:      map['alipay_key_app_id']      || Deno.env.get('ALIPAY_APP_ID')      || '',
+    privateKey: map['alipay_key_private_key']  || Deno.env.get('ALIPAY_PRIVATE_KEY') || '',
+    gatewayUrl: map['alipay_key_gateway_url']  || Deno.env.get('ALIPAY_GATEWAY_URL') || 'https://openapi.alipay.com/gateway.do',
+  };
+}
 
 function pemToBinary(pem) {
   const b64 = pem.replace(/-----BEGIN [^-]+-----|-----END [^-]+-----|\s/g, '');
@@ -86,10 +101,11 @@ Deno.serve(async (req) => {
       return Response.json({ error: '运费金额无效，请联系管理员确认费用明细。' }, { status: 400 });
     }
 
-    // Get exchange rate (JPY→CNY)
-    const [liveRates, settingsList] = await Promise.all([
+    // Get exchange rate, settings, and alipay config in parallel
+    const [liveRates, settingsList, alipayConfig] = await Promise.all([
       base44.asServiceRole.functions.invoke('fetchExchangeRates', {}),
       base44.asServiceRole.entities.SiteSettings.filter({ tenant_id: tenantId }),
+      getAlipayConfig(base44, tenantId),
     ]);
     const settingsMap = {};
     (settingsList || []).forEach(s => { settingsMap[s.key] = parseFloat(s.value) || 0; });
@@ -100,13 +116,9 @@ Deno.serve(async (req) => {
 
     console.log(`[generateAlipayShippingPoolPayment] poolId:${poolId} userEmail:${user.email} amountJpy:${amountJpy} cny:${total_amount_cny}`);
 
-    // Alipay config
-    const appId         = Deno.env.get('ALIPAY_APP_ID');
-    const privateKeyPem = Deno.env.get('ALIPAY_PRIVATE_KEY');
-    const gatewayUrl    = Deno.env.get('ALIPAY_GATEWAY_URL') || 'https://openapi.alipay.com/gateway.do';
-
+    const { appId, privateKey: privateKeyPem, gatewayUrl } = alipayConfig;
     if (!appId || !privateKeyPem) {
-      return Response.json({ error: '支付宝配置缺失，请联系管理员。' }, { status: 500 });
+      return Response.json({ error: '支付宝配置缺失，请管理员在网站设置中配置支付宝密钥。' }, { status: 500 });
     }
 
     const out_trade_no = `SP${poolId.replace(/-/g, '').slice(0, 12).toUpperCase()}${Date.now()}`;

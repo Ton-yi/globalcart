@@ -1,4 +1,21 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+
+// ── Multi-tenant Alipay config resolver ────────────────────────────────────
+// Priority: tenant SiteSettings (alipay_key_*) → env vars (ALIPAY_*)
+async function getAlipayConfig(base44, tenantId) {
+  let settings = [];
+  if (tenantId) {
+    settings = await base44.asServiceRole.entities.SiteSettings.filter({ tenant_id: tenantId });
+  }
+  const map = {};
+  (settings || []).forEach(s => { map[s.key] = s.value; });
+  return {
+    appId:      map['alipay_key_app_id']      || Deno.env.get('ALIPAY_APP_ID')      || '',
+    privateKey: map['alipay_key_private_key']  || Deno.env.get('ALIPAY_PRIVATE_KEY') || '',
+    publicKey:  map['alipay_key_public_key']   || Deno.env.get('ALIPAY_PUBLIC_KEY')  || '',
+    gatewayUrl: map['alipay_key_gateway_url']  || Deno.env.get('ALIPAY_GATEWAY_URL') || 'https://openapi.alipay.com/gateway.do',
+  };
+}
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -101,15 +118,16 @@ Deno.serve(async (req) => {
       }
     }
 
-    const appId         = Deno.env.get('ALIPAY_APP_ID');
-    const privateKeyPem = Deno.env.get('ALIPAY_PRIVATE_KEY');
-    const gatewayUrl    = Deno.env.get('ALIPAY_GATEWAY_URL') || 'https://openapi.alipay.com/gateway.do';
-
-    // Fetch live rates with increments from settings
-    const [liveRates, settingsList] = await Promise.all([
+    // Fetch live rates + settings + alipay config in parallel
+    const [liveRates, settingsList, alipayConfig] = await Promise.all([
       base44.asServiceRole.functions.invoke('fetchExchangeRates', {}),
       base44.asServiceRole.entities.SiteSettings.filter({ tenant_id: tenantId }),
+      getAlipayConfig(base44, tenantId),
     ]);
+    const { appId, privateKey: privateKeyPem, gatewayUrl } = alipayConfig;
+    if (!appId || !privateKeyPem) {
+      return Response.json({ error: '支付宝配置缺失，请管理员在网站设置中配置支付宝密钥。' }, { status: 500 });
+    }
 
     const settingsMap = {};
     (settingsList || []).forEach(s => { settingsMap[s.key] = parseFloat(s.value) || 0; });

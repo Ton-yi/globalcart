@@ -1,4 +1,15 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+
+// ── Multi-tenant Alipay config resolver ────────────────────────────────────
+async function getAlipayPublicKey(base44, tenantId) {
+  let settings = [];
+  if (tenantId) {
+    settings = await base44.asServiceRole.entities.SiteSettings.filter({ tenant_id: tenantId });
+  }
+  const map = {};
+  (settings || []).forEach(s => { map[s.key] = s.value; });
+  return map['alipay_key_public_key'] || Deno.env.get('ALIPAY_PUBLIC_KEY') || '';
+}
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -79,8 +90,18 @@ Deno.serve(async (req) => {
     console.log('[DIAG][handleAlipayPaymentCallback] buyer_logon_id:', buyer_logon_id);
     console.log('[DIAG][handleAlipayPaymentCallback] alipay app_id in params:', alipayAppId);
 
-    const publicKeyPem = Deno.env.get('ALIPAY_PUBLIC_KEY');
-    console.log('[DIAG][handleAlipayPaymentCallback] ALIPAY_PUBLIC_KEY present:', !!publicKeyPem);
+    // Resolve tenant from out_trade_no via matching order, then use tenant-specific public key
+    // We do a pre-fetch to find tenant_id for the right public key
+    let tenantIdForKey = null;
+    {
+      const preOrders = await base44.asServiceRole.entities.Order.list('-created_date', 500);
+      const preMatch = (preOrders || []).find(o =>
+        o.alipay_trade_no === out_trade_no || o.shipping_alipay_trade_no === out_trade_no
+      );
+      if (preMatch) tenantIdForKey = preMatch.tenant_id;
+    }
+    const publicKeyPem = await getAlipayPublicKey(base44, tenantIdForKey);
+    console.log('[DIAG][handleAlipayPaymentCallback] ALIPAY_PUBLIC_KEY present:', !!publicKeyPem, '| tenantId:', tenantIdForKey);
     // Log first 60 chars of public key (non-secret header) to confirm which key type it is
     const keyPreview = publicKeyPem ? publicKeyPem.replace(/\s+/g, ' ').slice(0, 80) : 'null';
     console.log('[DIAG][handleAlipayPaymentCallback] ALIPAY_PUBLIC_KEY preview (first 80 chars):', keyPreview);
@@ -146,8 +167,8 @@ Deno.serve(async (req) => {
       return new Response('success', { status: 200 });
     }
 
-    // 3. Find matching orders — list all and filter manually (SDK filter() unreliable for custom fields)
-    console.log('[DIAG][handleAlipayPaymentCallback] fetching all orders to match out_trade_no:', out_trade_no);
+    // 3. Find matching orders — reuse the pre-fetched list from signature resolution step
+    console.log('[DIAG][handleAlipayPaymentCallback] searching pre-fetched orders for out_trade_no:', out_trade_no);
     const allOrders = await base44.asServiceRole.entities.Order.list('-created_date', 500);
     console.log('[DIAG][handleAlipayPaymentCallback] total orders fetched:', allOrders?.length);
 
