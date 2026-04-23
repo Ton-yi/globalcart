@@ -1,6 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
-// ── Multi-tenant Alipay config resolver ────────────────────────────────────
+// ── Multi-tenant Alipay public key resolver ────────────────────────────────
 async function getAlipayPublicKey(base44, tenantId) {
   let settings = [];
   if (tenantId) {
