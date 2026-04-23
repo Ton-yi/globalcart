@@ -63,7 +63,7 @@ export default function PaymentMethodSelector({ value, onChange, className = "",
           <button
             key={m.id || methodValue}
             type="button"
-            onClick={() => onChange({ value: methodValue, label: m.name, payment_note: m.payment_note || "", image_url: m.image_url || "", icon: m.icon || "", color: m.color || "" })}
+            onClick={() => onChange({ value: methodValue, label: m.name, payment_note: m.payment_note || "", image_url: m.image_url || "", icon: m.icon || "", color: m.color || "", payment_currency: m.payment_currency || "JPY" })}
             className={`p-3 rounded-lg border-2 text-sm font-medium transition-all flex items-center gap-2 ${
               isActive ? activeColor : "border-gray-200 text-gray-500 hover:border-gray-300"
             }`}

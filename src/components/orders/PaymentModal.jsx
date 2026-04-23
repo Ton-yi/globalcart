@@ -4,7 +4,7 @@
  * Alipay: auto-generates signed link, user clicks pay, callback updates status automatically.
  * Other: upload proof manually.
  */
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { X, CreditCard, ExternalLink, CheckCircle, Loader2, Upload } from "lucide-react";
@@ -55,8 +55,34 @@ export default function PaymentModal({ order, mode = "prepay", onClose, onSucces
     : `${title}金额：${cur} ${Math.round(defaultAmount)}`;
 
   const [method, setMethod] = useState("");
-  const [selectedMethodMeta, setSelectedMethodMeta] = useState(null); // { value, label, payment_note, image_url }
+  const [selectedMethodMeta, setSelectedMethodMeta] = useState(null); // { value, label, payment_note, image_url, payment_currency }
   const [paidAmount, setPaidAmount] = useState(String(defaultAmount));
+  const [rates, setRates] = useState(null);
+
+  // Fetch exchange rates once on mount (for non-JPY currency display)
+  useEffect(() => {
+    fetch('https://v6.exchangerate-api.com/v6/89e2f91c758d92aa2c06667b/latest/JPY')
+      .then(r => r.json())
+      .then(d => { if (d?.result === 'success') setRates(d.conversion_rates); })
+      .catch(() => {});
+  }, []);
+
+  // Currency conversion helpers
+  const CURRENCY_SYMBOLS = { JPY: "¥", CNY: "¥", USD: "$", TWD: "NT$", HKD: "HK$", EUR: "€", SGD: "S$" };
+  const payCurrency = selectedMethodMeta?.payment_currency || cur;
+  const isNonJpy = payCurrency !== "JPY" && payCurrency !== cur;
+
+  // Compute converted amount: defaultAmount is in `cur`, we need to convert to payCurrency
+  // Both cur and payCurrency are relative to JPY base from the API
+  let convertedDisplay = null;
+  if (isNonJpy && rates && rates[payCurrency] && rates[cur]) {
+    // cur → JPY → payCurrency
+    const amountInJpy = defaultAmount / rates[cur]; // convert cur → JPY
+    const converted = amountInJpy * rates[payCurrency];
+    const decimals = ["TWD", "HKD", "CNY"].includes(payCurrency) ? 1 : 2;
+    const sym = CURRENCY_SYMBOLS[payCurrency] || payCurrency;
+    convertedDisplay = `${sym}${converted.toFixed(decimals)} ${payCurrency}`;
+  }
 
   // Alipay
   const [alipayUrl, setAlipayUrl] = useState(null);
@@ -154,6 +180,21 @@ export default function PaymentModal({ order, mode = "prepay", onClose, onSucces
              <CreditCard className="w-4 h-4 text-yellow-600" />
              <AlertDescription className="text-yellow-800 text-sm font-medium">{amountLabel}</AlertDescription>
            </Alert>
+
+           {/* Non-JPY currency conversion notice */}
+           {convertedDisplay && (
+             <div className="bg-orange-50 border border-orange-200 rounded-lg px-4 py-3 space-y-1">
+               <div className="flex items-center justify-between text-xs text-gray-500">
+                 <span>汇率换算参考</span>
+                 <span>1 JPY ≈ {rates?.[payCurrency]?.toFixed(4)} {payCurrency}</span>
+               </div>
+               <div className="flex items-center justify-between">
+                 <span className="text-sm font-semibold text-orange-700">实际应付（{payCurrency}）</span>
+                 <span className="text-lg font-bold text-orange-600">{convertedDisplay}</span>
+               </div>
+               <p className="text-xs text-orange-400">汇率实时参考，以实际到账为准</p>
+             </div>
+           )}
 
            {/* Item size fee breakdown for shipping */}
            {isShipping && itemSizeFee > 0 && (
