@@ -23,7 +23,6 @@ import AddonManager from "@/components/admin/AddonManager";
 import MemberTierManager from "@/components/admin/MemberTierManager";
 import CreditApplicationManager from "@/components/admin/CreditApplicationManager";
 import PaymentMethodManager from "@/components/admin/PaymentMethodManager";
-import AlipayKeysManager from "@/components/admin/AlipayKeysManager";
 
 const DEFAULT_SETTINGS = [
   { key: "service_fee_rate", value: "10", description: "服务费率 (%)", category: "fee" },
@@ -356,33 +355,15 @@ export default function AdminSettings() {
       </div>
 
       {activeTab === "payment_methods" && (
-        <div className="space-y-4">
-          <Card className="border-blue-200">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                💳 支付宝密钥配置
-                <Badge className="text-xs bg-blue-100 text-blue-700">租户独立</Badge>
-              </CardTitle>
-              <p className="text-xs text-gray-400 mt-1">
-                为本租户配置专属支付宝密钥。留空则使用平台共享密钥（环境变量 ALIPAY_*）。
-                多租户场景下建议每个租户配置独立的支付宝应用。
-              </p>
-            </CardHeader>
-            <CardContent>
-              <AlipayKeysManager />
-            </CardContent>
-          </Card>
-
-          <Card className="border-gray-200">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold text-gray-700">支付方式管理</CardTitle>
-              <p className="text-xs text-gray-400 mt-1">管理可供用户使用的支付方式。支付宝自动回调需在上方配置密钥。</p>
-            </CardHeader>
-            <CardContent>
-              <PaymentMethodManager onReload={load} />
-            </CardContent>
-          </Card>
-        </div>
+        <Card className="border-gray-200">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold text-gray-700">支付方式管理</CardTitle>
+            <p className="text-xs text-gray-400 mt-1">支付宝自动支付的密钥可在添加后点击「密钥」按钮配置。</p>
+          </CardHeader>
+          <CardContent>
+            <PaymentMethodManager onReload={load} />
+          </CardContent>
+        </Card>
       )}
 
       {activeTab === "member_tiers" && (
