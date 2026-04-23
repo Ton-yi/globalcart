@@ -22,20 +22,34 @@ const FALLBACK_METHODS = [
  * @param {string}   activeColor - tailwind classes for active border, e.g. "border-blue-500 bg-blue-50 text-blue-700"
  */
 export default function PaymentMethodSelector({ value, onChange, className = "", prefetched = null, activeColor = "border-blue-500 bg-blue-50 text-blue-700 ring-2 ring-blue-200" }) {
-  const [methods, setMethods] = useState(prefetched);
+  const [methods, setMethods] = useState(prefetched ?? null);
+  const [loading, setLoading] = useState(prefetched === null);
 
   useEffect(() => {
     if (prefetched !== null) {
       setMethods(prefetched);
+      setLoading(false);
       return;
     }
+    setLoading(true);
     base44.functions.invoke('managePaymentMethod', { action: 'list' })
       .then(r => {
         const list = r.data?.methods || [];
         setMethods(list.length > 0 ? list : FALLBACK_METHODS);
       })
-      .catch(() => setMethods(FALLBACK_METHODS));
+      .catch(() => setMethods(FALLBACK_METHODS))
+      .finally(() => setLoading(false));
   }, [prefetched]);
+
+  if (loading) {
+    return (
+      <div className={`grid grid-cols-2 gap-2 ${className}`}>
+        {[1, 2, 3, 4].map(i => (
+          <div key={i} className="h-11 rounded-lg border-2 border-gray-100 bg-gray-50 animate-pulse" />
+        ))}
+      </div>
+    );
+  }
 
   const displayMethods = methods ?? FALLBACK_METHODS;
 
