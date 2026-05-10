@@ -80,7 +80,7 @@ Deno.serve(async (req) => {
       ),
       base44.asServiceRole.entities.ShippingPool.filter(tenantFilter),
       base44.asServiceRole.entities.OnlineStoreTagRule.filter(tenantFilter),
-      base44.asServiceRole.entities.TransitLocation.filter({ ...tenantFilter, is_active: true }),
+      base44.asServiceRole.entities.TransitLocation.filter(tenantFilter),
       base44.asServiceRole.entities.AddonOption.filter({ ...tenantFilter, addon_type: 'shipping', is_active: true }),
       base44.asServiceRole.entities.TransitShippingMethod.filter({ ...tenantFilter, is_active: true }),
       // Filter by user_email only (not tenant_id) so legacy records without tenant_id are also found
@@ -138,7 +138,7 @@ Deno.serve(async (req) => {
       orders: orders || [],
       pools: accessiblePools,
       storeTagRules: (storeTagRules || []).filter(r => r.is_active !== false),
-      transitLocations: transitLocations || [],
+      transitLocations: (transitLocations || []).filter(l => l.is_active !== false),
       addons: addons || [],
       transitMethods: transitMethods || [],
       userPreference: userPrefs?.[0] || null,
