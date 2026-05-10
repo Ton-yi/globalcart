@@ -310,12 +310,20 @@ export default function AdminShippingInfoPanel({
 
   const handleConfirmPayment = async () => {
     setConfirmingSaving(true);
+    // Mark all per-user payments as paid if any exist
+    const existingPerUserPayments = pool.per_user_payments || [];
+    const updatedPerUserPayments = existingPerUserPayments.map(p => ({
+      ...p,
+      payment_status: "paid",
+      confirmed_at: p.confirmed_at || new Date().toISOString(),
+    }));
     const payload = {
       ...buildUpdatePayload(),
       status: "ready_to_ship",
       payment_status: "paid",
       admin_confirmed_payment: true,
       supplement_amount_per_user: [], // clear supplement after payment confirmed
+      per_user_payments: updatedPerUserPayments,
     };
     await shippingPoolApi.update(pool.id, payload);
     // Update all orders in this pool to notified_shipment_fee_paid
@@ -930,16 +938,84 @@ export default function AdminShippingInfoPanel({
             {isAwaitingConfirmation && (
               <>
                 <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2.5 space-y-2">
-                  <p className="text-xs text-blue-700 font-medium">
-                    用户已提交付款（¥{Math.round(grandTotalJpy).toLocaleString()} JPY），请核实后确认收款。
-                  </p>
-                  {pool.payment_proof_url && (
-                    <PaymentProofImage url={pool.payment_proof_url} />
-                  )}
+                  {/* Multi-user: show per-user payment status */}
+                  {(() => {
+                    const perUserPayments = pool.per_user_payments || [];
+                    if (perUserPayments.length === 0 && pool.payment_proof_url) {
+                      // Legacy single-user
+                      return (
+                        <>
+                          <p className="text-xs text-blue-700 font-medium">
+                            用户已提交付款（¥{Math.round(grandTotalJpy).toLocaleString()} JPY），请核实后确认收款。
+                          </p>
+                          <PaymentProofImage url={pool.payment_proof_url} />
+                        </>
+                      );
+                    }
+                    if (perUserPayments.length > 0) {
+                      return (
+                        <div className="space-y-2">
+                          <p className="text-xs text-blue-700 font-medium">各用户付款状态（拼邮）：</p>
+                          {perUserPayments.map(up => {
+                            const profile = userProfileMap[up.user_email] || {};
+                            const displayName = profile.display_name || profile.full_name || up.user_email;
+                            const isPending = up.payment_status === "awaiting_confirmation";
+                            const isConfirmed = up.payment_status === "paid";
+                            return (
+                              <div key={up.user_email} className="bg-white border border-blue-100 rounded-lg px-3 py-2 space-y-1.5">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-xs font-medium text-gray-700">{displayName}</span>
+                                  <span className={`text-xs px-1.5 py-0.5 rounded ${isConfirmed ? "bg-green-100 text-green-700" : isPending ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-500"}`}>
+                                    {isConfirmed ? "已确认" : isPending ? "待确认" : up.payment_status}
+                                  </span>
+                                </div>
+                                {up.payment_method && <p className="text-xs text-gray-400">支付方式：{up.payment_method}</p>}
+                                {up.payment_proof_url && <PaymentProofImage url={up.payment_proof_url} />}
+                                {isPending && (
+                                  <Button size="sm" className="bg-green-600 hover:bg-green-700 w-full h-7 text-xs"
+                                    disabled={confirmingSaving}
+                                    onClick={async () => {
+                                      setConfirmingSaving(true);
+                                      const updatedPayments = (pool.per_user_payments || []).map(p =>
+                                        p.user_email === up.user_email ? { ...p, payment_status: "paid", confirmed_at: new Date().toISOString() } : p
+                                      );
+                                      const allPaid = updatedPayments.every(p => p.payment_status === "paid");
+                                      await shippingPoolApi.update(pool.id, {
+                                        per_user_payments: updatedPayments,
+                                        ...(allPaid ? { payment_status: "paid", admin_confirmed_payment: true } : {}),
+                                      });
+                                      setPool(p => ({
+                                        ...p,
+                                        per_user_payments: updatedPayments,
+                                        ...(allPaid ? { payment_status: "paid", admin_confirmed_payment: true } : {}),
+                                      }));
+                                      onPoolUpdated?.({ ...pool, per_user_payments: updatedPayments, ...(allPaid ? { payment_status: "paid", admin_confirmed_payment: true } : {}) });
+                                      setConfirmingSaving(false);
+                                    }}>
+                                    <CheckCircle className="w-3 h-3 mr-1" />确认此用户已付款
+                                  </Button>
+                                )}
+                              </div>
+                            );
+                          })}
+                          {/* Show confirm all only when all per-user payments confirmed */}
+                          {perUserPayments.every(p => p.payment_status === "paid") && (
+                            <p className="text-xs text-green-600 font-medium text-center">✅ 所有用户已付款确认，可进入待发货</p>
+                          )}
+                        </div>
+                      );
+                    }
+                    // No proof submitted yet
+                    return (
+                      <p className="text-xs text-blue-700 font-medium">
+                        用户已提交付款（¥{Math.round(grandTotalJpy).toLocaleString()} JPY），请核实后确认收款。
+                      </p>
+                    );
+                  })()}
                   <Button size="sm" className="bg-green-600 hover:bg-green-700 w-full"
                     onClick={handleConfirmPayment} disabled={confirmingSaving}>
                     <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
-                    {confirmingSaving ? "确认中..." : "确认收款，进入待发货"}
+                    {confirmingSaving ? "确认中..." : "全部确认收款，进入待发货"}
                   </Button>
                 </div>
                 {(() => {

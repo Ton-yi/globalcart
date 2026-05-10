@@ -218,6 +218,14 @@
       "description": "\u7ba1\u7406\u5458\u66f4\u65b0\u91d1\u989d\u540e\u9700\u8981\u8865\u6b3e\u7684\u5dee\u989d\u660e\u7ec6 [{user_email, supplement_jpy, previous_total_jpy, new_total_jpy}]",
       "default": []
     },
+    "per_user_payments": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "\u62fc\u90ae\u4e2d\u5404\u7528\u6237\u72ec\u7acb\u4ed8\u6b3e\u8bb0\u5f55 [{user_email, payment_status, payment_method, payment_proof_url, alipay_trade_no, alipay_transaction_id, submitted_at, confirmed_at}]",
+      "default": []
+    },
     "selected_addon_ids": {
       "type": "array",
       "items": {
@@ -251,11 +259,12 @@
       "type": "string",
       "enum": [
         "unpaid",
+        "partial",
         "awaiting_confirmation",
         "paid"
       ],
       "default": "unpaid",
-      "description": "\u8fd0\u8d39\u4ed8\u6b3e\u72b6\u6001\uff1aunpaid=\u672a\u4ed8\u6b3e, awaiting_confirmation=\u7b49\u5f85\u786e\u8ba4, paid=\u5df2\u4ed8\u6b3e"
+      "description": "\u8fd0\u8d39\u4ed8\u6b3e\u72b6\u6001\uff1aunpaid=\u672a\u4ed8\u6b3e, partial=\u90e8\u5206\u5df2\u4ed8\u6b3e, awaiting_confirmation=\u7b49\u5f85\u786e\u8ba4, paid=\u5df2\u4ed8\u6b3e"
     },
     "payment_method": {
       "type": "string",
@@ -263,7 +272,7 @@
     },
     "payment_proof_url": {
       "type": "string",
-      "description": "\u8fd0\u8d39\u4ed8\u6b3e\u51ed\u8bc1URL"
+      "description": "\u8fd0\u8d39\u4ed8\u6b3e\u51ed\u8bc1URL\uff08\u5355\u7528\u6237\u6c60\u6216\u65e7\u6570\u636e\u517c\u5bb9\uff09"
     },
     "alipay_trade_no": {
       "type": "string",

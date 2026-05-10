@@ -381,13 +381,47 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
     setUploadingProof(true);
     const method = paymentMethodRef.current;
     const { file_url } = await base44.integrations.Core.UploadFile({ file });
-    await shippingPoolApi.update(pool.id, {
-      payment_status: "awaiting_confirmation",
-      payment_method: method,
-      payment_proof_url: file_url,
-      status: "awaiting_payment_confirmation",
-    });
-    setPool((p) => ({ ...p, payment_status: "awaiting_confirmation", payment_method: method, payment_proof_url: file_url, status: "awaiting_payment_confirmation" }));
+
+    const isConsolidationPool = pool.consolidation_type && pool.consolidation_type !== "";
+    const participantEmails = [...new Set((pool.fee_breakdown_per_user || []).map(b => b.user_email))];
+    const isMultiUser = isConsolidationPool && participantEmails.length > 1;
+
+    if (isMultiUser) {
+      // Per-user payment: only update this user's entry in per_user_payments
+      const existingPayments = pool.per_user_payments || [];
+      const myEntry = {
+        user_email: currentUser.email,
+        payment_status: "awaiting_confirmation",
+        payment_method: method,
+        payment_proof_url: file_url,
+        submitted_at: new Date().toISOString(),
+      };
+      const updatedPayments = [
+        ...existingPayments.filter(p => p.user_email !== currentUser.email),
+        myEntry,
+      ];
+      // Pool-level: set to awaiting_payment_confirmation, payment_status to partial (others may not have paid)
+      const allSubmitted = participantEmails.every(email =>
+        email === currentUser.email || updatedPayments.find(p => p.user_email === email && p.payment_status === "awaiting_confirmation")
+      );
+      const newPaymentStatus = allSubmitted ? "awaiting_confirmation" : "partial";
+      const newStatus = allSubmitted ? "awaiting_payment_confirmation" : pool.status;
+      await shippingPoolApi.update(pool.id, {
+        per_user_payments: updatedPayments,
+        payment_status: newPaymentStatus,
+        status: newStatus,
+      });
+      setPool(p => ({ ...p, per_user_payments: updatedPayments, payment_status: newPaymentStatus, status: newStatus }));
+    } else {
+      // Single-user pool: use old global fields
+      await shippingPoolApi.update(pool.id, {
+        payment_status: "awaiting_confirmation",
+        payment_method: method,
+        payment_proof_url: file_url,
+        status: "awaiting_payment_confirmation",
+      });
+      setPool(p => ({ ...p, payment_status: "awaiting_confirmation", payment_method: method, payment_proof_url: file_url, status: "awaiting_payment_confirmation" }));
+    }
     setUploadingProof(false);
   };
 
@@ -1390,11 +1424,52 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                 }
                 </div>
 
-                {(pool.payment_status === "awaiting_confirmation" || pool.status === "awaiting_payment_confirmation") ?
-              <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2.5 text-sm text-blue-700">
-                    ✅ 付款信息已提交，等待管理员确认中。
-                  </div> :
+                {(() => {
+                  // Consolidation multi-user payment logic
+                  const participantEmails = [...new Set((pool.fee_breakdown_per_user || []).map(b => b.user_email))];
+                  const isMultiUserPool = (pool.consolidation_type && pool.consolidation_type !== "") && participantEmails.length > 1;
+                  const myPayment = (pool.per_user_payments || []).find(p => p.user_email === currentUser?.email);
+                  const iAlreadySubmitted = myPayment?.payment_status === "awaiting_confirmation" || myPayment?.payment_status === "paid";
 
+                  // For multi-user pool: show my submitted status + others' pending count
+                  if (isMultiUserPool && iAlreadySubmitted) {
+                    const othersPending = participantEmails.filter(email =>
+                      email !== currentUser?.email &&
+                      !(pool.per_user_payments || []).find(p => p.user_email === email && (p.payment_status === "awaiting_confirmation" || p.payment_status === "paid"))
+                    );
+                    return (
+                      <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2.5 space-y-1.5 text-sm">
+                        <p className="text-blue-700 font-medium">✅ 您的付款信息已提交，等待管理员确认。</p>
+                        {othersPending.length > 0 ? (
+                          <p className="text-xs text-blue-500">还有 {othersPending.length} 位参与者尚未提交付款。</p>
+                        ) : (
+                          <p className="text-xs text-blue-500">所有参与者均已提交付款，等待管理员确认。</p>
+                        )}
+                      </div>
+                    );
+                  }
+
+                  // For single-user pool: show global submitted status
+                  if (!isMultiUserPool && (pool.payment_status === "awaiting_confirmation" || pool.status === "awaiting_payment_confirmation")) {
+                    return (
+                      <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2.5 text-sm text-blue-700">
+                        ✅ 付款信息已提交，等待管理员确认中。
+                      </div>
+                    );
+                  }
+
+                  return null;
+                })()}
+
+                {/* Payment form — shown only when user hasn't submitted yet */}
+                {(() => {
+                  const participantEmails = [...new Set((pool.fee_breakdown_per_user || []).map(b => b.user_email))];
+                  const isMultiUserPool = (pool.consolidation_type && pool.consolidation_type !== "") && participantEmails.length > 1;
+                  const myPayment = (pool.per_user_payments || []).find(p => p.user_email === currentUser?.email);
+                  const iAlreadySubmitted = myPayment?.payment_status === "awaiting_confirmation" || myPayment?.payment_status === "paid";
+                  const singleUserAlreadySubmitted = !isMultiUserPool && (pool.payment_status === "awaiting_confirmation" || pool.status === "awaiting_payment_confirmation");
+                  if (iAlreadySubmitted || singleUserAlreadySubmitted) return null;
+                  return (
               <>
                     {/* Fee display for current user */}
                     {(() => {
@@ -1580,7 +1655,8 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                     />
                     }
                   </>
-              }
+                  );
+                })()}
               </div>
             </div>
           }
