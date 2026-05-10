@@ -47,6 +47,16 @@
       "default": "",
       "description": "\u62fc\u90ae\u7c7b\u578b\uff1a\u7a7a=\u76f4\u63a5\u53d1\u8d27, transit=\u4e2d\u8f6c\u5730\u62fc\u90ae, other=\u5176\u5b83\u5730\u5740\u62fc\u90ae"
     },
+    "consolidation_min_weight_g": {
+      "type": "number",
+      "description": "\u62fc\u90ae\u6700\u4f4e\u51d1\u6ee1\u91cd\u91cf(g)\uff0c\u5b58\u50a8\u5728pool\u4e0a\u4f9b\u6240\u6709\u53c2\u4e0e\u8005\u67e5\u770b",
+      "default": 0
+    },
+    "consolidation_deadline": {
+      "type": "string",
+      "format": "date",
+      "description": "\u62fc\u90ae\u51d1\u5355\u622a\u6b62\u65e5\u671f\uff0c\u5b58\u50a8\u5728pool\u4e0a\u4f9b\u6240\u6709\u53c2\u4e0e\u8005\u67e5\u770b"
+    },
     "order_ids": {
       "type": "array",
       "items": {

@@ -280,6 +280,9 @@ export default function ShippingPool() {
       selected_addons: shippingAddons
         .filter(a => selectedAddonIds.includes(a.id))
         .map(a => ({ id: a.id, name: a.name, fee: a.fee, fee_currency: a.fee_currency })),
+      // Store consolidation strategy on the pool so all participants can see progress
+      consolidation_min_weight_g: consType !== "" && strategy.min_weight_g ? parseFloat(strategy.min_weight_g) : 0,
+      consolidation_deadline: consType !== "" ? (strategy.deadline || "") : "",
     });
 
     const strategyFields = consType !== "" ? {
@@ -863,10 +866,15 @@ export default function ShippingPool() {
                 const poolOrders = (pool.order_ids || [])
                   .map(id => allOrders.find(o => o.id === id))
                   .filter(Boolean);
-                // Use pool-level aggregated data as source of truth (always available)
+                // Use pool-level aggregated data as source of truth (always available, visible to all participants)
                 const groupWeight = pool.total_weight_g || poolOrders.reduce((s, o) => s + (o.weight_g || 0), 0);
-                const minWeight = Math.max(...poolOrders.map(o => o.consolidation_min_weight_g || 0).filter(Boolean));
-                const deadline = poolOrders.map(o => o.consolidation_deadline).filter(Boolean).sort()[0];
+                // Prefer pool-level strategy fields (stored at creation time, visible to all users)
+                // Fall back to order-level fields for legacy pools created before this was stored on pool
+                const minWeight = pool.consolidation_min_weight_g > 0
+                  ? pool.consolidation_min_weight_g
+                  : Math.max(0, ...poolOrders.map(o => o.consolidation_min_weight_g || 0));
+                const deadline = pool.consolidation_deadline ||
+                  poolOrders.map(o => o.consolidation_deadline).filter(Boolean).sort()[0];
                 const groupLabel = pool.consolidation_type === "transit"
                   ? (pool.transit_location_name || "中转地")
                   : "自选地址拼邮";
@@ -887,7 +895,7 @@ export default function ShippingPool() {
                           )}
                         </div>
                         <div className="flex items-center gap-1.5 text-xs text-gray-500 flex-shrink-0">
-                          <Badge variant="outline" className="text-xs">{poolOrders.length} 件</Badge>
+                          <Badge variant="outline" className="text-xs">{(pool.order_ids || []).length} 件</Badge>
                           {isReady && <Badge className="text-xs bg-green-100 text-green-700 border-green-200">可发货</Badge>}
                         </div>
                       </div>
