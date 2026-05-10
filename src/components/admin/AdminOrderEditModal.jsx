@@ -64,6 +64,12 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
   const [itemSizeTemplates, setItemSizeTemplates] = useState(initialItemSizeTemplates || []);
   const [selectedSizeId, setSelectedSizeId] = useState(order.item_size_template_id || "");
 
+  // In-warehouse edit state (weight + size, for already-warehoused orders)
+  const [warehouseEditMode, setWarehouseEditMode] = useState(false);
+  const [warehouseWeight, setWarehouseWeight] = useState(order.weight_g || "");
+  const [warehouseSizeId, setWarehouseSizeId] = useState(order.item_size_template_id || "");
+  const [savingWarehouseEdit, setSavingWarehouseEdit] = useState(false);
+
   // Shipping fee form
   const [shippingWeight, setShippingWeight] = useState(order.shipping_total_weight_g || "");
   const [shippingFee, setShippingFee] = useState(order.shipping_fee_amount || "");
@@ -659,10 +665,24 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
                 </div>
               )}
 
-              {/* in_warehouse: show if user has pre-set shipping request */}
+              {/* in_warehouse: show info + allow admin to edit weight/size */}
               {status === "in_warehouse" && (
                 <div className="space-y-2 border border-cyan-100 rounded-xl p-3 bg-cyan-50">
-                  <div className="text-sm font-medium text-cyan-800">已入库</div>
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-medium text-cyan-800">已入库</div>
+                    <button
+                      type="button"
+                      onClick={() => setWarehouseEditMode(v => !v)}
+                      className="text-xs text-cyan-600 hover:text-cyan-800 underline"
+                    >
+                      {warehouseEditMode ? "收起" : "修改重量/尺寸"}
+                    </button>
+                  </div>
+                  {/* Current values */}
+                  <div className="flex flex-wrap gap-2 text-xs text-gray-600">
+                    {order.weight_g > 0 && <span className="bg-white border border-cyan-100 rounded px-2 py-0.5">当前重量：<strong>{order.weight_g}g</strong></span>}
+                    {order.item_size_title && <span className="bg-white border border-cyan-100 rounded px-2 py-0.5">尺寸：<strong>{order.item_size_title}</strong></span>}
+                  </div>
                   {order.shipping_method ? (
                     <div className="text-xs text-gray-700">
                       用户已预设发货方式：<strong>{order.shipping_method}</strong>
@@ -670,6 +690,97 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
                     </div>
                   ) : (
                     <p className="text-xs text-gray-400">等待用户通知发货</p>
+                  )}
+                  {/* Inline edit panel */}
+                  {warehouseEditMode && (
+                    <div className="border-t border-cyan-200 pt-3 space-y-3 mt-2">
+                      <div>
+                        <Label className="text-xs">货品重量 (g)</Label>
+                        <div className="flex items-center gap-1 mt-1">
+                          <Input type="number" placeholder={order.weight_g || "100"} value={warehouseWeight}
+                            onChange={e => setWarehouseWeight(e.target.value)}
+                            onWheel={e => e.target.blur()}
+                            className="flex-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none bg-white" />
+                          <button type="button" onClick={() => setWarehouseWeight(v => String(Math.max(0, (parseFloat(v) || 0) + 100)))}
+                            className="px-2 py-1.5 text-xs border border-gray-200 rounded bg-white hover:bg-gray-50 text-gray-600 whitespace-nowrap">+100</button>
+                          <button type="button" onClick={() => setWarehouseWeight(v => String(Math.max(0, (parseFloat(v) || 0) + 1000)))}
+                            className="px-2 py-1.5 text-xs border border-gray-200 rounded bg-white hover:bg-gray-50 text-gray-600 whitespace-nowrap">+1000</button>
+                          <button type="button" onClick={() => setWarehouseWeight(v => String(Math.max(0, (parseFloat(v) || 0) - 100)))}
+                            className="px-2 py-1.5 text-xs border border-gray-200 rounded bg-white hover:bg-gray-50 text-gray-600 whitespace-nowrap">-100</button>
+                        </div>
+                      </div>
+                      {itemSizeTemplates.length > 0 && (
+                        <div>
+                          <Label className="text-xs flex items-center gap-1.5">
+                            <Package className="w-3.5 h-3.5" />物品尺寸
+                          </Label>
+                          <div className="mt-1.5 space-y-1.5">
+                            {itemSizeTemplates.map(template => (
+                              <label key={template.id} className={`flex items-start gap-3 p-2 rounded-lg border cursor-pointer transition-colors bg-white ${
+                                warehouseSizeId === template.id ? "border-cyan-400 bg-cyan-50" : "border-gray-200 hover:bg-gray-50"
+                              }`}>
+                                <input type="radio" checked={warehouseSizeId === template.id}
+                                  onChange={() => setWarehouseSizeId(template.id)} className="mt-0.5 accent-cyan-600" />
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs font-medium text-gray-800">{template.title}</span>
+                                    <span className="text-xs font-mono text-cyan-700">+{template.fee_currency} {template.extra_fee}</span>
+                                  </div>
+                                  {template.description && <p className="text-xs text-gray-500 mt-0.5">{template.description}</p>}
+                                </div>
+                              </label>
+                            ))}
+                            <label className={`flex items-center gap-3 p-2 rounded-lg border cursor-pointer transition-colors bg-white ${
+                              warehouseSizeId === "" ? "border-gray-300 bg-gray-50" : "border-gray-200 hover:bg-gray-50"
+                            }`}>
+                              <input type="radio" checked={warehouseSizeId === ""} onChange={() => setWarehouseSizeId("")} className="accent-gray-600" />
+                              <span className="text-xs text-gray-500">不选择尺寸</span>
+                            </label>
+                          </div>
+                        </div>
+                      )}
+                      <Button size="sm" className="w-full bg-cyan-600 hover:bg-cyan-700 text-xs"
+                        disabled={savingWarehouseEdit}
+                        onClick={async () => {
+                          setSavingWarehouseEdit(true);
+                          const newWeight = parseFloat(warehouseWeight) || order.weight_g || 0;
+                          const newSizeTemplate = itemSizeTemplates.find(t => t.id === warehouseSizeId) || null;
+                          // Build change summary for notification
+                          const changes = [];
+                          if (newWeight !== order.weight_g) changes.push(`货品重量：${order.weight_g || 0}g → ${newWeight}g`);
+                          const oldSizeTitle = order.item_size_title || "无";
+                          const newSizeTitle = newSizeTemplate?.title || "无";
+                          if (newSizeTitle !== oldSizeTitle) changes.push(`物品尺寸：${oldSizeTitle} → ${newSizeTitle}`);
+                          const updates = {
+                            weight_g: newWeight,
+                            item_size_template_id: newSizeTemplate?.id || "",
+                            item_size_title: newSizeTemplate?.title || "",
+                            item_size_extra_fee: newSizeTemplate?.extra_fee || 0,
+                            item_size_fee_currency: newSizeTemplate?.fee_currency || "JPY",
+                          };
+                          // If there are changes, send system message + mark user unread
+                          if (changes.length > 0) {
+                            const sysMsg = {
+                              id: Date.now().toString(),
+                              from: "系统通知",
+                              from_email: "__system__",
+                              role: "admin",
+                              content: `管理员已更新您的入库货品信息：${changes.join("；")}`,
+                              timestamp: new Date().toISOString(),
+                            };
+                            const currentMessages = order.messages || [];
+                            const currentUnread = order.unread_roles || [];
+                            updates.messages = [...currentMessages, sysMsg];
+                            updates.unread_roles = [...new Set([...currentUnread, "user"])];
+                          }
+                          await updateOrder(order.id, updates);
+                          setSavingWarehouseEdit(false);
+                          setWarehouseEditMode(false);
+                          onSaved();
+                        }}>
+                        {savingWarehouseEdit ? "保存中..." : "保存修改并通知用户"}
+                      </Button>
+                    </div>
                   )}
                 </div>
               )}
