@@ -72,6 +72,32 @@ Deno.serve(async (req) => {
       return Response.json({ orders: [] });
     }
 
+    // If a pool_id is supplied, load only the orders in that pool (if the user has access to it).
+    // This allows non-admin users to see all orders inside a shipping pool they are a participant of
+    // or have been shared access to — privacy masking is handled client-side.
+    if (!canSeeAll && body.pool_id) {
+      const pools = await base44.asServiceRole.entities.ShippingPool.filter({ tenant_id: tenantId });
+      const pool = pools.find(p => p.id === body.pool_id);
+      // User must be a participant (has their own order in it), the creator, or it's shared with them
+      const isParticipant = pool && (
+        pool.creator_email === user.email ||
+        (pool.shared_with_emails || []).includes(user.email) ||
+        !pool.is_private
+      );
+      if (pool && isParticipant) {
+        const poolOrderIds = pool.order_ids || [];
+        if (poolOrderIds.length === 0) {
+          return Response.json({ orders: [] });
+        }
+        // Fetch all tenant orders and filter to those in the pool
+        const allTenantOrders = await base44.asServiceRole.entities.Order.filter({ tenant_id: tenantId }, '-updated_date', 500);
+        const poolOrders = allTenantOrders.filter(o => poolOrderIds.includes(o.id));
+        console.log(`[TIMING] getTenantOrders | pool_id scoped fetch: ${Date.now()-t3}ms | count: ${poolOrders.length}`);
+        return Response.json({ orders: poolOrders });
+      }
+      // Fall through to own-orders-only filter if pool not found or no access
+    }
+
     let filter = { tenant_id: tenantId };
     if (!canSeeAll) {
       filter.user_email = user.email;

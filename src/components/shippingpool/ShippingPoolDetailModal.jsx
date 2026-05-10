@@ -87,8 +87,11 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
   useEffect(() => {
     const fetches = [];
     if (pool.order_ids?.length > 0) {
+      // Admins fetch all tenant orders; users pass pool_id so the backend
+      // returns all orders in the pool (privacy masking is done client-side).
+      const orderParams = isAdmin ? { all: true } : { pool_id: pool.id };
       fetches.push(
-        base44.functions.invoke('getTenantOrders', { all: true }).
+        base44.functions.invoke('getTenantOrders', orderParams).
         then((r) => {
           const allOrders = r.data?.orders || [];
           setOrders(allOrders.filter((o) => pool.order_ids.includes(o.id)));
