@@ -144,12 +144,14 @@ export default function AdminShippingInfoPanel({
   const selectedBox = boxTemplates.find(b => b.id === boxTemplateId);
   const boxWeight = selectedBox?.weight_g || 0;
   const boxPrice = selectedBox?.price_jpy || 0;
-  // Effective per-user fee = base + extra; stored as fee_jpy for calc functions
-  const effectivePackingFeesPerUser = packingFeesPerUser.map(u => ({
-    ...u,
-    base_fee_jpy: basePackingFee,
-    fee_jpy: basePackingFee + (parseFloat(u.extra_fee_jpy) || 0),
-  }));
+  // Effective per-user fee = base + extra; stable memo to avoid re-triggering feeBreakdowns
+  const effectivePackingFeesPerUser = useMemo(() =>
+    packingFeesPerUser.map(u => ({
+      ...u,
+      base_fee_jpy: basePackingFee,
+      fee_jpy: basePackingFee + (parseFloat(u.extra_fee_jpy) || 0),
+    }))
+  , [packingFeesPerUser, basePackingFee]);
   const totalPackingFee = effectivePackingFeesPerUser.reduce((s, u) => s + (u.fee_jpy || 0), 0);
 
   // Find the shipping method matching pool's shipping_method code
