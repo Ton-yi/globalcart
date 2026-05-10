@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
       base44.asServiceRole.entities.ShippingMethod.filter(filter),
       base44.asServiceRole.entities.TransitShippingMethod.filter(filter),
       base44.asServiceRole.entities.TransitLocation.filter(filter),
-      base44.asServiceRole.entities.AddonOption.filter(filter),
+      base44.asServiceRole.entities.AddonOption.filter({ ...filter, addon_type: 'shipping' }),
       base44.asServiceRole.entities.Announcement.filter({ ...filter, is_active: true })
     ]);
     console.log(`[TIMING] getTenantConfigData | 7x parallel entity queries: ${Date.now()-t3}ms`);
