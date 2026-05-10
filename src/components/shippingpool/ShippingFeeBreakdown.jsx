@@ -5,7 +5,7 @@
  */
 import { Badge } from "@/components/ui/badge";
 
-export default function ShippingFeeBreakdown({ breakdowns, isConsolidation, currentUserEmail = null }) {
+export default function ShippingFeeBreakdown({ breakdowns, isConsolidation, currentUserEmail = null, userProfileMap = {} }) {
   if (!breakdowns || breakdowns.length === 0) return null;
 
   // If currentUserEmail is set, only show that user's breakdown (user view)
@@ -20,12 +20,26 @@ export default function ShippingFeeBreakdown({ breakdowns, isConsolidation, curr
       {displayBreakdowns.map(b => (
         <div key={b.user_email} className="bg-gray-50 rounded-lg overflow-hidden border border-gray-200">
           {/* Show user header only in admin view (multiple users) or consolidation */}
-          {(!currentUserEmail || isConsolidation) && breakdowns.length > 1 && (
-            <div className="px-3 py-1.5 bg-gray-100 border-b border-gray-200 flex items-center justify-between">
-              <span className="text-xs font-medium text-gray-600">{b.user_email}</span>
-              <span className="text-xs text-gray-400">{b.user_weight_g}g · {b.user_orders?.length || 0} 件</span>
-            </div>
-          )}
+          {(!currentUserEmail || isConsolidation) && breakdowns.length > 1 && (() => {
+            const profile = userProfileMap[b.user_email] || {};
+            const displayName = profile.display_name || profile.full_name || b.user_email;
+            const avatarUrl = profile.avatar_url || '';
+            const initial = (displayName[0] || '?').toUpperCase();
+            return (
+              <div className="px-3 py-1.5 bg-gray-100 border-b border-gray-200 flex items-center justify-between">
+                <div className="flex items-center gap-2 min-w-0">
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt={displayName} className="w-5 h-5 rounded-full object-cover flex-shrink-0" />
+                  ) : (
+                    <div className="w-5 h-5 rounded-full bg-gray-300 flex items-center justify-center text-gray-600 text-xs font-medium flex-shrink-0">{initial}</div>
+                  )}
+                  <span className="text-xs font-medium text-gray-700 truncate">{displayName}</span>
+                  {profile.display_name && <span className="text-xs text-gray-400 truncate hidden sm:inline">{b.user_email}</span>}
+                </div>
+                <span className="text-xs text-gray-400 flex-shrink-0 ml-2">{b.user_weight_g}g · {b.user_orders?.length || 0} 件</span>
+              </div>
+            );
+          })()}
           <div className="px-3 py-2 space-y-1.5">
             {b.items.map((item, idx) => (
               <div key={idx} className={`flex justify-between items-start gap-2 text-xs ${item.is_shared ? "text-blue-700 bg-blue-50 -mx-3 px-3 py-1 rounded" : "text-gray-700"}`}>

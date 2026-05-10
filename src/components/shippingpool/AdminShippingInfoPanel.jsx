@@ -86,6 +86,7 @@ export default function AdminShippingInfoPanel({
   defaultPackingFeeConsolidation = 0,
   transitLocations = [],
   transitShippingMethods = [],
+  userProfileMap = {},
   onPoolUpdated,
 }) {
   const isConsolidation = (initialPool.consolidation_type === "transit" || initialPool.consolidation_type === "other");
@@ -726,6 +727,7 @@ export default function AdminShippingInfoPanel({
               <ShippingFeeBreakdown
                 breakdowns={feeBreakdowns}
                 isConsolidation={isConsolidation}
+                userProfileMap={userProfileMap}
               />
             </div>
           )}

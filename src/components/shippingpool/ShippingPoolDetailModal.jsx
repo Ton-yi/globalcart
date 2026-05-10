@@ -984,6 +984,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
             defaultPackingFeeConsolidation={defaultPackingFeeConsolidation}
             transitLocations={transitLocations}
             transitShippingMethods={transitShippingMethods}
+            userProfileMap={tenantUserMap}
             onPoolUpdated={handleAdminPoolUpdated} />
 
           }
