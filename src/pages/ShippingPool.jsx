@@ -297,10 +297,10 @@ export default function ShippingPool() {
   const isAdmin = user?.role === "admin" || user?.role === "platform_admin" || user?.role === "tenant_admin" || user?.role === "staff";
 
   // "发货申请" tab: direct (non-consolidation) pools
-  // Admin sees all; regular users only see their own
+  // Admin sees all; regular users see their own + non-private pools from others in same tenant
   const directPools = pools.filter(p => {
     if (p.consolidation_type && p.consolidation_type !== "") return false;
-    if (!isAdmin && p.creator_email !== user?.email) return false;
+    if (!isAdmin && p.creator_email !== user?.email && p.is_private) return false;
     if (!showArchivedPools && p.is_archived) return false;
     if (showArchivedPools && !p.is_archived) return false;
     return statusFilter === "all" || p.status === statusFilter;
