@@ -587,52 +587,63 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
             <div className="space-y-1.5">
                 {orders.map((o) => {
                 const isEditingThis = editingOrderData?.id === o.id;
+                const canSeeDetail = isAdmin || o.user_email === currentUser?.email;
                 return (
                   <div key={o.id} className={`rounded-lg border transition-colors ${isEditingThis ? "border-blue-200 bg-blue-50" : "border-transparent bg-gray-50"}`}>
-                      {isEditingThis ?
-                    <div className="px-3 py-2.5 space-y-2">
-                          <div className="grid grid-cols-2 gap-2">
-                            <div>
-                              <Label className="text-xs text-gray-500">订单名称</Label>
-                              <Input className="h-7 text-xs mt-0.5" value={editingOrderData.product_name}
-                          onChange={(e) => setEditingOrderData((d) => ({ ...d, product_name: e.target.value }))} />
-                            </div>
-                            <div>
-                              <Label className="text-xs text-gray-500">重量 (g)</Label>
-                              <Input className="h-7 text-xs mt-0.5" type="number" value={editingOrderData.weight_g}
-                          onChange={(e) => setEditingOrderData((d) => ({ ...d, weight_g: e.target.value }))} />
-                            </div>
+                    {isEditingThis ?
+                  <div className="px-3 py-2.5 space-y-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <Label className="text-xs text-gray-500">订单名称</Label>
+                            <Input className="h-7 text-xs mt-0.5" value={editingOrderData.product_name}
+                        onChange={(e) => setEditingOrderData((d) => ({ ...d, product_name: e.target.value }))} />
                           </div>
                           <div>
-                            <Label className="text-xs text-gray-500">管理员备注</Label>
-                            <Input className="h-7 text-xs mt-0.5" value={editingOrderData.admin_note || ""}
-                        onChange={(e) => setEditingOrderData((d) => ({ ...d, admin_note: e.target.value }))} />
+                            <Label className="text-xs text-gray-500">重量 (g)</Label>
+                            <Input className="h-7 text-xs mt-0.5" type="number" value={editingOrderData.weight_g}
+                        onChange={(e) => setEditingOrderData((d) => ({ ...d, weight_g: e.target.value }))} />
                           </div>
-                          <div className="flex gap-2 justify-end">
-                            <Button size="sm" variant="outline" className="h-6 text-xs px-2" onClick={() => setEditingOrderData(null)}>取消</Button>
-                            <Button size="sm" className="h-6 text-xs px-2 bg-blue-600 hover:bg-blue-700" onClick={handleAdminOrderSave} disabled={savingOrder}>
-                              <Save className="w-3 h-3 mr-1" />{savingOrder ? "保存中..." : "保存"}
-                            </Button>
-                          </div>
-                        </div> :
+                        </div>
+                        <div>
+                          <Label className="text-xs text-gray-500">管理员备注</Label>
+                          <Input className="h-7 text-xs mt-0.5" value={editingOrderData.admin_note || ""}
+                      onChange={(e) => setEditingOrderData((d) => ({ ...d, admin_note: e.target.value }))} />
+                        </div>
+                        <div className="flex gap-2 justify-end">
+                          <Button size="sm" variant="outline" className="h-6 text-xs px-2" onClick={() => setEditingOrderData(null)}>取消</Button>
+                          <Button size="sm" className="h-6 text-xs px-2 bg-blue-600 hover:bg-blue-700" onClick={handleAdminOrderSave} disabled={savingOrder}>
+                            <Save className="w-3 h-3 mr-1" />{savingOrder ? "保存中..." : "保存"}
+                          </Button>
+                        </div>
+                      </div> :
 
-                    <div className="space-y-2 px-3 py-2">
-                          <div className="flex items-start gap-3">
-                            <div className="flex gap-2 flex-shrink-0">
-                              {o.product_image_url &&
-                          <ImageWithViewer src={o.product_image_url} alt="产品图片">
-                                  <img src={o.product_image_url} alt="" className="w-12 h-12 rounded object-cover border border-gray-200 cursor-pointer hover:opacity-80 transition-opacity" />
-                                </ImageWithViewer>
-                          }
-                              {o.arrival_photo_url &&
-                          <ImageWithViewer src={o.arrival_photo_url} alt="入库图片">
-                                  <img src={o.arrival_photo_url} alt="" className="w-12 h-12 rounded object-cover border border-blue-200 cursor-pointer hover:opacity-80 transition-opacity" title="入库图片" />
-                                </ImageWithViewer>
-                          }
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm text-gray-800 truncate">{o.product_name}</p>
-                              <p className="text-xs text-gray-400">{o.order_number} · {o.weight_g || 0}g{o.user_email ? ` · ${tenantUserMap[o.user_email]?.display_name || tenantUserMap[o.user_email]?.full_name || o.user_name || ""}` : ""}</p>
+                  <div className="space-y-2 px-3 py-2">
+                        <div className="flex items-start gap-3">
+                          <div className="flex gap-2 flex-shrink-0">
+                            {canSeeDetail && o.product_image_url &&
+                        <ImageWithViewer src={o.product_image_url} alt="产品图片">
+                                <img src={o.product_image_url} alt="" className="w-12 h-12 rounded object-cover border border-gray-200 cursor-pointer hover:opacity-80 transition-opacity" />
+                              </ImageWithViewer>
+                        }
+                            {canSeeDetail && o.arrival_photo_url &&
+                        <ImageWithViewer src={o.arrival_photo_url} alt="入库图片">
+                                <img src={o.arrival_photo_url} alt="" className="w-12 h-12 rounded object-cover border border-blue-200 cursor-pointer hover:opacity-80 transition-opacity" title="入库图片" />
+                              </ImageWithViewer>
+                        }
+                            {!canSeeDetail && (
+                              <div className="w-12 h-12 rounded bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0">
+                                <Package className="w-5 h-5 text-gray-300" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm text-gray-800 truncate">
+                              {canSeeDetail ? o.product_name : "他人包裹"}
+                            </p>
+                            <p className="text-xs text-gray-400">
+                              {canSeeDetail ? o.order_number : "—"} · {o.weight_g || 0}g
+                              {isAdmin && o.user_email ? ` · ${tenantUserMap[o.user_email]?.display_name || tenantUserMap[o.user_email]?.full_name || o.user_name || ""}` : ""}
+                            </p>
                               
 
                           
@@ -806,12 +817,12 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                       null}
                         </div>
                     }
-                    </div>);
+                    </div>
+                    );
+                    })}
+                    </div> :
 
-              })}
-              </div> :
-
-            <p className="text-xs text-gray-400">加载中...</p>
+                    <p className="text-xs text-gray-400">加载中...</p>
             }
           </div>
 
