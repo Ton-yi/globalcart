@@ -102,9 +102,9 @@ export function calcFeeBreakdownPerUser({
       }
     }
 
-    // Per-user extra packing fee (individual, not shared)
-    if (packingFee > 0) {
-      items.push({ label: "捆包作业手续费（个人追加）", amount_jpy: packingFee });
+    // Per-user extra packing fee (individual, not shared) — allows negative values as corrections
+    if (packingFee !== 0) {
+      items.push({ label: packingFee < 0 ? "捆包作业手续费（补正）" : "捆包作业手续费（个人追加）", amount_jpy: packingFee });
     }
 
     if (userAddonFeeJpy > 0) {
