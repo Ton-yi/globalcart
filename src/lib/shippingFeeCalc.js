@@ -52,9 +52,8 @@ export function calcFeeBreakdownPerUser({
   // If packingFeesPerUser uses "__all__" (single user shorthand), expand to all users
   const expandedPackingFees = expandPackingFees(packingFeesPerUser, Object.keys(userOrderMap));
 
-  // Selected addons from pool (stored as [{id, name, fee, fee_currency}])
-  const selectedAddons = pool.selected_addons || [];
-  const totalAddonFeeJpy = selectedAddons.reduce((s, a) => s + (parseFloat(a.fee) || 0), 0);
+  // Addons are stored per-order (on each order's selected_addons field), not on the pool.
+  // We compute per-user addon totals below inside the user loop.
 
   // Transit location handling fee — convert to JPY if needed
   const transitHandlingFee = convertToJpy(
@@ -76,6 +75,10 @@ export function calcFeeBreakdownPerUser({
     // Item size extra fees sum for this user's orders
     const itemSizeFeeJpy = userOrders.reduce((s, o) => s + (parseFloat(o.item_size_extra_fee) || 0), 0);
 
+    // Addon fees from this user's orders (addons belong to the submitter, stored per-order)
+    const userAddons = userOrders.flatMap(o => o.selected_addons || []);
+    const userAddonFeeJpy = userAddons.reduce((s, a) => s + (parseFloat(a.fee) || 0), 0);
+
     const items = [];
 
     if (itemSizeFeeJpy > 0) {
@@ -94,8 +97,8 @@ export function calcFeeBreakdownPerUser({
       items.push({ label: "捆包作业手续费（个人追加）", amount_jpy: packingFee });
     }
 
-    if (totalAddonFeeJpy > 0) {
-      items.push({ label: `发货增值服务（${selectedAddons.map(a => a.name).join("、")}）`, amount_jpy: totalAddonFeeJpy });
+    if (userAddonFeeJpy > 0) {
+      items.push({ label: `发货增值服务（${userAddons.map(a => a.name).join("、")}）`, amount_jpy: userAddonFeeJpy });
     }
 
     if (transitShippingFee > 0) {

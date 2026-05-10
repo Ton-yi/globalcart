@@ -376,6 +376,13 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
     }
     const totalWeight = targetOrders.reduce((s, o) => s + (o.weight_g || 0), 0);
 
+    // Addons belong to the submitter's orders, not the pool
+    const selectedAddons = shippingAddons.filter(a => selectedAddonIds.includes(a.id));
+    const addonUpdates = selectedAddonIds.length > 0 ? {
+      selected_addon_ids: selectedAddonIds,
+      selected_addons: selectedAddons.map(a => ({ id: a.id, name: a.name, fee: a.fee, fee_currency: a.fee_currency })),
+    } : {};
+
     const updates = {
       shipping_method: method,
       consolidation_requested: consolidation,
@@ -384,6 +391,7 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
       ...(!isJoiningPool && consolidation && minWeight ? { consolidation_min_weight_g: parseFloat(minWeight) } : {}),
       ...(!isJoiningPool && hasConsolidationConditions ? { consolidation_timeout_action: timeoutAction } : {}),
       ...(consType === "transit" ? { consolidation_transit_id: selectedTransitId, consolidation_final_address_id: finalAddressId } : {}),
+      ...addonUpdates,
     };
 
     await Promise.all(
@@ -422,7 +430,6 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
       const addrObj = consType === "transit"
         ? (addressInputMode["final"] ? (isAddressFormValid(newAddress) ? newAddress : null) : savedAddresses.find(a => a.id === finalAddressId))
         : (addressInputMode[consType === "other" ? "other" : "direct"] ? (isAddressFormValid(newAddress) ? newAddress : null) : savedAddresses.find(a => a.id === selectedAddress));
-      const selectedAddons = shippingAddons.filter(a => selectedAddonIds.includes(a.id));
       const transitMethod = transitMethods.find(m => m.id === selectedTransitMethodId);
 
       // Extract destination country from the address object
@@ -444,8 +451,8 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
         final_address_id: consType === "transit" ? finalAddressId : "",
         transit_shipping_method_id: selectedTransitMethodId || "",
         transit_shipping_method_name: transitMethod?.name || "",
-        selected_addon_ids: selectedAddonIds,
-        selected_addons: selectedAddons.map(a => ({ id: a.id, name: a.name, fee: a.fee, fee_currency: a.fee_currency })),
+        selected_addon_ids: [],
+        selected_addons: [],
         user_note: note || "",
         messages: [],
         is_private: isPrivate,
