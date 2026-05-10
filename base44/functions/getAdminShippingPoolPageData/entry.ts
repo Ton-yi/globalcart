@@ -59,26 +59,33 @@ Deno.serve(async (req) => {
     const filter = isPlatformAdmin ? {} : { tenant_id: tenantId };
 
     const t1 = Date.now();
-    const [pools, locations, allUsers, transitMethods, addonOptions, editRequests, boxTemplates, siteSettings, shippingMethods, orders, userPreferences] = await Promise.all([
+    // Batch 1: primary data (pools, orders, users, edit requests)
+    const [pools, orders, allUsers, editRequests] = await Promise.all([
       isPlatformAdmin
         ? base44.asServiceRole.entities.ShippingPool.list()
         : base44.asServiceRole.entities.ShippingPool.filter({ tenant_id: tenantId }),
-      base44.asServiceRole.entities.TransitLocation.filter(filter),
-      base44.asServiceRole.entities.User.filter(isPlatformAdmin ? {} : { tenant_id: tenantId }),
-      base44.asServiceRole.entities.TransitShippingMethod.filter(filter),
-      base44.asServiceRole.entities.AddonOption.filter(filter),
-      isPlatformAdmin
-        ? base44.asServiceRole.entities.ShippingEditRequest.filter({ status: 'pending' })
-        : base44.asServiceRole.entities.ShippingEditRequest.filter({ tenant_id: tenantId, status: 'pending' }),
-      base44.asServiceRole.entities.BoxTemplate.filter(filter),
-      base44.asServiceRole.entities.SiteSettings.filter(filter),
-      base44.asServiceRole.entities.ShippingMethod.filter(filter),
       isPlatformAdmin
         ? base44.asServiceRole.entities.Order.list()
         : base44.asServiceRole.entities.Order.filter({ tenant_id: tenantId }),
+      base44.asServiceRole.entities.User.filter(isPlatformAdmin ? {} : { tenant_id: tenantId }),
+      isPlatformAdmin
+        ? base44.asServiceRole.entities.ShippingEditRequest.filter({ status: 'pending' })
+        : base44.asServiceRole.entities.ShippingEditRequest.filter({ tenant_id: tenantId, status: 'pending' }),
+    ]);
+    console.log(`[TIMING] getAdminShippingPoolPageData | batch1: ${Date.now() - t1}ms`);
+
+    // Batch 2: config/settings data
+    const t2 = Date.now();
+    const [locations, transitMethods, addonOptions, boxTemplates, siteSettings, shippingMethods, userPreferences] = await Promise.all([
+      base44.asServiceRole.entities.TransitLocation.filter(filter),
+      base44.asServiceRole.entities.TransitShippingMethod.filter(filter),
+      base44.asServiceRole.entities.AddonOption.filter(filter),
+      base44.asServiceRole.entities.BoxTemplate.filter(filter),
+      base44.asServiceRole.entities.SiteSettings.filter(filter),
+      base44.asServiceRole.entities.ShippingMethod.filter(filter),
       base44.asServiceRole.entities.UserPreference.filter(filter),
     ]);
-    console.log(`[TIMING] getAdminShippingPoolPageData | 8x parallel queries: ${Date.now() - t1}ms`);
+    console.log(`[TIMING] getAdminShippingPoolPageData | batch2: ${Date.now() - t2}ms`);
     console.log(`[DEBUG] getAdminShippingPoolPageData | pending edit requests count: ${editRequests?.length || 0}`);
     console.log(`[DEBUG] getAdminShippingPoolPageData | pending edit requests:`, editRequests?.map(r => ({ id: r.id, pool_id: r.pool_id, order_id: r.order_id, status: r.status, edit_type: r.edit_type })));
     console.log(`[TIMING] getAdminShippingPoolPageData | TOTAL: ${Date.now() - t0}ms`);
