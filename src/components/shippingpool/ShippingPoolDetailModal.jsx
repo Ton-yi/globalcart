@@ -586,9 +586,16 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
           {/* Items list */}
           <div>
             <h3 className="text-sm font-semibold text-gray-700 mb-2">包裹清单 ({(pool.order_ids || []).length} 件)</h3>
-            {orders.length > 0 ?
-            <div className="space-y-1.5">
-                {orders.map((o) => {
+            {orders.length > 0 ? (() => {
+              // Group orders by user email; single-user pools render flat (no group header)
+              const userEmails = [...new Set(orders.map(o => o.user_email || "__unknown__"))];
+              const isMultiUser = userEmails.length > 1;
+              const grouped = userEmails.map(email => ({
+                email,
+                orders: orders.filter(o => (o.user_email || "__unknown__") === email),
+              }));
+
+              const renderOrder = (o) => {
                 const isEditingThis = editingOrderData?.id === o.id;
                 const canSeeDetail = isAdmin || o.user_email === currentUser?.email;
                 return (
@@ -822,8 +829,38 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                     }
                     </div>
                     );
-                    })}
-                    </div> :
+              }; // end renderOrder
+
+              return (
+                <div className="space-y-3">
+                  {grouped.map(({ email, orders: groupOrders }) => {
+                    const userData = tenantUserMap[email] || {};
+                    const displayName = userData.display_name || userData.full_name || email;
+                    const groupWeight = groupOrders.reduce((s, o) => s + (o.weight_g || 0), 0);
+                    return (
+                      <div key={email}>
+                        {isMultiUser && (
+                          <div className="flex items-center gap-2 px-1 mb-1">
+                            {userData.avatar_url ? (
+                              <img src={userData.avatar_url} alt={displayName} className="w-4 h-4 rounded-full object-cover flex-shrink-0" />
+                            ) : (
+                              <div className="w-4 h-4 rounded-full bg-gray-300 flex items-center justify-center text-gray-600 text-xs font-medium flex-shrink-0">
+                                {displayName[0]?.toUpperCase()}
+                              </div>
+                            )}
+                            <span className="text-xs font-medium text-gray-600">{displayName}</span>
+                            <span className="text-xs text-gray-400">{groupOrders.length} 件 · {groupWeight}g</span>
+                          </div>
+                        )}
+                        <div className="space-y-1.5">
+                          {groupOrders.map(o => renderOrder(o))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })() :
 
                     <p className="text-xs text-gray-400">加载中...</p>
             }
