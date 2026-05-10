@@ -75,8 +75,18 @@ export function calcFeeBreakdownPerUser({
     // Item size extra fees sum for this user's orders
     const itemSizeFeeJpy = userOrders.reduce((s, o) => s + (parseFloat(o.item_size_extra_fee) || 0), 0);
 
-    // Addon fees from this user's orders (addons belong to the submitter, stored per-order)
-    const userAddons = userOrders.flatMap(o => o.selected_addons || []);
+    // Addon fees: per-user, deduplicated by addon id/name (one charge per user per service)
+    const seenAddonKeys = new Set();
+    const userAddons = [];
+    for (const o of userOrders) {
+      for (const a of (o.selected_addons || [])) {
+        const key = a.id || a.name;
+        if (key && !seenAddonKeys.has(key)) {
+          seenAddonKeys.add(key);
+          userAddons.push(a);
+        }
+      }
+    }
     const userAddonFeeJpy = userAddons.reduce((s, a) => s + (parseFloat(a.fee) || 0), 0);
 
     const items = [];

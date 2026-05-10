@@ -891,9 +891,10 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                     const displayName = userData.display_name || userData.full_name || email;
                     const groupWeight = groupOrders.reduce((s, o) => s + (o.weight_g || 0), 0);
                     const isMyGroup = email === currentUser?.email;
-                    // Aggregate addons from this user's orders
-                    const groupAddons = groupOrders.flatMap(o => o.selected_addons || []);
-                    const uniqueGroupAddons = [...new Map(groupAddons.map(a => [a.id || a.name, a])).values()];
+                    // Aggregate addons from this user's orders — deduplicated per user
+                    const uniqueGroupAddons = [...new Map(
+                      groupOrders.flatMap(o => o.selected_addons || []).map(a => [a.id || a.name, a])
+                    ).values()];
                     // Transit method name
                     const transitMethodId = groupOrders[0]?.consolidation_transit_shipping_id || pool.transit_shipping_method_id || "";
                     const transitMethodName = transitShippingMethods.find(m => m.id === transitMethodId)?.name || "";
