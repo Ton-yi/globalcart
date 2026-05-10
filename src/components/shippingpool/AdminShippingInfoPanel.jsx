@@ -96,10 +96,16 @@ export default function AdminShippingInfoPanel({
     orders.filter(o => o.user_email).map(o => [o.user_email, { email: o.user_email, name: o.user_name || o.user_email }])
   ).values()];
 
+  const defaultBaseFee = isConsolidation ? defaultPackingFeeConsolidation : defaultPackingFeeSingle;
+
   const initPackingFeesPerUser = () => {
-    if ((initialPool.packing_fees_per_user || []).length > 0) return initialPool.packing_fees_per_user;
-    const defaultFee = isConsolidation ? defaultPackingFeeConsolidation : defaultPackingFeeSingle;
-    return uniqueUsers.map(u => ({ user_email: u.email, fee_jpy: defaultFee }));
+    if ((initialPool.packing_fees_per_user || []).length > 0) {
+      return initialPool.packing_fees_per_user.map(u => ({
+        ...u,
+        extra_fee_jpy: u.extra_fee_jpy ?? Math.max(0, (u.fee_jpy || 0) - (u.base_fee_jpy ?? defaultBaseFee)),
+      }));
+    }
+    return uniqueUsers.map(u => ({ user_email: u.email, fee_jpy: 0, extra_fee_jpy: 0 }));
   };
 
   const [pool, setPool] = useState(initialPool);
@@ -117,6 +123,12 @@ export default function AdminShippingInfoPanel({
   const [finalWeightG, setFinalWeightG] = useState(pool.final_weight_g?.toString() || pool.total_weight_g?.toString() || "");
   const [shippingFeeJpy, setShippingFeeJpy] = useState(pool.shipping_fee_jpy?.toString() || "");
   const [feeAutoCalced, setFeeAutoCalced] = useState(false);
+  const [basePackingFee, setBasePackingFee] = useState(() => {
+    // Try to restore base fee from saved data: if all users have same fee, that's the base
+    const saved = initialPool.packing_fees_per_user || [];
+    if (saved.length > 0 && saved[0].base_fee_jpy !== undefined) return saved[0].base_fee_jpy;
+    return defaultBaseFee;
+  });
   const [packingFeesPerUser, setPackingFeesPerUser] = useState(initPackingFeesPerUser);
   const [adminNote, setAdminNote] = useState(pool.admin_note || "");
   const [adminPackingNote, setAdminPackingNote] = useState(pool.admin_packing_note || "");
@@ -132,7 +144,13 @@ export default function AdminShippingInfoPanel({
   const selectedBox = boxTemplates.find(b => b.id === boxTemplateId);
   const boxWeight = selectedBox?.weight_g || 0;
   const boxPrice = selectedBox?.price_jpy || 0;
-  const totalPackingFee = packingFeesPerUser.reduce((s, u) => s + (parseFloat(u.fee_jpy) || 0), 0);
+  // Effective per-user fee = base + extra; stored as fee_jpy for calc functions
+  const effectivePackingFeesPerUser = packingFeesPerUser.map(u => ({
+    ...u,
+    base_fee_jpy: basePackingFee,
+    fee_jpy: basePackingFee + (parseFloat(u.extra_fee_jpy) || 0),
+  }));
+  const totalPackingFee = effectivePackingFeesPerUser.reduce((s, u) => s + (u.fee_jpy || 0), 0);
 
   // Find the shipping method matching pool's shipping_method code
   const matchedShippingMethod = shippingMethods.find(m =>
@@ -188,12 +206,12 @@ export default function AdminShippingInfoPanel({
       orders,
       shippingFeeJpy: parseFloat(shippingFeeJpy) || 0,
       boxPriceJpy: boxPrice,
-      packingFeesPerUser,
+      packingFeesPerUser: effectivePackingFeesPerUser,
       transitLocation,
       transitShippingMethod,
       exchangeRates,
     });
-  }, [orders, shippingFeeJpy, boxPrice, packingFeesPerUser, pool.selected_addons, pool.transit_location_id, pool.transit_shipping_method_id, exchangeRates]);
+  }, [orders, shippingFeeJpy, boxPrice, effectivePackingFeesPerUser, pool.selected_addons, pool.transit_location_id, pool.transit_shipping_method_id, exchangeRates]);
 
   // Grand total = sum of all users' total_jpy from the live breakdown
   const grandTotalJpy = feeBreakdowns.reduce((s, b) => s + (b.total_jpy || 0), 0);
@@ -213,7 +231,7 @@ export default function AdminShippingInfoPanel({
       orders,
       shippingFeeJpy: parseFloat(shippingFeeJpy) || 0,
       boxPriceJpy: btId ? boxPrice : 0,
-      packingFeesPerUser,
+      packingFeesPerUser: effectivePackingFeesPerUser,
       transitLocation,
       transitShippingMethod,
       exchangeRates,
@@ -228,7 +246,7 @@ export default function AdminShippingInfoPanel({
       actual_fee: parseFloat(shippingFeeJpy) || 0,
       fee_currency: "JPY",
       packing_fee_jpy: totalPackingFee,
-      packing_fees_per_user: packingFeesPerUser,
+      packing_fees_per_user: effectivePackingFeesPerUser,
       fee_breakdown_per_user: breakdowns,
       admin_note: adminNote,
       admin_packing_note: adminPackingNote,
@@ -662,58 +680,58 @@ export default function AdminShippingInfoPanel({
           })()}
 
           {/* Packing fees per user */}
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <Label className="text-xs text-gray-500">
-                捆包作业手续费 (JPY)
-                {isConsolidation && uniqueUsers.length > 1 && <span className="ml-1 text-gray-400">（按用户分别设置）</span>}
-              </Label>
-              {totalPackingFee > 0 && <span className="text-xs text-gray-500">合计 ¥{totalPackingFee}</span>}
-            </div>
-            {packingFeesPerUser.length <= 1 ? (
+          <div className="space-y-2">
+            {/* Global base fee */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <Label className="text-xs text-gray-500">
+                  捆包作业手续费 (JPY) — 基础金额
+                  {uniqueUsers.length > 1 && <span className="ml-1 text-gray-400">（适用于所有用户）</span>}
+                </Label>
+                {totalPackingFee > 0 && uniqueUsers.length > 1 && (
+                  <span className="text-xs text-gray-500">实收合计 ¥{totalPackingFee}</span>
+                )}
+              </div>
               <div className="flex items-center gap-1.5">
-                 <Input className="h-8 text-sm flex-1" type="text" inputMode="decimal" placeholder="0"
-                   value={packingFeesPerUser[0]?.fee_jpy || ""}
-                   onChange={e => {
-                     const fee = parseFloat(e.target.value) || 0;
-                     if (packingFeesPerUser.length === 0) {
-                       setPackingFeesPerUser([{ user_email: "__all__", fee_jpy: fee }]);
-                     } else {
-                       setPackingFeesPerUser([{ ...packingFeesPerUser[0], fee_jpy: fee }]);
-                     }
-                   }} />
-                 <button type="button" onClick={() => {
-                   const cur = parseFloat(packingFeesPerUser[0]?.fee_jpy) || 0;
-                   const fee = cur + 100;
-                   if (packingFeesPerUser.length === 0) setPackingFeesPerUser([{ user_email: "__all__", fee_jpy: fee }]);
-                   else setPackingFeesPerUser([{ ...packingFeesPerUser[0], fee_jpy: fee }]);
-                 }} className="h-8 px-2 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 flex-shrink-0">+100</button>
-                 <button type="button" onClick={() => {
-                   const cur = parseFloat(packingFeesPerUser[0]?.fee_jpy) || 0;
-                   const fee = Math.max(0, cur - 100);
-                   if (packingFeesPerUser.length === 0) setPackingFeesPerUser([{ user_email: "__all__", fee_jpy: fee }]);
-                   else setPackingFeesPerUser([{ ...packingFeesPerUser[0], fee_jpy: fee }]);
-                 }} className="h-8 px-2 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 flex-shrink-0">-100</button>
-               </div>
-            ) : (
-              <div className="space-y-1.5">
-                {packingFeesPerUser.map((uf, idx) => (
-                  <div key={uf.user_email} className="flex items-center gap-1.5">
-                     <span className="text-xs text-gray-600 flex-1 truncate">{uf.user_email}</span>
-                     <Input className="h-7 text-xs w-24" type="text" inputMode="decimal" placeholder="0"
-                       value={uf.fee_jpy}
-                       onChange={e => setPackingFeesPerUser(prev =>
-                         prev.map((u, i) => i === idx ? { ...u, fee_jpy: parseFloat(e.target.value) || 0 } : u)
-                       )} />
-                     <button type="button" onClick={() => setPackingFeesPerUser(prev =>
-                       prev.map((u, i) => i === idx ? { ...u, fee_jpy: (parseFloat(u.fee_jpy) || 0) + 100 } : u)
-                     )} className="h-7 px-1.5 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 flex-shrink-0">+100</button>
-                     <button type="button" onClick={() => setPackingFeesPerUser(prev =>
-                       prev.map((u, i) => i === idx ? { ...u, fee_jpy: Math.max(0, (parseFloat(u.fee_jpy) || 0) - 100) } : u)
-                     )} className="h-7 px-1.5 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 flex-shrink-0">-100</button>
-                     <span className="text-xs text-gray-400">JPY</span>
-                   </div>
-                ))}
+                <Input className="h-8 text-sm flex-1" type="text" inputMode="decimal" placeholder="0"
+                  value={basePackingFee === 0 ? "" : basePackingFee}
+                  onChange={e => setBasePackingFee(parseFloat(e.target.value) || 0)} />
+                <button type="button" onClick={() => setBasePackingFee(v => v + 100)}
+                  className="h-8 px-2 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 flex-shrink-0">+100</button>
+                <button type="button" onClick={() => setBasePackingFee(v => Math.max(0, v - 100))}
+                  className="h-8 px-2 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 flex-shrink-0">-100</button>
+              </div>
+            </div>
+
+            {/* Per-user extra fee (only shown when multiple users) */}
+            {uniqueUsers.length > 1 && packingFeesPerUser.length > 1 && (
+              <div className="border border-gray-100 rounded-lg p-2.5 bg-gray-50 space-y-1.5">
+                <p className="text-xs text-gray-400 mb-1">各用户追加费用（基础 + 追加 = 实收）</p>
+                {packingFeesPerUser.map((uf, idx) => {
+                  const profile = userProfileMap[uf.user_email] || {};
+                  const displayName = profile.display_name || profile.full_name || uf.user_email;
+                  const extra = parseFloat(uf.extra_fee_jpy) || 0;
+                  const effective = basePackingFee + extra;
+                  return (
+                    <div key={uf.user_email} className="flex items-center gap-1.5">
+                      <span className="text-xs text-gray-600 flex-1 truncate" title={uf.user_email}>{displayName}</span>
+                      <span className="text-xs text-gray-400 flex-shrink-0">基础 ¥{basePackingFee}</span>
+                      <span className="text-xs text-gray-300">+</span>
+                      <Input className="h-7 text-xs w-20" type="text" inputMode="decimal" placeholder="0"
+                        value={extra === 0 ? "" : extra}
+                        onChange={e => setPackingFeesPerUser(prev =>
+                          prev.map((u, i) => i === idx ? { ...u, extra_fee_jpy: parseFloat(e.target.value) || 0 } : u)
+                        )} />
+                      <button type="button" onClick={() => setPackingFeesPerUser(prev =>
+                        prev.map((u, i) => i === idx ? { ...u, extra_fee_jpy: (parseFloat(u.extra_fee_jpy) || 0) + 100 } : u)
+                      )} className="h-7 px-1.5 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 flex-shrink-0">+100</button>
+                      <button type="button" onClick={() => setPackingFeesPerUser(prev =>
+                        prev.map((u, i) => i === idx ? { ...u, extra_fee_jpy: Math.max(-(basePackingFee), (parseFloat(u.extra_fee_jpy) || 0) - 100) } : u)
+                      )} className="h-7 px-1.5 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 flex-shrink-0">-100</button>
+                      <span className="text-xs font-medium text-orange-600 flex-shrink-0 w-16 text-right">= ¥{effective}</span>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
