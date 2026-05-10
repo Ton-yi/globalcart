@@ -755,9 +755,11 @@ export default function AdminShippingInfoPanel({
                         prev.map((u, i) => i === idx ? { ...u, extra_fee_jpy: (parseFloat(u.extra_fee_jpy) || 0) + 100 } : u)
                       )} className="h-7 px-1.5 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 flex-shrink-0">+100</button>
                       <button type="button" onClick={() => setPackingFeesPerUser(prev =>
-                        prev.map((u, i) => i === idx ? { ...u, extra_fee_jpy: Math.max(-(basePackingFee), (parseFloat(u.extra_fee_jpy) || 0) - 100) } : u)
+                        prev.map((u, i) => i === idx ? { ...u, extra_fee_jpy: (parseFloat(u.extra_fee_jpy) || 0) - 100 } : u)
                       )} className="h-7 px-1.5 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 flex-shrink-0">-100</button>
-                      <span className="text-xs font-medium text-orange-600 flex-shrink-0 w-16 text-right">+¥{extra}</span>
+                      <span className={`text-xs font-medium flex-shrink-0 w-16 text-right ${extra < 0 ? "text-blue-600" : "text-orange-600"}`}>
+                        {extra >= 0 ? `+¥${extra}` : `-¥${Math.abs(extra)}`}
+                      </span>
                     </div>
                   );
                 })}
