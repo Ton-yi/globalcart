@@ -50,6 +50,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
   const [otherPools, setOtherPools] = useState([]); // other pools for moving orders
   const [targetPoolId, setTargetPoolId] = useState("");
   const [actionMode, setActionMode] = useState(null); // 'move' or 'return'
+  const [poolSearchQuery, setPoolSearchQuery] = useState("");
   const [editingPool, setEditingPool] = useState(false); // editing pool details
   const [editingPoolData, setEditingPoolData] = useState(null);
   const [savingPool, setSavingPool] = useState(false);
@@ -133,6 +134,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
     setAdminEditingOrder(order);
     setActionMode(null);
     setTargetPoolId("");
+    setPoolSearchQuery("");
     base44.functions.invoke('getTenantShippingPools', {}).
     then((r) => {
       const pools = (r.data?.pools || []).filter((p) =>
@@ -758,25 +760,30 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                       <div className="space-y-2">
                               <div className="relative">
                                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-                                <Input placeholder="搜索发货申请..." className="pl-8 h-7 text-xs" />
+                                <Input placeholder="搜索发货申请..." className="pl-8 h-7 text-xs" value={poolSearchQuery} onChange={e => setPoolSearchQuery(e.target.value)} />
                               </div>
                               <div className="max-h-32 overflow-y-auto space-y-1">
                                 {otherPools.length === 0 ?
-                          <p className="text-xs text-gray-400 text-center py-2">无可用的发货申请</p> :
-
-                          otherPools.map((p) =>
-                          <button
-                            key={p.id}
-                            onClick={() => {setTargetPoolId(p.id);handleMoveOrder();}}
-                            disabled={savingOrder}
-                            className="w-full text-left px-2 py-1.5 rounded text-xs border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors disabled:opacity-50">
-                                      <div className="flex items-center justify-between">
-                                        <span className="font-mono text-gray-600">{p.pool_code}</span>
-                                        {savingOrder && targetPoolId === p.id && <Loader2 className="w-3 h-3 animate-spin" />}
-                                      </div>
-                                    </button>
-                          )
-                          }
+                              <p className="text-xs text-gray-400 text-center py-2">无可用的发货申请</p> :
+                              (() => {
+                              const q = poolSearchQuery.trim().toLowerCase();
+                              const filtered = q ? otherPools.filter(p => (p.pool_code || '').toLowerCase().includes(q) || (p.title || '').toLowerCase().includes(q)) : otherPools;
+                              if (filtered.length === 0) return <p className="text-xs text-gray-400 text-center py-2">无匹配结果</p>;
+                              return filtered.map(p => (
+                              <button
+                              key={p.id}
+                              onClick={() => {setTargetPoolId(p.id);handleMoveOrder();}}
+                              disabled={savingOrder}
+                              className="w-full text-left px-2 py-1.5 rounded text-xs border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors disabled:opacity-50">
+                                     <div className="flex items-center justify-between gap-2">
+                                       <span className="font-mono text-gray-600">{p.pool_code}</span>
+                                       {p.title && <span className="text-gray-400 truncate flex-1">{p.title}</span>}
+                                       {savingOrder && targetPoolId === p.id && <Loader2 className="w-3 h-3 animate-spin ml-auto" />}
+                                     </div>
+                                   </button>
+                              ));
+                              })()
+                              }
                               </div>
                               <Button size="sm" variant="outline" className="w-full h-6 text-xs"
                         onClick={() => setActionMode(null)}>取消</Button>
