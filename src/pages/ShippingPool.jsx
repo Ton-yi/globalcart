@@ -121,7 +121,14 @@ export default function ShippingPool() {
   };
 
   useEffect(() => {
-    if (user) fetchData(user);
+    if (user) {
+      fetchData(user);
+      // Pre-load transit methods so the detail modal has them available
+      fetchTenantConfig().then(cfg => {
+        setTransitShippingMethods((cfg.transitMethods || []).filter(m => m.is_active !== false));
+        setShippingAddons((cfg.addons || []).filter(a => a.addon_type === "shipping" && a.is_active !== false));
+      }).catch(() => {});
+    }
   }, [user]);
 
   // Open inline create form
@@ -1019,6 +1026,7 @@ export default function ShippingPool() {
           currentUser={user}
           pendingEditRequests={pendingEditRequests.filter(r => r.pool_id === selectedPool.id)}
           availableAddons={shippingAddons}
+          transitShippingMethods={transitShippingMethods}
           onClose={() => setSelectedPool(null)}
           onUpdated={() => { setSelectedPool(null); fetchData(user); }}
         />
