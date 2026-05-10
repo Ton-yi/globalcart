@@ -86,6 +86,7 @@ export default function ShippingPool() {
   const [allUsers, setAllUsers] = useState([]);
   const [userSearchQuery, setUserSearchQuery] = useState("");
   const [strategyOpen, setStrategyOpen] = useState(false);
+  const [strategy, setStrategy] = useState({ deadline: "", min_weight_g: "", timeout_action: "ship_individually" });
   const [shippingAddons, setShippingAddons] = useState([]);
   const [selectedAddonIds, setSelectedAddonIds] = useState([]);
   const [userProfileMap, setUserProfileMap] = useState({});
@@ -137,6 +138,7 @@ export default function ShippingPool() {
     setIsPrivate(false);
     setSharedWithEmails([]);
     setUserSearchQuery("");
+    setStrategy({ deadline: "", min_weight_g: "", timeout_action: "ship_individually" });
     setShippingAddons([]);
     setSelectedAddonIds([]);
     setFormLoading(true);
@@ -280,8 +282,13 @@ export default function ShippingPool() {
         .map(a => ({ id: a.id, name: a.name, fee: a.fee, fee_currency: a.fee_currency })),
     });
 
+    const strategyFields = consType !== "" ? {
+      consolidation_deadline: strategy.deadline || "",
+      consolidation_min_weight_g: strategy.min_weight_g ? parseFloat(strategy.min_weight_g) : undefined,
+      consolidation_timeout_action: strategy.timeout_action || "ship_individually",
+    } : {};
     await Promise.all(selectedOrderIds.map(id =>
-      base44.functions.invoke('updateTenantOrder', { order_id: id, order_status: "notified_shipment" })
+      base44.functions.invoke('updateTenantOrder', { order_id: id, order_status: "notified_shipment", ...strategyFields })
     ));
 
     setSubmitting(false);
@@ -620,8 +627,38 @@ export default function ShippingPool() {
                         <span className="text-xs text-blue-400">{strategyOpen ? "收起 ▲" : "展开 ▼"}</span>
                       </button>
                       {strategyOpen && (
-                        <div className="bg-blue-50 px-4 pb-4 text-xs text-gray-500 pt-2">
-                          <p>拼邮策略配置（截止日期、凑满重量、超时处理等）可在通知发货时设置。</p>
+                        <div className="bg-blue-50/60 px-4 pb-4 pt-3 space-y-3">
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <Label className="text-xs text-gray-500 block mb-1">凑单截止日期</Label>
+                              <Input type="date" className="h-8 text-sm bg-white"
+                                value={strategy.deadline}
+                                onChange={e => setStrategy(p => ({ ...p, deadline: e.target.value }))} />
+                            </div>
+                            <div>
+                              <Label className="text-xs text-gray-500 block mb-1">最低凑满重量 (g)</Label>
+                              <Input type="number" min="0" placeholder="如：5000" className="h-8 text-sm bg-white"
+                                value={strategy.min_weight_g}
+                                onChange={e => setStrategy(p => ({ ...p, min_weight_g: e.target.value }))} />
+                            </div>
+                          </div>
+                          <div>
+                            <Label className="text-xs text-gray-500 block mb-1">截止后超时处理方式</Label>
+                            <div className="space-y-1.5">
+                              {[
+                                { v: "ship_individually", l: "单独发货" },
+                                { v: "next_consolidation", l: "等待下一次拼邮" },
+                                { v: "return_to_storage", l: "重新入库" },
+                              ].map(opt => (
+                                <label key={opt.v} className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border cursor-pointer text-sm transition-colors ${strategy.timeout_action === opt.v ? "border-blue-400 bg-white text-blue-700 font-medium" : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"}`}>
+                                  <input type="radio" checked={strategy.timeout_action === opt.v}
+                                    onChange={() => setStrategy(p => ({ ...p, timeout_action: opt.v }))}
+                                    className="accent-blue-600" />
+                                  {opt.l}
+                                </label>
+                              ))}
+                            </div>
+                          </div>
                         </div>
                       )}
                     </div>
