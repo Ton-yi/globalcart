@@ -694,17 +694,9 @@ export default function AdminShippingInfoPanel({
 
           {/* Packing fees per user */}
           <div className="space-y-2">
-            {/* Global base fee */}
+            {/* Global base fee — always shown */}
             <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <Label className="text-xs text-gray-500">
-                  捆包作业手续费 (JPY) — 基础金额
-                  {uniqueUsers.length > 1 && <span className="ml-1 text-gray-400">（适用于所有用户）</span>}
-                </Label>
-                {totalPackingFee > 0 && uniqueUsers.length > 1 && (
-                  <span className="text-xs text-gray-500">实收合计 ¥{totalPackingFee}</span>
-                )}
-              </div>
+              <Label className="text-xs text-gray-500 block mb-1.5">全局捆包作业手续费 (JPY) <span className="text-gray-400 font-normal">（参与平摊）</span></Label>
               <div className="flex items-center gap-1.5">
                 <Input className="h-8 text-sm flex-1" type="text" inputMode="decimal" placeholder="0"
                   value={basePackingFee === 0 ? "" : basePackingFee}
@@ -719,7 +711,10 @@ export default function AdminShippingInfoPanel({
             {/* Per-user extra fee (only shown when multiple users) */}
             {uniqueUsers.length > 1 && packingFeesPerUser.length > 1 && (
               <div className="border border-gray-100 rounded-lg p-2.5 bg-gray-50 space-y-1.5">
-                <p className="text-xs text-gray-400 mb-1">各用户追加费用（基础 + 追加 = 实收）</p>
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-xs text-gray-400">各用户追加费用（基础 + 追加 = 实收）</p>
+                  <span className="text-xs text-gray-400">基础 ¥{basePackingFee}</span>
+                </div>
                 {packingFeesPerUser.map((uf, idx) => {
                   const profile = userProfileMap[uf.user_email] || {};
                   const displayName = profile.display_name || profile.full_name || uf.user_email;
