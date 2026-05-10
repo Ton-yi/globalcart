@@ -86,7 +86,7 @@ export default function ShippingPool() {
   const [allUsers, setAllUsers] = useState([]);
   const [userSearchQuery, setUserSearchQuery] = useState("");
   const [strategyOpen, setStrategyOpen] = useState(false);
-  const [strategy, setStrategy] = useState({ deadline: "", min_weight_g: "", timeout_action: "ship_individually" });
+  const [strategy, setStrategy] = useState({ deadline: "", min_weight_g: "2000", timeout_action: "ship_individually" });
   const [shippingAddons, setShippingAddons] = useState([]);
   const [selectedAddonIds, setSelectedAddonIds] = useState([]);
   const [userProfileMap, setUserProfileMap] = useState({});
@@ -138,7 +138,7 @@ export default function ShippingPool() {
     setIsPrivate(false);
     setSharedWithEmails([]);
     setUserSearchQuery("");
-    setStrategy({ deadline: "", min_weight_g: "", timeout_action: "ship_individually" });
+    setStrategy({ deadline: "", min_weight_g: "2000", timeout_action: "ship_individually" });
     setShippingAddons([]);
     setSelectedAddonIds([]);
     setFormLoading(true);
@@ -637,9 +637,17 @@ export default function ShippingPool() {
                             </div>
                             <div>
                               <Label className="text-xs text-gray-500 block mb-1">最低凑满重量 (g)</Label>
-                              <Input type="number" min="0" placeholder="如：5000" className="h-8 text-sm bg-white"
-                                value={strategy.min_weight_g}
-                                onChange={e => setStrategy(p => ({ ...p, min_weight_g: e.target.value }))} />
+                              <div className="flex items-center gap-1.5">
+                                <button type="button"
+                                  onClick={() => setStrategy(p => ({ ...p, min_weight_g: String(Math.max(0, (parseInt(p.min_weight_g) || 0) - 1000) )}))}
+                                  className="h-8 px-2.5 rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-100 text-sm font-medium transition-colors">-1000</button>
+                                <span className="flex-1 text-center text-sm font-semibold text-gray-800 bg-white border border-gray-200 rounded-md h-8 flex items-center justify-center">
+                                  {parseInt(strategy.min_weight_g) || 0}g
+                                </span>
+                                <button type="button"
+                                  onClick={() => setStrategy(p => ({ ...p, min_weight_g: String((parseInt(p.min_weight_g) || 0) + 1000) }))}
+                                  className="h-8 px-2.5 rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-100 text-sm font-medium transition-colors">+1000</button>
+                              </div>
                             </div>
                           </div>
                           <div>
