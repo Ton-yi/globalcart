@@ -1405,12 +1405,13 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                             {/* Full breakdown expandable */}
                             {(pool.fee_breakdown_per_user || []).length > 0 && (
                               <details className="text-xs">
-                                <summary className="text-gray-400 cursor-pointer hover:text-gray-600 py-1 select-none">查看完整费用明细（更新后）</summary>
-                                <div className="mt-1">
-                                  <ShippingFeeBreakdown
-                                    breakdowns={pool.fee_breakdown_per_user}
-                                    isConsolidation={pool.consolidation_type === "transit" || pool.consolidation_type === "other"}
-                                    currentUserEmail={currentUser?.email} />
+                              <summary className="text-gray-400 cursor-pointer hover:text-gray-600 py-1 select-none">查看完整费用明细（更新后）</summary>
+                              <div className="mt-1">
+                                <ShippingFeeBreakdown
+                                  breakdowns={pool.fee_breakdown_per_user}
+                                  isConsolidation={pool.consolidation_type === "transit" || pool.consolidation_type === "other"}
+                                  currentUserEmail={currentUser?.email}
+                                  userProfileMap={tenantUserMap} />
                                 </div>
                               </details>
                             )}
@@ -1425,7 +1426,8 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                             <ShippingFeeBreakdown
                               breakdowns={pool.fee_breakdown_per_user}
                               isConsolidation={pool.consolidation_type === "transit" || pool.consolidation_type === "other"}
-                              currentUserEmail={currentUser?.email} />
+                              currentUserEmail={currentUser?.email}
+                              userProfileMap={tenantUserMap} />
                           </div>
                         );
                       }
