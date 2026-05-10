@@ -82,6 +82,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
   const [addableOrders, setAddableOrders] = useState([]); // in_warehouse orders
   const [loadingAddable, setLoadingAddable] = useState(false);
   const [addingOrderId, setAddingOrderId] = useState(null);
+  const [addOrderSearch, setAddOrderSearch] = useState("");
 
   useEffect(() => {
     const fetches = [];
@@ -179,6 +180,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
   // User/Admin: load addable (in_warehouse) orders
   const openAddOrder = async () => {
     setShowAddOrder(true);
+    setAddOrderSearch("");
     setLoadingAddable(true);
     const r = await base44.functions.invoke('getTenantOrders', { all: isAdmin });
     const all = r.data?.orders || [];
@@ -848,31 +850,43 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                     <button onClick={() => setShowAddOrder(false)} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
                   </div>
                   <div className="p-3">
+                    {!loadingAddable && addableOrders.length > 0 && (
+                      <div className="relative mb-2">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                        <Input placeholder="搜索商品名称或订单号..." className="pl-8 h-7 text-xs" value={addOrderSearch} onChange={e => setAddOrderSearch(e.target.value)} />
+                      </div>
+                    )}
                     {loadingAddable ? (
                       <p className="text-xs text-gray-400 text-center py-3">加载中...</p>
                     ) : addableOrders.length === 0 ? (
                       <p className="text-xs text-gray-400 text-center py-3">暂无可加入的已入库订单</p>
                     ) : (
                       <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                        {addableOrders.map(o => (
-                          <div key={o.id} className="flex items-center justify-between gap-2 px-2 py-2 rounded-lg border border-gray-100 hover:bg-gray-50">
-                            {(() => { const img = o.product_image_url || o.purchase_screenshot_url || o.arrival_photo_url; return img ? <ImageWithViewer src={img} alt="包裹图片"><img src={img} alt="" className="w-10 h-10 rounded object-cover border border-gray-200 flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity" /></ImageWithViewer> : <div className="w-10 h-10 rounded bg-gray-100 flex-shrink-0" />; })()}
-                            <div className="min-w-0 flex-1">
-                              <p className="text-sm text-gray-800 truncate">{o.product_name}</p>
-                              <p className="text-xs text-gray-400">
-                                {o.order_number} · {o.weight_g || 0}g
-                                {isAdmin && o.user_email && <span className="ml-1.5 text-gray-500">{tenantUserMap[o.user_email]?.display_name || tenantUserMap[o.user_email]?.full_name || o.user_name || o.user_email}</span>}
-                              </p>
+                        {(() => {
+                          const q = addOrderSearch.trim().toLowerCase();
+                          const filtered = q ? addableOrders.filter(o => (o.product_name || '').toLowerCase().includes(q) || (o.order_number || '').toLowerCase().includes(q)) : addableOrders;
+                          if (filtered.length === 0) return <p className="text-xs text-gray-400 text-center py-2">无匹配结果</p>;
+                          return filtered.map(o => (
+                            <div key={o.id} className="flex items-center justify-between gap-2 px-2 py-2 rounded-lg border border-gray-100 hover:bg-gray-50">
+                              {(() => { const img = o.product_image_url || o.purchase_screenshot_url || o.arrival_photo_url; return img ? <ImageWithViewer src={img} alt="包裹图片"><img src={img} alt="" className="w-10 h-10 rounded object-cover border border-gray-200 flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity" /></ImageWithViewer> : <div className="w-10 h-10 rounded bg-gray-100 flex-shrink-0" />; })()}
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm text-gray-800 truncate">{o.product_name}</p>
+                                <p className="text-xs text-gray-400">
+                                  {o.order_number} · {o.weight_g || 0}g
+                                  {isAdmin && o.user_email && <span className="ml-1.5 text-gray-500">{tenantUserMap[o.user_email]?.display_name || tenantUserMap[o.user_email]?.full_name || o.user_name || o.user_email}</span>}
+                                </p>
+                              </div>
+                              <Button size="sm" className="h-6 text-xs px-2 bg-blue-600 hover:bg-blue-700 flex-shrink-0"
+                                disabled={addingOrderId === o.id}
+                                onClick={() => submitAddOrder(o.id)}>
+                                {addingOrderId === o.id ? <Loader2 className="w-3 h-3 animate-spin" /> : '加入'}
+                              </Button>
                             </div>
-                            <Button size="sm" className="h-6 text-xs px-2 bg-blue-600 hover:bg-blue-700 flex-shrink-0"
-                              disabled={addingOrderId === o.id}
-                              onClick={() => submitAddOrder(o.id)}>
-                              {addingOrderId === o.id ? <Loader2 className="w-3 h-3 animate-spin" /> : '加入'}
-                            </Button>
-                          </div>
-                        ))}
+                          ));
+                        })()}
                       </div>
                     )}
+
                   </div>
                 </div>
               )}
