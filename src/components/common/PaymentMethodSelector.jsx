@@ -51,26 +51,56 @@ export default function PaymentMethodSelector({ value, onChange, className = "",
     return <p className="text-xs text-gray-400 py-2">暂无可用支付方式，请联系管理员配置。</p>;
   }
 
+  const autoMethods = displayMethods.filter(m => !!m.provider_key);
+  const manualMethods = displayMethods.filter(m => !m.provider_key);
+  const hasBothTypes = autoMethods.length > 0 && manualMethods.length > 0;
+
+  const renderButton = (m) => {
+    const methodValue = m.provider_key || m.name;
+    const isActive = value === methodValue;
+    return (
+      <button
+        key={m.id || methodValue}
+        type="button"
+        onClick={() => onChange({ value: methodValue, label: m.name, payment_note: m.payment_note || "", image_url: m.image_url || "", icon: m.icon || "", color: m.color || "", payment_currency: m.payment_currency || "JPY" })}
+        className={`p-3 rounded-lg border-2 text-sm font-medium transition-all flex items-center gap-2 ${
+          isActive ? activeColor : "border-gray-200 text-gray-500 hover:border-gray-300"
+        }`}
+      >
+        {m.icon && <span className="text-base leading-none">{m.icon}</span>}
+        <span>{m.name}</span>
+      </button>
+    );
+  };
+
+  if (!hasBothTypes) {
+    return (
+      <div className={`grid grid-cols-2 gap-2 ${className}`}>
+        {displayMethods.map(renderButton)}
+      </div>
+    );
+  }
+
   return (
-    <div className={`grid grid-cols-2 gap-2 ${className}`}>
-      {displayMethods.map(m => {
-        // Determine the key used as the "value" — prefer provider_key if set, else use name
-        const methodValue = m.provider_key || m.name;
-        const isActive = value === methodValue;
-        return (
-          <button
-            key={m.id || methodValue}
-            type="button"
-            onClick={() => onChange({ value: methodValue, label: m.name, payment_note: m.payment_note || "", image_url: m.image_url || "", icon: m.icon || "", color: m.color || "", payment_currency: m.payment_currency || "JPY" })}
-            className={`p-3 rounded-lg border-2 text-sm font-medium transition-all flex items-center gap-2 ${
-              isActive ? activeColor : "border-gray-200 text-gray-500 hover:border-gray-300"
-            }`}
-          >
-            {m.icon && <span className="text-base leading-none">{m.icon}</span>}
-            <span>{m.name}</span>
-          </button>
-        );
-      })}
+    <div className={`space-y-3 ${className}`}>
+      <div>
+        <p className="text-xs font-medium text-green-700 mb-1.5 flex items-center gap-1">
+          <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500"></span>
+          自动确认
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          {autoMethods.map(renderButton)}
+        </div>
+      </div>
+      <div>
+        <p className="text-xs font-medium text-gray-500 mb-1.5 flex items-center gap-1">
+          <span className="inline-block w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+          手动确认
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          {manualMethods.map(renderButton)}
+        </div>
+      </div>
     </div>
   );
 }
