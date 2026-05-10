@@ -819,13 +819,12 @@ export default function ShippingPool() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
               {userConsPools.map(pool => {
-                // Use allOrders (all tenant orders visible to this user) so we can display
-                // other users' public consolidation pools even if current user has no orders in them
+                // Use allOrders for users who have orders in this pool; fall back to pool-level data for others' pools
                 const poolOrders = (pool.order_ids || [])
                   .map(id => allOrders.find(o => o.id === id))
                   .filter(Boolean);
-                if (poolOrders.length === 0) return null;
-                const groupWeight = poolOrders.reduce((s, o) => s + (o.weight_g || 0), 0);
+                // Use pool-level aggregated data as source of truth (always available)
+                const groupWeight = pool.total_weight_g || poolOrders.reduce((s, o) => s + (o.weight_g || 0), 0);
                 const minWeight = Math.max(...poolOrders.map(o => o.consolidation_min_weight_g || 0).filter(Boolean));
                 const deadline = poolOrders.map(o => o.consolidation_deadline).filter(Boolean).sort()[0];
                 const groupLabel = pool.consolidation_type === "transit"
@@ -873,19 +872,38 @@ export default function ShippingPool() {
                     )}
 
                     <div className="divide-y divide-gray-50">
-                      {poolOrders.slice(0, 3).map(o => (
-                        <div key={o.id} className="px-4 py-2 flex items-center justify-between gap-2">
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm text-gray-800 truncate">{o.product_name}</p>
-                            <p className="text-xs text-gray-400">{o.order_number} · {o.weight_g || 100}g</p>
-                          </div>
-                          {o.consolidation_deadline && (
-                            <span className="text-xs text-orange-500 flex-shrink-0">截止 {o.consolidation_deadline}</span>
+                      {poolOrders.length > 0 ? (
+                        <>
+                          {poolOrders.slice(0, 3).map(o => (
+                            <div key={o.id} className="px-4 py-2 flex items-center justify-between gap-2">
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm text-gray-800 truncate">{o.product_name}</p>
+                                <p className="text-xs text-gray-400">{o.order_number} · {o.weight_g || 100}g</p>
+                              </div>
+                              {o.consolidation_deadline && (
+                                <span className="text-xs text-orange-500 flex-shrink-0">截止 {o.consolidation_deadline}</span>
+                              )}
+                            </div>
+                          ))}
+                          {poolOrders.length > 3 && (
+                            <div className="px-4 py-2 text-xs text-gray-400 text-center">还有 {poolOrders.length - 3} 件...</div>
                           )}
-                        </div>
-                      ))}
-                      {poolOrders.length > 3 && (
-                        <div className="px-4 py-2 text-xs text-gray-400 text-center">还有 {poolOrders.length - 3} 件...</div>
+                        </>
+                      ) : (
+                        // Fallback: use pool-level order_names when current user has no orders in this pool
+                        <>
+                          {(pool.order_names || []).slice(0, 3).map((name, i) => (
+                            <div key={i} className="px-4 py-2">
+                              <p className="text-sm text-gray-800 truncate">{name}</p>
+                            </div>
+                          ))}
+                          {(pool.order_names || []).length > 3 && (
+                            <div className="px-4 py-2 text-xs text-gray-400 text-center">还有 {(pool.order_names || []).length - 3} 件...</div>
+                          )}
+                          {(pool.order_names || []).length === 0 && (
+                            <div className="px-4 py-2 text-xs text-gray-400">{(pool.order_ids || []).length} 件包裹</div>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>
