@@ -109,6 +109,19 @@ export default function AdminShippingInfoPanel({
   };
 
   const [pool, setPool] = useState(initialPool);
+
+  // Sync pool.order_ids when parent passes updated pool (e.g. after orders are moved in)
+  useEffect(() => {
+    setPool(prev => {
+      const newIds = initialPool.order_ids || [];
+      const oldIds = prev.order_ids || [];
+      // Only update if order_ids actually changed to avoid unnecessary re-renders
+      if (newIds.length !== oldIds.length || newIds.some((id, i) => id !== oldIds[i])) {
+        return { ...prev, order_ids: newIds };
+      }
+      return prev;
+    });
+  }, [JSON.stringify(initialPool.order_ids)]);
   const [saving, setSaving] = useState(false);
   const [confirmingSaving, setConfirmingSaving] = useState(false);
   const [exchangeRates, setExchangeRates] = useState(null);

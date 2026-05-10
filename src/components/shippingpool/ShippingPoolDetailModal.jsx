@@ -374,7 +374,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
       order_ids: [...(targetPool.order_ids || []), adminEditingOrder.id],
       total_weight_g: (targetPool.total_weight_g || 0) + (adminEditingOrder.weight_g || 0)
     }),
-    updateOrder(adminEditingOrder.id, { consolidation_pool_id: targetPoolId })]
+    updateOrder(adminEditingOrder.id, { consolidation_pool_id: targetPoolId, order_status: 'notified_shipment' })]
     );
 
     setPool((p) => ({ ...p, order_ids: updatedOrderIds, total_weight_g: updatedWeight }));
