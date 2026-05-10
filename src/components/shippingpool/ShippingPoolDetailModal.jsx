@@ -832,6 +832,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                       <div className="space-y-1.5 max-h-48 overflow-y-auto">
                         {addableOrders.map(o => (
                           <div key={o.id} className="flex items-center justify-between gap-2 px-2 py-2 rounded-lg border border-gray-100 hover:bg-gray-50">
+                            {(() => { const img = o.product_image_url || o.purchase_screenshot_url || o.arrival_photo_url; return img ? <img src={img} alt="" className="w-10 h-10 rounded object-cover border border-gray-200 flex-shrink-0" /> : <div className="w-10 h-10 rounded bg-gray-100 flex-shrink-0" />; })()}
                             <div className="min-w-0 flex-1">
                               <p className="text-sm text-gray-800 truncate">{o.product_name}</p>
                               <p className="text-xs text-gray-400">
