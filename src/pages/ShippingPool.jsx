@@ -813,8 +813,10 @@ export default function ShippingPool() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
               {userConsPools.map(pool => {
+                // Use allOrders (all tenant orders visible to this user) so we can display
+                // other users' public consolidation pools even if current user has no orders in them
                 const poolOrders = (pool.order_ids || [])
-                  .map(id => consolidationOrders.find(o => o.id === id))
+                  .map(id => allOrders.find(o => o.id === id))
                   .filter(Boolean);
                 if (poolOrders.length === 0) return null;
                 const groupWeight = poolOrders.reduce((s, o) => s + (o.weight_g || 0), 0);
