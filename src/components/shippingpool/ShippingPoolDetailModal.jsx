@@ -1540,16 +1540,9 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
 
                     {/* Credit payment confirm button */}
                     {paymentMethod === "credit" &&
-                <div className="space-y-2">
-                        <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg text-sm text-purple-700 space-y-1">
-                          <p className="font-medium">使用记账后付款</p>
-                          <p className="text-xs text-purple-500">此次运费将计入您的记账余额，请在结帐周期内完成还款。</p>
-                        </div>
-                        <Button className="w-full bg-purple-600 hover:bg-purple-700"
-                          onClick={handleCreditPayment}>
-                          确认使用记账付款
-                        </Button>
-                      </div>
+                      <Button className="w-full bg-purple-600 hover:bg-purple-700" onClick={handleCreditPayment}>
+                        确认使用记账付款
+                      </Button>
                     }
 
                     {paymentMethod === "alipay" &&
