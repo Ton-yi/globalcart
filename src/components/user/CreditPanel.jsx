@@ -104,11 +104,11 @@ export default function CreditPanel({ creditApplicationEnabled, refreshKey }) {
 
   // Compute converted amount for display
   const CURRENCY_SYMBOLS = { JPY: "¥", CNY: "¥", USD: "$", TWD: "NT$", HKD: "HK$", EUR: "€", SGD: "S$" };
-  const payCurrency = selectedMethod?.payment_currency || "JPY";
+  const payCurrency = selectedMethod?.payment_currency || null;
   let convertedDisplay = null;
   let convertedRate = null;
   const balance = credit?.credit_balance_jpy || 0;
-  if (payCurrency !== "JPY" && rates && rates[payCurrency]) {
+  if (payCurrency && payCurrency !== "JPY" && rates && rates[payCurrency]) {
     const converted = balance * rates[payCurrency];
     const decimals = ["TWD", "HKD", "CNY"].includes(payCurrency) ? 1 : 2;
     convertedDisplay = `${CURRENCY_SYMBOLS[payCurrency] || payCurrency}${converted.toFixed(decimals)} ${payCurrency}`;
@@ -226,7 +226,7 @@ export default function CreditPanel({ creditApplicationEnabled, refreshKey }) {
                     />
 
                     {/* Currency conversion notice — show whenever selected method currency is not JPY */}
-                    {selectedMethod && payCurrency !== "JPY" && (
+                    {selectedMethod && payCurrency && payCurrency !== "JPY" && (
                       <div className="bg-orange-50 border border-orange-200 rounded-lg px-3 py-2 space-y-1">
                         {convertedDisplay ? (
                           <>
