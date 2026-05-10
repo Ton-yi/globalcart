@@ -1575,7 +1575,9 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                           <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg space-y-2">
                             {selectedMethodMeta.image_url && (
                               <div className="text-center">
-                                <img src={selectedMethodMeta.image_url} alt="收款码" className="h-40 mx-auto rounded object-contain border border-gray-200" />
+                                <ImageWithViewer src={selectedMethodMeta.image_url} alt="收款码">
+                                  <img src={selectedMethodMeta.image_url} alt="收款码" className="h-40 mx-auto rounded object-contain border border-gray-200 cursor-pointer hover:opacity-80 transition-opacity" />
+                                </ImageWithViewer>
                               </div>
                             )}
                             {selectedMethodMeta.payment_note && (
