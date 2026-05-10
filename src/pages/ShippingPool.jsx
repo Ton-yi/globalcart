@@ -156,7 +156,7 @@ export default function ShippingPool() {
     ]);
     setAvailableOrders(inWarehouseOrders);
     setTransitLocations((configData.transitLocations || []).filter(l => l.is_active !== false));
-    setTransitShippingMethods((configData.transitShippingMethods || []).filter(m => m.is_active !== false));
+    setTransitShippingMethods((configData.transitMethods || []).filter(m => m.is_active !== false));
     setShippingAddons((configData.addons || []).filter(a => a.addon_type === "shipping" && a.is_active !== false));
     setAllUsers(usersRes?.data?.users || []);
     const pref = prefs[0];
