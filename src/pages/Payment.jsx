@@ -119,6 +119,8 @@ export default function Payment() {
 
   // Find the configured payment method for current selection
   const activeMethod = paymentMethods.find(m => (m.provider_key || m.name) === method);
+  // Automatic callback methods (e.g. alipay) should not show QR / upload proof UI
+  const isAutoCallback = !!activeMethod?.provider_key;
   // Alipay gateway info: prefer PaymentMethod entity, fall back to SiteSettings
   const alipayAccount = settings["alipay_account"] || "";
   const alipayName = settings["alipay_account_name"] || "";
@@ -196,13 +198,6 @@ export default function Payment() {
                 : <><ExternalLink className="w-4 h-4 mr-2" />前往支付宝完成付款</>}
             </Button>
 
-            {alipayQr ? (
-              <div className="text-center">
-                <p className="text-xs text-gray-500 mb-2">扫描二维码付款</p>
-                <img src={alipayQr} alt="支付宝收款码" className="w-48 h-48 mx-auto border border-gray-200 rounded-lg object-contain" />
-              </div>
-            ) : null}
-
             {alipayAccount && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-2">
                 <div className="flex items-center justify-between">
@@ -246,7 +241,7 @@ export default function Payment() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {activeMethod?.image_url && (
+            {!isAutoCallback && activeMethod?.image_url && (
               <div className="text-center">
                 <p className="text-xs text-gray-500 mb-2">扫描二维码付款</p>
                 <img src={activeMethod.image_url} alt="收款码" className="w-48 h-48 mx-auto border border-gray-200 rounded-lg object-contain" />
@@ -272,8 +267,8 @@ export default function Payment() {
         </Card>
       )}
 
-      {/* Upload proof - only for non-alipay methods */}
-      {method !== "alipay" && (
+      {/* Upload proof - only for manual (non-auto-callback) methods */}
+      {!isAutoCallback && (
         !submitted ? (
           <Card className="border-gray-200">
             <CardHeader className="pb-3">
