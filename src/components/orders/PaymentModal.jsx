@@ -70,18 +70,18 @@ export default function PaymentModal({ order, mode = "prepay", onClose, onSucces
   // Currency conversion helpers
   const CURRENCY_SYMBOLS = { JPY: "¥", CNY: "¥", USD: "$", TWD: "NT$", HKD: "HK$", EUR: "€", SGD: "S$" };
   const payCurrency = selectedMethodMeta?.payment_currency || cur;
-  const isNonJpy = payCurrency !== "JPY" && payCurrency !== cur;
 
-  // Compute converted amount: defaultAmount is in `cur`, we need to convert to payCurrency
-  // Both cur and payCurrency are relative to JPY base from the API
+  // Compute converted amount from JPY base → payCurrency
+  // defaultAmount is in `cur`; rates are relative to JPY
   let convertedDisplay = null;
-  if (isNonJpy && rates && rates[payCurrency] && rates[cur]) {
-    // cur → JPY → payCurrency
-    const amountInJpy = defaultAmount / rates[cur]; // convert cur → JPY
-    const converted = amountInJpy * rates[payCurrency];
+  let convertedRate = null;
+  if (payCurrency !== "JPY" && rates && rates[payCurrency] && rates[cur]) {
+    const amountInJpy = defaultAmount / rates[cur]; // cur → JPY
+    const converted = amountInJpy * rates[payCurrency]; // JPY → payCurrency
     const decimals = ["TWD", "HKD", "CNY"].includes(payCurrency) ? 1 : 2;
     const sym = CURRENCY_SYMBOLS[payCurrency] || payCurrency;
     convertedDisplay = `${sym}${converted.toFixed(decimals)} ${payCurrency}`;
+    convertedRate = rates[payCurrency]; // JPY→payCurrency rate
   }
 
   // Alipay
@@ -181,12 +181,12 @@ export default function PaymentModal({ order, mode = "prepay", onClose, onSucces
              <AlertDescription className="text-yellow-800 text-sm font-medium">{amountLabel}</AlertDescription>
            </Alert>
 
-           {/* Non-JPY currency conversion notice */}
-           {convertedDisplay && (
+           {/* Non-JPY currency conversion notice — only show when a method is selected */}
+           {convertedDisplay && method && (
              <div className="bg-orange-50 border border-orange-200 rounded-lg px-4 py-3 space-y-1">
                <div className="flex items-center justify-between text-xs text-gray-500">
                  <span>汇率换算参考</span>
-                 <span>1 JPY ≈ {rates?.[payCurrency]?.toFixed(4)} {payCurrency}</span>
+                 <span>1 JPY ≈ {convertedRate?.toFixed(4)} {payCurrency}</span>
                </div>
                <div className="flex items-center justify-between">
                  <span className="text-sm font-semibold text-orange-700">实际应付（{payCurrency}）</span>
