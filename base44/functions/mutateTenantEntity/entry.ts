@@ -140,7 +140,17 @@ Deno.serve(async (req) => {
         return Response.json({ error: 'Forbidden: Record does not belong to your tenant' }, { status: 403 });
       }
       if (entity === 'ShippingPool' && !isTenantAdmin && !isPlatformAdmin && !isStaff) {
-        if (record.creator_email !== user.email) {
+        const isCreator = record.creator_email === user.email;
+
+        // Payment fields that any tenant user (participant) is allowed to write
+        const PAYMENT_FIELDS = new Set([
+          'payment_status', 'payment_method', 'payment_proof_url', 'status',
+          'alipay_trade_no', 'alipay_transaction_id',
+        ]);
+        const updatingKeys = Object.keys(data);
+        const isPaymentOnlyUpdate = updatingKeys.length > 0 && updatingKeys.every(k => PAYMENT_FIELDS.has(k));
+
+        if (!isCreator && !isPaymentOnlyUpdate) {
           return Response.json({ error: 'Forbidden: Can only update your own shipping pools' }, { status: 403 });
         }
       }
