@@ -236,7 +236,13 @@ export default function ShippingPool() {
       : "AAA";
     const allPools = await fetchShippingPools();
     const prefixPools = allPools.filter(p => p.pool_code && p.pool_code.startsWith(prefix));
-    const nextSeq = (prefixPools.length + 1).toString().padStart(5, "0");
+    // Use max existing sequence number + 1 to avoid duplicates (robust against deletions and race conditions)
+    const maxSeq = prefixPools.reduce((max, p) => {
+      const seqStr = p.pool_code.slice(prefix.length);
+      const seq = parseInt(seqStr, 10);
+      return isNaN(seq) ? max : Math.max(max, seq);
+    }, 0);
+    const nextSeq = (maxSeq + 1).toString().padStart(5, "0");
     const pool_code = `${prefix}${nextSeq}`;
 
     // Build address fields for pool record
