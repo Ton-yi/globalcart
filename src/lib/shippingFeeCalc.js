@@ -20,7 +20,8 @@
  * @param {Array}  params.orders - orders in the pool (each: {id, user_email, weight_g, item_size_extra_fee, item_size_fee_currency})
  * @param {number} params.shippingFeeJpy - actual shipping fee (JPY) entered by admin
  * @param {number} params.boxPriceJpy - box price (JPY)
- * @param {Array}  params.packingFeesPerUser - [{user_email, fee_jpy}]
+ * @param {number} params.globalPackingFeeJpy - global packing fee (JPY) included in shared pool for consolidation, or direct for single shipment
+ * @param {Array}  params.packingFeesPerUser - [{user_email, fee_jpy}] per-user extra packing fees (added to individual personal total)
  * @param {object|null} params.transitLocation - TransitLocation record (for handling_fee)
  * @param {object|null} params.transitShippingMethod - TransitShippingMethod record (for fee)
  * @param {object} params.exchangeRates - {jpy_cny, jpy_usd, ...} for currency conversion
@@ -31,6 +32,7 @@ export function calcFeeBreakdownPerUser({
   orders,
   shippingFeeJpy = 0,
   boxPriceJpy = 0,
+  globalPackingFeeJpy = 0,
   packingFeesPerUser = [],
   transitLocation = null,
   transitShippingMethod = null,
@@ -87,8 +89,9 @@ export function calcFeeBreakdownPerUser({
       }
     }
 
+    // Per-user extra packing fee (individual, not shared)
     if (packingFee > 0) {
-      items.push({ label: "捆包作业手续费", amount_jpy: packingFee });
+      items.push({ label: "捆包作业手续费（个人追加）", amount_jpy: packingFee });
     }
 
     if (totalAddonFeeJpy > 0) {
@@ -103,26 +106,34 @@ export function calcFeeBreakdownPerUser({
 
     let sharedJpy = 0;
     if (isConsolidation && totalWeightG > 0) {
-      const sharedBase = (parseFloat(shippingFeeJpy) || 0) + (parseFloat(boxPriceJpy) || 0);
+      // Global packing fee joins shipping + box in the shared pool
+      const sharedBase = (parseFloat(shippingFeeJpy) || 0) + (parseFloat(boxPriceJpy) || 0) + (parseFloat(globalPackingFeeJpy) || 0);
       sharedJpy = Math.round((userWeightG / totalWeightG) * sharedBase);
       if (sharedJpy > 0) {
+        const packingPart = parseFloat(globalPackingFeeJpy) || 0;
+        const labelParts = [`运费¥${Math.round(shippingFeeJpy || 0)}`, `外箱¥${Math.round(boxPriceJpy || 0)}`];
+        if (packingPart > 0) labelParts.push(`手续费¥${Math.round(packingPart)}`);
         items.push({
-          label: `平摊金额（运费¥${Math.round(shippingFeeJpy || 0)}+外箱¥${Math.round(boxPriceJpy || 0)} × ${userWeightG}g/${totalWeightG}g）`,
+          label: `平摊金额（${labelParts.join("+")} × ${userWeightG}g/${totalWeightG}g）`,
           amount_jpy: sharedJpy,
           is_shared: true,
         });
       }
     } else {
-      // Single shipment: box + shipping are direct
+      // Single shipment: box + shipping + global packing are direct
       if (boxPriceJpy > 0) {
         items.push({ label: "外箱费用", amount_jpy: Math.round(parseFloat(boxPriceJpy) || 0) });
       }
       if (shippingFeeJpy > 0) {
         items.push({ label: "国际运费", amount_jpy: Math.round(parseFloat(shippingFeeJpy) || 0) });
       }
+      if (globalPackingFeeJpy > 0) {
+        items.push({ label: "捆包作业手续费", amount_jpy: Math.round(parseFloat(globalPackingFeeJpy) || 0) });
+      }
     }
 
-    const totalJpy = personalTotal + (isConsolidation ? sharedJpy : (Math.round(parseFloat(boxPriceJpy) || 0) + Math.round(parseFloat(shippingFeeJpy) || 0)));
+    const directNonShared = isConsolidation ? 0 : (Math.round(parseFloat(boxPriceJpy) || 0) + Math.round(parseFloat(shippingFeeJpy) || 0) + Math.round(parseFloat(globalPackingFeeJpy) || 0));
+    const totalJpy = personalTotal + (isConsolidation ? sharedJpy : directNonShared);
 
     result.push({
       user_email: email,

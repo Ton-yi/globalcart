@@ -155,15 +155,15 @@ export default function AdminShippingInfoPanel({
   const selectedBox = boxTemplates.find(b => b.id === boxTemplateId);
   const boxWeight = selectedBox?.weight_g || 0;
   const boxPrice = selectedBox?.price_jpy || 0;
-  // Effective per-user fee = base + extra; stable memo to avoid re-triggering feeBreakdowns
+  // Per-user extra packing fees (individual add-ons on top of global fee)
   const effectivePackingFeesPerUser = useMemo(() =>
     packingFeesPerUser.map(u => ({
       ...u,
       base_fee_jpy: basePackingFee,
-      fee_jpy: basePackingFee + (parseFloat(u.extra_fee_jpy) || 0),
+      fee_jpy: parseFloat(u.extra_fee_jpy) || 0, // only the extra per-user portion
     }))
   , [packingFeesPerUser, basePackingFee]);
-  const totalPackingFee = effectivePackingFeesPerUser.reduce((s, u) => s + (u.fee_jpy || 0), 0);
+  const totalPackingFee = basePackingFee + effectivePackingFeesPerUser.reduce((s, u) => s + (u.fee_jpy || 0), 0);
 
   // Find the shipping method matching pool's shipping_method code
   const matchedShippingMethod = shippingMethods.find(m =>
@@ -219,12 +219,13 @@ export default function AdminShippingInfoPanel({
       orders,
       shippingFeeJpy: parseFloat(shippingFeeJpy) || 0,
       boxPriceJpy: boxPrice,
+      globalPackingFeeJpy: basePackingFee,
       packingFeesPerUser: effectivePackingFeesPerUser,
       transitLocation,
       transitShippingMethod,
       exchangeRates,
     });
-  }, [orders, shippingFeeJpy, boxPrice, effectivePackingFeesPerUser, pool.selected_addons, pool.transit_location_id, pool.transit_shipping_method_id, exchangeRates]);
+  }, [orders, shippingFeeJpy, boxPrice, basePackingFee, effectivePackingFeesPerUser, pool.selected_addons, pool.transit_location_id, pool.transit_shipping_method_id, exchangeRates]);
 
   // Grand total = sum of all users' total_jpy from the live breakdown
   const grandTotalJpy = feeBreakdowns.reduce((s, b) => s + (b.total_jpy || 0), 0);
@@ -244,6 +245,7 @@ export default function AdminShippingInfoPanel({
       orders,
       shippingFeeJpy: parseFloat(shippingFeeJpy) || 0,
       boxPriceJpy: btId ? boxPrice : 0,
+      globalPackingFeeJpy: basePackingFee,
       packingFeesPerUser: effectivePackingFeesPerUser,
       transitLocation,
       transitShippingMethod,
@@ -712,14 +714,13 @@ export default function AdminShippingInfoPanel({
             {uniqueUsers.length > 1 && packingFeesPerUser.length > 1 && (
               <div className="border border-gray-100 rounded-lg p-2.5 bg-gray-50 space-y-1.5">
                 <div className="flex items-center justify-between mb-1">
-                  <p className="text-xs text-gray-400">各用户追加费用（基础 + 追加 = 实收）</p>
+                  <p className="text-xs text-gray-400">各用户追加费用（全局手续费已计入平摊，此处为个人追加）</p>
                   <span className="text-xs text-gray-400">基础 ¥{basePackingFee}</span>
                 </div>
                 {packingFeesPerUser.map((uf, idx) => {
                   const profile = userProfileMap[uf.user_email] || {};
                   const displayName = profile.display_name || profile.full_name || uf.user_email;
                   const extra = parseFloat(uf.extra_fee_jpy) || 0;
-                  const effective = basePackingFee + extra;
                   return (
                     <div key={uf.user_email} className="flex items-center gap-1.5">
                       <span className="text-xs text-gray-600 flex-1 truncate" title={uf.user_email}>{displayName}</span>
@@ -735,7 +736,7 @@ export default function AdminShippingInfoPanel({
                       <button type="button" onClick={() => setPackingFeesPerUser(prev =>
                         prev.map((u, i) => i === idx ? { ...u, extra_fee_jpy: Math.max(-(basePackingFee), (parseFloat(u.extra_fee_jpy) || 0) - 100) } : u)
                       )} className="h-7 px-1.5 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 flex-shrink-0">-100</button>
-                      <span className="text-xs font-medium text-orange-600 flex-shrink-0 w-16 text-right">= ¥{effective}</span>
+                      <span className="text-xs font-medium text-orange-600 flex-shrink-0 w-16 text-right">+¥{extra}</span>
                     </div>
                   );
                 })}
