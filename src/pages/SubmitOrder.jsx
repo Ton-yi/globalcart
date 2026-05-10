@@ -58,7 +58,7 @@ export default function SubmitOrder() {
       setSettings(parsed);
       // Default payment mode based on prepay_enabled setting
       const prepayOn = parsed.prepay_enabled !== 'false';
-      setPaymentMode(prepayOn ? "prepay" : "deferred");
+      setPaymentMode(prepayOn ? "prepay" : "fullpay");
       setUserCredit(creditR.data || null);
       t.done('data ready');
     }).catch(() => {});
@@ -156,6 +156,7 @@ export default function SubmitOrder() {
       : productUrls.filter(u => u.trim()).join("\n");
     const isCredit = paymentMode === "credit_weekly" || paymentMode === "credit_monthly";
     const isDeferred = paymentMode === "deferred";
+    const isFullpay = paymentMode === "fullpay";
     const tagResult = await detectPrimaryStoreTagResult(urlsText);
     // createTenantOrder auto-assigns tenant_id from session
     const res = await base44.functions.invoke('createTenantOrder', {
@@ -167,14 +168,14 @@ export default function SubmitOrder() {
       quantity: 1,
       estimated_jpy: parseFloat(form.estimated_jpy) || 0,
       service_fee_rate: parseFloat(settings.service_fee_rate) || (DEFAULT_SERVICE_FEE_RATE * 100),
-      prepayment_amount: calculated ? parseFloat(calculated.prepayJpy) : 0,
+      prepayment_amount: isFullpay ? (calculated ? parseFloat(calculated.totalJpy) : 0) : (calculated ? parseFloat(calculated.prepayJpy) : 0),
       prepayment_currency: "JPY",
       online_store_tag: tagResult.tag_label,
       online_store_tag_color: tagResult.tag_color,
-      payment_mode: isCredit ? "credit" : (isDeferred || settings.prepay_enabled === 'false') ? "deferred" : "prepay",
+      payment_mode: isCredit ? "credit" : isDeferred ? "deferred" : "prepay",
       credit_cycle: isCredit ? (paymentMode === "credit_weekly" ? "weekly" : "monthly") : null,
-      order_status: (isDeferred || isCredit || settings.prepay_enabled === 'false') ? "paid" : "payment_pending",
-      payment_status: (isDeferred || isCredit || settings.prepay_enabled === 'false') ? "paid" : "awaiting_payment",
+      order_status: (isDeferred || isCredit) ? "paid" : "payment_pending",
+      payment_status: (isDeferred || isCredit) ? "paid" : "awaiting_payment",
       user_note: form.user_note || "",
       selected_addon_ids: selectedAddons,
       selected_addons: selectedAddonObjects.map(a => ({ id: a.id, name: a.name, fee: parseFloat(a.fee) || 0, fee_currency: a.fee_currency || "JPY" })),
@@ -190,10 +191,10 @@ export default function SubmitOrder() {
       return;
     }
 
-    const prepayOn = settings.prepay_enabled !== 'false';
-    if (isDeferred || isCredit || !prepayOn) {
+    if (isDeferred || isCredit) {
       navigate(createPageUrl("MyOrders"));
     } else {
+      // prepay or fullpay — both go to Payment page
       navigate(`/Payment?order_id=${order.id}&method=${paymentMethod || "other"}`);
     }
   };
@@ -491,6 +492,18 @@ export default function SubmitOrder() {
                   <div className="text-xs mt-0.5 opacity-70">提交后直接前往付款页</div>
                 </button>
               )}
+              {settings.prepay_enabled === 'false' && (
+                <button
+                  type="button"
+                  onClick={() => setPaymentMode("fullpay")}
+                  className={`p-3 rounded-lg border-2 text-sm font-medium transition-all text-left ${
+                    paymentMode === "fullpay" ? "border-red-500 bg-red-50 text-red-700" : "border-gray-200 text-gray-500 hover:border-gray-300"
+                  }`}
+                >
+                  <div className="font-semibold">立即全额付款</div>
+                  <div className="text-xs mt-0.5 opacity-70">提交后前往付款页全额支付</div>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setPaymentMode("deferred")}
@@ -556,7 +569,7 @@ export default function SubmitOrder() {
               </div>
             )}
 
-            {paymentMode === "prepay" && (
+            {(paymentMode === "prepay" || paymentMode === "fullpay") && (
               <PaymentMethodSelector
                 value={paymentMethod}
                 onChange={m => setPaymentMethod(m.value)}
@@ -571,7 +584,7 @@ export default function SubmitOrder() {
           <ShoppingBag className="w-4 h-4 mr-2" />
           {submitting ? "提交中..." :
             (paymentMode === "credit_weekly" || paymentMode === "credit_monthly") ? "提交需求（记账）" :
-            (paymentMode === "deferred" || settings.prepay_enabled === 'false') ? "提交需求（后付款）" : "提交并前往付款"}
+            paymentMode === "deferred" ? "提交需求（后付款）" : "提交并前往付款"}
         </Button>
       </form>
     </div>
