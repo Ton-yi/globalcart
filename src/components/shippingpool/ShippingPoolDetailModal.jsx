@@ -1039,15 +1039,22 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                               {/* Transit shipping method */}
                               {transitShippingMethods.length > 0 && (
                                 <div>
-                                  <label className="text-xs text-gray-500 font-medium block mb-1.5 flex items-center gap-1"><Truck className="w-3 h-3" />中转段运输方式</label>
+                                  <label className="text-xs text-gray-500 font-medium block mb-1.5 flex items-center gap-1"><Truck className="w-3 h-3" />中转段运输方式（可选）</label>
                                   <div className="space-y-1">
+                                    <label className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors text-xs ${!userPrefsData.transit_method_id ? "border-gray-400 bg-gray-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
+                                      <input type="radio" checked={!userPrefsData.transit_method_id}
+                                        onChange={() => setUserPrefsData(d => ({ ...d, transit_method_id: "" }))}
+                                        className="accent-blue-600" />
+                                      <span className="text-gray-400">不指定</span>
+                                    </label>
                                     {transitShippingMethods.map(m => (
                                       <label key={m.id} className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors text-xs ${userPrefsData.transit_method_id === m.id ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
                                         <input type="radio" checked={userPrefsData.transit_method_id === m.id}
                                           onChange={() => setUserPrefsData(d => ({ ...d, transit_method_id: m.id }))}
                                           className="accent-blue-600" />
                                         <span className="text-gray-700">{m.name}</span>
-                                        {m.description && <span className="text-gray-400">{m.description}</span>}
+                                        {m.description && <span className="text-gray-400 ml-1">{m.description}</span>}
+                                        {m.fee > 0 && <span className="text-blue-600 ml-auto flex-shrink-0">{m.fee_currency || "CNY"} {m.fee}</span>}
                                       </label>
                                     ))}
                                   </div>
