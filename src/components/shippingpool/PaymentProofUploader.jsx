@@ -129,12 +129,14 @@ export default function PaymentProofUploader({ selectedMethodMeta, uploadingProo
         />
       </div>
 
-      {/* Paste hint */}
-      {!uploadingProof && (
-        <p className="text-xs text-center text-gray-400">
-          💡 点击上方区域后可直接按 <kbd className="bg-gray-100 border border-gray-300 rounded px-1 text-gray-600">Ctrl+V</kbd> / <kbd className="bg-gray-100 border border-gray-300 rounded px-1 text-gray-600">⌘V</kbd> 粘贴截图
-        </p>
-      )}
+      {/* Dedicated paste input box */}
+      <input
+        type="text"
+        readOnly
+        placeholder="📋 点击此处，然后按 Ctrl+V / ⌘V 粘贴截图"
+        className="w-full h-9 px-3 text-xs border border-gray-300 rounded-md bg-gray-50 text-gray-500 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400 focus:bg-white transition-colors cursor-text"
+        onPaste={handlePaste}
+      />
     </div>
   );
 }
