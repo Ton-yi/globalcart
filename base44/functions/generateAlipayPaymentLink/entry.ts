@@ -20,8 +20,10 @@ async function getAlipayConfig(base44, tenantId) {
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 function pemToBinary(pem) {
-  const b64 = pem
-    .replace(/-----BEGIN [^-]+-----|-----END [^-]+-----|\s/g, '');
+  // Strip PEM headers/footers and ALL whitespace (including \r\n, spaces, tabs)
+  let b64 = pem.replace(/-----BEGIN [^-]+-----/g, '').replace(/-----END [^-]+-----/g, '');
+  b64 = b64.replace(/\s+/g, '');
+  // If it's a raw base64 key (no PEM headers), use as-is
   const bin = atob(b64);
   const buf = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);

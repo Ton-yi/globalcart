@@ -16,7 +16,8 @@ async function getAlipayConfig(base44, tenantId) {
 }
 
 function pemToBinary(pem) {
-  const b64 = pem.replace(/-----BEGIN [^-]+-----|-----END [^-]+-----|\s/g, '');
+  let b64 = pem.replace(/-----BEGIN [^-]+-----/g, '').replace(/-----END [^-]+-----/g, '');
+  b64 = b64.replace(/\s+/g, '');
   const bin = atob(b64);
   const buf = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
