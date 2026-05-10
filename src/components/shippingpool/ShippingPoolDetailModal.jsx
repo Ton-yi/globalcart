@@ -7,6 +7,7 @@ import { useState, useEffect, useRef } from "react";
 import { X, Package, Send, Image, Edit2, Save, MoreVertical, ArrowRight, RotateCcw, Loader2, Search, Trash2, AlertCircle, CheckCircle, XCircle, CreditCard, ExternalLink, Upload, Truck, MapPin, PlusCircle, MoveRight, Star } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { updateOrder, tenantEntity, shippingPoolApi, userPrefApi, fetchTenantConfig } from "@/lib/tenantApi";
+import { getExchangeRates } from "@/lib/exchangeRates";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -68,6 +69,8 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
   const [alipayUrl, setAlipayUrl] = useState(null);
   const [uploadingProof, setUploadingProof] = useState(false);
   const [confirmingDelivery, setConfirmingDelivery] = useState(false);
+  const [exchangeRates, setExchangeRates] = useState(null);
+  const [userCredit, setUserCredit] = useState(null); // {credit_enabled, credit_balance_jpy, credit_limit_jpy}
 
   const [tenantUserMap, setTenantUserMap] = useState({});
   const [allPoolsMap, setAllPoolsMap] = useState({}); // id -> pool_code for target pool display
@@ -173,6 +176,14 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
       }).
       catch(() => {})
     );
+    // Load exchange rates and user credit status for payment panel
+    if (!isAdmin) {
+      getExchangeRates().then(r => setExchangeRates(r)).catch(() => {});
+      base44.functions.invoke('manageCreditApplication', { action: 'get_user_credit' })
+        .then(r => setUserCredit(r.data || null))
+        .catch(() => {});
+    }
+
     Promise.all(fetches);
 
     // Mark as read on open
@@ -331,6 +342,16 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
   const handleAdminPoolUpdated = (updatedPool) => {
     setPool(updatedPool);
     onUpdated?.();
+  };
+
+  // User: pay via credit (deferred billing)
+  const handleCreditPayment = async () => {
+    await shippingPoolApi.update(pool.id, {
+      payment_status: "awaiting_confirmation",
+      payment_method: "credit",
+      status: "awaiting_payment_confirmation",
+    });
+    setPool(p => ({ ...p, payment_status: "awaiting_confirmation", payment_method: "credit", status: "awaiting_payment_confirmation" }));
   };
 
   // User: generate Alipay payment link for shipping fee
@@ -1448,7 +1469,88 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                         onChange={m => { setPaymentMethod(m.value); setSelectedMethodMeta(m); setAlipayUrl(null); }}
                         activeColor="border-orange-500 bg-orange-50 text-orange-700"
                       />
+                      {/* Credit (deferred billing) option — shown if user has credit enabled with sufficient remaining limit */}
+                      {(() => {
+                        if (!userCredit?.credit_enabled) return null;
+                        const amountJpy = (() => {
+                          const supplements = pool.supplement_amount_per_user || [];
+                          const mySupplement = supplements.find(s => s.user_email === currentUser?.email);
+                          if (mySupplement) return Math.round(mySupplement.supplement_jpy || 0);
+                          const myBreakdown = (pool.fee_breakdown_per_user || []).find(b => b.user_email === currentUser?.email);
+                          if (myBreakdown) return Math.ceil((myBreakdown.total_jpy || 0) / 10) * 10;
+                          return Math.round(pool.shipping_fee_jpy || 0);
+                        })();
+                        const remaining = (userCredit.credit_limit_jpy || 0) - (userCredit.credit_balance_jpy || 0);
+                        const canUseCredit = remaining >= amountJpy;
+                        return (
+                          <div className="mt-2">
+                            <button
+                              type="button"
+                              onClick={() => { setPaymentMethod("credit"); setSelectedMethodMeta({ value: "credit", label: "记账后付款", payment_currency: "JPY" }); setAlipayUrl(null); }}
+                              className={`w-full p-3 rounded-lg border-2 text-sm font-medium transition-all flex items-center gap-2 ${paymentMethod === "credit" ? "border-purple-500 bg-purple-50 text-purple-700" : canUseCredit ? "border-gray-200 text-gray-500 hover:border-gray-300" : "border-gray-100 text-gray-300 cursor-not-allowed opacity-60"}`}
+                              disabled={!canUseCredit}
+                            >
+                              <span className="text-base">📋</span>
+                              <span>记账后付款</span>
+                              {!canUseCredit && <span className="text-xs ml-auto text-red-400">额度不足</span>}
+                              {canUseCredit && <span className="text-xs ml-auto text-purple-500">剩余额度 ¥{Math.round(remaining).toLocaleString()}</span>}
+                            </button>
+                          </div>
+                        );
+                      })()}
                     </div>
+
+                    {/* Currency conversion display */}
+                    {selectedMethodMeta?.payment_currency && selectedMethodMeta.payment_currency !== "JPY" && (() => {
+                      const amountJpy = (() => {
+                        const supplements = pool.supplement_amount_per_user || [];
+                        const mySupplement = supplements.find(s => s.user_email === currentUser?.email);
+                        if (mySupplement) return Math.round(mySupplement.supplement_jpy || 0);
+                        const myBreakdown = (pool.fee_breakdown_per_user || []).find(b => b.user_email === currentUser?.email);
+                        if (myBreakdown) return Math.ceil((myBreakdown.total_jpy || 0) / 10) * 10;
+                        return Math.round(pool.shipping_fee_jpy || 0);
+                      })();
+                      const currency = selectedMethodMeta.payment_currency;
+                      const CURRENCY_SYMBOLS = { CNY: "¥", USD: "$", TWD: "NT$", HKD: "HK$", EUR: "€", SGD: "S$" };
+                      const rateKey = `jpy_${currency.toLowerCase()}`;
+                      const rate = exchangeRates?.[rateKey];
+                      const sym = CURRENCY_SYMBOLS[currency] || currency;
+                      return (
+                        <div className="bg-orange-50 border border-orange-200 rounded-lg px-3 py-2.5 space-y-1">
+                          {rate ? (
+                            <>
+                              <div className="flex items-center justify-between text-xs text-gray-500">
+                                <span>汇率换算参考</span>
+                                <span>1 JPY ≈ {rate.toFixed(4)} {currency}</span>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-semibold text-orange-700">实际应付（{currency}）</span>
+                                <span className="text-base font-bold text-orange-600">
+                                  {sym}{(amountJpy * rate).toFixed(["TWD","HKD","CNY"].includes(currency) ? 1 : 2)} {currency}
+                                </span>
+                              </div>
+                              <p className="text-xs text-orange-400">汇率实时参考，以实际到账为准</p>
+                            </>
+                          ) : (
+                            <p className="text-xs text-orange-500">正在获取实时汇率...</p>
+                          )}
+                        </div>
+                      );
+                    })()}
+
+                    {/* Credit payment confirm button */}
+                    {paymentMethod === "credit" &&
+                <div className="space-y-2">
+                        <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg text-sm text-purple-700 space-y-1">
+                          <p className="font-medium">使用记账后付款</p>
+                          <p className="text-xs text-purple-500">此次运费将计入您的记账余额，请在结帐周期内完成还款。</p>
+                        </div>
+                        <Button className="w-full bg-purple-600 hover:bg-purple-700"
+                          onClick={handleCreditPayment}>
+                          确认使用记账付款
+                        </Button>
+                      </div>
+                    }
 
                     {paymentMethod === "alipay" &&
                 <div className="space-y-2">
