@@ -22,13 +22,14 @@
       "type": "string",
       "enum": [
         "move_pool",
-        "cancel_shipment"
+        "cancel_shipment",
+        "add_to_pool"
       ],
-      "description": "\u7f16\u8f91\u7c7b\u578b: move_pool=\u79fb\u52a8\u81f3\u53e6\u4e00\u53d1\u8d27\u6c60, cancel_shipment=\u53d6\u6d88\u51fa\u8d27\u8fd4\u56de\u5df2\u5165\u5e93"
+      "description": "\u7f16\u8f91\u7c7b\u578b: move_pool=\u79fb\u52a8\u81f3\u53e6\u4e00\u53d1\u8d27\u6c60, cancel_shipment=\u53d6\u6d88\u51fa\u8d27\u8fd4\u56de\u5df2\u5165\u5e93, add_to_pool=\u6dfb\u52a0\u8ba2\u5355\u5230\u53d1\u8d27\u6c60"
     },
     "target_pool_id": {
       "type": "string",
-      "description": "\u76ee\u6807\u53d1\u8d27\u6c60ID\uff08edit_type=move_pool\u65f6\u6709\u6548\uff09"
+      "description": "\u76ee\u6807\u53d1\u8d27\u6c60ID\uff08edit_type=move_pool\u6216add_to_pool\u65f6\u6709\u6548\uff09"
     },
     "user_note": {
       "type": "string",

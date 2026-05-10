@@ -4,7 +4,7 @@
  * Admin can edit tracking number, actual fee.
  */
 import { useState, useEffect, useRef } from "react";
-import { X, Package, Send, Image, Edit2, Save, MoreVertical, ArrowRight, RotateCcw, Loader2, Search, Trash2, AlertCircle, CheckCircle, XCircle, CreditCard, ExternalLink, Upload, Truck, MapPin } from "lucide-react";
+import { X, Package, Send, Image, Edit2, Save, MoreVertical, ArrowRight, RotateCcw, Loader2, Search, Trash2, AlertCircle, CheckCircle, XCircle, CreditCard, ExternalLink, Upload, Truck, MapPin, PlusCircle, MoveRight } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { updateOrder, tenantEntity, shippingPoolApi } from "@/lib/tenantApi";
 import { Button } from "@/components/ui/button";
@@ -70,6 +70,18 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
   const [tenantUserMap, setTenantUserMap] = useState({});
   const [allPoolsMap, setAllPoolsMap] = useState({}); // id -> pool_code for target pool display
 
+  // User-side move/add state
+  const [userActionOrder, setUserActionOrder] = useState(null); // order being acted on
+  const [userActionMode, setUserActionMode] = useState(null); // 'move' | 'cancel' | 'add'
+  const [userTargetPoolId, setUserTargetPoolId] = useState("");
+  const [userActionNote, setUserActionNote] = useState("");
+  const [userActionPools, setUserActionPools] = useState([]); // other pools available to move to
+  const [submittingUserAction, setSubmittingUserAction] = useState(false);
+  const [showAddOrder, setShowAddOrder] = useState(false);
+  const [addableOrders, setAddableOrders] = useState([]); // in_warehouse orders
+  const [loadingAddable, setLoadingAddable] = useState(false);
+  const [addingOrderId, setAddingOrderId] = useState(null);
+
   useEffect(() => {
     const fetches = [];
     if (pool.order_ids?.length > 0) {
@@ -129,6 +141,60 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
       setOtherPools(pools);
     }).
     catch(() => setOtherPools([]));
+  };
+
+  // User: open move/cancel panel
+  const openUserAction = (order, mode) => {
+    setUserActionOrder(order);
+    setUserActionMode(mode);
+    setUserTargetPoolId("");
+    setUserActionNote("");
+    if (mode === 'move') {
+      // Load available pools (pending, not this one, not fee-notified)
+      const lockedStatuses = ['awaiting_payment', 'awaiting_payment_confirmation', 'ready_to_ship', 'shipped', 'delivered', 'cancelled'];
+      const available = Object.values(allPoolsMap).filter(p =>
+        p.id !== pool.id && !lockedStatuses.includes(p.status)
+      );
+      setUserActionPools(available);
+    }
+  };
+
+  const submitUserAction = async (action, orderId, targetPoolId) => {
+    setSubmittingUserAction(true);
+    await base44.functions.invoke('userMutateShippingPool', {
+      action,
+      pool_id: pool.id,
+      order_id: orderId,
+      target_pool_id: targetPoolId || undefined,
+      user_note: userActionNote,
+    });
+    setUserActionOrder(null);
+    setUserActionMode(null);
+    setSubmittingUserAction(false);
+    onUpdated?.();
+  };
+
+  // User: load addable (in_warehouse) orders
+  const openAddOrder = async () => {
+    setShowAddOrder(true);
+    setLoadingAddable(true);
+    const r = await base44.functions.invoke('getTenantOrders', {});
+    const all = r.data?.orders || [];
+    setAddableOrders(all.filter(o => o.order_status === 'in_warehouse' && o.user_email === currentUser?.email));
+    setLoadingAddable(false);
+  };
+
+  const submitAddOrder = async (orderId) => {
+    setAddingOrderId(orderId);
+    await base44.functions.invoke('userMutateShippingPool', {
+      action: 'add_order',
+      pool_id: pool.id,
+      order_id: orderId,
+      user_note: '',
+    });
+    setAddingOrderId(null);
+    setShowAddOrder(false);
+    onUpdated?.();
   };
 
   const messages = pool.messages || [];
@@ -356,6 +422,17 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
           setPool((p) => ({ ...p, order_ids: updatedIds, total_weight_g: Math.max(0, (p.total_weight_g || 0) - w) }));
           setOrders((prev) => prev.filter((o) => o.id !== targetOrderId));
         }
+      } else if (req.edit_type === 'add_to_pool') {
+        // Add order into this pool
+        const updatedIds = [...new Set([...(pool.order_ids || []), targetOrderId])];
+        await Promise.all([
+          shippingPoolApi.update(pool.id, {
+            order_ids: updatedIds,
+            total_weight_g: (pool.total_weight_g || 0) + w
+          }),
+          updateOrder(targetOrderId, { order_status: 'notified_shipment', consolidation_pool_id: pool.id }),
+        ]);
+        setPool((p) => ({ ...p, order_ids: updatedIds, total_weight_g: (p.total_weight_g || 0) + w }));
       }
       await tenantEntity.update('ShippingEditRequest', req.id, { status: 'approved' });
     } else {
@@ -560,19 +637,92 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                                   </button>
                                 </div>
                           }
-                              {/* User can edit their own orders */}
-                              {!isAdmin && o.user_email === currentUser?.email && pool.status !== "shipped" && pool.status !== "delivered" &&
-                          <button
-                            onClick={() => setEditingOrder(o)}
-                            className="flex-shrink-0 p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600 transition-colors"
-                            title="编辑发货参数">
-                                  <Edit2 className="w-3.5 h-3.5" />
-                                </button>
+                              {/* User can edit/move their own orders */}
+                              {!isAdmin && o.user_email === currentUser?.email && pool.status !== "shipped" && pool.status !== "delivered" && pool.status !== "awaiting_payment" && pool.status !== "awaiting_payment_confirmation" && pool.status !== "ready_to_ship" &&
+                          <div className="flex items-center gap-1">
+                                  <button
+                                    onClick={() => setEditingOrder(o)}
+                                    className="flex-shrink-0 p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600 transition-colors"
+                                    title="编辑发货参数">
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => openUserAction(o, userActionOrder?.id === o.id && userActionMode ? null : 'menu')}
+                                    className="flex-shrink-0 p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600 transition-colors"
+                                    title="移动/取消出货">
+                                    <MoreVertical className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
                           }
                             </div>
                           </div>
                         </div>
                     }
+                      {/* User actions panel */}
+                      {!isAdmin && userActionOrder?.id === o.id && userActionMode && (
+                        <div className="border-t border-gray-100 bg-gray-50 px-3 py-2.5 space-y-2">
+                          {userActionMode === 'menu' ? (
+                            <div className="flex gap-2">
+                              <Button size="sm" variant="outline" className="flex-1 h-6 text-xs gap-1"
+                                onClick={() => openUserAction(o, 'move')}>
+                                <MoveRight className="w-3 h-3" />移到其它发货申请
+                              </Button>
+                              <Button size="sm" variant="outline" className="flex-1 h-6 text-xs gap-1 text-orange-600 border-orange-200 hover:bg-orange-50"
+                                onClick={() => openUserAction(o, 'cancel')}>
+                                <RotateCcw className="w-3 h-3" />取消出货/重新入库
+                              </Button>
+                              <Button size="sm" variant="ghost" className="h-6 text-xs px-2"
+                                onClick={() => setUserActionOrder(null)}>✕</Button>
+                            </div>
+                          ) : userActionMode === 'move' ? (
+                            <div className="space-y-2">
+                              <p className="text-xs text-gray-500">选择目标发货申请：</p>
+                              {userActionPools.length === 0 ? (
+                                <p className="text-xs text-gray-400 text-center py-2">无其他可用发货申请</p>
+                              ) : (
+                                <div className="max-h-28 overflow-y-auto space-y-1">
+                                  {userActionPools.map(p => (
+                                    <button key={p.id}
+                                      onClick={() => setUserTargetPoolId(p.id)}
+                                      className={`w-full text-left px-2 py-1.5 rounded text-xs border transition-colors ${userTargetPoolId === p.id ? 'border-blue-400 bg-blue-50' : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50'}`}>
+                                      <span className="font-mono text-gray-700">{p.pool_code || p.id.slice(-6).toUpperCase()}</span>
+                                      {p.title && <span className="text-gray-400 ml-1.5">{p.title}</span>}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                              <Textarea rows={2} placeholder="备注（可选）" className="text-xs h-12"
+                                value={userActionNote} onChange={e => setUserActionNote(e.target.value)} />
+                              <div className="flex gap-2">
+                                <Button size="sm" variant="outline" className="h-6 text-xs flex-1"
+                                  onClick={() => setUserActionMode('menu')}>返回</Button>
+                                <Button size="sm" className="h-6 text-xs flex-1 bg-blue-600 hover:bg-blue-700"
+                                  disabled={!userTargetPoolId || submittingUserAction}
+                                  onClick={() => submitUserAction('move_order', o.id, userTargetPoolId)}>
+                                  {submittingUserAction ? <Loader2 className="w-3 h-3 animate-spin" /> : '确认移动'}
+                                </Button>
+                              </div>
+                            </div>
+                          ) : userActionMode === 'cancel' ? (
+                            <div className="space-y-2 bg-orange-50 border border-orange-100 rounded px-2 py-2">
+                              <p className="text-xs text-orange-700">确认取消此包裹的出货？包裹将重新变为"已入库"状态。</p>
+                              <Textarea rows={2} placeholder="取消原因（可选）" className="text-xs h-12 bg-white"
+                                value={userActionNote} onChange={e => setUserActionNote(e.target.value)} />
+                              <div className="flex gap-2">
+                                <Button size="sm" variant="outline" className="flex-1 h-6 text-xs"
+                                  onClick={() => setUserActionMode('menu')}>返回</Button>
+                                <Button size="sm" className="flex-1 h-6 text-xs bg-orange-600 hover:bg-orange-700"
+                                  disabled={submittingUserAction}
+                                  onClick={() => submitUserAction('cancel_order', o.id)}>
+                                  {submittingUserAction ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <RotateCcw className="w-3 h-3 mr-1" />}
+                                  确认取消
+                                </Button>
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+                      )}
+
                       {/* Admin actions panel */}
                       {isAdmin && showOrderActions === o.id &&
                     <div className="border-t border-gray-100 bg-gray-50 px-3 py-2.5 space-y-2">
@@ -639,6 +789,51 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
             }
           </div>
 
+          {/* User: add more orders to this pool */}
+          {!isAdmin && pool.status === "pending" && (
+            <div>
+              {!showAddOrder ? (
+                <button
+                  onClick={openAddOrder}
+                  className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 border border-dashed border-blue-200 hover:border-blue-400 rounded-lg px-3 py-2 w-full justify-center transition-colors bg-blue-50/30 hover:bg-blue-50">
+                  <PlusCircle className="w-3.5 h-3.5" />添加我的包裹到此发货申请
+                </button>
+              ) : (
+                <div className="border border-blue-200 rounded-xl overflow-hidden">
+                  <div className="flex items-center justify-between bg-blue-50 px-3 py-2 border-b border-blue-100">
+                    <span className="text-xs font-medium text-blue-700 flex items-center gap-1.5">
+                      <PlusCircle className="w-3.5 h-3.5" />从我的已入库订单中选择
+                    </span>
+                    <button onClick={() => setShowAddOrder(false)} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
+                  </div>
+                  <div className="p-3">
+                    {loadingAddable ? (
+                      <p className="text-xs text-gray-400 text-center py-3">加载中...</p>
+                    ) : addableOrders.length === 0 ? (
+                      <p className="text-xs text-gray-400 text-center py-3">暂无可加入的已入库订单</p>
+                    ) : (
+                      <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                        {addableOrders.map(o => (
+                          <div key={o.id} className="flex items-center justify-between gap-2 px-2 py-2 rounded-lg border border-gray-100 hover:bg-gray-50">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm text-gray-800 truncate">{o.product_name}</p>
+                              <p className="text-xs text-gray-400">{o.order_number} · {o.weight_g || 0}g</p>
+                            </div>
+                            <Button size="sm" className="h-6 text-xs px-2 bg-blue-600 hover:bg-blue-700 flex-shrink-0"
+                              disabled={addingOrderId === o.id}
+                              onClick={() => submitAddOrder(o.id)}>
+                              {addingOrderId === o.id ? <Loader2 className="w-3 h-3 animate-spin" /> : '加入'}
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Pending Edit Requests - Admin view */}
           {isAdmin && pendingEdits.length > 0 &&
           <div className="border border-orange-200 rounded-xl overflow-hidden">
@@ -653,8 +848,8 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="text-xs font-medium text-gray-700">{req.user_email}</span>
-                          <Badge className={`text-xs ${req.edit_type === 'cancel_shipment' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
-                            {req.edit_type === 'cancel_shipment' ? '申请重新入库' : '申请移至其他发货申请'}
+                          <Badge className={`text-xs ${req.edit_type === 'cancel_shipment' ? 'bg-red-100 text-red-700' : req.edit_type === 'add_to_pool' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
+                            {req.edit_type === 'cancel_shipment' ? '申请重新入库' : req.edit_type === 'add_to_pool' ? '申请加入此发货申请' : '申请移至其他发货申请'}
                           </Badge>
                         </div>
                         <p className="text-xs text-gray-500 mt-0.5">
@@ -706,8 +901,8 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
               <div key={req.id} className="px-4 py-3">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <Badge className="text-xs bg-orange-100 text-orange-700">待管理员审批</Badge>
-                      <Badge className={`text-xs ${req.edit_type === 'cancel_shipment' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
-                        {req.edit_type === 'cancel_shipment' ? '重新入库' : '移至其他发货申请'}
+                      <Badge className={`text-xs ${req.edit_type === 'cancel_shipment' ? 'bg-red-100 text-red-700' : req.edit_type === 'add_to_pool' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
+                        {req.edit_type === 'cancel_shipment' ? '重新入库' : req.edit_type === 'add_to_pool' ? '加入此发货申请' : '移至其他发货申请'}
                       </Badge>
                     </div>
                     <p className="text-xs text-gray-500 mt-1">

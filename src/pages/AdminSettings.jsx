@@ -791,6 +791,37 @@ export default function AdminSettings() {
                     </div>
                   );
                 })()}
+                {/* Allow user pool edit instantly toggle */}
+                {(() => {
+                  const s = grouped.fee?.find(s => s.key === 'allow_user_pool_edit_instant') ||
+                            Object.values(grouped).flat().find(s => s.key === 'allow_user_pool_edit_instant');
+                  const enabled = s?.value === 'true';
+                  return (
+                    <div className="flex items-center justify-between pb-1 border-b border-gray-100">
+                      <div>
+                        <Label className="text-sm">自动同意用户移动/添加包裹</Label>
+                        <p className="text-xs text-gray-400 mt-0.5">开启后，用户在发货申请详情中移动包裹或添加包裹将立即生效，无需管理员审批</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const newVal = enabled ? 'false' : 'true';
+                          if (s) {
+                            updateSetting(s.id, 'value', newVal);
+                            await tenantEntity.update('SiteSettings', s.id, { value: newVal });
+                          } else {
+                            await tenantEntity.create('SiteSettings', { key: 'allow_user_pool_edit_instant', value: newVal, category: 'shipping', description: '自动同意用户移动/添加包裹到发货申请' });
+                            await load();
+                          }
+                        }}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${enabled ? 'bg-teal-500' : 'bg-gray-200'}`}
+                      >
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                      </button>
+                    </div>
+                  );
+                })()}
+
                 {/* Service & Prepay Rates */}
                 <div className="grid grid-cols-2 gap-3">
                   {(grouped.fee || []).filter(s => !s.key.includes("increment") && s.key !== 'prepay_enabled').map(s => (
