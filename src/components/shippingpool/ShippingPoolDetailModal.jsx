@@ -275,8 +275,9 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
       const order = addableOrders.find(o => o.id === orderId);
       const w = order?.weight_g || 0;
       const updatedIds = [...new Set([...(pool.order_ids || []), orderId])];
+      const updatedNames = [...(pool.order_names || []), order?.product_name].filter(Boolean);
       await Promise.all([
-        shippingPoolApi.update(pool.id, { order_ids: updatedIds, total_weight_g: (pool.total_weight_g || 0) + w }),
+        shippingPoolApi.update(pool.id, { order_ids: updatedIds, order_names: updatedNames, total_weight_g: (pool.total_weight_g || 0) + w }),
         updateOrder(orderId, { order_status: 'notified_shipment', consolidation_pool_id: pool.id }),
       ]);
       setPool(p => ({ ...p, order_ids: updatedIds, total_weight_g: (p.total_weight_g || 0) + w }));
@@ -489,13 +490,18 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
     const targetPool = otherPools.find((p) => p.id === targetPoolId);
     if (!targetPool) {setSavingOrder(false);return;}
 
-    const updatedOrderIds = pool.order_ids.filter((id) => id !== adminEditingOrder.id);
+    const poolOrderIds = pool.order_ids || [];
+    const removedIdx = poolOrderIds.indexOf(adminEditingOrder.id);
+    const updatedOrderIds = poolOrderIds.filter((id) => id !== adminEditingOrder.id);
+    const updatedNames = (pool.order_names || []).filter((_, i) => i !== removedIdx);
     const updatedWeight = Math.max(0, (pool.total_weight_g || 0) - (adminEditingOrder.weight_g || 0));
+    const targetUpdatedNames = [...(targetPool.order_names || []), adminEditingOrder.product_name].filter(Boolean);
 
     await Promise.all([
-    shippingPoolApi.update(pool.id, { order_ids: updatedOrderIds, total_weight_g: updatedWeight }),
+    shippingPoolApi.update(pool.id, { order_ids: updatedOrderIds, order_names: updatedNames, total_weight_g: updatedWeight }),
     shippingPoolApi.update(targetPoolId, {
       order_ids: [...(targetPool.order_ids || []), adminEditingOrder.id],
+      order_names: targetUpdatedNames,
       total_weight_g: (targetPool.total_weight_g || 0) + (adminEditingOrder.weight_g || 0)
     }),
     updateOrder(adminEditingOrder.id, { consolidation_pool_id: targetPoolId, order_status: 'notified_shipment' })]
@@ -512,11 +518,14 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
   const handleReturnOrder = async () => {
     if (!adminEditingOrder) return;
     setSavingOrder(true);
-    const updatedOrderIds = pool.order_ids.filter((id) => id !== adminEditingOrder.id);
+    const poolOrderIds = pool.order_ids || [];
+    const removedIdx = poolOrderIds.indexOf(adminEditingOrder.id);
+    const updatedOrderIds = poolOrderIds.filter((id) => id !== adminEditingOrder.id);
+    const updatedNames = (pool.order_names || []).filter((_, i) => i !== removedIdx);
     const updatedWeight = Math.max(0, (pool.total_weight_g || 0) - (adminEditingOrder.weight_g || 0));
 
     await Promise.all([
-    shippingPoolApi.update(pool.id, { order_ids: updatedOrderIds, total_weight_g: updatedWeight }),
+    shippingPoolApi.update(pool.id, { order_ids: updatedOrderIds, order_names: updatedNames, total_weight_g: updatedWeight }),
     updateOrder(adminEditingOrder.id, { order_status: "in_warehouse", consolidation_pool_id: "" })]
     );
 

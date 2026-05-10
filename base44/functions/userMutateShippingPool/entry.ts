@@ -93,11 +93,17 @@ Deno.serve(async (req) => {
     if (isInstant) {
       // Apply immediately
       if (action === 'cancel_order') {
-        const updatedIds = (pool.order_ids || []).filter(id => id !== order_id);
+        const poolOrderIds = pool.order_ids || [];
+        const updatedIds = poolOrderIds.filter(id => id !== order_id);
         const updatedWeight = Math.max(0, (pool.total_weight_g || 0) - (order.weight_g || 0));
+        // Keep order_names in sync by position
+        const poolOrderNames = pool.order_names || [];
+        const removedIdx = poolOrderIds.indexOf(order_id);
+        const updatedNames = poolOrderNames.filter((_, i) => i !== removedIdx);
         await Promise.all([
           base44.asServiceRole.entities.ShippingPool.update(pool_id, {
             order_ids: updatedIds,
+            order_names: updatedNames,
             total_weight_g: updatedWeight,
           }),
           base44.asServiceRole.entities.Order.update(order_id, {
@@ -106,15 +112,22 @@ Deno.serve(async (req) => {
           }),
         ]);
       } else if (action === 'move_order') {
-        const updatedIds = (pool.order_ids || []).filter(id => id !== order_id);
+        const poolOrderIds = pool.order_ids || [];
+        const updatedIds = poolOrderIds.filter(id => id !== order_id);
         const updatedWeight = Math.max(0, (pool.total_weight_g || 0) - (order.weight_g || 0));
+        const poolOrderNames = pool.order_names || [];
+        const removedIdx = poolOrderIds.indexOf(order_id);
+        const updatedNames = poolOrderNames.filter((_, i) => i !== removedIdx);
+        const targetUpdatedNames = [...(targetPool.order_names || []), order.product_name].filter(Boolean);
         await Promise.all([
           base44.asServiceRole.entities.ShippingPool.update(pool_id, {
             order_ids: updatedIds,
+            order_names: updatedNames,
             total_weight_g: updatedWeight,
           }),
           base44.asServiceRole.entities.ShippingPool.update(target_pool_id, {
             order_ids: [...new Set([...(targetPool.order_ids || []), order_id])],
+            order_names: targetUpdatedNames,
             total_weight_g: (targetPool.total_weight_g || 0) + (order.weight_g || 0),
           }),
           base44.asServiceRole.entities.Order.update(order_id, {
@@ -124,9 +137,11 @@ Deno.serve(async (req) => {
       } else if (action === 'add_order') {
         const updatedIds = [...new Set([...(pool.order_ids || []), order_id])];
         const updatedWeight = (pool.total_weight_g || 0) + (order.weight_g || 0);
+        const updatedNames = [...(pool.order_names || []), order.product_name].filter(Boolean);
         await Promise.all([
           base44.asServiceRole.entities.ShippingPool.update(pool_id, {
             order_ids: updatedIds,
+            order_names: updatedNames,
             total_weight_g: updatedWeight,
           }),
           base44.asServiceRole.entities.Order.update(order_id, {
@@ -143,8 +158,6 @@ Deno.serve(async (req) => {
                      : action === 'move_order' ? 'move_pool'
                      : 'add_to_pool';
 
-      // For add_order, we reuse cancel_shipment type but with a note; better to store as custom
-      // We store add_to_pool as a new edit_type — handled in modal approval logic
       const reqData = {
         tenant_id: tenantId,
         order_id,

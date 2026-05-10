@@ -272,6 +272,7 @@ export default function ShippingPool() {
       user_note: form.user_note || "",
       consolidation_type: consType || "",
       order_ids: selectedOrderIds,
+      order_names: selectedOrders.map(o => o.product_name).filter(Boolean),
       creator_email: user.email,
       creator_name: user.full_name || user.email,
       is_admin_created: false,
