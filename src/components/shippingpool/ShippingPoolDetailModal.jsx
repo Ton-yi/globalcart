@@ -809,6 +809,23 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
           {/* Add more orders to this pool — users on their own pending pools; admins on any pending pool they created or that is non-private */}
           {pool.status === "pending" && (isAdmin ? (!pool.is_private || pool.creator_email === currentUser?.email) : true) && (
             <div>
+              {/* Address/addon notice for non-admin users */}
+              {!isAdmin && !showAddOrder && (() => {
+                const isOwnOrDirect = !pool.consolidation_type || pool.consolidation_type === "" || pool.creator_email === currentUser?.email;
+                if (isOwnOrDirect) {
+                  return (
+                    <div className="mb-2 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 text-xs text-blue-700">
+                      📦 加入后，此包裹将适用本发货申请的收货地址及发货增值服务。
+                    </div>
+                  );
+                } else {
+                  return (
+                    <div className="mb-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-800">
+                      ⚠️ 这是他人发起的拼邮申请。加入后，此包裹的最终收货地址将使用您<strong>个人偏好中地址簿设定的默认地址</strong>（在实际发货时读取），而非本申请的收货地址。
+                    </div>
+                  );
+                }
+              })()}
               {!showAddOrder ? (
                 <button
                   onClick={openAddOrder}
