@@ -836,7 +836,7 @@ export default function AdminSettings() {
           )}
 
           {/* Other Settings */}
-          {Object.entries(grouped).filter(([cat]) => cat !== "fee").map(([cat, items]) => {
+          {Object.entries(grouped).filter(([cat]) => cat !== "fee" && cat !== "payment").map(([cat, items]) => {
             const isPayment = cat === "payment";
             const isUnlocked = !isPayment || showPayment;
             return (
