@@ -1582,11 +1582,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                               <p className="text-sm text-gray-700 whitespace-pre-wrap text-center">{selectedMethodMeta.payment_note}</p>
                             )}
                           </div>
-                        ) : (
-                          <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-500 text-center">
-                            请联系客服获取收款账号，完成付款后上传凭证
-                          </div>
-                        )}
+                        ) : null}
                         <label className="cursor-pointer block">
                           <div className={`flex flex-col items-center gap-1.5 px-3 py-5 border-2 border-dashed rounded-lg text-sm transition-colors ${uploadingProof ? "border-blue-200 bg-blue-50 text-blue-500" : "border-gray-200 text-gray-400 hover:border-orange-300 hover:text-orange-500"}`}>
                             {uploadingProof ?
