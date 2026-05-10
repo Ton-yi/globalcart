@@ -99,6 +99,22 @@ Deno.serve(async (req) => {
       return Response.json({ application });
     }
 
+    // === USER: submit manual repayment proof ===
+    if (action === 'submit_repayment_proof') {
+      const { payment_method, payment_proof_url } = body;
+      if (!payment_proof_url) {
+        return Response.json({ error: '凭证URL不能为空' }, { status: 400 });
+      }
+      // Store on user record for admin review; mark as awaiting_confirmation
+      await base44.asServiceRole.entities.User.update(userRecord.id, {
+        credit_repayment_proof_url: payment_proof_url,
+        credit_repayment_method: payment_method || 'manual',
+        credit_repayment_status: 'awaiting_confirmation',
+        credit_repayment_submitted_at: new Date().toISOString(),
+      });
+      return Response.json({ success: true });
+    }
+
     // === ADMIN: list applications ===
     if (action === 'list') {
       if (!isAdmin) return Response.json({ error: 'Forbidden' }, { status: 403 });

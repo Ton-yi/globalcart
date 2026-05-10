@@ -4,7 +4,7 @@
  * Shown in UserPreferences page.
  */
 import { useState, useEffect } from "react";
-import { CreditCard, Calendar, AlertCircle, CheckCircle, Clock, ChevronDown, ChevronUp } from "lucide-react";
+import { CreditCard, Calendar, AlertCircle, CheckCircle, Clock, Upload, Loader2 } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import PaymentMethodSelector from "@/components/common/PaymentMethodSelector";
 
 const CYCLE_LABELS = { weekly: "周结（记账日起7天结算）", monthly: "月结（每月1日结算）" };
 
@@ -26,13 +27,24 @@ export default function CreditPanel({ creditApplicationEnabled, refreshKey }) {
     requested_limit_jpy: "",
     reason: "",
   });
-  const [submitting, setSubmitting] = useState(false);
   const [submitMsg, setSubmitMsg] = useState(null);
 
   // Payment state
   const [showPayment, setShowPayment] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState("alipay");
+  const [selectedMethod, setSelectedMethod] = useState(null); // { value, label, payment_note, image_url, payment_currency, ... }
   const [payingCredit, setPayingCredit] = useState(false);
+  const [proofUrl, setProofUrl] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [paySuccess, setPaySuccess] = useState(false);
+  const [rates, setRates] = useState(null);
+
+  useEffect(() => {
+    fetch('https://v6.exchangerate-api.com/v6/89e2f91c758d92aa2c06667b/latest/JPY')
+      .then(r => r.json())
+      .then(d => { if (d?.result === 'success') setRates(d.conversion_rates); })
+      .catch(() => {});
+  }, []);
 
   const load = async () => {
     setLoading(true);
@@ -73,6 +85,36 @@ export default function CreditPanel({ creditApplicationEnabled, refreshKey }) {
     setPayingCredit(false);
   };
 
+  const handleProofUploaded = async (file) => {
+    setUploading(true);
+    const { file_url } = await base44.integrations.Core.UploadFile({ file });
+    setProofUrl(file_url);
+    setUploading(false);
+    setSubmitting(true);
+    // For manual credit repayment: notify via manageCreditApplication with proof
+    await base44.functions.invoke('manageCreditApplication', {
+      action: 'submit_repayment_proof',
+      payment_method: selectedMethod?.value,
+      payment_proof_url: file_url,
+    });
+    setSubmitting(false);
+    setPaySuccess(true);
+    await load();
+  };
+
+  // Compute converted amount for display
+  const CURRENCY_SYMBOLS = { JPY: "¥", CNY: "¥", USD: "$", TWD: "NT$", HKD: "HK$", EUR: "€", SGD: "S$" };
+  const payCurrency = selectedMethod?.payment_currency || "JPY";
+  let convertedDisplay = null;
+  let convertedRate = null;
+  const balance = credit?.credit_balance_jpy || 0;
+  if (payCurrency !== "JPY" && rates && rates[payCurrency]) {
+    const converted = balance * rates[payCurrency];
+    const decimals = ["TWD", "HKD", "CNY"].includes(payCurrency) ? 1 : 2;
+    convertedDisplay = `${CURRENCY_SYMBOLS[payCurrency] || payCurrency}${converted.toFixed(decimals)} ${payCurrency}`;
+    convertedRate = rates[payCurrency];
+  }
+
   if (loading) {
     return (
       <Card className="border-gray-200">
@@ -88,7 +130,6 @@ export default function CreditPanel({ creditApplicationEnabled, refreshKey }) {
 
   const isEnabled = credit?.credit_enabled;
   const hasPending = !!credit?.pending_application;
-  const balance = credit?.credit_balance_jpy || 0;
   const limit = credit?.credit_limit_jpy || 0;
   const usagePct = limit > 0 ? Math.min(100, (balance / limit) * 100) : 0;
 
@@ -167,31 +208,92 @@ export default function CreditPanel({ creditApplicationEnabled, refreshKey }) {
             {balance > 0 && (
               <div>
                 {!showPayment ? (
-                  <Button size="sm" className="w-full bg-blue-600 hover:bg-blue-700" onClick={() => setShowPayment(true)}>
+                  <Button size="sm" className="w-full bg-blue-600 hover:bg-blue-700" onClick={() => { setShowPayment(true); setPaySuccess(false); setProofUrl(""); setSelectedMethod(null); }}>
                     <CreditCard className="w-3.5 h-3.5 mr-1.5" />立即还款 ¥{balance.toLocaleString()} JPY
                   </Button>
+                ) : paySuccess ? (
+                  <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2.5 text-xs text-green-700">
+                    <CheckCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                    还款凭证已提交，管理员确认后将更新账单。
+                  </div>
                 ) : (
                   <div className="border border-blue-200 rounded-lg p-3 space-y-3 bg-blue-50/30">
                     <p className="text-xs font-medium text-gray-700">选择还款方式</p>
-                    <div className="grid grid-cols-2 gap-2">
-                      {[{ value: "alipay", label: "支付宝" }, { value: "other", label: "其他" }].map(m => (
-                        <button key={m.value} type="button"
-                          onClick={() => setPaymentMethod(m.value)}
-                          className={`p-2 rounded-lg border-2 text-xs font-medium transition-all ${paymentMethod === m.value ? "border-blue-500 bg-blue-50 text-blue-700" : "border-gray-200 text-gray-500"}`}>
-                          {m.label}
-                        </button>
-                      ))}
-                    </div>
-                    {paymentMethod === 'alipay' && (
+                    <PaymentMethodSelector
+                      value={selectedMethod?.value || ""}
+                      onChange={m => { setSelectedMethod(m); setProofUrl(""); }}
+                      activeColor="border-blue-500 bg-blue-50 text-blue-700 ring-2 ring-blue-200"
+                    />
+
+                    {/* Currency conversion notice */}
+                    {selectedMethod && convertedDisplay && (
+                      <div className="bg-orange-50 border border-orange-200 rounded-lg px-3 py-2 space-y-1">
+                        <div className="flex items-center justify-between text-xs text-gray-500">
+                          <span>汇率换算参考</span>
+                          <span>1 JPY ≈ {convertedRate?.toFixed(4)} {payCurrency}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold text-orange-700">实际应付（{payCurrency}）</span>
+                          <span className="text-base font-bold text-orange-600">{convertedDisplay}</span>
+                        </div>
+                        <p className="text-xs text-orange-400">汇率实时参考，以实际到账为准</p>
+                      </div>
+                    )}
+
+                    {/* Auto payment (provider_key set = automatic gateway) */}
+                    {selectedMethod?.value === "alipay" && (
                       <Button size="sm" className="w-full bg-blue-600 hover:bg-blue-700"
                         onClick={handlePayCredit} disabled={payingCredit}>
-                        {payingCredit ? "生成中..." : "生成支付宝还款链接"}
+                        {payingCredit ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />生成中...</> : "打开支付宝还款"}
                       </Button>
                     )}
-                    {paymentMethod === 'other' && (
-                      <p className="text-xs text-gray-500 text-center">请联系客服获取还款账号，完成后告知管理员确认</p>
+
+                    {/* Manual payment — show QR/note + proof upload */}
+                    {selectedMethod && !selectedMethod.value.match(/^alipay$/) && (
+                      <div className="space-y-2">
+                        {(selectedMethod.image_url || selectedMethod.payment_note) && (
+                          <div className="p-2.5 bg-white border border-gray-200 rounded-lg space-y-2">
+                            {selectedMethod.image_url && (
+                              <div className="text-center">
+                                <img src={selectedMethod.image_url} alt="收款码" className="h-32 mx-auto rounded object-contain border border-gray-100" />
+                              </div>
+                            )}
+                            {selectedMethod.payment_note && (
+                              <p className="text-xs text-gray-600 whitespace-pre-wrap text-center">{selectedMethod.payment_note}</p>
+                            )}
+                          </div>
+                        )}
+                        <Label className="text-xs">上传还款凭证（上传后自动提交）</Label>
+                        <label
+                          className="cursor-pointer block"
+                          onDragOver={e => e.preventDefault()}
+                          onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f && f.type.startsWith("image/")) handleProofUploaded(f); }}
+                        >
+                          <div className={`flex flex-col items-center gap-1 px-3 py-4 border-2 border-dashed rounded-lg text-xs transition-colors ${
+                            proofUrl ? "border-green-300 bg-green-50 text-green-700" :
+                            uploading ? "border-blue-200 bg-blue-50 text-blue-500" :
+                            "border-gray-200 text-gray-400 hover:border-blue-300 hover:text-blue-500"
+                          }`}>
+                            {proofUrl ? <><CheckCircle className="w-4 h-4" /><span>凭证已上传，正在提交...</span></>
+                              : uploading ? <><Loader2 className="w-4 h-4 animate-spin" /><span>上传中...</span></>
+                              : <><Upload className="w-4 h-4" /><span>点击或拖拽图片到此处</span></>}
+                          </div>
+                          <input type="file" accept="image/*" className="hidden"
+                            onChange={e => { const f = e.target.files[0]; if (f) handleProofUploaded(f); }}
+                            disabled={uploading || submitting} />
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="或点击此处后粘贴截图（Ctrl+V / ⌘V）"
+                          className="w-full h-8 px-3 text-xs border border-gray-300 rounded-md bg-white text-gray-500 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400 transition-colors"
+                          disabled={uploading || submitting}
+                          onPaste={e => { const item = Array.from(e.clipboardData.items).find(i => i.type.startsWith("image/")); if (item) { e.preventDefault(); const f = item.getAsFile(); if (f) handleProofUploaded(f); } }}
+                          onChange={() => {}}
+                        />
+                      </div>
                     )}
-                    <button className="text-xs text-gray-400 hover:text-gray-600 w-full text-center" onClick={() => setShowPayment(false)}>取消</button>
+
+                    <button className="text-xs text-gray-400 hover:text-gray-600 w-full text-center pt-1" onClick={() => { setShowPayment(false); setSelectedMethod(null); }}>取消</button>
                   </div>
                 )}
               </div>
