@@ -992,6 +992,7 @@ export default function ShippingPool() {
           isAdmin={isAdmin}
           currentUser={user}
           pendingEditRequests={pendingEditRequests.filter(r => r.pool_id === selectedPool.id)}
+          availableAddons={shippingAddons}
           onClose={() => setSelectedPool(null)}
           onUpdated={() => { setSelectedPool(null); fetchData(user); }}
         />

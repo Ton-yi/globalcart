@@ -4,9 +4,10 @@
  * Admin can edit tracking number, actual fee.
  */
 import { useState, useEffect, useRef } from "react";
-import { X, Package, Send, Image, Edit2, Save, MoreVertical, ArrowRight, RotateCcw, Loader2, Search, Trash2, AlertCircle, CheckCircle, XCircle, CreditCard, ExternalLink, Upload, Truck, MapPin, PlusCircle, MoveRight } from "lucide-react";
+import { X, Package, Send, Image, Edit2, Save, MoreVertical, ArrowRight, RotateCcw, Loader2, Search, Trash2, AlertCircle, CheckCircle, XCircle, CreditCard, ExternalLink, Upload, Truck, MapPin, PlusCircle, MoveRight, Star } from "lucide-react";
 import { base44 } from "@/api/base44Client";
-import { updateOrder, tenantEntity, shippingPoolApi } from "@/lib/tenantApi";
+import { updateOrder, tenantEntity, shippingPoolApi, userPrefApi, fetchTenantConfig } from "@/lib/tenantApi";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -35,7 +36,7 @@ const METHOD_LABELS = {
   surface: "海运", small_packet_air: "小包空运", other: "其他"
 };
 
-export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, currentUser, pendingEditRequests: initialPendingEdits = [], boxTemplates = [], shippingMethods = [], defaultPackingFeeSingle = 0, defaultPackingFeeConsolidation = 0, transitLocations = [], transitShippingMethods = [], onClose, onUpdated }) {
+export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, currentUser, pendingEditRequests: initialPendingEdits = [], boxTemplates = [], shippingMethods = [], defaultPackingFeeSingle = 0, defaultPackingFeeConsolidation = 0, transitLocations = [], transitShippingMethods = [], availableAddons = [], onClose, onUpdated }) {
   const [pool, setPool] = useState(initialPool);
   const [orders, setOrders] = useState([]);
   const [messageText, setMessageText] = useState("");
@@ -83,6 +84,56 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
   const [loadingAddable, setLoadingAddable] = useState(false);
   const [addingOrderId, setAddingOrderId] = useState(null);
   const [addOrderSearch, setAddOrderSearch] = useState("");
+
+  // Per-user preferences editing (non-admin user editing their own addons/transit/note/address in this pool)
+  const [editingUserPrefs, setEditingUserPrefs] = useState(false);
+  const [userPrefsData, setUserPrefsData] = useState(null); // { selected_addon_ids, transit_method_id, note, address_id }
+  const [savingUserPrefs, setSavingUserPrefs] = useState(false);
+  const [userSavedAddresses, setUserSavedAddresses] = useState([]);
+  const [loadedAddons, setLoadedAddons] = useState(availableAddons || []);
+
+  const openUserPrefsEditor = async () => {
+    const myOrders = orders.filter(o => o.user_email === currentUser?.email);
+    const firstOrder = myOrders[0];
+    setUserPrefsData({
+      selected_addon_ids: firstOrder?.selected_addon_ids || [],
+      transit_method_id: firstOrder?.consolidation_transit_shipping_id || pool.transit_shipping_method_id || "",
+      note: firstOrder?.user_note || "",
+      address_id: firstOrder?.consolidation_final_address_id || "",
+    });
+    // Load saved addresses and addons in parallel
+    const [prefs, addonsRes] = await Promise.all([
+      userPrefApi.list({ user_email: currentUser?.email }).catch(() => []),
+      loadedAddons.length === 0
+      ? fetchTenantConfig().then(cfg => (cfg.addons || []).filter(a => a.addon_type === "shipping" && a.is_active !== false)).catch(() => [])
+      : Promise.resolve(loadedAddons),
+    ]);
+    setUserSavedAddresses(prefs[0]?.saved_addresses || []);
+    setLoadedAddons(addonsRes);
+    setEditingUserPrefs(true);
+  };
+
+  const saveUserPrefs = async () => {
+    if (!userPrefsData) return;
+    setSavingUserPrefs(true);
+    const myOrders = orders.filter(o => o.user_email === currentUser?.email);
+    const selectedAddons = loadedAddons.filter(a => userPrefsData.selected_addon_ids.includes(a.id));
+    await Promise.all(myOrders.map(o =>
+      updateOrder(o.id, {
+        selected_addon_ids: userPrefsData.selected_addon_ids,
+        selected_addons: selectedAddons.map(a => ({ id: a.id, name: a.name, fee: a.fee, fee_currency: a.fee_currency })),
+        user_note: userPrefsData.note,
+        consolidation_final_address_id: userPrefsData.address_id,
+        consolidation_transit_shipping_id: userPrefsData.transit_method_id,
+      })
+    ));
+    // Refresh orders
+    const r = await base44.functions.invoke('getTenantOrders', { pool_id: pool.id });
+    const all = r.data?.orders || [];
+    setOrders(all.filter(o => pool.order_ids.includes(o.id)));
+    setEditingUserPrefs(false);
+    setSavingUserPrefs(false);
+  };
 
   useEffect(() => {
     const fetches = [];
@@ -831,30 +882,154 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                     );
               }; // end renderOrder
 
+              const isConsolidation = pool.consolidation_type && pool.consolidation_type !== "";
+
               return (
                 <div className="space-y-3">
                   {grouped.map(({ email, orders: groupOrders }) => {
                     const userData = tenantUserMap[email] || {};
                     const displayName = userData.display_name || userData.full_name || email;
                     const groupWeight = groupOrders.reduce((s, o) => s + (o.weight_g || 0), 0);
+                    const isMyGroup = email === currentUser?.email;
+                    // Aggregate addons from this user's orders
+                    const groupAddons = groupOrders.flatMap(o => o.selected_addons || []);
+                    const uniqueGroupAddons = [...new Map(groupAddons.map(a => [a.id || a.name, a])).values()];
+                    // Transit method name
+                    const transitMethodId = groupOrders[0]?.consolidation_transit_shipping_id || pool.transit_shipping_method_id || "";
+                    const transitMethodName = transitShippingMethods.find(m => m.id === transitMethodId)?.name || "";
+                    // Final address label
+                    const finalAddrId = groupOrders[0]?.consolidation_final_address_id || "";
+                    const canEditPrefs = !isAdmin && isMyGroup && isConsolidation &&
+                      pool.status !== "shipped" && pool.status !== "delivered" &&
+                      pool.status !== "awaiting_payment" && pool.status !== "awaiting_payment_confirmation" && pool.status !== "ready_to_ship";
+
                     return (
                       <div key={email}>
                         {isMultiUser && (
-                          <div className="flex items-center gap-2 px-1 mb-1">
-                            {userData.avatar_url ? (
-                              <img src={userData.avatar_url} alt={displayName} className="w-4 h-4 rounded-full object-cover flex-shrink-0" />
-                            ) : (
-                              <div className="w-4 h-4 rounded-full bg-gray-300 flex items-center justify-center text-gray-600 text-xs font-medium flex-shrink-0">
-                                {displayName[0]?.toUpperCase()}
-                              </div>
+                          <div className="flex items-start gap-2 px-1 mb-1">
+                            <div className="flex items-center gap-1.5 flex-shrink-0 mt-0.5">
+                              {userData.avatar_url ? (
+                                <img src={userData.avatar_url} alt={displayName} className="w-4 h-4 rounded-full object-cover flex-shrink-0" />
+                              ) : (
+                                <div className="w-4 h-4 rounded-full bg-gray-300 flex items-center justify-center text-gray-600 text-xs font-medium flex-shrink-0">
+                                  {displayName[0]?.toUpperCase()}
+                                </div>
+                              )}
+                              <span className="text-xs font-medium text-gray-600">{displayName}</span>
+                              <span className="text-xs text-gray-400">{groupOrders.length} 件 · {groupWeight}g</span>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-1 flex-1 min-w-0">
+                              {uniqueGroupAddons.map((a, i) => (
+                                <span key={i} className="inline-flex items-center gap-0.5 text-xs bg-yellow-50 border border-yellow-200 text-yellow-700 rounded px-1.5 py-0.5">
+                                  <Star className="w-2.5 h-2.5" />{a.name}
+                                </span>
+                              ))}
+                              {transitMethodName && (
+                                <span className="inline-flex items-center gap-0.5 text-xs bg-blue-50 border border-blue-200 text-blue-700 rounded px-1.5 py-0.5">
+                                  <Truck className="w-2.5 h-2.5" />{transitMethodName}
+                                </span>
+                              )}
+                            </div>
+                            {canEditPrefs && (
+                              <button
+                                onClick={() => editingUserPrefs ? setEditingUserPrefs(false) : openUserPrefsEditor()}
+                                className="flex-shrink-0 p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-blue-600 transition-colors"
+                                title="编辑我的发货偏好">
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
                             )}
-                            <span className="text-xs font-medium text-gray-600">{displayName}</span>
-                            <span className="text-xs text-gray-400">{groupOrders.length} 件 · {groupWeight}g</span>
                           </div>
                         )}
                         <div className="space-y-1.5">
                           {groupOrders.map(o => renderOrder(o))}
                         </div>
+                        {/* Inline user prefs editor — only for current user's group */}
+                        {canEditPrefs && editingUserPrefs && isMyGroup && userPrefsData && (
+                          <div className="mt-2 border border-blue-200 rounded-xl overflow-hidden bg-blue-50/30">
+                            <div className="flex items-center justify-between bg-blue-50 px-3 py-2 border-b border-blue-100">
+                              <span className="text-xs font-medium text-blue-700 flex items-center gap-1.5">
+                                <Edit2 className="w-3.5 h-3.5" />编辑我的发货偏好
+                              </span>
+                              <button onClick={() => setEditingUserPrefs(false)} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
+                            </div>
+                            <div className="p-3 space-y-3">
+                              {/* Addons */}
+                              {loadedAddons.length > 0 && (
+                                <div>
+                                  <label className="text-xs text-gray-500 font-medium block mb-1.5 flex items-center gap-1"><Star className="w-3 h-3" />发货增值服务</label>
+                                  <div className="space-y-1.5">
+                                    {loadedAddons.map(a => (
+                                      <label key={a.id} className={`flex items-center justify-between gap-2 p-2 rounded-lg border cursor-pointer transition-colors text-xs ${userPrefsData.selected_addon_ids.includes(a.id) ? "border-yellow-400 bg-yellow-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
+                                        <div className="flex items-center gap-2">
+                                          <Checkbox
+                                            checked={userPrefsData.selected_addon_ids.includes(a.id)}
+                                            onCheckedChange={v => setUserPrefsData(d => ({
+                                              ...d,
+                                              selected_addon_ids: v ? [...d.selected_addon_ids, a.id] : d.selected_addon_ids.filter(id => id !== a.id)
+                                            }))}
+                                          />
+                                          <span className="text-gray-700">{a.name}</span>
+                                          {a.description && <span className="text-gray-400">{a.description}</span>}
+                                        </div>
+                                        {a.fee > 0 && <span className="text-yellow-700 font-medium flex-shrink-0">+{a.fee_currency || "JPY"} {Number(a.fee).toLocaleString()}</span>}
+                                      </label>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              {/* Transit shipping method */}
+                              {transitShippingMethods.length > 0 && (
+                                <div>
+                                  <label className="text-xs text-gray-500 font-medium block mb-1.5 flex items-center gap-1"><Truck className="w-3 h-3" />中转段运输方式</label>
+                                  <div className="space-y-1">
+                                    {transitShippingMethods.map(m => (
+                                      <label key={m.id} className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors text-xs ${userPrefsData.transit_method_id === m.id ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
+                                        <input type="radio" checked={userPrefsData.transit_method_id === m.id}
+                                          onChange={() => setUserPrefsData(d => ({ ...d, transit_method_id: m.id }))}
+                                          className="accent-blue-600" />
+                                        <span className="text-gray-700">{m.name}</span>
+                                        {m.description && <span className="text-gray-400">{m.description}</span>}
+                                      </label>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              {/* Final address — select only from saved addresses, no new entry */}
+                              {userSavedAddresses.length > 0 && (
+                                <div>
+                                  <label className="text-xs text-gray-500 font-medium block mb-1.5 flex items-center gap-1"><MapPin className="w-3 h-3" />最终收货地址</label>
+                                  <Select value={userPrefsData.address_id || ""} onValueChange={v => setUserPrefsData(d => ({ ...d, address_id: v }))}>
+                                    <SelectTrigger className="h-8 text-xs bg-white"><SelectValue placeholder="选择收货地址" /></SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value={null}>不指定（使用默认）</SelectItem>
+                                      {userSavedAddresses.map(a => (
+                                        <SelectItem key={a.id} value={a.id}>{a.label || a.full_text?.split("\n")[0] || a.id}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  {userPrefsData.address_id && (() => {
+                                    const addr = userSavedAddresses.find(a => a.id === userPrefsData.address_id);
+                                    return addr?.full_text ? (
+                                      <div className="mt-1 text-xs text-gray-500 bg-white border border-gray-100 rounded px-2 py-1.5 whitespace-pre-wrap">{addr.full_text}</div>
+                                    ) : null;
+                                  })()}
+                                </div>
+                              )}
+                              {/* Note */}
+                              <div>
+                                <label className="text-xs text-gray-500 font-medium block mb-1">备注</label>
+                                <Textarea rows={2} className="text-xs bg-white" placeholder="特殊要求或补充说明..."
+                                  value={userPrefsData.note} onChange={e => setUserPrefsData(d => ({ ...d, note: e.target.value }))} />
+                              </div>
+                              <div className="flex gap-2 justify-end">
+                                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setEditingUserPrefs(false)}>取消</Button>
+                                <Button size="sm" className="h-7 text-xs bg-blue-600 hover:bg-blue-700" onClick={saveUserPrefs} disabled={savingUserPrefs}>
+                                  <Save className="w-3 h-3 mr-1" />{savingUserPrefs ? "保存中..." : "保存"}
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
