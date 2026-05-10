@@ -7,7 +7,7 @@
  *
  * Shows full per-user fee breakdown using calcFeeBreakdownPerUser.
  */
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { shippingPoolApi, updateOrder } from "@/lib/tenantApi";
 import { Button } from "@/components/ui/button";
@@ -130,6 +130,17 @@ export default function AdminShippingInfoPanel({
     return defaultBaseFee;
   });
   const [packingFeesPerUser, setPackingFeesPerUser] = useState(initPackingFeesPerUser);
+  // Re-initialize packingFeesPerUser when orders load (orders is async, initially [])
+  const prevOrdersLengthRef = useRef(orders.length);
+  useEffect(() => {
+    if (orders.length > 0 && prevOrdersLengthRef.current === 0) {
+      prevOrdersLengthRef.current = orders.length;
+      // Only re-init if we don't already have valid per-user rows
+      if (packingFeesPerUser.length === 0) {
+        setPackingFeesPerUser(initPackingFeesPerUser());
+      }
+    }
+  }, [orders.length]);
   const [adminNote, setAdminNote] = useState(pool.admin_note || "");
   const [adminPackingNote, setAdminPackingNote] = useState(pool.admin_packing_note || "");
 
