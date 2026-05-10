@@ -628,26 +628,21 @@ export default function ShippingPool() {
                       </button>
                       {strategyOpen && (
                         <div className="bg-blue-50/60 px-4 pb-4 pt-3 space-y-3">
-                          <div className="grid grid-cols-2 gap-3">
-                            <div>
-                              <Label className="text-xs text-gray-500 block mb-1">凑单截止日期</Label>
-                              <Input type="date" className="h-8 text-sm bg-white"
+                          <div>
+                            <Label className="text-xs text-gray-500 block mb-1">最低凑满重量 (g) · 凑单截止日期</Label>
+                            <div className="flex items-center gap-1.5">
+                              <button type="button"
+                                onClick={() => setStrategy(p => ({ ...p, min_weight_g: String(Math.max(0, (parseInt(p.min_weight_g) || 0) - 1000)) }))}
+                                className="h-8 px-2.5 rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-100 text-sm font-medium transition-colors">-1000</button>
+                              <span className="w-20 text-center text-sm font-semibold text-gray-800 bg-white border border-gray-200 rounded-md h-8 flex items-center justify-center flex-shrink-0">
+                                {parseInt(strategy.min_weight_g) || 0}g
+                              </span>
+                              <button type="button"
+                                onClick={() => setStrategy(p => ({ ...p, min_weight_g: String((parseInt(p.min_weight_g) || 0) + 1000) }))}
+                                className="h-8 px-2.5 rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-100 text-sm font-medium transition-colors">+1000</button>
+                              <Input type="date" className="h-8 text-sm bg-white flex-1"
                                 value={strategy.deadline}
                                 onChange={e => setStrategy(p => ({ ...p, deadline: e.target.value }))} />
-                            </div>
-                            <div>
-                              <Label className="text-xs text-gray-500 block mb-1">最低凑满重量 (g)</Label>
-                              <div className="flex items-center gap-1.5">
-                                <button type="button"
-                                  onClick={() => setStrategy(p => ({ ...p, min_weight_g: String(Math.max(0, (parseInt(p.min_weight_g) || 0) - 1000) )}))}
-                                  className="h-8 px-2.5 rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-100 text-sm font-medium transition-colors">-1000</button>
-                                <span className="flex-1 text-center text-sm font-semibold text-gray-800 bg-white border border-gray-200 rounded-md h-8 flex items-center justify-center">
-                                  {parseInt(strategy.min_weight_g) || 0}g
-                                </span>
-                                <button type="button"
-                                  onClick={() => setStrategy(p => ({ ...p, min_weight_g: String((parseInt(p.min_weight_g) || 0) + 1000) }))}
-                                  className="h-8 px-2.5 rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-100 text-sm font-medium transition-colors">+1000</button>
-                              </div>
                             </div>
                           </div>
                           <div>
