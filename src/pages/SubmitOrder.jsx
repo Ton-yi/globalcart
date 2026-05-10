@@ -195,7 +195,10 @@ export default function SubmitOrder() {
       navigate(createPageUrl("MyOrders"));
     } else {
       // prepay or fullpay — both go to Payment page
-      navigate(`/Payment?order_id=${order.id}&method=${paymentMethod || "other"}`);
+      // Find the selected payment method's currency to pass to Payment page
+      const selectedMethodObj = paymentMethods.find(m => (m.provider_key || m.name) === paymentMethod);
+      const selectedCurrency = selectedMethodObj?.payment_currency || "JPY";
+      navigate(`/Payment?order_id=${order.id}&method=${paymentMethod || "other"}&pay_currency=${selectedCurrency}`);
     }
   };
 

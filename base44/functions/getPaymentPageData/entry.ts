@@ -73,9 +73,19 @@ Deno.serve(async (req) => {
 
     // Fetch exchange rates for currency conversion display
     const rates = await fetchRates();
+    console.log('[DIAG][getPaymentPageData] rates fetched:', rates ? `OK (CNY=${rates.CNY}, USD=${rates.USD})` : 'FAILED/NULL');
+
+    // Apply tenant exchange rate increments to the raw rates
+    const adjustedRates = rates ? { ...rates } : null;
+    if (adjustedRates) {
+      const jpyCnyIncrement = parseFloat(settings['jpy_cny_increment'] || '0');
+      const jpyUsdIncrement = parseFloat(settings['jpy_usd_increment'] || '0');
+      if (jpyCnyIncrement && adjustedRates.CNY) adjustedRates.CNY = adjustedRates.CNY + jpyCnyIncrement;
+      if (jpyUsdIncrement && adjustedRates.USD) adjustedRates.USD = adjustedRates.USD + jpyUsdIncrement;
+    }
 
     console.log('[DIAG][getPaymentPageData] SUCCESS returning order:', order.id);
-    return Response.json({ order, settings, paymentMethods: sortedMethods, rates });
+    return Response.json({ order, settings, paymentMethods: sortedMethods, rates: adjustedRates });
 
   } catch (error) {
     console.error('[DIAG][getPaymentPageData] ERROR:', error.message, error.stack);

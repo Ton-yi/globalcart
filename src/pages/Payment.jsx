@@ -16,6 +16,7 @@ export default function Payment() {
   const urlParams = new URLSearchParams(window.location.search);
   const orderId = urlParams.get("order_id");
   const method = urlParams.get("method") || "alipay";
+  const urlPayCurrency = urlParams.get("pay_currency") || null;
 
   const [order, setOrder] = useState(null);
   const [settings, setSettings] = useState({});
@@ -92,8 +93,8 @@ export default function Payment() {
   const alipayQr = activeMethod?.image_url || settings["alipay_qr_url"] || "";
   const methodLabel = activeMethod?.name || method;
 
-  // Currency conversion
-  const payCurrency = activeMethod?.payment_currency || "JPY";
+  // Currency conversion — prefer activeMethod config, fallback to URL param passed from SubmitOrder
+  const payCurrency = activeMethod?.payment_currency || urlPayCurrency || "JPY";
   const isJpy = payCurrency === "JPY";
   let convertedAmount = null;
   let convertedDisplay = null;
