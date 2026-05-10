@@ -300,7 +300,7 @@ export default function ShippingPool() {
         .filter(a => selectedAddonIds.includes(a.id))
         .map(a => ({ id: a.id, name: a.name, fee: a.fee, fee_currency: a.fee_currency })),
       // Store consolidation strategy on the pool so all participants can see progress
-      consolidation_min_weight_g: consType !== "" && strategy.min_weight_g ? parseFloat(strategy.min_weight_g) : 0,
+      consolidation_min_weight_g: consType !== "" ? (parseFloat(strategy.min_weight_g) || 2000) : 0,
       consolidation_deadline: consType !== "" ? (strategy.deadline || "") : "",
     });
 
