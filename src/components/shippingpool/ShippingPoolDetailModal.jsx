@@ -20,6 +20,7 @@ import AdminShippingInfoPanel from "@/components/shippingpool/AdminShippingInfoP
 import ShippingFeeBreakdown from "@/components/shippingpool/ShippingFeeBreakdown";
 import { ImageWithViewer } from "@/components/common/ImageViewer";
 import PaymentMethodSelector from "@/components/common/PaymentMethodSelector";
+import PaymentProofUploader from "@/components/shippingpool/PaymentProofUploader";
 
 const STATUS_CONFIG = {
   pending:                       { label: "待处理",    color: "bg-amber-100 text-amber-700" },
@@ -1572,43 +1573,12 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                 }
 
                     {paymentMethod && paymentMethod !== "alipay" && paymentMethod !== "credit" &&
-                <div className="space-y-2">
-                        {(selectedMethodMeta?.payment_note || selectedMethodMeta?.image_url) ? (
-                          <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg space-y-2">
-                            {selectedMethodMeta.image_url && (
-                              <div className="text-center">
-                                <ImageWithViewer src={selectedMethodMeta.image_url} alt="收款码">
-                                  <img src={selectedMethodMeta.image_url} alt="收款码" className="h-40 mx-auto rounded object-contain border border-gray-200 cursor-pointer hover:opacity-80 transition-opacity" />
-                                </ImageWithViewer>
-                              </div>
-                            )}
-                            {selectedMethodMeta.payment_note && (
-                              <p className="text-sm text-gray-700 whitespace-pre-wrap text-center">{selectedMethodMeta.payment_note}</p>
-                            )}
-                          </div>
-                        ) : null}
-                        <label className="cursor-pointer block">
-                          <div className={`flex flex-col items-center gap-1.5 px-3 py-5 border-2 border-dashed rounded-lg text-sm transition-colors ${uploadingProof ? "border-blue-200 bg-blue-50 text-blue-500" : "border-gray-200 text-gray-400 hover:border-orange-300 hover:text-orange-500"}`}>
-                            {uploadingProof ?
-                      <><Loader2 className="w-5 h-5 animate-spin" /><span>上传中...</span></> :
-                      <><Upload className="w-5 h-5" /><span>点击上传付款凭证</span></>}
-                          </div>
-                          <input type="file" accept="image/*" className="hidden"
-                    onChange={(e) => {const f = e.target.files[0];if (f) handleUploadProof(f);}}
-                    disabled={uploadingProof} />
-                        </label>
-                        <input
-                         type="text"
-                         readOnly
-                         placeholder="点击此处后粘贴截图（Ctrl+V / ⌘V）"
-                         className="w-full h-9 px-3 text-xs border border-gray-300 rounded-md bg-white text-gray-500 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-orange-400 focus:border-orange-400 transition-colors cursor-pointer"
-                         onPaste={(e) => {
-                           const item = Array.from(e.clipboardData.items).find(i => i.type.startsWith("image/"));
-                           if (item) { e.preventDefault(); const f = item.getAsFile(); if (f) handleUploadProof(f); }
-                         }}
-                        />
-                      </div>
-                }
+                    <PaymentProofUploader
+                    selectedMethodMeta={selectedMethodMeta}
+                    uploadingProof={uploadingProof}
+                    onUpload={handleUploadProof}
+                    />
+                    }
                   </>
               }
               </div>
