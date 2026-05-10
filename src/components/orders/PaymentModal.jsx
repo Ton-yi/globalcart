@@ -306,10 +306,21 @@ export default function PaymentModal({ order, mode = "prepay", onClose, onSucces
                   <input type="file" accept="image/*" className="hidden"
                     onChange={e => { const f = e.target.files[0]; if (f) handleProofUploaded(f); }}
                     disabled={uploading || submitting} />
-                </label>
-              </div>
-            </div>
-          )}
+                  </label>
+                  <input
+                   type="text"
+                   placeholder="或点击此处后粘贴截图（Ctrl+V / ⌘V）"
+                   className="w-full h-9 px-3 mt-2 text-xs border border-gray-300 rounded-md bg-white text-gray-500 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400 transition-colors"
+                   disabled={uploading || submitting}
+                   onPaste={e => {
+                     const item = Array.from(e.clipboardData.items).find(i => i.type.startsWith("image/"));
+                     if (item) { e.preventDefault(); const f = item.getAsFile(); if (f) handleProofUploaded(f); }
+                   }}
+                   onChange={() => {}}
+                  />
+                  </div>
+                  </div>
+                  )}
         </div>
 
         <div className="px-5 py-3 border-t flex gap-2 justify-end">
