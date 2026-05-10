@@ -40,7 +40,7 @@ export default function SubmitOrder() {
   const [uploading, setUploading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("");
   const [paymentMethods, setPaymentMethods] = useState([]);
-  const [paymentMode, setPaymentMode] = useState("prepay"); // "prepay" | "deferred" | "credit_weekly" | "credit_monthly"
+  const [paymentMode, setPaymentMode] = useState(""); // set after settings load: "prepay" | "deferred" | "credit_weekly" | "credit_monthly"
   const [userCredit, setUserCredit] = useState(null); // user's credit status
   const [creditDowngradeMsg, setCreditDowngradeMsg] = useState(null); // shown after submit if credit downgraded
 
@@ -54,8 +54,11 @@ export default function SubmitOrder() {
       setAddonOptions(data.addons || []);
       setRates(data.rates || null);
       const parsed = {};
-      Object.entries(data.settings || {}).forEach(([k, v]) => { parsed[k] = parseFloat(v) || 0; });
+      Object.entries(data.settings || {}).forEach(([k, v]) => { parsed[k] = v; });
       setSettings(parsed);
+      // Default payment mode based on prepay_enabled setting
+      const prepayOn = parsed.prepay_enabled !== 'false';
+      setPaymentMode(prepayOn ? "prepay" : "deferred");
       setUserCredit(creditR.data || null);
       t.done('data ready');
     }).catch(() => {});
@@ -86,8 +89,8 @@ export default function SubmitOrder() {
     const jpy = parseFloat(form.estimated_jpy);
     if (!jpy || jpy <= 0) { setCalculated(null); return; }
     // Get rates from settings
-    const serviceFeeRate = (settings.service_fee_rate || DEFAULT_SERVICE_FEE_RATE) / 100;
-    const prepayRate = (settings.prepay_rate || DEFAULT_PREPAY_RATE) / 100;
+    const serviceFeeRate = (parseFloat(settings.service_fee_rate) || DEFAULT_SERVICE_FEE_RATE) / 100;
+    const prepayRate = (parseFloat(settings.prepay_rate) || DEFAULT_PREPAY_RATE) / 100;
     // Calculate all fees in JPY
     const serviceFeeJpy = jpy * serviceFeeRate;
     const addonTotalJpy = getAddonTotal();
@@ -163,15 +166,15 @@ export default function SubmitOrder() {
       user_name: user.full_name || user.email,
       quantity: 1,
       estimated_jpy: parseFloat(form.estimated_jpy) || 0,
-      service_fee_rate: settings.service_fee_rate || (DEFAULT_SERVICE_FEE_RATE * 100),
+      service_fee_rate: parseFloat(settings.service_fee_rate) || (DEFAULT_SERVICE_FEE_RATE * 100),
       prepayment_amount: calculated ? parseFloat(calculated.prepayJpy) : 0,
       prepayment_currency: "JPY",
       online_store_tag: tagResult.tag_label,
       online_store_tag_color: tagResult.tag_color,
-      payment_mode: isCredit ? "credit" : isDeferred ? "deferred" : "prepay",
+      payment_mode: isCredit ? "credit" : (isDeferred || settings.prepay_enabled === 'false') ? "deferred" : "prepay",
       credit_cycle: isCredit ? (paymentMode === "credit_weekly" ? "weekly" : "monthly") : null,
-      order_status: (isDeferred || isCredit) ? "paid" : "payment_pending",
-      payment_status: (isDeferred || isCredit) ? "paid" : "awaiting_payment",
+      order_status: (isDeferred || isCredit || settings.prepay_enabled === 'false') ? "paid" : "payment_pending",
+      payment_status: (isDeferred || isCredit || settings.prepay_enabled === 'false') ? "paid" : "awaiting_payment",
       user_note: form.user_note || "",
       selected_addon_ids: selectedAddons,
       selected_addons: selectedAddonObjects.map(a => ({ id: a.id, name: a.name, fee: parseFloat(a.fee) || 0, fee_currency: a.fee_currency || "JPY" })),
@@ -187,7 +190,8 @@ export default function SubmitOrder() {
       return;
     }
 
-    if (isDeferred || isCredit) {
+    const prepayOn = settings.prepay_enabled !== 'false';
+    if (isDeferred || isCredit || !prepayOn) {
       navigate(createPageUrl("MyOrders"));
     } else {
       navigate(`/Payment?order_id=${order.id}&method=${paymentMethod || "other"}`);
@@ -212,12 +216,14 @@ export default function SubmitOrder() {
         </Alert>
       )}
 
-      <Alert className="border-blue-200 bg-blue-50">
-         <Info className="w-4 h-4 text-blue-600" />
-         <AlertDescription className="text-blue-800 text-sm">
-           预付款 = (日元货款总价 + {settings.service_fee_rate || (DEFAULT_SERVICE_FEE_RATE * 100)}% 服务费 + 增值费用) × {settings.prepay_rate || (DEFAULT_PREPAY_RATE * 100)}%。订单确认后可补款或抵扣余额。
-         </AlertDescription>
-       </Alert>
+      {settings.prepay_enabled !== 'false' && (
+        <Alert className="border-blue-200 bg-blue-50">
+          <Info className="w-4 h-4 text-blue-600" />
+          <AlertDescription className="text-blue-800 text-sm">
+            预付款 = (日元货款总价 + {parseFloat(settings.service_fee_rate) || (DEFAULT_SERVICE_FEE_RATE * 100)}% 服务费 + 增值费用) × {parseFloat(settings.prepay_rate) || (DEFAULT_PREPAY_RATE * 100)}%。订单确认后可补款或抵扣余额。
+          </AlertDescription>
+        </Alert>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-5">
         <Card className="border-gray-200">
@@ -423,7 +429,7 @@ export default function SubmitOrder() {
           <Card className="border-gray-200 bg-gray-50">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                <Calculator className="w-4 h-4" /> 预付款估算
+                <Calculator className="w-4 h-4" /> {settings.prepay_enabled !== 'false' ? '预付款估算' : '费用估算'}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -445,11 +451,13 @@ export default function SubmitOrder() {
                 <span className="text-gray-300 mx-1 ml-2">→</span>
                 <span className="font-semibold text-gray-700">总额 ¥{calculated.totalJpy}</span>
               </div>
-              {/* Prepay highlight */}
-              <div className="flex items-center justify-between bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3">
-                <span className="text-sm text-gray-700 font-medium">预付款 ({calculated.prepayRate}%)</span>
-                <span className="text-lg font-bold text-red-600">¥{calculated.prepayJpy}</span>
-              </div>
+              {/* Prepay highlight — only when prepay is enabled */}
+              {settings.prepay_enabled !== 'false' && (
+                <div className="flex items-center justify-between bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3">
+                  <span className="text-sm text-gray-700 font-medium">预付款 ({calculated.prepayRate}%)</span>
+                  <span className="text-lg font-bold text-red-600">¥{calculated.prepayJpy}</span>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
@@ -471,16 +479,18 @@ export default function SubmitOrder() {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setPaymentMode("prepay")}
-                className={`p-3 rounded-lg border-2 text-sm font-medium transition-all text-left ${
-                  paymentMode === "prepay" ? "border-red-500 bg-red-50 text-red-700" : "border-gray-200 text-gray-500 hover:border-gray-300"
-                }`}
-              >
-                <div className="font-semibold">立即预付款</div>
-                <div className="text-xs mt-0.5 opacity-70">提交后直接前往付款页</div>
-              </button>
+              {settings.prepay_enabled !== 'false' && (
+                <button
+                  type="button"
+                  onClick={() => setPaymentMode("prepay")}
+                  className={`p-3 rounded-lg border-2 text-sm font-medium transition-all text-left ${
+                    paymentMode === "prepay" ? "border-red-500 bg-red-50 text-red-700" : "border-gray-200 text-gray-500 hover:border-gray-300"
+                  }`}
+                >
+                  <div className="font-semibold">立即预付款</div>
+                  <div className="text-xs mt-0.5 opacity-70">提交后直接前往付款页</div>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setPaymentMode("deferred")}
@@ -561,7 +571,7 @@ export default function SubmitOrder() {
           <ShoppingBag className="w-4 h-4 mr-2" />
           {submitting ? "提交中..." :
             (paymentMode === "credit_weekly" || paymentMode === "credit_monthly") ? "提交需求（记账）" :
-            paymentMode === "deferred" ? "提交需求（后付款）" : "提交并前往付款"}
+            (paymentMode === "deferred" || settings.prepay_enabled === 'false') ? "提交需求（后付款）" : "提交并前往付款"}
         </Button>
       </form>
     </div>

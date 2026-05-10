@@ -27,6 +27,7 @@ import PaymentMethodManager from "@/components/admin/PaymentMethodManager";
 const DEFAULT_SETTINGS = [
   { key: "service_fee_rate", value: "10", description: "服务费率 (%)", category: "fee" },
   { key: "prepay_rate", value: "80", description: "预付款比率 (%)", category: "fee" },
+  { key: "prepay_enabled", value: "true", description: "是否开启预付款", category: "fee" },
   { key: "jpy_usd_increment", value: "0", description: "日元/美元汇率增量 (基于实时汇率)", category: "fee" },
   { key: "jpy_cny_increment", value: "0", description: "日元/人民币汇率增量 (基于实时汇率)", category: "fee" },
   { key: "default_packing_fee_single", value: "0", description: "默认单独发货捆包作业手续费 (JPY)", category: "fee" },
@@ -760,9 +761,34 @@ export default function AdminSettings() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* Prepay enabled toggle */}
+                {(() => {
+                  const s = grouped.fee?.find(s => s.key === 'prepay_enabled');
+                  if (!s) return null;
+                  const enabled = s.value === 'true';
+                  return (
+                    <div className="flex items-center justify-between pb-1 border-b border-gray-100">
+                      <div>
+                        <Label className="text-sm">开启预付款</Label>
+                        <p className="text-xs text-gray-400 mt-0.5">关闭后，用户提交订单时不再显示预付款选项</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const newVal = enabled ? 'false' : 'true';
+                          updateSetting(s.id, 'value', newVal);
+                          await tenantEntity.update('SiteSettings', s.id, { value: newVal });
+                        }}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${enabled ? 'bg-yellow-500' : 'bg-gray-200'}`}
+                      >
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                      </button>
+                    </div>
+                  );
+                })()}
                 {/* Service & Prepay Rates */}
                 <div className="grid grid-cols-2 gap-3">
-                  {grouped.fee.filter(s => !s.key.includes("increment")).map(s => (
+                  {grouped.fee.filter(s => !s.key.includes("increment") && s.key !== 'prepay_enabled').map(s => (
                     <div key={s.id}>
                       <Label className="text-xs text-gray-500 block mb-1">{s.description || s.key}</Label>
                       <div className="flex items-center gap-1">
