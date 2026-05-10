@@ -1569,7 +1569,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                       </div>
                 }
 
-                    {paymentMethod && paymentMethod !== "alipay" &&
+                    {paymentMethod && paymentMethod !== "alipay" && paymentMethod !== "credit" &&
                 <div className="space-y-2">
                         {(selectedMethodMeta?.payment_note || selectedMethodMeta?.image_url) ? (
                           <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg space-y-2">
