@@ -225,18 +225,27 @@ export default function CreditPanel({ creditApplicationEnabled, refreshKey }) {
                       activeColor="border-blue-500 bg-blue-50 text-blue-700 ring-2 ring-blue-200"
                     />
 
-                    {/* Currency conversion notice */}
-                    {selectedMethod && convertedDisplay && (
+                    {/* Currency conversion notice — show whenever selected method currency is not JPY */}
+                    {selectedMethod && payCurrency !== "JPY" && (
                       <div className="bg-orange-50 border border-orange-200 rounded-lg px-3 py-2 space-y-1">
-                        <div className="flex items-center justify-between text-xs text-gray-500">
-                          <span>汇率换算参考</span>
-                          <span>1 JPY ≈ {convertedRate?.toFixed(4)} {payCurrency}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-semibold text-orange-700">实际应付（{payCurrency}）</span>
-                          <span className="text-base font-bold text-orange-600">{convertedDisplay}</span>
-                        </div>
-                        <p className="text-xs text-orange-400">汇率实时参考，以实际到账为准</p>
+                        {convertedDisplay ? (
+                          <>
+                            <div className="flex items-center justify-between text-xs text-gray-500">
+                              <span>汇率换算参考</span>
+                              <span>1 JPY ≈ {convertedRate?.toFixed(4)} {payCurrency}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-semibold text-orange-700">实际应付（{payCurrency}）</span>
+                              <span className="text-base font-bold text-orange-600">{convertedDisplay}</span>
+                            </div>
+                            <p className="text-xs text-orange-400">汇率实时参考，以实际到账为准</p>
+                          </>
+                        ) : (
+                          <div className="flex items-center gap-1.5 text-xs text-orange-500">
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                            <span>正在获取实时汇率，请稍候...</span>
+                          </div>
+                        )}
                       </div>
                     )}
 
