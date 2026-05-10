@@ -723,7 +723,6 @@ export default function AdminShippingInfoPanel({
                   return (
                     <div key={uf.user_email} className="flex items-center gap-1.5">
                       <span className="text-xs text-gray-600 flex-1 truncate" title={uf.user_email}>{displayName}</span>
-                      <span className="text-xs text-gray-400 flex-shrink-0">基础 ¥{basePackingFee}</span>
                       <span className="text-xs text-gray-300">+</span>
                       <Input className="h-7 text-xs w-20" type="text" inputMode="decimal" placeholder="0"
                         value={extra === 0 ? "" : extra}
