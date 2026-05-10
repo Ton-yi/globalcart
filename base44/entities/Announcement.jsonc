@@ -1,0 +1,53 @@
+{
+  "name": "Announcement",
+  "type": "object",
+  "properties": {
+    "tenant_id": {
+      "type": "string",
+      "description": "\u6240\u5c5e\u79df\u6237ID\uff08null=\u5e73\u53f0\u7ea7\u516c\u544a\uff09"
+    },
+    "title": {
+      "type": "string",
+      "description": "\u516c\u544a\u6807\u9898"
+    },
+    "content": {
+      "type": "string",
+      "description": "\u516c\u544a\u5185\u5bb9"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "info",
+        "warning",
+        "success",
+        "urgent"
+      ],
+      "default": "info",
+      "description": "\u516c\u544a\u7c7b\u578b"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "\u662f\u5426\u663e\u793a"
+    },
+    "target_audience": {
+      "type": "string",
+      "enum": [
+        "all",
+        "users",
+        "admins"
+      ],
+      "default": "all",
+      "description": "\u76ee\u6807\u53d7\u4f17"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date",
+      "description": "\u8fc7\u671f\u65e5\u671f"
+    }
+  },
+  "required": [
+    "title",
+    "content"
+  ]
+}

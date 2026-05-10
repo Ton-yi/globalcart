@@ -12,23 +12,28 @@ Deno.serve(async (req) => {
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
     const isAdmin = user.role === 'admin' || user.role === 'platform_admin' || user.role === 'tenant_admin';
-    if (!isAdmin) return Response.json({ error: 'Forbidden' }, { status: 403 });
 
     const userRecords = await base44.asServiceRole.entities.User.filter({ email: user.email });
     if (!userRecords || userRecords.length === 0) return Response.json({ error: 'User not found' }, { status: 404 });
     const tenantId = userRecords[0].tenant_id;
-    if (!tenantId && user.role !== 'platform_admin') return Response.json({ error: 'No tenant assigned' }, { status: 400 });
 
     const body = await req.json().catch(() => ({}));
     const { action } = body;
 
-    // === list ===
+    // === list === (all authenticated users in a tenant can list active payment methods)
     if (action === 'list') {
+      if (!tenantId && user.role !== 'platform_admin') return Response.json({ methods: [] });
       const filter = tenantId ? { tenant_id: tenantId } : {};
       const methods = await base44.asServiceRole.entities.PaymentMethod.filter(filter);
       methods.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
-      return Response.json({ methods });
+      // Non-admins only see active methods
+      const result = isAdmin ? methods : methods.filter(m => m.is_active !== false);
+      return Response.json({ methods: result });
     }
+
+    // All other actions are admin-only
+    if (!isAdmin) return Response.json({ error: 'Forbidden' }, { status: 403 });
+    if (!tenantId && user.role !== 'platform_admin') return Response.json({ error: 'No tenant assigned' }, { status: 400 });
 
     // === create ===
     if (action === 'create') {

@@ -1,0 +1,103 @@
+{
+  "name": "ShippingMethod",
+  "type": "object",
+  "properties": {
+    "tenant_id": {
+      "type": "string",
+      "description": "\u6240\u5c5e\u79df\u6237ID"
+    },
+    "name": {
+      "type": "string",
+      "description": "\u8fd0\u8f93\u65b9\u5f0f\u540d\u79f0"
+    },
+    "code": {
+      "type": "string",
+      "description": "\u8fd0\u8f93\u65b9\u5f0f\u4ee3\u7801\uff08\u5982EMS\u3001surface\uff09"
+    },
+    "icon": {
+      "type": "string",
+      "description": "\u56fe\u6807\u540d\u79f0\uff08lucide icon name\uff09"
+    },
+    "color": {
+      "type": "string",
+      "description": "\u989c\u8272\uff08\u5982#FF5733 \u6216 Tailwind class\uff09"
+    },
+    "transit_days": {
+      "type": "string",
+      "description": "\u65f6\u6548\uff08\u5982\uff1a5-10\u4e2a\u5de5\u4f5c\u65e5\uff09"
+    },
+    "description": {
+      "type": "string",
+      "description": "\u8fd0\u8f93\u65b9\u5f0f\u63cf\u8ff0"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "\u662f\u5426\u542f\u7528"
+    },
+    "rate_mode": {
+      "type": "string",
+      "enum": [
+        "simple",
+        "detailed"
+      ],
+      "default": "simple",
+      "description": "\u8d39\u7387\u8bbe\u7f6e\u6a21\u5f0f\uff1a\u7b80\u6613/\u8be6\u7ec6"
+    },
+    "simple_rates": {
+      "type": "array",
+      "description": "\u7b80\u6613\u8d39\u7387\u5217\u8868\uff08\u6bcf\u4e2a\u56fd\u5bb6\u4e00\u6761\uff09",
+      "items": {
+        "type": "object",
+        "properties": {
+          "country": {
+            "type": "string"
+          },
+          "first_weight_g": {
+            "type": "number"
+          },
+          "first_weight_fee": {
+            "type": "number"
+          },
+          "additional_unit_g": {
+            "type": "number"
+          },
+          "additional_unit_fee": {
+            "type": "number"
+          },
+          "currency": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "detailed_rates": {
+      "type": "array",
+      "description": "\u8be6\u7ec6\u8d39\u7387\u5217\u8868\uff08\u6bcf\u4e2a\u56fd\u5bb6\u6bcf\u4e2a\u91cd\u91cf\u533a\u95f4\uff09",
+      "items": {
+        "type": "object",
+        "properties": {
+          "country": {
+            "type": "string"
+          },
+          "weight_from_g": {
+            "type": "number"
+          },
+          "weight_to_g": {
+            "type": "number"
+          },
+          "fee": {
+            "type": "number"
+          },
+          "currency": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "required": [
+    "name",
+    "code"
+  ]
+}

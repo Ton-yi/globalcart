@@ -1,0 +1,64 @@
+{
+  "name": "ShippingEditRequest",
+  "type": "object",
+  "properties": {
+    "tenant_id": {
+      "type": "string",
+      "description": "\u6240\u5c5e\u79df\u6237ID"
+    },
+    "order_id": {
+      "type": "string",
+      "description": "\u5173\u8054\u8ba2\u5355ID"
+    },
+    "pool_id": {
+      "type": "string",
+      "description": "\u5f53\u524d\u6240\u5c5e\u53d1\u8d27\u6c60ID"
+    },
+    "user_email": {
+      "type": "string",
+      "description": "\u63d0\u4ea4\u7528\u6237\u90ae\u7bb1"
+    },
+    "edit_type": {
+      "type": "string",
+      "enum": [
+        "move_pool",
+        "cancel_shipment"
+      ],
+      "description": "\u7f16\u8f91\u7c7b\u578b: move_pool=\u79fb\u52a8\u81f3\u53e6\u4e00\u53d1\u8d27\u6c60, cancel_shipment=\u53d6\u6d88\u51fa\u8d27\u8fd4\u56de\u5df2\u5165\u5e93"
+    },
+    "target_pool_id": {
+      "type": "string",
+      "description": "\u76ee\u6807\u53d1\u8d27\u6c60ID\uff08edit_type=move_pool\u65f6\u6709\u6548\uff09"
+    },
+    "user_note": {
+      "type": "string",
+      "description": "\u7528\u6237\u8bf4\u660e"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "approved",
+        "rejected",
+        "auto_applied"
+      ],
+      "default": "pending",
+      "description": "\u5ba1\u6279\u72b6\u6001"
+    },
+    "admin_note": {
+      "type": "string",
+      "description": "\u7ba1\u7406\u5458\u5907\u6ce8"
+    },
+    "is_instant": {
+      "type": "boolean",
+      "default": false,
+      "description": "\u662f\u5426\u5373\u523b\u751f\u6548\uff08\u63d0\u4ea4\u540e5\u5206\u949f\u5185\uff09"
+    }
+  },
+  "required": [
+    "order_id",
+    "pool_id",
+    "user_email",
+    "edit_type"
+  ]
+}
