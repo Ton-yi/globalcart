@@ -64,6 +64,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
 
   // User payment state
   const [paymentMethod, setPaymentMethod] = useState("");
+  const paymentMethodRef = useRef("");
   const [selectedMethodMeta, setSelectedMethodMeta] = useState(null);
   const [generatingAlipay, setGeneratingAlipay] = useState(false);
   const [alipayUrl, setAlipayUrl] = useState(null);
@@ -377,14 +378,15 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
   // User: upload payment proof (non-alipay)
   const handleUploadProof = async (file) => {
     setUploadingProof(true);
+    const method = paymentMethodRef.current;
     const { file_url } = await base44.integrations.Core.UploadFile({ file });
     await shippingPoolApi.update(pool.id, {
       payment_status: "awaiting_confirmation",
-      payment_method: paymentMethod,
+      payment_method: method,
       payment_proof_url: file_url,
       status: "awaiting_payment_confirmation",
     });
-    setPool((p) => ({ ...p, payment_status: "awaiting_confirmation", payment_method: paymentMethod, payment_proof_url: file_url, status: "awaiting_payment_confirmation" }));
+    setPool((p) => ({ ...p, payment_status: "awaiting_confirmation", payment_method: method, payment_proof_url: file_url, status: "awaiting_payment_confirmation" }));
     setUploadingProof(false);
   };
 
@@ -1466,7 +1468,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                       <Label className="text-xs text-gray-500 font-medium mb-2 block">选择支付方式</Label>
                       <PaymentMethodSelector
                         value={paymentMethod}
-                        onChange={m => { setPaymentMethod(m.value); setSelectedMethodMeta(m); setAlipayUrl(null); }}
+                        onChange={m => { setPaymentMethod(m.value); paymentMethodRef.current = m.value; setSelectedMethodMeta(m); setAlipayUrl(null); }}
                         activeColor="border-orange-500 bg-orange-50 text-orange-700"
                       />
                       {/* Credit (deferred billing) option — shown if user has credit enabled with sufficient remaining limit */}
@@ -1596,14 +1598,14 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                     disabled={uploadingProof} />
                         </label>
                         <input
-                          type="text"
-                          placeholder="点击此处后粘贴截图（Ctrl+V / ⌘V）"
-                          className="w-full h-9 px-3 text-xs border border-gray-300 rounded-md bg-white text-gray-500 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-orange-400 focus:border-orange-400 transition-colors"
-                          onPaste={(e) => {
-                            const item = Array.from(e.clipboardData.items).find(i => i.type.startsWith("image/"));
-                            if (item) { e.preventDefault(); const f = item.getAsFile(); if (f) handleUploadProof(f); }
-                          }}
-                          onChange={() => {}}
+                         type="text"
+                         readOnly
+                         placeholder="点击此处后粘贴截图（Ctrl+V / ⌘V）"
+                         className="w-full h-9 px-3 text-xs border border-gray-300 rounded-md bg-white text-gray-500 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-orange-400 focus:border-orange-400 transition-colors cursor-pointer"
+                         onPaste={(e) => {
+                           const item = Array.from(e.clipboardData.items).find(i => i.type.startsWith("image/"));
+                           if (item) { e.preventDefault(); const f = item.getAsFile(); if (f) handleUploadProof(f); }
+                         }}
                         />
                       </div>
                 }
