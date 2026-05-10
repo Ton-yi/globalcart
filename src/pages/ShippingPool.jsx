@@ -89,6 +89,8 @@ export default function ShippingPool() {
   const [strategy, setStrategy] = useState({ deadline: "", min_weight_g: "2000", timeout_action: "ship_individually" });
   const [shippingAddons, setShippingAddons] = useState([]);
   const [selectedAddonIds, setSelectedAddonIds] = useState([]);
+  const [transitShippingMethods, setTransitShippingMethods] = useState([]);
+  const [selectedTransitMethodId, setSelectedTransitMethodId] = useState("");
   const [userProfileMap, setUserProfileMap] = useState({});
   const [allOrders, setAllOrders] = useState([]);
 
@@ -141,6 +143,8 @@ export default function ShippingPool() {
     setStrategy({ deadline: "", min_weight_g: "2000", timeout_action: "ship_individually" });
     setShippingAddons([]);
     setSelectedAddonIds([]);
+    setTransitShippingMethods([]);
+    setSelectedTransitMethodId("");
     setFormLoading(true);
     const [configData, prefs, usersRes, inWarehouseOrders] = await Promise.all([
       fetchTenantConfig(),
@@ -152,6 +156,7 @@ export default function ShippingPool() {
     ]);
     setAvailableOrders(inWarehouseOrders);
     setTransitLocations((configData.transitLocations || []).filter(l => l.is_active !== false));
+    setTransitShippingMethods((configData.transitShippingMethods || []).filter(m => m.is_active !== false));
     setShippingAddons((configData.addons || []).filter(a => a.addon_type === "shipping" && a.is_active !== false));
     setAllUsers(usersRes?.data?.users || []);
     const pref = prefs[0];
@@ -267,6 +272,8 @@ export default function ShippingPool() {
       status: "pending",
       destination_country: destinationCountry,
       transit_location_name: transitLoc?.name || "",
+      transit_shipping_method_id: consType === "transit" ? (selectedTransitMethodId || "") : "",
+      transit_shipping_method_name: consType === "transit" ? (transitShippingMethods.find(m => m.id === selectedTransitMethodId)?.name || "") : "",
       final_address_id: consType === "transit" ? (transitUseNewAddress ? "" : transitFinalAddressId) : "",
       recipient_name: consType === "transit" ? (finalAddr.recipient_name || "") : (directAddr.recipient_name || ""),
       address_line1: consType === "transit" ? (finalAddr.addr1 || "") : (directAddr.addr1 || ""),
@@ -482,6 +489,25 @@ export default function ShippingPool() {
                           </div>
                         )}
                       </div>
+
+                      {/* Transit shipping method selector */}
+                      {transitShippingMethods.length > 0 && (
+                        <div className="border border-blue-100 rounded-xl p-4 bg-blue-50/40 space-y-3">
+                          <Label className="text-xs text-blue-700 font-medium">中转运输方式</Label>
+                          <div className="space-y-2">
+                            {transitShippingMethods.map(m => (
+                              <label key={m.id} className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${selectedTransitMethodId === m.id ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
+                                <input type="radio" checked={selectedTransitMethodId === m.id} onChange={() => setSelectedTransitMethodId(m.id)} className="mt-0.5 accent-blue-600" />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-gray-800">{m.name}</p>
+                                  {m.description && <p className="text-xs text-gray-400 mt-0.5">{m.description}</p>}
+                                  {m.fee > 0 && <p className="text-xs text-blue-600 mt-0.5">{m.fee_currency || "CNY"} {m.fee}</p>}
+                                </div>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      )}
 
                       {/* Final delivery address after transit */}
                       <div className="border border-gray-200 rounded-xl p-4 bg-gray-50/60 space-y-3">
