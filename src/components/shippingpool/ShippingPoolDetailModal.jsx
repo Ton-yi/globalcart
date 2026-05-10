@@ -174,24 +174,41 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
     onUpdated?.();
   };
 
-  // User: load addable (in_warehouse) orders
+  // User/Admin: load addable (in_warehouse) orders
   const openAddOrder = async () => {
     setShowAddOrder(true);
     setLoadingAddable(true);
-    const r = await base44.functions.invoke('getTenantOrders', {});
+    const r = await base44.functions.invoke('getTenantOrders', { all: isAdmin });
     const all = r.data?.orders || [];
-    setAddableOrders(all.filter(o => o.order_status === 'in_warehouse' && o.user_email === currentUser?.email));
+    // Admins see all in_warehouse orders; users only see their own
+    setAddableOrders(
+      isAdmin
+        ? all.filter(o => o.order_status === 'in_warehouse' && !pool.order_ids?.includes(o.id))
+        : all.filter(o => o.order_status === 'in_warehouse' && o.user_email === currentUser?.email && !pool.order_ids?.includes(o.id))
+    );
     setLoadingAddable(false);
   };
 
   const submitAddOrder = async (orderId) => {
     setAddingOrderId(orderId);
-    await base44.functions.invoke('userMutateShippingPool', {
-      action: 'add_order',
-      pool_id: pool.id,
-      order_id: orderId,
-      user_note: '',
-    });
+    if (isAdmin) {
+      // Admin directly mutates the pool
+      const order = addableOrders.find(o => o.id === orderId);
+      const w = order?.weight_g || 0;
+      const updatedIds = [...new Set([...(pool.order_ids || []), orderId])];
+      await Promise.all([
+        shippingPoolApi.update(pool.id, { order_ids: updatedIds, total_weight_g: (pool.total_weight_g || 0) + w }),
+        updateOrder(orderId, { order_status: 'notified_shipment', consolidation_pool_id: pool.id }),
+      ]);
+      setPool(p => ({ ...p, order_ids: updatedIds, total_weight_g: (p.total_weight_g || 0) + w }));
+    } else {
+      await base44.functions.invoke('userMutateShippingPool', {
+        action: 'add_order',
+        pool_id: pool.id,
+        order_id: orderId,
+        user_note: '',
+      });
+    }
     setAddingOrderId(null);
     setShowAddOrder(false);
     onUpdated?.();
@@ -789,20 +806,20 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
             }
           </div>
 
-          {/* User: add more orders to this pool */}
-          {!isAdmin && pool.status === "pending" && (
+          {/* Add more orders to this pool — users on their own pending pools; admins on any pending pool they created or that is non-private */}
+          {pool.status === "pending" && (isAdmin ? (!pool.is_private || pool.creator_email === currentUser?.email) : true) && (
             <div>
               {!showAddOrder ? (
                 <button
                   onClick={openAddOrder}
                   className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 border border-dashed border-blue-200 hover:border-blue-400 rounded-lg px-3 py-2 w-full justify-center transition-colors bg-blue-50/30 hover:bg-blue-50">
-                  <PlusCircle className="w-3.5 h-3.5" />添加我的包裹到此发货申请
+                  <PlusCircle className="w-3.5 h-3.5" />{isAdmin ? '添加已入库订单到此发货申请' : '添加我的包裹到此发货申请'}
                 </button>
               ) : (
                 <div className="border border-blue-200 rounded-xl overflow-hidden">
                   <div className="flex items-center justify-between bg-blue-50 px-3 py-2 border-b border-blue-100">
                     <span className="text-xs font-medium text-blue-700 flex items-center gap-1.5">
-                      <PlusCircle className="w-3.5 h-3.5" />从我的已入库订单中选择
+                      <PlusCircle className="w-3.5 h-3.5" />{isAdmin ? '选择已入库订单加入此发货申请' : '从我的已入库订单中选择'}
                     </span>
                     <button onClick={() => setShowAddOrder(false)} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
                   </div>
@@ -817,7 +834,10 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                           <div key={o.id} className="flex items-center justify-between gap-2 px-2 py-2 rounded-lg border border-gray-100 hover:bg-gray-50">
                             <div className="min-w-0 flex-1">
                               <p className="text-sm text-gray-800 truncate">{o.product_name}</p>
-                              <p className="text-xs text-gray-400">{o.order_number} · {o.weight_g || 0}g</p>
+                              <p className="text-xs text-gray-400">
+                                {o.order_number} · {o.weight_g || 0}g
+                                {isAdmin && o.user_email && <span className="ml-1.5 text-gray-500">{tenantUserMap[o.user_email]?.display_name || tenantUserMap[o.user_email]?.full_name || o.user_name || o.user_email}</span>}
+                              </p>
                             </div>
                             <Button size="sm" className="h-6 text-xs px-2 bg-blue-600 hover:bg-blue-700 flex-shrink-0"
                               disabled={addingOrderId === o.id}
