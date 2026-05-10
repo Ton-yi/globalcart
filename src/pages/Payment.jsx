@@ -10,41 +10,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
-// 金额换算明细组件：清晰展示 JPY → 目标货币 的算式
-function AmountBreakdown({ amountJpy, amountJpyDisplay, payCurrency, paySymbol, convertedAmount, convertedDisplay, rateValue }) {
-  if (payCurrency === "JPY" || !convertedAmount || !rateValue) {
-    return (
-      <div className="bg-gray-50 rounded-lg px-4 py-3 border border-gray-200">
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-gray-700">应付金额</span>
-          <span className="text-lg font-bold text-red-600">¥{amountJpyDisplay} JPY</span>
-        </div>
-      </div>
-    );
-  }
-
-  const rateDisplay = rateValue < 1
-    ? `1 JPY = ${rateValue.toFixed(4)} ${payCurrency}`
-    : `1 JPY ≈ ${rateValue.toFixed(4)} ${payCurrency}`;
-
-  return (
-    <div className="bg-orange-50 border border-orange-200 rounded-lg px-4 py-3 space-y-2">
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-gray-600">订单金额（JPY）</span>
-        <span className="text-sm font-medium text-gray-700">¥{amountJpyDisplay} JPY</span>
-      </div>
-      <div className="flex items-center justify-between text-xs text-gray-400">
-        <span>汇率参考</span>
-        <span>{rateDisplay}</span>
-      </div>
-      <div className="border-t border-orange-200 pt-2 flex items-center justify-between">
-        <span className="text-sm font-semibold text-orange-700">实际应付（{payCurrency}）</span>
-        <span className="text-xl font-bold text-orange-600">{paySymbol}{convertedAmount} {payCurrency}</span>
-      </div>
-      <p className="text-xs text-orange-500">请按以上 {payCurrency} 金额付款，汇率实时参考，以实际到账为准</p>
-    </div>
-  );
-}
 
 export default function Payment() {
   const navigate = useNavigate();
@@ -157,20 +122,32 @@ export default function Payment() {
       {/* Order Summary */}
       <Card className="border-gray-200">
         <CardContent className="pt-4 pb-4">
-          <div className="flex items-start justify-between">
-            <div>
-              <div className="text-sm font-medium text-gray-800">{order.product_name}</div>
-              <div className="text-xs text-gray-400 mt-0.5">订单号：{order.order_number}</div>
+          <div className="space-y-3">
+            <div className="flex items-start justify-between">
+              <div>
+                <div className="text-sm font-medium text-gray-800">{order.product_name}</div>
+                <div className="text-xs text-gray-400 mt-0.5">订单号：{order.order_number}</div>
+              </div>
+              <div className="text-right">
+                <div className="text-xs text-gray-400">应付金额（JPY）</div>
+                <div className={`font-bold text-red-600 ${convertedAmount ? "text-lg" : "text-2xl"}`}>¥{amountJpyDisplay} JPY</div>
+              </div>
             </div>
-            <div className="text-right">
-              <div className="text-xs text-gray-400">预付款金额</div>
-              <div className="text-2xl font-bold text-red-600">¥{amountJpyDisplay} JPY</div>
-              {convertedDisplay && (
-                <div className="text-sm font-semibold text-orange-600 mt-0.5">
-                  实付 ≈ <span className="text-base">{paySymbol}{convertedAmount} {payCurrency}</span>
+            {convertedAmount && (
+              <div className="bg-orange-50 border border-orange-200 rounded-lg px-4 py-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-xs text-orange-600 font-medium">实际应付（{payCurrency}）</div>
+                    <div className="text-xs text-gray-400 mt-0.5">汇率：1 JPY ≈ {rateValue?.toFixed(4)} {payCurrency}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-2xl font-bold text-orange-600">{paySymbol}{convertedAmount}</div>
+                    <div className="text-xs text-orange-500">{payCurrency}</div>
+                  </div>
                 </div>
-              )}
-            </div>
+                <p className="text-xs text-orange-400 mt-2">请按以上 {payCurrency} 金额付款，汇率实时参考，以实际到账为准</p>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -218,15 +195,6 @@ export default function Payment() {
               </div>
             )}
 
-            <AmountBreakdown
-              amountJpy={amountJpy}
-              amountJpyDisplay={amountJpyDisplay}
-              payCurrency={payCurrency}
-              paySymbol={paySymbol}
-              convertedAmount={convertedAmount}
-              convertedDisplay={convertedDisplay}
-              rateValue={rateValue}
-            />
           </CardContent>
         </Card>
       )}
@@ -254,15 +222,6 @@ export default function Payment() {
             ) : (
               <p className="text-sm text-gray-400 text-center">请联系客服获取付款信息</p>
             )}
-            <AmountBreakdown
-              amountJpy={amountJpy}
-              amountJpyDisplay={amountJpyDisplay}
-              payCurrency={payCurrency}
-              paySymbol={paySymbol}
-              convertedAmount={convertedAmount}
-              convertedDisplay={convertedDisplay}
-              rateValue={rateValue}
-            />
           </CardContent>
         </Card>
       )}
