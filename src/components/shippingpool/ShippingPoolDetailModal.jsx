@@ -123,6 +123,13 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
     setSavingUserPrefs(true);
     const myOrders = orders.filter(o => o.user_email === currentUser?.email);
     const selectedAddons = loadedAddons.filter(a => userPrefsData.selected_addon_ids.includes(a.id));
+    const BUILTIN_TRANSIT = {
+      "__pickup__": "自取",
+      "__storage__": "暂存",
+    };
+    const transitMethodName = BUILTIN_TRANSIT[userPrefsData.transit_method_id]
+      || transitShippingMethods.find(m => m.id === userPrefsData.transit_method_id)?.name
+      || "";
     await Promise.all(myOrders.map(o =>
       updateOrder(o.id, {
         selected_addon_ids: userPrefsData.selected_addon_ids,
@@ -130,6 +137,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
         user_note: userPrefsData.note,
         consolidation_final_address_id: userPrefsData.address_id,
         consolidation_transit_shipping_id: userPrefsData.transit_method_id,
+        consolidation_transit_shipping_name: transitMethodName,
       })
     ));
     // Refresh orders
@@ -1037,29 +1045,31 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                                 </div>
                               )}
                               {/* Transit shipping method */}
-                              {transitShippingMethods.length > 0 && (
-                                <div>
-                                  <label className="text-xs text-gray-500 font-medium block mb-1.5 flex items-center gap-1"><Truck className="w-3 h-3" />中转段运输方式（可选）</label>
-                                  <div className="space-y-1">
-                                    <label className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors text-xs ${!userPrefsData.transit_method_id ? "border-gray-400 bg-gray-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
-                                      <input type="radio" checked={!userPrefsData.transit_method_id}
-                                        onChange={() => setUserPrefsData(d => ({ ...d, transit_method_id: "" }))}
+                              <div>
+                                <label className="text-xs text-gray-500 font-medium block mb-1.5 flex items-center gap-1"><Truck className="w-3 h-3" />中转段运输方式（可选）</label>
+                                <div className="space-y-1">
+                                  <label className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors text-xs ${!userPrefsData.transit_method_id ? "border-gray-400 bg-gray-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
+                                    <input type="radio" checked={!userPrefsData.transit_method_id}
+                                      onChange={() => setUserPrefsData(d => ({ ...d, transit_method_id: "" }))}
+                                      className="accent-blue-600" />
+                                    <span className="text-gray-400">不指定</span>
+                                  </label>
+                                  {[
+                                    { id: "__pickup__", name: "自取", description: "到中转地自行取货", fee: 0 },
+                                    { id: "__storage__", name: "暂存", description: "货品暂存于中转地", fee: 0 },
+                                    ...transitShippingMethods,
+                                  ].map(m => (
+                                    <label key={m.id} className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors text-xs ${userPrefsData.transit_method_id === m.id ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
+                                      <input type="radio" checked={userPrefsData.transit_method_id === m.id}
+                                        onChange={() => setUserPrefsData(d => ({ ...d, transit_method_id: m.id }))}
                                         className="accent-blue-600" />
-                                      <span className="text-gray-400">不指定</span>
+                                      <span className="text-gray-700">{m.name}</span>
+                                      {m.description && <span className="text-gray-400 ml-1">{m.description}</span>}
+                                      {m.fee > 0 && <span className="text-blue-600 ml-auto flex-shrink-0">{m.fee_currency || "CNY"} {m.fee}</span>}
                                     </label>
-                                    {transitShippingMethods.map(m => (
-                                      <label key={m.id} className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors text-xs ${userPrefsData.transit_method_id === m.id ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
-                                        <input type="radio" checked={userPrefsData.transit_method_id === m.id}
-                                          onChange={() => setUserPrefsData(d => ({ ...d, transit_method_id: m.id }))}
-                                          className="accent-blue-600" />
-                                        <span className="text-gray-700">{m.name}</span>
-                                        {m.description && <span className="text-gray-400 ml-1">{m.description}</span>}
-                                        {m.fee > 0 && <span className="text-blue-600 ml-auto flex-shrink-0">{m.fee_currency || "CNY"} {m.fee}</span>}
-                                      </label>
-                                    ))}
-                                  </div>
+                                  ))}
                                 </div>
-                              )}
+                              </div>
                               {/* Final address — select only from saved addresses, no new entry */}
                               {userSavedAddresses.length > 0 && (
                                 <div>
