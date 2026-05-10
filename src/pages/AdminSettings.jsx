@@ -748,7 +748,7 @@ export default function AdminSettings() {
       {activeTab === "general" && !loading && (
         <>
           {/* Fee Rate Settings - Unified Block */}
-          {grouped.fee && (
+          {true && (
             <Card className="border-yellow-200">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
@@ -764,8 +764,7 @@ export default function AdminSettings() {
                 {/* Prepay enabled toggle */}
                 {(() => {
                   const s = grouped.fee?.find(s => s.key === 'prepay_enabled');
-                  if (!s) return null;
-                  const enabled = s.value === 'true';
+                  const enabled = s ? s.value !== 'false' : true;
                   return (
                     <div className="flex items-center justify-between pb-1 border-b border-gray-100">
                       <div>
@@ -776,8 +775,14 @@ export default function AdminSettings() {
                         type="button"
                         onClick={async () => {
                           const newVal = enabled ? 'false' : 'true';
-                          updateSetting(s.id, 'value', newVal);
-                          await tenantEntity.update('SiteSettings', s.id, { value: newVal });
+                          if (s) {
+                            updateSetting(s.id, 'value', newVal);
+                            await tenantEntity.update('SiteSettings', s.id, { value: newVal });
+                          } else {
+                            // Create the setting record
+                            await tenantEntity.create('SiteSettings', { key: 'prepay_enabled', value: newVal, category: 'fee', description: '是否开启预付款' });
+                            await load();
+                          }
                         }}
                         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${enabled ? 'bg-yellow-500' : 'bg-gray-200'}`}
                       >
@@ -788,7 +793,7 @@ export default function AdminSettings() {
                 })()}
                 {/* Service & Prepay Rates */}
                 <div className="grid grid-cols-2 gap-3">
-                  {grouped.fee.filter(s => !s.key.includes("increment") && s.key !== 'prepay_enabled').map(s => (
+                  {(grouped.fee || []).filter(s => !s.key.includes("increment") && s.key !== 'prepay_enabled').map(s => (
                     <div key={s.id}>
                       <Label className="text-xs text-gray-500 block mb-1">{s.description || s.key}</Label>
                       <div className="flex items-center gap-1">
@@ -814,7 +819,7 @@ export default function AdminSettings() {
                         { key: "jpy_usd_increment", label: "USD", live: liveRates.jpy_usd },
                         { key: "jpy_cny_increment", label: "CNY", live: liveRates.jpy_cny }
                       ].map(curr => {
-                        const setting = grouped.fee.find(s => s.key === curr.key);
+                        const setting = (grouped.fee || []).find(s => s.key === curr.key);
                         return setting ? (
                           <div key={curr.key}>
                             <Label className="text-xs text-gray-500 block mb-1">
