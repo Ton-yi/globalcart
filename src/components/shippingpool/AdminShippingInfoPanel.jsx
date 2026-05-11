@@ -980,13 +980,20 @@ export default function AdminShippingInfoPanel({
                             const displayName = profile.display_name || profile.full_name || up.user_email;
                             const isPending = up.payment_status === "awaiting_confirmation";
                             const isConfirmed = up.payment_status === "paid";
+                            const userBreakdown = (pool.fee_breakdown_per_user || []).find(b => b.user_email === up.user_email);
+                            const userAmountJpy = userBreakdown ? Math.ceil((userBreakdown.total_jpy || 0) / 10) * 10 : null;
                             return (
                               <div key={up.user_email} className="bg-white border border-blue-100 rounded-lg px-3 py-2 space-y-1.5">
                                 <div className="flex items-center justify-between gap-2">
                                   <span className="text-xs font-medium text-gray-700">{displayName}</span>
-                                  <span className={`text-xs px-1.5 py-0.5 rounded ${isConfirmed ? "bg-green-100 text-green-700" : isPending ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-500"}`}>
-                                    {isConfirmed ? "已确认" : isPending ? "待确认" : up.payment_status}
-                                  </span>
+                                  <div className="flex items-center gap-1.5">
+                                    {userAmountJpy !== null && (
+                                      <span className="text-xs font-semibold text-orange-600">¥{userAmountJpy.toLocaleString()} JPY</span>
+                                    )}
+                                    <span className={`text-xs px-1.5 py-0.5 rounded ${isConfirmed ? "bg-green-100 text-green-700" : isPending ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-500"}`}>
+                                      {isConfirmed ? "已确认" : isPending ? "待确认" : up.payment_status}
+                                    </span>
+                                  </div>
                                 </div>
                                 {up.payment_method && <p className="text-xs text-gray-400">支付方式：{up.payment_method}</p>}
                                 {up.payment_proof_url && <PaymentProofImage url={up.payment_proof_url} />}
