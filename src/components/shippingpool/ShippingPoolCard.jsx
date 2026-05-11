@@ -1,4 +1,4 @@
-import { Calendar, Package, Scale, MapPin, Truck, DollarSign, User, Layers, ChevronRight, AlertCircle, MessageCircle, CreditCard, Archive, ArchiveRestore, Trash2 } from "lucide-react";
+import { Calendar, Package, Scale, MapPin, Truck, DollarSign, User, Layers, ChevronRight, AlertCircle, MessageCircle, CreditCard, Archive, ArchiveRestore, Trash2, Target } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getCountry } from "@/lib/countries";
 
@@ -125,6 +125,27 @@ export default function ShippingPoolCard({ pool, onClick, pendingEditCount = 0, 
           }
         </div>
 
+        {/* Consolidation progress bar */}
+        {isConsolidation && pool.consolidation_min_weight_g > 0 && (() => {
+          const groupWeight = pool.total_weight_g || 0;
+          const minWeight = pool.consolidation_min_weight_g;
+          const pct = Math.min(100, (groupWeight / minWeight) * 100);
+          const isReady = groupWeight >= minWeight;
+          return (
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-xs">
+                <span className="flex items-center gap-1 text-gray-500"><Target className="w-3 h-3" />凑单进度</span>
+                <span className={isReady ? "text-green-600 font-medium" : "text-gray-500"}>{groupWeight}g / {minWeight}g</span>
+              </div>
+              <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                <div className={`h-full rounded-full transition-all ${isReady ? "bg-green-500" : "bg-blue-400"}`} style={{ width: `${pct}%` }} />
+              </div>
+              {!isReady && <p className="text-xs text-gray-400">还差 {minWeight - groupWeight}g</p>}
+              {isReady && <p className="text-xs text-green-600 font-medium">✓ 已达到发货重量</p>}
+            </div>
+          );
+        })()}
+
         {/* Info grid */}
         <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs text-gray-600">
           <div className="flex items-center gap-1.5 col-span-2">
@@ -159,6 +180,12 @@ export default function ShippingPoolCard({ pool, onClick, pendingEditCount = 0, 
               </span>
             </div>
           }
+          {isConsolidation && pool.consolidation_deadline && (
+            <div className="flex items-center gap-1.5 text-orange-500">
+              <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
+              <span>截止 {pool.consolidation_deadline}</span>
+            </div>
+          )}
           {displayCreatorName &&
           <div className="flex items-center gap-1.5">
               <User className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
