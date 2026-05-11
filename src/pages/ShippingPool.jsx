@@ -7,7 +7,7 @@ import { base44 } from "@/api/base44Client";
 import { fetchShippingPools, tenantEntity, fetchTenantConfig, shippingPoolApi } from "@/lib/tenantApi";
 import { timePage } from "@/lib/timing";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { Plus, RefreshCw, Truck, X, Package, MapPin, ChevronRight, ChevronLeft, Check, Scale, Calendar, Info, Layers, Lock, Users, Search, PlusCircle, Archive, ArchiveRestore } from "lucide-react";
+import { Plus, RefreshCw, Truck, X, Package, MapPin, ChevronRight, ChevronLeft, Check, Scale, Calendar, Info, Layers, Lock, Users, Search, PlusCircle, Archive, ArchiveRestore, CreditCard } from "lucide-react";
 import { getCountry } from "@/lib/countries";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -933,17 +933,22 @@ export default function ShippingPool() {
                   >
                     <div className={`px-4 py-3 border-b ${pool.consolidation_type === "transit" ? "bg-blue-50 border-blue-100" : "bg-purple-50 border-purple-100"}`}>
                       <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-                          <Layers className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
-                          <span className="font-semibold text-gray-800 text-sm truncate">{groupLabel}</span>
-                          {pool.pool_code && (
-                            <span className="text-xs font-mono bg-white/70 text-purple-700 border border-purple-200 px-1.5 py-0.5 rounded">{pool.pool_code}</span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1.5 text-xs text-gray-500 flex-shrink-0">
-                          <Badge variant="outline" className="text-xs">{(pool.order_ids || []).length} 件</Badge>
-                          {isReady && <Badge className="text-xs bg-green-100 text-green-700 border-green-200">可发货</Badge>}
-                        </div>
+                      <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                        <Layers className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
+                        <span className="font-semibold text-gray-800 text-sm truncate">{groupLabel}</span>
+                        {pool.pool_code && (
+                          <span className="text-xs font-mono bg-white/70 text-purple-700 border border-purple-200 px-1.5 py-0.5 rounded">{pool.pool_code}</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5 text-xs text-gray-500 flex-shrink-0">
+                        <Badge variant="outline" className="text-xs">{(pool.order_ids || []).length} 件</Badge>
+                        {isReady && <Badge className="text-xs bg-green-100 text-green-700 border-green-200">可发货</Badge>}
+                        {(pool.status === "awaiting_payment" || pool.status === "awaiting_payment_confirmation") && poolOrders.some(o => o.user_email === user?.email) && (
+                          <Badge className={`text-xs border ${pool.status === "awaiting_payment_confirmation" ? "bg-blue-100 text-blue-700 border-blue-200" : "bg-orange-100 text-orange-700 border-orange-200"}`}>
+                            <CreditCard className="w-2.5 h-2.5 mr-1 inline" />{pool.status === "awaiting_payment_confirmation" ? "待确认付款" : "待付运费"}
+                          </Badge>
+                        )}
+                      </div>
                       </div>
                       <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-500">
                         {pool.shipping_method && <span className="flex items-center gap-1"><Truck className="w-3 h-3" />{METHOD_LABELS[pool.shipping_method] || pool.shipping_method}</span>}
