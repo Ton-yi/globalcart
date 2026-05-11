@@ -251,6 +251,23 @@ export default function AdminShippingInfoPanel({
       : (parseFloat(pool.shipping_fee_jpy) || parseFloat(pool.actual_fee) || 0)
   );
 
+  // Check if any individual user's fee has changed vs what was previously saved.
+  // This is more precise than comparing totals: catches cases where amounts shifted
+  // between users but the grand total stayed the same.
+  const hasPerUserFeeChanged = (() => {
+    const savedBreakdowns = pool.fee_breakdown_per_user || [];
+    if (savedBreakdowns.length === 0) {
+      // No per-user breakdown saved yet — fall back to total comparison
+      return Math.round(grandTotalJpy) !== savedGrandTotalJpy;
+    }
+    if (feeBreakdowns.length !== savedBreakdowns.length) return true;
+    return feeBreakdowns.some(live => {
+      const saved = savedBreakdowns.find(s => s.user_email === live.user_email);
+      if (!saved) return true;
+      return Math.round(live.total_jpy || 0) !== Math.round(saved.total_jpy || 0);
+    });
+  })();
+
   const buildUpdatePayload = () => {
     const btId = boxTemplateId === "none" ? "" : boxTemplateId;
     const breakdowns = calcFeeBreakdownPerUser({
@@ -920,13 +937,13 @@ export default function AdminShippingInfoPanel({
                 <div className="bg-orange-50 border border-orange-100 rounded-lg px-3 py-2 text-sm text-orange-700">
                   运费 <strong>¥{Math.round(grandTotalJpy).toLocaleString()} JPY</strong>，等待用户付款。
                 </div>
-                {Math.round(grandTotalJpy) !== savedGrandTotalJpy && (
+                {hasPerUserFeeChanged && (
                   <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2 text-xs text-yellow-700">
                     ⚠️ 金额已修改（原 ¥{savedGrandTotalJpy.toLocaleString()} → 新 ¥{Math.round(grandTotalJpy).toLocaleString()} JPY）
                   </div>
                 )}
                 <Button size="sm" className="bg-yellow-600 hover:bg-yellow-700 w-full"
-                  onClick={handleNotifyFeeUpdate} disabled={saving || !shippingFeeJpy}>
+                  onClick={handleNotifyFeeUpdate} disabled={saving || !shippingFeeJpy || !hasPerUserFeeChanged}>
                   <CreditCard className="w-3.5 h-3.5 mr-1.5" />
                   {saving ? "保存中..." : `通知用户金额更新（¥${Math.round(grandTotalJpy).toLocaleString()} JPY）`}
                 </Button>
@@ -1020,15 +1037,14 @@ export default function AdminShippingInfoPanel({
                     {confirmingSaving ? "确认中..." : "全部确认收款，进入待发货"}
                   </Button>
                 </div>
-                {(() => {
+                {hasPerUserFeeChanged && (() => {
                   const prevJpy = savedGrandTotalJpy;
                   const newJpy = Math.round(grandTotalJpy);
                   const diff = newJpy - prevJpy;
-                  if (diff === 0) return null;
                   return (
                     <div className="space-y-1.5">
                       <div className={`rounded-lg px-3 py-2 text-xs ${diff > 0 ? "bg-red-50 border border-red-100 text-red-700" : "bg-green-50 border border-green-100 text-green-700"}`}>
-                        金额已修改：原 ¥{prevJpy.toLocaleString()} → 新 ¥{newJpy.toLocaleString()} JPY（{diff > 0 ? `+¥${diff.toLocaleString()}，用户需补交` : `-¥${Math.abs(diff).toLocaleString()}，退还用户`}）
+                        金额已修改：原 ¥{prevJpy.toLocaleString()} → 新 ¥{newJpy.toLocaleString()} JPY（{diff > 0 ? `+¥${diff.toLocaleString()}，用户需补交` : diff < 0 ? `-¥${Math.abs(diff).toLocaleString()}，退还用户` : "各用户分摊金额有变动"}）
                       </div>
                       <Button size="sm" className="bg-orange-600 hover:bg-orange-700 w-full"
                         onClick={handleNotifyFeeUpdatePaid} disabled={saving}>
@@ -1057,15 +1073,14 @@ export default function AdminShippingInfoPanel({
                 <div className="bg-green-50 border border-green-100 rounded-lg px-3 py-2 text-sm text-green-700">
                   ✅ 用户已付款，请填写运单号确认发货。
                 </div>
-                {(() => {
+                {hasPerUserFeeChanged && (() => {
                   const prevJpy = savedGrandTotalJpy;
                   const newJpy = Math.round(grandTotalJpy);
                   const diff = newJpy - prevJpy;
-                  if (diff === 0) return null;
                   return (
                     <div className="space-y-1.5">
                       <div className={`rounded-lg px-3 py-2 text-xs ${diff > 0 ? "bg-red-50 border border-red-100 text-red-700" : "bg-yellow-50 border border-yellow-100 text-yellow-700"}`}>
-                        金额已修改：原 ¥{prevJpy.toLocaleString()} → 新 ¥{newJpy.toLocaleString()} JPY（{diff > 0 ? `+¥${diff.toLocaleString()}，用户需补交` : `-¥${Math.abs(diff).toLocaleString()}，退还用户`}）
+                        金额已修改：原 ¥{prevJpy.toLocaleString()} → 新 ¥{newJpy.toLocaleString()} JPY（{diff > 0 ? `+¥${diff.toLocaleString()}，用户需补交` : diff < 0 ? `-¥${Math.abs(diff).toLocaleString()}，退还用户` : "各用户分摊金额有变动"}）
                       </div>
                       <Button size="sm" className="bg-orange-600 hover:bg-orange-700 w-full"
                         onClick={handleNotifyFeeUpdatePaid} disabled={saving}>
