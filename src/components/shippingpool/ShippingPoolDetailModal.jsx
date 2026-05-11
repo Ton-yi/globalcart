@@ -38,7 +38,7 @@ const METHOD_LABELS = {
   surface: "海运", small_packet_air: "小包空运", other: "其他"
 };
 
-export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, currentUser, pendingEditRequests: initialPendingEdits = [], boxTemplates = [], shippingMethods = [], defaultPackingFeeSingle = 0, defaultPackingFeeConsolidation = 0, transitLocations = [], transitShippingMethods = [], availableAddons = [], onClose, onUpdated }) {
+export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, currentUser, pendingEditRequests: initialPendingEdits = [], boxTemplates = [], shippingMethods = [], defaultPackingFeeSingle = 0, defaultPackingFeeConsolidation = 0, transitLocations = [], transitShippingMethods = [], availableAddons = [], allowUserRewarehouse = false, onClose, onUpdated }) {
   const [pool, setPool] = useState(initialPool);
   const [orders, setOrders] = useState([]);
   const [messageText, setMessageText] = useState("");
@@ -97,6 +97,12 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
   const [savingUserPrefs, setSavingUserPrefs] = useState(false);
   const [userSavedAddresses, setUserSavedAddresses] = useState([]);
   const [loadedAddons, setLoadedAddons] = useState(availableAddons || []);
+
+  // Bulk rewarehouse (user-side) state
+  const [rewarehouseSelectedIds, setRewarehouseSelectedIds] = useState([]); // order ids selected for bulk rewarehouse
+  const [rewarehouseNote, setRewarehouseNote] = useState("");
+  const [showBulkRewarehouse, setShowBulkRewarehouse] = useState(false);
+  const [submittingBulkRewarehouse, setSubmittingBulkRewarehouse] = useState(false);
 
   const openUserPrefsEditor = async () => {
     const myOrders = orders.filter(o => o.user_email === currentUser?.email);
@@ -728,11 +734,16 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                 orders: orders.filter(o => (o.user_email || "__unknown__") === email),
               }));
 
+              const isRewarehousePool = !isAdmin && allowUserRewarehouse && (pool.status === "awaiting_payment" || pool.status === "awaiting_payment_confirmation");
+
               const renderOrder = (o) => {
                 const isEditingThis = editingOrderData?.id === o.id;
                 const canSeeDetail = isAdmin || o.user_email === currentUser?.email;
+                const isMyOrder = o.user_email === currentUser?.email;
+                const isRWSel = rewarehouseSelectedIds.includes(o.id);
+                const hasPendingRW = pendingEdits.some(r => r.order_id === o.id && r.is_rewarehouse_request);
                 return (
-                  <div key={o.id} className={`rounded-lg border transition-colors ${isEditingThis ? "border-blue-200 bg-blue-50" : "border-transparent bg-gray-50"}`}>
+                  <div key={o.id} className={`rounded-lg border transition-colors ${isEditingThis ? "border-blue-200 bg-blue-50" : isRWSel ? "border-orange-300 bg-orange-50" : "border-transparent bg-gray-50"}`}>
                     {isEditingThis ?
                   <div className="px-3 py-2.5 space-y-2">
                         <div className="grid grid-cols-2 gap-2">
@@ -812,6 +823,12 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                                   </button>
                                 </div>
                           }
+                              {isRewarehousePool && isMyOrder && !hasPendingRW && (
+                                <Checkbox checked={isRWSel} onCheckedChange={v => setRewarehouseSelectedIds(prev => v ? [...prev, o.id] : prev.filter(id => id !== o.id))} className="flex-shrink-0" />
+                              )}
+                              {isRewarehousePool && isMyOrder && hasPendingRW && (
+                                <span className="text-xs text-orange-500 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded">审批中</span>
+                              )}
                               {/* User can edit/move their own orders */}
                               {!isAdmin && o.user_email === currentUser?.email && pool.status !== "shipped" && pool.status !== "delivered" && pool.status !== "awaiting_payment" && pool.status !== "awaiting_payment_confirmation" && pool.status !== "ready_to_ship" &&
                           <div className="flex items-center gap-1">
@@ -1023,6 +1040,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                             )}
                           </div>
                         )}
+                        {isRewarehousePool && isMyGroup && (() => { const elig=groupOrders.filter(o=>!pendingEdits.some(r=>r.order_id===o.id&&r.is_rewarehouse_request)); if(!elig.length)return null; const allSel=elig.every(o=>rewarehouseSelectedIds.includes(o.id)); const selCount=rewarehouseSelectedIds.filter(id=>elig.find(o=>o.id===id)).length; return (<div className="flex items-center gap-2 px-1 mb-1 mt-1"><Checkbox checked={allSel} onCheckedChange={v=>{const ids=elig.map(o=>o.id);setRewarehouseSelectedIds(prev=>v?[...new Set([...prev,...ids])]:prev.filter(id=>!ids.includes(id)));}} /><span className="text-xs text-gray-500">全选我的包裹</span>{selCount>0&&<Button size="sm" className="h-6 text-xs px-2 bg-orange-600 hover:bg-orange-700 ml-auto gap-1" onClick={()=>setShowBulkRewarehouse(true)}><RotateCcw className="w-3 h-3"/>申请再入库 ({selCount})</Button>}</div>); })()}
                         <div className="space-y-1.5">
                           {groupOrders.map(o => renderOrder(o))}
                         </div>
@@ -1802,6 +1820,23 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
           </div>
         </div>
 
+        {showBulkRewarehouse && (
+          <div className="fixed inset-0 bg-black/40 z-[70] flex items-center justify-center p-4" onClick={e=>{if(e.target===e.currentTarget)setShowBulkRewarehouse(false);}}>
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 space-y-4">
+              <div><h3 className="font-semibold text-gray-900">申请再入库</h3><p className="text-sm text-gray-500 mt-1">已选 {rewarehouseSelectedIds.length} 件包裹申请取消发货并重新入库。</p></div>
+              <div className="bg-orange-50 border border-orange-100 rounded-lg px-3 py-2 text-xs text-orange-700 space-y-1"><p>⚠️ 管理员审批后，订单将恢复为「已入库」状态。</p><p>管理员可能会收取再处理费用，将在下次提交发货时自动计入。</p></div>
+              <div><label className="text-xs text-gray-500 block mb-1">申请原因（可选）</label><Textarea rows={2} placeholder="说明申请原因..." className="text-sm" value={rewarehouseNote} onChange={e=>setRewarehouseNote(e.target.value)} /></div>
+              <div className="flex gap-2 justify-end">
+                <Button variant="outline" size="sm" onClick={()=>setShowBulkRewarehouse(false)}>取消</Button>
+                <Button size="sm" className="bg-orange-600 hover:bg-orange-700" disabled={submittingBulkRewarehouse} onClick={async()=>{
+                  setSubmittingBulkRewarehouse(true);
+                  await Promise.all(rewarehouseSelectedIds.map(orderId=>base44.functions.invoke('userMutateShippingPool',{action:'rewarehouse_from_fee_pending',pool_id:pool.id,order_id:orderId,user_note:rewarehouseNote})));
+                  setSubmittingBulkRewarehouse(false);setShowBulkRewarehouse(false);setRewarehouseSelectedIds([]);setRewarehouseNote("");onUpdated?.();
+                }}>{submittingBulkRewarehouse?"提交中...":"确认申请"}</Button>
+              </div>
+            </div>
+          </div>
+        )}
         {editingOrder &&
         <ShippingEditModal
           order={editingOrder}

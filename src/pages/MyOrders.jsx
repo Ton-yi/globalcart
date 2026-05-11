@@ -677,6 +677,7 @@ export default function MyOrders() {
           pool={viewPool}
           isAdmin={false}
           currentUser={user}
+          allowUserRewarehouse={allowUserRewarehouse}
           onClose={() => setViewPool(null)}
           onUpdated={() => { setViewPool(null); fetchOrders(user); }}
         />
