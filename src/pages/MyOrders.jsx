@@ -506,6 +506,7 @@ export default function MyOrders() {
                   {order.order_status === "notified_shipment" && (() => {
                     const pool = shippingPools.find(p => (p.order_ids || []).includes(order.id));
                     const hasPendingEdit = pendingEditRequests.some(r => r.order_id === order.id);
+                    const poolAwaitingPayment = pool && (pool.status === "awaiting_payment" || pool.status === "awaiting_payment_confirmation");
                     return (
                       <div className="flex flex-col gap-1 items-start">
                         {pool && (
@@ -518,7 +519,13 @@ export default function MyOrders() {
                             ⏳ 申请更改中
                           </span>
                         )}
-                        {pool && pool.status !== "shipped" && pool.status !== "delivered" && !hasPendingEdit && (
+                        {poolAwaitingPayment && (
+                          <Button size="sm" className="h-7 text-xs bg-orange-600 hover:bg-orange-700"
+                            onClick={() => setViewPool(pool)}>
+                            <CreditCard className="w-3 h-3 mr-1" />去付运费
+                          </Button>
+                        )}
+                        {pool && pool.status !== "shipped" && pool.status !== "delivered" && !hasPendingEdit && !poolAwaitingPayment && (
                           <Button size="sm" variant="outline" className="h-6 text-xs px-2"
                             onClick={() => { setEditShipOrder(order); setEditShipPool(pool); }}>
                             编辑出货
