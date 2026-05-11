@@ -857,11 +857,12 @@ export default function AdminSettings() {
                           <Label className="text-xs text-gray-500">默认再处理费用 (JPY)（管理员审批时可覆盖）</Label>
                           <div className="flex items-center gap-2 mt-1">
                             <Input
-                              type="number"
-                              className="h-8 text-sm w-36"
-                              placeholder="0"
-                              value={sFee?.value || ""}
-                              onChange={e => sFee && updateSetting(sFee.id, 'value', e.target.value)}
+                             type="text"
+                             inputMode="decimal"
+                             className="h-8 text-sm w-36"
+                             placeholder="0"
+                             value={sFee?.value ?? ""}
+                             onChange={e => sFee && updateSetting(sFee.id, 'value', e.target.value)}
                             />
                             <Button size="sm" className="h-8 text-xs" onClick={async () => {
                               if (sFee) {
