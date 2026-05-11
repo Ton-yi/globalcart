@@ -540,10 +540,15 @@ export default function MyOrders() {
                       || (order.consolidation_pool_id ? shippingPools.find(p => p.id === order.consolidation_pool_id) : null);
                     if (!pool) return null;
                     return (
-                      <Button size="sm" className="h-7 text-xs bg-orange-600 hover:bg-orange-700"
-                        onClick={() => setViewPool(pool)}>
-                        <CreditCard className="w-3 h-3 mr-1" />去付运费
-                      </Button>
+                      <div className="flex flex-col gap-1 items-start">
+                        <span className="text-xs font-mono text-purple-700 bg-purple-50 border border-purple-100 px-1.5 py-0.5 rounded">
+                          {pool.pool_code || pool.id.slice(-6).toUpperCase()}
+                        </span>
+                        <Button size="sm" className="h-7 text-xs bg-orange-600 hover:bg-orange-700"
+                          onClick={() => setViewPool(pool)}>
+                          <CreditCard className="w-3 h-3 mr-1" />去付运费
+                        </Button>
+                      </div>
                     );
                   })()}
                   {order.order_status === "shipped" && (() => {
