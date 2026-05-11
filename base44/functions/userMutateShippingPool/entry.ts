@@ -10,7 +10,8 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
  * changes are applied immediately. Otherwise a ShippingEditRequest
  * is created and the admin must approve it.
  *
- * A pool that has been notified of shipping fees (status != "pending") cannot be edited.
+ * A pool that has been notified of shipping fees (status != "pending") cannot be edited,
+ * EXCEPT for rewarehouse_from_fee_pending which specifically operates on fee-notified pools.
  */
 Deno.serve(async (req) => {
   const t0 = Date.now();
@@ -40,9 +41,17 @@ Deno.serve(async (req) => {
     }
 
     // Pool is locked once admin has notified shipping fee
+    // Exception: rewarehouse_from_fee_pending is specifically for fee-notified pools
     const lockedStatuses = ['awaiting_payment', 'awaiting_payment_confirmation', 'ready_to_ship', 'shipped', 'delivered', 'cancelled'];
-    if (lockedStatuses.includes(pool.status)) {
+    if (action !== 'rewarehouse_from_fee_pending' && lockedStatuses.includes(pool.status)) {
       return Response.json({ error: 'Pool is locked: shipping fee already notified' }, { status: 403 });
+    }
+    // rewarehouse_from_fee_pending only works on pools that have notified fee
+    if (action === 'rewarehouse_from_fee_pending') {
+      const rewarhouseAllowedStatuses = ['awaiting_payment', 'awaiting_payment_confirmation', 'ready_to_ship'];
+      if (!rewarhouseAllowedStatuses.includes(pool.status)) {
+        return Response.json({ error: 'Pool is not in a fee-pending state' }, { status: 400 });
+      }
     }
 
     // Verify the order belongs to the user and is in this pool
@@ -55,8 +64,8 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Forbidden: not your order' }, { status: 403 });
     }
 
-    // For move/cancel: order must be in this pool
-    if (action === 'move_order' || action === 'cancel_order') {
+    // For move/cancel/rewarehouse: order must be in this pool
+    if (action === 'move_order' || action === 'cancel_order' || action === 'rewarehouse_from_fee_pending') {
       if (!(pool.order_ids || []).includes(order_id)) {
         return Response.json({ error: 'Order is not in this pool' }, { status: 400 });
       }
@@ -81,6 +90,29 @@ Deno.serve(async (req) => {
       if (lockedStatuses.includes(targetPool.status)) {
         return Response.json({ error: 'Target pool is locked' }, { status: 403 });
       }
+    }
+
+    // For rewarehouse_from_fee_pending: check if feature is enabled, then always create a pending request
+    if (action === 'rewarehouse_from_fee_pending') {
+      const rewSettings = await base44.asServiceRole.entities.SiteSettings.filter({ tenant_id: tenantId, key: 'allow_user_rewarehouse_from_fee_pending' });
+      const isEnabled = rewSettings?.[0]?.value === 'true';
+      if (!isEnabled) {
+        return Response.json({ error: 'Rewarehouse from fee-pending is not allowed by settings' }, { status: 403 });
+      }
+      // Always create a pending approval request (admin must approve)
+      await base44.asServiceRole.entities.ShippingEditRequest.create({
+        tenant_id: tenantId,
+        order_id,
+        pool_id,
+        user_email: user.email,
+        edit_type: 'cancel_shipment',
+        user_note: user_note || '',
+        status: 'pending',
+        is_instant: false,
+        is_rewarehouse_request: true,
+      });
+      console.log(`[userMutateShippingPool] REWAREHOUSE REQUEST created pool=${pool_id} order=${order_id} | ${Date.now()-t0}ms`);
+      return Response.json({ mode: 'pending_approval', success: true });
     }
 
     // Check the setting: instant approval or request?

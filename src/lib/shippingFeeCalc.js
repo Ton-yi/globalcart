@@ -75,6 +75,9 @@ export function calcFeeBreakdownPerUser({
     // Item size extra fees sum for this user's orders
     const itemSizeFeeJpy = userOrders.reduce((s, o) => s + (parseFloat(o.item_size_extra_fee) || 0), 0);
 
+    // Rewarehouse fee: if any of user's orders have a rewarehouse_fee_jpy, sum them
+    const rewarehouseFeeJpy = userOrders.reduce((s, o) => s + (parseFloat(o.rewarehouse_fee_jpy) || 0), 0);
+
     // Addon fees: per-user, deduplicated by addon id/name (one charge per user per service)
     const seenAddonKeys = new Set();
     const userAddons = [];
@@ -93,6 +96,10 @@ export function calcFeeBreakdownPerUser({
 
     if (itemSizeFeeJpy > 0) {
       items.push({ label: "物品尺寸追加费", amount_jpy: itemSizeFeeJpy });
+    }
+
+    if (rewarehouseFeeJpy > 0) {
+      items.push({ label: "再入库再处理费", amount_jpy: rewarehouseFeeJpy });
     }
 
     if (isConsolidation) {

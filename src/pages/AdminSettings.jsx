@@ -822,6 +822,63 @@ export default function AdminSettings() {
                   );
                 })()}
 
+                {/* Allow user rewarehouse from fee-pending toggle + default fee */}
+                {(() => {
+                  const allSettings = Object.values(grouped).flat();
+                  const sToggle = allSettings.find(s => s.key === 'allow_user_rewarehouse_from_fee_pending');
+                  const sFee = allSettings.find(s => s.key === 'default_rewarehouse_fee_jpy');
+                  const enabled = sToggle?.value === 'true';
+                  return (
+                    <div className="space-y-3 pb-1 border-b border-gray-100">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <Label className="text-sm">允许用户从待付运费状态申请再入库</Label>
+                          <p className="text-xs text-gray-400 mt-0.5">开启后，待付运费订单的用户可申请取消发货并再入库，管理员审批后生效</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const newVal = enabled ? 'false' : 'true';
+                            if (sToggle) {
+                              updateSetting(sToggle.id, 'value', newVal);
+                              await tenantEntity.update('SiteSettings', sToggle.id, { value: newVal });
+                            } else {
+                              await tenantEntity.create('SiteSettings', { key: 'allow_user_rewarehouse_from_fee_pending', value: newVal, category: 'shipping', description: '允许用户从待付运费状态申请再入库' });
+                              await load();
+                            }
+                          }}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${enabled ? 'bg-orange-500' : 'bg-gray-200'}`}
+                        >
+                          <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                        </button>
+                      </div>
+                      {enabled && (
+                        <div>
+                          <Label className="text-xs text-gray-500">默认再处理费用 (JPY)（管理员审批时可覆盖）</Label>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Input
+                              type="number"
+                              className="h-8 text-sm w-36"
+                              placeholder="0"
+                              value={sFee?.value || ""}
+                              onChange={e => sFee && updateSetting(sFee.id, 'value', e.target.value)}
+                            />
+                            <Button size="sm" className="h-8 text-xs" onClick={async () => {
+                              if (sFee) {
+                                await tenantEntity.update('SiteSettings', sFee.id, { value: sFee.value });
+                              } else {
+                                await tenantEntity.create('SiteSettings', { key: 'default_rewarehouse_fee_jpy', value: '0', category: 'fee', description: '再入库默认再处理费用 (JPY)' });
+                                await load();
+                              }
+                            }}>保存</Button>
+                          </div>
+                          <p className="text-xs text-gray-400 mt-1">此费用将在管理员同意申请后预存于订单，下次提交发货时自动计入运费明细</p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
                 {/* Service & Prepay Rates */}
                 <div className="grid grid-cols-2 gap-3">
                   {(grouped.fee || []).filter(s => !s.key.includes("increment") && s.key !== 'prepay_enabled').map(s => (

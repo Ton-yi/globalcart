@@ -85,7 +85,7 @@ Deno.serve(async (req) => {
       base44.asServiceRole.entities.TransitShippingMethod.filter({ ...tenantFilter, is_active: true }),
       // Filter by user_email only (not tenant_id) so legacy records without tenant_id are also found
       base44.asServiceRole.entities.UserPreference.filter({ user_email: user.email }),
-      base44.asServiceRole.entities.SiteSettings.filter({ tenant_id: tenantId, key: 'paid_order_reminder' }),
+      base44.asServiceRole.entities.SiteSettings.filter({ tenant_id: tenantId }),
       base44.asServiceRole.entities.User.filter(tenantFilter),
       base44.asServiceRole.entities.ShippingEditRequest.filter({ tenant_id: tenantId, user_email: user.email, status: 'pending' }),
     ]);
@@ -134,6 +134,9 @@ Deno.serve(async (req) => {
       }
     }
 
+    const settingsMap = {};
+    for (const s of (siteSettings || [])) { settingsMap[s.key] = s.value; }
+
     return Response.json({
       orders: orders || [],
       pools: accessiblePools,
@@ -142,7 +145,9 @@ Deno.serve(async (req) => {
       addons: addons || [],
       transitMethods: transitMethods || [],
       userPreference: userPrefs?.[0] || null,
-      paidOrderReminder: siteSettings?.[0]?.value || null,
+      paidOrderReminder: settingsMap['paid_order_reminder'] || null,
+      allowUserRewarehouse: settingsMap['allow_user_rewarehouse_from_fee_pending'] === 'true',
+      defaultRewarehouseFee: parseFloat(settingsMap['default_rewarehouse_fee_jpy'] || '0') || 0,
       nonAdminUsers,
       pendingEditRequests: myEditRequests || [],
       userProfileMap,

@@ -61,6 +61,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
   const [deleting, setDeleting] = useState(false);
   const [pendingEdits, setPendingEdits] = useState(initialPendingEdits);
   const [processingEditId, setProcessingEditId] = useState(null);
+  const [rewarehouseFeeInputs, setRewarehouseFeeInputs] = useState({}); // reqId -> fee string
   const [composeDragOver, setComposeDragOver] = useState(false);
 
   // User payment state
@@ -544,12 +545,18 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
       const w = orders.find((o) => o.id === targetOrderId)?.weight_g || 0;
       if (req.edit_type === 'cancel_shipment') {
         const updatedIds = (pool.order_ids || []).filter((id) => id !== targetOrderId);
+        // For rewarehouse requests: write the rewarehouse fee to the order
+        const rewarehouseFee = req.is_rewarehouse_request
+          ? (parseFloat(rewarehouseFeeInputs[req.id] ?? req.rewarehouse_fee_jpy ?? 0) || 0)
+          : 0;
+        const orderUpdate = { order_status: 'in_warehouse', consolidation_pool_id: '' };
+        if (rewarehouseFee > 0) orderUpdate.rewarehouse_fee_jpy = rewarehouseFee;
         await Promise.all([
         shippingPoolApi.update(pool.id, {
           order_ids: updatedIds,
           total_weight_g: Math.max(0, (pool.total_weight_g || 0) - w)
         }),
-        updateOrder(targetOrderId, { order_status: 'in_warehouse', consolidation_pool_id: '' })]
+        updateOrder(targetOrderId, orderUpdate)]
         );
         setPool((p) => ({ ...p, order_ids: updatedIds, total_weight_g: Math.max(0, (p.total_weight_g || 0) - w) }));
         setOrders((prev) => prev.filter((o) => o.id !== targetOrderId));
@@ -1219,7 +1226,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="text-xs font-medium text-gray-700">{req.user_email}</span>
                           <Badge className={`text-xs ${req.edit_type === 'cancel_shipment' ? 'bg-red-100 text-red-700' : req.edit_type === 'add_to_pool' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
-                            {req.edit_type === 'cancel_shipment' ? '申请重新入库' : req.edit_type === 'add_to_pool' ? '申请加入此发货申请' : '申请移至其他发货申请'}
+                            {req.is_rewarehouse_request ? '申请再入库（待付运费）' : req.edit_type === 'cancel_shipment' ? '申请重新入库' : req.edit_type === 'add_to_pool' ? '申请加入此发货申请' : '申请移至其他发货申请'}
                           </Badge>
                         </div>
                         <p className="text-xs text-gray-500 mt-0.5">
@@ -1233,6 +1240,20 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                         {req.user_note &&
                     <p className="text-xs text-gray-500 mt-0.5 italic">"{req.user_note}"</p>
                     }
+                        {req.is_rewarehouse_request && (
+                          <div className="mt-2 flex items-center gap-2">
+                            <span className="text-xs text-orange-600 font-medium">再处理费 (JPY)：</span>
+                            <input
+                              type="number"
+                              min="0"
+                              placeholder="0"
+                              className="h-7 w-24 rounded-md border border-input bg-transparent px-2 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                              value={rewarehouseFeeInputs[req.id] ?? (req.rewarehouse_fee_jpy || "")}
+                              onChange={e => setRewarehouseFeeInputs(prev => ({ ...prev, [req.id]: e.target.value }))}
+                            />
+                            <span className="text-xs text-gray-400">审批时写入订单</span>
+                          </div>
+                        )}
                       </div>
                       <div className="flex items-center gap-1.5 flex-shrink-0">
                         <Button
@@ -1271,8 +1292,8 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
               <div key={req.id} className="px-4 py-3">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <Badge className="text-xs bg-orange-100 text-orange-700">待管理员审批</Badge>
-                      <Badge className={`text-xs ${req.edit_type === 'cancel_shipment' ? 'bg-red-100 text-red-700' : req.edit_type === 'add_to_pool' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
-                        {req.edit_type === 'cancel_shipment' ? '重新入库' : req.edit_type === 'add_to_pool' ? '加入此发货申请' : '移至其他发货申请'}
+                      <Badge className={`text-xs ${req.is_rewarehouse_request ? 'bg-orange-100 text-orange-700' : req.edit_type === 'cancel_shipment' ? 'bg-red-100 text-red-700' : req.edit_type === 'add_to_pool' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
+                        {req.is_rewarehouse_request ? '再入库（待付运费）' : req.edit_type === 'cancel_shipment' ? '重新入库' : req.edit_type === 'add_to_pool' ? '加入此发货申请' : '移至其他发货申请'}
                       </Badge>
                     </div>
                     <p className="text-xs text-gray-500 mt-1">

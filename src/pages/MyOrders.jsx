@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { Package, RefreshCw, Search, CreditCard, Truck, CheckCircle, ChevronUp, ChevronDown, ChevronsUpDown, Send, Archive, ArchiveRestore } from "lucide-react";
+import { Package, RefreshCw, Search, CreditCard, Truck, CheckCircle, ChevronUp, ChevronDown, ChevronsUpDown, Send, Archive, ArchiveRestore, RotateCcw } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { ImageWithViewer } from "@/components/common/ImageViewer";
 import BulkPaymentModal from "@/components/orders/BulkPaymentModal";
 import { matchStoreTagResult } from "@/lib/onlineStoreTag";
@@ -197,6 +198,10 @@ export default function MyOrders() {
   const [editShipPool, setEditShipPool] = useState(null); // current pool of that order
   const [viewPool, setViewPool] = useState(null); // pool detail modal for shipping_fee_pending
   const [shippingPools, setShippingPools] = useState([]); // cached pools for lookup
+  const [allowUserRewarehouse, setAllowUserRewarehouse] = useState(false);
+  const [rewarehouseOrder, setRewarehouseOrder] = useState(null); // order for rewarehouse confirm dialog
+  const [rewarehouseNote, setRewarehouseNote] = useState("");
+  const [submittingRewarehouse, setSubmittingRewarehouse] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [columns, setColumns] = useState(loadColumns);
   const [sortKey, setSortKey] = useState(null);
@@ -215,6 +220,7 @@ export default function MyOrders() {
     const freshOrders = data.orders || [];
     setOrders(freshOrders);
     setShippingPools(data.pools || []);
+    setAllowUserRewarehouse(data.allowUserRewarehouse || false);
     setStoreTagRules(data.storeTagRules || []);
     setPageData(data); // includes userProfileMap
     setPendingEditRequests(data.pendingEditRequests || []);
@@ -539,6 +545,7 @@ export default function MyOrders() {
                     const pool = shippingPools.find(p => (p.order_ids || []).includes(order.id))
                       || (order.consolidation_pool_id ? shippingPools.find(p => p.id === order.consolidation_pool_id) : null);
                     if (!pool) return null;
+                    const hasPendingRewarehouse = pendingEditRequests.some(r => r.order_id === order.id && r.is_rewarehouse_request);
                     return (
                       <div className="flex flex-col gap-1 items-start">
                         <span className="text-xs font-mono text-purple-700 bg-purple-50 border border-purple-100 px-1.5 py-0.5 rounded">
@@ -548,6 +555,17 @@ export default function MyOrders() {
                           onClick={() => setViewPool(pool)}>
                           <CreditCard className="w-3 h-3 mr-1" />去付运费
                         </Button>
+                        {allowUserRewarehouse && !hasPendingRewarehouse && (
+                          <Button size="sm" variant="outline" className="h-6 text-xs px-2 text-gray-500 border-gray-300"
+                            onClick={() => { setRewarehouseOrder({ order, pool }); setRewarehouseNote(""); }}>
+                            <RotateCcw className="w-3 h-3 mr-1" />申请再入库
+                          </Button>
+                        )}
+                        {hasPendingRewarehouse && (
+                          <span className="text-xs text-orange-600 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded">
+                            ⏳ 再入库审批中
+                          </span>
+                        )}
                       </div>
                     );
                   })()}
@@ -676,6 +694,49 @@ export default function MyOrders() {
             fetchOrders(user);
           }}
         />
+      )}
+
+      {/* Rewarehouse confirm dialog */}
+      {rewarehouseOrder && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
+          onClick={e => { if (e.target === e.currentTarget) setRewarehouseOrder(null); }}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 space-y-4">
+            <div>
+              <h3 className="font-semibold text-gray-900">申请再入库</h3>
+              <p className="text-sm text-gray-500 mt-1">
+                申请将订单 <span className="font-mono text-gray-700">{rewarehouseOrder.order.order_number}</span> 从发货申请中取消并重新入库。
+              </p>
+            </div>
+            <div className="bg-orange-50 border border-orange-100 rounded-lg px-3 py-2 text-xs text-orange-700 space-y-1">
+              <p>⚠️ 管理员审批后，订单将恢复为「已入库」状态。</p>
+              <p>管理员可能会收取再处理费用，此费用将在您下次提交发货申请时自动加算。</p>
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">申请原因（可选）</label>
+              <Textarea rows={2} placeholder="说明申请原因..." className="text-sm"
+                value={rewarehouseNote} onChange={e => setRewarehouseNote(e.target.value)} />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" size="sm" onClick={() => setRewarehouseOrder(null)}>取消</Button>
+              <Button size="sm" className="bg-orange-600 hover:bg-orange-700"
+                disabled={submittingRewarehouse}
+                onClick={async () => {
+                  setSubmittingRewarehouse(true);
+                  await base44.functions.invoke('userMutateShippingPool', {
+                    action: 'rewarehouse_from_fee_pending',
+                    pool_id: rewarehouseOrder.pool.id,
+                    order_id: rewarehouseOrder.order.id,
+                    user_note: rewarehouseNote,
+                  });
+                  setSubmittingRewarehouse(false);
+                  setRewarehouseOrder(null);
+                  fetchOrders(user);
+                }}>
+                {submittingRewarehouse ? "提交中..." : "确认申请"}
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
