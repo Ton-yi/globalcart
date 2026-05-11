@@ -535,7 +535,9 @@ export default function MyOrders() {
                     );
                   })()}
                   {(order.order_status === "shipping_fee_pending" || order.order_status === "notified_shipment_fee_pending") && (() => {
-                    const pool = shippingPools.find(p => (p.order_ids || []).includes(order.id));
+                    // Try order_ids first, fall back to consolidation_pool_id on the order itself
+                    const pool = shippingPools.find(p => (p.order_ids || []).includes(order.id))
+                      || (order.consolidation_pool_id ? shippingPools.find(p => p.id === order.consolidation_pool_id) : null);
                     if (!pool) return null;
                     return (
                       <Button size="sm" className="h-7 text-xs bg-orange-600 hover:bg-orange-700"
