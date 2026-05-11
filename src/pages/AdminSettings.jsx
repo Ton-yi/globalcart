@@ -80,6 +80,7 @@ export default function AdminSettings() {
   const [newVal, setNewVal] = useState("");
   const [newDesc, setNewDesc] = useState("");
   const [newCat, setNewCat] = useState("general");
+  const [rewarehouseFeeInput, setRewarehouseFeeInput] = useState("");
 
   // Tenant management state
   const [shippingMethods, setShippingMethods] = useState(null);
@@ -828,6 +829,10 @@ export default function AdminSettings() {
                   const sToggle = allSettings.find(s => s.key === 'allow_user_rewarehouse_from_fee_pending');
                   const sFee = allSettings.find(s => s.key === 'default_rewarehouse_fee_jpy');
                   const enabled = sToggle?.value === 'true';
+                  // Sync local input from loaded setting (only when sFee changes)
+                  if (sFee && rewarehouseFeeInput === "" && sFee.value) {
+                    setTimeout(() => setRewarehouseFeeInput(sFee.value), 0);
+                  }
                   return (
                     <div className="space-y-3 pb-1 border-b border-gray-100">
                       <div className="flex items-center justify-between">
@@ -861,14 +866,16 @@ export default function AdminSettings() {
                              inputMode="decimal"
                              className="h-8 text-sm w-36"
                              placeholder="0"
-                             value={sFee?.value ?? ""}
-                             onChange={e => sFee && updateSetting(sFee.id, 'value', e.target.value)}
+                             value={rewarehouseFeeInput}
+                             onChange={e => setRewarehouseFeeInput(e.target.value)}
                             />
                             <Button size="sm" className="h-8 text-xs" onClick={async () => {
+                              const val = rewarehouseFeeInput || '0';
                               if (sFee) {
-                                await tenantEntity.update('SiteSettings', sFee.id, { value: sFee.value });
+                                updateSetting(sFee.id, 'value', val);
+                                await tenantEntity.update('SiteSettings', sFee.id, { value: val });
                               } else {
-                                await tenantEntity.create('SiteSettings', { key: 'default_rewarehouse_fee_jpy', value: '0', category: 'fee', description: '再入库默认再处理费用 (JPY)' });
+                                await tenantEntity.create('SiteSettings', { key: 'default_rewarehouse_fee_jpy', value: val, category: 'fee', description: '再入库默认再处理费用 (JPY)' });
                                 await load();
                               }
                             }}>保存</Button>
