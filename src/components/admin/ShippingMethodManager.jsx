@@ -465,7 +465,8 @@ export default function ShippingMethodManager({ initialData = null }) {
   }, []);
 
   const handleSave = async (updated) => {
-    await tenantEntity.update('ShippingMethod', updated.id, updated);
+    const { id, tenant_id, created_date, updated_date, created_by, ...data } = updated;
+    await tenantEntity.update('ShippingMethod', id, data);
     await load();
     return updated;
   };
