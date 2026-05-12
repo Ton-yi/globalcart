@@ -491,10 +491,11 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
   };
 
   // Move order to another pool
-  const handleMoveOrder = async () => {
-    if (!adminEditingOrder || !targetPoolId) return;
+  const handleMoveOrder = async (overrideTargetPoolId) => {
+    const effectiveTargetPoolId = overrideTargetPoolId || targetPoolId;
+    if (!adminEditingOrder || !effectiveTargetPoolId) return;
     setSavingOrder(true);
-    const targetPool = otherPools.find((p) => p.id === targetPoolId);
+    const targetPool = otherPools.find((p) => p.id === effectiveTargetPoolId);
     if (!targetPool) {setSavingOrder(false);return;}
 
     const poolOrderIds = pool.order_ids || [];
@@ -506,12 +507,12 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
 
     await Promise.all([
     shippingPoolApi.update(pool.id, { order_ids: updatedOrderIds, order_names: updatedNames, total_weight_g: updatedWeight }),
-    shippingPoolApi.update(targetPoolId, {
+    shippingPoolApi.update(effectiveTargetPoolId, {
       order_ids: [...(targetPool.order_ids || []), adminEditingOrder.id],
       order_names: targetUpdatedNames,
       total_weight_g: (targetPool.total_weight_g || 0) + (adminEditingOrder.weight_g || 0)
     }),
-    updateOrder(adminEditingOrder.id, { consolidation_pool_id: targetPoolId, order_status: 'notified_shipment' })]
+    updateOrder(adminEditingOrder.id, { consolidation_pool_id: effectiveTargetPoolId, order_status: 'notified_shipment' })]
     );
 
     setPool((p) => ({ ...p, order_ids: updatedOrderIds, total_weight_g: updatedWeight }));
@@ -925,7 +926,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                               return filtered.map(p => (
                               <button
                               key={p.id}
-                              onClick={() => {setTargetPoolId(p.id);handleMoveOrder();}}
+                              onClick={() => {setTargetPoolId(p.id);handleMoveOrder(p.id);}}
                               disabled={savingOrder}
                               className="w-full text-left px-2 py-1.5 rounded text-xs border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors disabled:opacity-50">
                                      <div className="flex items-center justify-between gap-2">
