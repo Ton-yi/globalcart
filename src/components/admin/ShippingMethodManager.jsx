@@ -210,10 +210,17 @@ function MethodCard({ method, onSave, onDelete }) {
 
   const handleSave = async () => {
     setSaving(true);
-    await onSave(form);
+    const updated = await onSave(form);
+    // Sync form to the returned/latest method data to avoid stale state
+    if (updated) setForm({ ...updated });
     setEditing(false);
     setSaving(false);
   };
+
+  // Keep form in sync if the parent method prop changes (e.g. after reload)
+  useEffect(() => {
+    if (!editing) setForm({ ...method });
+  }, [method]);
 
   const isEMS = method.code === "EMS";
 
@@ -460,6 +467,7 @@ export default function ShippingMethodManager({ initialData = null }) {
   const handleSave = async (updated) => {
     await tenantEntity.update('ShippingMethod', updated.id, updated);
     await load();
+    return updated;
   };
 
   const handleDelete = async (id) => {
