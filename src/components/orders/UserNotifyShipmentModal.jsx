@@ -230,6 +230,8 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
       if (pref?.saved_addresses) setSavedAddresses(pref.saved_addresses);
       if (pref?.preferred_transit_shipping_id) setSelectedTransitMethodId(pref.preferred_transit_shipping_id);
       if (pref?.id) setUserPrefId(pref.id);
+      // Auto-select default address
+      if (pref?.default_address_id) setFinalAddressId(pref.default_address_id);
       setTransitLocations(initialData.transitLocations || []);
       setAllUsers(initialData.nonAdminUsers || []);
 
@@ -266,6 +268,7 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
       if (prefs.length > 0) {
         if (prefs[0].saved_addresses) setSavedAddresses(prefs[0].saved_addresses);
         if (prefs[0].preferred_transit_shipping_id) setSelectedTransitMethodId(prefs[0].preferred_transit_shipping_id);
+        if (prefs[0].default_address_id) setFinalAddressId(prefs[0].default_address_id);
         setUserPrefId(prefs[0].id);
       }
       setTransitLocations((allLocs || []).filter(l => l.is_active !== false));
@@ -332,6 +335,7 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
     if (!method && !isJoiningPool) return;
     if (!isJoiningPool && consType === "transit" && !selectedTransitId) return;
     if (!isJoiningPool && consType === "transit" && !finalAddressId && !addressInputMode["final"]) return;
+    if (isJoiningPool && !finalAddressId && !addressInputMode["final"]) return;
     if (!isJoiningPool && consType === "" && !selectedAddress && !addressInputMode["direct"]) return;
     if (!isJoiningPool && consType === "other" && !selectedAddress && !addressInputMode["other"]) return;
     if (joinExistingPool && !selectedPoolId) return;
@@ -800,14 +804,28 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
             </div>
           )}
 
-          {/* Joining existing pool: only show deadline */}
+          {/* Joining existing pool: show final address + deadline */}
           {isJoiningPool && (
-            <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 space-y-2">
-              <p className="text-xs text-blue-500 font-medium uppercase tracking-wide">发货期限（仅适用于本次订单）</p>
-              <div className="text-sm text-gray-700 leading-8 flex flex-wrap items-center gap-x-1.5">
-                <span>在</span>
-                <DeadlineToken value={deadline} onChange={setDeadline} />
-                <span>前发出。</span>
+            <div className="space-y-3">
+              <AddressBlock
+                slot="final"
+                label="最终收货地址 *"
+                savedAddresses={savedAddresses}
+                selectedId={finalAddressId}
+                isNewMode={!!addressInputMode["final"]}
+                newAddress={newAddress}
+                saveNewAddress={saveNewAddress}
+                onSelect={(v) => handleAddressSelect(v, "final")}
+                onNewAddressChange={setNewAddress}
+                onSaveToggle={setSaveNewAddress}
+              />
+              <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 space-y-2">
+                <p className="text-xs text-blue-500 font-medium uppercase tracking-wide">发货期限（仅适用于本次订单）</p>
+                <div className="text-sm text-gray-700 leading-8 flex flex-wrap items-center gap-x-1.5">
+                  <span>在</span>
+                  <DeadlineToken value={deadline} onChange={setDeadline} />
+                  <span>前发出。</span>
+                </div>
               </div>
             </div>
           )}
@@ -866,6 +884,7 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
               (!method && !joinDirectPool && !isJoiningPool) || submitting ||
               (!isJoiningPool && consType === "transit" && !selectedTransitId) ||
               (!isJoiningPool && consType === "transit" && !finalAddressId && !addressInputMode["final"]) ||
+              (isJoiningPool && !finalAddressId && !addressInputMode["final"]) ||
               (!isJoiningPool && consType === "" && !selectedAddress && !addressInputMode["direct"]) ||
               (!isJoiningPool && consType === "other" && !selectedAddress && !addressInputMode["other"]) ||
               (joinExistingPool && !selectedPoolId) ||
