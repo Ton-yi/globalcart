@@ -336,6 +336,7 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
     if (!isJoiningPool && consType === "transit" && !selectedTransitId) return;
     if (!isJoiningPool && consType === "transit" && !finalAddressId && !addressInputMode["final"]) return;
     if (isJoiningPool && !finalAddressId && !addressInputMode["final"]) return;
+    if (isJoiningPool && selectedPool?.consolidation_type === "transit" && !selectedTransitMethodId) return;
     if (!isJoiningPool && consType === "" && !selectedAddress && !addressInputMode["direct"]) return;
     if (!isJoiningPool && consType === "other" && !selectedAddress && !addressInputMode["other"]) return;
     if (joinExistingPool && !selectedPoolId) return;
@@ -847,8 +848,8 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
           )}
 
           <TransitMethodSection
-            consType={consType}
-            selectedTransitId={selectedTransitId}
+            consType={isJoiningPool ? (selectedPool?.consolidation_type || consType) : consType}
+            selectedTransitId={isJoiningPool ? (selectedPool?.transit_location_id || selectedTransitId) : selectedTransitId}
             transitLocations={transitLocations}
             transitMethods={transitMethods}
             selectedTransitMethodId={selectedTransitMethodId}
@@ -885,6 +886,7 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
               (!isJoiningPool && consType === "transit" && !selectedTransitId) ||
               (!isJoiningPool && consType === "transit" && !finalAddressId && !addressInputMode["final"]) ||
               (isJoiningPool && !finalAddressId && !addressInputMode["final"]) ||
+              (isJoiningPool && selectedPool?.consolidation_type === "transit" && !selectedTransitMethodId) ||
               (!isJoiningPool && consType === "" && !selectedAddress && !addressInputMode["direct"]) ||
               (!isJoiningPool && consType === "other" && !selectedAddress && !addressInputMode["other"]) ||
               (joinExistingPool && !selectedPoolId) ||
