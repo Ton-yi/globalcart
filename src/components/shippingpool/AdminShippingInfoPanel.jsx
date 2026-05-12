@@ -1026,7 +1026,7 @@ export default function AdminShippingInfoPanel({
                             );
                           })}
                           {/* Show confirm all only when all per-user payments confirmed */}
-                          {perUserPayments.every(p => p.payment_status === "paid") && (
+                          {perUserPayments.length > 0 && perUserPayments.every(p => p.payment_status === "paid") && (
                             <p className="text-xs text-green-600 font-medium text-center">✅ 所有用户已付款确认，可进入待发货</p>
                           )}
                         </div>
@@ -1043,7 +1043,7 @@ export default function AdminShippingInfoPanel({
                     const perUserPayments = pool.per_user_payments || [];
                     const isMultiUser = perUserPayments.length > 0;
                     const allPaid = isMultiUser
-                      ? perUserPayments.every(p => p.payment_status === "paid")
+                      ? perUserPayments.length > 0 && perUserPayments.every(p => p.payment_status === "paid")
                       : pool.payment_status === "awaiting_confirmation" || pool.payment_status === "paid";
                     if (!allPaid) {
                       return (
@@ -1060,7 +1060,7 @@ export default function AdminShippingInfoPanel({
                       const perUserPayments = pool.per_user_payments || [];
                       const isMultiUser = perUserPayments.length > 0;
                       return isMultiUser
-                        ? !perUserPayments.every(p => p.payment_status === "paid")
+                        ? !(perUserPayments.length > 0 && perUserPayments.every(p => p.payment_status === "paid"))
                         : !(pool.payment_status === "awaiting_confirmation" || pool.payment_status === "paid");
                     })())}>
                     <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
