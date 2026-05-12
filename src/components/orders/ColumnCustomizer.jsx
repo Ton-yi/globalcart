@@ -8,6 +8,7 @@ import { useState } from "react";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { GripVertical, Eye, EyeOff, Settings2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 
 const IMAGE_WIDTHS = [40, 64, 96, 128];
 
@@ -28,6 +29,18 @@ export default function ColumnCustomizer({ columns, onChange }) {
 
   const setImageWidth = (key, width) => {
     onChange(columns.map(c => c.key === key ? { ...c, imageWidth: width } : c));
+  };
+
+  const toggleColOption = (key, option) => {
+    onChange(columns.map(c => {
+      if (c.key !== key) return c;
+      const newVal = !c[option];
+      // If enabling showActualOnly, also enable showActual
+      if (option === "showActualOnly" && newVal) return { ...c, [option]: newVal, showActual: true };
+      // If disabling showActual, also disable showActualOnly
+      if (option === "showActual" && !newVal) return { ...c, showActual: false, showActualOnly: false };
+      return { ...c, [option]: newVal };
+    }));
   };
 
   return (
@@ -84,6 +97,28 @@ export default function ColumnCustomizer({ columns, onChange }) {
                                   {w}
                                 </button>
                               ))}
+                            </div>
+                          )}
+                          {col.key === "prepayment_amount" && col.visible && (
+                            <div className="px-2 pb-1.5 ml-5 space-y-1.5">
+                              <label className="flex items-center justify-between gap-2 cursor-pointer">
+                                <span className="text-[11px] text-gray-500">显示实际支付金额</span>
+                                <Switch
+                                  checked={!!col.showActual}
+                                  onCheckedChange={() => toggleColOption(col.key, "showActual")}
+                                  className="scale-75 origin-right"
+                                />
+                              </label>
+                              {col.showActual && (
+                                <label className="flex items-center justify-between gap-2 cursor-pointer">
+                                  <span className="text-[11px] text-gray-500">仅显示实际支付金额</span>
+                                  <Switch
+                                    checked={!!col.showActualOnly}
+                                    onCheckedChange={() => toggleColOption(col.key, "showActualOnly")}
+                                    className="scale-75 origin-right"
+                                  />
+                                </label>
+                              )}
                             </div>
                           )}
                         </div>

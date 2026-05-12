@@ -50,7 +50,8 @@ function loadColumns() {
     const merged = [
       ...parsed.map(p => {
         const def = ALL_COLUMNS.find(c => c.key === p.key);
-        return def ? { ...def, visible: p.visible, ...(p.imageWidth ? { imageWidth: p.imageWidth } : {}) } : null;
+        if (!def) return null;
+        return { ...def, visible: p.visible, ...(p.imageWidth ? { imageWidth: p.imageWidth } : {}), ...(p.showActual !== undefined ? { showActual: p.showActual } : {}), ...(p.showActualOnly !== undefined ? { showActualOnly: p.showActualOnly } : {}) };
       }).filter(Boolean),
       ...ALL_COLUMNS.filter(c => !keyOrder.includes(c.key)).map(c => ({ ...c, visible: c.defaultVisible })),
     ];
@@ -110,8 +111,33 @@ function CellValue({ col, order, onQuickOrdered, userAvatars }) {
       );
     case "estimated_jpy":
       return <span className="text-sm text-gray-700">{order.estimated_jpy ? `${Math.round(order.estimated_jpy).toLocaleString()} yen` : "-"}</span>;
-    case "prepayment_amount":
-      return <span className="text-sm text-gray-700">{formatAmount(order.prepayment_amount, order.prepayment_currency)}</span>;
+    case "prepayment_amount": {
+      const amt = order.prepayment_amount;
+      const cur = order.prepayment_currency;
+      const isNonJpy = cur && cur !== "JPY" && amt > 0;
+      // showActualOnly: replace main display with actual currency
+      if (col.showActualOnly && isNonJpy) {
+        let actualDisplay;
+        if (cur === "CNY") actualDisplay = `${Math.round(amt)} 元`;
+        else actualDisplay = `${cur} ${amt.toFixed(2)}`;
+        return <span className="text-sm text-gray-700">{actualDisplay}</span>;
+      }
+      // Default: JPY display
+      const jpy = order.paid_amount || (cur === "JPY" ? amt : null);
+      const mainDisplay = jpy ? `${Math.round(jpy).toLocaleString()} yen` : formatAmount(amt, cur);
+      if (col.showActual && isNonJpy) {
+        let actualSub;
+        if (cur === "CNY") actualSub = `实付 ${Math.round(amt)} 元`;
+        else actualSub = `实付 ${cur} ${amt.toFixed(2)}`;
+        return (
+          <div className="flex flex-col gap-0.5">
+            <span className="text-sm text-gray-700">{mainDisplay}</span>
+            <span className="text-[11px] text-gray-400">{actualSub}</span>
+          </div>
+        );
+      }
+      return <span className="text-sm text-gray-700">{formatAmount(amt, cur)}</span>;
+    }
     case "weight_g":
       return <span className="text-sm text-gray-700">{order.weight_g ? `${order.weight_g}g` : "-"}</span>;
     case "order_status":
@@ -235,6 +261,8 @@ export default function AdminOrders() {
       key: c.key,
       visible: c.visible,
       ...(c.imageWidth ? { imageWidth: c.imageWidth } : {}),
+      ...(c.showActual !== undefined ? { showActual: c.showActual } : {}),
+      ...(c.showActualOnly !== undefined ? { showActualOnly: c.showActualOnly } : {}),
     }))));
   };
 

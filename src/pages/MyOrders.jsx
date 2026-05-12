@@ -53,7 +53,8 @@ function loadColumns() {
     return [
       ...parsed.map(p => {
         const def = ALL_COLUMNS.find(c => c.key === p.key);
-        return def ? { ...def, visible: p.visible, ...(p.imageWidth ? { imageWidth: p.imageWidth } : {}) } : null;
+        if (!def) return null;
+        return { ...def, visible: p.visible, ...(p.imageWidth ? { imageWidth: p.imageWidth } : {}), ...(p.showActual !== undefined ? { showActual: p.showActual } : {}), ...(p.showActualOnly !== undefined ? { showActualOnly: p.showActualOnly } : {}) };
       }).filter(Boolean),
       ...ALL_COLUMNS.filter(c => !keyOrder.includes(c.key)).map(c => ({ ...c, visible: c.defaultVisible })),
     ];
@@ -96,13 +97,38 @@ function CellValue({ col, order }) {
     case "prepayment_amount": {
       const val = order.prepayment_amount;
       const cur = order.prepayment_currency;
-      let display = "-";
-      if (val > 0) {
-        if (cur === "JPY") display = `${Math.round(val).toLocaleString()} yen`;
-        else if (cur === "CNY") display = `${Math.round(val)} yuan`;
-        else display = `${cur} ${val.toFixed(2)}`;
+      const isNonJpy = cur && cur !== "JPY" && val > 0;
+
+      const formatActual = () => {
+        if (!val || val <= 0) return null;
+        if (cur === "CNY") return `${Math.round(val)} 元`;
+        if (cur === "JPY") return null;
+        return `${cur} ${val.toFixed(2)}`;
+      };
+
+      const formatJpy = () => {
+        const jpy = order.paid_amount || (cur === "JPY" ? val : null);
+        if (jpy && jpy > 0) return `${Math.round(jpy).toLocaleString()} yen`;
+        if (!val || val <= 0) return "-";
+        if (cur === "JPY") return `${Math.round(val).toLocaleString()} yen`;
+        if (cur === "CNY") return `${Math.round(val)} yuan`;
+        return `${cur} ${val.toFixed(2)}`;
+      };
+
+      if (col.showActualOnly && isNonJpy) {
+        return <span className="text-sm text-gray-700">{formatActual()}</span>;
       }
-      return <span className="text-sm text-gray-700">{display}</span>;
+      const mainStr = formatJpy();
+      const actualStr = formatActual();
+      if (col.showActual && isNonJpy && actualStr) {
+        return (
+          <div className="flex flex-col gap-0.5">
+            <span className="text-sm text-gray-700">{mainStr}</span>
+            <span className="text-[11px] text-gray-400">实付 {actualStr}</span>
+          </div>
+        );
+      }
+      return <span className="text-sm text-gray-700">{mainStr}</span>;
     }
     case "weight_g":
       return <span className="text-sm text-gray-700">{order.weight_g ? `${order.weight_g}g` : "-"}</span>;
@@ -268,6 +294,8 @@ export default function MyOrders() {
       key: c.key,
       visible: c.visible,
       ...(c.imageWidth ? { imageWidth: c.imageWidth } : {}),
+      ...(c.showActual !== undefined ? { showActual: c.showActual } : {}),
+      ...(c.showActualOnly !== undefined ? { showActualOnly: c.showActualOnly } : {}),
     }))));
   };
 
