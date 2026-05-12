@@ -792,6 +792,37 @@ export default function AdminSettings() {
                     </div>
                   );
                 })()}
+                {/* Allow ready_to_ship without payment */}
+                {(() => {
+                  const allSettings = Object.values(grouped).flat();
+                  const s = allSettings.find(s => s.key === 'allow_ready_to_ship_without_payment');
+                  const enabled = s?.value === 'true';
+                  return (
+                    <div className="flex items-center justify-between pb-1 border-b border-gray-100">
+                      <div>
+                        <Label className="text-sm">允许未付款时进入待发货状态</Label>
+                        <p className="text-xs text-gray-400 mt-0.5">开启后，管理员可在用户未付款或未全员付款的情况下，直接将发货申请进入待发货状态</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const newVal = enabled ? 'false' : 'true';
+                          if (s) {
+                            updateSetting(s.id, 'value', newVal);
+                            await tenantEntity.update('SiteSettings', s.id, { value: newVal });
+                          } else {
+                            await tenantEntity.create('SiteSettings', { key: 'allow_ready_to_ship_without_payment', value: newVal, category: 'shipping', description: '允许未付款时进入待发货状态' });
+                            await load();
+                          }
+                        }}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${enabled ? 'bg-blue-600' : 'bg-gray-200'}`}
+                      >
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                      </button>
+                    </div>
+                  );
+                })()}
+
                 {/* Allow user pool edit instantly toggle */}
                 {(() => {
                   const s = grouped.fee?.find(s => s.key === 'allow_user_pool_edit_instant') ||

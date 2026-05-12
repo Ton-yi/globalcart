@@ -38,7 +38,7 @@ const METHOD_LABELS = {
   surface: "海运", small_packet_air: "小包空运", other: "其他"
 };
 
-export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, currentUser, pendingEditRequests: initialPendingEdits = [], boxTemplates = [], shippingMethods = [], defaultPackingFeeSingle = 0, defaultPackingFeeConsolidation = 0, transitLocations = [], transitShippingMethods = [], availableAddons = [], allowUserRewarehouse = false, onClose, onUpdated }) {
+export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, currentUser, pendingEditRequests: initialPendingEdits = [], boxTemplates = [], shippingMethods = [], defaultPackingFeeSingle = 0, defaultPackingFeeConsolidation = 0, allowReadyToShipWithoutPayment = false, transitLocations = [], transitShippingMethods = [], availableAddons = [], allowUserRewarehouse = false, onClose, onUpdated }) {
   const [pool, setPool] = useState(initialPool);
   const [orders, setOrders] = useState([]);
   const [messageText, setMessageText] = useState("");
@@ -1370,6 +1370,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
             shippingMethods={shippingMethods}
             defaultPackingFeeSingle={defaultPackingFeeSingle}
             defaultPackingFeeConsolidation={defaultPackingFeeConsolidation}
+            allowReadyToShipWithoutPayment={allowReadyToShipWithoutPayment}
             transitLocations={transitLocations}
             transitShippingMethods={transitShippingMethods}
             userProfileMap={tenantUserMap}

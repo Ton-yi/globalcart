@@ -63,6 +63,7 @@ export default function AdminShippingPool() {
   const [shippingMethods, setShippingMethods] = useState([]);
   const [defaultPackingFeeSingle, setDefaultPackingFeeSingle] = useState(0);
   const [defaultPackingFeeConsolidation, setDefaultPackingFeeConsolidation] = useState(0);
+  const [allowReadyToShipWithoutPayment, setAllowReadyToShipWithoutPayment] = useState(false);
   const [allOrders, setAllOrders] = useState([]);
 
   const fetchPageData = async () => {
@@ -80,6 +81,7 @@ export default function AdminShippingPool() {
     setShippingMethods(data.shippingMethods || []);
     setDefaultPackingFeeSingle(data.defaultPackingFeeSingle || 0);
     setDefaultPackingFeeConsolidation(data.defaultPackingFeeConsolidation || 0);
+    setAllowReadyToShipWithoutPayment(data.allowReadyToShipWithoutPayment || false);
     setAllOrders(data.orders || []);
     setLoading(false);
     t.done('data ready');
@@ -564,6 +566,7 @@ export default function AdminShippingPool() {
           shippingMethods={shippingMethods}
           defaultPackingFeeSingle={defaultPackingFeeSingle}
           defaultPackingFeeConsolidation={defaultPackingFeeConsolidation}
+          allowReadyToShipWithoutPayment={allowReadyToShipWithoutPayment}
           transitLocations={locations}
           transitShippingMethods={transitMethods}
           onClose={() => setSelectedPool(null)}

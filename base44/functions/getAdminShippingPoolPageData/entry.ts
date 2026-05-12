@@ -119,6 +119,7 @@ Deno.serve(async (req) => {
     (siteSettings || []).forEach(s => { settingsMap[s.key] = s.value; });
     const defaultPackingFeeSingle = parseFloat(settingsMap['default_packing_fee_single'] || '0') || 0;
     const defaultPackingFeeConsolidation = parseFloat(settingsMap['default_packing_fee_consolidation'] || '0') || 0;
+    const allowReadyToShipWithoutPayment = settingsMap['allow_ready_to_ship_without_payment'] === 'true';
 
     // Apply saved official pool order if present
     const officialPoolOrderSetting = (siteSettings || []).find(s => s.key === 'official_pool_order');
@@ -147,6 +148,7 @@ Deno.serve(async (req) => {
       shippingMethods: (shippingMethods || []).filter(m => m.is_active !== false),
       defaultPackingFeeSingle,
       defaultPackingFeeConsolidation,
+      allowReadyToShipWithoutPayment,
       orders: orders || [],
     });
 

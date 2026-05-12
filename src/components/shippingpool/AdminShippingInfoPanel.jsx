@@ -84,6 +84,7 @@ export default function AdminShippingInfoPanel({
   shippingMethods = [],
   defaultPackingFeeSingle = 0,
   defaultPackingFeeConsolidation = 0,
+  allowReadyToShipWithoutPayment = false,
   transitLocations = [],
   transitShippingMethods = [],
   userProfileMap = {},
@@ -1038,8 +1039,30 @@ export default function AdminShippingInfoPanel({
                       </p>
                     );
                   })()}
+                  {!allowReadyToShipWithoutPayment && (() => {
+                    const perUserPayments = pool.per_user_payments || [];
+                    const isMultiUser = perUserPayments.length > 0;
+                    const allPaid = isMultiUser
+                      ? perUserPayments.every(p => p.payment_status === "paid")
+                      : pool.payment_status === "awaiting_confirmation" || pool.payment_status === "paid";
+                    if (!allPaid) {
+                      return (
+                        <p className="text-xs text-orange-600 bg-orange-50 border border-orange-100 rounded px-2 py-1.5">
+                          ⚠️ 当前设置要求全员付款后才可进入待发货。如需跳过，请在设置中开启「允许未付款时进入待发货」。
+                        </p>
+                      );
+                    }
+                    return null;
+                  })()}
                   <Button size="sm" className="bg-green-600 hover:bg-green-700 w-full"
-                    onClick={handleConfirmPayment} disabled={confirmingSaving}>
+                    onClick={handleConfirmPayment}
+                    disabled={confirmingSaving || (!allowReadyToShipWithoutPayment && (() => {
+                      const perUserPayments = pool.per_user_payments || [];
+                      const isMultiUser = perUserPayments.length > 0;
+                      return isMultiUser
+                        ? !perUserPayments.every(p => p.payment_status === "paid")
+                        : !(pool.payment_status === "awaiting_confirmation" || pool.payment_status === "paid");
+                    })())}>
                     <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
                     {confirmingSaving ? "确认中..." : "全部确认收款，进入待发货"}
                   </Button>
