@@ -486,6 +486,28 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
                 {pool.transit_location_name &&
                 <p className="text-xs text-blue-600 mt-0.5">→ {pool.transit_location_name}</p>
                 }
+                {/* Consolidation progress bar */}
+                {pool.consolidation_min_weight_g > 0 && (() => {
+                  const minWeight = pool.consolidation_min_weight_g;
+                  const curWeight = pool.total_weight_g || 0;
+                  const pct = Math.min(100, (curWeight / minWeight) * 100);
+                  const isReady = curWeight >= minWeight;
+                  return (
+                    <div className="mt-2 space-y-0.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-gray-400">凑单进度</span>
+                        <span className={isReady ? "text-green-600 font-medium" : "text-gray-500"}>{curWeight}g / {minWeight}g</span>
+                      </div>
+                      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full transition-all ${isReady ? "bg-green-500" : "bg-blue-400"}`} style={{ width: `${pct}%` }} />
+                      </div>
+                      {isReady
+                        ? <p className="text-xs text-green-600 font-medium">✓ 已达到发货重量</p>
+                        : <p className="text-xs text-gray-400">还差 {minWeight - curWeight}g</p>
+                      }
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Order cards */}
