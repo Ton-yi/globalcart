@@ -50,16 +50,28 @@
     },
     "prepayment_amount": {
       "type": "number",
-      "description": "\u9884\u4ed8\u6b3e\u91d1\u989d\uff08\u7528\u6237\u8d27\u5e01\uff09"
+      "description": "\u9884\u4ed8\u6b3e\u91d1\u989d\uff08\u4ee5prepayment_currency\u4e3a\u5355\u4f4d\uff1b\u652f\u4ed8\u5b9d\u4ed8\u6b3e\u540e\u66f4\u65b0\u4e3a\u5b9e\u9645\u652f\u4ed8CNY\u91d1\u989d\uff09"
     },
     "prepayment_currency": {
       "type": "string",
-      "description": "\u9884\u4ed8\u6b3e\u8d27\u5e01",
-      "default": "CNY"
+      "description": "\u9884\u4ed8\u6b3e\u8d27\u5e01\uff08\u63d0\u4ea4\u65f6\u4e3aJPY\uff1b\u652f\u4ed8\u5b9d\u56de\u8c03\u786e\u8ba4\u540e\u66f4\u65b0\u4e3a\u5b9e\u9645\u652f\u4ed8\u8d27\u5e01\u5982CNY\uff09",
+      "default": "JPY"
+    },
+    "prepayment_amount_jpy": {
+      "type": "number",
+      "description": "\u9884\u4ed8\u6b3e\u539f\u59cbJPY\u91d1\u989d\uff08\u521b\u5efa\u65f6\u8bb0\u5f55\uff0c\u4e0d\u968f\u6c47\u7387\u66f4\u65b0\uff09"
+    },
+    "prepayment_amount_cny": {
+      "type": "number",
+      "description": "\u652f\u4ed8\u5b9d\u751f\u6210\u94fe\u63a5\u65f6\u6362\u7b97\u7684CNY\u91d1\u989d\uff08\u5f85\u652f\u4ed8\u72b6\u6001\u4e0b\u7684\u9884\u671f\u652f\u4ed8\u91d1\u989d\uff09"
+    },
+    "prepayment_rate_jpy_cny": {
+      "type": "number",
+      "description": "\u751f\u6210\u652f\u4ed8\u5b9d\u94fe\u63a5\u65f6\u4f7f\u7528\u7684JPY\u2192CNY\u6c47\u7387"
     },
     "paid_amount": {
       "type": "number",
-      "description": "\u5b9e\u9645\u5df2\u4ed8\u91d1\u989d"
+      "description": "\u5b9e\u9645\u5df2\u4ed8\u91d1\u989d\uff08JPY\u8ba1\uff09"
     },
     "balance_credit": {
       "type": "number",

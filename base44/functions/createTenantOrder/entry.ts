@@ -39,9 +39,12 @@ Deno.serve(async (req) => {
     }
 
     // Create order with tenant_id
+    // Also snapshot the original JPY prepayment amount for reference
     const orderData = {
       ...body,
-      tenant_id: assignedTenantId
+      tenant_id: assignedTenantId,
+      // Always store the original JPY amount separately for display/accounting
+      ...(body.prepayment_amount ? { prepayment_amount_jpy: parseFloat(body.prepayment_amount) } : {}),
     };
 
     const order = await base44.asServiceRole.entities.Order.create(orderData);

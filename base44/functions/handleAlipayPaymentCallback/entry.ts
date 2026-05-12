@@ -199,6 +199,9 @@ Deno.serve(async (req) => {
     }
 
     // 5. Update all matching orders
+    // total_amount from Alipay callback is the actual CNY amount paid
+    const actualCnyPaid = total_amount ? parseFloat(total_amount) : null;
+
     await Promise.all(pendingOrders.map(order => {
       const isShippingPayment = order.shipping_alipay_trade_no === out_trade_no;
       let updates;
@@ -210,12 +213,20 @@ Deno.serve(async (req) => {
           payment_method: 'alipay',
         };
       } else {
+        // Record actual CNY paid amount; preserve original JPY amount in paid_amount_jpy
+        const cnyAmount = order.prepayment_amount_cny || actualCnyPaid;
+        const originalJpy = order.prepayment_amount || 0;
         updates = {
           payment_status: 'paid',
           order_status: 'pending_purchase',
-          paid_amount: (order.prepayment_amount || 0),
+          paid_amount: originalJpy, // keep JPY amount for internal accounting
           alipay_transaction_id: trade_no,
           payment_method: 'alipay',
+          // Overwrite prepayment_amount/currency to reflect what was actually paid in CNY
+          ...(cnyAmount ? {
+            prepayment_amount: cnyAmount,
+            prepayment_currency: 'CNY',
+          } : {}),
         };
       }
       console.log(`[DIAG][handleAlipayPaymentCallback] updating order ${order.id}: status ${order.order_status} → ${updates.order_status}, payment ${order.payment_status} → ${updates.payment_status}`);

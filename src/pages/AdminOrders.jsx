@@ -113,22 +113,23 @@ function CellValue({ col, order, onQuickOrdered, userAvatars }) {
       return <span className="text-sm text-gray-700">{order.estimated_jpy ? `${Math.round(order.estimated_jpy).toLocaleString()} yen` : "-"}</span>;
     case "prepayment_amount": {
       const amt = order.prepayment_amount;
-      const cur = order.prepayment_currency;
+      const cur = order.prepayment_currency || "JPY";
+      // prepayment_amount_jpy: original JPY amount (always preserved)
+      const jpyAmt = order.prepayment_amount_jpy || (cur === "JPY" ? amt : null) || order.paid_amount || null;
       const isNonJpy = cur && cur !== "JPY" && amt > 0;
-      // showActualOnly: replace main display with actual currency
+
+      const mainDisplay = jpyAmt
+        ? `${Math.round(jpyAmt).toLocaleString()} yen`
+        : formatAmount(amt, cur);
+
+      // showActualOnly: only show actual paid currency (CNY etc.)
       if (col.showActualOnly && isNonJpy) {
-        let actualDisplay;
-        if (cur === "CNY") actualDisplay = `${Math.round(amt)} 元`;
-        else actualDisplay = `${cur} ${amt.toFixed(2)}`;
+        const actualDisplay = cur === "CNY" ? `${Math.round(amt)} 元` : `${cur} ${Number(amt).toFixed(2)}`;
         return <span className="text-sm text-gray-700">{actualDisplay}</span>;
       }
-      // Default: JPY display
-      const jpy = order.paid_amount || (cur === "JPY" ? amt : null);
-      const mainDisplay = jpy ? `${Math.round(jpy).toLocaleString()} yen` : formatAmount(amt, cur);
+      // showActual: show JPY main + actual currency sub
       if (col.showActual && isNonJpy) {
-        let actualSub;
-        if (cur === "CNY") actualSub = `实付 ${Math.round(amt)} 元`;
-        else actualSub = `实付 ${cur} ${amt.toFixed(2)}`;
+        const actualSub = cur === "CNY" ? `实付 ${Math.round(amt)} 元` : `实付 ${cur} ${Number(amt).toFixed(2)}`;
         return (
           <div className="flex flex-col gap-0.5">
             <span className="text-sm text-gray-700">{mainDisplay}</span>
@@ -136,7 +137,7 @@ function CellValue({ col, order, onQuickOrdered, userAvatars }) {
           </div>
         );
       }
-      return <span className="text-sm text-gray-700">{formatAmount(amt, cur)}</span>;
+      return <span className="text-sm text-gray-700">{mainDisplay}</span>;
     }
     case "weight_g":
       return <span className="text-sm text-gray-700">{order.weight_g ? `${order.weight_g}g` : "-"}</span>;

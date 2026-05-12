@@ -96,30 +96,24 @@ function CellValue({ col, order }) {
       );
     case "prepayment_amount": {
       const val = order.prepayment_amount;
-      const cur = order.prepayment_currency;
+      const cur = order.prepayment_currency || "JPY";
+      const jpyAmt = order.prepayment_amount_jpy || (cur === "JPY" ? val : null) || order.paid_amount || null;
       const isNonJpy = cur && cur !== "JPY" && val > 0;
 
-      const formatActual = () => {
-        if (!val || val <= 0) return null;
-        if (cur === "CNY") return `${Math.round(val)} 元`;
-        if (cur === "JPY") return null;
-        return `${cur} ${val.toFixed(2)}`;
-      };
+      const mainStr = jpyAmt && jpyAmt > 0
+        ? `${Math.round(jpyAmt).toLocaleString()} yen`
+        : (!val || val <= 0) ? "-"
+        : cur === "JPY" ? `${Math.round(val).toLocaleString()} yen`
+        : cur === "CNY" ? `${Math.round(val)} yuan`
+        : `${cur} ${Number(val).toFixed(2)}`;
 
-      const formatJpy = () => {
-        const jpy = order.paid_amount || (cur === "JPY" ? val : null);
-        if (jpy && jpy > 0) return `${Math.round(jpy).toLocaleString()} yen`;
-        if (!val || val <= 0) return "-";
-        if (cur === "JPY") return `${Math.round(val).toLocaleString()} yen`;
-        if (cur === "CNY") return `${Math.round(val)} yuan`;
-        return `${cur} ${val.toFixed(2)}`;
-      };
+      const actualStr = isNonJpy
+        ? (cur === "CNY" ? `${Math.round(val)} 元` : `${cur} ${Number(val).toFixed(2)}`)
+        : null;
 
-      if (col.showActualOnly && isNonJpy) {
-        return <span className="text-sm text-gray-700">{formatActual()}</span>;
+      if (col.showActualOnly && isNonJpy && actualStr) {
+        return <span className="text-sm text-gray-700">{actualStr}</span>;
       }
-      const mainStr = formatJpy();
-      const actualStr = formatActual();
       if (col.showActual && isNonJpy && actualStr) {
         return (
           <div className="flex flex-col gap-0.5">

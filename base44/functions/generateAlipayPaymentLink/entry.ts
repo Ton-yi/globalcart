@@ -209,15 +209,29 @@ Deno.serve(async (req) => {
       .join('&');
     const paymentUrl = `${gatewayUrl}?${query}`;
 
-    // Update all orders: store out_trade_no and set awaiting_payment
+    // Update all orders: store out_trade_no, set awaiting_payment, and record the actual CNY amount + rate
     console.log('[DIAG][generateAlipayPaymentLink] updating orders with out_trade_no:', out_trade_no);
-    await Promise.all(orderIds.map(id =>
-      base44.asServiceRole.entities.Order.update(id, {
+    await Promise.all(orders.map((order, idx) => {
+      const id = orderIds[idx];
+      // Calculate per-order CNY amount (proportional to prepayment_amount)
+      let perOrderCny = null;
+      if (orders.length === 1) {
+        perOrderCny = parseFloat(total_amount_cny);
+      } else if (order && order.prepayment_amount > 0) {
+        const orderShare = order.prepayment_amount / orders.reduce((s, o) => s + (o?.prepayment_amount || 0), 0);
+        perOrderCny = parseFloat((parseFloat(total_amount_cny) * orderShare).toFixed(2));
+      }
+      return base44.asServiceRole.entities.Order.update(id, {
         alipay_trade_no: out_trade_no,
         payment_status: 'awaiting_payment',
         order_status: 'payment_pending',
-      })
-    ));
+        // Record the pending CNY amount so callback can confirm it
+        ...(perOrderCny !== null ? {
+          prepayment_amount_cny: perOrderCny,
+          prepayment_rate_jpy_cny: jpy_cny_rate,
+        } : {}),
+      });
+    }));
     console.log('[DIAG][generateAlipayPaymentLink] orders updated successfully');
 
     return Response.json({ paymentUrl, out_trade_no });
