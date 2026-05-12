@@ -831,20 +831,12 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                               )}
                               {/* User can edit/move their own orders */}
                               {!isAdmin && o.user_email === currentUser?.email && pool.status !== "shipped" && pool.status !== "delivered" && pool.status !== "awaiting_payment" && pool.status !== "awaiting_payment_confirmation" && pool.status !== "ready_to_ship" &&
-                          <div className="flex items-center gap-1">
-                                  <button
-                                    onClick={() => setEditingOrder(o)}
-                                    className="flex-shrink-0 p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600 transition-colors"
-                                    title="编辑发货参数">
-                                    <Edit2 className="w-3.5 h-3.5" />
-                                  </button>
-                                  <button
+                          <button
                                     onClick={() => openUserAction(o, userActionOrder?.id === o.id && userActionMode ? null : 'menu')}
                                     className="flex-shrink-0 p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600 transition-colors"
                                     title="移动/取消出货">
                                     <MoreVertical className="w-3.5 h-3.5" />
                                   </button>
-                                </div>
                           }
                             </div>
                           </div>
