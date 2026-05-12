@@ -746,18 +746,6 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                   <div key={o.id} className={`rounded-lg border transition-colors ${isEditingThis ? "border-blue-200 bg-blue-50" : isRWSel ? "border-orange-300 bg-orange-50" : "border-transparent bg-gray-50"}`}>
                     {isEditingThis ?
                   <div className="px-3 py-2.5 space-y-2">
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <Label className="text-xs text-gray-500">订单名称</Label>
-                            <Input className="h-7 text-xs mt-0.5" value={editingOrderData.product_name}
-                        onChange={(e) => setEditingOrderData((d) => ({ ...d, product_name: e.target.value }))} />
-                          </div>
-                          <div>
-                            <Label className="text-xs text-gray-500">重量 (g)</Label>
-                            <Input className="h-7 text-xs mt-0.5" type="number" value={editingOrderData.weight_g}
-                        onChange={(e) => setEditingOrderData((d) => ({ ...d, weight_g: e.target.value }))} />
-                          </div>
-                        </div>
                         <div>
                           <Label className="text-xs text-gray-500">管理员备注</Label>
                           <Input className="h-7 text-xs mt-0.5" value={editingOrderData.admin_note || ""}
