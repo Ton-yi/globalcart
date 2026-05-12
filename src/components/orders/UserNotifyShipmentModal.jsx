@@ -330,10 +330,10 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
 
   const handleSubmit = async () => {
     if (!method && !isJoiningPool) return;
-    if (consType === "transit" && !selectedTransitId) return;
-    if (consType === "transit" && !finalAddressId && !addressInputMode["final"]) return;
-    if (consType === "" && !selectedAddress && !addressInputMode["direct"]) return;
-    if (consType === "other" && !selectedAddress && !addressInputMode["other"]) return;
+    if (!isJoiningPool && consType === "transit" && !selectedTransitId) return;
+    if (!isJoiningPool && consType === "transit" && !finalAddressId && !addressInputMode["final"]) return;
+    if (!isJoiningPool && consType === "" && !selectedAddress && !addressInputMode["direct"]) return;
+    if (!isJoiningPool && consType === "other" && !selectedAddress && !addressInputMode["other"]) return;
     if (joinExistingPool && !selectedPoolId) return;
     setSubmitting(true);
 
@@ -864,10 +864,10 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
             onClick={handleSubmit}
             disabled={
               (!method && !joinDirectPool && !isJoiningPool) || submitting ||
-              (consType === "transit" && !selectedTransitId) ||
-              (consType === "transit" && !finalAddressId && !addressInputMode["final"]) ||
-              (consType === "" && !selectedAddress && !addressInputMode["direct"]) ||
-              (consType === "other" && !selectedAddress && !addressInputMode["other"]) ||
+              (!isJoiningPool && consType === "transit" && !selectedTransitId) ||
+              (!isJoiningPool && consType === "transit" && !finalAddressId && !addressInputMode["final"]) ||
+              (!isJoiningPool && consType === "" && !selectedAddress && !addressInputMode["direct"]) ||
+              (!isJoiningPool && consType === "other" && !selectedAddress && !addressInputMode["other"]) ||
               (joinExistingPool && !selectedPoolId) ||
               (joinDirectPool && !selectedDirectPoolId)
             }
