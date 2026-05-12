@@ -339,6 +339,8 @@ export default function ShippingPool() {
   const userConsPools = pools.filter(p => {
     if (!p.consolidation_type || p.consolidation_type === "") return false;
     if (p.is_admin_created) return false;
+    // Private pools: only visible to owner, admins, and explicitly shared users
+    if (!isAdmin && p.is_private && p.creator_email !== user?.email && !(p.shared_with_emails || []).includes(user?.email)) return false;
     if (!showArchivedPools && p.is_archived) return false;
     if (showArchivedPools && !p.is_archived) return false;
     return statusFilter === "all" || p.status === statusFilter;
@@ -957,6 +959,7 @@ export default function ShippingPool() {
                       </div>
                     </div>
 
+                    {/* Progress bar — always shown when minWeight is set, using pool-level fields (visible to all users) */}
                     {minWeight > 0 && (
                       <div className="px-4 py-2.5 border-b bg-white">
                         <div className="flex justify-between text-xs mb-1.5">
@@ -971,39 +974,49 @@ export default function ShippingPool() {
                     )}
 
                     <div className="divide-y divide-gray-50">
-                      {poolOrders.length > 0 ? (
-                        <>
-                          {poolOrders.slice(0, 3).map(o => (
-                            <div key={o.id} className="px-4 py-2 flex items-center justify-between gap-2">
-                              <div className="min-w-0 flex-1">
-                                <p className="text-sm text-gray-800 truncate">{o.product_name}</p>
-                                <p className="text-xs text-gray-400">{o.order_number} · {o.weight_g || 100}g</p>
-                              </div>
-                              {o.consolidation_deadline && (
-                                <span className="text-xs text-orange-500 flex-shrink-0">截止 {o.consolidation_deadline}</span>
+                      {/* Always show order names from pool record — visible to all permitted users */}
+                      {(() => {
+                        // Prefer detailed order info if current user has orders in this pool
+                        const displayOrders = poolOrders.length > 0 ? poolOrders : null;
+                        const displayNames = pool.order_names || [];
+                        const totalCount = pool.order_ids?.length || 0;
+                        if (displayOrders) {
+                          return (
+                            <>
+                              {displayOrders.slice(0, 3).map(o => (
+                                <div key={o.id} className="px-4 py-2 flex items-center justify-between gap-2">
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-sm text-gray-800 truncate">{o.product_name}</p>
+                                    <p className="text-xs text-gray-400">{o.order_number} · {o.weight_g || 100}g</p>
+                                  </div>
+                                  {o.consolidation_deadline && (
+                                    <span className="text-xs text-orange-500 flex-shrink-0">截止 {o.consolidation_deadline}</span>
+                                  )}
+                                </div>
+                              ))}
+                              {displayOrders.length > 3 && (
+                                <div className="px-4 py-2 text-xs text-gray-400 text-center">还有 {displayOrders.length - 3} 件...</div>
                               )}
-                            </div>
-                          ))}
-                          {poolOrders.length > 3 && (
-                            <div className="px-4 py-2 text-xs text-gray-400 text-center">还有 {poolOrders.length - 3} 件...</div>
-                          )}
-                        </>
-                      ) : (
-                        // Fallback: use pool-level order_names when current user has no orders in this pool
-                        <>
-                          {(pool.order_names || []).slice(0, 3).map((name, i) => (
-                            <div key={i} className="px-4 py-2">
-                              <p className="text-sm text-gray-800 truncate">{name}</p>
-                            </div>
-                          ))}
-                          {(pool.order_names || []).length > 3 && (
-                            <div className="px-4 py-2 text-xs text-gray-400 text-center">还有 {(pool.order_names || []).length - 3} 件...</div>
-                          )}
-                          {(pool.order_names || []).length === 0 && (
-                            <div className="px-4 py-2 text-xs text-gray-400">{(pool.order_ids || []).length} 件包裹</div>
-                          )}
-                        </>
-                      )}
+                            </>
+                          );
+                        }
+                        // Fallback to pool-level order_names (available to all who can see the pool)
+                        return (
+                          <>
+                            {displayNames.slice(0, 3).map((name, i) => (
+                              <div key={i} className="px-4 py-2">
+                                <p className="text-sm text-gray-800 truncate">{name}</p>
+                              </div>
+                            ))}
+                            {displayNames.length > 3 && (
+                              <div className="px-4 py-2 text-xs text-gray-400 text-center">还有 {displayNames.length - 3} 件...</div>
+                            )}
+                            {displayNames.length === 0 && (
+                              <div className="px-4 py-2 text-xs text-gray-400">{totalCount} 件包裹</div>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
                 );
