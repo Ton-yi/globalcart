@@ -316,6 +316,31 @@ export default function AdminOrders() {
     fetchOrders();
   };
 
+  // Bulk quick actions: compute shared status of selected orders
+  const selectedOrders = orders.filter(o => selectedIds.includes(o.id));
+  const uniqueSelectedStatuses = [...new Set(selectedOrders.map(o => o.order_status))];
+  const sharedStatus = uniqueSelectedStatuses.length === 1 ? uniqueSelectedStatuses[0] : null;
+
+  const handleBulkQuickOrdered = async () => {
+    setBulkUpdating(true);
+    await Promise.all(selectedIds.map(id =>
+      base44.functions.invoke('updateTenantOrder', { order_id: id, order_status: "purchased", purchased_date: new Date().toISOString().split("T")[0] })
+    ));
+    setBulkUpdating(false);
+    setSelectedIds([]);
+    fetchOrders();
+  };
+
+  const handleBulkInWarehouse = async () => {
+    setBulkUpdating(true);
+    await Promise.all(selectedIds.map(id =>
+      base44.functions.invoke('updateTenantOrder', { order_id: id, order_status: "in_warehouse", in_warehouse_date: new Date().toISOString().split("T")[0] })
+    ));
+    setBulkUpdating(false);
+    setSelectedIds([]);
+    fetchOrders();
+  };
+
   const handleStatusClick = (order) => {
     // Quick link jump for simple pending_purchase orders
     if (order.order_status === "pending_purchase") {
@@ -407,8 +432,70 @@ export default function AdminOrders() {
 
       {/* Bulk actions */}
       {selectedIds.length > 0 && (
-        <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
-          <span className="text-sm text-blue-700 font-medium">已选 {selectedIds.length} 条</span>
+        <div className="flex flex-wrap items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+          <span className="text-sm text-blue-700 font-medium shrink-0">已选 {selectedIds.length} 条</span>
+
+          {/* Context-aware quick actions when all selected share the same status */}
+          {sharedStatus && (
+            <div className="flex items-center gap-1.5 border-r border-blue-200 pr-2 mr-1">
+              <span className="text-xs text-blue-500 shrink-0">快捷操作：</span>
+              {(sharedStatus === "paid" || sharedStatus === "pending_purchase") && (
+                <Button size="sm" className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700"
+                  onClick={handleBulkQuickOrdered} disabled={bulkUpdating}>
+                  {bulkUpdating ? "处理中..." : `一键标记已下单（${selectedIds.length} 条）`}
+                </Button>
+              )}
+              {sharedStatus === "purchased" && (
+                <Button size="sm" className="h-7 text-xs bg-teal-600 hover:bg-teal-700"
+                  onClick={handleBulkInWarehouse} disabled={bulkUpdating}>
+                  {bulkUpdating ? "处理中..." : `一键入库（${selectedIds.length} 条）`}
+                </Button>
+              )}
+              {sharedStatus === "in_warehouse" && (
+                <Button size="sm" className="h-7 text-xs bg-orange-600 hover:bg-orange-700"
+                  onClick={async () => {
+                    setBulkUpdating(true);
+                    await Promise.all(selectedIds.map(id =>
+                      base44.functions.invoke('updateTenantOrder', { order_id: id, order_status: "ready_to_ship" })
+                    ));
+                    setBulkUpdating(false);
+                    setSelectedIds([]);
+                    fetchOrders();
+                  }} disabled={bulkUpdating}>
+                  {bulkUpdating ? "处理中..." : `一键待发货（${selectedIds.length} 条）`}
+                </Button>
+              )}
+              {sharedStatus === "ready_to_ship" && (
+                <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700"
+                  onClick={async () => {
+                    setBulkUpdating(true);
+                    await Promise.all(selectedIds.map(id =>
+                      base44.functions.invoke('updateTenantOrder', { order_id: id, order_status: "shipped", shipped_date: new Date().toISOString().split("T")[0] })
+                    ));
+                    setBulkUpdating(false);
+                    setSelectedIds([]);
+                    fetchOrders();
+                  }} disabled={bulkUpdating}>
+                  {bulkUpdating ? "处理中..." : `一键发货（${selectedIds.length} 条）`}
+                </Button>
+              )}
+              {sharedStatus === "shipped" && (
+                <Button size="sm" className="h-7 text-xs bg-green-700 hover:bg-green-800"
+                  onClick={async () => {
+                    setBulkUpdating(true);
+                    await Promise.all(selectedIds.map(id =>
+                      base44.functions.invoke('updateTenantOrder', { order_id: id, order_status: "delivered" })
+                    ));
+                    setBulkUpdating(false);
+                    setSelectedIds([]);
+                    fetchOrders();
+                  }} disabled={bulkUpdating}>
+                  {bulkUpdating ? "处理中..." : `一键签收（${selectedIds.length} 条）`}
+                </Button>
+              )}
+            </div>
+          )}
+
           <Select value={bulkStatus} onValueChange={setBulkStatus}>
             <SelectTrigger className="h-7 text-xs w-40">
               <SelectValue placeholder="批量设置状态" />
