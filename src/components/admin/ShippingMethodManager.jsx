@@ -435,57 +435,54 @@ function MethodCard({ method, onSave, onDelete }) {
 }
 
 export default function ShippingMethodManager({ initialData = null }) {
-  const [methods, setMethods] = useState(initialData || []);
-  const [loading, setLoading] = useState(initialData === null);
+  const [methods, setMethods] = useState(null); // null = not yet initialized
+  const [loading, setLoading] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [newForm, setNewForm] = useState({ name: "", code: "", color: "#6B7280", transit_days: "", description: "", is_active: true, rate_mode: "simple", simple_rates: [], detailed_rates: [] });
+  const [seeding, setSeeding] = useState(false);
 
-  const load = async () => {
-    setLoading(true);
-    let data = await tenantEntity.list('ShippingMethod');
-    if (data.length === 0) {
-      await Promise.all(DEFAULT_METHODS.map(m => tenantEntity.create('ShippingMethod', m)));
-      data = await tenantEntity.list('ShippingMethod');
-    }
-    setMethods(data);
-    setLoading(false);
-  };
-
+  // Initialize from initialData prop when it arrives
   useEffect(() => {
-    if (initialData !== null) {
-      // Use pre-fetched data; seed defaults if empty
-      if (initialData.length === 0) {
-        Promise.all(DEFAULT_METHODS.map(m => tenantEntity.create('ShippingMethod', m)))
-          .then(() => load())
-          .catch(() => {});
-      }
-      return;
+    if (initialData === null) return;
+    if (methods !== null) return; // already initialized, don't overwrite
+    if (initialData.length === 0 && !seeding) {
+      // Seed defaults once
+      setSeeding(true);
+      Promise.all(DEFAULT_METHODS.map(m => tenantEntity.create('ShippingMethod', m)))
+        .then(created => setMethods(created))
+        .catch(() => setMethods([]))
+        .finally(() => setSeeding(false));
+    } else {
+      setMethods(initialData);
     }
-    load();
-  }, []);
+  }, [initialData]);
 
   const handleSave = async (updated) => {
     const { id, tenant_id, created_date, updated_date, created_by, ...data } = updated;
-    await tenantEntity.update('ShippingMethod', id, data);
-    await load();
-    return updated;
+    const result = await tenantEntity.update('ShippingMethod', id, data);
+    // Update local state directly — no need to re-fetch
+    const saved = result || updated;
+    setMethods(prev => prev.map(m => m.id === id ? { ...m, ...saved } : m));
+    return saved;
   };
 
   const handleDelete = async (id) => {
     if (!confirm("确认删除此运输方式？")) return;
     await tenantEntity.delete('ShippingMethod', id);
-    await load();
+    setMethods(prev => prev.filter(m => m.id !== id));
   };
 
   const handleAddNew = async () => {
     if (!newForm.name || !newForm.code) return;
-    await tenantEntity.create('ShippingMethod', newForm);
+    setLoading(true);
+    const created = await tenantEntity.create('ShippingMethod', newForm);
+    setMethods(prev => [...(prev || []), created]);
     setNewForm({ name: "", code: "", color: "#6B7280", transit_days: "", description: "", is_active: true, rate_mode: "simple", simple_rates: [], detailed_rates: [] });
     setShowAdd(false);
-    await load();
+    setLoading(false);
   };
 
-  if (loading) return <div className="py-8 text-center text-gray-400 text-sm">加载中...</div>;
+  if (methods === null || seeding) return <div className="py-8 text-center text-gray-400 text-sm">加载中...</div>;
 
   return (
     <div className="space-y-3">
