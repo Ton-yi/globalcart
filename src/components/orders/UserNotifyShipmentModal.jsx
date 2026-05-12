@@ -329,7 +329,7 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
   };
 
   const handleSubmit = async () => {
-    if (!method) return;
+    if (!method && !isJoiningPool) return;
     if (consType === "transit" && !selectedTransitId) return;
     if (consType === "transit" && !finalAddressId && !addressInputMode["final"]) return;
     if (consType === "" && !selectedAddress && !addressInputMode["direct"]) return;
@@ -863,7 +863,7 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
             className="bg-red-600 hover:bg-red-700"
             onClick={handleSubmit}
             disabled={
-              (!method && !joinDirectPool) || submitting ||
+              (!method && !joinDirectPool && !isJoiningPool) || submitting ||
               (consType === "transit" && !selectedTransitId) ||
               (consType === "transit" && !finalAddressId && !addressInputMode["final"]) ||
               (consType === "" && !selectedAddress && !addressInputMode["direct"]) ||
