@@ -838,10 +838,10 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
           />
 
           {/* Show shipping addons for all shipment types */}
-          {!isJoiningPool && !joinDirectPool && (
+          {!joinDirectPool && (
             <TransitAddonSection
               consType={consType}
-              selectedTransitId={selectedTransitId}
+              selectedTransitId={isJoiningPool ? (selectedPool?.transit_location_id || selectedTransitId) : selectedTransitId}
               transitLocations={transitLocations}
               shippingAddons={shippingAddons}
               selectedAddonIds={selectedAddonIds}
