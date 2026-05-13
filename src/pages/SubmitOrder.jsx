@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { detectPrimaryStoreTagResult } from "@/lib/onlineStoreTag";
 import { base44 } from "@/api/base44Client";
-import { fetchOrderCountForPrefix } from "@/lib/tenantApi";
+
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { timePage } from "@/lib/timing";
 import { useNavigate } from "react-router-dom";
@@ -144,12 +144,6 @@ export default function SubmitOrder() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
-    const now = new Date();
-    const yyyymmdd = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,"0")}${String(now.getDate()).padStart(2,"0")}`;
-    const prefix = `TY${yyyymmdd}`;
-    const todayCount = await fetchOrderCountForPrefix(prefix);
-    const seq = String(todayCount + 1).padStart(4, "0");
-    const orderNum = `${prefix}${seq}`;
     const selectedAddonObjects = selectedAddons.map(id => addonOptions.find(a => a.id === id)).filter(Boolean);
     const urlsText = urlMode === "textarea"
       ? (productUrls[0] || "").split("\n").map(s => s.trim()).filter(Boolean).join("\n")
@@ -162,7 +156,7 @@ export default function SubmitOrder() {
     const res = await base44.functions.invoke('createTenantOrder', {
       ...form,
       product_url: urlsText,
-      order_number: orderNum,
+
       user_email: user.email,
       user_name: user.full_name || user.email,
       quantity: 1,

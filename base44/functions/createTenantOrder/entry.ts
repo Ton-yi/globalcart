@@ -38,11 +38,32 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Cannot determine tenant for order creation' }, { status: 400 });
     }
 
+    // Generate a unique order number server-side to avoid frontend race conditions
+    // Format: TY{YYYYMMDD}{4-digit seq}, e.g. TY202605130001
+    const now = new Date();
+    const jstOffset = 9 * 60 * 60 * 1000; // JST = UTC+9
+    const jstNow = new Date(now.getTime() + jstOffset);
+    const yyyy = jstNow.getUTCFullYear();
+    const mm = String(jstNow.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(jstNow.getUTCDate()).padStart(2, '0');
+    const dateStr = `${yyyy}${mm}${dd}`;
+    const prefix = `TY${dateStr}`;
+
+    // Fetch all orders with this prefix for the tenant to find max seq
+    const existingOrders = await base44.asServiceRole.entities.Order.filter({ tenant_id: assignedTenantId });
+    const todayOrders = (existingOrders || []).filter(o => (o.order_number || '').startsWith(prefix));
+    const maxSeq = todayOrders.reduce((max, o) => {
+      const seq = parseInt((o.order_number || '').slice(prefix.length), 10) || 0;
+      return Math.max(max, seq);
+    }, 0);
+    const orderNumber = `${prefix}${String(maxSeq + 1).padStart(4, '0')}`;
+
     // Create order with tenant_id
     // Also snapshot the original JPY prepayment amount for reference
     const orderData = {
       ...body,
       tenant_id: assignedTenantId,
+      order_number: orderNumber, // always override with server-generated number
       // Always store the original JPY amount separately for display/accounting
       ...(body.prepayment_amount ? { prepayment_amount_jpy: parseFloat(body.prepayment_amount) } : {}),
     };

@@ -112,11 +112,3 @@ export async function fetchSubmitOrderPageData() {
   const res = await base44.functions.invoke('getSubmitOrderPageData', {});
   return res.data || { addons: [], settings: {}, rates: null };
 }
-
-// ─── Convenience: order count query for order number generation ───────────────
-
-export async function fetchOrderCountForPrefix(prefix) {
-  const res = await base44.functions.invoke('getTenantOrders', { all: true });
-  const orders = res.data?.orders || [];
-  return orders.filter(o => (o.order_number || '').startsWith(prefix)).length;
-}
