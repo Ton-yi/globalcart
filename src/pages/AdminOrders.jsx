@@ -551,8 +551,10 @@ export default function AdminOrders() {
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200">
               <th className="w-8 px-3 py-2 text-left">
-                <Checkbox checked={selectedIds.length === filtered.length && filtered.length > 0}
-                  onCheckedChange={toggleAll} />
+                {groupBy === "none" ? (
+                  <Checkbox checked={selectedIds.length === filtered.length && filtered.length > 0}
+                    onCheckedChange={toggleAll} />
+                ) : null}
               </th>
               {visibleCols.map(col => (
                 <th key={col.key}
@@ -735,7 +737,20 @@ export default function AdminOrders() {
                 const groupAvatarUrl = groupUserProfile?.avatar_url || null;
                 return [
                   <tr key={`group-${groupKey}`} className="bg-gray-100 border-y border-gray-200">
-                    <td colSpan={visibleCols.length + 2} className="px-3 py-2">
+                    <td className="px-3 py-2 w-8" onClick={e => e.stopPropagation()}>
+                      {!isCollapsed && (
+                        <Checkbox
+                          checked={groupOrders.length > 0 && groupOrders.every(o => selectedIds.includes(o.id))}
+                          onCheckedChange={() => {
+                            const ids = groupOrders.map(o => o.id);
+                            const allSelected = ids.every(id => selectedIds.includes(id));
+                            if (allSelected) setSelectedIds(prev => prev.filter(id => !ids.includes(id)));
+                            else setSelectedIds(prev => [...new Set([...prev, ...ids])]);
+                          }}
+                        />
+                      )}
+                    </td>
+                    <td colSpan={visibleCols.length + 1} className="px-3 py-2">
                       <button
                         className="flex items-center gap-2 text-xs font-semibold text-gray-700 hover:text-gray-900 w-full text-left"
                         onClick={() => setCollapsedGroups(prev => ({ ...prev, [groupKey]: !prev[groupKey] }))}
