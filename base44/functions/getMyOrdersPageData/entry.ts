@@ -149,6 +149,7 @@ Deno.serve(async (req) => {
       allowUserRewarehouse: settingsMap['allow_user_rewarehouse_from_fee_pending'] === 'true',
       defaultRewarehouseFee: parseFloat(settingsMap['default_rewarehouse_fee_jpy'] || '0') || 0,
       allowSplitAfterWarehouse: settingsMap['allow_order_split_after_warehouse'] === 'true',
+      hazmatText: settingsMap['customs_hazmat_text'] || null,
       nonAdminUsers,
       pendingEditRequests: myEditRequests || [],
       userProfileMap,

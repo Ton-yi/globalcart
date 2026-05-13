@@ -24,6 +24,48 @@ import MemberTierManager from "@/components/admin/MemberTierManager";
 import CreditApplicationManager from "@/components/admin/CreditApplicationManager";
 import PaymentMethodManager from "@/components/admin/PaymentMethodManager";
 
+function CustomsHazmatTextEditor({ settings, onReload }) {
+  const s = settings.find(s => s.key === 'customs_hazmat_text');
+  const [localVal, setLocalVal] = useState(s?.value || "");
+  const [saving, setSaving] = useState(false);
+
+  // Sync when parent settings reload
+  useEffect(() => { setLocalVal(s?.value || ""); }, [s?.value]);
+
+  return (
+    <Card className="border-orange-200">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm font-semibold text-gray-700">危险物品确认文本（报关单）</CardTitle>
+        <p className="text-xs text-gray-400 mt-1">
+          用户通知发货时，报关单中会显示此内容并要求用户勾选同意。支持 Markdown 格式。留空则不显示危险物确认项。
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <Textarea
+          rows={5}
+          placeholder={"例：\n## 危险物品确认\n本次邮件中**不含**以下物品：\n- 锂电池、液体、粉末\n- 刀具等管制物品"}
+          value={localVal}
+          onChange={e => setLocalVal(e.target.value)}
+          className="text-sm font-mono"
+        />
+        <Button size="sm" className="h-7 text-xs bg-orange-600 hover:bg-orange-700" disabled={saving}
+          onClick={async () => {
+            setSaving(true);
+            if (s) {
+              await tenantEntity.update('SiteSettings', s.id, { value: localVal });
+            } else {
+              await tenantEntity.create('SiteSettings', { key: 'customs_hazmat_text', value: localVal, description: '报关单危险物确认文本（Markdown）', category: 'general' });
+            }
+            await onReload();
+            setSaving(false);
+          }}>
+          <Save className="w-3 h-3 mr-1" />{saving ? "保存中..." : "保存"}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
 const DEFAULT_SETTINGS = [
   { key: "service_fee_rate", value: "10", description: "服务费率 (%)", category: "fee" },
   { key: "prepay_rate", value: "80", description: "预付款比率 (%)", category: "fee" },
@@ -1071,6 +1113,9 @@ export default function AdminSettings() {
               </Card>
             );
           })}
+
+          {/* Customs Hazmat Text */}
+          <CustomsHazmatTextEditor settings={Object.values(grouped).flat()} onReload={load} />
 
           {/* Addon Options */}
           <Card className="border-gray-200">

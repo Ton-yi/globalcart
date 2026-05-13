@@ -668,6 +668,7 @@ export default function MyOrders() {
         <UserNotifyShipmentModal
           order={shipmentOrder}
           initialData={pageData}
+          hazmatText={pageData.hazmatText || null}
           onClose={() => setShipmentOrder(null)}
           onSuccess={() => {
             setShipmentOrder(null);
@@ -680,6 +681,7 @@ export default function MyOrders() {
         <UserNotifyShipmentModal
           orders={shipmentOrders}
           initialData={pageData}
+          hazmatText={pageData.hazmatText || null}
           onClose={() => setShipmentOrders(null)}
           onSuccess={() => {
             setShipmentOrders(null);

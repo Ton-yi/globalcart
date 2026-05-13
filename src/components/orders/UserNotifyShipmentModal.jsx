@@ -8,6 +8,7 @@
  */
 import { useState, useEffect } from "react";
 import { X, Truck, Package, MapPin, Lock, Users, Search, Star } from "lucide-react";
+import CustomsDeclarationForm from "@/components/orders/CustomsDeclarationForm";
 import { serializeAddressToText, isAddressFormValid, EMPTY_ADDRESS_FORM } from "@/components/common/AddressForm";
 import AddressBlock from "@/components/orders/AddressBlock";
 import { getCountry } from "@/lib/countries";
@@ -167,7 +168,7 @@ function TransitAddonSection({ consType, selectedTransitId, transitLocations, sh
   );
 }
 
-export default function UserNotifyShipmentModal({ order, orders, initialData, onClose, onSuccess }) {
+export default function UserNotifyShipmentModal({ order, orders, initialData, onClose, onSuccess, hazmatText }) {
   const targetOrders = orders || (order ? [order] : []);
   const isMulti = targetOrders.length > 1;
 
@@ -214,6 +215,9 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
   const [selectedDirectPoolId, setSelectedDirectPoolId] = useState("");
   const [directPools, setDirectPools] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
+
+  // Customs declaration (single shipment only)
+  const [customsData, setCustomsData] = useState(null);
 
   // Addons & transit shipping method
   const [shippingAddons, setShippingAddons] = useState(initialData?.addons || []);
@@ -388,10 +392,15 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
       selected_addons: selectedAddons.map(a => ({ id: a.id, name: a.name, fee: a.fee, fee_currency: a.fee_currency })),
     } : {};
 
+    // Attach customs declaration data if filled out (single shipment only)
+    const hasCustoms = customsData && customsData.items && customsData.items.some(it => it.name);
+    const customsNote = hasCustoms ? JSON.stringify(customsData) : null;
+
     const updates = {
       shipping_method: method,
       consolidation_requested: consolidation,
       order_status: "notified_shipment",
+      ...(hasCustoms ? { customs_declaration: customsData } : {}),
       ...(consolidation && deadline ? { consolidation_deadline: deadline } : {}),
       ...(!isJoiningPool && consolidation && minWeight ? { consolidation_min_weight_g: parseFloat(minWeight) } : {}),
       ...(!isJoiningPool && hasConsolidationConditions ? { consolidation_timeout_action: timeoutAction } : {}),
@@ -590,6 +599,15 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
               onSelect={(v) => handleAddressSelect(v, "direct")}
               onNewAddressChange={setNewAddress}
               onSaveToggle={setSaveNewAddress}
+            />
+          )}
+
+          {/* Customs declaration — single shipment only */}
+          {consType === "" && !joinDirectPool && (
+            <CustomsDeclarationForm
+              value={customsData}
+              onChange={setCustomsData}
+              hazmatText={hazmatText || initialData?.hazmatText || null}
             />
           )}
 
