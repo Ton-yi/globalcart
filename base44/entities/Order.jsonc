@@ -332,6 +332,50 @@
       "description": "\u518d\u5165\u5e93\u518d\u5904\u7406\u8d39\u7528 (JPY)\uff0c\u5728\u4e0b\u6b21\u63d0\u4ea4\u53d1\u8d27\u65f6\u52a0\u7b97\u5230\u8fd0\u8d39\u4e2d",
       "default": 0
     },
+    "customs_declaration": {
+      "type": "object",
+      "description": "\u7528\u6237\u586b\u5199\u7684\u62a5\u5173\u5355\u4fe1\u606f",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "number"
+              },
+              "name": {
+                "type": "string"
+              },
+              "unit_price": {
+                "type": "string"
+              },
+              "currency": {
+                "type": "string"
+              },
+              "weight_g": {
+                "type": "string"
+              },
+              "quantity": {
+                "type": "number"
+              }
+            }
+          }
+        },
+        "content_type": {
+          "type": "string"
+        },
+        "hazmat_confirmed": {
+          "type": "boolean"
+        },
+        "undeliverable_action": {
+          "type": "string"
+        },
+        "return_method": {
+          "type": "string"
+        }
+      }
+    },
     "messages": {
       "type": "array",
       "description": "\u8ba2\u5355\u7559\u8a00\u5386\u53f2",
