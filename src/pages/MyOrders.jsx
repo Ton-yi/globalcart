@@ -221,6 +221,7 @@ export default function MyOrders() {
   const [viewPool, setViewPool] = useState(null); // pool detail modal for shipping_fee_pending
   const [shippingPools, setShippingPools] = useState([]); // cached pools for lookup
   const [allowUserRewarehouse, setAllowUserRewarehouse] = useState(false);
+  const [allowSplitAfterWarehouse, setAllowSplitAfterWarehouse] = useState(false);
   const [rewarehouseOrder, setRewarehouseOrder] = useState(null); // order for rewarehouse confirm dialog
   const [rewarehouseNote, setRewarehouseNote] = useState("");
   const [submittingRewarehouse, setSubmittingRewarehouse] = useState(false);
@@ -243,6 +244,7 @@ export default function MyOrders() {
     setOrders(freshOrders);
     setShippingPools(data.pools || []);
     setAllowUserRewarehouse(data.allowUserRewarehouse || false);
+    setAllowSplitAfterWarehouse(data.allowSplitAfterWarehouse || false);
     setStoreTagRules(data.storeTagRules || []);
     setPageData(data); // includes userProfileMap
     setPendingEditRequests(data.pendingEditRequests || []);
@@ -637,6 +639,7 @@ export default function MyOrders() {
           initialUserPreference={pageData.userPreference}
           initialPaidOrderReminder={pageData.paidOrderReminder}
           initialUserProfileMap={pageData.userProfileMap || {}}
+          allowSplitAfterWarehouse={allowSplitAfterWarehouse}
           onClose={() => setSelectedOrder(null)}
           onAction={(action) => {
             fetchOrders(user);

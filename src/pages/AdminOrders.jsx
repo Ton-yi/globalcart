@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
-import { Search, RefreshCw, Filter, ChevronUp, ChevronDown, ChevronsUpDown, Trash2, AlertCircle, Layers, Send, LayoutList, Archive, ArchiveRestore } from "lucide-react";
+import { Search, RefreshCw, Filter, ChevronUp, ChevronDown, ChevronsUpDown, Trash2, AlertCircle, Layers, Send, LayoutList, Archive, ArchiveRestore, Scissors } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -591,6 +591,11 @@ export default function AdminOrders() {
                         {(order.unread_roles || []).includes("admin") && (
                           <span className="inline-flex items-center gap-1 text-xs bg-red-100 text-red-600 border border-red-200 px-1.5 py-0.5 rounded-full font-medium animate-pulse">
                             <span className="w-1.5 h-1.5 rounded-full bg-red-500" />新消息
+                          </span>
+                        )}
+                        {order.order_status === "in_warehouse" && (order.messages || []).some(m => m.split_request && m.split_request.status === "pending") && (
+                          <span className="inline-flex items-center gap-1 text-xs bg-indigo-100 text-indigo-700 border border-indigo-200 px-1.5 py-0.5 rounded-full font-medium animate-pulse">
+                            <Scissors className="w-3 h-3" />申请拆单
                           </span>
                         )}
                         {order.has_split_marker && !order.parent_order_id && order.split_index !== -1 && (

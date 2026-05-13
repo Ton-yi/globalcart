@@ -4,7 +4,7 @@
  * Shows status, messages, and action buttons based on current order state.
  */
 import { useState, useEffect } from "react";
-import { X, ExternalLink, MessageCircle, Truck, CheckCircle, CreditCard, Upload, Edit2, Package } from "lucide-react";
+import { X, ExternalLink, MessageCircle, Truck, CheckCircle, CreditCard, Upload, Edit2, Package, Scissors } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { ImageWithViewer } from "@/components/common/ImageViewer";
 import { base44 } from "@/api/base44Client";
@@ -16,8 +16,9 @@ import OrderMessageThread from "./OrderMessageThread";
 import PaymentModal from "./PaymentModal";
 import UserNotifyShipmentModal from "./UserNotifyShipmentModal";
 import ShippingEditModal from "@/components/shippingpool/ShippingEditModal";
+import SplitAfterWarehouseModal from "./SplitAfterWarehouseModal";
 
-export default function OrderDetailDrawer({ order, currentUser, initialUserPreference, initialPaidOrderReminder, initialUserProfileMap = {}, onClose, onAction }) {
+export default function OrderDetailDrawer({ order, currentUser, initialUserPreference, initialPaidOrderReminder, initialUserProfileMap = {}, allowSplitAfterWarehouse = false, onClose, onAction }) {
   const [showMessages, setShowMessages] = useState(true);
   const [confirmingDelivered, setConfirmingDelivered] = useState(false);
   const [contactInfo, setContactInfo] = useState(initialUserPreference?.contact_info || "");
@@ -27,6 +28,7 @@ export default function OrderDetailDrawer({ order, currentUser, initialUserPrefe
   const [editPool, setEditPool] = useState(null);
   const [loadingPool, setLoadingPool] = useState(false);
   const [userProfileMap, setUserProfileMap] = useState(initialUserProfileMap);
+  const [showSplitModal, setShowSplitModal] = useState(false);
 
   useEffect(() => {
     // Clear user unread on open
@@ -411,6 +413,26 @@ export default function OrderDetailDrawer({ order, currentUser, initialUserPrefe
               hideHistory={hasMessages && !showMessages}
               userProfileMap={userProfileMap}
             />
+            {/* 已入库且开启了入库后拆单设置，展示申请拆单按钮 */}
+            {status === "in_warehouse" && allowSplitAfterWarehouse && (() => {
+              // Check if user already has a pending split request
+              const hasPendingSplit = (order.messages || []).some(
+                m => m.split_request && m.split_request.status === "pending"
+              );
+              return hasPendingSplit ? (
+                <div className="mt-3 flex items-center gap-2 text-xs text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2">
+                  <Scissors className="w-3.5 h-3.5 flex-shrink-0" />
+                  已提交拆单申请，等待管理员审批
+                </div>
+              ) : (
+                <button
+                  className="mt-3 w-full flex items-center justify-center gap-2 text-xs text-indigo-600 border border-indigo-200 rounded-lg px-3 py-2 hover:bg-indigo-50 transition-colors"
+                  onClick={() => setShowSplitModal(true)}
+                >
+                  <Scissors className="w-3.5 h-3.5" />申请拆单
+                </button>
+              );
+            })()}
           </div>
         </div>
       </div>
@@ -450,6 +472,18 @@ export default function OrderDetailDrawer({ order, currentUser, initialUserPrefe
             setEditPool(null);
             onClose();
             onAction?.("edit_ship");
+          }}
+        />
+      )}
+
+      {showSplitModal && (
+        <SplitAfterWarehouseModal
+          order={order}
+          currentUser={currentUser}
+          onClose={() => setShowSplitModal(false)}
+          onSuccess={() => {
+            setShowSplitModal(false);
+            onAction?.("split_request_submitted");
           }}
         />
       )}

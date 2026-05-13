@@ -7,7 +7,7 @@ import { useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import { base44 } from "@/api/base44Client";
 import { updateOrder, tenantEntity } from "@/lib/tenantApi";
-import { X, ExternalLink, Copy, Loader2, CheckCircle, Upload, AlertTriangle, MessageCircle, Package, Send, Layers, Scissors, GitBranch } from "lucide-react";
+import { X, ExternalLink, Copy, Loader2, CheckCircle, Upload, AlertTriangle, MessageCircle, Package, Send, Layers, Scissors, GitBranch, GitPullRequest } from "lucide-react";
 import { ImageWithViewer } from "@/components/common/ImageViewer";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -84,6 +84,9 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
   const [splitResult, setSplitResult] = useState(null); // { child_count, children }
   // Child orders (fetched for -00 purchased orders)
   const [childOrders, setChildOrders] = useState(null);
+
+  // Post-warehouse split request approval state
+  const [approvingSplit, setApprovingSplit] = useState(false);
 
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
@@ -886,7 +889,6 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
                           setSavingWarehouseEdit(true);
                           const newWeight = parseFloat(warehouseWeight) || order.weight_g || 0;
                           const newSizeTemplate = itemSizeTemplates.find(t => t.id === warehouseSizeId) || null;
-                          // Build change summary for notification
                           const changes = [];
                           if (newWeight !== order.weight_g) changes.push(`货品重量：${order.weight_g || 0}g → ${newWeight}g`);
                           const oldSizeTitle = order.item_size_title || "无";
@@ -899,7 +901,6 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
                             item_size_extra_fee: newSizeTemplate?.extra_fee || 0,
                             item_size_fee_currency: newSizeTemplate?.fee_currency || "JPY",
                           };
-                          // If there are changes, send system message + mark user unread
                           if (changes.length > 0) {
                             const sysMsg = {
                               id: Date.now().toString(),
@@ -921,10 +922,139 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
                         }}>
                         {savingWarehouseEdit ? "保存中..." : "保存修改并通知用户"}
                       </Button>
-                    </div>
-                  )}
-                </div>
-              )}
+                      </div>
+                      )}
+
+                      {/* Post-warehouse split requests */}
+                      {(() => {
+                      const splitRequests = (order.messages || []).filter(
+                      m => m.split_request && m.split_request.status === "pending"
+                      );
+                      if (splitRequests.length === 0) return null;
+                      return (
+                      <div className="border border-indigo-200 rounded-xl p-3 bg-indigo-50 space-y-3 mt-2">
+                        <div className="flex items-center gap-1.5 text-sm font-medium text-indigo-800">
+                          <GitPullRequest className="w-4 h-4" />
+                          用户拆单申请（{splitRequests.length} 条待审批）
+                        </div>
+                        {splitRequests.map((msg) => {
+                          const req = msg.split_request;
+                          return (
+                            <div key={msg.id} className="bg-white border border-indigo-100 rounded-lg p-3 space-y-2">
+                              <div className="flex items-start gap-3">
+                                {req.product_image_url && (
+                                  <img src={req.product_image_url} alt="" className="w-14 h-14 rounded-lg object-cover border border-gray-200 flex-shrink-0" />
+                                )}
+                                <div className="flex-1 min-w-0 space-y-1">
+                                  <div className="text-xs font-semibold text-gray-800">{req.product_name}</div>
+                                  {req.product_link && (
+                                    <a href={req.product_link} target="_blank" rel="noopener noreferrer"
+                                      className="text-[11px] text-blue-600 hover:underline truncate block max-w-[220px]">
+                                      {req.product_link}
+                                    </a>
+                                  )}
+                                  {req.note && (
+                                    <div className="text-[11px] text-gray-500 whitespace-pre-wrap">{req.note}</div>
+                                  )}
+                                  <div className="text-[10px] text-gray-400">
+                                    {new Date(req.submitted_at).toLocaleString("zh-CN")}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex gap-2 pt-1">
+                                <Button size="sm" className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-xs"
+                                  disabled={approvingSplit}
+                                  onClick={async () => {
+                                    setApprovingSplit(true);
+                                    // Generate new order number with suffix
+                                    const baseNum = order.order_number || "";
+                                    // Count existing split children to determine suffix
+                                    const existingSplits = (order.messages || []).filter(
+                                      m => m.split_request && m.split_request.status === "approved"
+                                    ).length;
+                                    const suffix = String(existingSplits + 1).padStart(2, "0");
+                                    const newOrderNumber = `${baseNum}-S${suffix}`;
+
+                                    // Create the new in_warehouse order
+                                    await base44.functions.invoke('mutateTenantEntity', {
+                                      entity: 'Order',
+                                      action: 'create',
+                                      data: {
+                                        tenant_id: order.tenant_id,
+                                        order_number: newOrderNumber,
+                                        user_email: order.user_email,
+                                        user_name: order.user_name,
+                                        product_name: req.product_name,
+                                        product_image_url: req.product_image_url,
+                                        product_url: req.product_link || "",
+                                        user_note: req.note || "",
+                                        quantity: 1,
+                                        order_status: "in_warehouse",
+                                        in_warehouse_date: new Date().toISOString().split("T")[0],
+                                        payment_mode: order.payment_mode || "prepay",
+                                        parent_order_id: order.id,
+                                      }
+                                    });
+
+                                    // Mark split request as approved in messages
+                                    const updatedMessages = (order.messages || []).map(m =>
+                                      m.id === msg.id
+                                        ? { ...m, split_request: { ...m.split_request, status: "approved", approved_at: new Date().toISOString(), new_order_number: newOrderNumber } }
+                                        : m
+                                    );
+                                    // Add system notification for user
+                                    updatedMessages.push({
+                                      id: `split_approved_${Date.now()}`,
+                                      from: "系统通知",
+                                      from_email: "__system__",
+                                      role: "admin",
+                                      content: `您的拆单申请已通过！已为您生成新订单：${newOrderNumber}（商品：${req.product_name}），状态：已入库。`,
+                                      timestamp: new Date().toISOString(),
+                                    });
+                                    await updateOrder(order.id, {
+                                      messages: updatedMessages,
+                                      unread_roles: [...new Set([...(order.unread_roles || []), "user"])],
+                                    });
+                                    setApprovingSplit(false);
+                                    onSaved();
+                                  }}>
+                                  {approvingSplit ? <><Loader2 className="w-3 h-3 animate-spin mr-1" />处理中...</> : "✓ 同意并生成新订单"}
+                                </Button>
+                                <Button size="sm" variant="outline" className="text-xs border-red-200 text-red-600"
+                                  disabled={approvingSplit}
+                                  onClick={async () => {
+                                    setApprovingSplit(true);
+                                    const updatedMessages = (order.messages || []).map(m =>
+                                      m.id === msg.id
+                                        ? { ...m, split_request: { ...m.split_request, status: "rejected", rejected_at: new Date().toISOString() } }
+                                        : m
+                                    );
+                                    updatedMessages.push({
+                                      id: `split_rejected_${Date.now()}`,
+                                      from: "系统通知",
+                                      from_email: "__system__",
+                                      role: "admin",
+                                      content: `您对「${req.product_name}」的拆单申请未通过，如有疑问请联系管理员。`,
+                                      timestamp: new Date().toISOString(),
+                                    });
+                                    await updateOrder(order.id, {
+                                      messages: updatedMessages,
+                                      unread_roles: [...new Set([...(order.unread_roles || []), "user"])],
+                                    });
+                                    setApprovingSplit(false);
+                                    onSaved();
+                                  }}>
+                                  拒绝
+                                </Button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      );
+                      })()}
+                      </div>
+                      )}
 
               {/* notified_shipment → open pool detail modal */}
               {status === "notified_shipment" && (() => {
