@@ -24,7 +24,6 @@ const CONTENT_TYPES = [
 const UNDELIVERABLE_ACTIONS = [
   { value: "return", label: "寄回" },
   { value: "abandon", label: "放弃" },
-  { value: "redirect", label: "转送" },
 ];
 
 const RETURN_METHODS = [
