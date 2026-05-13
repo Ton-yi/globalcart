@@ -6,6 +6,7 @@
 import { useState, useEffect } from "react";
 import { X, ExternalLink, MessageCircle, Truck, CheckCircle, CreditCard, Upload, Edit2, Package } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { ImageWithViewer } from "@/components/common/ImageViewer";
 import { base44 } from "@/api/base44Client";
 import { updateOrder, fetchShippingPools, tenantEntity } from "@/lib/tenantApi";
@@ -92,7 +93,9 @@ export default function OrderDetailDrawer({ order, currentUser, initialUserPrefe
     onAction?.("message_sent");
   };
 
-  const productUrlText = (order.product_url || "").trim();
+  // Ensure --- separator lines are surrounded by blank lines so remark parses them as <hr>
+  const productUrlText = (order.product_url || "").trim()
+    .replace(/\n?---\n?/g, "\n\n---\n\n");
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
@@ -252,6 +255,7 @@ export default function OrderDetailDrawer({ order, currentUser, initialUserPrefe
             <div>
               <div className="text-xs text-gray-400 mb-1.5">商品链接</div>
               <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
                 className="text-xs text-gray-700 prose prose-xs max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_hr]:border-indigo-300 [&_hr]:my-1.5 [&_p]:my-0.5 [&_a]:text-blue-600 [&_a]:break-all"
                 components={{
                   hr: () => (
