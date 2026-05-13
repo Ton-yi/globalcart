@@ -478,12 +478,7 @@ export default function AdminOrders() {
                   {bulkUpdating ? "处理中..." : `一键标记已下单（${selectedIds.length} 条）`}
                 </Button>
               )}
-              {sharedStatus === "purchased" && (
-                <Button size="sm" className="h-7 text-xs bg-teal-600 hover:bg-teal-700"
-                  onClick={handleBulkInWarehouse} disabled={bulkUpdating}>
-                  {bulkUpdating ? "处理中..." : `一键入库（${selectedIds.length} 条）`}
-                </Button>
-              )}
+
               {sharedStatus === "in_warehouse" && (
                 <Button size="sm" className="h-7 text-xs bg-orange-600 hover:bg-orange-700"
                   onClick={async () => {
