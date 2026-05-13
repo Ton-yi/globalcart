@@ -133,7 +133,9 @@ export default function CustomsDeclarationForm({ value, onChange, hazmatText }) 
                     className="h-7 text-xs"
                   />
                   <Input
-                    inputMode="decimal"
+                    type="number"
+                    min="0"
+                    step="100"
                     value={item.unit_price}
                     onChange={e => updateItem(item.id, { unit_price: e.target.value })}
                     placeholder="0"
