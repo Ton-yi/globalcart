@@ -87,8 +87,10 @@ function formatAmount(amount, currency) {
 
 function CellValue({ col, order, onQuickOrdered, userAvatars }) {
   switch (col.key) {
-    case "order_number":
-      return <span className="font-mono text-xs text-gray-500">{order.order_number || "-"}</span>;
+    case "order_number": {
+      const isSplitPending = order.has_split_marker && !order.parent_order_id && order.split_index !== -1;
+      return <span className="font-mono text-xs text-gray-500">{order.order_number ? `${order.order_number}${isSplitPending ? " - 00" : ""}` : "-"}</span>;
+    }
     case "user_name": {
       const profile = userAvatars?.[order.user_email] || {};
       const avatarUrl = profile.avatar_url || null;

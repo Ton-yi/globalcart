@@ -88,8 +88,10 @@ function CellValue({ col, order }) {
             <Package className="w-5 h-5 text-gray-300" />
           </div>;
     }
-    case "order_number":
-      return <span className="font-mono text-xs text-gray-500">{order.order_number || "-"}</span>;
+    case "order_number": {
+      const isSplitPending = order.has_split_marker && !order.parent_order_id && order.split_index !== -1;
+      return <span className="font-mono text-xs text-gray-500">{order.order_number ? `${order.order_number}${isSplitPending ? " - 00" : ""}` : "-"}</span>;
+    }
     case "product_name":
       return (
         <span className="text-sm font-medium text-gray-900 truncate">{order.product_name}</span>
