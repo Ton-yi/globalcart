@@ -91,8 +91,6 @@ export default function CustomsDeclarationDisplay({ orders = [] }) {
           const totalWeightG = filledItems.reduce((s, it) => s + (parseFloat(it.weight_g) || 0) * (parseInt(it.quantity) || 1), 0);
           const displayCurrency = filledItems[0]?.currency || "JPY";
           const totalValue = filledItems.reduce((s, it) => s + (parseFloat(it.unit_price) || 0) * (parseInt(it.quantity) || 1), 0);
-          const totalWeightStr = totalWeightG > 0 ? `${totalWeightG.toLocaleString()} g` : null;
-          const totalValueStr = totalValue > 0 ? `${displayCurrency} ${totalValue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}` : null;
 
           return (
             <div key={order.id} className="space-y-2">
@@ -137,22 +135,24 @@ export default function CustomsDeclarationDisplay({ orders = [] }) {
               }
 
                 {/* Totals row */}
-                {(totalWeightStr || totalValueStr) &&
-              <div className="flex items-center gap-4 pt-1">
-                    {totalWeightStr &&
-                <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                        <span className="text-gray-400">总重量：</span>
-                        <CopyCell value={totalWeightStr} className="font-medium text-gray-700" />
-                      </div>
+                {(totalWeightG > 0 || totalValue > 0) &&
+                <div className="flex items-center gap-4 pt-1">
+                     {totalWeightG > 0 &&
+                 <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                         <span className="text-gray-400">总重量：</span>
+                         <CopyCell value={totalWeightG.toLocaleString()} className="font-medium text-gray-700" />
+                         <span className="text-gray-400">g</span>
+                       </div>
+                 }
+                     {totalValue > 0 &&
+                 <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                         <span className="text-gray-400">申报总额：</span>
+                         <span className="text-gray-400">{displayCurrency}</span>
+                         <CopyCell value={totalValue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} className="font-medium text-gray-700" />
+                       </div>
+                 }
+                   </div>
                 }
-                    {totalValueStr &&
-                <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                        <span className="text-gray-400">申报总额：</span>
-                        <CopyCell value={totalValueStr} className="font-medium text-gray-700" />
-                      </div>
-                }
-                  </div>
-              }
 
                 {/* Undeliverable instruction — display only, no copy */}
                 {cd.undeliverable_action &&
