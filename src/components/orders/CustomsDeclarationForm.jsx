@@ -106,12 +106,8 @@ export default function CustomsDeclarationForm({ value, onChange, hazmatText }) 
 
           {/* Items table */}
           <div>
-            <div className="flex items-center justify-between mb-1.5">
+            <div className="mb-1.5">
               <label className="text-xs text-gray-500 font-medium">内容物品明细</label>
-              <button type="button" onClick={addItem}
-                className="flex items-center gap-1 text-xs text-orange-600 hover:text-orange-700">
-                <Plus className="w-3 h-3" />添加品类
-              </button>
             </div>
             <div className="space-y-2">
               {/* Header */}
@@ -170,11 +166,17 @@ export default function CustomsDeclarationForm({ value, onChange, hazmatText }) 
               ))}
             </div>
             {/* Total */}
-            <div className="flex items-center justify-end gap-2 mt-2 pt-2 border-t border-orange-100">
-              <span className="text-xs text-gray-500">内容物品总额：</span>
-              <span className="text-sm font-semibold text-orange-700">
-                {displayCurrency} {total.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
-              </span>
+            <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-orange-100">
+              <button type="button" onClick={addItem}
+                className="flex items-center gap-1 text-xs text-orange-600 hover:text-orange-700">
+                <Plus className="w-3 h-3" />添加品类
+              </button>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500">内容物品总额：</span>
+                <span className="text-sm font-semibold text-orange-700">
+                  {displayCurrency} {total.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                </span>
+              </div>
             </div>
           </div>
 
