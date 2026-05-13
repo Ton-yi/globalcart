@@ -133,9 +133,7 @@ export default function CustomsDeclarationForm({ value, onChange, hazmatText }) 
                     className="h-7 text-xs"
                   />
                   <Input
-                    type="number"
-                    min="0"
-                    step="any"
+                    inputMode="decimal"
                     value={item.unit_price}
                     onChange={e => updateItem(item.id, { unit_price: e.target.value })}
                     placeholder="0"
@@ -150,17 +148,14 @@ export default function CustomsDeclarationForm({ value, onChange, hazmatText }) 
                     </SelectContent>
                   </Select>
                   <Input
-                    type="number"
-                    min="0"
-                    step="any"
+                    inputMode="decimal"
                     value={item.weight_kg}
                     onChange={e => updateItem(item.id, { weight_kg: e.target.value })}
                     placeholder="0.1"
                     className="h-7 text-xs"
                   />
                   <Input
-                    type="number"
-                    min="1"
+                    inputMode="numeric"
                     value={item.quantity}
                     onChange={e => updateItem(item.id, { quantity: e.target.value })}
                     placeholder="1"
