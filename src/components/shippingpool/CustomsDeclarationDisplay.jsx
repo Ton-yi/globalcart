@@ -64,7 +64,7 @@ export default function CustomsDeclarationDisplay({ orders = [] }) {
   if (ordersWithCustoms.length === 0) return null;
 
   return (
-    <div className="border border-gray-200 rounded-lg overflow-hidden bg-[hsl(var(--sidebar-primary))]">
+    <div className="border border-gray-200 rounded-lg overflow-hidden">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
