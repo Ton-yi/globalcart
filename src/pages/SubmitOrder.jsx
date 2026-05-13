@@ -7,6 +7,7 @@ import { timePage } from "@/lib/timing";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { ShoppingBag, Calculator, Info, Upload, Plus, X, ChevronsUpDown, HelpCircle, CreditCard, AlertTriangle } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 import PaymentMethodSelector from "@/components/common/PaymentMethodSelector";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -266,6 +267,27 @@ export default function SubmitOrder() {
                     className="mt-1 text-sm font-mono"
                     rows={4}
                   />
+                  {(productUrls[0] || '').trim() && (
+                    <div className="mt-1.5 border border-gray-200 rounded-lg bg-gray-50 px-3 py-2">
+                      <p className="text-[10px] text-gray-400 mb-1">预览</p>
+                      <ReactMarkdown
+                        className="text-xs text-gray-700 prose prose-xs max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_hr]:border-indigo-300 [&_hr]:my-1.5 [&_p]:my-0.5 [&_a]:text-blue-500 [&_a]:break-all"
+                        components={{
+                          hr: () => (
+                            <div className="flex items-center gap-2 my-2">
+                              <div className="flex-1 border-t border-indigo-300" />
+                              <span className="text-[10px] text-indigo-400 font-medium">— 拆单分隔线 —</span>
+                              <div className="flex-1 border-t border-indigo-300" />
+                            </div>
+                          ),
+                          a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-500 break-all">{children}</a>,
+                          p: ({ children }) => <p className="my-0.5 break-all">{children}</p>,
+                        }}
+                      >
+                        {productUrls[0] || ''}
+                      </ReactMarkdown>
+                    </div>
+                  )}
                   {settings.allow_order_split === 'true' && (() => {
                     const sections = (productUrls[0] || '').split(/\n-{3,}\n/).map(s => s.trim()).filter(Boolean);
                     if (sections.length > 1) {
