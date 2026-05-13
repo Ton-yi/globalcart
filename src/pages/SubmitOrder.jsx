@@ -256,13 +256,28 @@ export default function SubmitOrder() {
                 </button>
               </div>
               {urlMode === "textarea" ? (
-                <Textarea
-                  placeholder={"https://www.melonbooks.co.jp/detail/detail.php?product_id=148282 3件\nhttps://www.melonbooks.co.jp/detail/detail.php?product_id=17543 1件 \nhttps://www.melonbooks.co.jp/detail/detail.php?product_id=26026 5件 ..."}
-                  value={productUrls[0] || ""}
-                  onChange={e => setProductUrls([e.target.value])}
-                  className="mt-1 text-sm"
-                  rows={3}
-                />
+                <>
+                  <Textarea
+                    placeholder={settings.allow_order_split === 'true'
+                      ? "https://www.amazon.co.jp/... （第一批商品）\nhttps://www.amazon.co.jp/...\n---\nhttps://www.suruga-ya.jp/... （第二批商品）\nhttps://www.suruga-ya.jp/..."
+                      : "https://www.melonbooks.co.jp/detail/detail.php?product_id=148282 3件\nhttps://www.melonbooks.co.jp/detail/detail.php?product_id=17543 1件 \nhttps://www.melonbooks.co.jp/detail/detail.php?product_id=26026 5件 ..."}
+                    value={productUrls[0] || ""}
+                    onChange={e => setProductUrls([e.target.value])}
+                    className="mt-1 text-sm font-mono"
+                    rows={4}
+                  />
+                  {settings.allow_order_split === 'true' && (() => {
+                    const sections = (productUrls[0] || '').split(/\n-{3,}\n/).map(s => s.trim()).filter(Boolean);
+                    if (sections.length > 1) {
+                      return (
+                        <div className="mt-1.5 bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2 text-xs text-indigo-700">
+                          <span className="font-medium">检测到 {sections.length} 组链接</span> — 管理员下单后将自动拆分为 {sections.length} 个子订单，货款平均分配
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+                </>
               ) : (
                 <div className="mt-1 space-y-2">
                   {productUrls.map((url, idx) => (
@@ -290,6 +305,9 @@ export default function SubmitOrder() {
               )}
               <p className="text-xs text-gray-400 mt-1.5">
                 分行模式：Shift+Enter 快速添加下一条 · Ctrl+Shift+S 切换文本框 · 请按商城为单位提交，不同商城请分开提交
+                {settings.allow_order_split === 'true' && (
+                  <span className="ml-2 text-indigo-400">· 文本框模式下可用 <code className="bg-gray-100 px-1 rounded">---</code> 分割多批商品</span>
+                )}
               </p>
             </div>
 

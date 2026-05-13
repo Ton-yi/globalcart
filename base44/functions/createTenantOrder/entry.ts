@@ -58,6 +58,11 @@ Deno.serve(async (req) => {
     }, 0);
     const orderNumber = `${prefix}${String(maxSeq + 1).padStart(4, '0')}`;
 
+    // Detect --- split marker in product_url
+    const productUrl = body.product_url || '';
+    const splitSections = productUrl.split(/\n-{3,}\n/).map(s => s.trim()).filter(Boolean);
+    const hasSplitMarker = splitSections.length > 1;
+
     // Create order with tenant_id
     // Also snapshot the original JPY prepayment amount for reference
     const orderData = {
@@ -66,6 +71,9 @@ Deno.serve(async (req) => {
       order_number: orderNumber, // always override with server-generated number
       // Always store the original JPY amount separately for display/accounting
       ...(body.prepayment_amount ? { prepayment_amount_jpy: parseFloat(body.prepayment_amount) } : {}),
+      // Split marker detection
+      has_split_marker: hasSplitMarker,
+      split_sections: hasSplitMarker ? splitSections : [],
     };
 
     const order = await base44.asServiceRole.entities.Order.create(orderData);

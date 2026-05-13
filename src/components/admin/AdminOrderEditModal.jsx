@@ -6,7 +6,7 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { updateOrder, tenantEntity } from "@/lib/tenantApi";
-import { X, ExternalLink, Copy, Loader2, CheckCircle, Upload, AlertTriangle, MessageCircle, Package, Send, Layers } from "lucide-react";
+import { X, ExternalLink, Copy, Loader2, CheckCircle, Upload, AlertTriangle, MessageCircle, Package, Send, Layers, Scissors, GitBranch } from "lucide-react";
 import { ImageWithViewer } from "@/components/common/ImageViewer";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -78,6 +78,12 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
   const [shippingCurrency, setShippingCurrency] = useState(order.shipping_fee_currency || "CNY");
   const [trackingNumber, setTrackingNumber] = useState(order.tracking_number || "");
 
+  // Split order state
+  const [splitting, setSplitting] = useState(false);
+  const [splitResult, setSplitResult] = useState(null); // { child_count, children }
+  // Child orders (fetched for -00 purchased orders)
+  const [childOrders, setChildOrders] = useState(null);
+
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
   const status = order.order_status;
@@ -125,6 +131,33 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
     const { file_url } = await base44.integrations.Core.UploadFile({ file });
     setter(file_url);
     loadingSetter(false);
+  };
+
+  // Fetch child orders for purchased -00 parent orders
+  useEffect(() => {
+    if (order.split_index !== -1 || !order.has_split_marker) return;
+    // If already purchased as a split order, load child orders
+    if (order.order_status === 'purchased' && order.order_number?.includes(' - 00')) {
+      tenantEntity.list('Order', { parent_order_id: order.id })
+        .then(children => setChildOrders(children || []))
+        .catch(() => {});
+    }
+  }, [order.id, order.order_status]);
+
+  // ── Split order handler ──
+  const handleSplitOrder = async () => {
+    if (!window.confirm(`确认将此订单拆分为 ${(order.split_sections || []).length} 个子订单？此操作不可撤销。`)) return;
+    setSplitting(true);
+    const res = await base44.functions.invoke('splitTenantOrder', {
+      orderId: order.id,
+      purchaseScreenshotUrl: purchaseScreenshot || order.purchase_screenshot_url || null,
+      adminNote: form.admin_note,
+    });
+    setSplitting(false);
+    if (res.data?.success) {
+      setSplitResult(res.data);
+      onSaved();
+    }
   };
 
   // ── Status-specific action handlers ──
@@ -548,13 +581,46 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
                       />
                     </div>
                   </div>
+                  {/* Split marker preview */}
+                  {order.has_split_marker && (order.split_sections || []).length > 1 && !splitResult && (
+                    <div className="bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2.5 space-y-1.5">
+                      <div className="flex items-center gap-1.5 text-xs font-medium text-indigo-700">
+                        <Scissors className="w-3.5 h-3.5" />
+                        检测到 {order.split_sections.length} 组商品链接（拆单标记）
+                      </div>
+                      <div className="text-xs text-indigo-600 space-y-1">
+                        {order.split_sections.map((sec, i) => (
+                          <div key={i} className="truncate">
+                            <span className="font-medium">第 {i+1} 批：</span>
+                            {sec.split('\n')[0].slice(0, 50)}{sec.length > 50 ? '…' : ''}
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-xs text-indigo-400">购买完成后可点击「下单并拆分」，将生成 {order.split_sections.length} 个子订单，货款平均分配</p>
+                    </div>
+                  )}
+                  {splitResult && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-xs text-green-700">
+                      ✓ 已拆分为 {splitResult.child_count} 个子订单
+                      {(splitResult.children || []).map(c => (
+                        <div key={c.id} className="mt-0.5 font-mono">{c.order_number}</div>
+                      ))}
+                    </div>
+                  )}
                   <Input placeholder="取消理由（取消时必填）" value={form.cancel_reason}
                     onChange={e => f("cancel_reason", e.target.value)} className="text-xs" />
-                  <div className="flex gap-2">
-                    <Button size="sm" className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-xs"
-                      onClick={handleMarkPurchased} disabled={saving}>
-                      ✓ 购买完成 → 已下单
-                    </Button>
+                  <div className="flex gap-2 flex-wrap">
+                    {order.has_split_marker && (order.split_sections || []).length > 1 && !splitResult ? (
+                      <Button size="sm" className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-xs"
+                        onClick={handleSplitOrder} disabled={splitting || saving}>
+                        {splitting ? <><Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />拆分中...</> : <><GitBranch className="w-3.5 h-3.5 mr-1" />下单并拆分</>}
+                      </Button>
+                    ) : (
+                      <Button size="sm" className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-xs"
+                        onClick={handleMarkPurchased} disabled={saving}>
+                        ✓ 购买完成 → 已下单
+                      </Button>
+                    )}
                     <Button size="sm" variant="outline" className="text-xs border-red-300 text-red-600"
                       onClick={handleCancel} disabled={saving || !form.cancel_reason}>
                       取消订单
@@ -668,9 +734,50 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
                     </div>
                   )}
 
+                  {/* Child orders quick-warehouse list (for -00 split parent) */}
+                  {order.split_index === -1 && childOrders && childOrders.length > 0 && (
+                    <div className="border border-indigo-100 rounded-lg bg-indigo-50 p-2.5 space-y-1.5">
+                      <div className="text-xs font-medium text-indigo-700 flex items-center gap-1.5">
+                        <GitBranch className="w-3.5 h-3.5" />子订单快捷入库（{childOrders.length} 个）
+                      </div>
+                      {childOrders.map(child => (
+                        <div key={child.id} className="flex items-center justify-between bg-white rounded border border-indigo-100 px-2.5 py-1.5 text-xs">
+                          <div className="min-w-0 flex-1">
+                            <div className="font-mono text-gray-600 truncate">{child.order_number}</div>
+                            <div className="text-gray-500 truncate">{child.product_name}</div>
+                          </div>
+                          <div className="flex items-center gap-2 ml-2 flex-shrink-0">
+                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                              child.order_status === 'in_warehouse' ? 'bg-teal-100 text-teal-700' : 'bg-indigo-100 text-indigo-600'
+                            }`}>
+                              {child.order_status === 'in_warehouse' ? '已入库' : '已下单'}
+                            </span>
+                            {child.order_status !== 'in_warehouse' && (
+                              <button
+                                type="button"
+                                className="text-teal-600 hover:text-teal-800 text-xs underline whitespace-nowrap"
+                                onClick={async () => {
+                                  await updateOrder(child.id, {
+                                    order_status: 'in_warehouse',
+                                    in_warehouse_date: new Date().toISOString().split('T')[0],
+                                  });
+                                  const updated = await tenantEntity.list('Order', { parent_order_id: order.id });
+                                  setChildOrders(updated || []);
+                                }}
+                              >
+                                入库
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                      <p className="text-[10px] text-indigo-400">各子订单独立入库后即可独立操作，不再与父订单绑定</p>
+                    </div>
+                  )}
+
                   <Button size="sm" className="w-full bg-teal-600 hover:bg-teal-700 text-xs"
                     onClick={handleMarkInWarehouse} disabled={saving}>
-                    ✓ 确认入库
+                    {order.split_index === -1 ? "✓ 父订单确认入库（-00单）" : "✓ 确认入库"}
                   </Button>
                 </div>
               )}

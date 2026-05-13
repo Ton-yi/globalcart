@@ -592,6 +592,16 @@ export default function AdminOrders() {
                             <span className="w-1.5 h-1.5 rounded-full bg-red-500" />新消息
                           </span>
                         )}
+                        {order.has_split_marker && !order.parent_order_id && order.split_index !== -1 && (
+                          <span className="inline-flex items-center gap-1 text-xs bg-indigo-100 text-indigo-700 border border-indigo-200 px-1.5 py-0.5 rounded-full font-medium">
+                            <span className="text-[10px]">✂</span>待拆分
+                          </span>
+                        )}
+                        {order.parent_order_id && (
+                          <span className="inline-flex items-center gap-1 text-xs bg-purple-100 text-purple-700 border border-purple-200 px-1.5 py-0.5 rounded-full font-medium">
+                            子 -{String(order.split_index || 0).padStart(2, '0')}
+                          </span>
+                        )}
                         {pendingEdit && (
                           <span className="inline-flex items-center gap-1 text-xs bg-orange-100 text-orange-700 border border-orange-300 px-1.5 py-0.5 rounded-full font-medium">
                             <AlertCircle className="w-3 h-3" />

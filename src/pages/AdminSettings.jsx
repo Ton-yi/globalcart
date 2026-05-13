@@ -823,6 +823,70 @@ export default function AdminSettings() {
                   );
                 })()}
 
+                {/* Allow order split toggle */}
+                {(() => {
+                  const allSettings = Object.values(grouped).flat();
+                  const s = allSettings.find(s => s.key === 'allow_order_split');
+                  const enabled = s?.value === 'true';
+                  return (
+                    <div className="flex items-center justify-between pb-1 border-b border-gray-100">
+                      <div>
+                        <Label className="text-sm">允许用户拆单</Label>
+                        <p className="text-xs text-gray-400 mt-0.5">开启后，用户在商品链接中用 <code className="bg-gray-100 px-1 rounded">---</code> 分隔多组链接，管理员下单后可自动拆分为多个子订单</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const newVal = enabled ? 'false' : 'true';
+                          if (s) {
+                            updateSetting(s.id, 'value', newVal);
+                            await tenantEntity.update('SiteSettings', s.id, { value: newVal });
+                          } else {
+                            await tenantEntity.create('SiteSettings', { key: 'allow_order_split', value: newVal, category: 'general', description: '允许用户拆单（商品链接 --- 分割）' });
+                            await load();
+                          }
+                        }}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${enabled ? 'bg-indigo-600' : 'bg-gray-200'}`}
+                      >
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                      </button>
+                    </div>
+                  );
+                })()}
+
+                {/* Allow order split after warehouse toggle */}
+                {(() => {
+                  const allSettings = Object.values(grouped).flat();
+                  const splitEnabled = allSettings.find(s => s.key === 'allow_order_split')?.value === 'true';
+                  if (!splitEnabled) return null;
+                  const s = allSettings.find(s => s.key === 'allow_order_split_after_warehouse');
+                  const enabled = s?.value === 'true';
+                  return (
+                    <div className="flex items-center justify-between pb-1 border-b border-gray-100 pl-4 border-l-2 border-l-indigo-200">
+                      <div>
+                        <Label className="text-sm text-indigo-700">允许入库后申请拆单</Label>
+                        <p className="text-xs text-gray-400 mt-0.5">开启后，已入库订单的用户可申请拆单（需管理员审批）</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const newVal = enabled ? 'false' : 'true';
+                          if (s) {
+                            updateSetting(s.id, 'value', newVal);
+                            await tenantEntity.update('SiteSettings', s.id, { value: newVal });
+                          } else {
+                            await tenantEntity.create('SiteSettings', { key: 'allow_order_split_after_warehouse', value: newVal, category: 'general', description: '允许入库后申请拆单' });
+                            await load();
+                          }
+                        }}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${enabled ? 'bg-indigo-400' : 'bg-gray-200'}`}
+                      >
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                      </button>
+                    </div>
+                  );
+                })()}
+
                 {/* Allow user pool edit instantly toggle */}
                 {(() => {
                   const s = grouped.fee?.find(s => s.key === 'allow_user_pool_edit_instant') ||
