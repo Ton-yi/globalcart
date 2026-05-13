@@ -113,6 +113,23 @@ export default function PaymentModal({ order, mode = "prepay", onClose, onSucces
     if (url) window.open(url, "_blank");
   };
 
+  // Build actual-currency fields when paying in a non-JPY currency
+  const buildActualCurrencyUpdates = () => {
+    if (!payCurrency || payCurrency === "JPY") return {};
+    // paidAmount is in `cur` (the order's base display currency, typically JPY)
+    // If the payment method requires a different currency, record that too
+    const actualAmount = convertedRate
+      ? parseFloat((parseFloat(paidAmount) * convertedRate).toFixed(2))
+      : null;
+    if (!actualAmount) return {};
+    return {
+      prepayment_amount: actualAmount,
+      prepayment_currency: payCurrency,
+      // Preserve original JPY amount
+      prepayment_amount_jpy: parseFloat(paidAmount) || order.prepayment_amount_jpy || order.prepayment_amount,
+    };
+  };
+
   // For non-alipay: manual confirm
   const handleManualSubmit = async () => {
     setSubmitting(true);
@@ -127,9 +144,11 @@ export default function PaymentModal({ order, mode = "prepay", onClose, onSucces
       updates.order_status = "paid";
       updates.supplement_requested = false;
       updates.paid_amount = (order.paid_amount || 0) + parseFloat(paidAmount);
+      Object.assign(updates, buildActualCurrencyUpdates());
     } else {
       updates.order_status = "paid";
       updates.paid_amount = (order.paid_amount || 0) + parseFloat(paidAmount);
+      Object.assign(updates, buildActualCurrencyUpdates());
     }
     await updateOrder(order.id, updates);
     onSuccess?.();
@@ -154,8 +173,10 @@ export default function PaymentModal({ order, mode = "prepay", onClose, onSucces
     } else if (isSupp) {
       updates.supplement_requested = false;
       updates.paid_amount = (order.paid_amount || 0) + parseFloat(paidAmount);
+      Object.assign(updates, buildActualCurrencyUpdates());
     } else {
       updates.paid_amount = (order.paid_amount || 0) + parseFloat(paidAmount);
+      Object.assign(updates, buildActualCurrencyUpdates());
     }
     await updateOrder(order.id, updates);
     setSubmitting(false);

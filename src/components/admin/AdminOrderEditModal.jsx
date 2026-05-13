@@ -48,6 +48,8 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
     admin_note: order.admin_note || "",
     admin_confirmed_amount: order.admin_confirmed_amount || order.prepayment_amount || "",
     prepayment_amount: order.prepayment_amount || "",
+    prepayment_currency: order.prepayment_currency || "JPY",
+    prepayment_amount_jpy: order.prepayment_amount_jpy || "",
     payment_due_date: order.payment_due_date || "",
     estimated_jpy: order.estimated_jpy || "",
     balance_credit: order.balance_credit || 0,
@@ -233,11 +235,19 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
   // Generic save (edit tab)
   const handleSave = async () => {
     setSaving(true);
+    const newCur = form.prepayment_currency || "JPY";
+    const newAmt = parseFloat(form.prepayment_amount) || 0;
+    // When admin manually sets a non-JPY amount, also preserve JPY reference
+    const jpyRef = newCur === "JPY"
+      ? newAmt
+      : parseFloat(form.prepayment_amount_jpy) || order.prepayment_amount_jpy || 0;
     await updateOrder(order.id, {
       order_status: form.order_status,
       admin_note: form.admin_note,
       admin_confirmed_amount: parseFloat(form.admin_confirmed_amount) || 0,
-      prepayment_amount: parseFloat(form.prepayment_amount) || 0,
+      prepayment_amount: newAmt,
+      prepayment_currency: newCur,
+      prepayment_amount_jpy: jpyRef,
       payment_due_date: form.payment_due_date || null,
       estimated_jpy: parseFloat(form.estimated_jpy) || 0,
       balance_credit: parseFloat(form.balance_credit) || 0,
@@ -885,10 +895,31 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
                     onChange={e => f("estimated_jpy", e.target.value)} />
                 </div>
                 <div>
-                  <Label className="text-sm">预付款金额 ({cur})</Label>
+                  <Label className="text-sm">实际付款货币</Label>
+                  <Select value={form.prepayment_currency} onValueChange={v => f("prepayment_currency", v)}>
+                    <SelectTrigger className="mt-1 text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {["JPY","CNY","USD","TWD","HKD","EUR","SGD"].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-sm">
+                    {form.prepayment_currency === "JPY" ? "预付款金额 (JPY)" : `实际付款金额 (${form.prepayment_currency})`}
+                  </Label>
                   <Input type="number" step="0.01" className="mt-1" value={form.prepayment_amount}
                     onChange={e => f("prepayment_amount", e.target.value)} />
                 </div>
+                {form.prepayment_currency !== "JPY" && (
+                  <div>
+                    <Label className="text-sm">原始 JPY 金额</Label>
+                    <Input type="number" step="1" className="mt-1" value={form.prepayment_amount_jpy}
+                      onChange={e => f("prepayment_amount_jpy", e.target.value)}
+                      placeholder={String(order.prepayment_amount_jpy || order.estimated_jpy || "")} />
+                  </div>
+                )}
               </div>
               <div>
                 <Label className="text-sm">付款截止日期</Label>
