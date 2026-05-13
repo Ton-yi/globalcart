@@ -33,7 +33,7 @@ const RETURN_METHODS = [
 ];
 
 function newItem() {
-  return { id: Date.now(), name: "", unit_price: "", currency: "JPY", weight_kg: "", quantity: 1 };
+  return { id: Date.now(), name: "", unit_price: "", currency: "JPY", weight_g: "", quantity: 1 };
 }
 
 export default function CustomsDeclarationForm({ value, onChange, hazmatText }) {
@@ -120,7 +120,7 @@ export default function CustomsDeclarationForm({ value, onChange, hazmatText }) 
                 <span>品名（英文）</span>
                 <span>单价</span>
                 <span>货币</span>
-                <span>重量kg</span>
+                <span>重量g</span>
                 <span>个数</span>
                 <span></span>
               </div>
@@ -150,10 +150,10 @@ export default function CustomsDeclarationForm({ value, onChange, hazmatText }) 
                     </SelectContent>
                   </Select>
                   <Input
-                    inputMode="decimal"
-                    value={item.weight_kg}
-                    onChange={e => updateItem(item.id, { weight_kg: e.target.value })}
-                    placeholder="0.1"
+                    inputMode="numeric"
+                    value={item.weight_g}
+                    onChange={e => updateItem(item.id, { weight_g: e.target.value })}
+                    placeholder="100"
                     className="h-7 text-xs"
                   />
                   <Input
