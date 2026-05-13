@@ -58,6 +58,8 @@ export default function PaymentModal({ order, mode = "prepay", onClose, onSucces
   const [selectedMethodMeta, setSelectedMethodMeta] = useState(null); // { value, label, payment_note, image_url, payment_currency }
   const [paidAmount, setPaidAmount] = useState(String(defaultAmount));
   const [rates, setRates] = useState(null);
+  // Store as state so async handlers (handleProofUploaded) capture the latest value
+  const [snapshotRate, setSnapshotRate] = useState(null); // { payCurrency, rate } when non-JPY method selected
 
   // Fetch exchange rates once on mount (for non-JPY currency display)
   useEffect(() => {
@@ -83,6 +85,15 @@ export default function PaymentModal({ order, mode = "prepay", onClose, onSucces
     convertedDisplay = `${sym}${converted.toFixed(decimals)} ${payCurrency}`;
     convertedRate = rates[payCurrency]; // JPY→payCurrency rate
   }
+
+  // Keep snapshotRate in sync with current convertedRate so async handlers can read it reliably
+  useEffect(() => {
+    if (convertedRate && payCurrency && payCurrency !== "JPY") {
+      setSnapshotRate({ payCurrency, rate: convertedRate });
+    } else if (!selectedMethodMeta || selectedMethodMeta.payment_currency === "JPY") {
+      setSnapshotRate(null);
+    }
+  }, [convertedRate, payCurrency, selectedMethodMeta]);
 
   // Alipay
   const [alipayUrl, setAlipayUrl] = useState(null);
@@ -113,25 +124,21 @@ export default function PaymentModal({ order, mode = "prepay", onClose, onSucces
     if (url) window.open(url, "_blank");
   };
 
-  // Build actual-currency fields when paying in a non-JPY currency
+  // Build actual-currency fields when paying in a non-JPY currency.
   // Per architecture: prepayment_amount stays in JPY (internal base currency).
-  // Actual foreign-currency amount is stored in prepayment_amount_cny (for CNY)
-  // and prepayment_currency records the actual payment currency used.
-  const buildActualCurrencyUpdates = () => {
-    if (!payCurrency || payCurrency === "JPY") return {};
-    if (!convertedRate) return {};
-    // paidAmount is in JPY (cur is typically JPY for orders)
-    const jpyAmount = parseFloat(paidAmount) || 0;
-    const foreignAmount = parseFloat((jpyAmount * convertedRate).toFixed(2));
+  // Uses snapshotRate (state) to avoid stale-closure bugs in async handlers.
+  const buildActualCurrencyUpdates = (currentPaidAmount) => {
+    const snap = snapshotRate;
+    if (!snap || snap.payCurrency === "JPY") return {};
+    const jpyAmount = parseFloat(currentPaidAmount ?? paidAmount) || 0;
+    const foreignAmount = parseFloat((jpyAmount * snap.rate).toFixed(2));
     if (!foreignAmount) return {};
     const updates = {
-      prepayment_currency: payCurrency,
+      prepayment_currency: snap.payCurrency,
       prepayment_amount_jpy: jpyAmount,
-      // prepayment_amount stays as JPY (internal base) — do NOT overwrite with foreign amount
-      prepayment_rate_jpy_cny: convertedRate,
+      prepayment_rate_jpy_cny: snap.rate,
     };
-    // Store actual foreign amount in the appropriate field
-    if (payCurrency === "CNY") {
+    if (snap.payCurrency === "CNY") {
       updates.prepayment_amount_cny = foreignAmount;
     }
     return updates;
@@ -140,6 +147,7 @@ export default function PaymentModal({ order, mode = "prepay", onClose, onSucces
   // For non-alipay: manual confirm
   const handleManualSubmit = async () => {
     setSubmitting(true);
+    const currentPaidAmount = paidAmount;
     const updates = {
       payment_method: method,
       payment_proof_url: proofUrl,
@@ -150,12 +158,12 @@ export default function PaymentModal({ order, mode = "prepay", onClose, onSucces
     } else if (isSupp) {
       updates.order_status = "paid";
       updates.supplement_requested = false;
-      updates.paid_amount = (order.paid_amount || 0) + parseFloat(paidAmount);
-      Object.assign(updates, buildActualCurrencyUpdates());
+      updates.paid_amount = (order.paid_amount || 0) + parseFloat(currentPaidAmount);
+      Object.assign(updates, buildActualCurrencyUpdates(currentPaidAmount));
     } else {
       updates.order_status = "paid";
-      updates.paid_amount = (order.paid_amount || 0) + parseFloat(paidAmount);
-      Object.assign(updates, buildActualCurrencyUpdates());
+      updates.paid_amount = (order.paid_amount || 0) + parseFloat(currentPaidAmount);
+      Object.assign(updates, buildActualCurrencyUpdates(currentPaidAmount));
     }
     await updateOrder(order.id, updates);
     onSuccess?.();
@@ -163,6 +171,10 @@ export default function PaymentModal({ order, mode = "prepay", onClose, onSucces
 
   // Upload proof then auto-submit and navigate to MyOrders
   const handleProofUploaded = async (file) => {
+    // Capture current values before any async gaps
+    const currentPaidAmount = paidAmount;
+    const currencyUpdates = buildActualCurrencyUpdates(currentPaidAmount);
+
     setUploading(true);
     const { file_url } = await base44.integrations.Core.UploadFile({ file });
     setProofUrl(file_url);
@@ -179,11 +191,11 @@ export default function PaymentModal({ order, mode = "prepay", onClose, onSucces
       updates.order_status = "ready_to_ship";
     } else if (isSupp) {
       updates.supplement_requested = false;
-      updates.paid_amount = (order.paid_amount || 0) + parseFloat(paidAmount);
-      Object.assign(updates, buildActualCurrencyUpdates());
+      updates.paid_amount = (order.paid_amount || 0) + parseFloat(currentPaidAmount);
+      Object.assign(updates, currencyUpdates);
     } else {
-      updates.paid_amount = (order.paid_amount || 0) + parseFloat(paidAmount);
-      Object.assign(updates, buildActualCurrencyUpdates());
+      updates.paid_amount = (order.paid_amount || 0) + parseFloat(currentPaidAmount);
+      Object.assign(updates, currencyUpdates);
     }
     await updateOrder(order.id, updates);
     setSubmitting(false);
