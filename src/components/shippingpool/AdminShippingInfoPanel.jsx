@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CreditCard, Truck, CheckCircle, ExternalLink, X, Plus, Loader2, MapPin } from "lucide-react";
+import CustomsDeclarationDisplay from "@/components/shippingpool/CustomsDeclarationDisplay";
 import { getCountry, getCountryZone } from "@/lib/countries";
 import { calcFeeBreakdownPerUser } from "@/lib/shippingFeeCalc";
 import { getExchangeRates } from "@/lib/exchangeRates";
@@ -617,6 +618,9 @@ export default function AdminShippingInfoPanel({
               {pool.address_line2 && <div>详细地址：<span className="font-medium">{pool.address_line2}</span></div>}
             </div>
           )}
+
+          {/* Customs declaration (read-only, from orders) */}
+          <CustomsDeclarationDisplay orders={orders} />
 
           {/* Transit info (read-only, from pool) */}
           {(transitLocation || pool.transit_shipping_method_name) && (
