@@ -114,20 +114,27 @@ export default function PaymentModal({ order, mode = "prepay", onClose, onSucces
   };
 
   // Build actual-currency fields when paying in a non-JPY currency
+  // Per architecture: prepayment_amount stays in JPY (internal base currency).
+  // Actual foreign-currency amount is stored in prepayment_amount_cny (for CNY)
+  // and prepayment_currency records the actual payment currency used.
   const buildActualCurrencyUpdates = () => {
     if (!payCurrency || payCurrency === "JPY") return {};
-    // paidAmount is in `cur` (the order's base display currency, typically JPY)
-    // If the payment method requires a different currency, record that too
-    const actualAmount = convertedRate
-      ? parseFloat((parseFloat(paidAmount) * convertedRate).toFixed(2))
-      : null;
-    if (!actualAmount) return {};
-    return {
-      prepayment_amount: actualAmount,
+    if (!convertedRate) return {};
+    // paidAmount is in JPY (cur is typically JPY for orders)
+    const jpyAmount = parseFloat(paidAmount) || 0;
+    const foreignAmount = parseFloat((jpyAmount * convertedRate).toFixed(2));
+    if (!foreignAmount) return {};
+    const updates = {
       prepayment_currency: payCurrency,
-      // Preserve original JPY amount
-      prepayment_amount_jpy: parseFloat(paidAmount) || order.prepayment_amount_jpy || order.prepayment_amount,
+      prepayment_amount_jpy: jpyAmount,
+      // prepayment_amount stays as JPY (internal base) — do NOT overwrite with foreign amount
+      prepayment_rate_jpy_cny: convertedRate,
     };
+    // Store actual foreign amount in the appropriate field
+    if (payCurrency === "CNY") {
+      updates.prepayment_amount_cny = foreignAmount;
+    }
+    return updates;
   };
 
   // For non-alipay: manual confirm

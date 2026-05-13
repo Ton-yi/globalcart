@@ -213,20 +213,19 @@ Deno.serve(async (req) => {
           payment_method: 'alipay',
         };
       } else {
-        // Record actual CNY paid amount; preserve original JPY amount in paid_amount_jpy
+        // prepayment_amount stays in JPY (internal base currency — never overwrite with CNY)
+        // Actual CNY paid is recorded in prepayment_amount_cny
+        const originalJpy = order.prepayment_amount_jpy || order.prepayment_amount || 0;
         const cnyAmount = order.prepayment_amount_cny || actualCnyPaid;
-        const originalJpy = order.prepayment_amount || 0;
         updates = {
           payment_status: 'paid',
           order_status: 'pending_purchase',
-          paid_amount: originalJpy, // keep JPY amount for internal accounting
+          paid_amount: originalJpy, // JPY for internal accounting
           alipay_transaction_id: trade_no,
           payment_method: 'alipay',
-          // Overwrite prepayment_amount/currency to reflect what was actually paid in CNY
-          ...(cnyAmount ? {
-            prepayment_amount: cnyAmount,
-            prepayment_currency: 'CNY',
-          } : {}),
+          prepayment_currency: 'CNY',
+          ...(cnyAmount ? { prepayment_amount_cny: cnyAmount } : {}),
+          ...(originalJpy ? { prepayment_amount_jpy: originalJpy } : {}),
         };
       }
       console.log(`[DIAG][handleAlipayPaymentCallback] updating order ${order.id}: status ${order.order_status} → ${updates.order_status}, payment ${order.payment_status} → ${updates.payment_status}`);
