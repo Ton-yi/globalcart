@@ -327,6 +327,8 @@ export default function MyOrders() {
   const filtered = orders.filter(o => {
     if (!showArchived && o.is_archived) return false;
     if (showArchived && !o.is_archived) return false;
+    // Hide split-parent placeholder orders (split_index === -1 means already split into children)
+    if (o.split_index === -1) return false;
     const matchStatus = statusFilter === "all" || o.order_status === statusFilter;
     const q = search.toLowerCase();
     const matchSearch = !q ||
