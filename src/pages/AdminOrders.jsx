@@ -465,7 +465,7 @@ export default function AdminOrders() {
 
       {/* Bulk actions */}
       {selectedIds.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+        <div className="flex flex-wrap items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 sticky top-14 z-30 shadow-md">
           <span className="text-sm text-blue-700 font-medium shrink-0">已选 {selectedIds.length} 条</span>
 
           {/* Context-aware quick actions when all selected share the same status */}
