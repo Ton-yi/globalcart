@@ -4,6 +4,7 @@
  * Covers all status transitions per the new order flow.
  */
 import { useState, useEffect } from "react";
+import ReactMarkdown from "react-markdown";
 import { base44 } from "@/api/base44Client";
 import { updateOrder, tenantEntity } from "@/lib/tenantApi";
 import { X, ExternalLink, Copy, Loader2, CheckCircle, Upload, AlertTriangle, MessageCircle, Package, Send, Layers, Scissors, GitBranch } from "lucide-react";
@@ -291,7 +292,18 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
 
   const statusLabel = getStatusLabel(status, "admin");
   const statusColor = getStatusColor(status, "admin");
-  const urls = (order.product_url || "").split("\n").map(s => s.trim()).filter(Boolean);
+
+  // Pre-process product_url: wrap bare URLs as markdown links, ensure --- has blank lines
+  const productUrlText = (() => {
+    const raw = (order.product_url || "").trim();
+    if (!raw) return "";
+    return raw.split("\n").map(line => {
+      const t = line.trim();
+      if (t === "---") return "\n---\n";
+      if (/^https?:\/\/\S+/.test(t)) return `[${t}](${t})`;
+      return line;
+    }).join("\n");
+  })();
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
@@ -409,17 +421,29 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
               )}
 
               {/* Product links */}
-              {urls.length > 0 && (
+              {productUrlText && (
                 <div>
                   <div className="text-xs text-gray-400 mb-1">商品链接</div>
-                  <div className="space-y-1">
-                    {urls.map((u, i) => (
-                      <a key={i} href={u} target="_blank" rel="noopener noreferrer"
-                        className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 truncate">
-                        <ExternalLink className="w-3 h-3 flex-shrink-0" />{u}
-                      </a>
-                    ))}
-                  </div>
+                  <ReactMarkdown
+                    className="text-xs text-gray-700 prose prose-xs max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_p]:my-0.5 [&_a]:text-blue-600 [&_a]:break-all"
+                    components={{
+                      hr: () => (
+                        <div className="flex items-center gap-2 my-2">
+                          <div className="flex-1 border-t border-indigo-300" />
+                          <span className="text-[10px] text-indigo-400 font-medium">— 拆单分隔线 —</span>
+                          <div className="flex-1 border-t border-indigo-300" />
+                        </div>
+                      ),
+                      a: ({ href, children }) => (
+                        <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 break-all inline-flex items-center gap-1">
+                          <ExternalLink className="w-3 h-3 flex-shrink-0 inline" />{children}
+                        </a>
+                      ),
+                      p: ({ children }) => <p className="my-0.5 break-all">{children}</p>,
+                    }}
+                  >
+                    {productUrlText}
+                  </ReactMarkdown>
                 </div>
               )}
 
