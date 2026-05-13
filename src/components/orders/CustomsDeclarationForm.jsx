@@ -37,6 +37,7 @@ function newItem() {
 
 export default function CustomsDeclarationForm({ value, onChange, hazmatText }) {
   const [open, setOpen] = useState(false);
+
   const newItemNameRef = useRef(null);
 
   const data = value || {
@@ -62,11 +63,16 @@ export default function CustomsDeclarationForm({ value, onChange, hazmatText }) 
     update({ items: data.items.filter(it => it.id !== id) });
   };
 
-  // Auto-calc total
+  // Auto-calc total value and total weight
   const total = data.items.reduce((sum, it) => {
     const price = parseFloat(it.unit_price) || 0;
     const qty = parseInt(it.quantity) || 0;
     return sum + price * qty;
+  }, 0);
+  const totalWeightG = data.items.reduce((sum, it) => {
+    const w = parseFloat(it.weight_g) || 0;
+    const qty = parseInt(it.quantity) || 1;
+    return sum + w * qty;
   }, 0);
 
   // All currencies in use (use first item's currency for total display)
@@ -176,11 +182,19 @@ export default function CustomsDeclarationForm({ value, onChange, hazmatText }) 
                 className="flex items-center gap-1 text-xs text-orange-600 hover:text-orange-700">
                 <Plus className="w-3 h-3" />添加品类
               </button>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-500">内容物品总额：</span>
-                <span className="text-sm font-semibold text-orange-700">
-                  {displayCurrency} {total.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
-                </span>
+              <div className="flex items-center gap-3">
+                {totalWeightG > 0 && (
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-gray-400">总重量：</span>
+                    <span className="text-xs font-semibold text-gray-700">{totalWeightG.toLocaleString()} g</span>
+                  </div>
+                )}
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-gray-500">申报总额：</span>
+                  <span className="text-sm font-semibold text-orange-700">
+                    {displayCurrency} {total.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
               </div>
             </div>
           </div>

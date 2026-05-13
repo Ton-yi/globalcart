@@ -4,7 +4,7 @@
  * Each cell value is clickable to copy.
  */
 import { useState } from "react";
-import { ClipboardList, Copy, Check } from "lucide-react";
+import { ClipboardList, Copy, Check, ChevronDown, ChevronRight } from "lucide-react";
 
 const CONTENT_TYPE_LABELS = {
   gift: "礼品 (Gift)",
@@ -53,6 +53,8 @@ function CopyCell({ value, className = "" }) {
 }
 
 export default function CustomsDeclarationDisplay({ orders = [] }) {
+  const [open, setOpen] = useState(false);
+
   // Collect all orders that have customs_declaration filled
   const ordersWithCustoms = orders.filter(o => {
     const cd = o.customs_declaration;
@@ -62,82 +64,118 @@ export default function CustomsDeclarationDisplay({ orders = [] }) {
   if (ordersWithCustoms.length === 0) return null;
 
   return (
-    <div className="bg-orange-50 border border-orange-200 rounded-lg overflow-hidden">
-      <div className="flex items-center gap-1.5 px-3 py-2 bg-orange-100/60 border-b border-orange-200">
-        <ClipboardList className="w-3.5 h-3.5 text-orange-600" />
-        <span className="text-xs font-medium text-orange-700">用户填写的报关单</span>
-        <span className="text-xs text-orange-400 ml-1">（点击值即可复制）</span>
-      </div>
+    <div className="border border-gray-200 rounded-lg overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        className={`w-full flex items-center justify-between px-3 py-2 text-left transition-colors ${open ? "bg-gray-50" : "bg-gray-50/60 hover:bg-gray-50"}`}
+      >
+        <div className="flex items-center gap-1.5">
+          <ClipboardList className="w-3.5 h-3.5 text-gray-500" />
+          <span className="text-xs font-medium text-gray-600">用户填写的报关单</span>
+          <span className="text-xs text-gray-400 ml-1">（点击值即可复制）</span>
+        </div>
+        {open
+          ? <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
+          : <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
+        }
+      </button>
 
-      <div className="p-3 space-y-4">
-        {ordersWithCustoms.map((order, orderIdx) => {
-          const cd = order.customs_declaration;
-          return (
-            <div key={order.id} className="space-y-2">
-              {ordersWithCustoms.length > 1 && (
-                <p className="text-xs text-gray-500 font-medium truncate">
-                  📦 {order.product_name || order.order_number || `订单 ${orderIdx + 1}`}
-                </p>
-              )}
+      {open && (
+        <div className="p-3 space-y-4 border-t border-gray-200">
+          {ordersWithCustoms.map((order, orderIdx) => {
+            const cd = order.customs_declaration;
 
-              {/* Content type */}
-              <div className="flex items-center gap-2 text-xs text-gray-500">
-                <span className="w-20 shrink-0">内容物种类：</span>
-                <CopyCell value={CONTENT_TYPE_LABELS[cd.content_type] || cd.content_type} />
-              </div>
+            // Totals
+            const filledItems = (cd.items || []).filter(it => it.name);
+            const totalWeightG = filledItems.reduce((s, it) => s + (parseFloat(it.weight_g) || 0) * (parseInt(it.quantity) || 1), 0);
+            const displayCurrency = filledItems[0]?.currency || "JPY";
+            const totalValue = filledItems.reduce((s, it) => s + (parseFloat(it.unit_price) || 0) * (parseInt(it.quantity) || 1), 0);
+            const totalWeightStr = totalWeightG > 0 ? `${totalWeightG.toLocaleString()} g` : null;
+            const totalValueStr = totalValue > 0 ? `${displayCurrency} ${totalValue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}` : null;
 
-              {/* Items table */}
-              {cd.items && cd.items.length > 0 && (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs border-collapse">
-                    <thead>
-                      <tr className="bg-orange-100/50">
-                        <th className="text-left px-2 py-1.5 text-gray-500 font-medium border-b border-orange-200">品名（英文）</th>
-                        <th className="text-right px-2 py-1.5 text-gray-500 font-medium border-b border-orange-200">单价</th>
-                        <th className="text-left px-2 py-1.5 text-gray-500 font-medium border-b border-orange-200">货币</th>
-                        <th className="text-right px-2 py-1.5 text-gray-500 font-medium border-b border-orange-200">重量(g)</th>
-                        <th className="text-right px-2 py-1.5 text-gray-500 font-medium border-b border-orange-200">个数</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {cd.items.filter(it => it.name).map((item, idx) => (
-                        <tr key={item.id || idx} className="border-b border-orange-100 last:border-0">
-                          <td className="px-2 py-1.5"><CopyCell value={item.name} /></td>
-                          <td className="px-2 py-1.5 text-right"><CopyCell value={item.unit_price} /></td>
-                          <td className="px-2 py-1.5"><CopyCell value={item.currency} /></td>
-                          <td className="px-2 py-1.5 text-right"><CopyCell value={item.weight_g} /></td>
-                          <td className="px-2 py-1.5 text-right"><CopyCell value={item.quantity} /></td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+            return (
+              <div key={order.id} className="space-y-2">
+                {ordersWithCustoms.length > 1 && (
+                  <p className="text-xs text-gray-500 font-medium truncate">
+                    📦 {order.product_name || order.order_number || `订单 ${orderIdx + 1}`}
+                  </p>
+                )}
 
-              {/* Undeliverable instruction */}
-              {cd.undeliverable_action && (
+                {/* Content type — display only, no copy */}
                 <div className="flex items-center gap-2 text-xs text-gray-500">
-                  <span className="w-20 shrink-0">无法送达：</span>
-                  <CopyCell value={
-                    UNDELIVERABLE_LABELS[cd.undeliverable_action] || cd.undeliverable_action
-                  } />
-                  {cd.undeliverable_action === "return" && cd.return_method && (
-                    <>
-                      <span className="text-gray-400">用</span>
-                      <CopyCell value={RETURN_METHOD_LABELS[cd.return_method] || cd.return_method} />
-                    </>
-                  )}
+                  <span className="w-20 shrink-0 text-gray-400">内容物种类：</span>
+                  <span className="text-gray-700">{CONTENT_TYPE_LABELS[cd.content_type] || cd.content_type || "—"}</span>
                 </div>
-              )}
 
-              {/* Hazmat confirmed */}
-              {cd.hazmat_confirmed && (
-                <p className="text-xs text-green-600">✅ 用户已确认危险品声明</p>
-              )}
-            </div>
-          );
-        })}
-      </div>
+                {/* Items table */}
+                {filledItems.length > 0 && (
+                  <div className="overflow-x-auto rounded border border-gray-100">
+                    <table className="w-full text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-gray-50">
+                          <th className="text-left px-2 py-1.5 text-gray-400 font-medium border-b border-gray-100">品名（英文）</th>
+                          <th className="text-right px-2 py-1.5 text-gray-400 font-medium border-b border-gray-100">单价</th>
+                          <th className="text-left px-2 py-1.5 text-gray-400 font-medium border-b border-gray-100">货币</th>
+                          <th className="text-right px-2 py-1.5 text-gray-400 font-medium border-b border-gray-100">重量(g)</th>
+                          <th className="text-right px-2 py-1.5 text-gray-400 font-medium border-b border-gray-100">个数</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filledItems.map((item, idx) => (
+                          <tr key={item.id || idx} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50">
+                            <td className="px-2 py-1.5"><CopyCell value={item.name} /></td>
+                            <td className="px-2 py-1.5 text-right"><CopyCell value={item.unit_price} /></td>
+                            <td className="px-2 py-1.5"><CopyCell value={item.currency} /></td>
+                            <td className="px-2 py-1.5 text-right"><CopyCell value={item.weight_g} /></td>
+                            <td className="px-2 py-1.5 text-right"><CopyCell value={item.quantity} /></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* Totals row */}
+                {(totalWeightStr || totalValueStr) && (
+                  <div className="flex items-center gap-4 pt-1">
+                    {totalWeightStr && (
+                      <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                        <span className="text-gray-400">总重量：</span>
+                        <CopyCell value={totalWeightStr} className="font-medium text-gray-700" />
+                      </div>
+                    )}
+                    {totalValueStr && (
+                      <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                        <span className="text-gray-400">申报总额：</span>
+                        <CopyCell value={totalValueStr} className="font-medium text-gray-700" />
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Undeliverable instruction — display only, no copy */}
+                {cd.undeliverable_action && (
+                  <div className="flex items-center gap-2 text-xs text-gray-500">
+                    <span className="w-20 shrink-0 text-gray-400">无法送达：</span>
+                    <span className="text-gray-700">
+                      {UNDELIVERABLE_LABELS[cd.undeliverable_action] || cd.undeliverable_action}
+                      {cd.undeliverable_action === "return" && cd.return_method && (
+                        <span className="text-gray-400">（{RETURN_METHOD_LABELS[cd.return_method] || cd.return_method}）</span>
+                      )}
+                    </span>
+                  </div>
+                )}
+
+                {/* Hazmat confirmed */}
+                {cd.hazmat_confirmed && (
+                  <p className="text-xs text-green-600">✅ 用户已确认危险品声明</p>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
