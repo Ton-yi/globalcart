@@ -613,10 +613,15 @@ export default function AdminOrders() {
                           </span>
                         )}
                         {(order.order_status === "paid" || order.order_status === "pending_purchase") && (
-                          <Button size="sm" variant="outline" className="h-6 text-xs px-2 text-indigo-600 border-indigo-200"
-                            onClick={() => handleQuickOrdered(order)}>
-                            已下单
-                          </Button>
+                          order.has_split_marker
+                            ? <Button size="sm" variant="outline" className="h-6 text-xs px-2 text-indigo-600 border-indigo-200"
+                                onClick={() => setSelectedOrder(order)}>
+                                查看详情
+                              </Button>
+                            : <Button size="sm" variant="outline" className="h-6 text-xs px-2 text-indigo-600 border-indigo-200"
+                                onClick={() => handleQuickOrdered(order)}>
+                                已下单
+                              </Button>
                         )}
                         {order.order_status === "purchased" && (
                           <Button size="sm" variant="outline" className="h-6 text-xs px-2 text-teal-600 border-teal-200"
