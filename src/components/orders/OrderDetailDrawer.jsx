@@ -290,7 +290,7 @@ export default function OrderDetailDrawer({ order, currentUser, initialUserPrefe
           )}
 
           {/* Images */}
-          {(order.product_image_url || order.arrival_photo_url || order.purchase_screenshot_url) && (
+          {(order.product_image_url || order.arrival_photo_url || order.purchase_screenshot_url || order.payment_proof_url) && (
             <div className="flex gap-3 flex-wrap">
               {order.product_image_url && (
                 <div className="flex flex-col items-center gap-1">
@@ -298,6 +298,14 @@ export default function OrderDetailDrawer({ order, currentUser, initialUserPrefe
                     <img src={order.product_image_url} alt="商品图" className="h-20 w-20 rounded-lg border object-cover cursor-pointer hover:opacity-80 transition-opacity" />
                   </ImageWithViewer>
                   <span className="text-[10px] text-gray-400">商品图</span>
+                </div>
+              )}
+              {order.payment_proof_url && (
+                <div className="flex flex-col items-center gap-1">
+                  <ImageWithViewer src={order.payment_proof_url} alt="付款凭证">
+                    <img src={order.payment_proof_url} alt="付款凭证" className="h-20 w-20 rounded-lg border object-cover cursor-pointer hover:opacity-80 transition-opacity" />
+                  </ImageWithViewer>
+                  <span className="text-[10px] text-gray-400">付款凭证</span>
                 </div>
               )}
               {order.purchase_screenshot_url && (
