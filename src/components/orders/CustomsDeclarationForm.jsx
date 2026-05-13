@@ -3,7 +3,7 @@
  * Collapsible customs declaration form for single-shipment notifications.
  * Shown when user selects 单独发货 in UserNotifyShipmentModal.
  */
-import { useState } from "react";
+import { useState, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import { ChevronDown, ChevronRight, FileText, Plus, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -37,6 +37,7 @@ function newItem() {
 
 export default function CustomsDeclarationForm({ value, onChange, hazmatText }) {
   const [open, setOpen] = useState(false);
+  const newItemNameRef = useRef(null);
 
   const data = value || {
     items: [newItem()],
@@ -51,7 +52,10 @@ export default function CustomsDeclarationForm({ value, onChange, hazmatText }) 
   const updateItem = (id, patch) =>
     update({ items: data.items.map(it => it.id === id ? { ...it, ...patch } : it) });
 
-  const addItem = () => update({ items: [...data.items, newItem()] });
+  const addItem = () => {
+    update({ items: [...data.items, newItem()] });
+    setTimeout(() => newItemNameRef.current?.focus(), 30);
+  };
 
   const removeItem = (id) => {
     if (data.items.length <= 1) return;
@@ -119,9 +123,10 @@ export default function CustomsDeclarationForm({ value, onChange, hazmatText }) 
                 <span>个数</span>
                 <span></span>
               </div>
-              {data.items.map((item) => (
+              {data.items.map((item, idx) => (
                 <div key={item.id} className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_auto] gap-1 items-center">
                   <Input
+                    ref={idx === data.items.length - 1 ? newItemNameRef : null}
                     value={item.name}
                     onChange={e => updateItem(item.id, { name: e.target.value })}
                     placeholder="e.g. Toy Car"
