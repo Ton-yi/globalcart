@@ -18,11 +18,12 @@ export default function GlobalRoleManager() {
   const [permissions, setPermissions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [expandedRole, setExpandedRole] = useState(null);
-  const [expandedPermissions, setExpandedPermissions] = useState(false);
+
   const [newRole, setNewRole] = useState({ name: "", description: "", permissions: [] });
   const [newPerm, setNewPerm] = useState({ name: "", description: "", resource_type: "", action: "" });
   const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState("");
+  const [permMsg, setPermMsg] = useState("");
+  const [roleMsg, setRoleMsg] = useState("");
 
   useEffect(() => {
     loadData();
@@ -33,40 +34,47 @@ export default function GlobalRoleManager() {
     try {
       const [rolesRes, permsRes] = await Promise.all([
         base44.functions.invoke('manageRoles', {
-          action: 'list_global_roles',
+          action: 'listRoles',
+          data: { tenant_id_filter: null },
         }),
         base44.functions.invoke('managePermissions', {
-          action: 'list_global_permissions',
+          action: 'listPermissions',
+          data: { tenant_id_filter: null },
         }),
       ]);
-      setCustomRoles(rolesRes.data?.roles || []);
+      // listRoles returns all roles; filter to only global/custom ones (tenant_id === null, not built-in)
+      const allRoles = rolesRes.data?.roles || [];
+      setCustomRoles(allRoles.filter(r => r.is_global === true));
       setPermissions(permsRes.data?.permissions || []);
     } catch (e) {
-      setMsg({ type: 'error', text: e.message });
+      setPermMsg({ type: 'error', text: e.message });
     }
     setLoading(false);
   };
 
   const handleCreatePermission = async () => {
     if (!newPerm.name || !newPerm.resource_type || !newPerm.action) {
-      setMsg({ type: 'error', text: '请填写所有必填字段' });
+      setPermMsg({ type: 'error', text: '请填写所有必填字段' });
       return;
     }
     setSaving(true);
     try {
       await base44.functions.invoke('managePermissions', {
-        action: 'create_global_permission',
-        name: newPerm.name,
-        description: newPerm.description,
-        resource_type: newPerm.resource_type,
-        action: newPerm.action,
+        action: 'create',
+        data: {
+          name: newPerm.name,
+          description: newPerm.description,
+          resource_type: newPerm.resource_type,
+          action: newPerm.action,
+          is_global: true,
+        },
       });
-      setMsg({ type: 'success', text: '权限创建成功' });
+      setPermMsg({ type: 'success', text: '权限创建成功' });
       setNewPerm({ name: "", description: "", resource_type: "", action: "" });
       await loadData();
-      setTimeout(() => setMsg(""), 2000);
+      setTimeout(() => setPermMsg(""), 2000);
     } catch (e) {
-      setMsg({ type: 'error', text: e.message });
+      setPermMsg({ type: 'error', text: e.message });
     }
     setSaving(false);
   };
@@ -76,21 +84,24 @@ export default function GlobalRoleManager() {
     setSaving(true);
     try {
       const res = await base44.functions.invoke('manageRoles', {
-        action: 'create_global_role',
-        name: newRole.name,
-        description: newRole.description,
-        permissions: newRole.permissions,
+        action: 'create',
+        data: {
+          name: newRole.name,
+          description: newRole.description,
+          is_global: true,
+          direct_permissions: newRole.permissions,
+        },
       });
       if (res.data?.error) {
-        setMsg({ type: 'error', text: res.data.error });
+        setRoleMsg({ type: 'error', text: res.data.error });
       } else {
-        setMsg({ type: 'success', text: `全局角色"${newRole.name}"创建成功` });
+        setRoleMsg({ type: 'success', text: `全局角色"${newRole.name}"创建成功` });
         setNewRole({ name: "", description: "", permissions: [] });
         await loadData();
-        setTimeout(() => setMsg(""), 2000);
+        setTimeout(() => setRoleMsg(""), 2000);
       }
     } catch (e) {
-      setMsg({ type: 'error', text: e.message });
+      setRoleMsg({ type: 'error', text: e.message });
     }
     setSaving(false);
   };
@@ -108,30 +119,36 @@ export default function GlobalRoleManager() {
     if (!window.confirm("确定删除此全局角色吗？")) return;
     setSaving(true);
     try {
-      await base44.functions.invoke('manageRoles', {
-        action: 'delete_global_role',
-        role_id: roleId,
+      const res = await base44.functions.invoke('manageRoles', {
+        action: 'delete',
+        data: { role_id: roleId },
       });
-      await loadData();
-      setMsg({ type: 'success', text: "全局角色删除成功" });
-      setTimeout(() => setMsg(""), 2000);
+      if (res.data?.error) {
+        setRoleMsg({ type: 'error', text: res.data.error });
+      } else {
+        await loadData();
+        setRoleMsg({ type: 'success', text: "全局角色删除成功" });
+        setTimeout(() => setRoleMsg(""), 2000);
+      }
     } catch (e) {
-      setMsg({ type: 'error', text: e.message });
+      setRoleMsg({ type: 'error', text: e.message });
     }
     setSaving(false);
   };
 
-  const handleAssignPermission = async (roleId, permissionId, assign) => {
+  const handleAssignPermission = async (role, permissionId, assign) => {
     setSaving(true);
+    const updatedPerms = assign
+      ? [...(role.direct_permissions || []), permissionId]
+      : (role.direct_permissions || []).filter(id => id !== permissionId);
     try {
       await base44.functions.invoke('manageRoles', {
-        action: assign ? 'add_permission_to_global_role' : 'remove_permission_from_global_role',
-        role_id: roleId,
-        permission_id: permissionId,
+        action: 'update',
+        data: { role_id: role.id, updates: { direct_permissions: updatedPerms } },
       });
       await loadData();
     } catch (e) {
-      setMsg({ type: 'error', text: e.message });
+      setRoleMsg({ type: 'error', text: e.message });
     }
     setSaving(false);
   };
@@ -191,9 +208,9 @@ export default function GlobalRoleManager() {
               />
             </div>
           </div>
-          {msg && (
-            <p className={`text-xs px-2 py-1 rounded ${msg.type === 'success' ? 'text-green-700 bg-green-50' : 'text-red-700 bg-red-50'}`}>
-              {msg.text}
+          {permMsg && (
+            <p className={`text-xs px-2 py-1 rounded ${permMsg.type === 'success' ? 'text-green-700 bg-green-50' : 'text-red-700 bg-red-50'}`}>
+              {permMsg.text}
             </p>
           )}
           <Button
@@ -282,9 +299,9 @@ export default function GlobalRoleManager() {
             </div>
           )}
 
-          {msg && (
-            <p className={`text-xs px-2 py-1 rounded ${msg.type === 'success' ? 'text-green-700 bg-green-50' : 'text-red-700 bg-red-50'}`}>
-              {msg.text}
+          {roleMsg && (
+            <p className={`text-xs px-2 py-1 rounded ${roleMsg.type === 'success' ? 'text-green-700 bg-green-50' : 'text-red-700 bg-red-50'}`}>
+              {roleMsg.text}
             </p>
           )}
           <Button
@@ -353,7 +370,7 @@ export default function GlobalRoleManager() {
                               <input
                                 type="checkbox"
                                 checked={hasPermission}
-                                onChange={e => handleAssignPermission(role.id, perm.id, e.target.checked)}
+                                onChange={e => handleAssignPermission(role, perm.id, e.target.checked)}
                                 disabled={saving}
                                 className="w-3.5 h-3.5 rounded border-gray-300"
                               />
