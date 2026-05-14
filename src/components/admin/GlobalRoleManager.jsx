@@ -5,13 +5,80 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Trash2, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Trash2, ChevronDown, ChevronUp, Check, Shield } from "lucide-react";
 
-// Built-in global roles
 const BUILTIN_ROLES = [
   { id: 'user', name: '普通用户', description: '基础用户角色，具有基本操作权限' },
   { id: 'tenant_admin', name: '租户管理员', description: '租户级管理员，可管理该租户下的所有资源' },
 ];
+
+function groupByResource(permissions) {
+  return permissions.reduce((acc, p) => {
+    const cat = p.resource_type || '其他';
+    if (!acc[cat]) acc[cat] = [];
+    acc[cat].push(p);
+    return acc;
+  }, {});
+}
+
+// Permission grid: card-per-permission, grouped by resource_type
+function PermissionGrid({ permissions, selected, onToggle, accentColor = "purple", disabled = false }) {
+  const grouped = groupByResource(permissions);
+  const accent = {
+    purple: { card: "border-purple-300 bg-purple-50 shadow-sm", check: "bg-purple-600 border-purple-600", badge: "bg-purple-100 text-purple-700", heading: "text-purple-700 border-purple-200 bg-purple-50" },
+    green:  { card: "border-green-300 bg-green-50 shadow-sm",   check: "bg-green-600 border-green-600",   badge: "bg-green-100 text-green-700",   heading: "text-green-700 border-green-200 bg-green-50"   },
+  }[accentColor];
+
+  return (
+    <div className="space-y-4">
+      {Object.entries(grouped).map(([category, perms]) => (
+        <div key={category}>
+          <div className={`text-xs font-semibold px-2 py-1 rounded mb-2 border inline-flex items-center gap-1.5 ${accent.heading}`}>
+            <Shield className="w-3 h-3" />{category}
+            <span className="text-gray-400 font-normal">
+              ({perms.filter(p => selected.includes(p.id)).length}/{perms.length})
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {perms.map(perm => {
+              const isOn = selected.includes(perm.id);
+              return (
+                <button
+                  key={perm.id}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => onToggle(perm.id)}
+                  className={`text-left rounded-lg border-2 px-3 py-2.5 transition-all focus:outline-none ${
+                    isOn ? accent.card + " border-opacity-100" : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"
+                  } ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                >
+                  <div className="flex items-start gap-2">
+                    <span className={`mt-0.5 w-4 h-4 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
+                      isOn ? accent.check : "border-gray-300 bg-white"
+                    }`}>
+                      {isOn && <Check className="w-2.5 h-2.5 text-white" strokeWidth={3} />}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-xs font-medium leading-tight ${isOn ? "text-gray-900" : "text-gray-700"}`}>
+                        {perm.description || perm.name}
+                      </p>
+                      <div className="flex items-center gap-1.5 mt-1">
+                        <code className="text-2xs text-gray-400 bg-gray-100 px-1 rounded">{perm.name}</code>
+                        <Badge className={`text-2xs px-1 py-0 ${isOn ? accent.badge : "bg-gray-100 text-gray-400"}`}>
+                          {perm.action}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function GlobalRoleManager() {
   const [customRoles, setCustomRoles] = useState([]);
@@ -25,24 +92,15 @@ export default function GlobalRoleManager() {
   const [permMsg, setPermMsg] = useState("");
   const [roleMsg, setRoleMsg] = useState("");
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  useEffect(() => { loadData(); }, []);
 
   const loadData = async () => {
     setLoading(true);
     try {
       const [rolesRes, permsRes] = await Promise.all([
-        base44.functions.invoke('manageRoles', {
-          action: 'listRoles',
-          data: { tenant_id_filter: null },
-        }),
-        base44.functions.invoke('managePermissions', {
-          action: 'listPermissions',
-          data: { tenant_id_filter: null },
-        }),
+        base44.functions.invoke('manageRoles', { action: 'listRoles', data: { tenant_id_filter: null } }),
+        base44.functions.invoke('managePermissions', { action: 'listPermissions', data: { tenant_id_filter: null } }),
       ]);
-      // listRoles returns all roles; filter to only global/custom ones (tenant_id === null, not built-in)
       const allRoles = rolesRes.data?.roles || [];
       setCustomRoles(allRoles.filter(r => r.is_global === true));
       setPermissions(permsRes.data?.permissions || []);
@@ -61,13 +119,7 @@ export default function GlobalRoleManager() {
     try {
       await base44.functions.invoke('managePermissions', {
         action: 'create',
-        data: {
-          name: newPerm.name,
-          description: newPerm.description,
-          resource_type: newPerm.resource_type,
-          action: newPerm.action,
-          is_global: true,
-        },
+        data: { name: newPerm.name, description: newPerm.description, resource_type: newPerm.resource_type, action: newPerm.action, is_global: true },
       });
       setPermMsg({ type: 'success', text: '权限创建成功' });
       setNewPerm({ name: "", description: "", resource_type: "", action: "" });
@@ -85,12 +137,7 @@ export default function GlobalRoleManager() {
     try {
       const res = await base44.functions.invoke('manageRoles', {
         action: 'create',
-        data: {
-          name: newRole.name,
-          description: newRole.description,
-          is_global: true,
-          direct_permissions: newRole.permissions,
-        },
+        data: { name: newRole.name, description: newRole.description, is_global: true, direct_permissions: newRole.permissions },
       });
       if (res.data?.error) {
         setRoleMsg({ type: 'error', text: res.data.error });
@@ -106,23 +153,11 @@ export default function GlobalRoleManager() {
     setSaving(false);
   };
 
-  const togglePermissionForNewRole = (permId) => {
-    setNewRole(p => ({
-      ...p,
-      permissions: p.permissions.includes(permId)
-        ? p.permissions.filter(id => id !== permId)
-        : [...p.permissions, permId]
-    }));
-  };
-
   const handleDeleteRole = async (roleId) => {
     if (!window.confirm("确定删除此全局角色吗？")) return;
     setSaving(true);
     try {
-      const res = await base44.functions.invoke('manageRoles', {
-        action: 'delete',
-        data: { role_id: roleId },
-      });
+      const res = await base44.functions.invoke('manageRoles', { action: 'delete', data: { role_id: roleId } });
       if (res.data?.error) {
         setRoleMsg({ type: 'error', text: res.data.error });
       } else {
@@ -153,12 +188,10 @@ export default function GlobalRoleManager() {
     setSaving(false);
   };
 
-  if (loading) {
-    return <div className="text-xs text-gray-400">加载中...</div>;
-  }
+  if (loading) return <div className="text-xs text-gray-400 py-4">加载中...</div>;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* Create Permission */}
       <Card className="border-blue-200">
         <CardHeader className="pb-3">
@@ -170,55 +203,32 @@ export default function GlobalRoleManager() {
         <CardContent className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label className="text-xs text-gray-500">权限名称</Label>
-              <Input
-                className="mt-0.5 h-8 text-sm"
-                placeholder="如：订单查看"
-                value={newPerm.name}
-                onChange={e => setNewPerm(p => ({ ...p, name: e.target.value }))}
-              />
+              <Label className="text-xs text-gray-500">权限名称 *</Label>
+              <Input className="mt-0.5 h-8 text-sm" placeholder="如：订单查看" value={newPerm.name}
+                onChange={e => setNewPerm(p => ({ ...p, name: e.target.value }))} />
             </div>
             <div>
-              <Label className="text-xs text-gray-500">资源类型</Label>
-              <Input
-                className="mt-0.5 h-8 text-sm"
-                placeholder="如：Order、ShippingPool"
-                value={newPerm.resource_type}
-                onChange={e => setNewPerm(p => ({ ...p, resource_type: e.target.value }))}
-              />
+              <Label className="text-xs text-gray-500">资源类型 *</Label>
+              <Input className="mt-0.5 h-8 text-sm" placeholder="如：Order、ShippingPool" value={newPerm.resource_type}
+                onChange={e => setNewPerm(p => ({ ...p, resource_type: e.target.value }))} />
             </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label className="text-xs text-gray-500">操作</Label>
-              <Input
-                className="mt-0.5 h-8 text-sm"
-                placeholder="如：read、create、update"
-                value={newPerm.action}
-                onChange={e => setNewPerm(p => ({ ...p, action: e.target.value }))}
-              />
+              <Label className="text-xs text-gray-500">操作 *</Label>
+              <Input className="mt-0.5 h-8 text-sm" placeholder="如：read、create、update" value={newPerm.action}
+                onChange={e => setNewPerm(p => ({ ...p, action: e.target.value }))} />
             </div>
             <div>
               <Label className="text-xs text-gray-500">说明</Label>
-              <Input
-                className="mt-0.5 h-8 text-sm"
-                placeholder="权限说明"
-                value={newPerm.description}
-                onChange={e => setNewPerm(p => ({ ...p, description: e.target.value }))}
-              />
+              <Input className="mt-0.5 h-8 text-sm" placeholder="权限说明" value={newPerm.description}
+                onChange={e => setNewPerm(p => ({ ...p, description: e.target.value }))} />
             </div>
           </div>
           {permMsg && (
-            <p className={`text-xs px-2 py-1 rounded ${permMsg.type === 'success' ? 'text-green-700 bg-green-50' : 'text-red-700 bg-red-50'}`}>
-              {permMsg.text}
-            </p>
+            <p className={`text-xs px-2 py-1 rounded ${permMsg.type === 'success' ? 'text-green-700 bg-green-50' : 'text-red-700 bg-red-50'}`}>{permMsg.text}</p>
           )}
-          <Button
-            size="sm"
-            className="h-7 text-xs bg-blue-600 hover:bg-blue-700"
+          <Button size="sm" className="h-8 text-xs bg-blue-600 hover:bg-blue-700"
             onClick={handleCreatePermission}
-            disabled={saving || !newPerm.name || !newPerm.resource_type || !newPerm.action}
-          >
+            disabled={saving || !newPerm.name || !newPerm.resource_type || !newPerm.action}>
             <Plus className="w-3 h-3 mr-1" />{saving ? '创建中...' : '创建权限'}
           </Button>
         </CardContent>
@@ -232,16 +242,12 @@ export default function GlobalRoleManager() {
             系统角色 ({BUILTIN_ROLES.length})
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2">
+        <CardContent className="grid grid-cols-2 gap-3">
           {BUILTIN_ROLES.map(role => (
-            <div key={role.id} className="border border-gray-100 rounded-lg p-3 space-y-2 bg-gray-50">
-              <div className="flex items-center justify-between">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-800">{role.name}</p>
-                  <p className="text-xs text-gray-500">{role.description}</p>
-                </div>
-                <Badge className="text-xs bg-gray-200 text-gray-700">内置</Badge>
-              </div>
+            <div key={role.id} className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+              <p className="text-sm font-medium text-gray-800">{role.name}</p>
+              <p className="text-xs text-gray-500 mt-0.5">{role.description}</p>
+              <Badge className="text-xs bg-gray-200 text-gray-600 mt-2">内置</Badge>
             </div>
           ))}
         </CardContent>
@@ -255,86 +261,47 @@ export default function GlobalRoleManager() {
           </CardTitle>
           <p className="text-xs text-gray-400 mt-1">全局角色可被所有租户管理员选取使用</p>
         </CardHeader>
-        <CardContent className="space-y-3">
-          <div>
-            <Label className="text-xs text-gray-500">角色名称</Label>
-            <Input
-              className="mt-0.5 h-8 text-sm"
-              placeholder="如：审计员、财务管理"
-              value={newRole.name}
-              onChange={e => setNewRole(p => ({ ...p, name: e.target.value }))}
-            />
-          </div>
-          <div>
-            <Label className="text-xs text-gray-500">描述</Label>
-            <Input
-              className="mt-0.5 h-8 text-sm"
-              placeholder="此角色的权限描述"
-              value={newRole.description}
-              onChange={e => setNewRole(p => ({ ...p, description: e.target.value }))}
-            />
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs text-gray-500">角色名称 *</Label>
+              <Input className="mt-0.5 h-8 text-sm" placeholder="如：审计员、财务管理"
+                value={newRole.name} onChange={e => setNewRole(p => ({ ...p, name: e.target.value }))} />
+            </div>
+            <div>
+              <Label className="text-xs text-gray-500">描述</Label>
+              <Input className="mt-0.5 h-8 text-sm" placeholder="此角色的权限描述"
+                value={newRole.description} onChange={e => setNewRole(p => ({ ...p, description: e.target.value }))} />
+            </div>
           </div>
 
-          {/* Permission selection for new role */}
           {permissions.length > 0 && (
-            <div className="border rounded-lg overflow-hidden">
-              <div className="flex items-center justify-between px-3 py-2 bg-purple-100 border-b border-purple-200">
-                <span className="text-xs font-semibold text-purple-800">分配权限</span>
-                <span className="text-xs text-purple-600">
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <Label className="text-xs text-gray-600 font-semibold">分配权限</Label>
+                <span className="text-xs text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-200">
                   已选 {newRole.permissions.length} / {permissions.length}
                 </span>
               </div>
-              <div className="max-h-56 overflow-y-auto divide-y divide-gray-100 bg-white">
-                {Object.entries(
-                  permissions.reduce((acc, p) => {
-                    const cat = p.resource_type || '其他';
-                    if (!acc[cat]) acc[cat] = [];
-                    acc[cat].push(p);
-                    return acc;
-                  }, {})
-                ).map(([category, perms]) => (
-                  <div key={category}>
-                    <div className="px-3 py-1.5 bg-gray-50 text-xs font-medium text-gray-500 sticky top-0">{category}</div>
-                    {perms.map(perm => {
-                      const isSelected = newRole.permissions.includes(perm.id);
-                      return (
-                        <label
-                          key={perm.id}
-                          className={`flex items-center gap-3 px-3 py-2 cursor-pointer transition-colors ${isSelected ? 'bg-purple-50' : 'hover:bg-gray-50'}`}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => togglePermissionForNewRole(perm.id)}
-                            className="w-4 h-4 rounded border-gray-300 accent-purple-600 flex-shrink-0"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <span className={`text-sm ${isSelected ? 'font-medium text-purple-900' : 'text-gray-700'}`}>{perm.description || perm.name}</span>
-                            <span className="text-xs text-gray-400 ml-1.5">{perm.name}</span>
-                          </div>
-                          <Badge className={`text-xs flex-shrink-0 ${isSelected ? 'bg-purple-100 text-purple-700 border-purple-200' : 'bg-gray-100 text-gray-500'}`}>
-                            {perm.action}
-                          </Badge>
-                        </label>
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
+              <PermissionGrid
+                permissions={permissions}
+                selected={newRole.permissions}
+                onToggle={id => setNewRole(p => ({
+                  ...p,
+                  permissions: p.permissions.includes(id)
+                    ? p.permissions.filter(x => x !== id)
+                    : [...p.permissions, id]
+                }))}
+                accentColor="purple"
+              />
             </div>
           )}
 
           {roleMsg && (
-            <p className={`text-xs px-2 py-1 rounded ${roleMsg.type === 'success' ? 'text-green-700 bg-green-50' : 'text-red-700 bg-red-50'}`}>
-              {roleMsg.text}
-            </p>
+            <p className={`text-xs px-2 py-1 rounded ${roleMsg.type === 'success' ? 'text-green-700 bg-green-50' : 'text-red-700 bg-red-50'}`}>{roleMsg.text}</p>
           )}
-          <Button
-            size="sm"
-            className="h-7 text-xs bg-purple-600 hover:bg-purple-700"
-            onClick={handleCreateRole}
-            disabled={saving || !newRole.name}
-          >
+          <Button size="sm" className="h-8 text-xs bg-purple-600 hover:bg-purple-700 w-full"
+            onClick={handleCreateRole} disabled={saving || !newRole.name}>
             <Plus className="w-3 h-3 mr-1" />{saving ? '创建中...' : '创建全局角色'}
           </Button>
         </CardContent>
@@ -348,90 +315,56 @@ export default function GlobalRoleManager() {
             角色模板 ({customRoles.length})
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2">
+        <CardContent className="space-y-3">
           {customRoles.length === 0 ? (
             <p className="text-xs text-gray-400">暂无自定义角色模板</p>
           ) : (
             customRoles.map(role => (
-              <div key={role.id} className="border border-gray-100 rounded-lg p-3 space-y-2 bg-purple-50">
-                <div className="flex items-center justify-between">
+              <div key={role.id} className="border border-purple-200 rounded-lg overflow-hidden">
+                {/* Role header row */}
+                <div className="flex items-center justify-between px-4 py-3 bg-purple-50">
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-800">{role.name}</p>
-                    <p className="text-xs text-gray-500">{role.description}</p>
+                    <p className="text-sm font-semibold text-gray-800">{role.name}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{role.description}</p>
                   </div>
-                  <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-6 text-xs"
-                      onClick={() => setExpandedRole(expandedRole === role.id ? null : role.id)}
-                    >
-                      {expandedRole === role.id ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                  <div className="flex items-center gap-2 ml-3 flex-shrink-0">
+                    <span className="text-xs text-purple-600 bg-white border border-purple-200 px-2 py-0.5 rounded-full">
+                      {(role.direct_permissions || []).length} 权限
+                    </span>
+                    <Button size="sm" variant="ghost" className="h-7 px-2 text-gray-500 hover:text-gray-700"
+                      onClick={() => setExpandedRole(expandedRole === role.id ? null : role.id)}>
+                      {expandedRole === role.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                      <span className="text-xs ml-1">{expandedRole === role.id ? "收起" : "编辑权限"}</span>
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-6 text-xs text-red-400"
-                      onClick={() => handleDeleteRole(role.id)}
-                      disabled={saving}
-                    >
-                      <Trash2 className="w-3 h-3" />
+                    <Button size="sm" variant="ghost" className="h-7 px-2 text-red-400 hover:text-red-600 hover:bg-red-50"
+                      onClick={() => handleDeleteRole(role.id)} disabled={saving}>
+                      <Trash2 className="w-3.5 h-3.5" />
                     </Button>
                   </div>
                 </div>
 
-                {/* Permission list when expanded */}
+                {/* Expanded permission grid */}
                 {expandedRole === role.id && (
-                  <div className="border-t mt-2 rounded-lg overflow-hidden">
-                    <div className="flex items-center justify-between px-3 py-2 bg-gray-100 border-b border-gray-200">
+                  <div className="border-t border-purple-200 px-4 py-4 bg-white">
+                    <div className="flex items-center justify-between mb-3">
                       <span className="text-xs font-semibold text-gray-700">权限分配</span>
-                      <span className="text-xs text-gray-500">
+                      <span className="text-xs text-green-700 bg-green-50 px-2 py-0.5 rounded-full border border-green-200">
                         已开启 {(role.direct_permissions || []).length} / {permissions.length}
                       </span>
                     </div>
                     {permissions.length === 0 ? (
-                      <p className="text-xs text-gray-400 px-3 py-2">暂无可用权限</p>
+                      <p className="text-xs text-gray-400">暂无可用权限</p>
                     ) : (
-                      <div className="divide-y divide-gray-100 bg-white max-h-56 overflow-y-auto">
-                        {Object.entries(
-                          permissions.reduce((acc, p) => {
-                            const cat = p.resource_type || '其他';
-                            if (!acc[cat]) acc[cat] = [];
-                            acc[cat].push(p);
-                            return acc;
-                          }, {})
-                        ).map(([category, perms]) => (
-                          <div key={category}>
-                            <div className="px-3 py-1.5 bg-gray-50 text-xs font-medium text-gray-500 sticky top-0">{category}</div>
-                            {perms.map(perm => {
-                              const hasPermission = role.direct_permissions?.includes(perm.id);
-                              return (
-                                <label
-                                  key={perm.id}
-                                  className={`flex items-center gap-3 px-3 py-2 cursor-pointer transition-colors ${hasPermission ? 'bg-green-50' : 'hover:bg-gray-50'}`}
-                                >
-                                  <input
-                                    type="checkbox"
-                                    checked={!!hasPermission}
-                                    onChange={e => handleAssignPermission(role, perm.id, e.target.checked)}
-                                    disabled={saving}
-                                    className="w-4 h-4 rounded border-gray-300 accent-green-600 flex-shrink-0"
-                                  />
-                                  <div className="flex-1 min-w-0">
-                                    <span className={`text-sm ${hasPermission ? 'font-medium text-green-900' : 'text-gray-700'}`}>
-                                      {perm.description || perm.name}
-                                    </span>
-                                    <span className="text-xs text-gray-400 ml-1.5">{perm.name}</span>
-                                  </div>
-                                  <Badge className={`text-xs flex-shrink-0 ${hasPermission ? 'bg-green-100 text-green-700 border-green-200' : 'bg-gray-100 text-gray-500'}`}>
-                                    {perm.action}
-                                  </Badge>
-                                </label>
-                              );
-                            })}
-                          </div>
-                        ))}
-                      </div>
+                      <PermissionGrid
+                        permissions={permissions}
+                        selected={role.direct_permissions || []}
+                        onToggle={(permId) => {
+                          const isOn = (role.direct_permissions || []).includes(permId);
+                          handleAssignPermission(role, permId, !isOn);
+                        }}
+                        accentColor="green"
+                        disabled={saving}
+                      />
                     )}
                   </div>
                 )}
