@@ -64,34 +64,39 @@ function EditUserModal({ user: targetUser, currentUser, memberTiers, allRoles = 
     setError("");
     
     try {
-      // Update roles
+      // Always update roles (even if empty array)
       const res = await base44.functions.invoke('manageUser', {
         action: 'update_roles',
         target_user_id: targetUser.id,
-        roles,
+        roles: Array.isArray(roles) ? roles : [],
       });
       
       if (res.data?.error) {
-        setError(res.data.error);
+        console.error('Role save error:', res.data.error);
+        setError(`保存角色失败: ${res.data.error}`);
         setSaving(false);
         return;
       }
       
       // Update credit & tier settings
       const selectedTier = memberTiers.find(t => t.id === memberTierId);
+      const limitVal = creditLimitJpy ? parseFloat(String(creditLimitJpy)) : 0;
+      const balanceVal = creditBalanceJpy ? parseFloat(String(creditBalanceJpy)) : 0;
+      
       const creditRes = await base44.functions.invoke('manageCreditApplication', {
         action: 'admin_update_user_credit',
         target_user_id: targetUser.id,
         member_tier_id: memberTierId || null,
         member_tier_name: selectedTier?.name || null,
-        credit_enabled: creditEnabled,
-        credit_limit_jpy: parseFloat(creditLimitJpy) || 0,
+        credit_enabled: !!creditEnabled,
+        credit_limit_jpy: isNaN(limitVal) ? 0 : limitVal,
         credit_cycle: creditCycle,
-        credit_balance_jpy: parseFloat(creditBalanceJpy) || 0,
+        credit_balance_jpy: isNaN(balanceVal) ? 0 : balanceVal,
       });
       
       if (creditRes.data?.error) {
-        setError(creditRes.data.error);
+        console.error('Credit save error:', creditRes.data.error);
+        setError(`保存记账设置失败: ${creditRes.data.error}`);
         setSaving(false);
         return;
       }
@@ -99,6 +104,7 @@ function EditUserModal({ user: targetUser, currentUser, memberTiers, allRoles = 
       setSaving(false);
       onSaved();
     } catch (err) {
+      console.error('Save error:', err);
       setError(err.message || '保存失败，请重试');
       setSaving(false);
     }
@@ -167,19 +173,19 @@ function EditUserModal({ user: targetUser, currentUser, memberTiers, allRoles = 
             {creditEnabled && (
               <div className="space-y-3 bg-blue-50 border border-blue-100 rounded-lg p-3">
                 <div>
-                  <Label className="text-xs text-gray-500">欠款上限（JPY）</Label>
-                  <Input type="number" className="mt-1 h-8 text-sm"
-                    placeholder={selectedTier?.default_credit_limit_jpy || "0"}
-                    value={creditLimitJpy}
-                    onChange={e => setCreditLimitJpy(e.target.value)} />
+                   <Label className="text-xs text-gray-500">欠款上限（JPY）</Label>
+                   <Input type="number" className="mt-1 h-8 text-sm"
+                     placeholder={selectedTier?.default_credit_limit_jpy || "0"}
+                     value={creditLimitJpy || ""}
+                     onChange={e => setCreditLimitJpy(e.target.value ? parseFloat(e.target.value) : 0)} />
                   <p className="text-xs text-gray-400 mt-0.5">覆盖会员阶级默认值</p>
                 </div>
                 <div>
-                  <Label className="text-xs text-gray-500">调整欠款余额（JPY）</Label>
-                  <Input type="number" className="mt-1 h-8 text-sm"
-                    placeholder="0"
-                    value={creditBalanceJpy}
-                    onChange={e => setCreditBalanceJpy(e.target.value)} />
+                   <Label className="text-xs text-gray-500">调整欠款余额（JPY）</Label>
+                   <Input type="number" className="mt-1 h-8 text-sm"
+                     placeholder="0"
+                     value={creditBalanceJpy || ""}
+                     onChange={e => setCreditBalanceJpy(e.target.value ? parseFloat(e.target.value) : 0)} />
                   <p className="text-xs text-gray-400 mt-0.5">谨慎操作，直接覆盖当前余额</p>
                 </div>
                 <div>
