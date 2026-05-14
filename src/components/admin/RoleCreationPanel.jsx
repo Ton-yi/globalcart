@@ -8,8 +8,32 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ChevronDown, ChevronUp, Plus, Download, X } from "lucide-react";
 
-// 权限预设
+// 权限预设 - 包含全局角色和自定义预设
 const PERMISSION_PRESETS = {
+  user: {
+    name: "用户",
+    description: "基础用户权限",
+    isGlobalRole: true,
+    permissions: ["order:read", "shipping_pool:read"],
+  },
+  staff: {
+    name: "员工",
+    description: "员工权限",
+    isGlobalRole: true,
+    permissions: ["order:read", "order:create", "order:update", "shipping_pool:read", "shipping_pool:create", "payment:read"],
+  },
+  admin: {
+    name: "管理员",
+    description: "租户管理员权限",
+    isGlobalRole: true,
+    permissions: ["order:read", "order:create", "order:update", "order:delete", "shipping_pool:read", "shipping_pool:create", "shipping_pool:update", "shipping_pool:delete", "user:read", "payment:read", "payment:confirm"],
+  },
+  tenant_admin: {
+    name: "租户管理员",
+    description: "完整租户管理权限",
+    isGlobalRole: true,
+    permissions: ["order:read", "order:create", "order:update", "order:delete", "shipping_pool:read", "shipping_pool:create", "shipping_pool:update", "shipping_pool:delete", "user:read", "user:create", "user:update", "payment:read", "payment:confirm"],
+  },
   viewer: {
     name: "查看者",
     description: "仅读取权限",
@@ -19,11 +43,6 @@ const PERMISSION_PRESETS = {
     name: "操作员",
     description: "可创建和更新订单、发货",
     permissions: ["order:read", "order:create", "order:update", "shipping_pool:read", "shipping_pool:create", "user:read"],
-  },
-  manager: {
-    name: "管理员",
-    description: "完全权限",
-    permissions: ["order:read", "order:create", "order:update", "order:delete", "shipping_pool:read", "shipping_pool:create", "shipping_pool:update", "user:read", "user:create", "user:update"],
   },
   custom: {
     name: "自定义",
@@ -49,7 +68,7 @@ const ALL_PERMISSIONS = [
   { id: "payment:confirm", name: "确认支付", category: "支付" },
 ];
 
-export default function RoleCreationPanel({ tenantId, onRoleCreated, existingRoles = [] }) {
+export default function RoleCreationPanel({ tenantId, onRoleCreated, existingRoles = [], isPlatformAdmin = false }) {
   const [open, setOpen] = useState(false);
   const [roleName, setRoleName] = useState("");
   const [roleColor, setRoleColor] = useState("#3b82f6");
@@ -60,6 +79,15 @@ export default function RoleCreationPanel({ tenantId, onRoleCreated, existingRol
   const [expandedCategory, setExpandedCategory] = useState(null);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
+
+  // 获取可用的预设（非平台管理员不显示平台相关角色）
+  const getAvailablePresets = () => {
+    const presets = { ...PERMISSION_PRESETS };
+    if (!isPlatformAdmin) {
+      delete presets.platform_admin;
+    }
+    return presets;
+  };
 
   const handlePresetChange = (preset) => {
     setPresetType(preset);
@@ -241,19 +269,23 @@ export default function RoleCreationPanel({ tenantId, onRoleCreated, existingRol
           <div>
             <Label className="text-xs text-gray-500 block mb-2">权限预设</Label>
             <div className="flex gap-2 flex-wrap">
-              {Object.entries(PERMISSION_PRESETS).map(([key, preset]) => (
-                <button
-                  key={key}
-                  onClick={() => handlePresetChange(key)}
-                  className={`text-xs px-3 py-1.5 rounded border transition-colors ${
-                    presetType === key
-                      ? "bg-indigo-100 border-indigo-300 text-indigo-700 font-medium"
-                      : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
-                  }`}
-                >
-                  {preset.name}
-                </button>
-              ))}
+              {Object.entries(getAvailablePresets()).map(([key, preset]) => {
+                const isGlobalRole = preset.isGlobalRole;
+                return (
+                  <button
+                    key={key}
+                    onClick={() => handlePresetChange(key)}
+                    className={`text-xs px-3 py-1.5 rounded border transition-colors flex items-center gap-1 ${
+                      presetType === key
+                        ? "bg-indigo-100 border-indigo-300 text-indigo-700 font-medium"
+                        : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
+                    }`}
+                  >
+                    {preset.name}
+                    {isGlobalRole && <span className="text-2xs px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded">全局</span>}
+                  </button>
+                );
+              })}
             </div>
           </div>
 

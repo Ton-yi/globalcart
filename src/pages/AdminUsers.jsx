@@ -267,6 +267,7 @@ export default function AdminUsers() {
   const { user: currentUser } = useCurrentUser();
 
   const isTenantAdmin = currentUser?.roles?.includes('admin') || currentUser?.roles?.includes('tenant_admin');
+  const isPlatformAdmin = currentUser?.roles?.includes('platform_admin');
 
   const loadData = () => {
     setLoading(true);
@@ -339,7 +340,7 @@ export default function AdminUsers() {
 
       {/* Role Creation */}
       {isTenantAdmin && currentUser?.tenant_id && (
-        <RoleCreationPanel tenantId={currentUser.tenant_id} existingRoles={allRoles} onRoleCreated={loadData} />
+        <RoleCreationPanel tenantId={currentUser.tenant_id} existingRoles={allRoles} onRoleCreated={loadData} isPlatformAdmin={isPlatformAdmin} />
       )}
 
       {/* Invite User */}
