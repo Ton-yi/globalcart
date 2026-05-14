@@ -326,23 +326,11 @@ function RoleEditModal({ role, onClose, onSaved }) {
 
             {/* 图片上传 */}
             <div>
-              <label className="text-xs text-gray-500 block mb-2">角色图片（可选）</label>
               <ImageUploader
-                onImageUrl={setImageUrl}
-                existingImageUrl={imageUrl}
-                maxSize={1024 * 1024}
+                value={imageUrl}
+                onChange={setImageUrl}
+                label="角色图片（可选）"
               />
-              {imageUrl && (
-                <div className="mt-2 flex items-center gap-2">
-                  <img src={imageUrl} alt="role" className="w-8 h-8 rounded object-cover" />
-                  <button
-                    onClick={() => setImageUrl("")}
-                    className="text-xs text-red-600 hover:text-red-700"
-                  >
-                    删除图片
-                  </button>
-                </div>
-              )}
             </div>
           </div>
 
