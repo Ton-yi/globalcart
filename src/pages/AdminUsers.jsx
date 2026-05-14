@@ -13,6 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import CreditApplicationManager from "@/components/admin/CreditApplicationManager";
 import TenantRoleManagerForUsers from "@/components/admin/TenantRoleManagerForUsers";
+import RoleCreationPanel from "@/components/admin/RoleCreationPanel";
 
 const ROLE_LABELS = {
   platform_admin: { label: "平台管理员", color: "bg-purple-100 text-purple-700" },
@@ -262,6 +263,7 @@ export default function AdminUsers() {
   const [inviteMsg, setInviteMsg] = useState("");
   const [editingUser, setEditingUser] = useState(null);
   const [actioning, setActioning] = useState({});
+  const [allRoles, setAllRoles] = useState([]);
   const { user: currentUser } = useCurrentUser();
 
   const isTenantAdmin = currentUser?.roles?.includes('admin') || currentUser?.roles?.includes('tenant_admin');
@@ -279,6 +281,7 @@ export default function AdminUsers() {
       setUsers(u);
       setOrders(o);
       setMemberTiers(r2.data?.memberTiers || []);
+      setAllRoles(r1.data?.roles || []);
       setLoading(false);
     }).catch(() => setLoading(false));
   };
@@ -334,7 +337,10 @@ export default function AdminUsers() {
     <div className="space-y-5">
       <h1 className="text-xl font-bold text-gray-900">用户管理</h1>
 
-
+      {/* Role Creation */}
+      {isTenantAdmin && currentUser?.tenant_id && (
+        <RoleCreationPanel tenantId={currentUser.tenant_id} existingRoles={allRoles} onRoleCreated={loadData} />
+      )}
 
       {/* Invite User */}
       <div className="bg-white border border-gray-200 rounded-xl p-4">
