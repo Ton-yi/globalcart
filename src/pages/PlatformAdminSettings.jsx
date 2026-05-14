@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import TenantRoleManager from "@/components/admin/TenantRoleManager";
 
 export default function PlatformAdminSettings() {
   const { user } = useCurrentUser();
@@ -318,7 +319,7 @@ export default function PlatformAdminSettings() {
       </Card>
 
       {/* Tenant list */}
-      <Card className="border-gray-200">
+       <Card className="border-gray-200">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
             <Building2 className="w-4 h-4 text-gray-400" />现有租户
@@ -450,6 +451,21 @@ export default function PlatformAdminSettings() {
           )}
         </CardContent>
       </Card>
-    </div>
+
+      {/* Tenant Role Management */}
+      {tenants.length > 0 && (
+        <Card className="border-indigo-200">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+              <Users className="w-4 h-4 text-indigo-500" />租户角色管理
+            </CardTitle>
+            <p className="text-xs text-gray-400 mt-1">为每个租户配置自定义角色，管理用户权限层级。</p>
+          </CardHeader>
+          <CardContent>
+            <TenantRoleManager tenants={tenants} />
+          </CardContent>
+        </Card>
+      )}
+      </div>
   );
 }

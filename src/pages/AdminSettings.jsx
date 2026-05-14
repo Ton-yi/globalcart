@@ -202,25 +202,8 @@ export default function AdminSettings() {
   const isTenantAdmin = user?.roles?.includes("tenant_admin");
   const isPlatformAdmin = user?.roles?.includes("platform_admin");
   
-  useEffect(() => {
-    load();
-    // 预加载tenants数据以加快切换速度
-    const preloadTenants = async () => {
-      try {
-        if (isPlatformAdmin) {
-          const r = await base44.functions.invoke('manageTenants', { action: 'list' });
-          setTenants(r.data?.tenants || []);
-        }
-      } catch (_) {}
-    };
-    const timer = setTimeout(preloadTenants, 1000);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  if (user && !isTenantAdmin && !isPlatformAdmin) {
-    return <div className="text-center py-8 text-red-600">仅管理员可访问此页面</div>;
-  }
+  const isTenantAdmin = user?.roles?.includes("tenant_admin");
+  const isPlatformAdmin = user?.roles?.includes("platform_admin");
 
   const loadTenants = async () => {
     setTenantsLoading(true);
@@ -250,8 +233,28 @@ export default function AdminSettings() {
   };
 
   useEffect(() => {
+    load();
+    // 预加载tenants数据以加快切换速度
+    const preloadTenants = async () => {
+      try {
+        if (isPlatformAdmin) {
+          const r = await base44.functions.invoke('manageTenants', { action: 'list' });
+          setTenants(r.data?.tenants || []);
+        }
+      } catch (_) {}
+    };
+    const timer = setTimeout(preloadTenants, 1000);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
     if (activeTab === 'tenants') loadTenants();
   }, [activeTab]);
+
+  if (user && !isTenantAdmin && !isPlatformAdmin) {
+    return <div className="text-center py-8 text-red-600">仅管理员可访问此页面</div>;
+  }
 
   const handleCreateTenant = async () => {
     if (!newTenant.name || !newTenant.code) return;
