@@ -29,12 +29,16 @@ export default function CreditApplicationManager({ compact = false }) {
 
   const load = async () => {
     setLoading(true);
-    const [appsRes, tiersRes] = await Promise.all([
-      base44.functions.invoke('manageCreditApplication', { action: 'list' }),
-      base44.functions.invoke('mutateTenantEntity', { action: 'list', entity: 'MemberTier', filter: { is_active: true } }).catch(() => ({ data: { records: [] } })),
-    ]);
-    setApplications(appsRes.data?.applications || []);
-    setMemberTiers(tiersRes.data?.results || tiersRes.data?.records || []);
+    try {
+      const [appsRes, settingsRes] = await Promise.all([
+        base44.functions.invoke('manageCreditApplication', { action: 'list' }),
+        base44.functions.invoke('getAdminSettingsPageData', {}).catch(() => ({ data: { memberTiers: [] } })),
+      ]);
+      setApplications(appsRes.data?.applications || []);
+      setMemberTiers(settingsRes.data?.memberTiers || []);
+    } catch (err) {
+      console.error('CreditApplicationManager load error:', err);
+    }
     setLoading(false);
   };
 
