@@ -61,21 +61,36 @@ function applyOverrides(basePerms, overrides) {
   return set;
 }
 
-export default function UserPermissionManager({ user, allRoles, onClose }) {
+export default function UserPermissionManager({ user, allRoles: allRolesProp, onClose }) {
   const [selectedRoleIds, setSelectedRoleIds] = useState(user.assigned_role_ids || []);
-  const [effectivePerms, setEffectivePerms] = useState(() => {
-    const base = computeBasePerms(user.assigned_role_ids || [], allRoles);
-    return applyOverrides(base, user.permission_overrides || {});
-  });
+  const [effectivePerms, setEffectivePerms] = useState(() => new Set());
+  const [loadedRoles, setLoadedRoles] = useState(allRolesProp || []);
+  const [initializing, setInitializing] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
 
-  // Re-initialize whenever the user prop changes (e.g. after a save + data reload)
+  // Always fetch fresh user + roles data when the panel opens, to avoid stale allRoles/permission state
   useEffect(() => {
-    setSelectedRoleIds(user.assigned_role_ids || []);
-    const base = computeBasePerms(user.assigned_role_ids || [], allRoles);
-    setEffectivePerms(applyOverrides(base, user.permission_overrides || {}));
-  }, [user.id, user.assigned_role_ids, user.permission_overrides, allRoles]);
+    setInitializing(true);
+    Promise.all([
+      base44.functions.invoke('getAdminUsersPageData', {}),
+    ]).then(([res]) => {
+      const freshRoles = res.data?.roles || allRolesProp || [];
+      const freshUser = res.data?.users?.find(u => u.id === user.id) || user;
+      setLoadedRoles(freshRoles);
+      setSelectedRoleIds(freshUser.assigned_role_ids || []);
+      const base = computeBasePerms(freshUser.assigned_role_ids || [], freshRoles);
+      setEffectivePerms(applyOverrides(base, freshUser.permission_overrides || {}));
+      setInitializing(false);
+    }).catch(() => {
+      // Fallback to props if fetch fails
+      const base = computeBasePerms(user.assigned_role_ids || [], allRolesProp || []);
+      setEffectivePerms(applyOverrides(base, user.permission_overrides || {}));
+      setLoadedRoles(allRolesProp || []);
+      setInitializing(false);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user.id]);
 
   // When role selection changes, recompute base perms and RE-APPLY existing effective perms
   // (keep manual toggles, only add new perms from new roles)
@@ -98,8 +113,8 @@ export default function UserPermissionManager({ user, allRoles, onClose }) {
   };
 
   const basePerms = useMemo(
-    () => computeBasePerms(selectedRoleIds, allRoles),
-    [selectedRoleIds, allRoles]
+    () => computeBasePerms(selectedRoleIds, loadedRoles),
+    [selectedRoleIds, loadedRoles]
   );
 
   // Which perms are "overridden" vs base role
@@ -155,15 +170,18 @@ export default function UserPermissionManager({ user, allRoles, onClose }) {
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
         </div>
 
+        {initializing ? (
+          <div className="py-10 text-center text-sm text-gray-400">加载中...</div>
+        ) : (
         <div className="space-y-5">
           {/* Role selection */}
           <div>
             <Label className="text-xs text-gray-500 font-semibold block mb-2">分配角色（可多选）</Label>
-            {allRoles.length === 0 ? (
+            {loadedRoles.length === 0 ? (
               <p className="text-xs text-gray-400">暂无可用角色</p>
             ) : (
               <div className="grid grid-cols-2 gap-2">
-                {allRoles.map(role => {
+                {loadedRoles.map(role => {
                   const isOn = selectedRoleIds.includes(role.id);
                   return (
                     <button
@@ -254,7 +272,9 @@ export default function UserPermissionManager({ user, allRoles, onClose }) {
             </div>
           )}
         </div>
+        )}
 
+        {!initializing && (
         <div className="flex gap-2 justify-end mt-5 border-t pt-4">
           <Button size="sm" variant="outline" onClick={onClose}>取消</Button>
           <Button
@@ -266,6 +286,7 @@ export default function UserPermissionManager({ user, allRoles, onClose }) {
             {saving ? "保存中..." : "保存"}
           </Button>
         </div>
+        )}
       </div>
     </div>
   );
