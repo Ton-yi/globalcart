@@ -3,7 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
   Search, UserPlus, Shield, AlertTriangle, ChevronDown, ChevronUp,
-  Pencil, Trash2, Ban, CheckCircle, X, CreditCard
+  Pencil, Trash2, Ban, CheckCircle, X, CreditCard, Settings
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +31,8 @@ function EditUserModal({ user: targetUser, currentUser, memberTiers, onClose, on
   const [creditBalanceJpy, setCreditBalanceJpy] = useState(targetUser.credit_balance_jpy || 0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [expandRoles, setExpandRoles] = useState(false);
+  const [tenantRoles, setTenantRoles] = useState({});
 
   // When member tier changes, prefill credit defaults from the tier
   const handleTierChange = (tierId) => {
@@ -90,6 +92,21 @@ function EditUserModal({ user: targetUser, currentUser, memberTiers, onClose, on
   };
 
   const selectedTier = memberTiers.find(t => t.id === memberTierId);
+
+  const loadTenantRoles = async (userId) => {
+    const res = await base44.functions.invoke('manageRoles', {
+      action: 'list_user_roles',
+      user_id: userId,
+    });
+    if (res.data?.roles) {
+      const roleMap = {};
+      res.data.roles.forEach(r => {
+        if (!roleMap[r.tenant_id]) roleMap[r.tenant_id] = [];
+        roleMap[r.tenant_id].push(r.id);
+      });
+      setTenantRoles(roleMap);
+    }
+  };
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
@@ -189,18 +206,42 @@ function EditUserModal({ user: targetUser, currentUser, memberTiers, onClose, on
             )}
           </div>
 
+          {/* Tenant Roles */}
+          <div className="border-t pt-3">
+            <button
+              type="button"
+              onClick={() => {
+                setExpandRoles(!expandRoles);
+                if (!expandRoles && Object.keys(tenantRoles).length === 0) {
+                  loadTenantRoles(targetUser.id);
+                }
+              }}
+              className="w-full flex items-center justify-between px-3 py-2 rounded hover:bg-gray-50 text-sm font-medium text-gray-700"
+            >
+              <span className="flex items-center gap-2">
+                <Settings className="w-4 h-4" />租户角色管理
+              </span>
+              {expandRoles ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+            {expandRoles && (
+              <div className="mt-2 p-3 bg-gray-50 rounded border border-gray-100 text-xs text-gray-500">
+                在平台管理员设置中管理此用户的租户角色（PlatformAdminSettings）
+              </div>
+            )}
+          </div>
+
           {error && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded px-2 py-1">{error}</p>}
-        </div>
-        <div className="flex gap-2 justify-end mt-5">
+          </div>
+          <div className="flex gap-2 justify-end mt-5">
           <Button variant="outline" size="sm" onClick={onClose}>取消</Button>
           <Button size="sm" className="bg-gray-900 hover:bg-gray-800" onClick={handleSave} disabled={saving}>
             {saving ? "保存中..." : "保存"}
           </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
+          </div>
+          </div>
+          </div>
+          );
+          }
 
 export default function AdminUsers() {
   const [users, setUsers] = useState([]);
