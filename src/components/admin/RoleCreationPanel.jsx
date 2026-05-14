@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronDown, ChevronUp, Plus, Download, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Plus, Download } from "lucide-react";
+import ImageUploader from "@/components/common/ImageUploader";
 
 // 权限预设 - 包含全局角色和自定义预设
 const PERMISSION_PRESETS = {
@@ -102,16 +103,7 @@ export default function RoleCreationPanel({ tenantId, onRoleCreated, existingRol
     );
   };
 
-  const handleImageUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      const res = await base44.integrations.Core.UploadFile({ file });
-      setRoleImage(res.file_url);
-    } catch (err) {
-      setMsg({ type: "error", text: "图片上传失败" });
-    }
-  };
+
 
   const handleCreateRole = async () => {
     if (!roleName) {
@@ -237,33 +229,7 @@ export default function RoleCreationPanel({ tenantId, onRoleCreated, existingRol
           </div>
 
           {/* 角色图片 */}
-          <div>
-            <Label className="text-xs text-gray-500">角色图片（可选）</Label>
-            <div className="flex items-center gap-2 mt-1">
-              {roleImage && <img src={roleImage} alt="角色图片" className="h-8 w-8 rounded object-cover" />}
-              <label className="flex-1">
-                <Input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleImageUpload}
-                />
-                <span className="text-xs text-blue-600 cursor-pointer hover:underline">
-                  {roleImage ? "更换图片" : "上传图片"}
-                </span>
-              </label>
-              {roleImage && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-6 px-2 text-xs text-red-400"
-                  onClick={() => setRoleImage("")}
-                >
-                  <X className="w-3 h-3" />
-                </Button>
-              )}
-            </div>
-          </div>
+          <ImageUploader value={roleImage} onChange={setRoleImage} label="角色图片（可选）" />
 
           {/* 权限预设 */}
           <div>
