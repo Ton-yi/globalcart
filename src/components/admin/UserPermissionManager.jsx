@@ -60,10 +60,19 @@ export default function UserPermissionManager({ user, allRoles, onClose }) {
   };
 
   const togglePermissionOverride = (permId) => {
-    setOverridePermissions(prev => ({
-      ...prev,
-      [permId]: prev[permId] ? undefined : "remove", // toggle remove状态
-    }));
+    setOverridePermissions(prev => {
+      const current = prev[permId];
+      // 循环：无覆盖 -> add -> remove -> 无覆盖
+      let newState;
+      if (!current) {
+        newState = "add";
+      } else if (current === "add") {
+        newState = "remove";
+      } else {
+        newState = undefined;
+      }
+      return { ...prev, [permId]: newState };
+    });
   };
 
   const handleSave = async () => {
@@ -91,15 +100,17 @@ export default function UserPermissionManager({ user, allRoles, onClose }) {
     return acc;
   }, {});
 
-  // 计算最终权限（基础权限 - 覆盖移除的）
+  // 计算最终权限（基础权限 + 添加的 - 移除的）
   const getFinalPermissions = () => {
-    let perms = [...basePermissions];
+    let perms = new Set(basePermissions);
     Object.entries(overridePermissions).forEach(([permId, action]) => {
-      if (action === "remove") {
-        perms = perms.filter(p => p !== permId);
+      if (action === "add") {
+        perms.add(permId);
+      } else if (action === "remove") {
+        perms.delete(permId);
       }
     });
-    return perms;
+    return Array.from(perms);
   };
 
   const finalPerms = getFinalPermissions();
@@ -186,7 +197,7 @@ export default function UserPermissionManager({ user, allRoles, onClose }) {
                 权限覆盖（仅对此用户）
               </Label>
               <p className="text-xs text-gray-400 mb-2">
-                在此处移除某项权限，该用户即使拥有此角色也不会有该权限
+                勾选状态：✓=保持该权限 ◯=移除该权限 ✚=新增该权限
               </p>
               <div className="space-y-2 bg-gray-50 p-3 rounded border border-gray-200 max-h-64 overflow-y-auto">
                 {Object.entries(permissionsByCategory).map(([category, perms]) => (
@@ -202,23 +213,36 @@ export default function UserPermissionManager({ user, allRoles, onClose }) {
                       <div className="pl-4 space-y-1">
                         {perms.map(p => {
                           const isInBase = basePermissions.includes(p.id);
-                          const isRemoved = overridePermissions[p.id] === "remove";
+                          const override = overridePermissions[p.id];
+                          const isChecked = override === "add" || (isInBase && override !== "remove");
                           return (
                             <label
                               key={p.id}
-                              className={`flex items-center gap-2 cursor-pointer py-0.5 text-xs ${
-                                !isInBase ? 'opacity-40 cursor-not-allowed' : ''
-                              }`}
+                              className="flex items-center gap-2 cursor-pointer py-0.5 text-xs"
                             >
-                              <input
-                                type="checkbox"
-                                checked={isInBase && !isRemoved}
-                                onChange={() => togglePermissionOverride(p.id)}
-                                disabled={!isInBase}
-                                className="w-3.5 h-3.5 rounded border-gray-300 disabled:opacity-50"
-                              />
-                              <span className="text-gray-700">{p.name}</span>
-                              {!isInBase && <span className="text-gray-400 text-2xs">（角色不含此权限）</span>}
+                              <div className="relative w-3.5 h-3.5">
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={() => togglePermissionOverride(p.id)}
+                                  className="w-3.5 h-3.5 rounded border-gray-300 cursor-pointer"
+                                />
+                                {override === "add" && (
+                                  <span className="absolute inset-0 flex items-center justify-center text-2xs font-bold text-green-600 pointer-events-none">+</span>
+                                )}
+                                {override === "remove" && (
+                                  <span className="absolute inset-0 flex items-center justify-center text-lg leading-none text-red-600 pointer-events-none">−</span>
+                                )}
+                              </div>
+                              <span className={`text-gray-700 ${override === "add" ? "font-semibold text-green-700" : override === "remove" ? "text-red-600 line-through" : ""}`}>
+                                {p.name}
+                              </span>
+                              {!isInBase && override !== "add" && (
+                                <span className="text-gray-400 text-2xs">（角色不含）</span>
+                              )}
+                              {override === "add" && (
+                                <span className="text-green-600 text-2xs font-medium">（新增）</span>
+                              )}
                             </label>
                           );
                         })}
