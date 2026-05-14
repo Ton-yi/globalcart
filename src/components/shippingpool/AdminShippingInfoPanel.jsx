@@ -615,12 +615,12 @@ export default function AdminShippingInfoPanel({
                   type="button"
                   onClick={() => {
                     const lines = [
-                      pool.recipient_name && `收件人：${pool.recipient_name}`,
-                      pool.recipient_phone && `电话：${pool.recipient_phone}`,
-                      pool.state && `省/州：${pool.state}`,
-                      pool.city && `城市/区：${pool.city}`,
-                      pool.address_line1 && `街道地址：${pool.address_line1}`,
-                      pool.address_line2 && `详细地址：${pool.address_line2}`,
+                      pool.recipient_name && pool.recipient_name,
+                      pool.recipient_phone && pool.recipient_phone,
+                      pool.state && pool.state,
+                      pool.city && pool.city,
+                      pool.address_line1 && pool.address_line1,
+                      pool.address_line2 && pool.address_line2,
                     ].filter(Boolean).join('\n');
                     navigator.clipboard.writeText(lines);
                   }}
