@@ -62,6 +62,14 @@ export default function Layout({ children, currentPageName }) {
   const isTenantAdmin = user?.roles?.includes("tenant_admin");
   const isTenantUser = user?.roles?.includes("user");
   const isAdmin = isPlatformAdmin || isTenantAdmin;
+  
+  // Platform admin has all permissions; tenant admin has tenant-level permissions
+  const canAccessAdminSettings = isPlatformAdmin || isTenantAdmin;
+  const canAccessAdminDashboard = isPlatformAdmin || isTenantAdmin;
+  const canAccessAdminOrders = isPlatformAdmin || isTenantAdmin;
+  const canAccessAdminShippingPool = isPlatformAdmin || isTenantAdmin;
+  const canAccessAdminUsers = isPlatformAdmin || isTenantAdmin;
+  const canAccessAdminAnnouncements = isPlatformAdmin || isTenantAdmin;
 
   const userNav = [
     { label: "首页", icon: Home, page: "Home" },
@@ -72,12 +80,12 @@ export default function Layout({ children, currentPageName }) {
   ];
 
   const tenantAdminNav = [
-    { label: "管理总览", icon: BarChart3, page: "AdminDashboard", requiredRole: "tenant_admin" },
-    { label: "订单管理", icon: Package, page: "AdminOrders", requiredRole: "tenant_admin" },
-    { label: "发货池", icon: Send, page: "AdminShippingPool", requiredRole: "tenant_admin" },
-    { label: "用户管理", icon: Users, page: "AdminUsers", requiredRole: "tenant_admin" },
-    { label: "公告管理", icon: Bell, page: "AdminAnnouncements", requiredRole: "tenant_admin" },
-    { label: "网站设置", icon: Settings, page: "AdminSettings", requiredRole: "tenant_admin" },
+    { label: "管理总览", icon: BarChart3, page: "AdminDashboard", canAccess: canAccessAdminDashboard },
+    { label: "订单管理", icon: Package, page: "AdminOrders", canAccess: canAccessAdminOrders },
+    { label: "发货池", icon: Send, page: "AdminShippingPool", canAccess: canAccessAdminShippingPool },
+    { label: "用户管理", icon: Users, page: "AdminUsers", canAccess: canAccessAdminUsers },
+    { label: "公告管理", icon: Bell, page: "AdminAnnouncements", canAccess: canAccessAdminAnnouncements },
+    { label: "网站设置", icon: Settings, page: "AdminSettings", canAccess: canAccessAdminSettings },
   ];
 
   const platformAdminNav = [
@@ -88,9 +96,11 @@ export default function Layout({ children, currentPageName }) {
   let navItems = [userNav[0]]; // Always show Home
   
   if (isPlatformAdmin) {
-    navItems = [...navItems, ...platformAdminNav, { label: "个人档案", icon: User, page: "UserPreferences" }];
+    // Platform admin: show all admin items plus personal profile
+    navItems = [...navItems, ...platformAdminNav, ...tenantAdminNav.filter(item => item.canAccess), { label: "个人档案", icon: User, page: "UserPreferences" }];
   } else if (isTenantAdmin) {
-    navItems = [...navItems, ...tenantAdminNav, { label: "个人档案", icon: User, page: "UserPreferences" }];
+    // Tenant admin: show tenant admin items plus personal profile
+    navItems = [...navItems, ...tenantAdminNav.filter(item => item.canAccess), { label: "个人档案", icon: User, page: "UserPreferences" }];
   } else if (isTenantUser) {
     navItems = [...navItems, ...userNav.slice(1), { label: "个人档案", icon: User, page: "UserPreferences" }];
   } else {

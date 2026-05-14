@@ -234,14 +234,8 @@ export default function AdminOrders() {
   const [transitShippingMethods, setTransitShippingMethods] = useState([]);
   const [defaultPackingFeeSingle, setDefaultPackingFeeSingle] = useState(0);
   const [defaultPackingFeeConsolidation, setDefaultPackingFeeConsolidation] = useState(0);
-  const [selectedPool, setSelectedPool] = useState(null); // for opening pool detail modal
+  const [selectedPool, setSelectedPool] = useState(null);
   const [showArchived, setShowArchived] = useState(false);
-
-  const isTenantAdmin = user?.roles?.includes("tenant_admin");
-  
-  if (user && !isTenantAdmin) {
-    return <div className="text-center py-8 text-red-600">仅租户管理员可访问此页面</div>;
-  }
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
@@ -263,6 +257,12 @@ export default function AdminOrders() {
   }, []);
 
   useEffect(() => { fetchOrders(); }, [fetchOrders]);
+
+  const isTenantAdmin = user?.roles?.includes("tenant_admin");
+  
+  if (user && !isTenantAdmin) {
+    return <div className="text-center py-8 text-red-600">仅租户管理员可访问此页面</div>;
+  }
 
   const handleColumnsChange = (newCols) => {
     setColumns(newCols);

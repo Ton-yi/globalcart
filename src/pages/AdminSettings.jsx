@@ -149,13 +149,6 @@ export default function AdminSettings() {
   const [savingDomain, setSavingDomain] = useState(false);
   const [domainMsg, setDomainMsg] = useState(null);
 
-  const isTenantAdmin = user?.roles?.includes("tenant_admin");
-  const isPlatformAdmin = user?.roles?.includes("platform_admin");
-  
-  if (user && !isTenantAdmin && !isPlatformAdmin) {
-    return <div className="text-center py-8 text-red-600">仅管理员可访问此页面</div>;
-  }
-
   const load = async () => {
     const t = timePage('AdminSettings');
     try {
@@ -206,6 +199,9 @@ export default function AdminSettings() {
     setLoading(false);
   };
 
+  const isTenantAdmin = user?.roles?.includes("tenant_admin");
+  const isPlatformAdmin = user?.roles?.includes("platform_admin");
+  
   useEffect(() => {
     load();
     // 预加载tenants数据以加快切换速度
@@ -221,6 +217,10 @@ export default function AdminSettings() {
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  if (user && !isTenantAdmin && !isPlatformAdmin) {
+    return <div className="text-center py-8 text-red-600">仅管理员可访问此页面</div>;
+  }
 
   const loadTenants = async () => {
     setTenantsLoading(true);
