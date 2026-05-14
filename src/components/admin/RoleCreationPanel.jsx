@@ -8,66 +8,31 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ChevronDown, ChevronUp, Plus, Download } from "lucide-react";
 import ImageUploader from "@/components/common/ImageUploader";
+import { PERMISSIONS_PRESET } from "@/lib/permissionsPreset";
 
-// 权限预设 - 包含全局角色和自定义预设
+// Build permissionsByCategory directly from PERMISSIONS_PRESET
+// Each category entry includes parent + children as flat list for checkbox UI
+function buildPermissionsByCategory(preset) {
+  const result = {};
+  preset.forEach(cat => {
+    const perms = [];
+    cat.permissions.forEach(p => {
+      perms.push({ id: p.name, name: p.display_name, isChild: false });
+      (p.children || []).forEach(child => {
+        perms.push({ id: child.name, name: child.display_name, isChild: true });
+      });
+    });
+    result[cat.category] = perms;
+  });
+  return result;
+}
+
+const PERMISSIONS_BY_CATEGORY = buildPermissionsByCategory(PERMISSIONS_PRESET);
+
+// Simple presets using new permission IDs
 const PERMISSION_PRESETS = {
-  user: {
-    name: "用户",
-    description: "基础用户权限",
-    isGlobalRole: true,
-    permissions: ["order:read", "shipping_pool:read"],
-  },
-  staff: {
-    name: "员工",
-    description: "员工权限",
-    isGlobalRole: true,
-    permissions: ["order:read", "order:create", "order:update", "shipping_pool:read", "shipping_pool:create", "payment:read"],
-  },
-  admin: {
-    name: "管理员",
-    description: "租户管理员权限",
-    isGlobalRole: true,
-    permissions: ["order:read", "order:create", "order:update", "order:delete", "shipping_pool:read", "shipping_pool:create", "shipping_pool:update", "shipping_pool:delete", "user:read", "payment:read", "payment:confirm"],
-  },
-  tenant_admin: {
-    name: "租户管理员",
-    description: "完整租户管理权限",
-    isGlobalRole: true,
-    permissions: ["order:read", "order:create", "order:update", "order:delete", "shipping_pool:read", "shipping_pool:create", "shipping_pool:update", "shipping_pool:delete", "user:read", "user:create", "user:update", "payment:read", "payment:confirm"],
-  },
-  viewer: {
-    name: "查看者",
-    description: "仅读取权限",
-    permissions: ["order:read", "shipping_pool:read", "user:read"],
-  },
-  operator: {
-    name: "操作员",
-    description: "可创建和更新订单、发货",
-    permissions: ["order:read", "order:create", "order:update", "shipping_pool:read", "shipping_pool:create", "user:read"],
-  },
-  custom: {
-    name: "自定义",
-    description: "自定义权限组合",
-    permissions: [],
-  },
+  custom: { name: "自定义", description: "自定义权限组合", permissions: [] },
 };
-
-const ALL_PERMISSIONS = [
-  { id: "order:read", name: "订单查看", category: "订单" },
-  { id: "order:create", name: "订单创建", category: "订单" },
-  { id: "order:update", name: "订单编辑", category: "订单" },
-  { id: "order:delete", name: "订单删除", category: "订单" },
-  { id: "shipping_pool:read", name: "发货池查看", category: "发货" },
-  { id: "shipping_pool:create", name: "发货池创建", category: "发货" },
-  { id: "shipping_pool:update", name: "发货池编辑", category: "发货" },
-  { id: "shipping_pool:delete", name: "发货池删除", category: "发货" },
-  { id: "user:read", name: "用户查看", category: "用户" },
-  { id: "user:create", name: "用户创建", category: "用户" },
-  { id: "user:update", name: "用户编辑", category: "用户" },
-  { id: "user:delete", name: "用户删除", category: "用户" },
-  { id: "payment:read", name: "支付管理查看", category: "支付" },
-  { id: "payment:confirm", name: "确认支付", category: "支付" },
-];
 
 export default function RoleCreationPanel({ tenantId, onRoleCreated, existingRoles = [], isPlatformAdmin = false }) {
   const [open, setOpen] = useState(false);
@@ -81,18 +46,11 @@ export default function RoleCreationPanel({ tenantId, onRoleCreated, existingRol
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
 
-  // 获取可用的预设（非平台管理员不显示平台相关角色）
-  const getAvailablePresets = () => {
-    const presets = { ...PERMISSION_PRESETS };
-    if (!isPlatformAdmin) {
-      delete presets.platform_admin;
-    }
-    return presets;
-  };
+  const getAvailablePresets = () => PERMISSION_PRESETS;
 
   const handlePresetChange = (preset) => {
     setPresetType(preset);
-    if (preset !== "custom") {
+    if (PERMISSION_PRESETS[preset]?.permissions?.length > 0) {
       setSelectedPermissions([...PERMISSION_PRESETS[preset].permissions]);
     }
   };
@@ -157,11 +115,7 @@ export default function RoleCreationPanel({ tenantId, onRoleCreated, existingRol
     URL.revokeObjectURL(url);
   };
 
-  const permissionsByCategory = ALL_PERMISSIONS.reduce((acc, p) => {
-    if (!acc[p.category]) acc[p.category] = [];
-    acc[p.category].push(p);
-    return acc;
-  }, {});
+  const permissionsByCategory = PERMISSIONS_BY_CATEGORY;
 
   return (
     <Card className="border-indigo-200">
@@ -271,14 +225,14 @@ export default function RoleCreationPanel({ tenantId, onRoleCreated, existingRol
                   {expandedCategory === category && (
                     <div className="pl-4 space-y-1">
                       {perms.map(p => (
-                        <label key={p.id} className="flex items-center gap-2 cursor-pointer py-0.5">
+                        <label key={p.id} className={`flex items-center gap-2 cursor-pointer py-0.5 ${p.isChild ? "pl-4" : ""}`}>
                           <input
                             type="checkbox"
                             checked={selectedPermissions.includes(p.id)}
                             onChange={() => togglePermission(p.id)}
                             className="w-3.5 h-3.5 rounded border-gray-300"
                           />
-                          <span className="text-xs text-gray-700">{p.name}</span>
+                          <span className={`text-xs ${p.isChild ? "text-gray-500" : "text-gray-700"}`}>{p.name}</span>
                         </label>
                       ))}
                     </div>

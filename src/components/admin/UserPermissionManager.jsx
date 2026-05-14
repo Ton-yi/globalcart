@@ -4,24 +4,24 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Check, X } from "lucide-react";
+import { PERMISSIONS_PRESET } from "@/lib/permissionsPreset";
 
-const ALL_PERMISSIONS = [
-  { id: "order:read",          name: "订单查看",   category: "订单" },
-  { id: "order:create",        name: "订单创建",   category: "订单" },
-  { id: "order:update",        name: "订单编辑",   category: "订单" },
-  { id: "order:delete",        name: "订单删除",   category: "订单" },
-  { id: "shipping_pool:read",  name: "发货池查看", category: "发货" },
-  { id: "shipping_pool:create",name: "发货池创建", category: "发货" },
-  { id: "shipping_pool:update",name: "发货池编辑", category: "发货" },
-  { id: "shipping_pool:delete",name: "发货池删除", category: "发货" },
-  { id: "user:read",           name: "用户查看",   category: "用户" },
-  { id: "user:create",         name: "用户创建",   category: "用户" },
-  { id: "user:update",         name: "用户编辑",   category: "用户" },
-  { id: "user:delete",         name: "用户删除",   category: "用户" },
-  { id: "payment:read",        name: "支付查看",   category: "支付" },
-  { id: "payment:confirm",     name: "确认支付",   category: "支付" },
-];
+// Flatten PERMISSIONS_PRESET into a flat list of { id, name, category }
+// including children (sub-permissions)
+function flattenPreset(preset) {
+  const result = [];
+  preset.forEach(cat => {
+    cat.permissions.forEach(p => {
+      result.push({ id: p.name, name: p.display_name, category: cat.category });
+      (p.children || []).forEach(child => {
+        result.push({ id: child.name, name: child.display_name, category: cat.category });
+      });
+    });
+  });
+  return result;
+}
 
+const ALL_PERMISSIONS = flattenPreset(PERMISSIONS_PRESET);
 const CATEGORIES = [...new Set(ALL_PERMISSIONS.map(p => p.category))];
 
 /**
@@ -209,7 +209,7 @@ export default function UserPermissionManager({ user, allRoles: allRolesProp, on
                     已覆盖 {Object.keys(overrides).length} 项
                   </Badge>
                 )}
-                <span className="text-xs text-gray-400">{effectivePerms.size} / {ALL_PERMISSIONS.length} 已开启</span>
+                <span className="text-xs text-gray-400">{effectivePerms.size} 项已开启</span>
               </div>
             </div>
 
@@ -222,24 +222,23 @@ export default function UserPermissionManager({ user, allRoles: allRolesProp, on
                       {perms.filter(p => effectivePerms.has(p.id)).length}/{perms.length}
                     </span>
                   </div>
-                  <div className="grid grid-cols-2 divide-x divide-gray-100">
+                  <div className="divide-y divide-gray-100">
                     {perms.map(p => {
                       const isOn = effectivePerms.has(p.id);
-                      const inBase = basePerms.has(p.id);
                       const isOverridden = overrides[p.id] !== undefined;
                       return (
                         <button
                           key={p.id}
                           type="button"
                           onClick={() => togglePerm(p.id)}
-                          className={`flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors border-b border-gray-100 last:border-b-0 ${
+                          className={`flex items-center gap-2.5 px-3 py-2 text-left w-full transition-colors ${
                             isOn ? 'bg-green-50 hover:bg-green-100' : 'bg-white hover:bg-gray-50'
                           }`}
                         >
-                          <span className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 border-2 transition-colors ${
+                          <span className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 border-2 transition-colors ${
                             isOn ? 'bg-green-500 border-green-500' : 'border-gray-300 bg-white'
                           }`}>
-                            {isOn && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
+                            {isOn && <Check className="w-2.5 h-2.5 text-white" strokeWidth={3} />}
                           </span>
                           <span className={`text-xs flex-1 ${isOn ? 'text-green-900 font-medium' : 'text-gray-500'}`}>
                             {p.name}

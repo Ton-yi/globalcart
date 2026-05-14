@@ -5,30 +5,24 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronUp, Shield, Pencil, Trash2, X } from "lucide-react";
 import ImageUploader from "@/components/common/ImageUploader";
+import { PERMISSIONS_PRESET } from "@/lib/permissionsPreset";
 
-const PERMISSION_LABELS = {
-  "order:read": "订单查看",
-  "order:create": "订单创建",
-  "order:update": "订单编辑",
-  "order:delete": "订单删除",
-  "shipping_pool:read": "发货池查看",
-  "shipping_pool:create": "发货池创建",
-  "shipping_pool:update": "发货池编辑",
-  "shipping_pool:delete": "发货池删除",
-  "user:read": "用户查看",
-  "user:create": "用户创建",
-  "user:update": "用户编辑",
-  "user:delete": "用户删除",
-  "payment:read": "支付查看",
-  "payment:confirm": "确认支付",
-};
+// Build label map and categories from PERMISSIONS_PRESET
+const PERMISSION_LABELS = {};
+const PERMISSION_CATEGORIES = {};
 
-const PERMISSION_CATEGORIES = {
-  订单: ["order:read", "order:create", "order:update", "order:delete"],
-  发货: ["shipping_pool:read", "shipping_pool:create", "shipping_pool:update", "shipping_pool:delete"],
-  用户: ["user:read", "user:create", "user:update", "user:delete"],
-  支付: ["payment:read", "payment:confirm"],
-};
+PERMISSIONS_PRESET.forEach(cat => {
+  const ids = [];
+  cat.permissions.forEach(p => {
+    PERMISSION_LABELS[p.name] = p.display_name;
+    ids.push(p.name);
+    (p.children || []).forEach(child => {
+      PERMISSION_LABELS[child.name] = child.display_name;
+      ids.push(child.name);
+    });
+  });
+  PERMISSION_CATEGORIES[cat.category] = ids;
+});
 
 const COLOR_PRESETS = [
   "#dc2626", "#f97316", "#eab308", "#22c55e", "#0ea5e9", "#8b5cf6", "#ec4899", "#6b7280"
