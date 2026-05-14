@@ -67,6 +67,21 @@ Deno.serve(async (req) => {
       return Response.json({ user: updated });
     }
 
+    // ── update_roles ──
+    if (action === 'update_roles') {
+      const { roles } = body;
+      if (!Array.isArray(roles)) {
+        return Response.json({ error: 'roles must be an array' }, { status: 400 });
+      }
+      
+      // Validate all roles are custom role IDs (not global roles) - these should be custom tenant roles
+      // For now, we just store the role IDs as assigned_role_ids
+      const updated = await base44.asServiceRole.entities.User.update(target_user_id, { 
+        assigned_role_ids: roles 
+      });
+      return Response.json({ user: updated });
+    }
+
     // ── delete ──
     if (action === 'delete') {
       if (!isPlatformAdmin && targetRecord.role === 'platform_admin') {

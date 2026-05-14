@@ -25,7 +25,7 @@ const ROLE_LABELS = {
   user:           { label: "用户",       color: "bg-gray-100 text-gray-600" },
 };
 
-function EditUserModal({ user: targetUser, currentUser, memberTiers, onClose, onSaved }) {
+function EditUserModal({ user: targetUser, currentUser, memberTiers, allRoles = [], onClose, onSaved }) {
   const isPlatformAdmin = currentUser?.roles?.includes('platform_admin');
   const [roles, setRoles] = useState(targetUser.roles || ['user']);
   const [memberTierId, setMemberTierId] = useState(targetUser.member_tier_id || "");
@@ -51,20 +51,13 @@ function EditUserModal({ user: targetUser, currentUser, memberTiers, onClose, on
     }
   };
 
-  const roleOptions = isPlatformAdmin
-    ? [
-        { value: 'platform_admin', label: '平台管理员' },
-        { value: 'tenant_admin',   label: '租户管理员' },
-        { value: 'admin',          label: '管理员' },
-        { value: 'staff',          label: '员工' },
-        { value: 'user',           label: '用户' },
-      ]
-    : [
-        { value: 'admin',          label: '管理员' },
-        { value: 'tenant_admin',   label: '租户管理员' },
-        { value: 'staff',          label: '员工' },
-        { value: 'user',           label: '用户' },
-      ];
+  // 只显示租户自有的自定义角色（is_global: false）
+  const tenantOwnedRoles = allRoles.filter(r => !r.is_global && r.tenant_id === currentUser?.tenant_id);
+  const roleOptions = tenantOwnedRoles.map(r => ({
+    value: r.id,
+    label: r.name,
+    isCustom: true
+  }));
 
   const handleSave = async () => {
     setSaving(true);
@@ -522,6 +515,7 @@ export default function AdminUsers() {
           user={editingUser}
           currentUser={currentUser}
           memberTiers={memberTiers}
+          allRoles={allRoles}
           onClose={() => setEditingUser(null)}
           onSaved={() => { setEditingUser(null); loadData(); }}
         />
