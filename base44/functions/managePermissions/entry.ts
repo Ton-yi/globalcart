@@ -1,5 +1,89 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
+// 预设权限模板
+const PRESET_PERMISSIONS = [
+  // Order Management
+  { name: 'order:read', description: '查看订单', resource_type: 'Order', action: 'read', category: 'Order' },
+  { name: 'order:create', description: '创建订单', resource_type: 'Order', action: 'create', category: 'Order' },
+  { name: 'order:update', description: '更新订单', resource_type: 'Order', action: 'update', category: 'Order' },
+  { name: 'order:delete', description: '删除订单', resource_type: 'Order', action: 'delete', category: 'Order' },
+  
+  // Shipping Pool Management
+  { name: 'shipping_pool:read', description: '查看发货池', resource_type: 'ShippingPool', action: 'read', category: 'ShippingPool' },
+  { name: 'shipping_pool:create', description: '创建发货申请', resource_type: 'ShippingPool', action: 'create', category: 'ShippingPool' },
+  { name: 'shipping_pool:update', description: '更新发货池信息', resource_type: 'ShippingPool', action: 'update', category: 'ShippingPool' },
+  { name: 'shipping_pool:manage_fees', description: '管理发货费用', resource_type: 'ShippingPool', action: 'manage_fees', category: 'ShippingPool' },
+  
+  // User Management
+  { name: 'user:read', description: '查看用户列表', resource_type: 'User', action: 'read', category: 'User' },
+  { name: 'user:update', description: '编辑用户信息', resource_type: 'User', action: 'update', category: 'User' },
+  { name: 'user:manage_roles', description: '管理用户角色', resource_type: 'User', action: 'manage_roles', category: 'User' },
+  
+  // Settings & Configuration
+  { name: 'settings:read', description: '查看系统设置', resource_type: 'Settings', action: 'read', category: 'Settings' },
+  { name: 'settings:update', description: '修改系统设置', resource_type: 'Settings', action: 'update', category: 'Settings' },
+  
+  // Payment Management
+  { name: 'payment:read', description: '查看支付记录', resource_type: 'Payment', action: 'read', category: 'Payment' },
+  { name: 'payment:confirm', description: '确认支付', resource_type: 'Payment', action: 'confirm', category: 'Payment' },
+  
+  // Dashboard & Analytics
+  { name: 'dashboard:view', description: '查看管理面板', resource_type: 'Dashboard', action: 'view', category: 'Dashboard' },
+];
+
+// 预设角色定义
+const PRESET_ROLES = {
+  user: {
+    name: 'user',
+    description: '普通用户',
+    permissions: ['order:read', 'order:create', 'shipping_pool:read', 'shipping_pool:create']
+  },
+  staff: {
+    name: 'staff',
+    description: '员工',
+    permissions: ['order:read', 'order:update', 'shipping_pool:read', 'shipping_pool:update', 'payment:read']
+  },
+  admin: {
+    name: 'admin',
+    description: '管理员',
+    permissions: ['order:read', 'order:update', 'order:delete', 'shipping_pool:read', 'shipping_pool:update', 'shipping_pool:manage_fees', 'user:read', 'user:update', 'settings:read', 'settings:update', 'payment:read', 'payment:confirm', 'dashboard:view']
+  },
+  tenant_admin: {
+    name: 'tenant_admin',
+    description: '租户管理员',
+    permissions: ['order:read', 'order:update', 'order:delete', 'shipping_pool:read', 'shipping_pool:update', 'shipping_pool:manage_fees', 'user:read', 'user:update', 'user:manage_roles', 'settings:read', 'settings:update', 'payment:read', 'payment:confirm', 'dashboard:view']
+  },
+  platform_admin: {
+    name: 'platform_admin',
+    description: '平台管理员',
+    permissions: ['order:read', 'order:update', 'order:delete', 'shipping_pool:read', 'shipping_pool:update', 'shipping_pool:manage_fees', 'user:read', 'user:update', 'user:manage_roles', 'settings:read', 'settings:update', 'payment:read', 'payment:confirm', 'dashboard:view']
+  }
+};
+
+/**
+ * 初始化预设权限（仅在系统首次设置时调用）
+ */
+async function initializePresetPermissions(base44, userTenant) {
+  try {
+    // 检查是否已存在权限
+    const existingPerms = await base44.asServiceRole.entities.Permission.filter({ tenant_id: null }, '-created_date', 1);
+    if (existingPerms.length > 0) {
+      return; // 权限已初始化，跳过
+    }
+
+    // 创建所有预设权限
+    for (const perm of PRESET_PERMISSIONS) {
+      await base44.asServiceRole.entities.Permission.create({
+        ...perm,
+        is_global: true,
+        tenant_id: null
+      });
+    }
+  } catch (err) {
+    console.warn('Failed to initialize preset permissions', err);
+  }
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -8,6 +92,9 @@ Deno.serve(async (req) => {
     if (!user) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    // 初始化预设权限（首次调用时）
+    await initializePresetPermissions(base44, user.tenant_id);
 
     const { action, data } = await req.json();
     const isPlatformAdmin = user.role === 'platform_admin';
@@ -121,6 +208,11 @@ Deno.serve(async (req) => {
 
       await base44.asServiceRole.entities.Permission.delete(permission_id);
       return Response.json({ success: true });
+    }
+
+    // ==================== GET PRESET ROLES ====================
+    if (action === 'getPresetRoles') {
+      return Response.json({ preset_roles: PRESET_ROLES });
     }
 
     return Response.json({ error: 'Invalid action' }, { status: 400 });

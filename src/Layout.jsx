@@ -9,7 +9,7 @@ import { getCurrentSubdomain } from "@/lib/tenantBranding";
 import { 
   ShoppingBag, Package, Truck, User, Settings, 
   Bell, LogOut, Menu, X, Shield,
-  Home, Users, BarChart3, Store, Send, Lock
+  Home, Users, BarChart3, Store, Send
 } from "lucide-react";
 import { MidnightToggle } from "@/components/common/ThemeSelector";
 import { Badge } from "@/components/ui/badge";
@@ -74,7 +74,6 @@ export default function Layout({ children, currentPageName }) {
     { label: "发货池", icon: Send, page: "AdminShippingPool" },
     { label: "用户管理", icon: Users, page: "AdminUsers" },
     { label: "公告管理", icon: Bell, page: "AdminAnnouncements" },
-    { label: "角色权限", icon: Lock, page: "AdminRoleManagement" },
     { label: "网站设置", icon: Settings, page: "AdminSettings" },
   ];
 
