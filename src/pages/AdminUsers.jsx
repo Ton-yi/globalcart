@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { usePermissions } from "@/hooks/usePermissions";
 import {
   Search, UserPlus, Shield, AlertTriangle, ChevronDown, ChevronUp,
   Pencil, Trash2, Ban, CheckCircle, X, CreditCard, Settings, Lock
@@ -26,7 +27,7 @@ const ROLE_LABELS = {
 };
 
 function EditUserModal({ user: targetUser, currentUser, memberTiers, allRoles = [], onClose, onSaved }) {
-  const isPlatformAdmin = currentUser?.roles?.includes('platform_admin');
+  const isPlatformAdmin = currentUser?.role === 'platform_admin';
   const [roles, setRoles] = useState(targetUser.assigned_role_ids || []);
   const [memberTierId, setMemberTierId] = useState(targetUser.member_tier_id || "");
   const [creditEnabled, setCreditEnabled] = useState(targetUser.credit_enabled || false);
@@ -235,9 +236,10 @@ export default function AdminUsers() {
   const [actioning, setActioning] = useState({});
   const [allRoles, setAllRoles] = useState([]);
   const { user: currentUser } = useCurrentUser();
+  const { can, isAdmin: isCurrentUserAdmin } = usePermissions();
 
-  const isTenantAdmin = currentUser?.roles?.includes('admin') || currentUser?.roles?.includes('tenant_admin');
-  const isPlatformAdmin = currentUser?.roles?.includes('platform_admin');
+  const isTenantAdmin = currentUser?.role === 'admin' || currentUser?.role === 'tenant_admin';
+  const isPlatformAdmin = currentUser?.role === 'platform_admin';
 
   const loadData = () => {
     setLoading(true);
@@ -314,6 +316,10 @@ export default function AdminUsers() {
   const getUserOrderCount = (email) => orders.filter(o => o.user_email === email).length;
   const getUserTotalPaid = (email) => orders.filter(o => o.user_email === email).reduce((s, o) => s + (o.paid_amount || 0), 0);
 
+  if (currentUser && !isCurrentUserAdmin && !can("user:read")) {
+    return <div className="text-center py-8 text-red-600">无访问权限</div>;
+  }
+
   return (
     <div className="space-y-5">
       <h1 className="text-xl font-bold text-gray-900">用户管理</h1>
@@ -386,7 +392,8 @@ export default function AdminUsers() {
                   <td className="px-4 py-3 text-gray-500 text-xs hidden sm:table-cell">{u.email}</td>
                   <td className="px-4 py-3">
                    <div className="flex items-center gap-1.5 flex-wrap">
-                     {(u.roles || []).map(role => {
+                     {(() => {
+                       const role = u.role || 'user';
                        const roleInfo = ROLE_LABELS[role] || ROLE_LABELS.user;
                        return (
                          <Badge key={role} className={`text-xs ${roleInfo.color}`}>
@@ -394,7 +401,7 @@ export default function AdminUsers() {
                            {roleInfo.label}
                          </Badge>
                        );
-                     })}
+                     })()}
                      {u.member_tier_name && (
                        <Badge className={`text-xs ${memberTiers.find(t => t.id === u.member_tier_id)?.color || 'bg-blue-100 text-blue-700'}`}>
                          {u.member_tier_name}
@@ -484,7 +491,7 @@ export default function AdminUsers() {
                         }
                       </button>
                       {/* Delete — only platform_admin can see for all; tenant_admin cannot delete platform_admin */}
-                      {(isTenantAdmin && !u.roles?.includes('platform_admin')) && (
+                      {(isTenantAdmin && u.role !== 'platform_admin') && (
                         <button
                           onClick={() => handleDelete(u)}
                           disabled={!!actioning[u.id]}

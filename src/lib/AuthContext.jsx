@@ -13,6 +13,7 @@ export const AuthProvider = ({ children }) => {
   const [authError, setAuthError] = useState(null);
   const [appPublicSettings, setAppPublicSettings] = useState(null);
   const [tenantBranding, setTenantBranding] = useState(null); // { tenant: {...} | null }
+  const [permissions, setPermissions] = useState([]); // effective granular permissions for current user
 
   useEffect(() => {
     // Resolve tenant branding from subdomain in parallel with app state check
@@ -100,10 +101,13 @@ export const AuthProvider = ({ children }) => {
       setIsAuthenticated(true);
       setIsLoadingAuth(false);
 
-      // Check account suspension in background (non-blocking)
+      // Check account suspension + load granular permissions in background (non-blocking)
       base44.functions.invoke('getMyStatus', {}).then(r => {
         if (r?.data?.is_active === false) {
           setAuthError({ type: 'account_suspended', message: '您的账户已被停用，请联系管理员。' });
+        }
+        if (Array.isArray(r?.data?.permissions)) {
+          setPermissions(r.data.permissions);
         }
       }).catch(() => {});
     } catch (error) {
@@ -149,6 +153,8 @@ export const AuthProvider = ({ children }) => {
       authError,
       appPublicSettings,
       tenantBranding,
+      permissions,
+      setPermissions,
       logout,
       navigateToLogin,
       checkAppState

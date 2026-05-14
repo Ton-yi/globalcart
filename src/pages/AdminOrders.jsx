@@ -13,6 +13,7 @@ import { matchStoreTagResult } from "@/lib/onlineStoreTag";
 import { ImageWithViewer } from "@/components/common/ImageViewer";
 import ShippingPoolDetailModal from "@/components/shippingpool/ShippingPoolDetailModal";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { usePermissions } from "@/hooks/usePermissions";
 
 const STORAGE_KEY = "admin_orders_columns";
 
@@ -208,6 +209,7 @@ function CellValue({ col, order, onQuickOrdered, userAvatars }) {
 
 export default function AdminOrders() {
   const { user } = useCurrentUser();
+  const { can, isAdmin } = usePermissions();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -258,10 +260,8 @@ export default function AdminOrders() {
 
   useEffect(() => { fetchOrders(); }, [fetchOrders]);
 
-  const isTenantAdmin = user?.roles?.includes("tenant_admin");
-  
-  if (user && !isTenantAdmin) {
-    return <div className="text-center py-8 text-red-600">仅租户管理员可访问此页面</div>;
+  if (user && !isAdmin && !can("order:update")) {
+    return <div className="text-center py-8 text-red-600">无访问权限</div>;
   }
 
   const handleColumnsChange = (newCols) => {

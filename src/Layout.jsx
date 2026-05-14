@@ -14,9 +14,11 @@ import {
 import { MidnightToggle } from "@/components/common/ThemeSelector";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { usePermissions } from "@/hooks/usePermissions";
 
 export default function Layout({ children, currentPageName }) {
   const { user, tenantBranding, authError } = useAuth();
+  const { can } = usePermissions();
   const isSuspended = authError?.type === 'account_suspended';
   const tenant = tenantBranding?.tenant || null;
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -58,17 +60,18 @@ export default function Layout({ children, currentPageName }) {
       .catch(() => {});
   }, [user?.email, currentPageName]);
 
-  const isPlatformAdmin = user?.roles?.includes("platform_admin");
-  const isTenantAdmin = user?.roles?.includes("tenant_admin");
-  const isTenantUser = user?.roles?.includes("user");
+  const isPlatformAdmin = user?.role === "platform_admin";
+  const isTenantAdmin = user?.role === "admin" || user?.role === "tenant_admin";
+  const isStaff = user?.role === "staff";
+  const isTenantUser = user?.role === "user";
   const isAdmin = isPlatformAdmin || isTenantAdmin;
   
   // Platform admin has all permissions; tenant admin has tenant-level permissions
   const canAccessAdminSettings = isPlatformAdmin || isTenantAdmin;
   const canAccessAdminDashboard = isPlatformAdmin || isTenantAdmin;
-  const canAccessAdminOrders = isPlatformAdmin || isTenantAdmin;
-  const canAccessAdminShippingPool = isPlatformAdmin || isTenantAdmin;
-  const canAccessAdminUsers = isPlatformAdmin || isTenantAdmin;
+  const canAccessAdminOrders = isPlatformAdmin || isTenantAdmin || can("order:update");
+  const canAccessAdminShippingPool = isPlatformAdmin || isTenantAdmin || can("shipping_pool:update");
+  const canAccessAdminUsers = isPlatformAdmin || isTenantAdmin || can("user:read");
   const canAccessAdminAnnouncements = isPlatformAdmin || isTenantAdmin;
 
   const userNav = [
@@ -101,6 +104,10 @@ export default function Layout({ children, currentPageName }) {
   } else if (isTenantAdmin) {
     // Tenant admin: show tenant admin items plus personal profile
     navItems = [...navItems, ...tenantAdminNav.filter(item => item.canAccess), { label: "个人档案", icon: User, page: "UserPreferences" }];
+  } else if (isStaff) {
+    // Staff: show user pages + any admin pages they have permission for
+    const staffAdminItems = tenantAdminNav.filter(item => item.canAccess);
+    navItems = [...navItems, ...userNav.slice(1), ...staffAdminItems, { label: "个人档案", icon: User, page: "UserPreferences" }];
   } else if (isTenantUser) {
     navItems = [...navItems, ...userNav.slice(1), { label: "个人档案", icon: User, page: "UserPreferences" }];
   } else {
