@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Edit2, Trash2, X } from "lucide-react";
+import { Plus, Edit2, Trash2, X, Upload, Image as ImageIcon } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { tenantEntity } from "@/lib/tenantApi";
 import { Button } from "@/components/ui/button";
@@ -21,10 +21,12 @@ export default function ItemSizeTemplateManager({ initialData = null }) {
   const [formData, setFormData] = useState({
     title: "",
     description: "",
+    image_url: "",
     extra_fee: 0,
     fee_currency: "JPY",
     is_active: true,
   });
+  const [uploading, setUploading] = useState(false);
 
   const loadTemplates = async () => {
     setLoading(true);
@@ -67,11 +69,26 @@ export default function ItemSizeTemplateManager({ initialData = null }) {
     setFormData({
       title: "",
       description: "",
+      image_url: "",
       extra_fee: 0,
       fee_currency: "JPY",
       is_active: true,
     });
     setEditingId(null);
+  };
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setUploading(true);
+    try {
+      const res = await base44.integrations.Core.UploadFile({ file });
+      setFormData({ ...formData, image_url: res.data.file_url });
+    } catch (err) {
+      console.error('上传失败:', err);
+    }
+    setUploading(false);
   };
 
   const handleCancel = () => {
@@ -128,6 +145,37 @@ export default function ItemSizeTemplateManager({ initialData = null }) {
             />
           </div>
 
+          <div>
+            <Label className="text-xs text-gray-600">示意图</Label>
+            <div className="mt-1 flex gap-2">
+              <label className="flex-1 flex items-center justify-center gap-2 px-3 py-2 h-8 border border-gray-300 rounded text-xs cursor-pointer hover:bg-white transition-colors">
+                <Upload className="w-3.5 h-3.5" />
+                {uploading ? "上传中..." : "选择图片"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  disabled={uploading}
+                  className="hidden"
+                />
+              </label>
+              {formData.image_url && (
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, image_url: "" })}
+                  className="p-1.5 rounded hover:bg-red-100 text-gray-400 hover:text-red-600 transition-colors"
+                  title="删除图片">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+            {formData.image_url && (
+              <div className="mt-2 max-w-xs">
+                <img src={formData.image_url} alt="预览" className="w-full h-auto rounded border border-gray-300 bg-white" />
+              </div>
+            )}
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label className="text-xs text-gray-600">货币</Label>
@@ -173,7 +221,12 @@ export default function ItemSizeTemplateManager({ initialData = null }) {
           <p className="text-sm text-gray-400 text-center py-4">暂无模板，点击"新增模板"创建</p>
         ) : (
           templates.map((template) => (
-            <div key={template.id} className="border border-gray-200 rounded-lg p-3 flex items-start justify-between hover:bg-gray-50 transition-colors">
+            <div key={template.id} className="border border-gray-200 rounded-lg p-3 flex gap-3 items-start hover:bg-gray-50 transition-colors">
+              {template.image_url && (
+                <div className="flex-shrink-0 w-20 h-20 rounded border border-gray-300 bg-gray-100 overflow-hidden flex items-center justify-center">
+                  <img src={template.image_url} alt={template.title} className="w-full h-full object-cover" />
+                </div>
+              )}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h4 className="font-medium text-gray-900">{template.title}</h4>
