@@ -81,8 +81,9 @@ Deno.serve(async (req) => {
         credit_balance_jpy: u.credit_balance_jpy || 0,
         member_tier_id: u.member_tier_id || null,
         member_tier_name: u.member_tier_name || null,
-        // Assigned role IDs
+        // Assigned role IDs and permission overrides
         assigned_role_ids: u.assigned_role_ids || [],
+        permission_overrides: u.permission_overrides || {},
       }));
 
     // Tenant map: id -> { id, name, code }

@@ -94,12 +94,9 @@ Deno.serve(async (req) => {
       }
       
       const updateData = {
-        assigned_role_ids: assigned_role_ids
+        assigned_role_ids: assigned_role_ids,
+        permission_overrides: permission_overrides ?? {},
       };
-      
-      if (permission_overrides) {
-        updateData.permission_overrides = permission_overrides;
-      }
       
       const updated = await base44.asServiceRole.entities.User.update(target_user_id, updateData);
       return Response.json({ user: updated });
