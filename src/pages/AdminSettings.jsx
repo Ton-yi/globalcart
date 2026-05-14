@@ -473,7 +473,7 @@ export default function AdminSettings() {
       {activeTab === "shipping_methods" && (
         <Card className="border-gray-200">
           <CardContent className="pt-5">
-            <ShippingMethodManager initialData={shippingMethods} />
+            <ShippingMethodManager initialData={shippingMethods} itemSizeTemplates={itemSizeTemplates || []} />
           </CardContent>
         </Card>
       )}
@@ -1113,6 +1113,48 @@ export default function AdminSettings() {
               </Card>
             );
           })}
+
+          {/* Allow user to fill customs declaration */}
+          {(() => {
+            const s = Object.values(grouped).flat().find(s => s.key === 'allow_user_customs_declaration');
+            const enabled = s?.value === 'true';
+            return (
+              <Card className="border-orange-200">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-semibold text-gray-700">报关单设置</CardTitle>
+                  <p className="text-xs text-gray-400 mt-1">配置用户是否可自行填写报关单信息。</p>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex items-center justify-between pb-1 border-b border-gray-100">
+                    <div>
+                      <Label className="text-sm">允许用户自行填写报关单</Label>
+                      <p className="text-xs text-gray-400 mt-0.5">开启后，用户在通知发货时可选择填写报关单信息；关闭后，仅管理员可填写</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const newVal = enabled ? 'false' : 'true';
+                        if (s) {
+                          await tenantEntity.update('SiteSettings', s.id, { value: newVal });
+                        } else {
+                          await tenantEntity.create('SiteSettings', {
+                            key: 'allow_user_customs_declaration',
+                            value: newVal,
+                            description: '允许用户自行填写报关单',
+                            category: 'shipping'
+                          });
+                        }
+                        await load();
+                      }}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${enabled ? 'bg-orange-600' : 'bg-gray-200'}`}
+                    >
+                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                    </button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })()}
 
           {/* Customs Hazmat Text */}
           <CustomsHazmatTextEditor settings={Object.values(grouped).flat()} onReload={load} />

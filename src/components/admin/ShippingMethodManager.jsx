@@ -164,7 +164,7 @@ function DetailedRateRow({ rate, onChange, onDelete }) {
   );
 }
 
-function MethodCard({ method, onSave, onDelete }) {
+function MethodCard({ method, onSave, onDelete, itemSizeTemplates = [] }) {
   const [expanded, setExpanded] = useState(false);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ ...method });
@@ -289,6 +289,46 @@ function MethodCard({ method, onSave, onDelete }) {
                 <Label className="text-xs text-gray-500">描述</Label>
                 <Textarea rows={2} className="mt-1 text-sm" value={form.description || ""} onChange={e => f("description", e.target.value)} />
               </div>
+
+              {/* Weight limits */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs text-gray-500">最小运输重量 (g)</Label>
+                  <Input className="mt-1 h-8 text-sm" type="number" value={form.min_weight_g || ""} onChange={e => f("min_weight_g", parseFloat(e.target.value) || 0)} placeholder="0" />
+                </div>
+                <div>
+                  <Label className="text-xs text-gray-500">最大运输重量 (g)</Label>
+                  <Input className="mt-1 h-8 text-sm" type="number" value={form.max_weight_g || ""} onChange={e => f("max_weight_g", parseFloat(e.target.value) || 0)} placeholder="0 (不限)" />
+                </div>
+              </div>
+
+              {/* Disabled item sizes */}
+              {itemSizeTemplates.length > 0 && (
+                <div>
+                  <Label className="text-xs text-gray-500 font-medium">禁用的物品尺寸</Label>
+                  <p className="text-xs text-gray-400 mt-1 mb-2">选中的尺寸将无法与此运输方式一起使用</p>
+                  <div className="space-y-1.5 max-h-32 overflow-y-auto border border-gray-200 rounded-lg p-2 bg-white">
+                    {itemSizeTemplates.map(template => (
+                      <label key={template.id} className="flex items-center gap-2 text-sm cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={(form.disabled_item_size_template_ids || []).includes(template.id)}
+                          onChange={e => {
+                            const ids = form.disabled_item_size_template_ids || [];
+                            if (e.target.checked) {
+                              f("disabled_item_size_template_ids", [...ids, template.id]);
+                            } else {
+                              f("disabled_item_size_template_ids", ids.filter(id => id !== template.id));
+                            }
+                          }}
+                          className="rounded"
+                        />
+                        <span className="text-gray-600">{template.title}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Rate mode */}
               <div>
@@ -434,11 +474,11 @@ function MethodCard({ method, onSave, onDelete }) {
   );
 }
 
-export default function ShippingMethodManager({ initialData = null }) {
+export default function ShippingMethodManager({ initialData = null, itemSizeTemplates = [] }) {
   const [methods, setMethods] = useState(null); // null = not yet initialized
   const [loading, setLoading] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
-  const [newForm, setNewForm] = useState({ name: "", code: "", color: "#6B7280", transit_days: "", description: "", is_active: true, rate_mode: "simple", simple_rates: [], detailed_rates: [] });
+  const [newForm, setNewForm] = useState({ name: "", code: "", color: "#6B7280", transit_days: "", description: "", is_active: true, rate_mode: "simple", simple_rates: [], detailed_rates: [], min_weight_g: 0, max_weight_g: 0, disabled_item_size_template_ids: [] });
   const [seeding, setSeeding] = useState(false);
 
   // Initialize from initialData prop when it arrives
@@ -529,7 +569,7 @@ export default function ShippingMethodManager({ initialData = null }) {
       )}
 
       {methods.map(m => (
-        <MethodCard key={m.id} method={m} onSave={handleSave} onDelete={handleDelete} />
+        <MethodCard key={m.id} method={m} onSave={handleSave} onDelete={handleDelete} itemSizeTemplates={itemSizeTemplates} />
       ))}
     </div>
   );

@@ -94,6 +94,24 @@
           }
         }
       }
+    },
+    "min_weight_g": {
+      "type": "number",
+      "description": "\u6700\u5c0f\u8fd0\u8f93\u91cd\u91cf(g)",
+      "default": 0
+    },
+    "max_weight_g": {
+      "type": "number",
+      "description": "\u6700\u5927\u8fd0\u8f93\u91cd\u91cf(g)",
+      "default": 0
+    },
+    "disabled_item_size_template_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "\u7981\u7528\u7684\u7269\u54c1\u5c3a\u5bf8\u6a21\u677fID\u5217\u8868",
+      "default": []
     }
   },
   "required": [
