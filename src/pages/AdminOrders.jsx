@@ -237,6 +237,12 @@ export default function AdminOrders() {
   const [selectedPool, setSelectedPool] = useState(null); // for opening pool detail modal
   const [showArchived, setShowArchived] = useState(false);
 
+  const isTenantAdmin = user?.roles?.includes("tenant_admin");
+  
+  if (user && !isTenantAdmin) {
+    return <div className="text-center py-8 text-red-600">仅租户管理员可访问此页面</div>;
+  }
+
   const fetchOrders = useCallback(async () => {
     setLoading(true);
     const r = await base44.functions.invoke('getAdminOrdersPageData', {});

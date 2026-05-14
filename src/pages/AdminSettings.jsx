@@ -142,13 +142,19 @@ export default function AdminSettings() {
   const [editingTenant, setEditingTenant] = useState(null); // tenant being edited
   const [editTenantFields, setEditTenantFields] = useState({});
   const [savingTenant, setSavingTenant] = useState(false);
-  const isPlatformAdmin = user?.role === 'platform_admin';
 
   // Platform base domain state
   const [platformBaseDomain, setPlatformBaseDomain] = useState("");
   const [editingDomain, setEditingDomain] = useState("");
   const [savingDomain, setSavingDomain] = useState(false);
   const [domainMsg, setDomainMsg] = useState(null);
+
+  const isTenantAdmin = user?.roles?.includes("tenant_admin");
+  const isPlatformAdmin = user?.roles?.includes("platform_admin");
+  
+  if (user && !isTenantAdmin && !isPlatformAdmin) {
+    return <div className="text-center py-8 text-red-600">仅管理员可访问此页面</div>;
+  }
 
   const load = async () => {
     const t = timePage('AdminSettings');

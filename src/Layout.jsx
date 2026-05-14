@@ -58,35 +58,44 @@ export default function Layout({ children, currentPageName }) {
       .catch(() => {});
   }, [user?.email, currentPageName]);
 
-  const isAdmin = user?.roles?.includes("admin") || user?.roles?.includes("platform_admin") || user?.roles?.includes("tenant_admin");
   const isPlatformAdmin = user?.roles?.includes("platform_admin");
+  const isTenantAdmin = user?.roles?.includes("tenant_admin");
+  const isTenantUser = user?.roles?.includes("user");
+  const isAdmin = isPlatformAdmin || isTenantAdmin;
 
   const userNav = [
     { label: "首页", icon: Home, page: "Home" },
-    { label: "提交需求", icon: ShoppingBag, page: "SubmitOrder" },
-    { label: "我的订单", icon: Package, page: "MyOrders" },
-    { label: "发货 & 拼邮", icon: Send, page: "ShippingPool" },
+    { label: "提交需求", icon: ShoppingBag, page: "SubmitOrder", requiredRole: "user" },
+    { label: "我的订单", icon: Package, page: "MyOrders", requiredRole: "user" },
+    { label: "发货 & 拼邮", icon: Send, page: "ShippingPool", requiredRole: "user" },
     { label: "个人设置", icon: User, page: "UserPreferences" },
   ];
 
-  const adminNav = [
-    { label: "管理总览", icon: BarChart3, page: "AdminDashboard" },
-    { label: "订单管理", icon: Package, page: "AdminOrders" },
-    { label: "发货池", icon: Send, page: "AdminShippingPool" },
-    { label: "用户管理", icon: Users, page: "AdminUsers" },
-    { label: "公告管理", icon: Bell, page: "AdminAnnouncements" },
-    { label: "网站设置", icon: Settings, page: "AdminSettings" },
+  const tenantAdminNav = [
+    { label: "管理总览", icon: BarChart3, page: "AdminDashboard", requiredRole: "tenant_admin" },
+    { label: "订单管理", icon: Package, page: "AdminOrders", requiredRole: "tenant_admin" },
+    { label: "发货池", icon: Send, page: "AdminShippingPool", requiredRole: "tenant_admin" },
+    { label: "用户管理", icon: Users, page: "AdminUsers", requiredRole: "tenant_admin" },
+    { label: "公告管理", icon: Bell, page: "AdminAnnouncements", requiredRole: "tenant_admin" },
+    { label: "网站设置", icon: Settings, page: "AdminSettings", requiredRole: "tenant_admin" },
   ];
 
   const platformAdminNav = [
-    { label: "平台设置", icon: Settings, page: "PlatformAdminSettings" },
+    { label: "平台设置", icon: Settings, page: "PlatformAdminSettings", requiredRole: "platform_admin" },
   ];
 
-  const navItems = isPlatformAdmin 
-    ? [...userNav.slice(0,1), ...platformAdminNav, { label: "个人档案", icon: User, page: "UserPreferences" }]
-    : isAdmin 
-    ? [...userNav.slice(0,1), ...adminNav, { label: "个人档案", icon: User, page: "UserPreferences" }]
-    : userNav;
+  // Build navigation based on roles
+  let navItems = [userNav[0]]; // Always show Home
+  
+  if (isPlatformAdmin) {
+    navItems = [...navItems, ...platformAdminNav, { label: "个人档案", icon: User, page: "UserPreferences" }];
+  } else if (isTenantAdmin) {
+    navItems = [...navItems, ...tenantAdminNav, { label: "个人档案", icon: User, page: "UserPreferences" }];
+  } else if (isTenantUser) {
+    navItems = [...navItems, ...userNav.slice(1), { label: "个人档案", icon: User, page: "UserPreferences" }];
+  } else {
+    navItems = userNav;
+  }
 
   const activeAnnouncement = announcements.find(a => 
     a.target_audience === "all" || 
