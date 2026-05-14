@@ -216,23 +216,29 @@ function EditUserModal({ user: targetUser, currentUser, memberTiers, allRoles = 
                     {roleOptions.length === 0 ? (
                       <p className="text-xs text-gray-400">无可用的自定义角色</p>
                     ) : (
-                      roleOptions.map(r => (
-                        <label key={r.value} className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={roles.includes(r.value)}
-                            onChange={e => {
-                              if (e.target.checked) {
-                                setRoles(prev => [...prev, r.value]);
-                              } else {
-                                setRoles(prev => prev.filter(v => v !== r.value));
-                              }
-                            }}
-                            className="w-3.5 h-3.5 rounded border-gray-300"
-                          />
-                          <span className="text-sm text-gray-700">{r.label}</span>
-                        </label>
-                      ))
+                      roleOptions.map(r => {
+                        const isActive = roles.includes(r.value);
+                        return (
+                          <label key={r.value} className={`flex items-center gap-2 cursor-pointer px-2 py-1.5 rounded transition-colors ${
+                            isActive ? 'bg-green-50 border border-green-200' : 'hover:bg-gray-50'
+                          }`}>
+                            <input
+                              type="checkbox"
+                              checked={isActive}
+                              onChange={e => {
+                                if (e.target.checked) {
+                                  setRoles(prev => [...prev, r.value]);
+                                } else {
+                                  setRoles(prev => prev.filter(v => v !== r.value));
+                                }
+                              }}
+                              className="w-3.5 h-3.5 rounded border-gray-300"
+                            />
+                            <span className={`text-sm ${isActive ? 'text-green-700 font-medium' : 'text-gray-700'}`}>{r.label}</span>
+                            {isActive && <span className="text-xs text-green-600 ml-auto">✓ 已分配</span>}
+                          </label>
+                        );
+                      })
                     )}
                   </div>
                 </div>
