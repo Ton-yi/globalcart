@@ -51,8 +51,10 @@ export default function RolePermissionOverview({ roles = [], isPlatformAdmin = f
     setDeleting(prev => ({ ...prev, [roleId]: true }));
     try {
       await base44.functions.invoke('manageRoles', {
-        action: 'delete_role',
-        role_id: roleId,
+        action: 'delete',
+        data: {
+          role_id: roleId,
+        }
       });
       if (onRoleUpdated) onRoleUpdated();
     } catch (e) {
@@ -250,12 +252,16 @@ function RoleEditModal({ role, onClose, onSaved }) {
     setSaving(true);
     try {
       await base44.functions.invoke('manageRoles', {
-        action: 'update_role',
-        role_id: role.id,
-        name: name.trim(),
-        color,
-        image_url: imageUrl || null,
-        direct_permissions: permissions,
+        action: 'update',
+        data: {
+          role_id: role.id,
+          updates: {
+            name: name.trim(),
+            color,
+            image_url: imageUrl || null,
+            direct_permissions: permissions,
+          }
+        }
       });
       setMsg({ type: "success", text: "角色已更新" });
       setTimeout(() => onSaved(), 1000);
