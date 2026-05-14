@@ -6,6 +6,7 @@ import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
+import PlatformAdminSettings from '@/pages/PlatformAdminSettings';
 
 
 const { Pages, Layout, mainPage } = pagesConfig;
@@ -58,7 +59,11 @@ const AuthenticatedApp = () => {
           }
         />
       ))}
-
+      <Route path="/PlatformAdminSettings" element={
+        <LayoutWrapper currentPageName="PlatformAdminSettings">
+          <PlatformAdminSettings />
+        </LayoutWrapper>
+      } />
       <Route path="*" element={<PageNotFound />} />
     </Routes>
   );

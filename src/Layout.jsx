@@ -59,6 +59,7 @@ export default function Layout({ children, currentPageName }) {
   }, [user?.email, currentPageName]);
 
   const isAdmin = user?.role === "admin" || user?.role === "platform_admin";
+  const isPlatformAdmin = user?.role === "platform_admin";
 
   const userNav = [
     { label: "首页", icon: Home, page: "Home" },
@@ -77,7 +78,15 @@ export default function Layout({ children, currentPageName }) {
     { label: "网站设置", icon: Settings, page: "AdminSettings" },
   ];
 
-  const navItems = isAdmin ? [...userNav.slice(0,1), ...adminNav, { label: "个人档案", icon: User, page: "UserPreferences" }] : userNav;
+  const platformAdminNav = [
+    { label: "平台设置", icon: Settings, page: "PlatformAdminSettings" },
+  ];
+
+  const navItems = isPlatformAdmin 
+    ? [...userNav.slice(0,1), ...platformAdminNav, { label: "个人档案", icon: User, page: "UserPreferences" }]
+    : isAdmin 
+    ? [...userNav.slice(0,1), ...adminNav, { label: "个人档案", icon: User, page: "UserPreferences" }]
+    : userNav;
 
   const activeAnnouncement = announcements.find(a => 
     a.target_audience === "all" || 

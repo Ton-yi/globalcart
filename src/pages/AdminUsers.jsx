@@ -206,16 +206,7 @@ export default function AdminUsers() {
   const [actioning, setActioning] = useState({});
   const { user: currentUser } = useCurrentUser();
 
-  // Tenant diagnosis state
-  const [diagOpen, setDiagOpen] = useState(false);
-  const [diagData, setDiagData] = useState(null);
-  const [diagLoading, setDiagLoading] = useState(false);
-  const [diagError, setDiagError] = useState(null);
-  const [assigning, setAssigning] = useState({});
-  const [assignTarget, setAssignTarget] = useState({});
-
-  const isPlatformAdmin = currentUser?.role === 'platform_admin';
-  const isTenantAdmin = isPlatformAdmin || currentUser?.role === 'admin' || currentUser?.role === 'tenant_admin';
+  const isTenantAdmin = currentUser?.role === 'admin' || currentUser?.role === 'tenant_admin';
 
   const loadData = () => {
     setLoading(true);
@@ -223,13 +214,12 @@ export default function AdminUsers() {
       base44.functions.invoke('getAdminUsersPageData', {}),
       base44.functions.invoke('getAdminSettingsPageData', {}),
     ]).then(([r1, r2]) => {
-      const { users: u = [], orders: o = [], tenants = [], diagnose } = r1.data || {};
+      const { users: u = [], orders: o = [], tenants = [] } = r1.data || {};
       const map = {};
       tenants.forEach(t => { map[t.id] = t; });
       setTenantMap(map);
       setUsers(u);
       setOrders(o);
-      if (diagnose) setDiagData(diagnose);
       setMemberTiers(r2.data?.memberTiers || []);
       setLoading(false);
     }).catch(() => setLoading(false));
@@ -237,23 +227,7 @@ export default function AdminUsers() {
 
   useEffect(() => { loadData(); }, []);
 
-  const runDiagnose = async () => {
-    setDiagLoading(true);
-    setDiagError(null);
-    const r = await base44.functions.invoke('adminAssignTenant', { action: 'diagnose' });
-    if (r.data?.error) setDiagError(r.data.error);
-    else setDiagData(r.data);
-    setDiagLoading(false);
-  };
 
-  const handleAssign = async (email) => {
-    const tid = assignTarget[email];
-    if (!tid) return;
-    setAssigning(a => ({ ...a, [email]: true }));
-    await base44.functions.invoke('adminAssignTenant', { action: 'assign', target_email: email, tenant_id: tid });
-    setAssigning(a => ({ ...a, [email]: false }));
-    await runDiagnose();
-  };
 
   const handleInvite = async () => {
     if (!inviteEmail) return;
@@ -302,67 +276,7 @@ export default function AdminUsers() {
     <div className="space-y-5">
       <h1 className="text-xl font-bold text-gray-900">用户管理</h1>
 
-      {/* Tenant Assignment Diagnostics */}
-      {(isPlatformAdmin || isTenantAdmin) && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl overflow-hidden">
-          <button
-            className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-amber-800"
-            onClick={() => { setDiagOpen(o => !o); if (!diagOpen && !diagData) runDiagnose(); }}
-          >
-            <span className="flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4" />
-              租户分配诊断（排查 403 错误）
-            </span>
-            {diagOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-          </button>
-          {diagOpen && (
-            <div className="border-t border-amber-200 px-4 py-4 space-y-3 bg-white">
-              {diagLoading ? (
-                <p className="text-sm text-gray-400">诊断中...</p>
-              ) : diagError ? (
-                <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">⚠️ {diagError}</p>
-              ) : diagData ? (
-                <>
-                  <p className="text-xs text-gray-500">
-                    共 {diagData.total_users} 名用户，
-                    <span className={`font-semibold ${diagData.missing_tenant_users?.length > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                      {diagData.missing_tenant_users?.length} 名未分配租户
-                    </span>
-                  </p>
-                  {diagData.missing_tenant_users?.length === 0 ? (
-                    <p className="text-xs text-green-600">✓ 所有用户均已分配租户</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {diagData.missing_tenant_users.map(u => (
-                        <div key={u.email} className="flex items-center gap-2 flex-wrap py-1.5 border-b border-gray-100 last:border-0">
-                          <div className="flex-1 min-w-0">
-                            <span className="text-sm text-gray-800 font-medium">{u.email}</span>
-                            <span className="text-xs text-gray-400 ml-2">{u.role}</span>
-                          </div>
-                          <Select value={assignTarget[u.email] || ""} onValueChange={v => setAssignTarget(a => ({ ...a, [u.email]: v }))}>
-                            <SelectTrigger className="w-40 h-7 text-xs"><SelectValue placeholder="选择租户" /></SelectTrigger>
-                            <SelectContent>
-                              {(diagData.tenants || []).map(t => (
-                                <SelectItem key={t.id} value={t.id}>{t.name} ({t.code})</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <Button size="sm" className="h-7 text-xs bg-amber-600 hover:bg-amber-700"
-                            disabled={!assignTarget[u.email] || assigning[u.email]}
-                            onClick={() => handleAssign(u.email)}>
-                            {assigning[u.email] ? "分配中..." : "分配"}
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <Button size="sm" variant="outline" className="text-xs h-7" onClick={runDiagnose}>刷新诊断</Button>
-                </>
-              ) : null}
-            </div>
-          )}
-        </div>
-      )}
+
 
       {/* Invite User */}
       <div className="bg-white border border-gray-200 rounded-xl p-4">
@@ -483,7 +397,7 @@ export default function AdminUsers() {
                         }
                       </button>
                       {/* Delete — only platform_admin can see for all; tenant_admin cannot delete platform_admin */}
-                      {(isPlatformAdmin || (isTenantAdmin && u.role !== 'platform_admin')) && (
+                      {(isTenantAdmin && u.role !== 'platform_admin') && (
                         <button
                           onClick={() => handleDelete(u)}
                           disabled={!!actioning[u.id]}
