@@ -263,13 +263,14 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
     // Fallback: self-fetch when used outside MyOrders (e.g. from OrderDetailDrawer)
     base44.auth.me().then(async u => {
       setCurrentUser(u);
-      const [prefs, allLocs, usersRes, allPools, addons, tMethods] = await Promise.all([
+      const [prefs, allLocs, usersRes, allPools, addons, tMethods, shippingMethods] = await Promise.all([
         userPrefApi.list({ user_email: u.email }),
         tenantEntity.list('TransitLocation'),
         base44.functions.invoke("listNonAdminUsers", {}).catch(() => ({ data: { users: [] } })),
         fetchShippingPools(),
         tenantEntity.list('AddonOption', { addon_type: "shipping", is_active: true }),
         tenantEntity.list('TransitShippingMethod', { is_active: true }),
+        tenantEntity.list('ShippingMethod', { is_active: true }),
       ]);
       if (prefs.length > 0) {
         if (prefs[0].saved_addresses) setSavedAddresses(prefs[0].saved_addresses);
@@ -279,7 +280,7 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
       }
       setTransitLocations((allLocs || []).filter(l => l.is_active !== false));
       setAllUsers(usersRes?.data?.users || []);
-      setShippingMethods(initialData?.shippingMethods || []);
+      setShippingMethods(shippingMethods || []);
       const consolidationPools = allPools.filter(p =>
         p.consolidation_type && p.consolidation_type !== "" &&
         (p.status === "pending" || p.status === "processing") &&
@@ -315,13 +316,15 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
   const consolidation = consType !== "";
   const hasConsolidationConditions = consolidation && (deadline || minWeight);
 
+  // Calculate total weight for all orders
+  const totalWeight = targetOrders.reduce((s, o) => s + (o.weight_g || 0), 0);
+
   // Check if shipping method is within constraints
   const getMethodError = () => {
     if (!method) return null;
-    const selectedMethod = shippingMethods.find(m => m.name === method);
+    const selectedMethod = shippingMethods.find(m => m.code === method);
     if (!selectedMethod) return null;
     
-    const totalWeight = targetOrders.reduce((s, o) => s + (o.weight_g || 0), 0);
     // Check weight constraints
     if (selectedMethod.min_weight_g > 0 && totalWeight < selectedMethod.min_weight_g) {
       return `所选运输方式最小重量为 ${selectedMethod.min_weight_g}g，当前订单总重为 ${totalWeight}g，不符合条件`;
@@ -529,17 +532,21 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
 
         <div className="px-5 py-5 space-y-5">
           {/* Multi-order list */}
-          {isMulti && (
-            <div className="bg-gray-50 rounded-lg p-3 space-y-1.5 max-h-28 overflow-y-auto">
-              {targetOrders.map(o => (
-                <div key={o.id} className="flex items-center gap-2 text-xs text-gray-600">
-                  <Package className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-                  <span className="truncate">{o.product_name}</span>
-                  <span className="text-gray-400 flex-shrink-0">{o.weight_g || 100}g</span>
-                </div>
-              ))}
-            </div>
-          )}
+           {isMulti && (
+             <div className="bg-gray-50 rounded-lg p-3 space-y-1.5 max-h-28 overflow-y-auto">
+               {targetOrders.map(o => (
+                 <div key={o.id} className="flex items-center gap-2 text-xs text-gray-600">
+                   <Package className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                   <span className="truncate">{o.product_name}</span>
+                   <span className="text-gray-400 flex-shrink-0">{o.weight_g || 100}g</span>
+                 </div>
+               ))}
+               <div className="pt-2 border-t border-gray-200 flex items-center justify-between">
+                 <span className="text-xs font-medium text-gray-700">总重量</span>
+                 <span className="text-xs font-semibold text-gray-900">{totalWeight}g</span>
+               </div>
+             </div>
+           )}
 
           {/* Shipping method */}
            <div>

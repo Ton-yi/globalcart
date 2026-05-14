@@ -68,6 +68,7 @@ Deno.serve(async (req) => {
       transitLocations,
       addons,
       transitMethods,
+      shippingMethods,
       userPrefs,
       siteSettings,
       allTenantUsers,
@@ -83,6 +84,7 @@ Deno.serve(async (req) => {
       base44.asServiceRole.entities.TransitLocation.filter(tenantFilter),
       base44.asServiceRole.entities.AddonOption.filter({ ...tenantFilter, addon_type: 'shipping', is_active: true }),
       base44.asServiceRole.entities.TransitShippingMethod.filter({ ...tenantFilter, is_active: true }),
+      base44.asServiceRole.entities.ShippingMethod.filter({ ...tenantFilter, is_active: true }),
       // Filter by user_email only (not tenant_id) so legacy records without tenant_id are also found
       base44.asServiceRole.entities.UserPreference.filter({ user_email: user.email }),
       base44.asServiceRole.entities.SiteSettings.filter({ tenant_id: tenantId }),
@@ -144,6 +146,7 @@ Deno.serve(async (req) => {
       transitLocations: (transitLocations || []).filter(l => l.is_active !== false),
       addons: addons || [],
       transitMethods: transitMethods || [],
+      shippingMethods: shippingMethods || [],
       userPreference: userPrefs?.[0] || null,
       paidOrderReminder: settingsMap['paid_order_reminder'] || null,
       allowUserRewarehouse: settingsMap['allow_user_rewarehouse_from_fee_pending'] === 'true',
