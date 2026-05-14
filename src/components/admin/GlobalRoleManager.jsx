@@ -63,58 +63,73 @@ function groupByResource(permissions) {
   }, {});
 }
 
-// Permission grid: card-per-permission, grouped by resource_type
-function PermissionGrid({ permissions, selected, onToggle, accentColor = "purple", disabled = false }) {
-  const grouped = groupByResource(permissions);
+// Permission item (single row, supports children indented below)
+function PermItem({ perm, selected, onToggle, accent, disabled, indent = false }) {
+  const isOn = selected.includes(perm.name);
+  return (
+    <>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => onToggle(perm.name)}
+        className={`w-full text-left rounded-lg border-2 px-3 py-2 transition-all focus:outline-none ${
+          indent ? "ml-4 w-[calc(100%-1rem)]" : ""
+        } ${isOn ? accent.card : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"
+        } ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+      >
+        <div className="flex items-start gap-2">
+          <span className={`mt-0.5 w-4 h-4 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
+            isOn ? accent.check : "border-gray-300 bg-white"
+          }`}>
+            {isOn && <Check className="w-2.5 h-2.5 text-white" strokeWidth={3} />}
+          </span>
+          <div className="flex-1 min-w-0">
+            <p className={`text-xs font-medium leading-tight ${isOn ? "text-gray-900" : "text-gray-700"}`}>
+              {perm.display_name}
+            </p>
+            {perm.description && (
+              <p className="text-2xs text-gray-400 mt-0.5 leading-tight">{perm.description}</p>
+            )}
+            <code className="text-2xs text-gray-400 bg-gray-100 px-1 rounded mt-0.5 inline-block">{perm.name}</code>
+          </div>
+        </div>
+      </button>
+      {(perm.children || []).map(child => (
+        <PermItem key={child.name} perm={child} selected={selected} onToggle={onToggle} accent={accent} disabled={disabled} indent />
+      ))}
+    </>
+  );
+}
+
+// Permission grid from PERMISSIONS_PRESET (full granularity, includes children)
+function PermissionGrid({ selected, onToggle, accentColor = "purple", disabled = false }) {
   const accent = {
-    purple: { card: "border-purple-300 bg-purple-50 shadow-sm", check: "bg-purple-600 border-purple-600", badge: "bg-purple-100 text-purple-700", heading: "text-purple-700 border-purple-200 bg-purple-50" },
-    green:  { card: "border-green-300 bg-green-50 shadow-sm",   check: "bg-green-600 border-green-600",   badge: "bg-green-100 text-green-700",   heading: "text-green-700 border-green-200 bg-green-50"   },
+    purple: { card: "border-purple-300 bg-purple-50 shadow-sm", check: "bg-purple-600 border-purple-600", heading: "text-purple-700 border-purple-200 bg-purple-50" },
+    green:  { card: "border-green-300 bg-green-50 shadow-sm",   check: "bg-green-600 border-green-600",   heading: "text-green-700 border-green-200 bg-green-50"   },
   }[accentColor];
+
+  // Count all permissions including children
+  const countAll = (perms) => perms.reduce((n, p) => n + 1 + (p.children?.length || 0), 0);
+  const countSelected = (perms) => perms.reduce((n, p) => {
+    let c = selected.includes(p.name) ? 1 : 0;
+    c += (p.children || []).filter(ch => selected.includes(ch.name)).length;
+    return n + c;
+  }, 0);
 
   return (
     <div className="space-y-4">
-      {Object.entries(grouped).map(([category, perms]) => (
-        <div key={category}>
+      {PERMISSIONS_PRESET.map(cat => (
+        <div key={cat.category}>
           <div className={`text-xs font-semibold px-2 py-1 rounded mb-2 border inline-flex items-center gap-1.5 ${accent.heading}`}>
-            <Shield className="w-3 h-3" />{category}
+            <Shield className="w-3 h-3" />{cat.category}
             <span className="text-gray-400 font-normal">
-              ({perms.filter(p => selected.includes(p.id)).length}/{perms.length})
+              ({countSelected(cat.permissions)}/{countAll(cat.permissions)})
             </span>
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            {perms.map(perm => {
-              const isOn = selected.includes(perm.id);
-              return (
-                <button
-                  key={perm.id}
-                  type="button"
-                  disabled={disabled}
-                  onClick={() => onToggle(perm.id)}
-                  className={`text-left rounded-lg border-2 px-3 py-2.5 transition-all focus:outline-none ${
-                    isOn ? accent.card + " border-opacity-100" : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"
-                  } ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
-                >
-                  <div className="flex items-start gap-2">
-                    <span className={`mt-0.5 w-4 h-4 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
-                      isOn ? accent.check : "border-gray-300 bg-white"
-                    }`}>
-                      {isOn && <Check className="w-2.5 h-2.5 text-white" strokeWidth={3} />}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-xs font-medium leading-tight ${isOn ? "text-gray-900" : "text-gray-700"}`}>
-                        {perm.description || perm.name}
-                      </p>
-                      <div className="flex items-center gap-1.5 mt-1">
-                        <code className="text-2xs text-gray-400 bg-gray-100 px-1 rounded">{perm.name}</code>
-                        <Badge className={`text-2xs px-1 py-0 ${isOn ? accent.badge : "bg-gray-100 text-gray-400"}`}>
-                          {perm.action}
-                        </Badge>
-                      </div>
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
+          <div className="space-y-1.5">
+            {cat.permissions.map(perm => (
+              <PermItem key={perm.name} perm={perm} selected={selected} onToggle={onToggle} accent={accent} disabled={disabled} />
+            ))}
           </div>
         </div>
       ))}
@@ -365,27 +380,24 @@ export default function GlobalRoleManager() {
             </div>
           </div>
 
-          {permissions.length > 0 && (
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <Label className="text-xs text-gray-600 font-semibold">分配权限</Label>
-                <span className="text-xs text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-200">
-                  已选 {newRole.permissions.length} / {permissions.length}
-                </span>
-              </div>
-              <PermissionGrid
-                permissions={permissions}
-                selected={newRole.permissions}
-                onToggle={id => setNewRole(p => ({
-                  ...p,
-                  permissions: p.permissions.includes(id)
-                    ? p.permissions.filter(x => x !== id)
-                    : [...p.permissions, id]
-                }))}
-                accentColor="purple"
-              />
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <Label className="text-xs text-gray-600 font-semibold">分配权限</Label>
+              <span className="text-xs text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-200">
+                已选 {newRole.permissions.length} 项
+              </span>
             </div>
-          )}
+            <PermissionGrid
+              selected={newRole.permissions}
+              onToggle={id => setNewRole(p => ({
+                ...p,
+                permissions: p.permissions.includes(id)
+                  ? p.permissions.filter(x => x !== id)
+                  : [...p.permissions, id]
+              }))}
+              accentColor="purple"
+            />
+          </div>
 
           {roleMsg && (
             <p className={`text-xs px-2 py-1 rounded ${roleMsg.type === 'success' ? 'text-green-700 bg-green-50' : 'text-red-700 bg-red-50'}`}>{roleMsg.text}</p>
@@ -439,23 +451,18 @@ export default function GlobalRoleManager() {
                     <div className="flex items-center justify-between mb-3">
                       <span className="text-xs font-semibold text-gray-700">权限分配</span>
                       <span className="text-xs text-green-700 bg-green-50 px-2 py-0.5 rounded-full border border-green-200">
-                        已开启 {(role.direct_permissions || []).length} / {permissions.length}
+                        已开启 {(role.direct_permissions || []).length} 项
                       </span>
                     </div>
-                    {permissions.length === 0 ? (
-                      <p className="text-xs text-gray-400">暂无可用权限</p>
-                    ) : (
-                      <PermissionGrid
-                        permissions={permissions}
-                        selected={role.direct_permissions || []}
-                        onToggle={(permId) => {
-                          const isOn = (role.direct_permissions || []).includes(permId);
-                          handleAssignPermission(role, permId, !isOn);
-                        }}
-                        accentColor="green"
-                        disabled={saving}
-                      />
-                    )}
+                    <PermissionGrid
+                      selected={role.direct_permissions || []}
+                      onToggle={(permId) => {
+                        const isOn = (role.direct_permissions || []).includes(permId);
+                        handleAssignPermission(role, permId, !isOn);
+                      }}
+                      accentColor="green"
+                      disabled={saving}
+                    />
                   </div>
                 )}
               </div>
