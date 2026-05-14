@@ -86,6 +86,7 @@ Deno.serve(async (req) => {
       }
 
       const updatedRole = await base44.asServiceRole.entities.Role.update(role_id, updates);
+      console.log('[manageRoles] Role updated successfully:', updatedRole.id);
       return Response.json({ role: updatedRole });
     }
 
@@ -186,7 +187,8 @@ Deno.serve(async (req) => {
     return Response.json({ error: 'Invalid action' }, { status: 400 });
 
   } catch (error) {
-    return Response.json({ error: error.message }, { status: 500 });
+    console.error('[manageRoles] Error:', error);
+    return Response.json({ error: error.message, details: error.toString() }, { status: 500 });
   }
 });
 

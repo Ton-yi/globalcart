@@ -274,7 +274,13 @@ function RoleEditModal({ role, onClose, onSaved }) {
       console.log('[RoleEditModal] Sending payload:', payload);
       const res = await base44.functions.invoke('manageRoles', payload);
       console.log('[RoleEditModal] Response:', res);
-      if (res.data?.error) {
+      console.log('[RoleEditModal] Response status:', res.status);
+      console.log('[RoleEditModal] Response data:', res.data);
+      
+      if (res.status >= 400) {
+        const errorMsg = res.data?.error || res.data?.details || res.statusText || '未知错误';
+        setMsg({ type: "error", text: errorMsg });
+      } else if (res.data?.error) {
         setMsg({ type: "error", text: res.data.error });
       } else {
         setMsg({ type: "success", text: "角色已更新" });
@@ -282,7 +288,8 @@ function RoleEditModal({ role, onClose, onSaved }) {
       }
     } catch (e) {
       console.error('[RoleEditModal] Error:', e);
-      setMsg({ type: "error", text: e.message });
+      console.error('[RoleEditModal] Error details:', e.response?.data || e.message);
+      setMsg({ type: "error", text: e.response?.data?.error || e.message });
     }
     setSaving(false);
   };
