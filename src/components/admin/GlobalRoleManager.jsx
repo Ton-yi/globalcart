@@ -64,32 +64,78 @@ function groupByResource(permissions) {
 }
 
 // Permission item (single row, supports children indented below)
-function PermItem({ perm, selected, onToggle, accent, disabled, indent = false }) {
+function PermItem({ perm, selected, onToggle, accent, disabled }) {
+  const children = perm.children || [];
   const isOn = selected.includes(perm.name);
+  // For parent: check if all/some/no children are selected
+  const childNames = children.map(c => c.name);
+  const selectedChildren = childNames.filter(n => selected.includes(n));
+  const allChildrenOn = childNames.length > 0 && selectedChildren.length === childNames.length;
+  const someChildrenOn = selectedChildren.length > 0 && selectedChildren.length < childNames.length;
+
+  const handleClick = () => {
+    if (children.length === 0) {
+      onToggle([perm.name]);
+    } else {
+      // Toggle parent + all children together
+      const allOn = isOn && allChildrenOn;
+      const toToggle = [perm.name, ...childNames];
+      onToggle(toToggle, !allOn);
+    }
+  };
+
   return (
-    <>
+    <div className={children.length > 0 ? "w-full" : ""}>
       <button
         type="button"
         disabled={disabled}
-        onClick={() => onToggle(perm.name)}
-        className={`text-left rounded border px-2 py-1.5 transition-all focus:outline-none flex items-center gap-1.5 ${
-          indent ? "ml-5" : ""
-        } ${isOn ? accent.card : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"
+        onClick={handleClick}
+        className={`text-left rounded border px-2 py-1.5 transition-all focus:outline-none flex items-center gap-1.5 w-full ${
+          isOn ? accent.card : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"
         } ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
       >
-        <span className={`w-3.5 h-3.5 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
-          isOn ? accent.check : "border-gray-300 bg-white"
+        <span className={`w-3.5 h-3.5 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors relative ${
+          isOn ? accent.check : someChildrenOn ? "border-gray-400 bg-gray-200" : "border-gray-300 bg-white"
         }`}>
           {isOn && <Check className="w-2 h-2 text-white" strokeWidth={3} />}
+          {!isOn && someChildrenOn && <span className="w-1.5 h-0.5 bg-gray-500 rounded absolute" />}
         </span>
-        <span className={`text-xs leading-tight ${isOn ? "text-gray-900 font-medium" : "text-gray-600"}`}>
+        <span className={`text-xs leading-tight flex-1 ${isOn ? "text-gray-900 font-medium" : "text-gray-600"}`}>
           {perm.display_name}
         </span>
+        {children.length > 0 && (
+          <span className="text-2xs text-gray-400 ml-1">({selectedChildren.length}/{children.length})</span>
+        )}
       </button>
-      {(perm.children || []).map(child => (
-        <PermItem key={child.name} perm={child} selected={selected} onToggle={onToggle} accent={accent} disabled={disabled} indent />
-      ))}
-    </>
+
+      {children.length > 0 && (
+        <div className="ml-3 mt-1 pl-3 border-l-2 border-gray-200 flex flex-wrap gap-1.5">
+          {children.map(child => {
+            const childOn = selected.includes(child.name);
+            return (
+              <button
+                key={child.name}
+                type="button"
+                disabled={disabled}
+                onClick={() => onToggle([child.name])}
+                className={`text-left rounded border px-2 py-1 transition-all focus:outline-none flex items-center gap-1.5 ${
+                  childOn ? accent.card : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"
+                } ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+              >
+                <span className={`w-3 h-3 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
+                  childOn ? accent.check : "border-gray-300 bg-white"
+                }`}>
+                  {childOn && <Check className="w-1.5 h-1.5 text-white" strokeWidth={3} />}
+                </span>
+                <span className={`text-xs leading-tight ${childOn ? "text-gray-900 font-medium" : "text-gray-500"}`}>
+                  {child.display_name}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -99,6 +145,11 @@ function PermissionGrid({ selected, onToggle, accentColor = "purple", disabled =
     purple: { card: "border-purple-300 bg-purple-50 shadow-sm", check: "bg-purple-600 border-purple-600", heading: "text-purple-700 border-purple-200 bg-purple-50" },
     green:  { card: "border-green-300 bg-green-50 shadow-sm",   check: "bg-green-600 border-green-600",   heading: "text-green-700 border-green-200 bg-green-50"   },
   }[accentColor];
+
+  // Batch toggle: names=array of perm names, forceOn=optional boolean
+  const handleToggle = (names, forceOn) => {
+    onToggle(names, forceOn);
+  };
 
   // Count all permissions including children
   const countAll = (perms) => perms.reduce((n, p) => n + 1 + (p.children?.length || 0), 0);
@@ -118,9 +169,9 @@ function PermissionGrid({ selected, onToggle, accentColor = "purple", disabled =
               ({countSelected(cat.permissions)}/{countAll(cat.permissions)})
             </span>
           </div>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="space-y-1.5">
             {cat.permissions.map(perm => (
-              <PermItem key={perm.name} perm={perm} selected={selected} onToggle={onToggle} accent={accent} disabled={disabled} />
+              <PermItem key={perm.name} perm={perm} selected={selected} onToggle={handleToggle} accent={accent} disabled={disabled} />
             ))}
           </div>
         </div>
@@ -381,12 +432,15 @@ export default function GlobalRoleManager() {
             </div>
             <PermissionGrid
               selected={newRole.permissions}
-              onToggle={id => setNewRole(p => ({
-                ...p,
-                permissions: p.permissions.includes(id)
-                  ? p.permissions.filter(x => x !== id)
-                  : [...p.permissions, id]
-              }))}
+              onToggle={(names, forceOn) => setNewRole(p => {
+                let perms = [...p.permissions];
+                names.forEach(name => {
+                  const shouldAdd = forceOn !== undefined ? forceOn : !perms.includes(name);
+                  if (shouldAdd) { if (!perms.includes(name)) perms.push(name); }
+                  else { perms = perms.filter(x => x !== name); }
+                });
+                return { ...p, permissions: perms };
+              })}
               accentColor="purple"
             />
           </div>
@@ -448,9 +502,24 @@ export default function GlobalRoleManager() {
                     </div>
                     <PermissionGrid
                       selected={role.direct_permissions || []}
-                      onToggle={(permId) => {
-                        const isOn = (role.direct_permissions || []).includes(permId);
-                        handleAssignPermission(role, permId, !isOn);
+                      onToggle={async (names, forceOn) => {
+                        setSaving(true);
+                        let perms = [...(role.direct_permissions || [])];
+                        names.forEach(name => {
+                          const shouldAdd = forceOn !== undefined ? forceOn : !perms.includes(name);
+                          if (shouldAdd) { if (!perms.includes(name)) perms.push(name); }
+                          else { perms = perms.filter(x => x !== name); }
+                        });
+                        try {
+                          await base44.functions.invoke('manageRoles', {
+                            action: 'update',
+                            data: { role_id: role.id, updates: { direct_permissions: perms } },
+                          });
+                          await loadData();
+                        } catch (e) {
+                          setRoleMsg({ type: 'error', text: e.message });
+                        }
+                        setSaving(false);
                       }}
                       accentColor="green"
                       disabled={saving}
