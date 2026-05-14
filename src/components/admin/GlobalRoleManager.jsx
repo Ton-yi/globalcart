@@ -7,12 +7,20 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 
+// Built-in global roles
+const BUILTIN_ROLES = [
+  { id: 'user', name: '普通用户', description: '基础用户角色，具有基本操作权限' },
+  { id: 'tenant_admin', name: '租户管理员', description: '租户级管理员，可管理该租户下的所有资源' },
+];
+
 export default function GlobalRoleManager() {
-  const [roles, setRoles] = useState([]);
+  const [customRoles, setCustomRoles] = useState([]);
   const [permissions, setPermissions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [expandedRole, setExpandedRole] = useState(null);
+  const [expandedPermissions, setExpandedPermissions] = useState(false);
   const [newRole, setNewRole] = useState({ name: "", description: "" });
+  const [newPerm, setNewPerm] = useState({ name: "", description: "", resource_type: "", action: "" });
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
 
@@ -31,12 +39,36 @@ export default function GlobalRoleManager() {
           action: 'list_global_permissions',
         }),
       ]);
-      setRoles(rolesRes.data?.roles || []);
+      setCustomRoles(rolesRes.data?.roles || []);
       setPermissions(permsRes.data?.permissions || []);
     } catch (e) {
       setMsg({ type: 'error', text: e.message });
     }
     setLoading(false);
+  };
+
+  const handleCreatePermission = async () => {
+    if (!newPerm.name || !newPerm.resource_type || !newPerm.action) {
+      setMsg({ type: 'error', text: '请填写所有必填字段' });
+      return;
+    }
+    setSaving(true);
+    try {
+      await base44.functions.invoke('managePermissions', {
+        action: 'create_global_permission',
+        name: newPerm.name,
+        description: newPerm.description,
+        resource_type: newPerm.resource_type,
+        action: newPerm.action,
+      });
+      setMsg({ type: 'success', text: '权限创建成功' });
+      setNewPerm({ name: "", description: "", resource_type: "", action: "" });
+      await loadData();
+      setTimeout(() => setMsg(""), 2000);
+    } catch (e) {
+      setMsg({ type: 'error', text: e.message });
+    }
+    setSaving(false);
   };
 
   const handleCreateRole = async () => {
@@ -100,7 +132,95 @@ export default function GlobalRoleManager() {
 
   return (
     <div className="space-y-4">
-      {/* Create New Global Role */}
+      {/* Create Permission */}
+      <Card className="border-blue-200">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+            <Plus className="w-4 h-4 text-blue-500" />创建权限属性
+          </CardTitle>
+          <p className="text-xs text-gray-400 mt-1">定义全局权限属性，供角色分配使用</p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs text-gray-500">权限名称</Label>
+              <Input
+                className="mt-0.5 h-8 text-sm"
+                placeholder="如：订单查看"
+                value={newPerm.name}
+                onChange={e => setNewPerm(p => ({ ...p, name: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label className="text-xs text-gray-500">资源类型</Label>
+              <Input
+                className="mt-0.5 h-8 text-sm"
+                placeholder="如：Order、ShippingPool"
+                value={newPerm.resource_type}
+                onChange={e => setNewPerm(p => ({ ...p, resource_type: e.target.value }))}
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs text-gray-500">操作</Label>
+              <Input
+                className="mt-0.5 h-8 text-sm"
+                placeholder="如：read、create、update"
+                value={newPerm.action}
+                onChange={e => setNewPerm(p => ({ ...p, action: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label className="text-xs text-gray-500">说明</Label>
+              <Input
+                className="mt-0.5 h-8 text-sm"
+                placeholder="权限说明"
+                value={newPerm.description}
+                onChange={e => setNewPerm(p => ({ ...p, description: e.target.value }))}
+              />
+            </div>
+          </div>
+          {msg && (
+            <p className={`text-xs px-2 py-1 rounded ${msg.type === 'success' ? 'text-green-700 bg-green-50' : 'text-red-700 bg-red-50'}`}>
+              {msg.text}
+            </p>
+          )}
+          <Button
+            size="sm"
+            className="h-7 text-xs bg-blue-600 hover:bg-blue-700"
+            onClick={handleCreatePermission}
+            disabled={saving || !newPerm.name || !newPerm.resource_type || !newPerm.action}
+          >
+            <Plus className="w-3 h-3 mr-1" />{saving ? '创建中...' : '创建权限'}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Built-in Global Roles */}
+      <Card className="border-gray-200">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+            <Badge className="bg-gray-100 text-gray-700 text-xs">内置</Badge>
+            系统角色 ({BUILTIN_ROLES.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {BUILTIN_ROLES.map(role => (
+            <div key={role.id} className="border border-gray-100 rounded-lg p-3 space-y-2 bg-gray-50">
+              <div className="flex items-center justify-between">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-800">{role.name}</p>
+                  <p className="text-xs text-gray-500">{role.description}</p>
+                </div>
+                <Badge className="text-xs bg-gray-200 text-gray-700">内置</Badge>
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      {/* Create New Custom Global Role */}
       <Card className="border-purple-200">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
@@ -143,19 +263,19 @@ export default function GlobalRoleManager() {
         </CardContent>
       </Card>
 
-      {/* Global Roles List */}
+      {/* Custom Global Roles List */}
       <Card className="border-gray-200">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-            <Badge className="bg-purple-100 text-purple-700 text-xs">全局</Badge>
-            现有角色 ({roles.length})
+            <Badge className="bg-purple-100 text-purple-700 text-xs">自定义</Badge>
+            角色模板 ({customRoles.length})
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
-          {roles.length === 0 ? (
-            <p className="text-xs text-gray-400">暂无全局角色</p>
+          {customRoles.length === 0 ? (
+            <p className="text-xs text-gray-400">暂无自定义角色模板</p>
           ) : (
-            roles.map(role => (
+            customRoles.map(role => (
               <div key={role.id} className="border border-gray-100 rounded-lg p-3 space-y-2 bg-purple-50">
                 <div className="flex items-center justify-between">
                   <div className="flex-1 min-w-0">
@@ -193,17 +313,22 @@ export default function GlobalRoleManager() {
                       permissions.map(perm => {
                         const hasPermission = role.direct_permissions?.includes(perm.id);
                         return (
-                          <label key={perm.id} className="flex items-center gap-2 cursor-pointer py-1">
-                            <input
-                              type="checkbox"
-                              checked={hasPermission}
-                              onChange={e => handleAssignPermission(role.id, perm.id, e.target.checked)}
-                              disabled={saving}
-                              className="w-3.5 h-3.5 rounded border-gray-300"
-                            />
-                            <span className="text-xs text-gray-700 flex-1">{perm.name}</span>
-                            <Badge className="text-xs bg-gray-100 text-gray-600">{perm.action}</Badge>
-                          </label>
+                          <div key={perm.id} className="border-l-2 border-gray-300 pl-2">
+                            <label className="flex items-center gap-2 cursor-pointer py-1">
+                              <input
+                                type="checkbox"
+                                checked={hasPermission}
+                                onChange={e => handleAssignPermission(role.id, perm.id, e.target.checked)}
+                                disabled={saving}
+                                className="w-3.5 h-3.5 rounded border-gray-300"
+                              />
+                              <span className="text-xs text-gray-700 flex-1">{perm.name}</span>
+                              <Badge className="text-xs bg-gray-100 text-gray-600">{perm.action}</Badge>
+                            </label>
+                            {perm.description && (
+                              <p className="text-2xs text-gray-500 ml-5 mt-0.5">{perm.description}</p>
+                            )}
+                          </div>
                         );
                       })
                     )}
