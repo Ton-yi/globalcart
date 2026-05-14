@@ -19,7 +19,7 @@ export default function GlobalRoleManager() {
   const [loading, setLoading] = useState(false);
   const [expandedRole, setExpandedRole] = useState(null);
   const [expandedPermissions, setExpandedPermissions] = useState(false);
-  const [newRole, setNewRole] = useState({ name: "", description: "" });
+  const [newRole, setNewRole] = useState({ name: "", description: "", permissions: [] });
   const [newPerm, setNewPerm] = useState({ name: "", description: "", resource_type: "", action: "" });
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
@@ -79,12 +79,13 @@ export default function GlobalRoleManager() {
         action: 'create_global_role',
         name: newRole.name,
         description: newRole.description,
+        permissions: newRole.permissions,
       });
       if (res.data?.error) {
         setMsg({ type: 'error', text: res.data.error });
       } else {
         setMsg({ type: 'success', text: `全局角色"${newRole.name}"创建成功` });
-        setNewRole({ name: "", description: "" });
+        setNewRole({ name: "", description: "", permissions: [] });
         await loadData();
         setTimeout(() => setMsg(""), 2000);
       }
@@ -92,6 +93,15 @@ export default function GlobalRoleManager() {
       setMsg({ type: 'error', text: e.message });
     }
     setSaving(false);
+  };
+
+  const togglePermissionForNewRole = (permId) => {
+    setNewRole(p => ({
+      ...p,
+      permissions: p.permissions.includes(permId)
+        ? p.permissions.filter(id => id !== permId)
+        : [...p.permissions, permId]
+    }));
   };
 
   const handleDeleteRole = async (roleId) => {
@@ -247,6 +257,31 @@ export default function GlobalRoleManager() {
               onChange={e => setNewRole(p => ({ ...p, description: e.target.value }))}
             />
           </div>
+
+          {/* Permission selection for new role */}
+          {permissions.length > 0 && (
+            <div className="border rounded-lg p-3 bg-purple-50">
+              <Label className="text-xs text-gray-600 block mb-2 font-medium">分配权限</Label>
+              <div className="space-y-1 max-h-48 overflow-y-auto">
+                {permissions.map(perm => {
+                  const isSelected = newRole.permissions.includes(perm.id);
+                  return (
+                    <label key={perm.id} className="flex items-center gap-2 cursor-pointer py-1">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => togglePermissionForNewRole(perm.id)}
+                        className="w-3.5 h-3.5 rounded border-gray-300"
+                      />
+                      <span className="text-xs text-gray-700 flex-1">{perm.name}</span>
+                      <Badge className="text-xs bg-white text-gray-600 border border-gray-300">{perm.action}</Badge>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {msg && (
             <p className={`text-xs px-2 py-1 rounded ${msg.type === 'success' ? 'text-green-700 bg-green-50' : 'text-red-700 bg-red-50'}`}>
               {msg.text}
