@@ -28,7 +28,7 @@ export default function UserPermissionManager({ user, allRoles, onClose }) {
   const [selectedRoleIds, setSelectedRoleIds] = useState([]);
   const [basePermissions, setBasePermissions] = useState([]);
   const [overridePermissions, setOverridePermissions] = useState({});
-  const [expandedCategory, setExpandedCategory] = useState(null);
+  const [expandedCategories, setExpandedCategories] = useState(new Set());
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
 
@@ -72,6 +72,18 @@ export default function UserPermissionManager({ user, allRoles, onClose }) {
         newState = undefined;
       }
       return { ...prev, [permId]: newState };
+    });
+  };
+
+  const toggleCategory = (category) => {
+    setExpandedCategories(prev => {
+      const next = new Set(prev);
+      if (next.has(category)) {
+        next.delete(category);
+      } else {
+        next.add(category);
+      }
+      return next;
     });
   };
 
@@ -199,51 +211,53 @@ export default function UserPermissionManager({ user, allRoles, onClose }) {
               <p className="text-xs text-gray-400 mb-2">
                 勾选状态：✓=保持该权限 ◯=移除该权限 ✚=新增该权限
               </p>
-              <div className="space-y-2 bg-gray-50 p-3 rounded border border-gray-200 max-h-64 overflow-y-auto">
+              <div className="space-y-3 bg-gray-50 p-3 rounded border border-gray-200 max-h-96 overflow-y-auto">
                 {Object.entries(permissionsByCategory).map(([category, perms]) => (
-                  <div key={category}>
+                  <div key={category} className="border-b last:border-b-0">
                     <button
-                      className="text-xs font-medium text-gray-600 py-1 flex items-center gap-1 w-full"
-                      onClick={() => setExpandedCategory(expandedCategory === category ? null : category)}
+                      className="text-xs font-medium text-gray-600 py-2 flex items-center gap-1 w-full hover:text-gray-800"
+                      onClick={() => toggleCategory(category)}
                     >
-                      {expandedCategory === category ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                      {expandedCategories.has(category) ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                       {category}
                     </button>
-                    {expandedCategory === category && (
-                      <div className="pl-4 space-y-1">
+                    {expandedCategories.has(category) && (
+                      <div className="pl-4 space-y-2 pb-2">
                         {perms.map(p => {
                           const isInBase = basePermissions.includes(p.id);
                           const override = overridePermissions[p.id];
                           const isChecked = override === "add" || (isInBase && override !== "remove");
                           return (
-                            <label
-                              key={p.id}
-                              className="flex items-center gap-2 cursor-pointer py-0.5 text-xs"
-                            >
-                              <div className="relative w-3.5 h-3.5">
-                                <input
-                                  type="checkbox"
-                                  checked={isChecked}
-                                  onChange={() => togglePermissionOverride(p.id)}
-                                  className="w-3.5 h-3.5 rounded border-gray-300 cursor-pointer"
-                                />
+                            <div key={p.id} className="border-l-2 border-gray-300 pl-2">
+                              <label className="flex items-center gap-2 cursor-pointer py-0.5 text-xs">
+                                <div className="relative w-3.5 h-3.5 flex-shrink-0">
+                                  <input
+                                    type="checkbox"
+                                    checked={isChecked}
+                                    onChange={() => togglePermissionOverride(p.id)}
+                                    className="w-3.5 h-3.5 rounded border-gray-300 cursor-pointer"
+                                  />
+                                  {override === "add" && (
+                                    <span className="absolute inset-0 flex items-center justify-center text-2xs font-bold text-green-600 pointer-events-none">+</span>
+                                  )}
+                                  {override === "remove" && (
+                                    <span className="absolute inset-0 flex items-center justify-center text-lg leading-none text-red-600 pointer-events-none">−</span>
+                                  )}
+                                </div>
+                                <span className={`text-gray-700 ${override === "add" ? "font-semibold text-green-700" : override === "remove" ? "text-red-600 line-through" : ""}`}>
+                                  {p.name}
+                                </span>
+                                {!isInBase && override !== "add" && (
+                                  <span className="text-gray-400 text-2xs">（角色不含）</span>
+                                )}
                                 {override === "add" && (
-                                  <span className="absolute inset-0 flex items-center justify-center text-2xs font-bold text-green-600 pointer-events-none">+</span>
+                                  <span className="text-green-600 text-2xs font-medium">（新增）</span>
                                 )}
-                                {override === "remove" && (
-                                  <span className="absolute inset-0 flex items-center justify-center text-lg leading-none text-red-600 pointer-events-none">−</span>
-                                )}
-                              </div>
-                              <span className={`text-gray-700 ${override === "add" ? "font-semibold text-green-700" : override === "remove" ? "text-red-600 line-through" : ""}`}>
-                                {p.name}
-                              </span>
-                              {!isInBase && override !== "add" && (
-                                <span className="text-gray-400 text-2xs">（角色不含）</span>
+                              </label>
+                              {p.description && (
+                                <p className="text-2xs text-gray-500 ml-5 mt-0.5">{p.description}</p>
                               )}
-                              {override === "add" && (
-                                <span className="text-green-600 text-2xs font-medium">（新增）</span>
-                              )}
-                            </label>
+                            </div>
                           );
                         })}
                       </div>
