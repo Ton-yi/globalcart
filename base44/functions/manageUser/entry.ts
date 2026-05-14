@@ -82,6 +82,29 @@ Deno.serve(async (req) => {
       return Response.json({ user: updated });
     }
 
+    // ── update_user_permissions ──
+    if (action === 'update_user_permissions') {
+      const { assigned_role_ids, permission_overrides } = body;
+      
+      if (!Array.isArray(assigned_role_ids)) {
+        return Response.json({ error: 'assigned_role_ids must be an array' }, { status: 400 });
+      }
+      if (permission_overrides && typeof permission_overrides !== 'object') {
+        return Response.json({ error: 'permission_overrides must be an object' }, { status: 400 });
+      }
+      
+      const updateData = {
+        assigned_role_ids: assigned_role_ids
+      };
+      
+      if (permission_overrides) {
+        updateData.permission_overrides = permission_overrides;
+      }
+      
+      const updated = await base44.asServiceRole.entities.User.update(target_user_id, updateData);
+      return Response.json({ user: updated });
+    }
+
     // ── delete ──
     if (action === 'delete') {
       if (!isPlatformAdmin && targetRecord.role === 'platform_admin') {
