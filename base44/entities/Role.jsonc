@@ -14,6 +14,15 @@
       "type": "string",
       "description": "\u89d2\u8272\u63cf\u8ff0"
     },
+    "color": {
+      "type": "string",
+      "description": "\u89d2\u8272\u989c\u8272\uff08\u5341\u516d\u8fdb\u5236\uff0c\u5982#dc2626\uff09",
+      "default": "#9ca3af"
+    },
+    "image_url": {
+      "type": "string",
+      "description": "\u89d2\u8272\u56fe\u7247URL\uff08\u53ef\u9009\uff09"
+    },
     "is_global": {
       "type": "boolean",
       "default": false,

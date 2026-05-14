@@ -50,15 +50,23 @@ export default function RolePermissionOverview({ roles = [], isPlatformAdmin = f
     if (!window.confirm(`确定要删除角色"${roleName}"吗？`)) return;
     setDeleting(prev => ({ ...prev, [roleId]: true }));
     try {
-      await base44.functions.invoke('manageRoles', {
+      const payload = {
         action: 'delete',
         data: {
           role_id: roleId,
         }
-      });
-      if (onRoleUpdated) onRoleUpdated();
+      };
+      console.log('[RolePermissionOverview] Deleting role:', payload);
+      const res = await base44.functions.invoke('manageRoles', payload);
+      console.log('[RolePermissionOverview] Delete response:', res);
+      if (!res.data?.error) {
+        if (onRoleUpdated) onRoleUpdated();
+      } else {
+        alert('删除失败: ' + res.data.error);
+      }
     } catch (e) {
-      console.error('删除角色失败:', e);
+      console.error('[RolePermissionOverview] Delete error:', e);
+      alert('删除失败: ' + e.message);
     }
     setDeleting(prev => ({ ...prev, [roleId]: false }));
   };
@@ -236,7 +244,7 @@ function RoleEditModal({ role, onClose, onSaved }) {
   const [imageUrl, setImageUrl] = useState(role.image_url || "");
   const [permissions, setPermissions] = useState(role.direct_permissions || []);
   const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState("");
+  const [msg, setMsg] = useState(null);
 
   const handleTogglePermission = (perm) => {
     setPermissions(prev =>
@@ -251,7 +259,7 @@ function RoleEditModal({ role, onClose, onSaved }) {
     }
     setSaving(true);
     try {
-      await base44.functions.invoke('manageRoles', {
+      const payload = {
         action: 'update',
         data: {
           role_id: role.id,
@@ -262,10 +270,18 @@ function RoleEditModal({ role, onClose, onSaved }) {
             direct_permissions: permissions,
           }
         }
-      });
-      setMsg({ type: "success", text: "角色已更新" });
-      setTimeout(() => onSaved(), 1000);
+      };
+      console.log('[RoleEditModal] Sending payload:', payload);
+      const res = await base44.functions.invoke('manageRoles', payload);
+      console.log('[RoleEditModal] Response:', res);
+      if (res.data?.error) {
+        setMsg({ type: "error", text: res.data.error });
+      } else {
+        setMsg({ type: "success", text: "角色已更新" });
+        setTimeout(() => onSaved(), 1000);
+      }
     } catch (e) {
+      console.error('[RoleEditModal] Error:', e);
       setMsg({ type: "error", text: e.message });
     }
     setSaving(false);
@@ -365,8 +381,8 @@ function RoleEditModal({ role, onClose, onSaved }) {
 
           {/* 消息 */}
           {msg && (
-            <div className={`text-xs px-3 py-2 rounded ${msg.type === 'success' ? 'text-green-700 bg-green-50' : 'text-red-700 bg-red-50'}`}>
-              {msg.text}
+            <div className={`text-xs px-3 py-2 rounded ${msg?.type === 'success' ? 'text-green-700 bg-green-50' : 'text-red-700 bg-red-50'}`}>
+              {msg?.text || msg}
             </div>
           )}
         </div>
