@@ -13,25 +13,20 @@ Deno.serve(async (req) => {
     const templates = await base44.entities.ItemSizeTemplate.list();
 
     if (!templates || templates.length === 0) {
-      return Response.json({ success: true, updated: 0, message: '无模板需要迁移' });
+      return Response.json({ success: true, deleted: 0, message: '无旧数据需要清空' });
     }
 
-    // Check and update templates that don't have image_url field
-    let updated = 0;
+    // Delete all old templates (清空旧数据)
+    let deleted = 0;
     for (const template of templates) {
-      // If image_url field is missing or undefined, add it
-      if (!template.image_url || template.image_url === undefined) {
-        const { id, tenant_id, created_date, updated_date, created_by, ...data } = template;
-        await base44.entities.ItemSizeTemplate.update(id, { ...data, image_url: "" });
-        updated++;
-      }
+      await base44.entities.ItemSizeTemplate.delete(template.id);
+      deleted++;
     }
 
     return Response.json({ 
       success: true, 
-      updated, 
-      total: templates.length,
-      message: `迁移完成：${updated}/${templates.length} 个模板已更新` 
+      deleted,
+      message: `已清空 ${deleted} 个旧模板数据，请创建新模板` 
     });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });

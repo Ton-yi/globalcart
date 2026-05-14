@@ -99,6 +99,7 @@ export default function ItemSizeTemplateManager({ initialData = null }) {
   };
 
   const handleMigrate = async () => {
+    if (!confirm('确认清空所有旧模板数据？此操作不可撤销。')) return;
     setMigrating(true);
     setMigrationMsg(null);
     try {
@@ -107,13 +108,13 @@ export default function ItemSizeTemplateManager({ initialData = null }) {
         setMigrationMsg({ type: 'success', text: res.data.message });
         await loadTemplates();
       } else {
-        setMigrationMsg({ type: 'error', text: res.data?.message || '迁移失败' });
+        setMigrationMsg({ type: 'error', text: res.data?.message || '清空失败' });
       }
     } catch (err) {
-      setMigrationMsg({ type: 'error', text: '迁移出错：' + err.message });
+      setMigrationMsg({ type: 'error', text: '清空出错：' + err.message });
     }
     setMigrating(false);
-    setTimeout(() => setMigrationMsg(null), 4000);
+    setTimeout(() => setMigrationMsg(null), 5000);
   };
 
   if (loading) {
@@ -125,9 +126,9 @@ export default function ItemSizeTemplateManager({ initialData = null }) {
       <div className="flex items-center justify-between">
         <h3 className="text-base font-semibold text-gray-900">物品尺寸模板</h3>
         <div className="flex items-center gap-2">
-          {templates.length > 0 && templates.some(t => !t.image_url) && (
-            <Button size="sm" variant="outline" className="h-8 text-xs" onClick={handleMigrate} disabled={migrating}>
-              {migrating ? "迁移中..." : "迁移旧数据"}
+          {templates.length > 0 && (
+            <Button size="sm" variant="outline" className="h-8 text-xs text-red-600 border-red-200" onClick={handleMigrate} disabled={migrating}>
+              {migrating ? "清空中..." : "清空旧数据"}
             </Button>
           )}
           <Button size="sm" className="h-8 text-xs" onClick={() => setShowForm(true)}>
