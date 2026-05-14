@@ -201,9 +201,6 @@ export default function AdminSettings() {
 
   const isTenantAdmin = user?.roles?.includes("tenant_admin");
   const isPlatformAdmin = user?.roles?.includes("platform_admin");
-  
-  const isTenantAdmin = user?.roles?.includes("tenant_admin");
-  const isPlatformAdmin = user?.roles?.includes("platform_admin");
 
   const loadTenants = async () => {
     setTenantsLoading(true);
