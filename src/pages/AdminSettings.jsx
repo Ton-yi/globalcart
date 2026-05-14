@@ -24,6 +24,7 @@ import MemberTierManager from "@/components/admin/MemberTierManager";
 import CreditApplicationManager from "@/components/admin/CreditApplicationManager";
 import PaymentMethodManager from "@/components/admin/PaymentMethodManager";
 import TenantRoleManagerForUsers from "@/components/admin/TenantRoleManagerForUsers";
+import PermissionViewer from "@/components/admin/PermissionViewer";
 
 function CustomsHazmatTextEditor({ settings, onReload }) {
   const s = settings.find(s => s.key === 'customs_hazmat_text');
@@ -103,6 +104,7 @@ const TABS = [
   { key: "box_templates", label: "外箱模板" },
   { key: "store_tags", label: "商城标签规则" },
   { key: "theme", label: "界面主题" },
+  { key: "permissions", label: "权限一览" },
 ];
 
 export default function AdminSettings() {
@@ -414,6 +416,18 @@ export default function AdminSettings() {
               </CardContent>
             </Card>
           )}
+
+      {activeTab === "permissions" && (
+        <Card className="border-gray-200">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold text-gray-700">权限一览</CardTitle>
+            <p className="text-xs text-gray-400 mt-1">系统支持的所有权限项，可用于角色配置与用户权限覆写。</p>
+          </CardHeader>
+          <CardContent>
+            <PermissionViewer />
+          </CardContent>
+        </Card>
+      )}
 
       {activeTab === "theme" && (
         <Card className="border-gray-200">

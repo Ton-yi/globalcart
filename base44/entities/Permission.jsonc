@@ -10,6 +10,10 @@
       "type": "string",
       "description": "\u6743\u9650\u540d\u79f0\uff0c\u683c\u5f0f\uff1aresource:action (\u5982 order:read, shipping_pool:update)"
     },
+    "display_name": {
+      "type": "string",
+      "description": "\u6743\u9650\u7684\u663e\u793a\u540d\u79f0\uff0c\u7528\u4e8e\u524d\u7aef\u5c55\u793a"
+    },
     "description": {
       "type": "string",
       "description": "\u6743\u9650\u63cf\u8ff0"
@@ -34,6 +38,7 @@
   },
   "required": [
     "name",
+    "display_name",
     "description",
     "resource_type",
     "action"

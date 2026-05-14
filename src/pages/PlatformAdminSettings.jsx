@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import TenantRoleManager from "@/components/admin/TenantRoleManager";
 import GlobalRoleManager from "@/components/admin/GlobalRoleManager";
+import PermissionViewer from "@/components/admin/PermissionViewer";
 
 export default function PlatformAdminSettings() {
   const { user } = useCurrentUser();
@@ -39,6 +40,15 @@ export default function PlatformAdminSettings() {
   const [liveRates, setLiveRates] = useState(null);
   const [platformSettings, setPlatformSettings] = useState([]);
   const [savingRates, setSavingRates] = useState(false);
+  const [activeTab, setActiveTab] = useState("platform");
+
+  const PLATFORM_TABS = [
+    { key: "platform", label: "平台设置" },
+    { key: "tenants", label: "租户管理" },
+    { key: "roles", label: "角色管理" },
+    { key: "exchange_rates", label: "汇率设置" },
+    { key: "permissions", label: "权限一览" },
+  ];
 
   const isPlatformAdmin = user?.roles?.includes('platform_admin');
 
@@ -162,9 +172,35 @@ export default function PlatformAdminSettings() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-2">
         <h1 className="text-xl font-bold text-gray-900">平台管理员设置</h1>
       </div>
+
+      {/* Tabs */}
+      <div className="flex gap-1 border-b border-gray-200 overflow-x-auto">
+        {PLATFORM_TABS.map(tab => (
+          <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px whitespace-nowrap ${activeTab === tab.key ? "border-red-600 text-red-600" : "border-transparent text-gray-500 hover:text-gray-800"}`}>
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Permissions tab */}
+      {activeTab === "permissions" && (
+        <Card className="border-gray-200">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold text-gray-700">权限一览</CardTitle>
+            <p className="text-xs text-gray-400 mt-1">系统支持的所有权限项，可用于角色配置与用户权限覆写。</p>
+          </CardHeader>
+          <CardContent>
+            <PermissionViewer />
+          </CardContent>
+        </Card>
+      )}
+
+      {activeTab !== "permissions" && (
+      <>
 
       {/* Tenant Assignment Diagnostics */}
       <div className="bg-amber-50 border border-amber-200 rounded-xl overflow-hidden">
@@ -550,6 +586,8 @@ export default function PlatformAdminSettings() {
           </CardContent>
         </Card>
       )}
-      </div>
-      );
-      }
+      </>
+      )}
+    </div>
+  );
+}
