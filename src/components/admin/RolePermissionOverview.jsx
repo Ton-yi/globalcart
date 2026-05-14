@@ -3,7 +3,8 @@ import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronUp, Shield, Pencil, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Shield, Pencil, Trash2, X } from "lucide-react";
+import ImageUploader from "@/components/common/ImageUploader";
 
 const PERMISSION_LABELS = {
   "order:read": "订单查看",
@@ -29,10 +30,9 @@ const PERMISSION_CATEGORIES = {
   支付: ["payment:read", "payment:confirm"],
 };
 
-const PREDEFINED_ROLES = {
-  "user": { label: "普通用户", color: "bg-gray-100", priority: 1 },
-  "tenant_admin": { label: "租户管理员", color: "bg-red-100", priority: 2 },
-};
+const COLOR_PRESETS = [
+  "#dc2626", "#f97316", "#eab308", "#22c55e", "#0ea5e9", "#8b5cf6", "#ec4899", "#6b7280"
+];
 
 export default function RolePermissionOverview({ roles = [], isPlatformAdmin = false, isTenantAdmin = false, onRoleUpdated }) {
   const [expandedRole, setExpandedRole] = useState(null);
@@ -43,7 +43,7 @@ export default function RolePermissionOverview({ roles = [], isPlatformAdmin = f
   const allRolesToDisplay = roles.filter(r => !r.is_global);
 
   const handleEdit = (role) => {
-    setEditingRole(role);
+    setEditingRole({ ...role });
   };
 
   const handleDelete = async (roleId, roleName) => {
@@ -72,7 +72,6 @@ export default function RolePermissionOverview({ roles = [], isPlatformAdmin = f
         <CardContent>
           <p className="text-xs text-gray-400 text-center py-4">暂无自定义角色</p>
         </CardContent>
-
         {editingRole && (
           <RoleEditModal
             role={editingRole}
@@ -83,73 +82,9 @@ export default function RolePermissionOverview({ roles = [], isPlatformAdmin = f
             }}
           />
         )}
-        </Card>
-        );
-        }
-
-        function RoleEditModal({ role, onClose, onSaved }) {
-        const [name, setName] = useState(role.name);
-        const [saving, setSaving] = useState(false);
-        const [msg, setMsg] = useState("");
-
-        const handleSave = async () => {
-        if (!name.trim()) {
-        setMsg({ type: "error", text: "角色名称不能为空" });
-        return;
-        }
-        setSaving(true);
-        try {
-        await base44.functions.invoke('manageRoles', {
-         action: 'update_role',
-         role_id: role.id,
-         name: name.trim(),
-        });
-        setMsg({ type: "success", text: "角色已更新" });
-        setTimeout(() => onSaved(), 1000);
-        } catch (e) {
-        setMsg({ type: "error", text: e.message });
-        }
-        setSaving(false);
-        };
-
-        return (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
-        <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-5" onClick={(e) => e.stopPropagation()}>
-         <div className="flex items-center justify-between mb-4">
-           <h3 className="font-semibold text-gray-900">编辑角色</h3>
-           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
-         </div>
-         <div className="space-y-3">
-           <div>
-             <label className="text-xs text-gray-500 block mb-1">角色名称</label>
-             <input
-               type="text"
-               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-               value={name}
-               onChange={e => setName(e.target.value)}
-             />
-           </div>
-           {msg && (
-             <div className={`text-xs px-3 py-2 rounded ${msg.type === 'success' ? 'text-green-700 bg-green-50' : 'text-red-700 bg-red-50'}`}>
-               {msg.text}
-             </div>
-           )}
-         </div>
-         <div className="flex gap-2 justify-end mt-5 border-t pt-4">
-           <Button size="sm" variant="outline" onClick={onClose}>取消</Button>
-           <Button
-             size="sm"
-             className="bg-indigo-600 hover:bg-indigo-700 text-white"
-             onClick={handleSave}
-             disabled={saving}
-           >
-             {saving ? "保存中..." : "保存"}
-           </Button>
-         </div>
-        </div>
-        </div>
-        );
-        }
+      </Card>
+    );
+  }
 
   return (
     <Card className="mt-8 border-gray-200">
@@ -278,6 +213,183 @@ export default function RolePermissionOverview({ roles = [], isPlatformAdmin = f
           </tbody>
         </table>
       </CardContent>
+
+      {editingRole && (
+        <RoleEditModal
+          role={editingRole}
+          onClose={() => setEditingRole(null)}
+          onSaved={() => {
+            setEditingRole(null);
+            if (onRoleUpdated) onRoleUpdated();
+          }}
+        />
+      )}
     </Card>
+  );
+}
+
+function RoleEditModal({ role, onClose, onSaved }) {
+  const [name, setName] = useState(role.name);
+  const [color, setColor] = useState(role.color || "#dc2626");
+  const [imageUrl, setImageUrl] = useState(role.image_url || "");
+  const [permissions, setPermissions] = useState(role.direct_permissions || []);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  const handleTogglePermission = (perm) => {
+    setPermissions(prev =>
+      prev.includes(perm) ? prev.filter(p => p !== perm) : [...prev, perm]
+    );
+  };
+
+  const handleSave = async () => {
+    if (!name.trim()) {
+      setMsg({ type: "error", text: "角色名称不能为空" });
+      return;
+    }
+    setSaving(true);
+    try {
+      await base44.functions.invoke('manageRoles', {
+        action: 'update_role',
+        role_id: role.id,
+        name: name.trim(),
+        color,
+        image_url: imageUrl || null,
+        direct_permissions: permissions,
+      });
+      setMsg({ type: "success", text: "角色已更新" });
+      setTimeout(() => onSaved(), 1000);
+    } catch (e) {
+      setMsg({ type: "error", text: e.message });
+    }
+    setSaving(false);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl p-5 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4 sticky top-0 bg-white pb-3 border-b">
+          <h3 className="font-semibold text-gray-900">编辑角色</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          {/* 基本信息 */}
+          <div className="space-y-3 pb-4 border-b">
+            <h4 className="text-xs font-semibold text-gray-700">基本信息</h4>
+            
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">角色名称</label>
+              <input
+                type="text"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                value={name}
+                onChange={e => setName(e.target.value)}
+              />
+            </div>
+
+            {/* 颜色选择 */}
+            <div>
+              <label className="text-xs text-gray-500 block mb-2">角色颜色</label>
+              <div className="flex gap-2 flex-wrap">
+                {COLOR_PRESETS.map(c => (
+                  <button
+                    key={c}
+                    onClick={() => setColor(c)}
+                    className={`w-8 h-8 rounded-lg border-2 transition-all ${
+                      color === c ? "border-gray-900 ring-2 ring-offset-2 ring-gray-300" : "border-gray-200"
+                    }`}
+                    style={{ backgroundColor: c }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* 自定义颜色 */}
+            <div className="flex gap-2 items-center">
+              <input
+                type="color"
+                value={color}
+                onChange={e => setColor(e.target.value)}
+                className="w-12 h-10 rounded-lg border border-gray-300 cursor-pointer"
+              />
+              <input
+                type="text"
+                value={color}
+                onChange={e => setColor(e.target.value)}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="#dc2626"
+              />
+            </div>
+
+            {/* 图片上传 */}
+            <div>
+              <label className="text-xs text-gray-500 block mb-2">角色图片（可选）</label>
+              <ImageUploader
+                onImageUrl={setImageUrl}
+                existingImageUrl={imageUrl}
+                maxSize={1024 * 1024}
+              />
+              {imageUrl && (
+                <div className="mt-2 flex items-center gap-2">
+                  <img src={imageUrl} alt="role" className="w-8 h-8 rounded object-cover" />
+                  <button
+                    onClick={() => setImageUrl("")}
+                    className="text-xs text-red-600 hover:text-red-700"
+                  >
+                    删除图片
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 权限管理 */}
+          <div className="space-y-3 pb-4">
+            <h4 className="text-xs font-semibold text-gray-700">权限管理</h4>
+            {Object.entries(PERMISSION_CATEGORIES).map(([category, perms]) => (
+              <div key={category}>
+                <p className="text-xs font-medium text-gray-600 mb-2">{category}</p>
+                <div className="space-y-1 ml-2">
+                  {perms.map(perm => (
+                    <label key={perm} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={permissions.includes(perm)}
+                        onChange={() => handleTogglePermission(perm)}
+                        className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <span className="text-xs text-gray-700">{PERMISSION_LABELS[perm]}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* 消息 */}
+          {msg && (
+            <div className={`text-xs px-3 py-2 rounded ${msg.type === 'success' ? 'text-green-700 bg-green-50' : 'text-red-700 bg-red-50'}`}>
+              {msg.text}
+            </div>
+          )}
+        </div>
+
+        {/* 按钮 */}
+        <div className="flex gap-2 justify-end mt-5 border-t pt-4 sticky bottom-0 bg-white">
+          <Button size="sm" variant="outline" onClick={onClose}>取消</Button>
+          <Button
+            size="sm"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white"
+            onClick={handleSave}
+            disabled={saving}
+          >
+            {saving ? "保存中..." : "保存"}
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }
