@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import CreditApplicationManager from "@/components/admin/CreditApplicationManager";
 import TenantRoleManagerForUsers from "@/components/admin/TenantRoleManagerForUsers";
 import RoleCreationPanel from "@/components/admin/RoleCreationPanel";
+import UserPermissionManager from "@/components/admin/UserPermissionManager";
 
 const ROLE_LABELS = {
   platform_admin: { label: "平台管理员", color: "bg-purple-100 text-purple-700" },
@@ -262,6 +263,7 @@ export default function AdminUsers() {
   const [inviting, setInviting] = useState(false);
   const [inviteMsg, setInviteMsg] = useState("");
   const [editingUser, setEditingUser] = useState(null);
+  const [managingPermissionsFor, setManagingPermissionsFor] = useState(null);
   const [actioning, setActioning] = useState({});
   const [allRoles, setAllRoles] = useState([]);
   const { user: currentUser } = useCurrentUser();
@@ -381,7 +383,7 @@ export default function AdminUsers() {
               <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">角色</th>
               <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500 hidden md:table-cell">订单数</th>
               <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500 hidden md:table-cell">注册时间</th>
-              <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500 hidden lg:table-cell">租户</th>
+              <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">分配角色</th>
               <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">状态</th>
               <th className="text-right px-4 py-2.5 text-xs font-medium text-gray-500">操作</th>
             </tr>
@@ -431,11 +433,21 @@ export default function AdminUsers() {
                   <td className="px-4 py-3 text-xs text-gray-400 hidden md:table-cell">
                     {u.created_date ? new Date(u.created_date).toLocaleDateString("zh-CN") : "-"}
                   </td>
-                  <td className="px-4 py-3 hidden lg:table-cell">
-                    {u.tenant_id
-                      ? <span className="text-xs text-gray-700">{tenantMap[u.tenant_id]?.name || '...'}</span>
-                      : <Badge className="text-xs bg-red-100 text-red-600">未分配</Badge>
-                    }
+                  <td className="px-4 py-3">
+                    {u.assigned_role_ids && u.assigned_role_ids.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {u.assigned_role_ids.map(roleId => {
+                          const role = allRoles.find(r => r.id === roleId);
+                          return (
+                            <Badge key={roleId} className="text-xs" style={{ backgroundColor: role?.color || '#e5e7eb', color: '#374151' }}>
+                              {role?.name || roleId}
+                            </Badge>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <Badge className="text-xs bg-gray-100 text-gray-500">未分配</Badge>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     {isDisabled
@@ -445,14 +457,22 @@ export default function AdminUsers() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1 justify-end">
-                      {/* Edit role */}
-                      <button
-                        onClick={() => setEditingUser(u)}
-                        className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-700"
-                        title="编辑角色"
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                      </button>
+                       {/* Edit permissions */}
+                       <button
+                         onClick={() => setManagingPermissionsFor(u)}
+                         className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-700"
+                         title="权限管理"
+                       >
+                         <Lock className="w-3.5 h-3.5" />
+                       </button>
+                       {/* Edit role */}
+                       <button
+                         onClick={() => setEditingUser(u)}
+                         className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-700"
+                         title="编辑基本信息"
+                       >
+                         <Pencil className="w-3.5 h-3.5" />
+                       </button>
                       {/* Toggle active */}
                       <button
                         onClick={() => handleToggleActive(u)}
@@ -495,6 +515,14 @@ export default function AdminUsers() {
           memberTiers={memberTiers}
           onClose={() => setEditingUser(null)}
           onSaved={() => { setEditingUser(null); loadData(); }}
+        />
+      )}
+
+      {managingPermissionsFor && (
+        <UserPermissionManager
+          user={managingPermissionsFor}
+          allRoles={allRoles}
+          onClose={() => { setManagingPermissionsFor(null); loadData(); }}
         />
       )}
     </div>
