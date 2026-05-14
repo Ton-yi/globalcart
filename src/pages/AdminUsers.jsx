@@ -422,9 +422,17 @@ export default function AdminUsers() {
                             </Badge>
                           );
                         })}
+                        {u.permission_overrides && Object.keys(u.permission_overrides).length > 0 && (
+                          <Badge className="text-xs bg-amber-100 text-amber-700 border border-amber-300">（改）</Badge>
+                        )}
                       </div>
                     ) : (
-                      <Badge className="text-xs bg-gray-100 text-gray-500">未分配</Badge>
+                      <div className="flex flex-wrap gap-1">
+                        <Badge className="text-xs bg-gray-100 text-gray-500">未分配</Badge>
+                        {u.permission_overrides && Object.keys(u.permission_overrides).length > 0 && (
+                          <Badge className="text-xs bg-amber-100 text-amber-700 border border-amber-300">（改）</Badge>
+                        )}
+                      </div>
                     )}
                   </td>
                   <td className="px-4 py-3">
@@ -520,7 +528,10 @@ export default function AdminUsers() {
         <UserPermissionManager
           user={managingPermissionsFor}
           allRoles={allRoles}
-          onClose={() => { setManagingPermissionsFor(null); loadData(); }}
+          onClose={() => {
+            setManagingPermissionsFor(null);
+            loadData();
+          }}
         />
       )}
 

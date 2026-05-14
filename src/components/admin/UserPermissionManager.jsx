@@ -1,275 +1,250 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronDown, ChevronUp, AlertCircle } from "lucide-react";
+import { Check, X } from "lucide-react";
 
 const ALL_PERMISSIONS = [
-  { id: "order:read", name: "订单查看", category: "订单" },
-  { id: "order:create", name: "订单创建", category: "订单" },
-  { id: "order:update", name: "订单编辑", category: "订单" },
-  { id: "order:delete", name: "订单删除", category: "订单" },
-  { id: "shipping_pool:read", name: "发货池查看", category: "发货" },
-  { id: "shipping_pool:create", name: "发货池创建", category: "发货" },
-  { id: "shipping_pool:update", name: "发货池编辑", category: "发货" },
-  { id: "shipping_pool:delete", name: "发货池删除", category: "发货" },
-  { id: "user:read", name: "用户查看", category: "用户" },
-  { id: "user:create", name: "用户创建", category: "用户" },
-  { id: "user:update", name: "用户编辑", category: "用户" },
-  { id: "user:delete", name: "用户删除", category: "用户" },
-  { id: "payment:read", name: "支付管理查看", category: "支付" },
-  { id: "payment:confirm", name: "确认支付", category: "支付" },
+  { id: "order:read",          name: "订单查看",   category: "订单" },
+  { id: "order:create",        name: "订单创建",   category: "订单" },
+  { id: "order:update",        name: "订单编辑",   category: "订单" },
+  { id: "order:delete",        name: "订单删除",   category: "订单" },
+  { id: "shipping_pool:read",  name: "发货池查看", category: "发货" },
+  { id: "shipping_pool:create",name: "发货池创建", category: "发货" },
+  { id: "shipping_pool:update",name: "发货池编辑", category: "发货" },
+  { id: "shipping_pool:delete",name: "发货池删除", category: "发货" },
+  { id: "user:read",           name: "用户查看",   category: "用户" },
+  { id: "user:create",         name: "用户创建",   category: "用户" },
+  { id: "user:update",         name: "用户编辑",   category: "用户" },
+  { id: "user:delete",         name: "用户删除",   category: "用户" },
+  { id: "payment:read",        name: "支付查看",   category: "支付" },
+  { id: "payment:confirm",     name: "确认支付",   category: "支付" },
 ];
 
+const CATEGORIES = [...new Set(ALL_PERMISSIONS.map(p => p.category))];
+
+/**
+ * Compute base permissions from a set of role IDs.
+ */
+function computeBasePerms(roleIds, allRoles) {
+  const set = new Set();
+  roleIds.forEach(id => {
+    const role = allRoles.find(r => r.id === id);
+    (role?.direct_permissions || []).forEach(p => set.add(p));
+  });
+  return set;
+}
+
+/**
+ * Derive permission_overrides map from (basePerms, effectivePerms):
+ *   - perm in effective but NOT in base → "add"
+ *   - perm in base but NOT in effective → "remove"
+ *   - otherwise omit (no override)
+ */
+function deriveOverrides(basePerms, effectivePerms) {
+  const overrides = {};
+  effectivePerms.forEach(p => { if (!basePerms.has(p)) overrides[p] = "add"; });
+  basePerms.forEach(p => { if (!effectivePerms.has(p)) overrides[p] = "remove"; });
+  return overrides;
+}
+
+/**
+ * Apply stored permission_overrides to base perms to get effective set.
+ */
+function applyOverrides(basePerms, overrides) {
+  const set = new Set(basePerms);
+  Object.entries(overrides || {}).forEach(([p, action]) => {
+    if (action === "add") set.add(p);
+    else if (action === "remove") set.delete(p);
+  });
+  return set;
+}
+
 export default function UserPermissionManager({ user, allRoles, onClose }) {
-  const [selectedRoleIds, setSelectedRoleIds] = useState([]);
-  const [basePermissions, setBasePermissions] = useState([]);
-  const [overridePermissions, setOverridePermissions] = useState({});
-  const [expandedCategories, setExpandedCategories] = useState(new Set());
+  const [selectedRoleIds, setSelectedRoleIds] = useState(user.assigned_role_ids || []);
+
+  // Effective permission set (what user actually has — includes overrides)
+  // Initialized from stored overrides applied on top of base
+  const [effectivePerms, setEffectivePerms] = useState(() => {
+    const base = computeBasePerms(user.assigned_role_ids || [], allRoles);
+    return applyOverrides(base, user.permission_overrides || {});
+  });
+
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
 
-  useEffect(() => {
-    if (user.assigned_role_ids && user.assigned_role_ids.length > 0) {
-      setSelectedRoleIds(user.assigned_role_ids);
-      updatePermissionsFromRoles(user.assigned_role_ids);
-    }
-    setOverridePermissions(user.permission_overrides || {});
-  }, [user, allRoles]);
-
-  const updatePermissionsFromRoles = (roleIds) => {
-    let allPerms = new Set();
-    roleIds.forEach(roleId => {
-      const role = allRoles.find(r => r.id === roleId);
-      if (role?.direct_permissions) {
-        role.direct_permissions.forEach(p => allPerms.add(p));
-      }
-    });
-    setBasePermissions(Array.from(allPerms));
-  };
-
+  // When role selection changes, recompute base perms and RE-APPLY existing effective perms
+  // (keep manual toggles, only add new perms from new roles)
   const handleRoleToggle = (roleId) => {
     const newRoleIds = selectedRoleIds.includes(roleId)
       ? selectedRoleIds.filter(id => id !== roleId)
       : [...selectedRoleIds, roleId];
     setSelectedRoleIds(newRoleIds);
-    updatePermissionsFromRoles(newRoleIds);
+    // Don't reset effectivePerms — keep manual choices
   };
 
-  const togglePermissionOverride = (permId) => {
-    setOverridePermissions(prev => {
-      const current = prev[permId];
-      // 循环：无覆盖 -> add -> remove -> 无覆盖
-      let newState;
-      if (!current) {
-        newState = "add";
-      } else if (current === "add") {
-        newState = "remove";
-      } else {
-        newState = undefined;
-      }
-      return { ...prev, [permId]: newState };
-    });
-  };
-
-  const toggleCategory = (category) => {
-    setExpandedCategories(prev => {
+  // Toggle a single permission on/off in the effective set
+  const togglePerm = (permId) => {
+    setEffectivePerms(prev => {
       const next = new Set(prev);
-      if (next.has(category)) {
-        next.delete(category);
-      } else {
-        next.add(category);
-      }
+      if (next.has(permId)) next.delete(permId);
+      else next.add(permId);
       return next;
     });
   };
 
+  const basePerms = useMemo(
+    () => computeBasePerms(selectedRoleIds, allRoles),
+    [selectedRoleIds, allRoles]
+  );
+
+  // Which perms are "overridden" vs base role
+  const overrides = useMemo(
+    () => deriveOverrides(basePerms, effectivePerms),
+    [basePerms, effectivePerms]
+  );
+
+  const hasAnyOverride = Object.keys(overrides).length > 0;
+
   const handleSave = async () => {
     setSaving(true);
     try {
-      await base44.functions.invoke('manageUser', {
+      const res = await base44.functions.invoke('manageUser', {
         action: 'update_user_permissions',
         target_user_id: user.id,
         assigned_role_ids: selectedRoleIds,
-        permission_overrides: Object.fromEntries(
-          Object.entries(overridePermissions).filter(([_, v]) => v !== undefined)
-        ),
+        permission_overrides: overrides,
       });
-      setMsg({ type: "success", text: "权限已更新" });
-      setTimeout(() => { onClose(); setMsg(""); }, 1500);
+      if (res.data?.error) {
+        setMsg({ type: "error", text: res.data.error });
+      } else {
+        setMsg({ type: "success", text: "权限已更新" });
+        setTimeout(() => { onClose(); }, 1200);
+      }
     } catch (e) {
       setMsg({ type: "error", text: e.message });
     }
     setSaving(false);
   };
 
-  const permissionsByCategory = ALL_PERMISSIONS.reduce((acc, p) => {
-    if (!acc[p.category]) acc[p.category] = [];
-    acc[p.category].push(p);
-    return acc;
-  }, {});
-
-  // 计算最终权限（基础权限 + 添加的 - 移除的）
-  const getFinalPermissions = () => {
-    let perms = new Set(basePermissions);
-    Object.entries(overridePermissions).forEach(([permId, action]) => {
-      if (action === "add") {
-        perms.add(permId);
-      } else if (action === "remove") {
-        perms.delete(permId);
-      }
-    });
-    return Array.from(perms);
-  };
-
-  const finalPerms = getFinalPermissions();
+  const permsByCategory = useMemo(() => {
+    return CATEGORIES.map(cat => ({
+      category: cat,
+      perms: ALL_PERMISSIONS.filter(p => p.category === cat),
+    }));
+  }, []);
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl p-5 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="bg-white rounded-xl shadow-xl w-full max-w-2xl p-5 max-h-[92vh] overflow-y-auto"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-gray-900">用户权限管理</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
+          <div>
+            <h3 className="font-semibold text-gray-900">用户权限管理</h3>
+            <p className="text-xs text-gray-500 mt-0.5">{user.full_name || user.email}</p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
         </div>
 
-        <div className="space-y-4">
-          {/* 用户信息 */}
-          <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-            <p className="text-xs text-gray-500 mb-1">用户</p>
-            <p className="text-sm font-medium text-gray-900">{user.full_name || user.email}</p>
-          </div>
-
-          {/* 角色选择 - 多选按钮式 */}
+        <div className="space-y-5">
+          {/* Role selection */}
           <div>
-            <Label className="text-xs text-gray-500 block mb-2">分配角色（可多选）</Label>
+            <Label className="text-xs text-gray-500 font-semibold block mb-2">分配角色（可多选）</Label>
             {allRoles.length === 0 ? (
               <p className="text-xs text-gray-400">暂无可用角色</p>
             ) : (
-              <div className="space-y-2">
-                <div className="grid grid-cols-2 gap-2">
-                  {allRoles.map(role => {
-                    const isSelected = selectedRoleIds.includes(role.id);
-                    return (
-                      <button
-                        key={role.id}
-                        onClick={() => handleRoleToggle(role.id)}
-                        className={`p-2 rounded border-2 text-left transition-colors text-sm font-medium ${
-                          isSelected
-                            ? 'bg-blue-50 border-blue-300 text-blue-700'
-                            : 'bg-gray-50 border-gray-200 text-gray-500'
-                        }`}
-                      >
-                        {role.name}
-                      </button>
-                    );
-                  })}
-                </div>
-                {selectedRoleIds.length > 0 && (
-                  <p className="text-xs text-gray-400 mt-2">
-                    已选 {selectedRoleIds.length} 个角色，共 {basePermissions.length} 项权限
-                  </p>
-                )}
+              <div className="grid grid-cols-2 gap-2">
+                {allRoles.map(role => {
+                  const isOn = selectedRoleIds.includes(role.id);
+                  return (
+                    <button
+                      key={role.id}
+                      onClick={() => handleRoleToggle(role.id)}
+                      className={`px-3 py-2 rounded-lg border-2 text-left text-sm font-medium transition-colors ${
+                        isOn ? 'bg-blue-50 border-blue-400 text-blue-800' : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-gray-300'
+                      }`}
+                    >
+                      {role.name}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
 
-          {/* 权限概览 */}
-          {selectedRoleIds.length > 0 && (
-            <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
-              <div className="flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                <div className="text-xs text-blue-700">
-                  <p className="font-medium mb-1">该用户拥有的权限：</p>
-                  <div className="flex flex-wrap gap-1">
-                    {finalPerms.length > 0 ? (
-                      finalPerms.map(perm => {
-                        const permInfo = ALL_PERMISSIONS.find(p => p.id === perm);
-                        return (
-                          <Badge key={perm} className="text-xs bg-blue-100 text-blue-700">
-                            {permInfo?.name || perm}
-                          </Badge>
-                        );
-                      })
-                    ) : (
-                      <span className="text-gray-500">（无权限）</span>
-                    )}
+          {/* Permission grid */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <Label className="text-xs text-gray-500 font-semibold">权限设置（直接开关，不受角色限制）</Label>
+              <div className="flex items-center gap-2">
+                {hasAnyOverride && (
+                  <Badge className="text-xs bg-amber-100 text-amber-700 border border-amber-200">
+                    已覆盖 {Object.keys(overrides).length} 项
+                  </Badge>
+                )}
+                <span className="text-xs text-gray-400">{effectivePerms.size} / {ALL_PERMISSIONS.length} 已开启</span>
+              </div>
+            </div>
+
+            <div className="border rounded-lg overflow-hidden divide-y divide-gray-100">
+              {permsByCategory.map(({ category, perms }) => (
+                <div key={category}>
+                  <div className="px-3 py-1.5 bg-gray-50 text-xs font-semibold text-gray-600 flex items-center justify-between">
+                    <span>{category}</span>
+                    <span className="text-gray-400 font-normal">
+                      {perms.filter(p => effectivePerms.has(p.id)).length}/{perms.length}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 divide-x divide-gray-100">
+                    {perms.map(p => {
+                      const isOn = effectivePerms.has(p.id);
+                      const inBase = basePerms.has(p.id);
+                      const isOverridden = overrides[p.id] !== undefined;
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => togglePerm(p.id)}
+                          className={`flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors border-b border-gray-100 last:border-b-0 ${
+                            isOn ? 'bg-green-50 hover:bg-green-100' : 'bg-white hover:bg-gray-50'
+                          }`}
+                        >
+                          <span className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 border-2 transition-colors ${
+                            isOn ? 'bg-green-500 border-green-500' : 'border-gray-300 bg-white'
+                          }`}>
+                            {isOn && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
+                          </span>
+                          <span className={`text-xs flex-1 ${isOn ? 'text-green-900 font-medium' : 'text-gray-500'}`}>
+                            {p.name}
+                          </span>
+                          {isOverridden && (
+                            <span className={`text-2xs font-bold px-1 rounded flex-shrink-0 ${
+                              overrides[p.id] === 'add' ? 'text-blue-600 bg-blue-50' : 'text-red-500 bg-red-50'
+                            }`}>
+                              {overrides[p.id] === 'add' ? '＋改' : '−改'}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
-              </div>
+              ))}
             </div>
-          )}
 
-          {/* 权限覆盖设置 */}
-          {selectedRoleIds.length > 0 && (
-            <div className="border-t pt-4">
-              <Label className="text-xs text-gray-500 font-semibold block mb-2">
-                权限覆盖（仅对此用户）
-              </Label>
-              <p className="text-xs text-gray-400 mb-2">
-                勾选状态：✓=保持该权限 ◯=移除该权限 ✚=新增该权限
-              </p>
-              <div className="space-y-3 bg-gray-50 p-3 rounded border border-gray-200 max-h-96 overflow-y-auto">
-                {Object.entries(permissionsByCategory).map(([category, perms]) => (
-                  <div key={category} className="border-b last:border-b-0">
-                    <button
-                      className="text-xs font-medium text-gray-600 py-2 flex items-center gap-1 w-full hover:text-gray-800"
-                      onClick={() => toggleCategory(category)}
-                    >
-                      {expandedCategories.has(category) ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                      {category}
-                    </button>
-                    {expandedCategories.has(category) && (
-                      <div className="pl-4 space-y-2 pb-2">
-                        {perms.map(p => {
-                          const isInBase = basePermissions.includes(p.id);
-                          const override = overridePermissions[p.id];
-                          const isChecked = override === "add" || (isInBase && override !== "remove");
-                          return (
-                            <div key={p.id} className="border-l-2 border-gray-300 pl-2">
-                              <label className="flex items-center gap-2 cursor-pointer py-0.5 text-xs">
-                                <div className="relative w-3.5 h-3.5 flex-shrink-0">
-                                  <input
-                                    type="checkbox"
-                                    checked={isChecked}
-                                    onChange={() => togglePermissionOverride(p.id)}
-                                    className="w-3.5 h-3.5 rounded border-gray-300 cursor-pointer"
-                                  />
-                                  {override === "add" && (
-                                    <span className="absolute inset-0 flex items-center justify-center text-2xs font-bold text-green-600 pointer-events-none">+</span>
-                                  )}
-                                  {override === "remove" && (
-                                    <span className="absolute inset-0 flex items-center justify-center text-lg leading-none text-red-600 pointer-events-none">−</span>
-                                  )}
-                                </div>
-                                <span className={`text-gray-700 ${override === "add" ? "font-semibold text-green-700" : override === "remove" ? "text-red-600 line-through" : ""}`}>
-                                  {p.name}
-                                </span>
-                                {!isInBase && override !== "add" && (
-                                  <span className="text-gray-400 text-2xs">（角色不含）</span>
-                                )}
-                                {override === "add" && (
-                                  <span className="text-green-600 text-2xs font-medium">（新增）</span>
-                                )}
-                              </label>
-                              {p.description && (
-                                <p className="text-2xs text-gray-500 ml-5 mt-0.5">{p.description}</p>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
+            {/* Legend */}
+            <div className="flex items-center gap-4 mt-2 text-2xs text-gray-400">
+              <span className="flex items-center gap-1"><span className="text-blue-500 font-bold">＋改</span> 超出角色新增</span>
+              <span className="flex items-center gap-1"><span className="text-red-400 font-bold">−改</span> 角色有但已移除</span>
             </div>
-          )}
+          </div>
 
           {msg && (
-            <div className={`text-xs px-3 py-2 rounded ${msg.type === 'success' ? 'text-green-700 bg-green-50' : 'text-red-700 bg-red-50'}`}>
+            <div className={`text-xs px-3 py-2 rounded ${msg.type === 'success' ? 'text-green-700 bg-green-50 border border-green-200' : 'text-red-700 bg-red-50 border border-red-200'}`}>
               {msg.text}
             </div>
           )}
@@ -281,7 +256,7 @@ export default function UserPermissionManager({ user, allRoles, onClose }) {
             size="sm"
             className="bg-gray-900 hover:bg-gray-800"
             onClick={handleSave}
-            disabled={saving || selectedRoleIds.length === 0}
+            disabled={saving}
           >
             {saving ? "保存中..." : "保存"}
           </Button>
