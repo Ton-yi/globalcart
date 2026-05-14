@@ -531,16 +531,16 @@ export default function AdminUsers() {
         </table>
       </div>
 
-      {/* Credit Application Manager */}
-      <CreditApplicationManager />
-
-      {/* Role Permission Overview */}
-      <RolePermissionOverview
-        roles={allRoles}
-        isPlatformAdmin={isPlatformAdmin}
-        isTenantAdmin={isTenantAdmin}
-        onRoleUpdated={loadData}
-      />
+      {/* Role & Credit Management */}
+      <div className="space-y-4">
+        <RolePermissionOverview
+          roles={allRoles}
+          isPlatformAdmin={isPlatformAdmin}
+          isTenantAdmin={isTenantAdmin}
+          onRoleUpdated={loadData}
+        />
+        <CreditApplicationManager />
+      </div>
 
       {editingUser && (
         <EditUserModal
