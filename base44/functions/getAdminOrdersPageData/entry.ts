@@ -54,28 +54,35 @@ Deno.serve(async (req) => {
     const filter = (isPlatformAdmin || !tenantId) ? {} : { tenant_id: tenantId };
 
     const t1 = Date.now();
-    // Split into two batches to avoid rate limiting (12 parallel queries → 2x6)
-    const [orders, storeTagRules, itemSizeTemplates, pendingEditRequests, allTenantUsers, shippingPools] = await Promise.all([
+    // Batch 1: 4 critical queries
+    const [orders, storeTagRules, itemSizeTemplates, allTenantUsers] = await Promise.all([
       base44.asServiceRole.entities.Order.filter(filter),
       base44.asServiceRole.entities.OnlineStoreTagRule.filter({ ...filter, is_active: true }),
       base44.asServiceRole.entities.ItemSizeTemplate.filter({ ...filter, is_active: true }),
-      base44.asServiceRole.entities.ShippingEditRequest.filter({ ...filter, status: 'pending' }),
       base44.asServiceRole.entities.User.filter(tenantId ? { tenant_id: tenantId } : {}),
-      base44.asServiceRole.entities.ShippingPool.filter(filter),
     ]);
     console.log(`[TIMING] getAdminOrdersPageData | batch1: ${Date.now() - t1}ms`);
 
     const t2 = Date.now();
-    const [boxTemplates, transitLocations, transitShippingMethods, siteSettings, shippingMethods, userPreferences] = await Promise.all([
+    // Batch 2: 4 more queries
+    const [pendingEditRequests, shippingPools, boxTemplates, transitLocations] = await Promise.all([
+      base44.asServiceRole.entities.ShippingEditRequest.filter({ ...filter, status: 'pending' }),
+      base44.asServiceRole.entities.ShippingPool.filter(filter),
       base44.asServiceRole.entities.BoxTemplate.filter({ ...filter, is_active: true }),
       base44.asServiceRole.entities.TransitLocation.filter({ ...filter, is_active: true }),
+    ]);
+    console.log(`[TIMING] getAdminOrdersPageData | batch2: ${Date.now() - t2}ms`);
+
+    const t3 = Date.now();
+    // Batch 3: 4 final queries
+    const [transitShippingMethods, siteSettings, shippingMethods, userPreferences] = await Promise.all([
       base44.asServiceRole.entities.TransitShippingMethod.filter({ ...filter, is_active: true }),
       base44.asServiceRole.entities.SiteSettings.filter(filter),
       base44.asServiceRole.entities.ShippingMethod.filter({ ...filter, is_active: true }),
       base44.asServiceRole.entities.UserPreference.filter(filter),
     ]);
-    console.log(`[TIMING] getAdminOrdersPageData | batch2: ${Date.now() - t2}ms`);
-    console.log(`[TIMING] getAdminOrdersPageData | TOTAL: ${Date.now() - t0}ms`);
+    console.log(`[TIMING] getAdminOrdersPageData | batch3: ${Date.now() - t3}ms`);
+    console.log(`[TIMING] getAdminOrdersPageData | TOTAL: ${Date.now() - t0}ms (batched to avoid rate limits)`);
 
     // Build email → { display_name, avatar_url } map
     // UserPreference has avatar_url and display_name; User has full_name as fallback
