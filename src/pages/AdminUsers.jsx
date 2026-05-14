@@ -11,11 +11,11 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import CreditApplicationManager from "@/components/admin/CreditApplicationManager";
 import TenantRoleManagerForUsers from "@/components/admin/TenantRoleManagerForUsers";
 import RoleCreationPanel from "@/components/admin/RoleCreationPanel";
 import UserPermissionManager from "@/components/admin/UserPermissionManager";
 import RolePermissionOverview from "@/components/admin/RolePermissionOverview";
+import CreditApplicationModal from "@/components/admin/CreditApplicationModal";
 
 const ROLE_LABELS = {
   platform_admin: { label: "平台管理员", color: "bg-purple-100 text-purple-700" },
@@ -230,6 +230,8 @@ export default function AdminUsers() {
   const [inviteMsg, setInviteMsg] = useState("");
   const [editingUser, setEditingUser] = useState(null);
   const [managingPermissionsFor, setManagingPermissionsFor] = useState(null);
+  const [creditAppUser, setCreditAppUser] = useState(null);
+  const [creditApps, setCreditApps] = useState({});
   const [actioning, setActioning] = useState({});
   const [allRoles, setAllRoles] = useState([]);
   const { user: currentUser } = useCurrentUser();
@@ -251,6 +253,16 @@ export default function AdminUsers() {
       setOrders(o);
       setMemberTiers(r2.data?.memberTiers || []);
       setAllRoles(r1.data?.roles || []);
+      // Load credit applications for status indicators
+      base44.functions.invoke('manageCreditApplication', { action: 'list' }).then(appsRes => {
+        const appsMap = {};
+        (appsRes.data?.applications || []).forEach(app => {
+          const email = app.user_email;
+          if (!appsMap[email]) appsMap[email] = [];
+          appsMap[email].push(app);
+        });
+        setCreditApps(appsMap);
+      }).catch(() => {});
       setLoading(false);
     }).catch(() => setLoading(false));
   };
@@ -439,6 +451,20 @@ export default function AdminUsers() {
                        >
                          <Pencil className="w-3.5 h-3.5" />
                        </button>
+                       {/* Credit Applications */}
+                       <button
+                         onClick={() => setCreditAppUser(u)}
+                         className={`p-1.5 rounded ${
+                           creditApps[u.email]?.some(a => a.status === 'pending')
+                             ? 'bg-amber-100 text-amber-600 hover:bg-amber-200'
+                             : creditApps[u.email]?.length > 0
+                             ? 'text-blue-500 hover:bg-blue-50'
+                             : 'text-gray-400 hover:bg-gray-100'
+                         }`}
+                         title="记账申请"
+                       >
+                         <CreditCard className="w-3.5 h-3.5" />
+                       </button>
                       {/* Toggle active */}
                       <button
                         onClick={() => handleToggleActive(u)}
@@ -495,6 +521,13 @@ export default function AdminUsers() {
           user={managingPermissionsFor}
           allRoles={allRoles}
           onClose={() => { setManagingPermissionsFor(null); loadData(); }}
+        />
+      )}
+
+      {creditAppUser && (
+        <CreditApplicationModal
+          user={creditAppUser}
+          onClose={() => setCreditAppUser(null)}
         />
       )}
     </div>
