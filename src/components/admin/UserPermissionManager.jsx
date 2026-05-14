@@ -116,9 +116,9 @@ export default function UserPermissionManager({ user, allRoles, onClose }) {
           {/* 角色选择 */}
           <div>
             <Label className="text-xs text-gray-500 block mb-2">分配角色</Label>
-            <Select value={selectedRole || ""} onValueChange={v => handleRoleChange(v === "" ? "" : v)}>
+            <Select value={selectedRole || ""} onValueChange={v => handleRoleChange(v)}>
               <SelectTrigger className="h-8 text-sm">
-                <SelectValue placeholder="选择一个角色" />
+                <SelectValue placeholder={allRoles?.length > 0 ? "选择一个角色" : "暂无可选角色"} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={null}>无角色</SelectItem>
