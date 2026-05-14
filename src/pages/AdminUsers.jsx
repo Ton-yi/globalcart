@@ -510,7 +510,12 @@ export default function AdminUsers() {
       <CreditApplicationManager />
 
       {/* Role Permission Overview */}
-      <RolePermissionOverview roles={allRoles} />
+      <RolePermissionOverview
+        roles={allRoles}
+        isPlatformAdmin={isPlatformAdmin}
+        isTenantAdmin={isTenantAdmin}
+        onRoleUpdated={loadData}
+      />
 
       {editingUser && (
         <EditUserModal
