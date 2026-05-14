@@ -25,7 +25,7 @@ const ALL_PERMISSIONS = [
 ];
 
 export default function UserPermissionManager({ user, allRoles, onClose }) {
-  const [selectedRole, setSelectedRole] = useState("");
+  const [selectedRoleIds, setSelectedRoleIds] = useState([]);
   const [basePermissions, setBasePermissions] = useState([]);
   const [overridePermissions, setOverridePermissions] = useState({});
   const [expandedCategory, setExpandedCategory] = useState(null);
@@ -34,22 +34,29 @@ export default function UserPermissionManager({ user, allRoles, onClose }) {
 
   useEffect(() => {
     if (user.assigned_role_ids && user.assigned_role_ids.length > 0) {
-      const firstRoleId = user.assigned_role_ids[0];
-      setSelectedRole(firstRoleId);
-      const role = allRoles.find(r => r.id === firstRoleId);
-      if (role?.direct_permissions) {
-        setBasePermissions(role.direct_permissions);
-      }
+      setSelectedRoleIds(user.assigned_role_ids);
+      updatePermissionsFromRoles(user.assigned_role_ids);
     }
     setOverridePermissions(user.permission_overrides || {});
   }, [user, allRoles]);
 
-  const handleRoleChange = (roleId) => {
-    setSelectedRole(roleId);
-    const role = allRoles.find(r => r.id === roleId);
-    if (role?.direct_permissions) {
-      setBasePermissions(role.direct_permissions);
-    }
+  const updatePermissionsFromRoles = (roleIds) => {
+    let allPerms = new Set();
+    roleIds.forEach(roleId => {
+      const role = allRoles.find(r => r.id === roleId);
+      if (role?.direct_permissions) {
+        role.direct_permissions.forEach(p => allPerms.add(p));
+      }
+    });
+    setBasePermissions(Array.from(allPerms));
+  };
+
+  const handleRoleToggle = (roleId) => {
+    const newRoleIds = selectedRoleIds.includes(roleId)
+      ? selectedRoleIds.filter(id => id !== roleId)
+      : [...selectedRoleIds, roleId];
+    setSelectedRoleIds(newRoleIds);
+    updatePermissionsFromRoles(newRoleIds);
   };
 
   const togglePermissionOverride = (permId) => {
@@ -65,7 +72,7 @@ export default function UserPermissionManager({ user, allRoles, onClose }) {
       await base44.functions.invoke('manageUser', {
         action: 'update_user_permissions',
         target_user_id: user.id,
-        assigned_role_id: selectedRole || null,
+        assigned_role_ids: selectedRoleIds,
         permission_overrides: Object.fromEntries(
           Object.entries(overridePermissions).filter(([_, v]) => v !== undefined)
         ),
@@ -112,31 +119,42 @@ export default function UserPermissionManager({ user, allRoles, onClose }) {
             <p className="text-sm font-medium text-gray-900">{user.full_name || user.email}</p>
           </div>
 
-          {/* 角色选择 */}
+          {/* 角色选择 - 多选按钮式 */}
           <div>
-            <Label className="text-xs text-gray-500 block mb-2">分配角色</Label>
-            <Select value={selectedRole || ""} onValueChange={v => handleRoleChange(v)}>
-              <SelectTrigger className="h-8 text-sm">
-                <SelectValue placeholder={allRoles?.length > 0 ? "选择一个角色" : "暂无可选角色"} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={null}>无角色</SelectItem>
-                {allRoles && allRoles.length > 0 && allRoles.map(role => (
-                  <SelectItem key={role.id} value={role.id}>
-                    {role.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {selectedRole && (
-              <p className="text-xs text-gray-400 mt-1">
-                此角色包含 {basePermissions.length} 项权限
-              </p>
+            <Label className="text-xs text-gray-500 block mb-2">分配角色（可多选）</Label>
+            {allRoles.length === 0 ? (
+              <p className="text-xs text-gray-400">暂无可用角色</p>
+            ) : (
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  {allRoles.map(role => {
+                    const isSelected = selectedRoleIds.includes(role.id);
+                    return (
+                      <button
+                        key={role.id}
+                        onClick={() => handleRoleToggle(role.id)}
+                        className={`p-2 rounded border-2 text-left transition-colors text-sm font-medium ${
+                          isSelected
+                            ? 'bg-blue-50 border-blue-300 text-blue-700'
+                            : 'bg-gray-50 border-gray-200 text-gray-500'
+                        }`}
+                      >
+                        {role.name}
+                      </button>
+                    );
+                  })}
+                </div>
+                {selectedRoleIds.length > 0 && (
+                  <p className="text-xs text-gray-400 mt-2">
+                    已选 {selectedRoleIds.length} 个角色，共 {basePermissions.length} 项权限
+                  </p>
+                )}
+              </div>
             )}
           </div>
 
           {/* 权限概览 */}
-          {selectedRole && (
+          {selectedRoleIds.length > 0 && (
             <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
               <div className="flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
@@ -162,7 +180,7 @@ export default function UserPermissionManager({ user, allRoles, onClose }) {
           )}
 
           {/* 权限覆盖设置 */}
-          {selectedRole && (
+          {selectedRoleIds.length > 0 && (
             <div className="border-t pt-4">
               <Label className="text-xs text-gray-500 font-semibold block mb-2">
                 权限覆盖（仅对此用户）
@@ -225,7 +243,7 @@ export default function UserPermissionManager({ user, allRoles, onClose }) {
             size="sm"
             className="bg-gray-900 hover:bg-gray-800"
             onClick={handleSave}
-            disabled={saving || !selectedRole}
+            disabled={saving || selectedRoleIds.length === 0}
           >
             {saving ? "保存中..." : "保存"}
           </Button>
