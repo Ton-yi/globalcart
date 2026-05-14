@@ -413,25 +413,23 @@ export default function AdminUsers() {
                   </td>
                   <td className="px-4 py-3">
                     {u.assigned_role_ids && u.assigned_role_ids.length > 0 ? (
-                      <div className="flex flex-wrap gap-1">
-                        {u.assigned_role_ids.map(roleId => {
-                          const role = allRoles.find(r => r.id === roleId);
-                          return (
-                            <Badge key={roleId} className="text-xs" style={{ backgroundColor: role?.color || '#e5e7eb', color: '#374151' }}>
-                              {role?.name || roleId}
-                            </Badge>
-                          );
-                        })}
-                        {u.permission_overrides && Object.keys(u.permission_overrides).length > 0 && (
-                          <Badge className="text-xs bg-amber-100 text-amber-700 border border-amber-300">（改）</Badge>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="flex flex-wrap gap-1">
-                        <Badge className="text-xs bg-gray-100 text-gray-500">未分配</Badge>
-                        {u.permission_overrides && Object.keys(u.permission_overrides).length > 0 && (
-                          <Badge className="text-xs bg-amber-100 text-amber-700 border border-amber-300">（改）</Badge>
-                        )}
+                       <div className="flex flex-wrap gap-1">
+                         {u.assigned_role_ids.map((roleId, idx) => {
+                           const role = allRoles.find(r => r.id === roleId);
+                           const isLast = idx === u.assigned_role_ids.length - 1;
+                           const hasOverride = isLast && u.permission_overrides && Object.keys(u.permission_overrides).length > 0;
+                           return (
+                             <Badge key={roleId} className="text-xs" style={{ backgroundColor: role?.color || '#e5e7eb', color: '#374151' }}>
+                               {role?.name || roleId}{hasOverride ? ' 卍' : ''}
+                             </Badge>
+                           );
+                         })}
+                         </div>
+                         ) : (
+                        <div className="flex flex-wrap gap-1">
+                          <Badge className="text-xs bg-gray-100 text-gray-500">
+                            未分配{u.permission_overrides && Object.keys(u.permission_overrides).length > 0 ? ' 卍' : ''}
+                          </Badge>
                       </div>
                     )}
                   </td>
