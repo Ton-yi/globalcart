@@ -57,14 +57,12 @@ Deno.serve(async (req) => {
     const orderFilter = (isPlatformAdmin || !tenantId) ? {} : { tenant_id: tenantId };
 
     const t1 = Date.now();
-    const [allUsers, allOrders, allTenants, rolesRes] = await Promise.all([
+    const [allUsers, allOrders, allTenants, tenantRolesRes, globalRolesRes] = await Promise.all([
       base44.asServiceRole.entities.User.filter(userFilter),
       base44.asServiceRole.entities.Order.filter(orderFilter),
       (isPlatformAdmin || isTenantAdmin) ? base44.asServiceRole.entities.Tenant.list() : Promise.resolve([]),
-      isTenantAdmin && tenantId ? base44.functions.invoke('manageRoles', {
-        action: 'list_tenant_roles',
-        tenant_id: tenantId,
-      }) : Promise.resolve({ data: { roles: [] } }),
+      isTenantAdmin && tenantId ? base44.asServiceRole.entities.Role.filter({ tenant_id: tenantId, is_archived: false }) : Promise.resolve([]),
+      isTenantAdmin ? base44.asServiceRole.entities.Role.filter({ tenant_id: null, is_archived: false }) : Promise.resolve([]),
     ]);
     console.log(`[TIMING] getAdminUsersPageData | parallel fetches: ${Date.now() - t1}ms`);
 
@@ -117,10 +115,17 @@ Deno.serve(async (req) => {
       paid_amount: o.paid_amount || 0,
     }));
 
-    const roles = rolesRes?.data?.roles || [];
+    // Merge tenant-custom roles with global platform roles (available to all tenants)
+    const tenantRoles = tenantRolesRes || [];
+    const globalRoles = (globalRolesRes || []).map(r => ({
+      ...r,
+      is_global: true,
+      is_available_globally: true,
+    }));
+    const allAvailableRoles = [...tenantRoles, ...globalRoles];
 
     console.log(`[TIMING] getAdminUsersPageData | TOTAL: ${Date.now() - t0}ms`);
-    return Response.json({ users, orders, tenants, diagnose, roles });
+    return Response.json({ users, orders, tenants, diagnose, roles: allAvailableRoles });
 
   } catch (error) {
     console.error(`[TIMING] getAdminUsersPageData | error: ${Date.now() - t0}ms`, error);
