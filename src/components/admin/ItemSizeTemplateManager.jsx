@@ -27,6 +27,8 @@ export default function ItemSizeTemplateManager({ initialData = null }) {
     is_active: true,
   });
   const [uploading, setUploading] = useState(false);
+  const [migrating, setMigrating] = useState(false);
+  const [migrationMsg, setMigrationMsg] = useState(null);
 
   const loadTemplates = async () => {
     setLoading(true);
@@ -96,6 +98,24 @@ export default function ItemSizeTemplateManager({ initialData = null }) {
     resetForm();
   };
 
+  const handleMigrate = async () => {
+    setMigrating(true);
+    setMigrationMsg(null);
+    try {
+      const res = await base44.functions.invoke('migrateItemSizeTemplates', {});
+      if (res.data?.success) {
+        setMigrationMsg({ type: 'success', text: res.data.message });
+        await loadTemplates();
+      } else {
+        setMigrationMsg({ type: 'error', text: res.data?.message || '迁移失败' });
+      }
+    } catch (err) {
+      setMigrationMsg({ type: 'error', text: '迁移出错：' + err.message });
+    }
+    setMigrating(false);
+    setTimeout(() => setMigrationMsg(null), 4000);
+  };
+
   if (loading) {
     return <div className="text-sm text-gray-500">加载中...</div>;
   }
@@ -104,11 +124,24 @@ export default function ItemSizeTemplateManager({ initialData = null }) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-base font-semibold text-gray-900">物品尺寸模板</h3>
-        <Button size="sm" className="h-8 text-xs" onClick={() => setShowForm(true)}>
-          <Plus className="w-3.5 h-3.5 mr-1" />
-          新增模板
-        </Button>
+        <div className="flex items-center gap-2">
+          {templates.length > 0 && templates.some(t => !t.image_url) && (
+            <Button size="sm" variant="outline" className="h-8 text-xs" onClick={handleMigrate} disabled={migrating}>
+              {migrating ? "迁移中..." : "迁移旧数据"}
+            </Button>
+          )}
+          <Button size="sm" className="h-8 text-xs" onClick={() => setShowForm(true)}>
+            <Plus className="w-3.5 h-3.5 mr-1" />
+            新增模板
+          </Button>
+        </div>
       </div>
+
+      {migrationMsg && (
+        <div className={`text-xs px-3 py-2 rounded border ${migrationMsg.type === 'success' ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'}`}>
+          {migrationMsg.text}
+        </div>
+      )}
 
       {showForm && (
         <div className="border border-blue-100 rounded-lg bg-blue-50 p-4 space-y-3">
@@ -169,6 +202,12 @@ export default function ItemSizeTemplateManager({ initialData = null }) {
                 </button>
               )}
             </div>
+            <Input
+              className="mt-1 h-8 text-xs"
+              placeholder="或粘贴图片URL"
+              value={formData.image_url}
+              onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
+            />
             {formData.image_url && (
               <div className="mt-2 max-w-xs">
                 <img src={formData.image_url} alt="预览" className="w-full h-auto rounded border border-gray-300 bg-white" />
