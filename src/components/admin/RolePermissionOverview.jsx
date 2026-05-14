@@ -96,10 +96,14 @@ export default function RolePermissionOverview({ roles = [] }) {
                   <tr className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="py-2 px-3">
                       <div className="flex items-center gap-2">
-                        <div
-                          className="w-2 h-2 rounded-full"
-                          style={{ backgroundColor: role.color || "#9ca3af" }}
-                        />
+                        {role.image_url ? (
+                          <img src={role.image_url} alt={role.name} className="w-6 h-6 rounded object-cover" />
+                        ) : (
+                          <div
+                            className="w-6 h-6 rounded-full"
+                            style={{ backgroundColor: role.color || "#9ca3af" }}
+                          />
+                        )}
                         <span className="font-medium text-gray-900">{role.name}</span>
                         {role.is_predefined && (
                           <span className="text-2xs px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded">预定义</span>
