@@ -27,7 +27,7 @@ const ROLE_LABELS = {
 
 function EditUserModal({ user: targetUser, currentUser, memberTiers, allRoles = [], onClose, onSaved }) {
   const isPlatformAdmin = currentUser?.roles?.includes('platform_admin');
-  const [roles, setRoles] = useState(targetUser.roles || ['user']);
+  const [roles, setRoles] = useState(targetUser.assigned_role_ids || []);
   const [memberTierId, setMemberTierId] = useState(targetUser.member_tier_id || "");
   const [creditEnabled, setCreditEnabled] = useState(targetUser.credit_enabled || false);
   const [creditLimitJpy, setCreditLimitJpy] = useState(targetUser.credit_limit_jpy || 0);

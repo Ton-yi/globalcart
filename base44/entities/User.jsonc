@@ -18,6 +18,14 @@
         "user"
       ]
     },
+    "assigned_role_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "\u5206\u914d\u7ed9\u7528\u6237\u7684\u79df\u6237\u81ea\u5b9a\u4e49\u89d2\u8272ID\u5217\u8868",
+      "default": []
+    },
     "tenant_id": {
       "type": "string",
       "description": "\u6240\u5c5e\u79df\u6237ID"
