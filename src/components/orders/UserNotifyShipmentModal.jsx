@@ -226,6 +226,8 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
   const [selectedTransitMethodId, setSelectedTransitMethodId] = useState(
     initialData?.userPreference?.preferred_transit_shipping_id || ""
   );
+  const [shippingMethods, setShippingMethods] = useState(initialData?.shippingMethods || []);
+  const [methodError, setMethodError] = useState(null);
 
   useEffect(() => {
     // If initialData was provided by the parent page, use it directly — skip all self-fetches
@@ -277,6 +279,7 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
       }
       setTransitLocations((allLocs || []).filter(l => l.is_active !== false));
       setAllUsers(usersRes?.data?.users || []);
+      setShippingMethods(initialData?.shippingMethods || []);
       const consolidationPools = allPools.filter(p =>
         p.consolidation_type && p.consolidation_type !== "" &&
         (p.status === "pending" || p.status === "processing") &&
@@ -312,6 +315,31 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
   const consolidation = consType !== "";
   const hasConsolidationConditions = consolidation && (deadline || minWeight);
 
+  // Check if shipping method is within constraints
+  const getMethodError = () => {
+    if (!method) return null;
+    const selectedMethod = shippingMethods.find(m => m.name === method);
+    if (!selectedMethod) return null;
+    
+    const totalWeight = targetOrders.reduce((s, o) => s + (o.weight_g || 0), 0);
+    // Check weight constraints
+    if (selectedMethod.min_weight_g > 0 && totalWeight < selectedMethod.min_weight_g) {
+      return `所选运输方式最小重量为 ${selectedMethod.min_weight_g}g，当前订单总重为 ${totalWeight}g，不符合条件`;
+    }
+    if (selectedMethod.max_weight_g > 0 && totalWeight > selectedMethod.max_weight_g) {
+      return `所选运输方式最大重量为 ${selectedMethod.max_weight_g}g，当前订单总重为 ${totalWeight}g，超出限制`;
+    }
+    
+    // Check disabled item size templates
+    const disabledSizes = selectedMethod.disabled_item_size_template_ids || [];
+    const hasDisabledSize = targetOrders.some(o => o.item_size_template_id && disabledSizes.includes(o.item_size_template_id));
+    if (hasDisabledSize) {
+      return `所选运输方式不支持当前订单所使用的物品尺寸模板`;
+    }
+    
+    return null;
+  };
+  
   const selectedPool = existingPools.find(p => p.id === selectedPoolId);
 
   // When joining existing pool, method/minWeight/consMethod are locked
@@ -514,20 +542,27 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
           )}
 
           {/* Shipping method */}
-          <div>
-            <label className="text-xs text-gray-500 font-medium uppercase tracking-wide">发货方式</label>
-            <Select value={method} onValueChange={setMethod} disabled={!!isJoiningPool}>
-              <SelectTrigger className={`mt-1.5 ${isJoiningPool ? "opacity-50 cursor-not-allowed" : ""}`}>
-                <SelectValue placeholder={isJoiningPool ? "使用拼邮池配置" : "请选择发货方式"} />
-              </SelectTrigger>
-              <SelectContent>
-                {SHIPPING_METHODS.map(m => (
-                  <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {isJoiningPool && <p className="text-xs text-gray-400 mt-1">发货方式将使用所选拼邮需求的配置</p>}
-          </div>
+           <div>
+             <label className="text-xs text-gray-500 font-medium uppercase tracking-wide">发货方式</label>
+             <Select value={method} onValueChange={(val) => { setMethod(val); setMethodError(null); }} disabled={!!isJoiningPool}>
+               <SelectTrigger className={`mt-1.5 ${isJoiningPool ? "opacity-50 cursor-not-allowed" : ""} ${methodError ? "border-red-300" : ""}`}>
+                 <SelectValue placeholder={isJoiningPool ? "使用拼邮池配置" : "请选择发货方式"} />
+               </SelectTrigger>
+               <SelectContent>
+                 {SHIPPING_METHODS.map(m => (
+                   <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                 ))}
+               </SelectContent>
+             </Select>
+             {isJoiningPool && <p className="text-xs text-gray-400 mt-1">发货方式将使用所选拼邮需求的配置</p>}
+             {method && !isJoiningPool && getMethodError() && (
+               <div className="mt-2 p-2.5 rounded-lg bg-red-50 border border-red-200">
+                 <p className="text-xs text-red-700 font-medium">⚠️ 所选运输方式不可用</p>
+                 <p className="text-xs text-red-600 mt-1">{getMethodError()}</p>
+                 <p className="text-xs text-red-600 mt-1">请重新选择运输方式</p>
+               </div>
+             )}
+           </div>
 
           {/* Consolidation type */}
           <div className="space-y-2">
@@ -896,21 +931,22 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
         <div className="px-5 py-3 border-t flex gap-2 justify-end">
           <Button variant="outline" size="sm" onClick={onClose}>取消</Button>
           <Button
-            size="sm"
-            className="bg-red-600 hover:bg-red-700"
-            onClick={handleSubmit}
-            disabled={
-              (!method && !joinDirectPool && !isJoiningPool) || submitting ||
-              (!isJoiningPool && consType === "transit" && !selectedTransitId) ||
-              (!isJoiningPool && consType === "transit" && !finalAddressId && !addressInputMode["final"]) ||
-              (isJoiningPool && !finalAddressId && !addressInputMode["final"]) ||
-              (isJoiningPool && selectedPool?.consolidation_type === "transit" && !selectedTransitMethodId) ||
-              (!isJoiningPool && consType === "" && !selectedAddress && !addressInputMode["direct"]) ||
-              (!isJoiningPool && consType === "other" && !selectedAddress && !addressInputMode["other"]) ||
-              (joinExistingPool && !selectedPoolId) ||
-              (joinDirectPool && !selectedDirectPoolId)
-            }
-          >
+             size="sm"
+             className="bg-red-600 hover:bg-red-700"
+             onClick={handleSubmit}
+             disabled={
+               (!method && !joinDirectPool && !isJoiningPool) || submitting ||
+               (method && !isJoiningPool && getMethodError()) ||
+               (!isJoiningPool && consType === "transit" && !selectedTransitId) ||
+               (!isJoiningPool && consType === "transit" && !finalAddressId && !addressInputMode["final"]) ||
+               (isJoiningPool && !finalAddressId && !addressInputMode["final"]) ||
+               (isJoiningPool && selectedPool?.consolidation_type === "transit" && !selectedTransitMethodId) ||
+               (!isJoiningPool && consType === "" && !selectedAddress && !addressInputMode["direct"]) ||
+               (!isJoiningPool && consType === "other" && !selectedAddress && !addressInputMode["other"]) ||
+               (joinExistingPool && !selectedPoolId) ||
+               (joinDirectPool && !selectedDirectPoolId)
+             }
+           >
             <Truck className="w-3.5 h-3.5 mr-1.5" />
             {submitting ? "提交中..." : joinDirectPool && selectedDirectPoolId ? `加入发货申请 (${targetOrders.length})` : isJoiningPool ? `加入拼邮需求 (${targetOrders.length})` : isMulti ? `确认通知发货 (${targetOrders.length})` : "确认通知发货"}
           </Button>
