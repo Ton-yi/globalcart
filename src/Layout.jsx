@@ -9,7 +9,7 @@ import { getCurrentSubdomain } from "@/lib/tenantBranding";
 import { 
   ShoppingBag, Package, Truck, User, Settings, 
   Bell, LogOut, Menu, X, Shield,
-  Home, Users, BarChart3, Store, Send
+  Home, Users, BarChart3, Store, Send, Lock
 } from "lucide-react";
 import { MidnightToggle } from "@/components/common/ThemeSelector";
 import { Badge } from "@/components/ui/badge";
@@ -74,6 +74,7 @@ export default function Layout({ children, currentPageName }) {
     { label: "发货池", icon: Send, page: "AdminShippingPool" },
     { label: "用户管理", icon: Users, page: "AdminUsers" },
     { label: "公告管理", icon: Bell, page: "AdminAnnouncements" },
+    { label: "角色权限", icon: Lock, page: "AdminRoleManagement" },
     { label: "网站设置", icon: Settings, page: "AdminSettings" },
   ];
 
@@ -132,7 +133,7 @@ export default function Layout({ children, currentPageName }) {
 
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-1">
-            {navItems.map(({ label, icon: Icon, page }) => (
+            {navItems.map(({ label, icon: NavIcon, page }) => (
               <Link
                 key={page}
                 to={createPageUrl(page)}
@@ -142,7 +143,7 @@ export default function Layout({ children, currentPageName }) {
                     : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
                 }`}
               >
-                <Icon className="w-3.5 h-3.5" />
+                <NavIcon className="w-3.5 h-3.5" />
                 {label}
               </Link>
             ))}
@@ -184,7 +185,7 @@ export default function Layout({ children, currentPageName }) {
         {/* Mobile Nav */}
         {mobileOpen && (
           <div className="md:hidden border-t bg-white px-4 py-3 space-y-1">
-            {navItems.map(({ label, icon: Icon, page }) => (
+            {navItems.map(({ label, icon: NavIcon, page }) => (
               <Link
                 key={page}
                 to={createPageUrl(page)}
@@ -193,7 +194,7 @@ export default function Layout({ children, currentPageName }) {
                   currentPageName === page ? "bg-gray-100 font-medium" : "text-gray-600"
                 }`}
               >
-                <Icon className="w-4 h-4" />
+                <NavIcon className="w-4 h-4" />
                 {label}
               </Link>
             ))}
