@@ -57,11 +57,12 @@ Deno.serve(async (req) => {
     const orderFilter = (isPlatformAdmin || !tenantId) ? {} : { tenant_id: tenantId };
 
     const t1 = Date.now();
+    const roleFilter = tenantId ? { tenant_id: tenantId, is_archived: false } : { is_archived: false };
     const [allUsers, allOrders, allTenants, tenantRolesRes] = await Promise.all([
       base44.asServiceRole.entities.User.filter(userFilter),
       base44.asServiceRole.entities.Order.filter(orderFilter),
       (isPlatformAdmin || isTenantAdmin) ? base44.asServiceRole.entities.Tenant.list() : Promise.resolve([]),
-      isTenantAdmin && tenantId ? base44.asServiceRole.entities.Role.filter({ tenant_id: tenantId, is_archived: false }) : Promise.resolve([]),
+      (isPlatformAdmin || isTenantAdmin) ? base44.asServiceRole.entities.Role.filter(roleFilter) : Promise.resolve([]),
     ]);
     console.log(`[TIMING] getAdminUsersPageData | parallel fetches: ${Date.now() - t1}ms`);
 
