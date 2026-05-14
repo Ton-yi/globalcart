@@ -118,6 +118,13 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ==================== LIST GLOBAL TEMPLATES ====================
+    if (action === 'listGlobalTemplates') {
+      // Returns global roles (is_global: true) as templates for tenant admins to copy from
+      const globalRoles = await base44.asServiceRole.entities.Role.filter({ is_global: true }, 'name', 50);
+      return Response.json({ templates: globalRoles });
+    }
+
     // ==================== LIST ROLES ====================
     if (action === 'listRoles') {
       const { tenant_id_filter } = data;

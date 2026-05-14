@@ -6,12 +6,11 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronDown, ChevronUp, Plus, Download } from "lucide-react";
+import { ChevronDown, ChevronUp, Plus, Download, Copy } from "lucide-react";
 import ImageUploader from "@/components/common/ImageUploader";
 import { PERMISSIONS_PRESET } from "@/lib/permissionsPreset";
 
 // Build permissionsByCategory directly from PERMISSIONS_PRESET
-// Each category entry includes parent + children as flat list for checkbox UI
 function buildPermissionsByCategory(preset) {
   const result = {};
   preset.forEach(cat => {
@@ -29,29 +28,41 @@ function buildPermissionsByCategory(preset) {
 
 const PERMISSIONS_BY_CATEGORY = buildPermissionsByCategory(PERMISSIONS_PRESET);
 
-// Simple presets using new permission IDs
-const PERMISSION_PRESETS = {
-  custom: { name: "自定义", description: "自定义权限组合", permissions: [] },
-};
-
 export default function RoleCreationPanel({ tenantId, onRoleCreated, existingRoles = [], isPlatformAdmin = false }) {
   const [open, setOpen] = useState(false);
   const [roleName, setRoleName] = useState("");
   const [roleColor, setRoleColor] = useState("#3b82f6");
   const [roleImage, setRoleImage] = useState("");
   const [parentRoleId, setParentRoleId] = useState("");
-  const [presetType, setPresetType] = useState("custom");
   const [selectedPermissions, setSelectedPermissions] = useState([]);
   const [expandedCategory, setExpandedCategory] = useState(null);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
+  const [globalTemplates, setGlobalTemplates] = useState([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
 
-  const getAvailablePresets = () => PERMISSION_PRESETS;
+  useEffect(() => {
+    if (open && globalTemplates.length === 0) {
+      setLoadingTemplates(true);
+      base44.functions.invoke('manageRoles', { action: 'listGlobalTemplates', data: {} })
+        .then(res => setGlobalTemplates(res.data?.templates || []))
+        .catch(() => {})
+        .finally(() => setLoadingTemplates(false));
+    }
+  }, [open]);
 
-  const handlePresetChange = (preset) => {
-    setPresetType(preset);
-    if (PERMISSION_PRESETS[preset]?.permissions?.length > 0) {
-      setSelectedPermissions([...PERMISSION_PRESETS[preset].permissions]);
+  const handleApplyTemplate = (templateId) => {
+    setSelectedTemplateId(templateId);
+    if (!templateId) {
+      setSelectedPermissions([]);
+      return;
+    }
+    const tpl = globalTemplates.find(t => t.id === templateId);
+    if (tpl) {
+      setSelectedPermissions([...(tpl.direct_permissions || [])]);
+      if (!roleName) setRoleName(tpl.name + " (副本)");
+      if (tpl.color) setRoleColor(tpl.color);
     }
   };
 
@@ -74,7 +85,8 @@ export default function RoleCreationPanel({ tenantId, onRoleCreated, existingRol
         action: 'create',
         data: {
           name: roleName,
-          description: PERMISSION_PRESETS[presetType]?.description || "",
+          description: "",
+          color: roleColor,
           parent_role_id: parentRoleId || null,
           direct_permissions: selectedPermissions,
           is_global: false,
@@ -85,7 +97,7 @@ export default function RoleCreationPanel({ tenantId, onRoleCreated, existingRol
       setRoleColor("#3b82f6");
       setRoleImage("");
       setParentRoleId("");
-      setPresetType("custom");
+      setSelectedTemplateId("");
       setSelectedPermissions([]);
       onRoleCreated?.();
       setTimeout(() => { setOpen(false); setMsg(""); }, 1500);
@@ -98,7 +110,7 @@ export default function RoleCreationPanel({ tenantId, onRoleCreated, existingRol
   const handleExportRole = () => {
     const roleData = {
       name: roleName,
-      description: PERMISSION_PRESETS[presetType]?.description || "",
+      description: "",
       parent_role_id: parentRoleId || null,
       permissions: selectedPermissions,
       color: roleColor,
@@ -185,28 +197,44 @@ export default function RoleCreationPanel({ tenantId, onRoleCreated, existingRol
           {/* 角色图片 */}
           <ImageUploader value={roleImage} onChange={setRoleImage} label="角色图片（可选）" />
 
-          {/* 权限预设 */}
+          {/* 从全局模板套用 */}
           <div>
-            <Label className="text-xs text-gray-500 block mb-2">权限预设</Label>
-            <div className="flex gap-2 flex-wrap">
-              {Object.entries(getAvailablePresets()).map(([key, preset]) => {
-                const isGlobalRole = preset.isGlobalRole;
-                return (
+            <Label className="text-xs text-gray-500 block mb-1.5">从全局模板套用（可选）</Label>
+            {loadingTemplates ? (
+              <p className="text-xs text-gray-400">加载模板中...</p>
+            ) : globalTemplates.length === 0 ? (
+              <p className="text-xs text-gray-400">暂无全局模板</p>
+            ) : (
+              <div className="flex gap-2 flex-wrap">
+                <button
+                  onClick={() => handleApplyTemplate("")}
+                  className={`text-xs px-3 py-1.5 rounded border transition-colors ${
+                    !selectedTemplateId
+                      ? "bg-gray-100 border-gray-300 text-gray-700 font-medium"
+                      : "bg-white border-gray-200 text-gray-500 hover:border-gray-300"
+                  }`}
+                >
+                  空白自定义
+                </button>
+                {globalTemplates.map(tpl => (
                   <button
-                    key={key}
-                    onClick={() => handlePresetChange(key)}
+                    key={tpl.id}
+                    onClick={() => handleApplyTemplate(tpl.id)}
                     className={`text-xs px-3 py-1.5 rounded border transition-colors flex items-center gap-1 ${
-                      presetType === key
+                      selectedTemplateId === tpl.id
                         ? "bg-indigo-100 border-indigo-300 text-indigo-700 font-medium"
                         : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
                     }`}
                   >
-                    {preset.name}
-                    {isGlobalRole && <span className="text-2xs px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded">全局</span>}
+                    <Copy className="w-3 h-3" />
+                    {tpl.name}
                   </button>
-                );
-              })}
-            </div>
+                ))}
+              </div>
+            )}
+            {selectedTemplateId && (
+              <p className="text-xs text-indigo-600 mt-1">已套用模板权限，可在下方继续自定义调整</p>
+            )}
           </div>
 
           {/* 权限详细设置 */}
