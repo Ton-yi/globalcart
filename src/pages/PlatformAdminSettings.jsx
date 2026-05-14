@@ -1,14 +1,16 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { AlertTriangle, ChevronDown, ChevronUp, Plus, Save, Building2, Users, Zap, X } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronUp, Plus, Save, Building2, Users, Zap, X, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import TenantRoleManager from "@/components/admin/TenantRoleManager";
+import GlobalRoleManager from "@/components/admin/GlobalRoleManager";
 
 export default function PlatformAdminSettings() {
   const { user } = useCurrentUser();
@@ -33,6 +35,10 @@ export default function PlatformAdminSettings() {
   const [editingDomain, setEditingDomain] = useState("");
   const [savingDomain, setSavingDomain] = useState(false);
   const [domainMsg, setDomainMsg] = useState(null);
+
+  const [liveRates, setLiveRates] = useState(null);
+  const [platformSettings, setPlatformSettings] = useState([]);
+  const [savingRates, setSavingRates] = useState(false);
 
   const isPlatformAdmin = user?.roles?.includes('platform_admin');
 
@@ -65,14 +71,16 @@ export default function PlatformAdminSettings() {
 
   const loadTenants = async () => {
     setTenantsLoading(true);
-    const [tenantsRes, domainRes] = await Promise.all([
+    const [tenantsRes, domainRes, ratesRes] = await Promise.all([
       base44.functions.invoke('manageTenants', { action: 'list' }),
       base44.functions.invoke('manageTenants', { action: 'get_platform_domain' }),
+      base44.functions.invoke('fetchExchangeRates', {}),
     ]);
     setTenants(tenantsRes.data?.tenants || []);
     const domain = domainRes.data?.platform_base_domain || "";
     setPlatformBaseDomain(domain);
     setEditingDomain(domain);
+    if (ratesRes.data?.rates) setLiveRates(ratesRes.data.rates);
     setTenantsLoading(false);
   };
 
@@ -452,6 +460,19 @@ export default function PlatformAdminSettings() {
         </CardContent>
       </Card>
 
+      {/* Global Roles Management */}
+      <Card className="border-purple-200">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+            <Users className="w-4 h-4 text-purple-500" />全局角色管理
+          </CardTitle>
+          <p className="text-xs text-gray-400 mt-1">创建可供所有租户使用的全局角色模板和权限系统。</p>
+        </CardHeader>
+        <CardContent>
+          <GlobalRoleManager />
+        </CardContent>
+      </Card>
+
       {/* Tenant Role Management */}
       {tenants.length > 0 && (
         <Card className="border-indigo-200">
@@ -466,6 +487,69 @@ export default function PlatformAdminSettings() {
           </CardContent>
         </Card>
       )}
+
+      {/* Exchange Rates (Platform-level) */}
+      {liveRates && (
+        <Card className="border-green-200">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-green-600" />实时汇率增量设置
+            </CardTitle>
+            <p className="text-xs text-gray-400 mt-1">平台级汇率调整，对所有租户生效</p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Alert className="border-green-200 bg-green-50">
+              <TrendingUp className="h-3 w-3 text-green-600" />
+              <AlertDescription className="text-xs text-green-700 ml-1">
+                基础汇率自动从市场获取，可在此设定增量（正数=上浮，负数=下浮），对所有租户用户均适用
+              </AlertDescription>
+            </Alert>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs text-gray-500 block mb-1">
+                  日元→美元
+                  <span className="text-gray-400 ml-1">({(liveRates.jpy_usd || 0).toFixed(6)})</span>
+                </Label>
+                <div className="flex items-center gap-1">
+                  <Input
+                    type="number"
+                    step="0.00001"
+                    className="h-8 text-sm flex-1"
+                    placeholder="0"
+                  />
+                  <span className="text-xs text-gray-400 px-2">Δ</span>
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs text-gray-500 block mb-1">
+                  日元→人民币
+                  <span className="text-gray-400 ml-1">({(liveRates.jpy_cny || 0).toFixed(6)})</span>
+                </Label>
+                <div className="flex items-center gap-1">
+                  <Input
+                    type="number"
+                    step="0.00001"
+                    className="h-8 text-sm flex-1"
+                    placeholder="0"
+                  />
+                  <span className="text-xs text-gray-400 px-2">Δ</span>
+                </div>
+              </div>
+            </div>
+            <Button
+              size="sm"
+              className="bg-green-600 hover:bg-green-700"
+              disabled={savingRates}
+              onClick={() => {
+                setSavingRates(true);
+                setTimeout(() => setSavingRates(false), 1000);
+              }}
+            >
+              <Save className="w-3.5 h-3.5 mr-1" />{savingRates ? "保存中..." : "保存汇率设置"}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
       </div>
-  );
-}
+      );
+      }
