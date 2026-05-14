@@ -15,6 +15,7 @@ import CreditApplicationManager from "@/components/admin/CreditApplicationManage
 import TenantRoleManagerForUsers from "@/components/admin/TenantRoleManagerForUsers";
 import RoleCreationPanel from "@/components/admin/RoleCreationPanel";
 import UserPermissionManager from "@/components/admin/UserPermissionManager";
+import RolePermissionOverview from "@/components/admin/RolePermissionOverview";
 
 const ROLE_LABELS = {
   platform_admin: { label: "平台管理员", color: "bg-purple-100 text-purple-700" },
@@ -507,6 +508,9 @@ export default function AdminUsers() {
 
       {/* Credit Application Manager */}
       <CreditApplicationManager />
+
+      {/* Role Permission Overview */}
+      <RolePermissionOverview roles={allRoles} />
 
       {editingUser && (
         <EditUserModal
