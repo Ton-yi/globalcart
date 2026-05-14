@@ -57,10 +57,14 @@ Deno.serve(async (req) => {
     const orderFilter = (isPlatformAdmin || !tenantId) ? {} : { tenant_id: tenantId };
 
     const t1 = Date.now();
-    const [allUsers, allOrders, allTenants] = await Promise.all([
+    const [allUsers, allOrders, allTenants, rolesRes] = await Promise.all([
       base44.asServiceRole.entities.User.filter(userFilter),
       base44.asServiceRole.entities.Order.filter(orderFilter),
       (isPlatformAdmin || isTenantAdmin) ? base44.asServiceRole.entities.Tenant.list() : Promise.resolve([]),
+      isTenantAdmin && tenantId ? base44.functions.invoke('manageRoles', {
+        action: 'list_tenant_roles',
+        tenant_id: tenantId,
+      }) : Promise.resolve({ data: { roles: [] } }),
     ]);
     console.log(`[TIMING] getAdminUsersPageData | parallel fetches: ${Date.now() - t1}ms`);
 
@@ -79,6 +83,8 @@ Deno.serve(async (req) => {
         credit_balance_jpy: u.credit_balance_jpy || 0,
         member_tier_id: u.member_tier_id || null,
         member_tier_name: u.member_tier_name || null,
+        // Assigned role IDs
+        assigned_role_ids: u.assigned_role_ids || [],
       }));
 
     // Tenant map: id -> { id, name, code }
@@ -111,8 +117,10 @@ Deno.serve(async (req) => {
       paid_amount: o.paid_amount || 0,
     }));
 
+    const roles = rolesRes?.data?.roles || [];
+
     console.log(`[TIMING] getAdminUsersPageData | TOTAL: ${Date.now() - t0}ms`);
-    return Response.json({ users, orders, tenants, diagnose });
+    return Response.json({ users, orders, tenants, diagnose, roles });
 
   } catch (error) {
     console.error(`[TIMING] getAdminUsersPageData | error: ${Date.now() - t0}ms`, error);

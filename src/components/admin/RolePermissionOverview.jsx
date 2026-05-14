@@ -27,10 +27,32 @@ const PERMISSION_CATEGORIES = {
   支付: ["payment:read", "payment:confirm"],
 };
 
+const PREDEFINED_ROLES = {
+  "user": { label: "普通用户", color: "bg-gray-100", priority: 1 },
+  "tenant_admin": { label: "租户管理员", color: "bg-red-100", priority: 2 },
+};
+
 export default function RolePermissionOverview({ roles = [] }) {
   const [expandedRole, setExpandedRole] = useState(null);
 
-  if (!roles || roles.length === 0) {
+  // Merge predefined roles with tenant-custom roles
+  const allRolesToDisplay = [
+    ...Object.entries(PREDEFINED_ROLES).map(([key, meta]) => ({
+      id: key,
+      name: meta.label,
+      color: meta.color,
+      is_global: true,
+      is_predefined: true,
+      direct_permissions: key === "user" 
+        ? ["order:read", "shipping_pool:read"]
+        : key === "tenant_admin"
+          ? ["order:read", "order:create", "order:update", "order:delete", "shipping_pool:read", "shipping_pool:create", "shipping_pool:update", "shipping_pool:delete", "user:read", "user:create", "user:update", "payment:read", "payment:confirm"]
+          : [],
+    })),
+    ...roles.filter(r => !r.is_global),
+  ];
+
+  if (!allRolesToDisplay || allRolesToDisplay.length === 0) {
     return (
       <Card className="mt-8 border-gray-200">
         <CardHeader className="pb-3">
@@ -51,7 +73,7 @@ export default function RolePermissionOverview({ roles = [] }) {
         <CardTitle className="text-sm font-semibold flex items-center gap-2">
           <Shield className="w-4 h-4 text-indigo-500" />角色权限总览
         </CardTitle>
-        <p className="text-xs text-gray-400 mt-1">共 {roles.length} 个角色</p>
+        <p className="text-xs text-gray-400 mt-1">共 {allRolesToDisplay.length} 个角色（含 {Object.keys(PREDEFINED_ROLES).length} 个预定义）</p>
       </CardHeader>
 
       <CardContent className="overflow-x-auto">
@@ -65,7 +87,7 @@ export default function RolePermissionOverview({ roles = [] }) {
             </tr>
           </thead>
           <tbody>
-            {roles.map((role) => {
+            {allRolesToDisplay.map((role) => {
               const isExpanded = expandedRole === role.id;
               const permCount = role.direct_permissions?.length || 0;
               
@@ -79,6 +101,9 @@ export default function RolePermissionOverview({ roles = [] }) {
                           style={{ backgroundColor: role.color || "#9ca3af" }}
                         />
                         <span className="font-medium text-gray-900">{role.name}</span>
+                        {role.is_predefined && (
+                          <span className="text-2xs px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded">预定义</span>
+                        )}
                       </div>
                     </td>
                     <td className="py-2 px-3">
