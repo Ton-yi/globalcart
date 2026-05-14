@@ -93,6 +93,8 @@ export default function ShippingPool() {
   const [selectedTransitMethodId, setSelectedTransitMethodId] = useState("");
   const [userProfileMap, setUserProfileMap] = useState({});
   const [allOrders, setAllOrders] = useState([]);
+  const [shippingMethods, setShippingMethods] = useState([]);
+  const [methodError, setMethodError] = useState(null);
 
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
@@ -127,6 +129,7 @@ export default function ShippingPool() {
       fetchTenantConfig().then(cfg => {
         setTransitShippingMethods((cfg.transitMethods || []).filter(m => m.is_active !== false));
         setShippingAddons((cfg.addons || []).filter(a => a.addon_type === "shipping" && a.is_active !== false));
+        setShippingMethods((cfg.shippingMethods || []).filter(m => m.is_active !== false));
       }).catch(() => {});
     }
   }, [user]);
@@ -164,8 +167,9 @@ export default function ShippingPool() {
     setAvailableOrders(inWarehouseOrders);
     setTransitLocations((configData.transitLocations || []).filter(l => l.is_active !== false));
     setTransitShippingMethods((configData.transitMethods || []).filter(m => m.is_active !== false));
-    setShippingAddons((configData.addons || []).filter(a => a.addon_type === "shipping" && a.is_active !== false));
-    setAllUsers(usersRes?.data?.users || []);
+      setShippingAddons((configData.addons || []).filter(a => a.addon_type === "shipping" && a.is_active !== false));
+      setShippingMethods((configData.shippingMethods || []).filter(m => m.is_active !== false));
+      setAllUsers(usersRes?.data?.users || []);
     const pref = prefs[0];
     const addrs = (pref?.saved_addresses || []).map(a => ({ ...EMPTY_ADDRESS_FORM, ...a }));
     setSavedAddresses(addrs);
@@ -206,6 +210,30 @@ export default function ShippingPool() {
 
   const selectedOrders = availableOrders.filter(o => selectedOrderIds.includes(o.id));
   const totalWeight = selectedOrders.reduce((s, o) => s + (o.weight_g || 0), 0);
+
+  // Check shipping method constraints
+  const getShippingMethodError = () => {
+    if (!form.shipping_method) return null;
+    const selectedMethod = shippingMethods.find(m => m.code === form.shipping_method);
+    if (!selectedMethod) return null;
+    
+    // Check weight constraints
+    if (selectedMethod.min_weight_g > 0 && totalWeight < selectedMethod.min_weight_g) {
+      return `所选运输方式最小重量为 ${selectedMethod.min_weight_g}g，当前订单总重为 ${totalWeight}g，不符合条件`;
+    }
+    if (selectedMethod.max_weight_g > 0 && totalWeight > selectedMethod.max_weight_g) {
+      return `所选运输方式最大重量为 ${selectedMethod.max_weight_g}g，当前订单总重为 ${totalWeight}g，超出限制`;
+    }
+    
+    // Check disabled item size templates
+    const disabledSizes = selectedMethod.disabled_item_size_template_ids || [];
+    const hasDisabledSize = selectedOrders.some(o => o.item_size_template_id && disabledSizes.includes(o.item_size_template_id));
+    if (hasDisabledSize) {
+      return `所选运输方式不支持当前订单所使用的物品尺寸模板`;
+    }
+    
+    return null;
+  };
 
   const handleSubmit = async () => {
     if (selectedOrderIds.length === 0) return;
@@ -640,12 +668,19 @@ export default function ShippingPool() {
                   {/* Shipping method */}
                   <div>
                     <Label className="text-xs text-gray-500">运输方式</Label>
-                    <Select value={form.shipping_method} onValueChange={v => f("shipping_method", v)}>
-                      <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue placeholder="选择..." /></SelectTrigger>
+                    <Select value={form.shipping_method} onValueChange={(v) => { f("shipping_method", v); setMethodError(null); }}>
+                      <SelectTrigger className={`mt-1 h-8 text-sm ${methodError ? "border-red-300" : ""}`}><SelectValue placeholder="选择..." /></SelectTrigger>
                       <SelectContent>
                         {SHIPPING_METHODS.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
                       </SelectContent>
                     </Select>
+                    {form.shipping_method && getShippingMethodError() && (
+                      <div className="mt-2 p-2.5 rounded-lg bg-red-50 border border-red-200">
+                        <p className="text-xs text-red-700 font-medium">⚠️ 所选运输方式不可用</p>
+                        <p className="text-xs text-red-600 mt-1">{getShippingMethodError()}</p>
+                        <p className="text-xs text-red-600 mt-1">请重新选择运输方式</p>
+                      </div>
+                    )}
                   </div>
 
                   {/* Scheduled date with ASAP option */}
@@ -812,8 +847,8 @@ export default function ShippingPool() {
                       <ChevronLeft className="w-3.5 h-3.5 mr-1" />上一步
                     </Button>
                     <Button size="sm" className="bg-red-600 hover:bg-red-700"
-                      disabled={submitting || (consType === "transit" && !form.transit_location_id)}
-                      onClick={handleSubmit}>
+                       disabled={submitting || (consType === "transit" && !form.transit_location_id) || (form.shipping_method && getShippingMethodError())}
+                       onClick={handleSubmit}>
                       {submitting ? "提交中..." : "确认创建发货申请"}
                     </Button>
                   </div>
