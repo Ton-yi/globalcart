@@ -31,7 +31,8 @@ Deno.serve(async (req) => {
 
       // 验证父角色存在且可访问
       if (parent_role_id) {
-        const parentRole = await base44.asServiceRole.entities.Role.read(parent_role_id);
+        const parentRoles = await base44.asServiceRole.entities.Role.filter({ id: parent_role_id }, '', 1);
+        const parentRole = parentRoles[0];
         if (!parentRole) {
           return Response.json({ error: 'Parent role not found' }, { status: 404 });
         }
@@ -58,7 +59,8 @@ Deno.serve(async (req) => {
     if (action === 'update') {
       const { role_id, updates } = data;
 
-      const role = await base44.asServiceRole.entities.Role.read(role_id);
+      const roles = await base44.asServiceRole.entities.Role.filter({ id: role_id }, '', 1);
+      const role = roles[0];
       if (!role) {
         return Response.json({ error: 'Role not found' }, { status: 404 });
       }
@@ -75,7 +77,8 @@ Deno.serve(async (req) => {
       // 如果修改parent_role_id，验证新父角色
       if (updates.parent_role_id !== undefined) {
         if (updates.parent_role_id) {
-          const parentRole = await base44.asServiceRole.entities.Role.read(updates.parent_role_id);
+          const parentRoles = await base44.asServiceRole.entities.Role.filter({ id: updates.parent_role_id }, '', 1);
+          const parentRole = parentRoles[0];
           if (!parentRole) {
             return Response.json({ error: 'Parent role not found' }, { status: 404 });
           }
@@ -85,8 +88,9 @@ Deno.serve(async (req) => {
         }
       }
 
+      console.log('[manageRoles] Updating role with:', updates);
       const updatedRole = await base44.asServiceRole.entities.Role.update(role_id, updates);
-      console.log('[manageRoles] Role updated successfully:', updatedRole.id);
+      console.log('[manageRoles] Role updated successfully:', updatedRole.id, 'image_url:', updatedRole.image_url);
       return Response.json({ role: updatedRole });
     }
 
@@ -94,7 +98,8 @@ Deno.serve(async (req) => {
     if (action === 'getRoleWithEffectivePermissions') {
       const { role_id } = data;
 
-      const role = await base44.asServiceRole.entities.Role.read(role_id);
+      const roles = await base44.asServiceRole.entities.Role.filter({ id: role_id }, '', 1);
+      const role = roles[0];
       if (!role) {
         return Response.json({ error: 'Role not found' }, { status: 404 });
       }
@@ -142,7 +147,8 @@ Deno.serve(async (req) => {
     if (action === 'delete') {
       const { role_id } = data;
 
-      const role = await base44.asServiceRole.entities.Role.read(role_id);
+      const roles = await base44.asServiceRole.entities.Role.filter({ id: role_id }, '', 1);
+      const role = roles[0];
       if (!role) {
         return Response.json({ error: 'Role not found' }, { status: 404 });
       }
@@ -196,7 +202,8 @@ Deno.serve(async (req) => {
  * 计算角色的有效权限（包括继承）
  */
 async function calculateEffectivePermissions(roleId, base44) {
-  const role = await base44.asServiceRole.entities.Role.read(roleId);
+  const roles = await base44.asServiceRole.entities.Role.filter({ id: roleId }, '', 1);
+  const role = roles[0];
   if (!role) return [];
 
   let effectivePermissions = new Set(role.direct_permissions || []);
