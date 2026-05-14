@@ -2,16 +2,21 @@
   "name": "User",
   "type": "object",
   "properties": {
-    "role": {
-      "type": "string",
-      "description": "\u7528\u6237\u89d2\u8272",
-      "enum": [
-        "platform_admin",
-        "tenant_admin",
-        "staff",
+    "roles": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "platform_admin",
+          "tenant_admin",
+          "staff",
+          "user"
+        ]
+      },
+      "description": "\u7528\u6237\u89d2\u8272\u5217\u8868\uff08\u652f\u6301\u591a\u4e2a\u89d2\u8272\uff0c\u6743\u9650\u91c7\u53d6\u5141\u8bb8\u8986\u76d6\u7b56\u7565\uff09",
+      "default": [
         "user"
-      ],
-      "default": "user"
+      ]
     },
     "tenant_id": {
       "type": "string",
@@ -84,6 +89,6 @@
     }
   },
   "required": [
-    "role"
+    "roles"
   ]
 }

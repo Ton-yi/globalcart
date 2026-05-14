@@ -10,7 +10,7 @@ let cacheTimestamp = null;
 const CACHE_DURATION = 5 * 60 * 1000; // 5分钟缓存
 
 /**
- * 获取当前用户的有效权限列表
+ * 获取当前用户的有效权限列表（支持多角色，采取允许覆盖策略）
  */
 export async function getUserPermissions(forceRefresh = false) {
   const now = Date.now();
@@ -22,27 +22,27 @@ export async function getUserPermissions(forceRefresh = false) {
 
   try {
     const user = await base44.auth.me();
-    if (!user || !user.role_ids || user.role_ids.length === 0) {
+    if (!user || !user.roles || user.roles.length === 0) {
       permissionCache = [];
       cacheTimestamp = now;
       return [];
     }
 
-    // 获取用户所有角色的有效权限
+    // 获取用户所有角色的有效权限（采取允许覆盖策略：合并所有权限）
     const allPermissions = new Set();
 
-    for (const roleId of user.role_ids) {
+    for (const role of user.roles) {
       try {
         const res = await base44.functions.invoke('manageRoles', {
           action: 'getRoleWithEffectivePermissions',
-          data: { role_id: roleId }
+          data: { role_name: role }
         });
 
         if (res.data.effective_permissions) {
           res.data.effective_permissions.forEach(p => allPermissions.add(p));
         }
       } catch (err) {
-        console.warn(`Failed to load permissions for role ${roleId}`, err);
+        console.warn(`Failed to load permissions for role ${role}`, err);
       }
     }
 

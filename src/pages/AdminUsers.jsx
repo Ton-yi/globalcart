@@ -22,8 +22,8 @@ const ROLE_LABELS = {
 };
 
 function EditUserModal({ user: targetUser, currentUser, memberTiers, onClose, onSaved }) {
-  const isPlatformAdmin = currentUser?.role === 'platform_admin';
-  const [role, setRole] = useState(targetUser.role || 'user');
+  const isPlatformAdmin = currentUser?.roles?.includes('platform_admin');
+  const [roles, setRoles] = useState(targetUser.roles || ['user']);
   const [memberTierId, setMemberTierId] = useState(targetUser.member_tier_id || "");
   const [creditEnabled, setCreditEnabled] = useState(targetUser.credit_enabled || false);
   const [creditLimitJpy, setCreditLimitJpy] = useState(targetUser.credit_limit_jpy || 0);
@@ -63,11 +63,11 @@ function EditUserModal({ user: targetUser, currentUser, memberTiers, onClose, on
   const handleSave = async () => {
     setSaving(true);
     setError("");
-    // Update role
+    // Update roles
     const res = await base44.functions.invoke('manageUser', {
-      action: 'update_role',
+      action: 'update_roles',
       target_user_id: targetUser.id,
-      role,
+      roles,
     });
     if (res.data?.error) {
       setError(res.data.error);
@@ -106,15 +106,26 @@ function EditUserModal({ user: targetUser, currentUser, memberTiers, onClose, on
           </div>
 
           <div>
-            <p className="text-xs text-gray-500 mb-1">角色</p>
-            <Select value={role} onValueChange={setRole}>
-              <SelectTrigger className="w-full text-sm"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {roleOptions.map(r => (
-                  <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <p className="text-xs text-gray-500 mb-2">角色（可多选）</p>
+            <div className="space-y-2">
+              {roleOptions.map(r => (
+                <label key={r.value} className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={roles.includes(r.value)}
+                    onChange={e => {
+                      if (e.target.checked) {
+                        setRoles(prev => [...prev, r.value]);
+                      } else {
+                        setRoles(prev => prev.filter(v => v !== r.value));
+                      }
+                    }}
+                    className="w-3.5 h-3.5 rounded border-gray-300"
+                  />
+                  <span className="text-sm text-gray-700">{r.label}</span>
+                </label>
+              ))}
+            </div>
           </div>
 
           {/* Member Tier */}
@@ -206,7 +217,7 @@ export default function AdminUsers() {
   const [actioning, setActioning] = useState({});
   const { user: currentUser } = useCurrentUser();
 
-  const isTenantAdmin = currentUser?.role === 'admin' || currentUser?.role === 'tenant_admin';
+  const isTenantAdmin = currentUser?.roles?.includes('admin') || currentUser?.roles?.includes('tenant_admin');
 
   const loadData = () => {
     setLoading(true);
@@ -327,7 +338,6 @@ export default function AdminUsers() {
             ) : filtered.length === 0 ? (
               <tr><td colSpan={8} className="text-center py-8 text-gray-400">暂无用户</td></tr>
             ) : filtered.map(u => {
-              const roleInfo = ROLE_LABELS[u.role] || ROLE_LABELS.user;
               const isDisabled = u.is_active === false;
               return (
                 <tr key={u.id} className={`hover:bg-gray-50 ${isDisabled ? 'opacity-50' : ''}`}>
@@ -341,22 +351,27 @@ export default function AdminUsers() {
                   </td>
                   <td className="px-4 py-3 text-gray-500 text-xs hidden sm:table-cell">{u.email}</td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <Badge className={`text-xs ${roleInfo.color}`}>
-                        {u.role === 'platform_admin' && <Shield className="w-2.5 h-2.5 mr-1 inline" />}
-                        {roleInfo.label}
-                      </Badge>
-                      {u.member_tier_name && (
-                        <Badge className={`text-xs ${memberTiers.find(t => t.id === u.member_tier_id)?.color || 'bg-blue-100 text-blue-700'}`}>
-                          {u.member_tier_name}
-                        </Badge>
-                      )}
-                      {u.credit_enabled && (
-                        <Badge className="text-xs bg-indigo-100 text-indigo-700">
-                          <CreditCard className="w-2.5 h-2.5 mr-0.5 inline" />记账
-                        </Badge>
-                      )}
-                    </div>
+                   <div className="flex items-center gap-1.5 flex-wrap">
+                     {(u.roles || []).map(role => {
+                       const roleInfo = ROLE_LABELS[role] || ROLE_LABELS.user;
+                       return (
+                         <Badge key={role} className={`text-xs ${roleInfo.color}`}>
+                           {role === 'platform_admin' && <Shield className="w-2.5 h-2.5 mr-1 inline" />}
+                           {roleInfo.label}
+                         </Badge>
+                       );
+                     })}
+                     {u.member_tier_name && (
+                       <Badge className={`text-xs ${memberTiers.find(t => t.id === u.member_tier_id)?.color || 'bg-blue-100 text-blue-700'}`}>
+                         {u.member_tier_name}
+                       </Badge>
+                     )}
+                     {u.credit_enabled && (
+                       <Badge className="text-xs bg-indigo-100 text-indigo-700">
+                         <CreditCard className="w-2.5 h-2.5 mr-0.5 inline" />记账
+                       </Badge>
+                     )}
+                   </div>
                   </td>
                   <td className="px-4 py-3 text-gray-700 hidden md:table-cell">{getUserOrderCount(u.email)}</td>
                   <td className="px-4 py-3 text-xs text-gray-400 hidden md:table-cell">
@@ -397,7 +412,7 @@ export default function AdminUsers() {
                         }
                       </button>
                       {/* Delete — only platform_admin can see for all; tenant_admin cannot delete platform_admin */}
-                      {(isTenantAdmin && u.role !== 'platform_admin') && (
+                      {(isTenantAdmin && !u.roles?.includes('platform_admin')) && (
                         <button
                           onClick={() => handleDelete(u)}
                           disabled={!!actioning[u.id]}

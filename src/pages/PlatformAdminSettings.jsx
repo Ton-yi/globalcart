@@ -33,16 +33,16 @@ export default function PlatformAdminSettings() {
   const [savingDomain, setSavingDomain] = useState(false);
   const [domainMsg, setDomainMsg] = useState(null);
 
-  const isPlatformAdmin = user?.role === 'platform_admin';
+  const isPlatformAdmin = user?.roles?.includes('platform_admin');
+
+  useEffect(() => {
+    loadTenants();
+  }, []);
 
   // Redirect non-platform admins
   if (user && !isPlatformAdmin) {
     return <div className="text-center py-8 text-red-600">仅平台管理员可访问此页面</div>;
   }
-
-  useEffect(() => {
-    loadTenants();
-  }, []);
 
   const runDiagnose = async () => {
     setDiagLoading(true);
