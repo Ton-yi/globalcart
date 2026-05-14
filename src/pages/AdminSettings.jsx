@@ -23,6 +23,8 @@ import AddonManager from "@/components/admin/AddonManager";
 import MemberTierManager from "@/components/admin/MemberTierManager";
 import CreditApplicationManager from "@/components/admin/CreditApplicationManager";
 import PaymentMethodManager from "@/components/admin/PaymentMethodManager";
+import TenantRoleManagerForUsers from "@/components/admin/TenantRoleManagerForUsers";
+import GlobalRoleManager from "@/components/admin/GlobalRoleManager";
 
 function CustomsHazmatTextEditor({ settings, onReload }) {
   const s = settings.find(s => s.key === 'customs_hazmat_text');
@@ -101,6 +103,7 @@ const TABS = [
   { key: "item_sizes", label: "物品尺寸" },
   { key: "box_templates", label: "外箱模板" },
   { key: "store_tags", label: "商城标签规则" },
+  { key: "global_roles", label: "全局角色" },
   { key: "theme", label: "界面主题" },
   { key: "tenants", label: "租户管理" },
 ];
@@ -520,6 +523,10 @@ export default function AdminSettings() {
         </Card>
       )}
 
+      {activeTab === "global_roles" && isPlatformAdmin && (
+        <GlobalRoleManager />
+      )}
+
       {activeTab === "tenants" && (
         <div className="space-y-5">
           {/* Platform base domain — platform_admin only */}
@@ -622,6 +629,23 @@ export default function AdminSettings() {
                   disabled={creatingTenant || !newTenant.name || !newTenant.code}>
                   <Plus className="w-3.5 h-3.5 mr-1" />{creatingTenant ? "创建中..." : "创建租户"}
                 </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Tenant Roles Management */}
+          {isTenantAdmin && (
+            <Card className="border-blue-200">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                  <Users className="w-4 h-4 text-blue-500" />租户内角色管理
+                </CardTitle>
+                <p className="text-xs text-gray-400 mt-1">为当前租户创建和管理角色，分配相应权限给用户</p>
+              </CardHeader>
+              <CardContent>
+                {tenants.length > 0 && tenants[0]?.id && (
+                  <TenantRoleManagerForUsers tenantId={tenants[0].id} tenantName={tenants[0].name} />
+                )}
               </CardContent>
             </Card>
           )}

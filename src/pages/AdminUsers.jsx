@@ -3,7 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
   Search, UserPlus, Shield, AlertTriangle, ChevronDown, ChevronUp,
-  Pencil, Trash2, Ban, CheckCircle, X, CreditCard, Settings
+  Pencil, Trash2, Ban, CheckCircle, X, CreditCard, Settings, Lock
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import CreditApplicationManager from "@/components/admin/CreditApplicationManager";
+import TenantRoleManagerForUsers from "@/components/admin/TenantRoleManagerForUsers";
 
 const ROLE_LABELS = {
   platform_admin: { label: "平台管理员", color: "bg-purple-100 text-purple-700" },
@@ -210,22 +211,27 @@ function EditUserModal({ user: targetUser, currentUser, memberTiers, onClose, on
           <div className="border-t pt-3">
             <button
               type="button"
-              onClick={() => {
-                setExpandRoles(!expandRoles);
-                if (!expandRoles && Object.keys(tenantRoles).length === 0) {
-                  loadTenantRoles(targetUser.id);
-                }
-              }}
+              onClick={() => setExpandRoles(!expandRoles)}
               className="w-full flex items-center justify-between px-3 py-2 rounded hover:bg-gray-50 text-sm font-medium text-gray-700"
             >
               <span className="flex items-center gap-2">
-                <Settings className="w-4 h-4" />租户角色管理
+                <Lock className="w-4 h-4" />用户角色分配
               </span>
               {expandRoles ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             </button>
             {expandRoles && (
-              <div className="mt-2 p-3 bg-gray-50 rounded border border-gray-100 text-xs text-gray-500">
-                在平台管理员设置中管理此用户的租户角色（PlatformAdminSettings）
+              <div className="mt-3 p-3 bg-blue-50 rounded border border-blue-100 space-y-2">
+                <p className="text-xs font-medium text-blue-700">此用户已分配以下租户角色</p>
+                {Object.keys(tenantRoles).length === 0 ? (
+                  <p className="text-xs text-gray-500">无特定角色分配（仅有全局角色）</p>
+                ) : (
+                  Object.entries(tenantRoles).map(([tenantId, roleIds]) => (
+                    <div key={tenantId} className="text-xs text-gray-600">
+                      <Badge className="bg-blue-100 text-blue-700">{roleIds.length} 个角色</Badge>
+                    </div>
+                  ))
+                )}
+                <p className="text-xs text-gray-400 pt-2 border-t border-blue-100">在租户管理页的角色管理部分修改用户角色</p>
               </div>
             )}
           </div>
