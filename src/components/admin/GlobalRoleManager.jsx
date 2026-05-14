@@ -72,27 +72,19 @@ function PermItem({ perm, selected, onToggle, accent, disabled, indent = false }
         type="button"
         disabled={disabled}
         onClick={() => onToggle(perm.name)}
-        className={`w-full text-left rounded-lg border-2 px-3 py-2 transition-all focus:outline-none ${
-          indent ? "ml-4 w-[calc(100%-1rem)]" : ""
+        className={`text-left rounded border px-2 py-1.5 transition-all focus:outline-none flex items-center gap-1.5 ${
+          indent ? "ml-5" : ""
         } ${isOn ? accent.card : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"
         } ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
       >
-        <div className="flex items-start gap-2">
-          <span className={`mt-0.5 w-4 h-4 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
-            isOn ? accent.check : "border-gray-300 bg-white"
-          }`}>
-            {isOn && <Check className="w-2.5 h-2.5 text-white" strokeWidth={3} />}
-          </span>
-          <div className="flex-1 min-w-0">
-            <p className={`text-xs font-medium leading-tight ${isOn ? "text-gray-900" : "text-gray-700"}`}>
-              {perm.display_name}
-            </p>
-            {perm.description && (
-              <p className="text-2xs text-gray-400 mt-0.5 leading-tight">{perm.description}</p>
-            )}
-            <code className="text-2xs text-gray-400 bg-gray-100 px-1 rounded mt-0.5 inline-block">{perm.name}</code>
-          </div>
-        </div>
+        <span className={`w-3.5 h-3.5 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
+          isOn ? accent.check : "border-gray-300 bg-white"
+        }`}>
+          {isOn && <Check className="w-2 h-2 text-white" strokeWidth={3} />}
+        </span>
+        <span className={`text-xs leading-tight ${isOn ? "text-gray-900 font-medium" : "text-gray-600"}`}>
+          {perm.display_name}
+        </span>
       </button>
       {(perm.children || []).map(child => (
         <PermItem key={child.name} perm={child} selected={selected} onToggle={onToggle} accent={accent} disabled={disabled} indent />
@@ -126,7 +118,7 @@ function PermissionGrid({ selected, onToggle, accentColor = "purple", disabled =
               ({countSelected(cat.permissions)}/{countAll(cat.permissions)})
             </span>
           </div>
-          <div className="space-y-1.5">
+          <div className="flex flex-wrap gap-1.5">
             {cat.permissions.map(perm => (
               <PermItem key={perm.name} perm={perm} selected={selected} onToggle={onToggle} accent={accent} disabled={disabled} />
             ))}
