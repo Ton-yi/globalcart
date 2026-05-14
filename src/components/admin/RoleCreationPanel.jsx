@@ -113,14 +113,14 @@ export default function RoleCreationPanel({ tenantId, onRoleCreated, existingRol
     setSaving(true);
     try {
       await base44.functions.invoke('manageRoles', {
-        action: 'create_role',
-        tenant_id: tenantId,
-        name: roleName,
-        description: PERMISSION_PRESETS[presetType]?.description || "",
-        parent_role_id: parentRoleId || null,
-        direct_permissions: selectedPermissions,
-        color: roleColor,
-        image_url: roleImage,
+        action: 'create',
+        data: {
+          name: roleName,
+          description: PERMISSION_PRESETS[presetType]?.description || "",
+          parent_role_id: parentRoleId || null,
+          direct_permissions: selectedPermissions,
+          is_global: false,
+        }
       });
       setMsg({ type: "success", text: `角色"${roleName}"创建成功` });
       setRoleName("");
