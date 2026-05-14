@@ -62,30 +62,46 @@ function EditUserModal({ user: targetUser, currentUser, memberTiers, allRoles = 
   const handleSave = async () => {
     setSaving(true);
     setError("");
-    // Update roles
-    const res = await base44.functions.invoke('manageUser', {
-      action: 'update_roles',
-      target_user_id: targetUser.id,
-      roles,
-    });
-    if (res.data?.error) {
-      setError(res.data.error);
+    
+    try {
+      // Update roles
+      const res = await base44.functions.invoke('manageUser', {
+        action: 'update_roles',
+        target_user_id: targetUser.id,
+        roles,
+      });
+      
+      if (res.data?.error) {
+        setError(res.data.error);
+        setSaving(false);
+        return;
+      }
+      
+      // Update credit & tier settings
+      const selectedTier = memberTiers.find(t => t.id === memberTierId);
+      const creditRes = await base44.functions.invoke('manageCreditApplication', {
+        action: 'admin_update_user_credit',
+        target_user_id: targetUser.id,
+        member_tier_id: memberTierId || null,
+        member_tier_name: selectedTier?.name || null,
+        credit_enabled: creditEnabled,
+        credit_limit_jpy: parseFloat(creditLimitJpy) || 0,
+        credit_cycle: creditCycle,
+        credit_balance_jpy: parseFloat(creditBalanceJpy) || 0,
+      });
+      
+      if (creditRes.data?.error) {
+        setError(creditRes.data.error);
+        setSaving(false);
+        return;
+      }
+      
       setSaving(false);
-      return;
+      onSaved();
+    } catch (err) {
+      setError(err.message || '保存失败，请重试');
+      setSaving(false);
     }
-    // Update credit & tier settings
-    const selectedTier = memberTiers.find(t => t.id === memberTierId);
-    await base44.functions.invoke('manageCreditApplication', {
-      action: 'admin_update_user_credit',
-      target_user_id: targetUser.id,
-      member_tier_id: memberTierId || null,
-      member_tier_name: selectedTier?.name || null,
-      credit_enabled: creditEnabled,
-      credit_limit_jpy: parseFloat(creditLimitJpy) || 0,
-      credit_cycle: creditCycle,
-      credit_balance_jpy: parseFloat(creditBalanceJpy) || 0,
-    });
-    onSaved();
   };
 
   const selectedTier = memberTiers.find(t => t.id === memberTierId);
@@ -106,8 +122,8 @@ function EditUserModal({ user: targetUser, currentUser, memberTiers, allRoles = 
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-5 max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-5 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold text-gray-900">编辑用户</h3>
           <button onClick={onClose}><X className="w-4 h-4 text-gray-400" /></button>
@@ -117,29 +133,6 @@ function EditUserModal({ user: targetUser, currentUser, memberTiers, allRoles = 
             <p className="text-xs text-gray-500 mb-0.5">用户</p>
             <p className="text-sm font-medium text-gray-800">{targetUser.full_name || "-"}</p>
             <p className="text-xs text-gray-400">{targetUser.email}</p>
-          </div>
-
-          <div>
-            <p className="text-xs text-gray-500 mb-2">角色（可多选）</p>
-            <div className="space-y-2">
-              {roleOptions.map(r => (
-                <label key={r.value} className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={roles.includes(r.value)}
-                    onChange={e => {
-                      if (e.target.checked) {
-                        setRoles(prev => [...prev, r.value]);
-                      } else {
-                        setRoles(prev => prev.filter(v => v !== r.value));
-                      }
-                    }}
-                    className="w-3.5 h-3.5 rounded border-gray-300"
-                  />
-                  <span className="text-sm text-gray-700">{r.label}</span>
-                </label>
-              ))}
-            </div>
           </div>
 
           {/* Member Tier */}
@@ -216,18 +209,45 @@ function EditUserModal({ user: targetUser, currentUser, memberTiers, allRoles = 
               {expandRoles ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             </button>
             {expandRoles && (
-              <div className="mt-3 p-3 bg-blue-50 rounded border border-blue-100 space-y-2">
-                <p className="text-xs font-medium text-blue-700">此用户已分配以下租户角色</p>
-                {Object.keys(tenantRoles).length === 0 ? (
-                  <p className="text-xs text-gray-500">无特定角色分配（仅有全局角色）</p>
-                ) : (
-                  Object.entries(tenantRoles).map(([tenantId, roleIds]) => (
-                    <div key={tenantId} className="text-xs text-gray-600">
-                      <Badge className="bg-blue-100 text-blue-700">{roleIds.length} 个角色</Badge>
-                    </div>
-                  ))
-                )}
-                <p className="text-xs text-gray-400 pt-2 border-t border-blue-100">在租户管理页的角色管理部分修改用户角色</p>
+              <div className="mt-3 p-3 bg-blue-50 rounded border border-blue-100 space-y-3">
+                <div>
+                  <p className="text-xs text-gray-500 mb-2 font-medium">租户自定义角色（可多选）</p>
+                  <div className="space-y-2">
+                    {roleOptions.length === 0 ? (
+                      <p className="text-xs text-gray-400">无可用的自定义角色</p>
+                    ) : (
+                      roleOptions.map(r => (
+                        <label key={r.value} className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={roles.includes(r.value)}
+                            onChange={e => {
+                              if (e.target.checked) {
+                                setRoles(prev => [...prev, r.value]);
+                              } else {
+                                setRoles(prev => prev.filter(v => v !== r.value));
+                              }
+                            }}
+                            className="w-3.5 h-3.5 rounded border-gray-300"
+                          />
+                          <span className="text-sm text-gray-700">{r.label}</span>
+                        </label>
+                      ))
+                    )}
+                  </div>
+                </div>
+                <div className="border-t border-blue-100 pt-2">
+                  <p className="text-xs font-medium text-blue-700 mb-1.5">已分配的角色详情</p>
+                  {Object.keys(tenantRoles).length === 0 ? (
+                    <p className="text-xs text-gray-500">无特定角色分配</p>
+                  ) : (
+                    Object.entries(tenantRoles).map(([tenantId, roleIds]) => (
+                      <div key={tenantId} className="text-xs text-gray-600">
+                        <Badge className="bg-blue-100 text-blue-700">{roleIds.length} 个角色</Badge>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
             )}
           </div>
