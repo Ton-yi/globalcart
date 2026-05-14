@@ -39,8 +39,8 @@ export default function RolePermissionOverview({ roles = [], isPlatformAdmin = f
   const [editingRole, setEditingRole] = useState(null);
   const [deleting, setDeleting] = useState({});
 
-  // Only show tenant-owned roles (not predefined/global)
-  const allRolesToDisplay = roles.filter(r => !r.is_global);
+  // Only show tenant-owned roles (backend already filters is_global: false)
+  const allRolesToDisplay = roles;
 
   const handleEdit = (role) => {
     setEditingRole({ ...role });

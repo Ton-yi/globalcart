@@ -57,7 +57,7 @@ Deno.serve(async (req) => {
     const orderFilter = (isPlatformAdmin || !tenantId) ? {} : { tenant_id: tenantId };
 
     const t1 = Date.now();
-    const roleFilter = tenantId ? { tenant_id: tenantId, is_archived: false } : { is_archived: false };
+    const roleFilter = tenantId ? { tenant_id: tenantId, is_archived: false, is_global: false } : { is_archived: false, is_global: false };
     const [allUsers, allOrders, allTenants, tenantRolesRes] = await Promise.all([
       base44.asServiceRole.entities.User.filter(userFilter),
       base44.asServiceRole.entities.Order.filter(orderFilter),
