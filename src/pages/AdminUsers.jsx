@@ -526,7 +526,15 @@ export default function AdminUsers() {
         <UserPermissionManager
           user={managingPermissionsFor}
           allRoles={allRoles}
-          onClose={() => {
+          onClose={(savedUser) => {
+            if (savedUser) {
+              // Immediately update the user in the local list so next open shows fresh data
+              setUsers(prev => prev.map(u => u.id === savedUser.id ? {
+                ...u,
+                assigned_role_ids: savedUser.assigned_role_ids || u.assigned_role_ids,
+                permission_overrides: savedUser.permission_overrides ?? u.permission_overrides,
+              } : u));
+            }
             setManagingPermissionsFor(null);
             loadData();
           }}

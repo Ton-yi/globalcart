@@ -63,16 +63,19 @@ function applyOverrides(basePerms, overrides) {
 
 export default function UserPermissionManager({ user, allRoles, onClose }) {
   const [selectedRoleIds, setSelectedRoleIds] = useState(user.assigned_role_ids || []);
-
-  // Effective permission set (what user actually has — includes overrides)
-  // Initialized from stored overrides applied on top of base
   const [effectivePerms, setEffectivePerms] = useState(() => {
     const base = computeBasePerms(user.assigned_role_ids || [], allRoles);
     return applyOverrides(base, user.permission_overrides || {});
   });
-
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
+
+  // Re-initialize whenever the user prop changes (e.g. after a save + data reload)
+  useEffect(() => {
+    setSelectedRoleIds(user.assigned_role_ids || []);
+    const base = computeBasePerms(user.assigned_role_ids || [], allRoles);
+    setEffectivePerms(applyOverrides(base, user.permission_overrides || {}));
+  }, [user.id, user.assigned_role_ids, user.permission_overrides, allRoles]);
 
   // When role selection changes, recompute base perms and RE-APPLY existing effective perms
   // (keep manual toggles, only add new perms from new roles)
@@ -119,8 +122,10 @@ export default function UserPermissionManager({ user, allRoles, onClose }) {
       if (res.data?.error) {
         setMsg({ type: "error", text: res.data.error });
       } else {
+        // Pass the saved data back so parent can update its state immediately
+        const savedUser = res.data?.user;
         setMsg({ type: "success", text: "权限已更新" });
-        setTimeout(() => { onClose(); }, 1200);
+        setTimeout(() => { onClose(savedUser); }, 1200);
       }
     } catch (e) {
       setMsg({ type: "error", text: e.message });
