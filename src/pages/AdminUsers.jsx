@@ -422,15 +422,16 @@ export default function AdminUsers() {
                     {u.assigned_role_ids && u.assigned_role_ids.length > 0 ? (
                        <div className="flex flex-wrap gap-1">
                          {u.assigned_role_ids.map((roleId, idx) => {
-                           const role = allRoles.find(r => r.id === roleId);
-                           const isLast = idx === u.assigned_role_ids.length - 1;
-                           const hasOverride = isLast && u.permission_overrides && Object.keys(u.permission_overrides).length > 0;
-                           return (
-                             <Badge key={roleId} className="text-xs" style={{ backgroundColor: role?.color || '#e5e7eb', color: '#374151' }}>
-                               {role?.name || roleId}{hasOverride ? ' 卍' : ''}
-                             </Badge>
-                           );
-                         })}
+                            const role = allRoles.find(r => r.id === roleId);
+                            if (!role) return null;
+                            const isLast = idx === u.assigned_role_ids.length - 1;
+                            const hasOverride = isLast && u.permission_overrides && Object.keys(u.permission_overrides).length > 0;
+                            return (
+                              <Badge key={roleId} className="text-xs" style={{ backgroundColor: role.color || '#e5e7eb', color: '#374151' }}>
+                                {role.name}{hasOverride ? ' 卍' : ''}
+                              </Badge>
+                            );
+                          })}
                          </div>
                          ) : (
                         <div className="flex flex-wrap gap-1">
