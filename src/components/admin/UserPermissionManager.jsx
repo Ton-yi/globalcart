@@ -227,6 +227,12 @@ export default function UserPermissionManager({ user, allRoles: allRolesProp, on
           <div>
             <div className="flex items-center gap-2 mb-2 flex-wrap">
               <Label className="text-xs text-gray-500 font-semibold shrink-0">权限设置（直接开关，不受角色限制）</Label>
+              {effectivePerms.size > 0 && (
+                <button
+                  onClick={() => setEffectivePerms(new Set())}
+                  className="text-xs text-red-500 hover:text-red-700 underline shrink-0"
+                >清空</button>
+              )}
               {hasAnyOverride && (
                 <Badge className="text-xs bg-amber-100 text-amber-700 border border-amber-200 shrink-0">
                   已覆盖 {Object.keys(overrides).length} 项
