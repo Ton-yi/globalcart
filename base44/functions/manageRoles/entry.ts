@@ -144,6 +144,38 @@ Deno.serve(async (req) => {
       return Response.json({ templates: globalRoles });
     }
 
+    // ==================== SET GLOBAL DEFAULT ROLE ====================
+    if (action === 'setGlobalDefaultRole') {
+      if (!isPlatformAdmin) return Response.json({ error: 'Forbidden' }, { status: 403 });
+      const { role_id } = data;
+      // Store in SiteSettings with tenant_id=null as platform-level setting
+      const existing = await base44.asServiceRole.entities.SiteSettings.filter({ key: 'global_default_role_id', tenant_id: null });
+      if (existing?.[0]) {
+        await base44.asServiceRole.entities.SiteSettings.update(existing[0].id, { value: role_id || '' });
+      } else {
+        await base44.asServiceRole.entities.SiteSettings.create({ key: 'global_default_role_id', value: role_id || '', tenant_id: null, description: '新用户注册时全局默认分配的角色ID', category: 'general' });
+      }
+      return Response.json({ success: true });
+    }
+
+    // ==================== GET GLOBAL DEFAULT ROLE ====================
+    if (action === 'getGlobalDefaultRole') {
+      if (!isPlatformAdmin) return Response.json({ error: 'Forbidden' }, { status: 403 });
+      const settings = await base44.asServiceRole.entities.SiteSettings.filter({ key: 'global_default_role_id', tenant_id: null });
+      return Response.json({ role_id: settings?.[0]?.value || null });
+    }
+
+    // ==================== SET TENANT DEFAULT ROLE ====================
+    if (action === 'setTenantDefaultRole') {
+      if (!isPlatformAdmin) return Response.json({ error: 'Forbidden' }, { status: 403 });
+      const { tenant_id, role_id, role_name } = data;
+      await base44.asServiceRole.entities.Tenant.update(tenant_id, {
+        default_role_id: role_id || null,
+        default_role_name: role_name || null,
+      });
+      return Response.json({ success: true });
+    }
+
     // ==================== LIST ROLES ====================
     if (action === 'listRoles') {
       const { tenant_id_filter } = data;

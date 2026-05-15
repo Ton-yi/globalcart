@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Trash2, ChevronDown, ChevronUp, Shield, Lock, Pencil } from "lucide-react";
+import { Plus, Trash2, ChevronDown, ChevronUp, Shield, Lock, Pencil, Star } from "lucide-react";
 import { PERMISSIONS_PRESET } from "@/lib/permissionsPreset";
 import PermissionGrid from "@/components/admin/PermissionGrid.jsx";
 
@@ -74,8 +74,8 @@ export default function GlobalRoleManager() {
   const [permissions, setPermissions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [expandedRole, setExpandedRole] = useState(null);
-  // Local permission overrides for not-yet-seeded builtin roles (keyed by predefined_key)
   const [localPermOverrides, setLocalPermOverrides] = useState({});
+  const [globalDefaultRoleId, setGlobalDefaultRoleId] = useState(null);
 
   const [newRole, setNewRole] = useState({ name: "", description: "", permissions: [], is_predefined: false });
   const [newPerm, setNewPerm] = useState({ name: "", description: "", resource_type: "", action: "" });
@@ -88,10 +88,12 @@ export default function GlobalRoleManager() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [rolesRes, permsRes] = await Promise.all([
+      const [rolesRes, permsRes, defaultRes] = await Promise.all([
         base44.functions.invoke('manageRoles', { action: 'listRoles', data: { tenant_id_filter: null } }),
         base44.functions.invoke('managePermissions', { action: 'listPermissions', data: { tenant_id_filter: null } }),
+        base44.functions.invoke('manageRoles', { action: 'getGlobalDefaultRole', data: {} }),
       ]);
+      setGlobalDefaultRoleId(defaultRes.data?.role_id || null);
       const allRoles = rolesRes.data?.roles || [];
       const dbPredefined = allRoles.filter(r => !!r.is_global && !!r.is_predefined);
       
@@ -191,6 +193,18 @@ export default function GlobalRoleManager() {
     } catch (e) {
       setRoleMsg({ type: 'error', text: e.message });
     }
+    setSaving(false);
+  };
+
+  const handleSetGlobalDefault = async (roleId) => {
+    setSaving(true);
+    try {
+      const newId = globalDefaultRoleId === roleId ? null : roleId; // toggle off if same
+      await base44.functions.invoke('manageRoles', { action: 'setGlobalDefaultRole', data: { role_id: newId } });
+      setGlobalDefaultRoleId(newId);
+      setRoleMsg({ type: 'success', text: newId ? '已设为系统默认角色' : '已取消系统默认角色' });
+      setTimeout(() => setRoleMsg(""), 2000);
+    } catch (e) { setRoleMsg({ type: 'error', text: e.message }); }
     setSaving(false);
   };
 
@@ -301,6 +315,17 @@ export default function GlobalRoleManager() {
                     <span className="text-xs text-amber-600 bg-white border border-amber-200 px-2 py-0.5 rounded-full">
                       {permCount} 项权限
                     </span>
+                    {role._isInDB && (
+                      <button
+                        title={globalDefaultRoleId === role.id ? "取消系统默认角色" : "设为系统默认角色（新用户自动分配）"}
+                        onClick={() => handleSetGlobalDefault(role.id)}
+                        disabled={saving}
+                        className={`flex items-center gap-1 px-2 py-0.5 rounded text-xs border transition-colors ${globalDefaultRoleId === role.id ? 'bg-yellow-100 text-yellow-700 border-yellow-300' : 'bg-white text-gray-400 border-gray-200 hover:text-yellow-600 hover:border-yellow-300'}`}
+                      >
+                        <Star className={`w-3 h-3 ${globalDefaultRoleId === role.id ? 'fill-yellow-500 text-yellow-500' : ''}`} />
+                        {globalDefaultRoleId === role.id ? '默认角色' : '设为默认'}
+                      </button>
+                    )}
                     {!role._isInDB ? (
                       <>
                         <Button size="sm" variant="ghost" className="h-7 px-2 text-gray-500 hover:text-blue-600"

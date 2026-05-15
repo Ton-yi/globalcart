@@ -104,29 +104,60 @@ Deno.serve(async (req) => {
 });
 
 /**
- * 将租户的 builtin_user 内置角色赋给用户（仅限 role==='user' 的普通用户）
+ * 将租户的默认角色赋给用户（仅限 role==='user' 的普通用户）
+ * 优先级：租户 default_role_id > 平台全局 global_default_role_id > 租户 builtin_user 角色
  */
 async function assignBuiltinUserRole(base44, userId, tenantId) {
   try {
-    // 只对 role==='user' 的普通用户自动分配内置角色
     const users = await base44.asServiceRole.entities.User.filter({ id: userId });
     const targetUser = users?.[0];
     if (!targetUser || targetUser.role !== 'user') return;
 
-    const builtinRoles = await base44.asServiceRole.entities.Role.filter({
-      tenant_id: tenantId,
-      predefined_key: 'builtin_user',
-    });
-    const builtinRole = builtinRoles?.[0];
-    if (!builtinRole) return;
+    let roleToAssign = null;
+
+    // 1. 租户自定义默认角色
+    const tenants = await base44.asServiceRole.entities.Tenant.filter({ id: tenantId });
+    const tenant = tenants?.[0];
+    if (tenant?.default_role_id) {
+      const roles = await base44.asServiceRole.entities.Role.filter({ id: tenant.default_role_id });
+      if (roles?.[0]) roleToAssign = roles[0];
+    }
+
+    // 2. 平台全局默认角色
+    if (!roleToAssign) {
+      const globalSettings = await base44.asServiceRole.entities.SiteSettings.filter({ key: 'global_default_role_id', tenant_id: null });
+      const globalRoleId = globalSettings?.[0]?.value;
+      if (globalRoleId) {
+        // 查找租户内是否有对应 predefined_key 的角色（从全局角色复制过来的）
+        const globalRole = await base44.asServiceRole.entities.Role.filter({ id: globalRoleId });
+        if (globalRole?.[0]?.predefined_key) {
+          const tenantRoles = await base44.asServiceRole.entities.Role.filter({
+            tenant_id: tenantId,
+            predefined_key: globalRole[0].predefined_key,
+          });
+          if (tenantRoles?.[0]) roleToAssign = tenantRoles[0];
+        }
+      }
+    }
+
+    // 3. Fallback: builtin_user
+    if (!roleToAssign) {
+      const builtinRoles = await base44.asServiceRole.entities.Role.filter({
+        tenant_id: tenantId,
+        predefined_key: 'builtin_user',
+      });
+      if (builtinRoles?.[0]) roleToAssign = builtinRoles[0];
+    }
+
+    if (!roleToAssign) return;
 
     const existingIds = targetUser.assigned_role_ids || [];
-    if (existingIds.includes(builtinRole.id)) return;
+    if (existingIds.includes(roleToAssign.id)) return;
 
     await base44.asServiceRole.entities.User.update(userId, {
-      assigned_role_ids: [...existingIds, builtinRole.id],
+      assigned_role_ids: [...existingIds, roleToAssign.id],
     });
-    console.log(`assignBuiltinUserRole: assigned builtin_user role ${builtinRole.id} to user ${userId}`);
+    console.log(`assignBuiltinUserRole: assigned role ${roleToAssign.id} (${roleToAssign.name}) to user ${userId}`);
   } catch (e) {
     console.warn(`assignBuiltinUserRole failed for user ${userId}:`, e.message);
   }

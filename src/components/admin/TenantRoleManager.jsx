@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Plus, Trash2, Pencil, ChevronDown, ChevronUp, Shield, X, Check } from "lucide-react";
+import { Plus, Trash2, Pencil, ChevronDown, ChevronUp, Shield, X, Check, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -259,12 +259,13 @@ function RoleCard({ role, tenantId, onRefresh }) {
   );
 }
 
-export default function TenantRoleManager({ tenants = [] }) {
+export default function TenantRoleManager({ tenants = [], onTenantUpdated }) {
   const [expandedTenant, setExpandedTenant] = useState(null);
   const [roles, setRoles] = useState({});
   const [loading, setLoading] = useState({});
   const [adding, setAdding] = useState({});
   const [globalTemplates, setGlobalTemplates] = useState([]);
+  const [savingDefault, setSavingDefault] = useState({});
 
   useEffect(() => {
     base44.functions.invoke('manageRoles', { action: 'listGlobalTemplates', data: {} })
@@ -292,6 +293,20 @@ export default function TenantRoleManager({ tenants = [] }) {
       setExpandedTenant(tenantId);
       loadRoles(tenantId);
     }
+  };
+
+  const handleSetTenantDefault = async (tenantId, role) => {
+    setSavingDefault(s => ({ ...s, [tenantId]: true }));
+    const tenant = tenants.find(t => t.id === tenantId);
+    // Toggle off if same role
+    const newRoleId = tenant?.default_role_id === role?.id ? null : role?.id || null;
+    const newRoleName = newRoleId ? role?.name : null;
+    await base44.functions.invoke('manageRoles', {
+      action: 'setTenantDefaultRole',
+      data: { tenant_id: tenantId, role_id: newRoleId, role_name: newRoleName }
+    });
+    if (onTenantUpdated) onTenantUpdated();
+    setSavingDefault(s => ({ ...s, [tenantId]: false }));
   };
 
   return (
@@ -328,6 +343,46 @@ export default function TenantRoleManager({ tenants = [] }) {
                   <p className="text-xs text-gray-400 py-2">加载中...</p>
                 ) : (
                   <>
+                    {/* Default role selector */}
+                    {tenantRoles.length > 0 && (
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2 mb-1">
+                        <p className="text-xs font-semibold text-yellow-800 mb-1.5 flex items-center gap-1">
+                          <Star className="w-3 h-3 fill-yellow-500 text-yellow-500" />
+                          新用户默认角色
+                          {tenant.default_role_name && (
+                            <Badge className="ml-1 text-xs bg-yellow-100 text-yellow-700 border-yellow-300">{tenant.default_role_name}</Badge>
+                          )}
+                          {!tenant.default_role_id && (
+                            <span className="text-xs text-yellow-600 font-normal ml-1">（未设置，将使用全局默认）</span>
+                          )}
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {tenantRoles.map(role => (
+                            <button
+                              key={role.id}
+                              type="button"
+                              disabled={savingDefault[tenant.id]}
+                              onClick={() => handleSetTenantDefault(tenant.id, role)}
+                              className={`flex items-center gap-1 px-2 py-0.5 rounded text-xs border transition-colors ${tenant.default_role_id === role.id ? 'bg-yellow-200 text-yellow-800 border-yellow-400' : 'bg-white text-gray-500 border-gray-200 hover:border-yellow-300 hover:text-yellow-700'}`}
+                            >
+                              <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: role.color || '#9ca3af' }} />
+                              {role.name}
+                              {tenant.default_role_id === role.id && <Check className="w-3 h-3" />}
+                            </button>
+                          ))}
+                          {tenant.default_role_id && (
+                            <button
+                              type="button"
+                              onClick={() => handleSetTenantDefault(tenant.id, null)}
+                              disabled={savingDefault[tenant.id]}
+                              className="px-2 py-0.5 rounded text-xs border border-gray-200 text-gray-400 hover:text-red-500 hover:border-red-200 bg-white"
+                            >
+                              清除
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
                     {tenantRoles.length === 0 && !isAdding && (
                       <p className="text-xs text-gray-400 py-1">暂无自定义角色</p>
                     )}

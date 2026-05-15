@@ -530,7 +530,7 @@ export default function PlatformAdminSettings() {
             {tenants.length === 0 ? (
               <p className="text-xs text-gray-400">暂无租户，请先在「租户管理」中创建。</p>
             ) : (
-              <TenantRoleManager tenants={tenants} />
+              <TenantRoleManager tenants={tenants} onTenantUpdated={loadTenants} />
             )}
           </CardContent>
         </Card>
