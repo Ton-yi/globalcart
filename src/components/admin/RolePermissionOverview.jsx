@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronUp, Shield, Pencil, Trash2, X } from "lucide-react";
 import ImageUploader from "@/components/common/ImageUploader";
 import { PERMISSIONS_PRESET } from "@/lib/permissionsPreset";
+import PermissionGrid from "@/components/admin/PermissionGrid.jsx";
 
 // Build label map and categories from PERMISSIONS_PRESET
 const PERMISSION_LABELS = {};
@@ -240,10 +241,16 @@ function RoleEditModal({ role, onClose, onSaved }) {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState(null);
 
-  const handleTogglePermission = (perm) => {
-    setPermissions(prev =>
-      prev.includes(perm) ? prev.filter(p => p !== perm) : [...prev, perm]
-    );
+  const handleTogglePermission = (names, forceOn) => {
+    setPermissions(prev => {
+      let perms = [...prev];
+      names.forEach(name => {
+        const shouldAdd = forceOn !== undefined ? forceOn : !perms.includes(name);
+        if (shouldAdd) { if (!perms.includes(name)) perms.push(name); }
+        else { perms = perms.filter(x => x !== name); }
+      });
+      return perms;
+    });
   };
 
   const handleSave = async () => {
@@ -358,26 +365,18 @@ function RoleEditModal({ role, onClose, onSaved }) {
           </div>
 
           {/* 权限管理 */}
-          <div className="space-y-3 pb-4">
-            <h4 className="text-xs font-semibold text-gray-700">权限管理</h4>
-            {Object.entries(PERMISSION_CATEGORIES).map(([category, perms]) => (
-              <div key={category}>
-                <p className="text-xs font-medium text-gray-600 mb-2">{category}</p>
-                <div className="space-y-1 ml-2">
-                  {perms.map(perm => (
-                    <label key={perm} className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={permissions.includes(perm)}
-                        onChange={() => handleTogglePermission(perm)}
-                        className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                      />
-                      <span className="text-xs text-gray-700">{PERMISSION_LABELS[perm]}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            ))}
+          <div className="space-y-2 pb-4">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-semibold text-gray-700">权限管理</h4>
+              <span className="text-xs text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200">
+                已选 {permissions.length} 项
+              </span>
+            </div>
+            <PermissionGrid
+              selected={permissions}
+              onToggle={handleTogglePermission}
+              accentColor="blue"
+            />
           </div>
 
           {/* 消息 */}
