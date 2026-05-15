@@ -192,7 +192,15 @@ export default function UserPermissionManager({ user, allRoles: allRolesProp, on
         <div className="space-y-5">
           {/* Role selection */}
           <div>
-            <Label className="text-xs text-gray-500 font-semibold block mb-2">分配角色（可多选）</Label>
+            <div className="flex items-center justify-between mb-2">
+              <Label className="text-xs text-gray-500 font-semibold">分配角色（可多选）</Label>
+              {selectedRoleIds.length > 0 && (
+                <button
+                  onClick={() => { setSelectedRoleIds([]); setEffectivePerms(new Set()); }}
+                  className="text-xs text-red-500 hover:text-red-700 underline"
+                >清空</button>
+              )}
+            </div>
             {loadedRoles.length === 0 ? (
               <p className="text-xs text-gray-400">暂无可用角色</p>
             ) : (
