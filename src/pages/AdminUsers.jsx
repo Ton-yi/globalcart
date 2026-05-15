@@ -325,7 +325,7 @@ export default function AdminUsers() {
       <h1 className="text-xl font-bold text-gray-900">用户管理</h1>
 
       {/* Role Creation */}
-      {isTenantAdmin && currentUser?.tenant_id && (
+      {(isTenantAdmin || isPlatformAdmin) && currentUser?.tenant_id && (
         <RoleCreationPanel tenantId={currentUser.tenant_id} existingRoles={allRoles} onRoleCreated={loadData} isPlatformAdmin={isPlatformAdmin} />
       )}
 
