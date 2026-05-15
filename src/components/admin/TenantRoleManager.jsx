@@ -73,8 +73,8 @@ function RoleEditForm({ role, tenantId, globalTemplates = [], onDone, onCancel }
 
   const applyTemplate = (tpl) => {
     if (!tpl) return;
-    if (!name) setName(tpl.name);
-    if (!description) setDescription(tpl.description || '');
+    setName(tpl.name || '');
+    setDescription(tpl.description || '');
     if (tpl.color) setColor(tpl.color);
     setPermissions(tpl.direct_permissions || []);
   };
