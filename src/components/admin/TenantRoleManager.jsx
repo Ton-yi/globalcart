@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Plus, Trash2, Pencil, ChevronDown, ChevronUp, Shield, X, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -59,7 +59,7 @@ function PermissionSelector({ selected = [], onChange }) {
   );
 }
 
-function RoleEditForm({ role, tenantId, onDone, onCancel }) {
+function RoleEditForm({ role, tenantId, globalTemplates = [], onDone, onCancel }) {
   const [name, setName] = useState(role?.name || '');
   const [description, setDescription] = useState(role?.description || '');
   const [color, setColor] = useState(role?.color || '#9ca3af');
@@ -70,6 +70,14 @@ function RoleEditForm({ role, tenantId, onDone, onCancel }) {
   const [err, setErr] = useState(null);
 
   const isEdit = !!role?.id;
+
+  const applyTemplate = (tpl) => {
+    if (!tpl) return;
+    if (!name) setName(tpl.name);
+    if (!description) setDescription(tpl.description || '');
+    if (tpl.color) setColor(tpl.color);
+    setPermissions(tpl.direct_permissions || []);
+  };
 
   const handleSubmit = async () => {
     if (!name.trim()) { setErr('角色名称不能为空'); return; }
@@ -101,6 +109,28 @@ function RoleEditForm({ role, tenantId, onDone, onCancel }) {
         <p className="text-xs font-semibold text-gray-700">{isEdit ? '编辑角色' : '新增角色'}</p>
         <button onClick={onCancel} className="text-gray-400 hover:text-gray-600"><X className="w-3.5 h-3.5" /></button>
       </div>
+
+      {/* Global template selector (only when creating) */}
+      {!isEdit && globalTemplates.length > 0 && (
+        <div>
+          <Label className="text-xs text-gray-500 mb-1 block">套用内置角色模板</Label>
+          <div className="flex flex-wrap gap-1.5">
+            {globalTemplates.map(tpl => (
+              <button
+                key={tpl.id}
+                type="button"
+                onClick={() => applyTemplate(tpl)}
+                className="flex items-center gap-1 px-2 py-0.5 rounded border text-xs border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors"
+              >
+                <Shield className="w-3 h-3" />
+                {tpl.name}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-gray-400 mt-1">点击模板将自动填充权限（名称/描述为空时同步填充）</p>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-2">
         <div>
           <Label className="text-xs text-gray-500">角色名称 *</Label>
@@ -234,6 +264,13 @@ export default function TenantRoleManager({ tenants = [] }) {
   const [roles, setRoles] = useState({});
   const [loading, setLoading] = useState({});
   const [adding, setAdding] = useState({});
+  const [globalTemplates, setGlobalTemplates] = useState([]);
+
+  useEffect(() => {
+    base44.functions.invoke('manageRoles', { action: 'listGlobalTemplates', data: {} })
+      .then(r => setGlobalTemplates(r.data?.roles || []))
+      .catch(() => {});
+  }, []);
 
   const loadRoles = async (tenantId) => {
     setLoading(l => ({ ...l, [tenantId]: true }));
@@ -301,6 +338,7 @@ export default function TenantRoleManager({ tenants = [] }) {
                     {isAdding ? (
                       <RoleEditForm
                         tenantId={tenant.id}
+                        globalTemplates={globalTemplates}
                         onDone={() => { setAdding(a => ({ ...a, [tenant.id]: false })); loadRoles(tenant.id); }}
                         onCancel={() => setAdding(a => ({ ...a, [tenant.id]: false }))}
                       />
