@@ -11,6 +11,50 @@ import PermissionGrid from "@/components/admin/PermissionGrid.jsx";
 import ImageUploader from "@/components/common/ImageUploader";
 import { PERMISSIONS_PRESET } from "@/lib/permissionsPreset";
 
+// 内置角色模板（与 GlobalRoleManager 保持一致）
+const ALL_PERM_IDS = [];
+PERMISSIONS_PRESET.forEach(cat => {
+  cat.permissions.forEach(p => {
+    ALL_PERM_IDS.push(p.name);
+    (p.children || []).forEach(child => ALL_PERM_IDS.push(child.name));
+  });
+});
+
+const BUILTIN_ROLE_TEMPLATES = [
+  {
+    id: '__builtin_user__',
+    name: '普通用户',
+    direct_permissions: [
+      "order:submit_purchase_request",
+      "shipping:notify_shipment",
+      "shipping:direct_shipment",
+      "message:send_message",
+      "message:send_order_message",
+      "message:send_shipping_message",
+      "message:send_image",
+      "payment:self_pay",
+      "payment:manual_pay",
+      "payment:pre_pay",
+      "payment:pay_full_amount",
+      "order:archive_order",
+      "profile:change_display_name",
+      "profile:change_avatar",
+      "profile:change_auto_archive_settings",
+      "view:my_orders_module",
+      "addon:select_value_added_services",
+      "addon:select_order_value_added_services",
+      "addon:select_shipping_value_added_services",
+    ],
+    is_builtin: true,
+  },
+  {
+    id: '__builtin_tenant_admin__',
+    name: '租户管理员（全权限）',
+    direct_permissions: ALL_PERM_IDS,
+    is_builtin: true,
+  },
+];
+
 // Build permissionsByCategory directly from PERMISSIONS_PRESET
 function buildPermissionsByCategory(preset) {
   const result = {};
@@ -59,7 +103,7 @@ export default function RoleCreationPanel({ tenantId, onRoleCreated, existingRol
       setSelectedPermissions([]);
       return;
     }
-    const tpl = globalTemplates.find(t => t.id === templateId);
+    const tpl = BUILTIN_ROLE_TEMPLATES.find(t => t.id === templateId) || globalTemplates.find(t => t.id === templateId);
     if (tpl) {
       setSelectedPermissions([...(tpl.direct_permissions || [])]);
       if (!roleName) setRoleName(tpl.name + " (副本)");
@@ -204,41 +248,54 @@ export default function RoleCreationPanel({ tenantId, onRoleCreated, existingRol
           {/* 角色图片 */}
           <ImageUploader value={roleImage} onChange={setRoleImage} label="角色图片（可选）" />
 
-          {/* 从全局模板套用 */}
+          {/* 从模板套用 */}
           <div>
-            <Label className="text-xs text-gray-500 block mb-1.5">从全局模板套用（可选）</Label>
-            {loadingTemplates ? (
-              <p className="text-xs text-gray-400">加载模板中...</p>
-            ) : globalTemplates.length === 0 ? (
-              <p className="text-xs text-gray-400">暂无全局模板</p>
-            ) : (
-              <div className="flex gap-2 flex-wrap">
+            <Label className="text-xs text-gray-500 block mb-1.5">从模板套用（可选）</Label>
+            <div className="flex gap-2 flex-wrap">
+              <button
+                onClick={() => handleApplyTemplate("")}
+                className={`text-xs px-3 py-1.5 rounded border transition-colors ${
+                  !selectedTemplateId
+                    ? "bg-gray-100 border-gray-300 text-gray-700 font-medium"
+                    : "bg-white border-gray-200 text-gray-500 hover:border-gray-300"
+                }`}
+              >
+                空白自定义
+              </button>
+              {/* 内置模板 */}
+              {BUILTIN_ROLE_TEMPLATES.map(tpl => (
                 <button
-                  onClick={() => handleApplyTemplate("")}
-                  className={`text-xs px-3 py-1.5 rounded border transition-colors ${
-                    !selectedTemplateId
-                      ? "bg-gray-100 border-gray-300 text-gray-700 font-medium"
-                      : "bg-white border-gray-200 text-gray-500 hover:border-gray-300"
+                  key={tpl.id}
+                  onClick={() => handleApplyTemplate(tpl.id)}
+                  className={`text-xs px-3 py-1.5 rounded border transition-colors flex items-center gap-1 ${
+                    selectedTemplateId === tpl.id
+                      ? "bg-gray-700 border-gray-700 text-white font-medium"
+                      : "bg-gray-50 border-gray-300 text-gray-600 hover:border-gray-400"
                   }`}
                 >
-                  空白自定义
+                  <Copy className="w-3 h-3" />
+                  {tpl.name}
+                  <span className="ml-0.5 text-2xs opacity-60">内置</span>
                 </button>
-                {globalTemplates.map(tpl => (
-                  <button
-                    key={tpl.id}
-                    onClick={() => handleApplyTemplate(tpl.id)}
-                    className={`text-xs px-3 py-1.5 rounded border transition-colors flex items-center gap-1 ${
-                      selectedTemplateId === tpl.id
-                        ? "bg-indigo-100 border-indigo-300 text-indigo-700 font-medium"
-                        : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
-                    }`}
-                  >
-                    <Copy className="w-3 h-3" />
-                    {tpl.name}
-                  </button>
-                ))}
-              </div>
-            )}
+              ))}
+              {/* 全局自定义模板 */}
+              {loadingTemplates ? (
+                <span className="text-xs text-gray-400 self-center">加载中...</span>
+              ) : globalTemplates.map(tpl => (
+                <button
+                  key={tpl.id}
+                  onClick={() => handleApplyTemplate(tpl.id)}
+                  className={`text-xs px-3 py-1.5 rounded border transition-colors flex items-center gap-1 ${
+                    selectedTemplateId === tpl.id
+                      ? "bg-indigo-100 border-indigo-300 text-indigo-700 font-medium"
+                      : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
+                  }`}
+                >
+                  <Copy className="w-3 h-3" />
+                  {tpl.name}
+                </button>
+              ))}
+            </div>
             {selectedTemplateId && (
               <p className="text-xs text-indigo-600 mt-1">已套用模板权限，可在下方继续自定义调整</p>
             )}
