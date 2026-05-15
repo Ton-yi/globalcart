@@ -45,7 +45,8 @@ export default function PlatformAdminSettings() {
   const PLATFORM_TABS = [
     { key: "platform", label: "平台设置" },
     { key: "tenants", label: "租户管理" },
-    { key: "roles", label: "角色管理" },
+    { key: "roles", label: "全局角色" },
+    { key: "tenant_roles", label: "租户角色" },
     { key: "exchange_rates", label: "汇率设置" },
     { key: "permissions", label: "权限一览" },
   ];
@@ -199,7 +200,7 @@ export default function PlatformAdminSettings() {
         </Card>
       )}
 
-      {activeTab !== "permissions" && (
+      {(activeTab === "platform" || activeTab === "tenants") && (
       <>
 
       {/* Tenant Assignment Diagnostics */}
@@ -496,36 +497,47 @@ export default function PlatformAdminSettings() {
         </CardContent>
       </Card>
 
+      </>
+      )}
+
       {/* Global Roles Management */}
-      <Card className="border-purple-200">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-            <Users className="w-4 h-4 text-purple-500" />全局角色管理
-          </CardTitle>
-          <p className="text-xs text-gray-400 mt-1">创建可供所有租户使用的全局角色模板和权限系统。</p>
-        </CardHeader>
-        <CardContent>
-          <GlobalRoleManager />
-        </CardContent>
-      </Card>
+      {activeTab === "roles" && (
+        <Card className="border-purple-200">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+              <Users className="w-4 h-4 text-purple-500" />全局角色管理
+            </CardTitle>
+            <p className="text-xs text-gray-400 mt-1">创建可供所有租户使用的全局角色模板和权限系统。</p>
+          </CardHeader>
+          <CardContent>
+            <GlobalRoleManager />
+          </CardContent>
+        </Card>
+      )}
 
       {/* Tenant Role Management */}
-      {tenants.length > 0 && (
+      {activeTab === "tenant_roles" && (
         <Card className="border-indigo-200">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
               <Users className="w-4 h-4 text-indigo-500" />租户角色管理
             </CardTitle>
-            <p className="text-xs text-gray-400 mt-1">为每个租户配置自定义角色，管理用户权限层级。</p>
+            <p className="text-xs text-gray-400 mt-1">
+              查看并管理每个租户的自有角色，可新增、编辑权限、删除角色，也可标记为内置预定义角色。
+            </p>
           </CardHeader>
           <CardContent>
-            <TenantRoleManager tenants={tenants} />
+            {tenants.length === 0 ? (
+              <p className="text-xs text-gray-400">暂无租户，请先在「租户管理」中创建。</p>
+            ) : (
+              <TenantRoleManager tenants={tenants} />
+            )}
           </CardContent>
         </Card>
       )}
 
       {/* Exchange Rates (Platform-level) */}
-      {liveRates && (
+      {activeTab === "exchange_rates" && liveRates && (
         <Card className="border-green-200">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
@@ -547,12 +559,7 @@ export default function PlatformAdminSettings() {
                   <span className="text-gray-400 ml-1">({(liveRates.jpy_usd || 0).toFixed(6)})</span>
                 </Label>
                 <div className="flex items-center gap-1">
-                  <Input
-                    type="number"
-                    step="0.00001"
-                    className="h-8 text-sm flex-1"
-                    placeholder="0"
-                  />
+                  <Input type="number" step="0.00001" className="h-8 text-sm flex-1" placeholder="0" />
                   <span className="text-xs text-gray-400 px-2">Δ</span>
                 </div>
               </div>
@@ -562,31 +569,17 @@ export default function PlatformAdminSettings() {
                   <span className="text-gray-400 ml-1">({(liveRates.jpy_cny || 0).toFixed(6)})</span>
                 </Label>
                 <div className="flex items-center gap-1">
-                  <Input
-                    type="number"
-                    step="0.00001"
-                    className="h-8 text-sm flex-1"
-                    placeholder="0"
-                  />
+                  <Input type="number" step="0.00001" className="h-8 text-sm flex-1" placeholder="0" />
                   <span className="text-xs text-gray-400 px-2">Δ</span>
                 </div>
               </div>
             </div>
-            <Button
-              size="sm"
-              className="bg-green-600 hover:bg-green-700"
-              disabled={savingRates}
-              onClick={() => {
-                setSavingRates(true);
-                setTimeout(() => setSavingRates(false), 1000);
-              }}
-            >
+            <Button size="sm" className="bg-green-600 hover:bg-green-700" disabled={savingRates}
+              onClick={() => { setSavingRates(true); setTimeout(() => setSavingRates(false), 1000); }}>
               <Save className="w-3.5 h-3.5 mr-1" />{savingRates ? "保存中..." : "保存汇率设置"}
             </Button>
           </CardContent>
         </Card>
-      )}
-      </>
       )}
     </div>
   );

@@ -1,88 +1,251 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { base44 } from "@/api/base44Client";
-import { Plus, Trash2, Save, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Trash2, Pencil, ChevronDown, ChevronUp, Shield, X, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PERMISSIONS_PRESET } from "@/lib/permissionsPreset";
+
+// Flatten all permissions for lookup
+const ALL_PERMISSIONS = [];
+PERMISSIONS_PRESET.forEach(cat => {
+  cat.permissions.forEach(p => {
+    ALL_PERMISSIONS.push({ ...p, category: cat.category, categoryColor: cat.color });
+    if (p.children) p.children.forEach(c => ALL_PERMISSIONS.push({ ...c, category: cat.category, categoryColor: cat.color }));
+  });
+});
+
+const PERM_MAP = Object.fromEntries(ALL_PERMISSIONS.map(p => [p.name, p]));
+
+function PermissionSelector({ selected = [], onChange }) {
+  const toggle = (name) => {
+    if (selected.includes(name)) onChange(selected.filter(p => p !== name));
+    else onChange([...selected, name]);
+  };
+
+  return (
+    <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
+      {PERMISSIONS_PRESET.map(cat => (
+        <div key={cat.category}>
+          <p className="text-xs font-semibold text-gray-500 mb-1.5 sticky top-0 bg-white">{cat.category}</p>
+          <div className="flex flex-wrap gap-1.5">
+            {cat.permissions.map(p => (
+              <button
+                key={p.name}
+                type="button"
+                onClick={() => toggle(p.name)}
+                title={p.description}
+                className={`px-2 py-0.5 rounded text-xs border transition-colors ${selected.includes(p.name) ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'}`}
+              >
+                {p.display_name}
+              </button>
+            ))}
+            {cat.permissions.flatMap(p => p.children || []).map(c => (
+              <button
+                key={c.name}
+                type="button"
+                onClick={() => toggle(c.name)}
+                title={c.description}
+                className={`px-2 py-0.5 rounded text-xs border transition-colors ${selected.includes(c.name) ? 'bg-blue-500 text-white border-blue-500' : 'bg-gray-50 text-gray-500 border-gray-100 hover:border-blue-200'}`}
+              >
+                ↳ {c.display_name}
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function RoleEditForm({ role, tenantId, onDone, onCancel }) {
+  const [name, setName] = useState(role?.name || '');
+  const [description, setDescription] = useState(role?.description || '');
+  const [color, setColor] = useState(role?.color || '#9ca3af');
+  const [isPredefined, setIsPredefined] = useState(role?.is_predefined || false);
+  const [predefinedKey, setPredefinedKey] = useState(role?.predefined_key || '');
+  const [permissions, setPermissions] = useState(role?.direct_permissions || []);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState(null);
+
+  const isEdit = !!role?.id;
+
+  const handleSubmit = async () => {
+    if (!name.trim()) { setErr('角色名称不能为空'); return; }
+    setSaving(true);
+    setErr(null);
+    if (isEdit) {
+      const r = await base44.functions.invoke('manageRoles', {
+        action: 'update',
+        data: {
+          role_id: role.id,
+          updates: { name, description, color, is_predefined: isPredefined, predefined_key: predefinedKey || null, direct_permissions: permissions }
+        }
+      });
+      if (r.data?.error) { setErr(r.data.error); setSaving(false); return; }
+    } else {
+      const r = await base44.functions.invoke('manageRoles', {
+        action: 'create',
+        data: { target_tenant_id: tenantId, name, description, color, is_predefined: isPredefined, predefined_key: predefinedKey || null, direct_permissions: permissions, is_global: false }
+      });
+      if (r.data?.error) { setErr(r.data.error); setSaving(false); return; }
+    }
+    setSaving(false);
+    onDone();
+  };
+
+  return (
+    <div className="space-y-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-semibold text-gray-700">{isEdit ? '编辑角色' : '新增角色'}</p>
+        <button onClick={onCancel} className="text-gray-400 hover:text-gray-600"><X className="w-3.5 h-3.5" /></button>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <Label className="text-xs text-gray-500">角色名称 *</Label>
+          <Input className="mt-0.5 h-7 text-xs" value={name} onChange={e => setName(e.target.value)} placeholder="如：客服" />
+        </div>
+        <div>
+          <Label className="text-xs text-gray-500">颜色</Label>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <input type="color" value={color} onChange={e => setColor(e.target.value)} className="h-7 w-8 rounded border border-gray-200 cursor-pointer" />
+            <Input className="h-7 text-xs font-mono flex-1" value={color} onChange={e => setColor(e.target.value)} />
+          </div>
+        </div>
+        <div className="col-span-2">
+          <Label className="text-xs text-gray-500">描述</Label>
+          <Input className="mt-0.5 h-7 text-xs" value={description} onChange={e => setDescription(e.target.value)} placeholder="简述此角色的用途" />
+        </div>
+      </div>
+
+      {/* Predefined toggle */}
+      <div className="flex items-center gap-3 pt-1">
+        <button
+          type="button"
+          onClick={() => setIsPredefined(v => !v)}
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs border transition-colors ${isPredefined ? 'bg-amber-100 text-amber-700 border-amber-300' : 'bg-white text-gray-500 border-gray-200'}`}
+        >
+          <Shield className="w-3 h-3" />
+          内置预定义角色
+          {isPredefined && <Check className="w-3 h-3" />}
+        </button>
+        {isPredefined && (
+          <Input
+            className="h-7 text-xs font-mono flex-1"
+            placeholder="标识键（如 builtin_user）"
+            value={predefinedKey}
+            onChange={e => setPredefinedKey(e.target.value)}
+          />
+        )}
+      </div>
+
+      {/* Permissions */}
+      <div>
+        <Label className="text-xs text-gray-500 mb-1 block">权限（已选 {permissions.length} 项）</Label>
+        <PermissionSelector selected={permissions} onChange={setPermissions} />
+      </div>
+
+      {err && <p className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded">{err}</p>}
+
+      <div className="flex gap-2">
+        <Button size="sm" className="h-7 text-xs bg-blue-600 hover:bg-blue-700 flex-1" onClick={handleSubmit} disabled={saving}>
+          {saving ? '保存中...' : (isEdit ? '保存更改' : '创建角色')}
+        </Button>
+        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={onCancel}>取消</Button>
+      </div>
+    </div>
+  );
+}
+
+function RoleCard({ role, tenantId, onRefresh }) {
+  const [expanded, setExpanded] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [err, setErr] = useState(null);
+
+  const handleDelete = async () => {
+    if (!window.confirm(`确定删除角色「${role.name}」？`)) return;
+    setDeleting(true);
+    setErr(null);
+    const r = await base44.functions.invoke('manageRoles', { action: 'delete', data: { role_id: role.id } });
+    if (r.data?.error) { setErr(r.data.error); setDeleting(false); return; }
+    onRefresh();
+  };
+
+  const permCount = (role.direct_permissions || []).length;
+
+  if (editing) {
+    return <RoleEditForm role={role} tenantId={tenantId} onDone={() => { setEditing(false); onRefresh(); }} onCancel={() => setEditing(false)} />;
+  }
+
+  return (
+    <div className="border border-gray-100 rounded-lg bg-white overflow-hidden">
+      <div className="flex items-center gap-2 px-3 py-2">
+        <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: role.color || '#9ca3af' }} />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-sm font-medium text-gray-800">{role.name}</span>
+            {role.is_predefined && (
+              <Badge className="text-xs bg-amber-100 text-amber-700 border-amber-200 gap-0.5">
+                <Shield className="w-2.5 h-2.5" />内置
+              </Badge>
+            )}
+            <Badge className="text-xs bg-gray-100 text-gray-500">{permCount} 权限</Badge>
+          </div>
+          {role.description && <p className="text-xs text-gray-400 mt-0.5 truncate">{role.description}</p>}
+        </div>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <button onClick={() => setExpanded(v => !v)} className="p-1 text-gray-400 hover:text-gray-600">
+            {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+          </button>
+          <button onClick={() => setEditing(true)} className="p-1 text-gray-400 hover:text-blue-600">
+            <Pencil className="w-3.5 h-3.5" />
+          </button>
+          <button onClick={handleDelete} disabled={deleting} className="p-1 text-gray-400 hover:text-red-500 disabled:opacity-40">
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+
+      {err && <p className="text-xs text-red-600 bg-red-50 px-3 py-1">{err}</p>}
+
+      {expanded && permCount > 0 && (
+        <div className="border-t border-gray-100 px-3 py-2 bg-gray-50">
+          <p className="text-xs text-gray-500 mb-1.5">拥有的权限</p>
+          <div className="flex flex-wrap gap-1">
+            {(role.direct_permissions || []).map(pId => {
+              const p = PERM_MAP[pId];
+              return (
+                <span key={pId} className={`text-xs px-1.5 py-0.5 rounded border ${p?.categoryColor || 'bg-gray-100 text-gray-600'}`}>
+                  {p?.display_name || pId}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function TenantRoleManager({ tenants = [] }) {
   const [expandedTenant, setExpandedTenant] = useState(null);
   const [roles, setRoles] = useState({});
   const [loading, setLoading] = useState({});
-  const [saving, setSaving] = useState({});
-  const [msg, setMsg] = useState({});
-  const [newRole, setNewRole] = useState({});
-
-  useEffect(() => {
-    // Initialize empty role states for all tenants
-    const init = {};
-    tenants.forEach(t => {
-      init[t.id] = [];
-    });
-    setRoles(init);
-  }, [tenants]);
+  const [adding, setAdding] = useState({});
 
   const loadRoles = async (tenantId) => {
     setLoading(l => ({ ...l, [tenantId]: true }));
-    try {
-      const r = await base44.functions.invoke('manageRoles', { 
-        action: 'list',
-        tenant_id: tenantId
-      });
-      setRoles(prev => ({ ...prev, [tenantId]: r.data?.roles || [] }));
-    } catch (err) {
-      setMsg(m => ({ ...m, [tenantId]: { type: 'error', text: err.message } }));
-    }
+    const r = await base44.functions.invoke('manageRoles', {
+      action: 'listRoles',
+      data: { tenant_id_filter: tenantId }
+    });
+    setRoles(prev => ({
+      ...prev,
+      [tenantId]: (r.data?.roles || []).filter(r => !r.is_global && r.tenant_id === tenantId)
+    }));
     setLoading(l => ({ ...l, [tenantId]: false }));
-  };
-
-  const handleAddRole = async (tenantId) => {
-    const nr = newRole[tenantId];
-    if (!nr?.name || !nr?.description) {
-      setMsg(m => ({ ...m, [tenantId]: { type: 'error', text: '角色名称和描述不能为空' } }));
-      return;
-    }
-
-    setSaving(s => ({ ...s, [tenantId]: true }));
-    setMsg(m => ({ ...m, [tenantId]: null }));
-
-    try {
-      await base44.functions.invoke('manageRoles', {
-        action: 'create',
-        tenant_id: tenantId,
-        name: nr.name,
-        description: nr.description
-      });
-      setNewRole(p => ({ ...p, [tenantId]: { name: '', description: '' } }));
-      await loadRoles(tenantId);
-      setMsg(m => ({ ...m, [tenantId]: { type: 'success', text: '角色已创建' } }));
-      setTimeout(() => setMsg(m => ({ ...m, [tenantId]: null })), 2000);
-    } catch (err) {
-      setMsg(m => ({ ...m, [tenantId]: { type: 'error', text: err.message } }));
-    }
-    setSaving(s => ({ ...s, [tenantId]: false }));
-  };
-
-  const handleDeleteRole = async (tenantId, roleId) => {
-    setSaving(s => ({ ...s, [tenantId]: true }));
-    setMsg(m => ({ ...m, [tenantId]: null }));
-
-    try {
-      await base44.functions.invoke('manageRoles', {
-        action: 'delete',
-        tenant_id: tenantId,
-        role_id: roleId
-      });
-      await loadRoles(tenantId);
-      setMsg(m => ({ ...m, [tenantId]: { type: 'success', text: '角色已删除' } }));
-      setTimeout(() => setMsg(m => ({ ...m, [tenantId]: null })), 2000);
-    } catch (err) {
-      setMsg(m => ({ ...m, [tenantId]: { type: 'error', text: err.message } }));
-    }
-    setSaving(s => ({ ...s, [tenantId]: false }));
   };
 
   const toggleExpand = (tenantId) => {
@@ -90,110 +253,74 @@ export default function TenantRoleManager({ tenants = [] }) {
       setExpandedTenant(null);
     } else {
       setExpandedTenant(tenantId);
-      if (!roles[tenantId] || roles[tenantId].length === 0) {
-        loadRoles(tenantId);
-      }
+      loadRoles(tenantId);
     }
   };
 
   return (
-    <div className="space-y-3">
-      {tenants.map(tenant => (
-        <Card key={tenant.id} className="border-gray-200">
-          <button
-            className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50"
-            onClick={() => toggleExpand(tenant.id)}
-          >
-            <div className="flex items-center gap-3 flex-1 min-w-0">
-              {tenant.logo_url ? (
-                <img src={tenant.logo_url} alt={tenant.branding_name} className="h-6 w-auto object-contain flex-shrink-0" />
-              ) : (
-                <div className="w-6 h-6 rounded flex items-center justify-center flex-shrink-0"
+    <div className="space-y-2">
+      {tenants.map(tenant => {
+        const tenantRoles = roles[tenant.id] || [];
+        const isExpanded = expandedTenant === tenant.id;
+        const isLoading = loading[tenant.id];
+        const isAdding = adding[tenant.id];
+
+        return (
+          <div key={tenant.id} className="rounded-lg border border-gray-200 overflow-hidden">
+            <button
+              className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              onClick={() => toggleExpand(tenant.id)}
+            >
+              <div className="flex items-center gap-2">
+                <div className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0"
                   style={{ backgroundColor: tenant.theme_color || '#dc2626' }}>
                   <span className="text-white text-xs font-bold">{(tenant.branding_name || tenant.name || '?').slice(0, 1)}</span>
                 </div>
-              )}
-              <div className="flex-1 min-w-0">
                 <span>{tenant.branding_name || tenant.name}</span>
-                <Badge className="ml-2 text-xs bg-gray-100 text-gray-600">{roles[tenant.id]?.length || 0} 个角色</Badge>
+                <Badge className="text-xs bg-gray-100 text-gray-500">{tenant.code}</Badge>
+                {isExpanded && !isLoading && (
+                  <Badge className="text-xs bg-indigo-100 text-indigo-600">{tenantRoles.length} 个角色</Badge>
+                )}
               </div>
-            </div>
-            {expandedTenant === tenant.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-          </button>
+              {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
 
-          {expandedTenant === tenant.id && (
-            <CardContent className="border-t border-gray-100 pt-4 space-y-4">
-              {loading[tenant.id] ? (
-                <p className="text-xs text-gray-400">加载中...</p>
-              ) : (
-                <>
-                  {/* Existing roles */}
-                  {(roles[tenant.id] || []).length > 0 && (
-                    <div className="space-y-2">
-                      <p className="text-xs font-medium text-gray-600">已有角色</p>
-                      {roles[tenant.id].map(role => (
-                        <div key={role.id} className="flex items-center justify-between p-2 bg-gray-50 rounded border border-gray-100">
-                          <div className="flex-1">
-                            <p className="text-sm font-medium text-gray-800">{role.name}</p>
-                            <p className="text-xs text-gray-400">{role.description}</p>
-                          </div>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-6 text-xs text-red-400 flex-shrink-0"
-                            onClick={() => handleDeleteRole(tenant.id, role.id)}
-                            disabled={saving[tenant.id]}
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+            {isExpanded && (
+              <div className="border-t border-gray-100 p-3 space-y-2 bg-white">
+                {isLoading ? (
+                  <p className="text-xs text-gray-400 py-2">加载中...</p>
+                ) : (
+                  <>
+                    {tenantRoles.length === 0 && !isAdding && (
+                      <p className="text-xs text-gray-400 py-1">暂无自定义角色</p>
+                    )}
+                    {tenantRoles.map(role => (
+                      <RoleCard key={role.id} role={role} tenantId={tenant.id} onRefresh={() => loadRoles(tenant.id)} />
+                    ))}
 
-                  {/* Add new role */}
-                  <div className="space-y-2 pt-2 border-t border-gray-100">
-                    <p className="text-xs font-medium text-gray-600">添加新角色</p>
-                    <div className="space-y-2">
-                      <div>
-                        <Label className="text-xs text-gray-500">角色名称</Label>
-                        <Input
-                          className="mt-0.5 h-8 text-sm"
-                          placeholder="如：审计员、财务管理"
-                          value={newRole[tenant.id]?.name || ''}
-                          onChange={e => setNewRole(p => ({ ...p, [tenant.id]: { ...p[tenant.id], name: e.target.value } }))}
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs text-gray-500">描述</Label>
-                        <Input
-                          className="mt-0.5 h-8 text-sm"
-                          placeholder="此角色的权限描述"
-                          value={newRole[tenant.id]?.description || ''}
-                          onChange={e => setNewRole(p => ({ ...p, [tenant.id]: { ...p[tenant.id], description: e.target.value } }))}
-                        />
-                      </div>
-                      {msg[tenant.id] && (
-                        <p className={`text-xs px-2 py-1 rounded ${msg[tenant.id].type === 'success' ? 'text-green-700 bg-green-50' : 'text-red-700 bg-red-50'}`}>
-                          {msg[tenant.id].text}
-                        </p>
-                      )}
+                    {isAdding ? (
+                      <RoleEditForm
+                        tenantId={tenant.id}
+                        onDone={() => { setAdding(a => ({ ...a, [tenant.id]: false })); loadRoles(tenant.id); }}
+                        onCancel={() => setAdding(a => ({ ...a, [tenant.id]: false }))}
+                      />
+                    ) : (
                       <Button
                         size="sm"
-                        className="h-7 text-xs bg-blue-600 hover:bg-blue-700"
-                        onClick={() => handleAddRole(tenant.id)}
-                        disabled={saving[tenant.id] || !newRole[tenant.id]?.name}
+                        variant="outline"
+                        className="h-7 text-xs w-full border-dashed"
+                        onClick={() => setAdding(a => ({ ...a, [tenant.id]: true }))}
                       >
-                        <Plus className="w-3 h-3 mr-1" />{saving[tenant.id] ? '创建中...' : '创建角色'}
+                        <Plus className="w-3 h-3 mr-1" />新增角色
                       </Button>
-                    </div>
-                  </div>
-                </>
-              )}
-            </CardContent>
-          )}
-        </Card>
-      ))}
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

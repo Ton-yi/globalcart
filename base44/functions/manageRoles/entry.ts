@@ -17,15 +17,24 @@ Deno.serve(async (req) => {
 
     // ==================== CREATE ROLE ====================
     if (action === 'create') {
-      const { name, description, parent_role_id, direct_permissions, is_global } = data;
+      const { name, description, parent_role_id, direct_permissions, is_global, color, image_url, is_predefined, predefined_key, target_tenant_id } = data;
 
       // 权限检查
       if (is_global && !isPlatformAdmin) {
         return Response.json({ error: 'Only platform admin can create global roles' }, { status: 403 });
       }
 
-      const tenant_id = is_global ? null : userTenant;
-      if (!is_global && !userTenant) {
+      // 平台管理员可以为指定租户创建角色（包括内置角色）
+      let tenant_id;
+      if (is_global) {
+        tenant_id = null;
+      } else if (isPlatformAdmin && target_tenant_id) {
+        tenant_id = target_tenant_id;
+      } else {
+        tenant_id = userTenant;
+      }
+
+      if (!is_global && !tenant_id) {
         return Response.json({ error: 'Tenant context required' }, { status: 400 });
       }
 
@@ -46,7 +55,11 @@ Deno.serve(async (req) => {
         tenant_id,
         name,
         description,
-        is_global,
+        color: color || '#9ca3af',
+        image_url: image_url || null,
+        is_global: is_global || false,
+        is_predefined: is_predefined || false,
+        predefined_key: predefined_key || null,
         parent_role_id: parent_role_id || null,
         direct_permissions: direct_permissions || [],
         overridden_permissions: []
@@ -65,13 +78,19 @@ Deno.serve(async (req) => {
         return Response.json({ error: 'Role not found' }, { status: 404 });
       }
 
-      // 权限检查：只有平台管理员可以修改全局角色，租户管理员可以修改自己租户的角色
+      // 权限检查：只有平台管理员可以修改全局角色或其他租户的角色
       if (role.is_global && !isPlatformAdmin) {
         return Response.json({ error: 'Only platform admin can modify global roles' }, { status: 403 });
       }
 
+      // 平台管理员可修改任何租户的角色；租户管理员只能修改自己租户的角色
       if (!isPlatformAdmin && role.tenant_id !== userTenant) {
         return Response.json({ error: 'Cannot modify roles from another tenant' }, { status: 403 });
+      }
+
+      // 非平台管理员不得修改内置角色（is_predefined）
+      if (role.is_predefined && !isPlatformAdmin) {
+        return Response.json({ error: 'Only platform admin can modify predefined roles' }, { status: 403 });
       }
 
       // 如果修改parent_role_id，验证新父角色
@@ -165,8 +184,14 @@ Deno.serve(async (req) => {
         return Response.json({ error: 'Only platform admin can delete global roles' }, { status: 403 });
       }
 
+      // 平台管理员可删除任何租户的角色；租户管理员只能删除自己租户的角色
       if (!isPlatformAdmin && role.tenant_id !== userTenant) {
         return Response.json({ error: 'Cannot delete role from another tenant' }, { status: 403 });
+      }
+
+      // 非平台管理员不得删除内置角色
+      if (role.is_predefined && !isPlatformAdmin) {
+        return Response.json({ error: 'Predefined roles cannot be deleted' }, { status: 403 });
       }
 
       // 检查是否有用户使用此角色
