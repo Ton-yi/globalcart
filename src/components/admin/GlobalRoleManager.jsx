@@ -74,6 +74,8 @@ export default function GlobalRoleManager() {
   const [permissions, setPermissions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [expandedRole, setExpandedRole] = useState(null);
+  // Local permission overrides for not-yet-seeded builtin roles (keyed by predefined_key)
+  const [localPermOverrides, setLocalPermOverrides] = useState({});
 
   const [newRole, setNewRole] = useState({ name: "", description: "", permissions: [], is_predefined: false });
   const [newPerm, setNewPerm] = useState({ name: "", description: "", resource_type: "", action: "" });
@@ -110,15 +112,23 @@ export default function GlobalRoleManager() {
     setLoading(false);
   };
 
-  const handleSeedRole = async (def) => {
+  const handleSeedRole = async (role) => {
     setSaving(true);
+    // Use local edited permissions if available, otherwise fall back to defaults
+    const permsToSave = localPermOverrides[role.predefined_key] ?? role.direct_permissions ?? role.permissions ?? [];
     try {
       const res = await base44.functions.invoke('manageRoles', {
         action: 'create',
-        data: { name: def.name, description: def.description, color: def.color, is_global: true, is_predefined: true, predefined_key: def.predefined_key, direct_permissions: def.permissions },
+        data: { name: role.name, description: role.description, color: role.color, is_global: true, is_predefined: true, predefined_key: role.predefined_key, direct_permissions: permsToSave },
       });
       if (res.data?.error) { setRoleMsg({ type: 'error', text: res.data.error }); }
-      else { await loadData(); setRoleMsg({ type: 'success', text: `"${def.name}"已初始化到数据库` }); setTimeout(() => setRoleMsg(""), 2000); }
+      else {
+        // Clear local overrides for this role after seeding
+        setLocalPermOverrides(prev => { const n = { ...prev }; delete n[role.predefined_key]; return n; });
+        await loadData();
+        setRoleMsg({ type: 'success', text: `"${role.name}"已初始化到数据库` });
+        setTimeout(() => setRoleMsg(""), 2000);
+      }
     } catch (e) { setRoleMsg({ type: 'error', text: e.message }); }
     setSaving(false);
   };
@@ -263,7 +273,12 @@ export default function GlobalRoleManager() {
           {predefinedRoles.map(role => {
             const roleKey = role.id || role.predefined_key;
             const isExpanded = expandedRole === roleKey;
-            const permCount = (role.direct_permissions || []).length;
+            // For not-in-DB roles, use local overrides if edited, else default permissions
+            const effectivePerms = role._isInDB
+              ? (role.direct_permissions || [])
+              : (localPermOverrides[role.predefined_key] ?? role.direct_permissions ?? []);
+            const permCount = effectivePerms.length;
+            const hasLocalEdits = !role._isInDB && localPermOverrides[role.predefined_key] !== undefined;
             return (
               <div key={roleKey} className="border border-amber-200 rounded-lg overflow-hidden">
                 <div className="flex items-center justify-between px-4 py-3 bg-amber-50">
@@ -272,8 +287,11 @@ export default function GlobalRoleManager() {
                     <div>
                       <div className="flex items-center gap-2">
                         <p className="text-sm font-semibold text-gray-800">{role.name}</p>
-                        {!role._isInDB && (
-                          <Badge className="text-xs bg-gray-100 text-gray-500 border border-gray-200">仅预览</Badge>
+                        {!role._isInDB && !hasLocalEdits && (
+                          <Badge className="text-xs bg-gray-100 text-gray-500 border border-gray-200">未初始化</Badge>
+                        )}
+                        {hasLocalEdits && (
+                          <Badge className="text-xs bg-blue-100 text-blue-700 border border-blue-200">已编辑</Badge>
                         )}
                       </div>
                       <p className="text-xs text-gray-500 mt-0.5">{role.description}</p>
@@ -284,12 +302,11 @@ export default function GlobalRoleManager() {
                       {permCount} 项权限
                     </span>
                     {!role._isInDB ? (
-                      // Not in DB yet — show seed button + expand for preview
                       <>
-                        <Button size="sm" variant="ghost" className="h-7 px-2 text-gray-400 hover:text-gray-600"
+                        <Button size="sm" variant="ghost" className="h-7 px-2 text-gray-500 hover:text-blue-600"
                           onClick={() => setExpandedRole(isExpanded ? null : roleKey)}>
-                          {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                          <span className="text-xs ml-1">查看权限</span>
+                          <Pencil className="w-3.5 h-3.5" />
+                          <span className="text-xs ml-1">{isExpanded ? "收起" : "编辑权限"}</span>
                         </Button>
                         <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-amber-700 border-amber-300 hover:bg-amber-50"
                           onClick={() => handleSeedRole(role)} disabled={saving}>
@@ -297,7 +314,6 @@ export default function GlobalRoleManager() {
                         </Button>
                       </>
                     ) : (
-                      // In DB — show edit and delete
                       <>
                         <Button size="sm" variant="ghost" className="h-7 px-2 text-gray-500 hover:text-blue-600"
                           onClick={() => setExpandedRole(isExpanded ? null : roleKey)}>
@@ -321,31 +337,45 @@ export default function GlobalRoleManager() {
                       </span>
                     </div>
                     <PermissionGrid
-                      selected={role.direct_permissions || []}
-                      onToggle={role._isInDB ? async (names, forceOn) => {
-                        setSaving(true);
-                        let perms = [...(role.direct_permissions || [])];
-                        names.forEach(name => {
-                          const shouldAdd = forceOn !== undefined ? forceOn : !perms.includes(name);
-                          if (shouldAdd) { if (!perms.includes(name)) perms.push(name); }
-                          else { perms = perms.filter(x => x !== name); }
-                        });
-                        try {
-                          await base44.functions.invoke('manageRoles', {
-                            action: 'update',
-                            data: { role_id: role.id, updates: { direct_permissions: perms } },
-                          });
-                          await loadData();
-                          setRoleMsg({ type: 'success', text: '内置角色权限已更新' });
-                          setTimeout(() => setRoleMsg(""), 2000);
-                        } catch (e) { setRoleMsg({ type: 'error', text: e.message }); }
-                        setSaving(false);
-                      } : () => {}}
+                      selected={effectivePerms}
+                      onToggle={role._isInDB
+                        ? async (names, forceOn) => {
+                            setSaving(true);
+                            let perms = [...(role.direct_permissions || [])];
+                            names.forEach(name => {
+                              const shouldAdd = forceOn !== undefined ? forceOn : !perms.includes(name);
+                              if (shouldAdd) { if (!perms.includes(name)) perms.push(name); }
+                              else { perms = perms.filter(x => x !== name); }
+                            });
+                            try {
+                              await base44.functions.invoke('manageRoles', {
+                                action: 'update',
+                                data: { role_id: role.id, updates: { direct_permissions: perms } },
+                              });
+                              await loadData();
+                              setRoleMsg({ type: 'success', text: '内置角色权限已更新' });
+                              setTimeout(() => setRoleMsg(""), 2000);
+                            } catch (e) { setRoleMsg({ type: 'error', text: e.message }); }
+                            setSaving(false);
+                          }
+                        : (names, forceOn) => {
+                            // Edit locally for not-yet-seeded roles
+                            setLocalPermOverrides(prev => {
+                              let perms = [...(prev[role.predefined_key] ?? role.direct_permissions ?? [])];
+                              names.forEach(name => {
+                                const shouldAdd = forceOn !== undefined ? forceOn : !perms.includes(name);
+                                if (shouldAdd) { if (!perms.includes(name)) perms.push(name); }
+                                else { perms = perms.filter(x => x !== name); }
+                              });
+                              return { ...prev, [role.predefined_key]: perms };
+                            });
+                          }
+                      }
                       accentColor="green"
-                      disabled={saving || !role._isInDB}
+                      disabled={saving}
                     />
                     {!role._isInDB && (
-                      <p className="text-xs text-gray-400 mt-2">点击「初始化到数据库」后即可编辑权限</p>
+                      <p className="text-xs text-gray-400 mt-3">权限编辑仅保存在本地，点击「初始化到数据库」提交</p>
                     )}
                   </div>
                 )}
