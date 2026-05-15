@@ -20,11 +20,13 @@ PERMISSIONS_PRESET.forEach(cat => {
   });
 });
 
-const BUILTIN_ROLES = [
+// Default permissions for seeding built-in roles into the DB
+const BUILTIN_ROLE_DEFAULTS = [
   {
-    id: 'user',
+    predefined_key: 'builtin_user',
     name: '普通用户',
     description: '基础用户角色，默认所有注册用户',
+    color: '#6b7280',
     permissions: [
       "order:submit_purchase_request",
       "shipping:notify_shipment",
@@ -48,9 +50,10 @@ const BUILTIN_ROLES = [
     ]
   },
   {
-    id: 'tenant_admin',
+    predefined_key: 'builtin_admin',
     name: '租户管理员',
     description: '租户级管理员，拥有完整租户管理权限，所有权限均开放',
+    color: '#dc2626',
     permissions: Object.keys(PERM_LABEL_MAP),
   },
 ];
@@ -71,7 +74,6 @@ export default function GlobalRoleManager() {
   const [permissions, setPermissions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [expandedRole, setExpandedRole] = useState(null);
-  const [editingBuiltin, setEditingBuiltin] = useState(null); // role id being edited
 
   const [newRole, setNewRole] = useState({ name: "", description: "", permissions: [], is_predefined: false });
   const [newPerm, setNewPerm] = useState({ name: "", description: "", resource_type: "", action: "" });
@@ -89,13 +91,36 @@ export default function GlobalRoleManager() {
         base44.functions.invoke('managePermissions', { action: 'listPermissions', data: { tenant_id_filter: null } }),
       ]);
       const allRoles = rolesRes.data?.roles || [];
-      setPredefinedRoles(allRoles.filter(r => r.is_global === true && r.is_predefined === true));
+      const dbPredefined = allRoles.filter(r => r.is_global === true && r.is_predefined === true);
+      
+      // Merge: for each default builtin, use DB version if exists (matched by predefined_key), else show the static default
+      const merged = BUILTIN_ROLE_DEFAULTS.map(def => {
+        const dbRole = dbPredefined.find(r => r.predefined_key === def.predefined_key);
+        if (dbRole) return { ...dbRole, _isInDB: true };
+        return { ...def, id: null, _isInDB: false, direct_permissions: def.permissions };
+      });
+      // Also include any DB predefined roles not in BUILTIN_ROLE_DEFAULTS
+      const extraDB = dbPredefined.filter(r => !BUILTIN_ROLE_DEFAULTS.find(d => d.predefined_key === r.predefined_key));
+      setPredefinedRoles([...merged, ...extraDB.map(r => ({ ...r, _isInDB: true }))]);
       setCustomRoles(allRoles.filter(r => r.is_global === true && r.is_predefined !== true));
       setPermissions(permsRes.data?.permissions || []);
     } catch (e) {
       setPermMsg({ type: 'error', text: e.message });
     }
     setLoading(false);
+  };
+
+  const handleSeedRole = async (def) => {
+    setSaving(true);
+    try {
+      const res = await base44.functions.invoke('manageRoles', {
+        action: 'create',
+        data: { name: def.name, description: def.description, color: def.color, is_global: true, is_predefined: true, predefined_key: def.predefined_key, direct_permissions: def.permissions },
+      });
+      if (res.data?.error) { setRoleMsg({ type: 'error', text: res.data.error }); }
+      else { await loadData(); setRoleMsg({ type: 'success', text: `"${def.name}"已初始化到数据库` }); setTimeout(() => setRoleMsg(""), 2000); }
+    } catch (e) { setRoleMsg({ type: 'error', text: e.message }); }
+    setSaving(false);
   };
 
   const handleCreatePermission = async () => {
@@ -229,41 +254,62 @@ export default function GlobalRoleManager() {
             <Badge className="bg-amber-100 text-amber-700 text-xs">内置</Badge>
             系统角色 ({predefinedRoles.length})
           </CardTitle>
-          <p className="text-xs text-gray-400 mt-1">平台管理员可编辑内置角色的权限策略</p>
+          <p className="text-xs text-gray-400 mt-1">平台管理员可编辑内置角色的权限策略，未初始化的角色仅供预览</p>
         </CardHeader>
         <CardContent className="space-y-3">
-          {predefinedRoles.length === 0 && (
-            <p className="text-xs text-gray-400">暂无内置角色（请在「创建全局角色」中勾选"内置预定义"来创建）</p>
+          {roleMsg && (
+            <p className={`text-xs px-2 py-1 rounded ${roleMsg.type === 'success' ? 'text-green-700 bg-green-50' : 'text-red-700 bg-red-50'}`}>{roleMsg.text}</p>
           )}
           {predefinedRoles.map(role => {
-            const isExpanded = expandedRole === role.id;
-            const isEditing = editingBuiltin === role.id;
+            const roleKey = role.id || role.predefined_key;
+            const isExpanded = expandedRole === roleKey;
+            const permCount = (role.direct_permissions || []).length;
             return (
-              <div key={role.id} className="border border-amber-200 rounded-lg overflow-hidden">
+              <div key={roleKey} className="border border-amber-200 rounded-lg overflow-hidden">
                 <div className="flex items-center justify-between px-4 py-3 bg-amber-50">
                   <div className="flex items-center gap-2 flex-1 min-w-0">
                     <Shield className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
                     <div>
-                      <p className="text-sm font-semibold text-gray-800">{role.name}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-semibold text-gray-800">{role.name}</p>
+                        {!role._isInDB && (
+                          <Badge className="text-xs bg-gray-100 text-gray-500 border border-gray-200">仅预览</Badge>
+                        )}
+                      </div>
                       <p className="text-xs text-gray-500 mt-0.5">{role.description}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 ml-3 flex-shrink-0">
                     <span className="text-xs text-amber-600 bg-white border border-amber-200 px-2 py-0.5 rounded-full">
-                      {(role.direct_permissions || []).length} 项权限
+                      {permCount} 项权限
                     </span>
-                    <Button size="sm" variant="ghost" className="h-7 px-2 text-gray-500 hover:text-blue-600"
-                      onClick={() => {
-                        setEditingBuiltin(isEditing ? null : role.id);
-                        setExpandedRole(isEditing ? null : role.id);
-                      }}>
-                      <Pencil className="w-3.5 h-3.5" />
-                      <span className="text-xs ml-1">{isEditing ? "收起" : "编辑权限"}</span>
-                    </Button>
-                    <Button size="sm" variant="ghost" className="h-7 px-2 text-red-400 hover:text-red-600 hover:bg-red-50"
-                      onClick={() => handleDeleteRole(role.id)} disabled={saving}>
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
+                    {!role._isInDB ? (
+                      // Not in DB yet — show seed button + expand for preview
+                      <>
+                        <Button size="sm" variant="ghost" className="h-7 px-2 text-gray-400 hover:text-gray-600"
+                          onClick={() => setExpandedRole(isExpanded ? null : roleKey)}>
+                          {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                          <span className="text-xs ml-1">查看权限</span>
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-amber-700 border-amber-300 hover:bg-amber-50"
+                          onClick={() => handleSeedRole(role)} disabled={saving}>
+                          初始化到数据库
+                        </Button>
+                      </>
+                    ) : (
+                      // In DB — show edit and delete
+                      <>
+                        <Button size="sm" variant="ghost" className="h-7 px-2 text-gray-500 hover:text-blue-600"
+                          onClick={() => setExpandedRole(isExpanded ? null : roleKey)}>
+                          <Pencil className="w-3.5 h-3.5" />
+                          <span className="text-xs ml-1">{isExpanded ? "收起" : "编辑权限"}</span>
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-7 px-2 text-red-400 hover:text-red-600 hover:bg-red-50"
+                          onClick={() => handleDeleteRole(role.id)} disabled={saving}>
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </div>
                 {isExpanded && (
@@ -271,12 +317,12 @@ export default function GlobalRoleManager() {
                     <div className="flex items-center justify-between mb-3">
                       <span className="text-xs font-semibold text-gray-700">权限分配</span>
                       <span className="text-xs text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
-                        已开启 {(role.direct_permissions || []).length} 项
+                        已开启 {permCount} 项
                       </span>
                     </div>
                     <PermissionGrid
                       selected={role.direct_permissions || []}
-                      onToggle={async (names, forceOn) => {
+                      onToggle={role._isInDB ? async (names, forceOn) => {
                         setSaving(true);
                         let perms = [...(role.direct_permissions || [])];
                         names.forEach(name => {
@@ -292,14 +338,15 @@ export default function GlobalRoleManager() {
                           await loadData();
                           setRoleMsg({ type: 'success', text: '内置角色权限已更新' });
                           setTimeout(() => setRoleMsg(""), 2000);
-                        } catch (e) {
-                          setRoleMsg({ type: 'error', text: e.message });
-                        }
+                        } catch (e) { setRoleMsg({ type: 'error', text: e.message }); }
                         setSaving(false);
-                      }}
+                      } : () => {}}
                       accentColor="green"
-                      disabled={saving}
+                      disabled={saving || !role._isInDB}
                     />
+                    {!role._isInDB && (
+                      <p className="text-xs text-gray-400 mt-2">点击「初始化到数据库」后即可编辑权限</p>
+                    )}
                   </div>
                 )}
               </div>
