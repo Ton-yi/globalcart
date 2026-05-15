@@ -63,78 +63,96 @@ function groupByResource(permissions) {
   }, {});
 }
 
-// Permission item (single row, supports children indented below)
+// Permission item — compact pill style, parent groups children inline in a bordered cluster
 function PermItem({ perm, selected, onToggle, accent, disabled }) {
   const children = perm.children || [];
   const isOn = selected.includes(perm.name);
-  // For parent: check if all/some/no children are selected
   const childNames = children.map(c => c.name);
   const selectedChildren = childNames.filter(n => selected.includes(n));
   const allChildrenOn = childNames.length > 0 && selectedChildren.length === childNames.length;
-  const someChildrenOn = selectedChildren.length > 0 && selectedChildren.length < childNames.length;
+  const someChildrenOn = selectedChildren.length > 0 && !allChildrenOn;
 
-  const handleClick = () => {
+  const handleParentClick = () => {
     if (children.length === 0) {
       onToggle([perm.name]);
     } else {
-      // Toggle parent + all children together
       const allOn = isOn && allChildrenOn;
-      const toToggle = [perm.name, ...childNames];
-      onToggle(toToggle, !allOn);
+      onToggle([perm.name, ...childNames], !allOn);
     }
   };
 
-  return (
-    <div className={children.length > 0 ? "w-full" : ""}>
+  // No children: plain pill
+  if (children.length === 0) {
+    return (
       <button
         type="button"
         disabled={disabled}
-        onClick={handleClick}
-        className={`text-left rounded border px-2 py-1.5 transition-all focus:outline-none flex items-center gap-1.5 w-full ${
+        onClick={handleParentClick}
+        className={`text-left rounded border px-2 py-1 transition-all focus:outline-none flex items-center gap-1.5 ${
           isOn ? accent.card : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"
         } ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
       >
-        <span className={`w-3.5 h-3.5 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors relative ${
-          isOn ? accent.check : someChildrenOn ? "border-gray-400 bg-gray-200" : "border-gray-300 bg-white"
+        <span className={`w-3 h-3 rounded border-2 flex-shrink-0 flex items-center justify-center ${
+          isOn ? accent.check : "border-gray-300 bg-white"
         }`}>
-          {isOn && <Check className="w-2 h-2 text-white" strokeWidth={3} />}
-          {!isOn && someChildrenOn && <span className="w-1.5 h-0.5 bg-gray-500 rounded absolute" />}
+          {isOn && <Check className="w-1.5 h-1.5 text-white" strokeWidth={3} />}
         </span>
-        <span className={`text-xs leading-tight flex-1 ${isOn ? "text-gray-900 font-medium" : "text-gray-600"}`}>
+        <span className={`text-xs leading-tight ${isOn ? "text-gray-900 font-medium" : "text-gray-600"}`}>
           {perm.display_name}
         </span>
-        {children.length > 0 && (
-          <span className="text-2xs text-gray-400 ml-1">({selectedChildren.length}/{children.length})</span>
-        )}
+      </button>
+    );
+  }
+
+  // Has children: parent pill + children pills grouped in one bordered cluster
+  const clusterActive = isOn || selectedChildren.length > 0;
+  return (
+    <div className={`inline-flex items-center rounded border gap-0 overflow-hidden ${
+      clusterActive ? accent.card : "border-gray-300 bg-gray-50"
+    }`}>
+      {/* Parent pill */}
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={handleParentClick}
+        className={`flex items-center gap-1.5 px-2 py-1 border-r transition-all focus:outline-none ${
+          clusterActive ? "border-current/20" : "border-gray-300"
+        } ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:brightness-95"}`}
+      >
+        <span className={`w-3 h-3 rounded border-2 flex-shrink-0 flex items-center justify-center relative ${
+          isOn ? accent.check : someChildrenOn ? "border-gray-400 bg-gray-300" : "border-gray-400 bg-white"
+        }`}>
+          {isOn && <Check className="w-1.5 h-1.5 text-white" strokeWidth={3} />}
+          {!isOn && someChildrenOn && <span className="w-1.5 h-0.5 bg-gray-600 rounded absolute" />}
+        </span>
+        <span className={`text-xs font-semibold leading-tight ${isOn ? "text-gray-900" : "text-gray-700"}`}>
+          {perm.display_name}
+        </span>
+        <span className="text-xs text-gray-400 ml-0.5">({selectedChildren.length}/{children.length})</span>
       </button>
 
-      {children.length > 0 && (
-        <div className="ml-3 mt-1 pl-3 border-l-2 border-gray-200 flex flex-wrap gap-1.5">
-          {children.map(child => {
-            const childOn = selected.includes(child.name);
-            return (
-              <button
-                key={child.name}
-                type="button"
-                disabled={disabled}
-                onClick={() => onToggle([child.name])}
-                className={`text-left rounded border px-2 py-1 transition-all focus:outline-none flex items-center gap-1.5 ${
-                  childOn ? accent.card : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"
-                } ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
-              >
-                <span className={`w-3 h-3 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
-                  childOn ? accent.check : "border-gray-300 bg-white"
-                }`}>
-                  {childOn && <Check className="w-1.5 h-1.5 text-white" strokeWidth={3} />}
-                </span>
-                <span className={`text-xs leading-tight ${childOn ? "text-gray-900 font-medium" : "text-gray-500"}`}>
-                  {child.display_name}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      )}
+      {/* Children pills */}
+      <div className="flex items-center flex-wrap gap-px px-1 py-0.5">
+        {children.map(child => {
+          const childOn = selected.includes(child.name);
+          return (
+            <button
+              key={child.name}
+              type="button"
+              disabled={disabled}
+              onClick={() => onToggle([child.name])}
+              className={`flex items-center gap-1 px-1.5 py-0.5 rounded transition-all focus:outline-none text-xs ${
+                childOn
+                  ? `${accent.check} text-white`
+                  : "bg-white border border-gray-300 text-gray-500 hover:border-gray-400 hover:bg-gray-50"
+              } ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+            >
+              {childOn && <Check className="w-2 h-2" strokeWidth={3} />}
+              {child.display_name}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -146,12 +164,6 @@ function PermissionGrid({ selected, onToggle, accentColor = "purple", disabled =
     green:  { card: "border-green-300 bg-green-50 shadow-sm",   check: "bg-green-600 border-green-600",   heading: "text-green-700 border-green-200 bg-green-50"   },
   }[accentColor];
 
-  // Batch toggle: names=array of perm names, forceOn=optional boolean
-  const handleToggle = (names, forceOn) => {
-    onToggle(names, forceOn);
-  };
-
-  // Count all permissions including children
   const countAll = (perms) => perms.reduce((n, p) => n + 1 + (p.children?.length || 0), 0);
   const countSelected = (perms) => perms.reduce((n, p) => {
     let c = selected.includes(p.name) ? 1 : 0;
@@ -169,9 +181,9 @@ function PermissionGrid({ selected, onToggle, accentColor = "purple", disabled =
               ({countSelected(cat.permissions)}/{countAll(cat.permissions)})
             </span>
           </div>
-          <div className="space-y-1.5">
+          <div className="flex flex-wrap gap-1.5">
             {cat.permissions.map(perm => (
-              <PermItem key={perm.name} perm={perm} selected={selected} onToggle={handleToggle} accent={accent} disabled={disabled} />
+              <PermItem key={perm.name} perm={perm} selected={selected} onToggle={onToggle} accent={accent} disabled={disabled} />
             ))}
           </div>
         </div>
