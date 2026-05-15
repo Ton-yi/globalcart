@@ -7,7 +7,8 @@ import { useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import { base44 } from "@/api/base44Client";
 import { updateOrder, tenantEntity } from "@/lib/tenantApi";
-import { X, ExternalLink, Copy, Loader2, CheckCircle, Upload, AlertTriangle, MessageCircle, Package, Send, Layers, Scissors, GitBranch, GitPullRequest } from "lucide-react";
+import { usePermissions } from "@/hooks/usePermissions";
+import { X, ExternalLink, Copy, Loader2, CheckCircle, Upload, AlertTriangle, MessageCircle, Package, Send, Layers, Scissors, GitBranch, GitPullRequest, Lock } from "lucide-react";
 import { ImageWithViewer } from "@/components/common/ImageViewer";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -35,6 +36,10 @@ const ALL_STATUSES = [
 ];
 
 export default function AdminOrderEditModal({ order, initialItemSizeTemplates, onClose, onSaved, onOpenPool, shippingPools = [], currentUser = null, userProfileMap = {} }) {
+  const { can, isAdmin } = usePermissions();
+  const canEditStatus = isAdmin || can("order:edit_order_status");
+  const canEditAmount = isAdmin || can("order:edit_order_amount");
+
   const [tab, setTab] = useState((order.unread_roles || []).includes("admin") ? "messages" : "actions"); // "actions" | "edit" | "messages"
   const [saving, setSaving] = useState(false);
 
@@ -1133,10 +1138,15 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
           {/* ───────── EDIT TAB ───────── */}
           {tab === "edit" && (
             <div className="space-y-3">
+              {(!canEditStatus && !canEditAmount) && (
+                <div className="flex items-center gap-2 text-sm text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                  <Lock className="w-4 h-4 flex-shrink-0" />您没有权限编辑订单信息
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-sm">订单状态</Label>
-                  <Select value={form.order_status} onValueChange={v => f("order_status", v)}>
+                  <Select value={form.order_status} onValueChange={v => f("order_status", v)} disabled={!canEditStatus}>
                     <SelectTrigger className="mt-1 text-sm"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {ALL_STATUSES.map(s => <SelectItem key={s.v} value={s.v}>{s.l}</SelectItem>)}
@@ -1146,18 +1156,18 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
                 <div>
                   <Label className="text-sm">余额 ({cur})</Label>
                   <Input type="number" step="0.01" className="mt-1" value={form.balance_credit}
-                    onChange={e => f("balance_credit", e.target.value)} />
+                    onChange={e => f("balance_credit", e.target.value)} disabled={!canEditAmount} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-sm">日元报价 (¥)</Label>
                   <Input type="number" className="mt-1" value={form.estimated_jpy}
-                    onChange={e => f("estimated_jpy", e.target.value)} />
+                    onChange={e => f("estimated_jpy", e.target.value)} disabled={!canEditAmount} />
                 </div>
                 <div>
                   <Label className="text-sm">实际付款货币</Label>
-                  <Select value={form.prepayment_currency} onValueChange={v => f("prepayment_currency", v)}>
+                  <Select value={form.prepayment_currency} onValueChange={v => f("prepayment_currency", v)} disabled={!canEditAmount}>
                     <SelectTrigger className="mt-1 text-sm"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {["JPY","CNY","USD","TWD","HKD","EUR","SGD"].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
@@ -1171,14 +1181,15 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
                     {form.prepayment_currency === "JPY" ? "预付款金额 (JPY)" : `实际付款金额 (${form.prepayment_currency})`}
                   </Label>
                   <Input type="number" step="0.01" className="mt-1" value={form.prepayment_amount}
-                    onChange={e => f("prepayment_amount", e.target.value)} />
+                    onChange={e => f("prepayment_amount", e.target.value)} disabled={!canEditAmount} />
                 </div>
                 {form.prepayment_currency !== "JPY" && (
                   <div>
                     <Label className="text-sm">原始 JPY 金额</Label>
                     <Input type="number" step="1" className="mt-1" value={form.prepayment_amount_jpy}
                       onChange={e => f("prepayment_amount_jpy", e.target.value)}
-                      placeholder={String(order.prepayment_amount_jpy || order.estimated_jpy || "")} />
+                      placeholder={String(order.prepayment_amount_jpy || order.estimated_jpy || "")}
+                      disabled={!canEditAmount} />
                   </div>
                 )}
               </div>
@@ -1204,7 +1215,7 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
         {/* Footer */}
         <div className="px-5 py-3 border-t flex gap-2 justify-end flex-shrink-0">
           <Button variant="outline" size="sm" onClick={onClose}>关闭</Button>
-          {tab === "edit" && (
+          {tab === "edit" && (canEditStatus || canEditAmount) && (
             <Button size="sm" className="bg-gray-900 hover:bg-gray-800" onClick={handleSave} disabled={saving}>
               {saving ? "保存中..." : "保存变更"}
             </Button>

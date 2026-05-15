@@ -24,6 +24,8 @@ export default function UserPreferences() {
   const { can } = usePermissions();
   const canChangeAvatar = can("profile:change_avatar");
   const canChangeAutoArchive = can("profile:change_auto_archive_settings");
+  const canChangeDisplayName = can("profile:change_display_name");
+  const canChangeDisplayNameAnytime = can("profile:change_display_name_anytime");
   
   const [pref, setPref] = useState(null);
   const [displayName, setDisplayName] = useState("");
@@ -237,7 +239,20 @@ export default function UserPreferences() {
                 </div>
               <div className="flex-1">
                 <Label className="text-sm">显示名称</Label>
-                <Input className="mt-1" placeholder={user.full_name || "输入显示名称"} value={displayName} onChange={e => setDisplayName(e.target.value)} />
+                <Input
+                  className="mt-1"
+                  placeholder={user.full_name || "输入显示名称"}
+                  value={displayName}
+                  onChange={e => setDisplayName(e.target.value)}
+                  disabled={!canChangeDisplayName}
+                  title={!canChangeDisplayName ? "您没有权限更改显示名称" : undefined}
+                />
+                {canChangeDisplayName && !canChangeDisplayNameAnytime && (
+                  <p className="text-xs text-orange-500 mt-1">更改显示名称需经管理员审核</p>
+                )}
+                {!canChangeDisplayName && (
+                  <p className="text-xs text-gray-400 mt-1 flex items-center gap-1"><Lock className="w-3 h-3" />无权更改</p>
+                )}
                 {uploadingAvatar && <p className="text-xs text-gray-400 mt-1">上传中...</p>}
               </div>
             </div>

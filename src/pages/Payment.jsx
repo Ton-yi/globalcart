@@ -3,6 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { ExternalLink, Copy, CheckCircle, AlertCircle, ArrowLeft, Upload, Loader2 } from "lucide-react";
+import { usePermissions } from "@/hooks/usePermissions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +14,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function Payment() {
   const navigate = useNavigate();
+  const { can } = usePermissions();
+  const canSkipProof = can("payment:skip_proof_upload");
   const urlParams = new URLSearchParams(window.location.search);
   const orderId = urlParams.get("order_id");
   const method = urlParams.get("method") || "alipay";
@@ -228,6 +231,28 @@ export default function Payment() {
       )}
 
       {/* Upload proof - only for manual (non-auto-callback) methods */}
+      {/* canSkipProof: user can click "已付款" without uploading proof */}
+      {!isAutoCallback && canSkipProof && (
+        <div className="flex justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-xs text-gray-500"
+            onClick={async () => {
+              await base44.functions.invoke('updateTenantOrder', {
+                order_id: order.id,
+                payment_method: method,
+                payment_status: "paid",
+                order_status: "pending_purchase",
+                paid_amount: order.prepayment_amount,
+              });
+              navigate(createPageUrl("MyOrders"));
+            }}
+          >
+            跳过凭证直接标记已付款
+          </Button>
+        </div>
+      )}
       {!isAutoCallback && (
         !submitted ? (
           <Card className="border-gray-200">

@@ -29,6 +29,11 @@ export default function SubmitOrder() {
   const { can } = usePermissions();
   const canSubmitOrder = can("order:submit_purchase_request");
   const canSplitOrder = can("order:submit_split_request");
+  const canSelectOrderAddons = can("addon:select_order_value_added_services");
+  const canPrePay = can("payment:pre_pay");
+  const canFullPay = can("payment:pay_full_amount");
+  const canDeferredPay = can("payment:deferred_pay");
+  const canApplyCredit = can("payment:apply_credit");
   const [rates, setRates] = useState(null);
   const [settings, setSettings] = useState({});
   const [productUrls, setProductUrls] = useState([""]);
@@ -376,8 +381,8 @@ export default function SubmitOrder() {
                <p className="text-xs text-gray-400 mt-1">支持四则运算，如 500+500</p>
              </div>
 
-            {/* Addon options */}
-            {addonOptions.length > 0 && (
+            {/* Addon options — only shown if user has permission */}
+            {addonOptions.length > 0 && canSelectOrderAddons && (
               <div>
                 <Label className="text-sm mb-2 block">增值服务（可选）</Label>
                 <div className="space-y-2">
@@ -521,7 +526,7 @@ export default function SubmitOrder() {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="grid grid-cols-2 gap-2">
-              {settings.prepay_enabled !== 'false' && (
+              {settings.prepay_enabled !== 'false' && canPrePay && (
                 <button
                   type="button"
                   onClick={() => setPaymentMode("prepay")}
@@ -533,7 +538,7 @@ export default function SubmitOrder() {
                   <div className="text-xs mt-0.5 opacity-70">提交后直接前往付款页</div>
                 </button>
               )}
-              {settings.prepay_enabled === 'false' && (
+              {settings.prepay_enabled === 'false' && canFullPay && (
                 <button
                   type="button"
                   onClick={() => setPaymentMode("fullpay")}
@@ -545,19 +550,21 @@ export default function SubmitOrder() {
                   <div className="text-xs mt-0.5 opacity-70">提交后前往付款页全额支付</div>
                 </button>
               )}
-              <button
-                type="button"
-                onClick={() => setPaymentMode("deferred")}
-                className={`p-3 rounded-lg border-2 text-sm font-medium transition-all text-left ${
-                  paymentMode === "deferred" ? "border-purple-500 bg-purple-50 text-purple-700" : "border-gray-200 text-gray-500 hover:border-gray-300"
-                }`}
-              >
-                <div className="font-semibold">后付款</div>
-                <div className="text-xs mt-0.5 opacity-70">提交后等待客服确认报价</div>
-              </button>
+              {canDeferredPay && (
+                <button
+                  type="button"
+                  onClick={() => setPaymentMode("deferred")}
+                  className={`p-3 rounded-lg border-2 text-sm font-medium transition-all text-left ${
+                    paymentMode === "deferred" ? "border-purple-500 bg-purple-50 text-purple-700" : "border-gray-200 text-gray-500 hover:border-gray-300"
+                  }`}
+                >
+                  <div className="font-semibold">后付款</div>
+                  <div className="text-xs mt-0.5 opacity-70">提交后等待客服确认报价</div>
+                </button>
+              )}
 
-              {/* Credit payment options — only shown to users with credit enabled, restricted to their assigned cycle */}
-              {userCredit?.credit_enabled && userCredit?.credit_cycle === 'weekly' && (
+              {/* Credit payment options — require credit_enabled on account + apply_credit permission */}
+              {canApplyCredit && userCredit?.credit_enabled && userCredit?.credit_cycle === 'weekly' && (
                 <button
                   type="button"
                   onClick={() => setPaymentMode("credit_weekly")}
@@ -571,7 +578,7 @@ export default function SubmitOrder() {
                   <div className="text-xs mt-0.5 opacity-70">记账日起7天结清</div>
                 </button>
               )}
-              {userCredit?.credit_enabled && userCredit?.credit_cycle === 'monthly' && (
+              {canApplyCredit && userCredit?.credit_enabled && userCredit?.credit_cycle === 'monthly' && (
                 <button
                   type="button"
                   onClick={() => setPaymentMode("credit_monthly")}

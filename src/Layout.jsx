@@ -74,10 +74,12 @@ export default function Layout({ children, currentPageName }) {
   const canAccessAdminUsers = isPlatformAdmin || isTenantAdmin || can("user:read") || can("view:user_management_page");
   const canAccessAdminAnnouncements = isPlatformAdmin || isTenantAdmin || can("view:announcement_management_page");
 
+  const canViewMyOrders = isAdmin || can("view:my_orders_module");
+
   const userNav = [
     { label: "首页", icon: Home, page: "Home" },
     { label: "提交需求", icon: ShoppingBag, page: "SubmitOrder", requiredRole: "user" },
-    { label: "我的订单", icon: Package, page: "MyOrders", requiredRole: "user" },
+    { label: "我的订单", icon: Package, page: "MyOrders", requiredRole: "user", hidden: !canViewMyOrders },
     { label: "发货 & 拼邮", icon: Send, page: "ShippingPool", requiredRole: "user" },
     { label: "个人设置", icon: User, page: "UserPreferences" },
   ];
@@ -95,8 +97,10 @@ export default function Layout({ children, currentPageName }) {
     { label: "平台设置", icon: Settings, page: "PlatformAdminSettings", requiredRole: "platform_admin" },
   ];
 
+  const visibleUserNav = userNav.filter(item => !item.hidden);
+
   // Build navigation based on roles
-  let navItems = [userNav[0]]; // Always show Home
+  let navItems = [visibleUserNav[0]]; // Always show Home
   
   if (isPlatformAdmin) {
     // Platform admin: show all admin items plus personal profile
@@ -107,11 +111,11 @@ export default function Layout({ children, currentPageName }) {
   } else if (isStaff) {
     // Staff: show user pages + any admin pages they have permission for
     const staffAdminItems = tenantAdminNav.filter(item => item.canAccess);
-    navItems = [...navItems, ...userNav.slice(1), ...staffAdminItems, { label: "个人档案", icon: User, page: "UserPreferences" }];
+    navItems = [...navItems, ...visibleUserNav.slice(1), ...staffAdminItems, { label: "个人档案", icon: User, page: "UserPreferences" }];
   } else if (isTenantUser) {
-    navItems = [...navItems, ...userNav.slice(1), { label: "个人档案", icon: User, page: "UserPreferences" }];
+    navItems = [...navItems, ...visibleUserNav.slice(1), { label: "个人档案", icon: User, page: "UserPreferences" }];
   } else {
-    navItems = userNav;
+    navItems = visibleUserNav;
   }
 
   const activeAnnouncement = announcements.find(a => 
