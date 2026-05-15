@@ -7,6 +7,7 @@ import { base44 } from "@/api/base44Client";
 import { fetchShippingPools, tenantEntity, fetchTenantConfig, shippingPoolApi } from "@/lib/tenantApi";
 import { timePage } from "@/lib/timing";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { usePermissions } from "@/hooks/usePermissions";
 import { Plus, RefreshCw, Truck, X, Package, MapPin, ChevronRight, ChevronLeft, Check, Scale, Calendar, Info, Layers, Lock, Users, Search, PlusCircle, Archive, ArchiveRestore, CreditCard } from "lucide-react";
 import { getCountry } from "@/lib/countries";
 import { Button } from "@/components/ui/button";
@@ -48,6 +49,12 @@ const METHOD_LABELS = {
 
 export default function ShippingPool() {
   const { user } = useCurrentUser();
+  const { can } = usePermissions();
+  const canNotifyShipment = can("shipping:notify_shipment");
+  const canDirectShipment = can("shipping:direct_shipment");
+  const canConsolidateTransit = can("shipping:consolidate_to_transit");
+  const canConsolidateOther = can("shipping:consolidate_to_other_address");
+  
   const [pools, setPools] = useState([]);
   const [consolidationOrders, setConsolidationOrders] = useState([]);
   const [pendingEditRequests, setPendingEditRequests] = useState([]);
@@ -405,11 +412,16 @@ export default function ShippingPool() {
           <Button variant="outline" size="sm" onClick={() => user && fetchData(user)}>
             <RefreshCw className="w-3.5 h-3.5 mr-1.5" />刷新
           </Button>
-          {!showCreate && !showArchivedPools && (
-            <Button size="sm" className="bg-red-600 hover:bg-red-700" onClick={handleOpenCreate}>
-              <Plus className="w-3.5 h-3.5 mr-1.5" />新增发货申请
-            </Button>
-          )}
+          {!showCreate && !showArchivedPools && canNotifyShipment && (
+             <Button size="sm" className="bg-red-600 hover:bg-red-700" onClick={handleOpenCreate}>
+               <Plus className="w-3.5 h-3.5 mr-1.5" />新增发货申请
+             </Button>
+           )}
+           {!showCreate && !showArchivedPools && !canNotifyShipment && (
+             <Button size="sm" disabled className="bg-gray-400">
+               <Lock className="w-3.5 h-3.5 mr-1.5" />您没有权限创建发货申请
+             </Button>
+           )}
         </div>
       </div>
 
@@ -488,18 +500,22 @@ export default function ShippingPool() {
                     <Label className="text-xs text-gray-500 font-medium mb-2 block">发货方式</Label>
                     <div className="space-y-2">
                       {[
-                        { key: "", label: "直接发货（单独发往收货地址）", desc: "" },
-                        { key: "transit", label: "申请拼邮到中转地", desc: "与其他包裹合并，发往中转地" },
-                        { key: "other", label: "申请拼邮到其它地址", desc: "与其他包裹合并，发往自选地址" },
-                      ].map(opt => (
-                        <label key={opt.key} className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${consType === opt.key ? "border-red-300 bg-red-50" : "border-gray-200 hover:bg-gray-50"}`}>
-                          <input type="radio" checked={consType === opt.key} onChange={() => setConsType(opt.key)} className="mt-0.5 accent-red-600" />
-                          <div>
-                            <span className="text-sm font-medium text-gray-800">{opt.label}</span>
-                            {opt.desc && <p className="text-xs text-gray-400 mt-0.5">{opt.desc}</p>}
-                          </div>
-                        </label>
-                      ))}
+                        { key: "", label: "直接发货（单独发往收货地址）", desc: "", needPerm: "shipping:direct_shipment" },
+                        { key: "transit", label: "申请拼邮到中转地", desc: "与其他包裹合并，发往中转地", needPerm: "shipping:consolidate_to_transit" },
+                        { key: "other", label: "申请拼邮到其它地址", desc: "与其他包裹合并，发往自选地址", needPerm: "shipping:consolidate_to_other_address" },
+                      ].map(opt => {
+                        const hasPerm = opt.key === "" ? canDirectShipment : opt.key === "transit" ? canConsolidateTransit : canConsolidateOther;
+                        return (
+                          <label key={opt.key} className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${!hasPerm ? "opacity-50 cursor-not-allowed" : consType === opt.key ? "border-red-300 bg-red-50" : "border-gray-200 hover:bg-gray-50"}`}>
+                            <input type="radio" checked={consType === opt.key} onChange={() => setConsType(opt.key)} disabled={!hasPerm} className="mt-0.5 accent-red-600" />
+                            <div>
+                              <span className="text-sm font-medium text-gray-800">{opt.label}</span>
+                              {opt.desc && <p className="text-xs text-gray-400 mt-0.5">{opt.desc}</p>}
+                              {!hasPerm && <p className="text-xs text-red-500 mt-0.5">您没有权限选择此发货方式</p>}
+                            </div>
+                          </label>
+                        );
+                      })}
                     </div>
                   </div>
 

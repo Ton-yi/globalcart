@@ -7,8 +7,9 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { X, CreditCard, ExternalLink, CheckCircle, Loader2, Upload } from "lucide-react";
+import { X, CreditCard, ExternalLink, CheckCircle, Loader2, Upload, Lock } from "lucide-react";
 import { base44 } from "@/api/base44Client";
+import { usePermissions } from "@/hooks/usePermissions";
 import { updateOrder } from "@/lib/tenantApi";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -24,6 +25,11 @@ import PaymentMethodSelector from "@/components/common/PaymentMethodSelector";
  */
 export default function PaymentModal({ order, mode = "prepay", onClose, onSuccess }) {
   const navigate = useNavigate();
+  const { can } = usePermissions();
+  
+  // Check payment permissions based on mode
+  const canPayment = mode === "shipping" ? true : can("payment:self_pay") || can("payment:manual_pay");
+  
   const isSupp = mode === "supplement";
   const isShipping = mode === "shipping";
 
@@ -216,6 +222,12 @@ export default function PaymentModal({ order, mode = "prepay", onClose, onSucces
         </div>
 
         <div className="px-5 py-5 space-y-4">
+           {!canPayment && (
+             <Alert className="border-red-200 bg-red-50 py-2.5">
+               <Lock className="w-4 h-4 text-red-600" />
+               <AlertDescription className="text-red-800 text-sm font-medium">您没有权限进行此支付操作</AlertDescription>
+             </Alert>
+           )}
            <Alert className="border-yellow-200 bg-yellow-50 py-2.5">
              <CreditCard className="w-4 h-4 text-yellow-600" />
              <AlertDescription className="text-yellow-800 text-sm font-medium">{amountLabel}</AlertDescription>
@@ -276,14 +288,15 @@ export default function PaymentModal({ order, mode = "prepay", onClose, onSucces
             <PaymentMethodSelector
               value={method}
               onChange={m => { setMethod(m.value); setSelectedMethodMeta(m); setAlipayUrl(null); setProofUrl(""); }}
+              disabled={!canPayment}
             />
           </div>
 
           {/* Alipay flow */}
-          {method === "alipay" && (
+          {method === "alipay" && canPayment && (
             <div className="space-y-3">
               <Button className="w-full bg-blue-600 hover:bg-blue-700"
-                onClick={handleGenerateAlipay} disabled={generating || !paidAmount}>
+                onClick={handleGenerateAlipay} disabled={generating || !paidAmount || !canPayment}>
                 {generating
                   ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />生成链接中...</>
                   : <><ExternalLink className="w-4 h-4 mr-2" />{alipayUrl ? "重新打开支付宝付款" : "打开支付宝付款"}</>}
@@ -302,7 +315,7 @@ export default function PaymentModal({ order, mode = "prepay", onClose, onSucces
           )}
 
           {/* Other methods: upload proof */}
-          {method && method !== "alipay" && (
+          {method && method !== "alipay" && canPayment && (
             <div className="space-y-3">
               {/* Show payment note + QR from admin config if available */}
               {(selectedMethodMeta?.payment_note || selectedMethodMeta?.image_url) ? (

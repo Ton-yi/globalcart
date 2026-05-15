@@ -3,7 +3,8 @@ import { base44 } from "@/api/base44Client";
 import { tenantEntity, userPrefApi } from "@/lib/tenantApi";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAuth } from "@/lib/AuthContext";
-import { User, Save, Camera, Plus, Trash2, MapPin, Edit2, Check, Star, Palette, Archive } from "lucide-react";
+import { usePermissions } from "@/hooks/usePermissions";
+import { User, Save, Camera, Plus, Trash2, MapPin, Edit2, Check, Star, Palette, Archive, Lock } from "lucide-react";
 import AvatarCropModal from "@/components/common/AvatarCropModal";
 import ThemeSelector from "@/components/common/ThemeSelector";
 import CreditPanel from "@/components/user/CreditPanel";
@@ -20,6 +21,10 @@ import AddressForm, { EMPTY_ADDRESS_FORM, serializeAddressToText, isAddressFormV
 export default function UserPreferences() {
   const { user } = useCurrentUser();
   const { setUser } = useAuth();
+  const { can } = usePermissions();
+  const canChangeAvatar = can("profile:change_avatar");
+  const canChangeAutoArchive = can("profile:change_auto_archive_settings");
+  
   const [pref, setPref] = useState(null);
   const [displayName, setDisplayName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
@@ -216,14 +221,20 @@ export default function UserPreferences() {
           <CardContent className="space-y-4">
             <div className="flex items-center gap-4">
               <div className="relative">
-                <div className="w-16 h-16 rounded-full bg-gray-100 border border-gray-200 overflow-hidden flex items-center justify-center">
-                  {avatarUrl ? <img src={avatarUrl} alt="头像" className="w-full h-full object-cover" /> : <User className="w-8 h-8 text-gray-400" />}
+                  <div className="w-16 h-16 rounded-full bg-gray-100 border border-gray-200 overflow-hidden flex items-center justify-center">
+                    {avatarUrl ? <img src={avatarUrl} alt="头像" className="w-full h-full object-cover" /> : <User className="w-8 h-8 text-gray-400" />}
+                  </div>
+                  {canChangeAvatar ? (
+                    <label className="absolute -bottom-1 -right-1 w-6 h-6 bg-red-600 rounded-full flex items-center justify-center cursor-pointer hover:bg-red-700">
+                      <Camera className="w-3 h-3 text-white" />
+                      <input type="file" accept="image/*" className="hidden" onChange={handleAvatarFileSelect} disabled={uploadingAvatar} />
+                    </label>
+                  ) : (
+                    <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-gray-400 rounded-full flex items-center justify-center">
+                      <Lock className="w-3 h-3 text-white" />
+                    </div>
+                  )}
                 </div>
-                <label className="absolute -bottom-1 -right-1 w-6 h-6 bg-red-600 rounded-full flex items-center justify-center cursor-pointer hover:bg-red-700">
-                  <Camera className="w-3 h-3 text-white" />
-                  <input type="file" accept="image/*" className="hidden" onChange={handleAvatarFileSelect} disabled={uploadingAvatar} />
-                </label>
-              </div>
               <div className="flex-1">
                 <Label className="text-sm">显示名称</Label>
                 <Input className="mt-1" placeholder={user.full_name || "输入显示名称"} value={displayName} onChange={e => setDisplayName(e.target.value)} />
@@ -436,16 +447,23 @@ export default function UserPreferences() {
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
             <Archive className="w-4 h-4" />自动存档设置
+            {!canChangeAutoArchive && <Lock className="w-4 h-4 text-gray-400" />}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {!canChangeAutoArchive && (
+            <div className="bg-orange-50 border border-orange-200 rounded-lg px-3 py-2 text-xs text-orange-700">
+              您没有权限修改自动存档设置
+            </div>
+          )}
           <p className="text-xs text-gray-400">已收货/已签收后，经过设定天数会自动存档，不再显示在主列表中。设为 0 则不自动存档。</p>
           <div>
             <Label className="text-sm">订单收货后自动存档</Label>
             <div className="flex items-center gap-2 mt-1">
               <Select
                 value={String(form.auto_archive_order_days)}
-                onValueChange={v => f("auto_archive_order_days", Number(v))}>
+                onValueChange={v => f("auto_archive_order_days", Number(v))}
+                disabled={!canChangeAutoArchive}>
                 <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="0">不自动存档</SelectItem>
@@ -463,7 +481,8 @@ export default function UserPreferences() {
             <div className="flex items-center gap-2 mt-1">
               <Select
                 value={String(form.auto_archive_pool_days)}
-                onValueChange={v => f("auto_archive_pool_days", Number(v))}>
+                onValueChange={v => f("auto_archive_pool_days", Number(v))}
+                disabled={!canChangeAutoArchive}>
                 <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="0">不自动存档</SelectItem>

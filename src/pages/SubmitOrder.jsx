@@ -6,8 +6,9 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { timePage } from "@/lib/timing";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { ShoppingBag, Calculator, Info, Upload, Plus, X, ChevronsUpDown, HelpCircle, CreditCard, AlertTriangle } from "lucide-react";
+import { ShoppingBag, Calculator, Info, Upload, Plus, X, ChevronsUpDown, HelpCircle, CreditCard, AlertTriangle, Lock } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import { usePermissions } from "@/hooks/usePermissions";
 import PaymentMethodSelector from "@/components/common/PaymentMethodSelector";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +26,9 @@ const DEFAULT_PREPAY_RATE = 0.80;
 export default function SubmitOrder() {
   const navigate = useNavigate();
   const { user } = useCurrentUser();
+  const { can } = usePermissions();
+  const canSubmitOrder = can("order:submit_purchase_request");
+  const canSplitOrder = can("order:submit_split_request");
   const [rates, setRates] = useState(null);
   const [settings, setSettings] = useState({});
   const [productUrls, setProductUrls] = useState([""]);
@@ -288,17 +292,17 @@ export default function SubmitOrder() {
                       </ReactMarkdown>
                     </div>
                   )}
-                  {settings.allow_order_split === 'true' && (() => {
-                    const sections = (productUrls[0] || '').split(/\n-{3,}\n/).map(s => s.trim()).filter(Boolean);
-                    if (sections.length > 1) {
-                      return (
-                        <div className="mt-1.5 bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2 text-xs text-indigo-700">
-                          <span className="font-medium">检测到 {sections.length} 组链接</span> — 管理员下单后将自动拆分为 {sections.length} 个子订单，货款平均分配
-                        </div>
-                      );
-                    }
-                    return null;
-                  })()}
+                  {settings.allow_order_split === 'true' && canSplitOrder && (() => {
+                                 const sections = (productUrls[0] || '').split(/\n-{3,}\n/).map(s => s.trim()).filter(Boolean);
+                                 if (sections.length > 1) {
+                                   return (
+                                     <div className="mt-1.5 bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2 text-xs text-indigo-700">
+                                       <span className="font-medium">检测到 {sections.length} 组链接</span> — 管理员下单后将自动拆分为 {sections.length} 个子订单，货款平均分配
+                                     </div>
+                                   );
+                                 }
+                                 return null;
+                               })()}
                 </>
               ) : (
                 <div className="mt-1 space-y-2">
@@ -617,12 +621,19 @@ export default function SubmitOrder() {
           </CardContent>
         </Card>
 
-        <Button type="submit" disabled={submitting || !form.product_name} className="w-full bg-red-600 hover:bg-red-700">
-          <ShoppingBag className="w-4 h-4 mr-2" />
-          {submitting ? "提交中..." :
-            (paymentMode === "credit_weekly" || paymentMode === "credit_monthly") ? "提交需求（记账）" :
-            paymentMode === "deferred" ? "提交需求（后付款）" : "提交并前往付款"}
-        </Button>
+        {!canSubmitOrder ? (
+          <Button type="button" disabled className="w-full bg-gray-400">
+            <Lock className="w-4 h-4 mr-2" />
+            您没有权限提交购买需求
+          </Button>
+        ) : (
+          <Button type="submit" disabled={submitting || !form.product_name} className="w-full bg-red-600 hover:bg-red-700">
+            <ShoppingBag className="w-4 h-4 mr-2" />
+            {submitting ? "提交中..." :
+              (paymentMode === "credit_weekly" || paymentMode === "credit_monthly") ? "提交需求（记账）" :
+              paymentMode === "deferred" ? "提交需求（后付款）" : "提交并前往付款"}
+          </Button>
+        )}
       </form>
     </div>
   );

@@ -5,8 +5,9 @@
  * Feature: shows sender avatar, name, and timestamp.
  */
 import { useState, useEffect, useRef } from "react";
-import { Send, Upload, X, MessageCircle } from "lucide-react";
+import { Send, Upload, X, MessageCircle, Lock } from "lucide-react";
 import { base44 } from "@/api/base44Client";
+import { usePermissions } from "@/hooks/usePermissions";
 import { updateOrder } from "@/lib/tenantApi";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -30,6 +31,10 @@ function Avatar({ name, imageUrl, size = "sm" }) {
 }
 
 export default function OrderMessageThread({ order, currentUser, isAdmin, onMessageSent, contactInfo, composeOnly = false, hideHistory = false, userProfileMap = {} }) {
+  const { can } = usePermissions();
+  const canSendMessage = can("message:send_message");
+  const canSendImage = can("message:send_image");
+  
   const [localMessages, setLocalMessages] = useState(order.messages || []);
   const [content, setContent] = useState("");
   const [imageUrl, setImageUrl] = useState("");
@@ -158,48 +163,60 @@ export default function OrderMessageThread({ order, currentUser, isAdmin, onMess
       )}
 
       {/* Compose */}
-      <div className="border border-gray-200 rounded-xl p-3 space-y-2.5 bg-gray-50">
-        <Textarea
-          placeholder="输入留言内容... (Enter 发送，Shift+Enter 换行)"
-          rows={3}
-          value={content}
-          onChange={e => setContent(e.target.value)}
-          onKeyDown={e => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              handleSend();
-            }
-          }}
-          className="bg-white text-sm resize-none"
-        />
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <label className="cursor-pointer">
-              <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs transition-colors ${
-                imageUrl ? "border-green-300 bg-green-50 text-green-700" : "border-gray-200 bg-white text-gray-500 hover:bg-gray-50"
-              }`}>
-                <Upload className="w-3.5 h-3.5" />
-                {uploading ? "上传中..." : imageUrl ? "图片已附" : "附图片"}
-              </div>
-              <input type="file" accept="image/*" className="hidden" onChange={handleUpload} disabled={uploading} />
-            </label>
-            {imageUrl && (
-              <button onClick={() => setImageUrl("")} className="text-gray-400 hover:text-red-500">
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
+      {canSendMessage ? (
+        <div className="border border-gray-200 rounded-xl p-3 space-y-2.5 bg-gray-50">
+          <Textarea
+            placeholder="输入留言内容... (Enter 发送，Shift+Enter 换行)"
+            rows={3}
+            value={content}
+            onChange={e => setContent(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+              }
+            }}
+            className="bg-white text-sm resize-none"
+            disabled={!canSendMessage}
+          />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {canSendImage && (
+                <label className="cursor-pointer">
+                  <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs transition-colors ${
+                    imageUrl ? "border-green-300 bg-green-50 text-green-700" : "border-gray-200 bg-white text-gray-500 hover:bg-gray-50"
+                  }`}>
+                    <Upload className="w-3.5 h-3.5" />
+                    {uploading ? "上传中..." : imageUrl ? "图片已附" : "附图片"}
+                  </div>
+                  <input type="file" accept="image/*" className="hidden" onChange={handleUpload} disabled={uploading || !canSendImage} />
+                </label>
+              )}
+              {imageUrl && canSendImage && (
+                <button onClick={() => setImageUrl("")} className="text-gray-400 hover:text-red-500">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+            <Button
+              size="sm"
+              className="bg-gray-900 hover:bg-gray-800 text-xs"
+              onClick={handleSend}
+              disabled={sending || (!content.trim() && !imageUrl) || !canSendMessage}
+            >
+              <Send className="w-3.5 h-3.5 mr-1" />
+              {sending ? "发送中..." : "发送留言"}
+            </Button>
           </div>
-          <Button
-            size="sm"
-            className="bg-gray-900 hover:bg-gray-800 text-xs"
-            onClick={handleSend}
-            disabled={sending || (!content.trim() && !imageUrl)}
-          >
-            <Send className="w-3.5 h-3.5 mr-1" />
-            {sending ? "发送中..." : "发送留言"}
-          </Button>
         </div>
-      </div>
+      ) : (
+        <div className="border border-gray-200 rounded-xl p-3 bg-gray-50 text-center">
+          <div className="flex items-center justify-center gap-2 text-gray-500 text-sm">
+            <Lock className="w-4 h-4" />
+            您没有权限发送留言
+          </div>
+        </div>
+      )}
     </div>
   );
 }
