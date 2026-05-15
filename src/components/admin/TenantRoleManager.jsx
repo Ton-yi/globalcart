@@ -268,7 +268,7 @@ export default function TenantRoleManager({ tenants = [] }) {
 
   useEffect(() => {
     base44.functions.invoke('manageRoles', { action: 'listGlobalTemplates', data: {} })
-      .then(r => setGlobalTemplates(r.data?.roles || []))
+      .then(r => setGlobalTemplates(r.data?.templates || []))
       .catch(() => {});
   }, []);
 
