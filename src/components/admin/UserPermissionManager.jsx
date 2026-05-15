@@ -197,16 +197,14 @@ export default function UserPermissionManager({ user, allRoles: allRolesProp, on
 
           {/* Permission grid */}
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <Label className="text-xs text-gray-500 font-semibold">权限设置（直接开关，不受角色限制）</Label>
-              <div className="flex items-center gap-2">
-                {hasAnyOverride && (
-                  <Badge className="text-xs bg-amber-100 text-amber-700 border border-amber-200">
-                    已覆盖 {Object.keys(overrides).length} 项
-                  </Badge>
-                )}
-                <span className="text-xs text-gray-400">{effectivePerms.size} 项已开启</span>
-              </div>
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
+              <Label className="text-xs text-gray-500 font-semibold shrink-0">权限设置（直接开关，不受角色限制）</Label>
+              {hasAnyOverride && (
+                <Badge className="text-xs bg-amber-100 text-amber-700 border border-amber-200 shrink-0">
+                  已覆盖 {Object.keys(overrides).length} 项
+                </Badge>
+              )}
+              <span className="text-xs text-gray-400 shrink-0">{effectivePerms.size} 项已开启</span>
             </div>
             <PermissionGrid
               selected={[...effectivePerms]}
