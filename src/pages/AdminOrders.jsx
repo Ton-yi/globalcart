@@ -210,6 +210,10 @@ function CellValue({ col, order, onQuickOrdered, userAvatars }) {
 export default function AdminOrders() {
   const { user } = useCurrentUser();
   const { can, isAdmin } = usePermissions();
+  const canEditOrder = isAdmin || can("order:edit_order");
+  const canPlaceOrder = isAdmin || can("order:place_order");
+  const canWarehouseIn = isAdmin || can("order:warehouse_in");
+  const canArchiveOrder = isAdmin || can("order:archive_order");
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -620,7 +624,7 @@ export default function AdminOrders() {
                             {pendingEdit.edit_type === 'cancel_shipment' ? '申请重新入库' : '申请移至其他发货申请'}
                           </span>
                         )}
-                        {(order.order_status === "paid" || order.order_status === "pending_purchase") && (
+                        {(order.order_status === "paid" || order.order_status === "pending_purchase") && canPlaceOrder && (
                           order.has_split_marker
                             ? <Button size="sm" variant="outline" className="h-6 text-xs px-2 text-indigo-600 border-indigo-200"
                                 onClick={() => setSelectedOrder(order)}>
@@ -631,7 +635,7 @@ export default function AdminOrders() {
                                 已下单
                               </Button>
                         )}
-                        {order.order_status === "purchased" && (
+                        {order.order_status === "purchased" && canWarehouseIn && (
                           <Button size="sm" variant="outline" className="h-6 text-xs px-2 text-teal-600 border-teal-200"
                             onClick={() => handleQuickInWarehouse(order)}>
                             入库
@@ -668,7 +672,7 @@ export default function AdminOrders() {
                             <Trash2 className="w-3 h-3 mr-1" />删除
                           </Button>
                         )}
-                        {!showArchived && (order.order_status === "delivered" || order.order_status === "cancelled") && !order.is_archived && (
+                        {!showArchived && (order.order_status === "delivered" || order.order_status === "cancelled") && !order.is_archived && canArchiveOrder && (
                           <Button size="sm" variant="outline" className="h-6 text-xs px-2 text-gray-500 border-gray-200 hover:bg-gray-50"
                             onClick={() => handleArchiveOrder(order)}>
                             <Archive className="w-3 h-3 mr-1" />存档
@@ -782,7 +786,7 @@ export default function AdminOrders() {
 
       <div className="text-xs text-gray-400 text-right">{showArchived ? `已存档订单：${filtered.length} 条` : `共 ${filtered.length} 条`}</div>
 
-      {selectedOrder && (
+      {selectedOrder && canEditOrder && (
         <AdminOrderEditModal
           order={selectedOrder}
           initialItemSizeTemplates={itemSizeTemplates}

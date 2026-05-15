@@ -67,12 +67,12 @@ export default function Layout({ children, currentPageName }) {
   const isAdmin = isPlatformAdmin || isTenantAdmin;
   
   // Platform admin has all permissions; tenant admin has tenant-level permissions
-  const canAccessAdminSettings = isPlatformAdmin || isTenantAdmin;
-  const canAccessAdminDashboard = isPlatformAdmin || isTenantAdmin;
-  const canAccessAdminOrders = isPlatformAdmin || isTenantAdmin || can("order:update");
+  const canAccessAdminSettings = isPlatformAdmin || isTenantAdmin || can("admin_settings:manage_backend_settings");
+  const canAccessAdminDashboard = isPlatformAdmin || isTenantAdmin || can("view:admin_dashboard");
+  const canAccessAdminOrders = isPlatformAdmin || isTenantAdmin || can("order:update") || can("view:order_management_page");
   const canAccessAdminShippingPool = isPlatformAdmin || isTenantAdmin || can("shipping_pool:update");
-  const canAccessAdminUsers = isPlatformAdmin || isTenantAdmin || can("user:read");
-  const canAccessAdminAnnouncements = isPlatformAdmin || isTenantAdmin;
+  const canAccessAdminUsers = isPlatformAdmin || isTenantAdmin || can("user:read") || can("view:user_management_page");
+  const canAccessAdminAnnouncements = isPlatformAdmin || isTenantAdmin || can("view:announcement_management_page");
 
   const userNav = [
     { label: "首页", icon: Home, page: "Home" },

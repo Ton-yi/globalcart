@@ -240,6 +240,13 @@ export default function AdminUsers() {
 
   const isTenantAdmin = currentUser?.role === 'admin' || currentUser?.role === 'tenant_admin';
   const isPlatformAdmin = currentUser?.role === 'platform_admin';
+  
+  // Granular permission checks (admins bypass automatically via isCurrentUserAdmin)
+  const canAddDisableUser = isCurrentUserAdmin || can("user:add_disable_user");
+  const canDeleteUser = isCurrentUserAdmin || can("user:delete_user");
+  const canEditUserPermissions = isCurrentUserAdmin || can("user:edit_user_permissions");
+  const canAuditCredit = isCurrentUserAdmin || can("user:audit_credit_application");
+  const canEditRole = isCurrentUserAdmin || can("role:edit_role");
 
   const loadData = () => {
     setLoading(true);
@@ -325,32 +332,34 @@ export default function AdminUsers() {
       <h1 className="text-xl font-bold text-gray-900">用户管理</h1>
 
       {/* Role Creation */}
-      {(isTenantAdmin || isPlatformAdmin) && currentUser?.tenant_id && (
+      {canEditRole && currentUser?.tenant_id && (
         <RoleCreationPanel tenantId={currentUser.tenant_id} existingRoles={allRoles} onRoleCreated={loadData} isPlatformAdmin={isPlatformAdmin} />
       )}
 
       {/* Invite User */}
-      <div className="bg-white border border-gray-200 rounded-xl p-4">
-        <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-          <UserPlus className="w-4 h-4" />邀请新用户
-        </h3>
-        <div className="flex gap-3 flex-wrap">
-          <Input placeholder="输入邮箱地址" className="h-8 text-sm flex-1 min-w-48"
-            value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} />
-          <Select value={inviteRole} onValueChange={setInviteRole}>
-            <SelectTrigger className="w-28 h-8 text-sm"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="user">用户</SelectItem>
-              <SelectItem value="admin">管理员</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button size="sm" className="h-8 bg-gray-900 hover:bg-gray-800 text-xs"
-            onClick={handleInvite} disabled={inviting || !inviteEmail}>
-            {inviting ? "发送中..." : "发送邀请"}
-          </Button>
+      {canAddDisableUser && (
+        <div className="bg-white border border-gray-200 rounded-xl p-4">
+          <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+            <UserPlus className="w-4 h-4" />邀请新用户
+          </h3>
+          <div className="flex gap-3 flex-wrap">
+            <Input placeholder="输入邮箱地址" className="h-8 text-sm flex-1 min-w-48"
+              value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} />
+            <Select value={inviteRole} onValueChange={setInviteRole}>
+              <SelectTrigger className="w-28 h-8 text-sm"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="user">用户</SelectItem>
+                <SelectItem value="admin">管理员</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button size="sm" className="h-8 bg-gray-900 hover:bg-gray-800 text-xs"
+              onClick={handleInvite} disabled={inviting || !inviteEmail}>
+              {inviting ? "发送中..." : "发送邀请"}
+            </Button>
+          </div>
+          {inviteMsg && <p className="text-xs text-green-600 mt-2">{inviteMsg}</p>}
         </div>
-        {inviteMsg && <p className="text-xs text-green-600 mt-2">{inviteMsg}</p>}
-      </div>
+      )}
 
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
@@ -450,49 +459,57 @@ export default function AdminUsers() {
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1 justify-end">
                        {/* Edit permissions */}
-                       <button
-                         onClick={() => setManagingPermissionsFor(u)}
-                         className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-700"
-                         title="权限管理"
-                       >
-                         <Lock className="w-3.5 h-3.5" />
-                       </button>
-                       {/* Edit role */}
-                       <button
-                         onClick={() => setEditingUser(u)}
-                         className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-700"
-                         title="编辑基本信息"
-                       >
-                         <Pencil className="w-3.5 h-3.5" />
-                       </button>
+                       {canEditUserPermissions && (
+                         <button
+                           onClick={() => setManagingPermissionsFor(u)}
+                           className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-700"
+                           title="权限管理"
+                         >
+                           <Lock className="w-3.5 h-3.5" />
+                         </button>
+                       )}
+                       {/* Edit role & tier */}
+                       {canAddDisableUser && (
+                         <button
+                           onClick={() => setEditingUser(u)}
+                           className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-700"
+                           title="编辑基本信息"
+                         >
+                           <Pencil className="w-3.5 h-3.5" />
+                         </button>
+                       )}
                        {/* Credit Applications */}
-                       <button
-                         onClick={() => setCreditAppUser(u)}
-                         className={`p-1.5 rounded ${
-                           creditApps[u.email]?.some(a => a.status === 'pending')
-                             ? 'bg-amber-100 text-amber-600 hover:bg-amber-200'
-                             : creditApps[u.email]?.length > 0
-                             ? 'text-blue-500 hover:bg-blue-50'
-                             : 'text-gray-400 hover:bg-gray-100'
-                         }`}
-                         title="记账申请"
-                       >
-                         <CreditCard className="w-3.5 h-3.5" />
-                       </button>
+                       {canAuditCredit && (
+                         <button
+                           onClick={() => setCreditAppUser(u)}
+                           className={`p-1.5 rounded ${
+                             creditApps[u.email]?.some(a => a.status === 'pending')
+                               ? 'bg-amber-100 text-amber-600 hover:bg-amber-200'
+                               : creditApps[u.email]?.length > 0
+                               ? 'text-blue-500 hover:bg-blue-50'
+                               : 'text-gray-400 hover:bg-gray-100'
+                           }`}
+                           title="记账申请"
+                         >
+                           <CreditCard className="w-3.5 h-3.5" />
+                         </button>
+                       )}
                       {/* Toggle active */}
-                      <button
-                        onClick={() => handleToggleActive(u)}
-                        disabled={!!actioning[u.id]}
-                        className={`p-1.5 rounded hover:bg-gray-100 ${isDisabled ? 'text-green-500 hover:text-green-700' : 'text-amber-500 hover:text-amber-700'}`}
-                        title={isDisabled ? "启用用户" : "停用用户"}
-                      >
-                        {isDisabled
-                          ? <CheckCircle className="w-3.5 h-3.5" />
-                          : <Ban className="w-3.5 h-3.5" />
-                        }
-                      </button>
-                      {/* Delete — only platform_admin can see for all; tenant_admin cannot delete platform_admin */}
-                      {(isTenantAdmin && u.role !== 'platform_admin') && (
+                      {canAddDisableUser && (
+                        <button
+                          onClick={() => handleToggleActive(u)}
+                          disabled={!!actioning[u.id]}
+                          className={`p-1.5 rounded hover:bg-gray-100 ${isDisabled ? 'text-green-500 hover:text-green-700' : 'text-amber-500 hover:text-amber-700'}`}
+                          title={isDisabled ? "启用用户" : "停用用户"}
+                        >
+                          {isDisabled
+                            ? <CheckCircle className="w-3.5 h-3.5" />
+                            : <Ban className="w-3.5 h-3.5" />
+                          }
+                        </button>
+                      )}
+                      {/* Delete */}
+                      {canDeleteUser && u.role !== 'platform_admin' && (
                         <button
                           onClick={() => handleDelete(u)}
                           disabled={!!actioning[u.id]}
@@ -512,12 +529,14 @@ export default function AdminUsers() {
       </div>
 
       {/* Role Permission Overview */}
-      <RolePermissionOverview
-        roles={allRoles}
-        isPlatformAdmin={isPlatformAdmin}
-        isTenantAdmin={isTenantAdmin}
-        onRoleUpdated={loadData}
-      />
+      {canEditRole && (
+        <RolePermissionOverview
+          roles={allRoles}
+          isPlatformAdmin={isPlatformAdmin}
+          isTenantAdmin={isTenantAdmin}
+          onRoleUpdated={loadData}
+        />
+      )}
 
       {editingUser && (
         <EditUserModal

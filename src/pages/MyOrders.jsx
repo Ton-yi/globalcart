@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Package, RefreshCw, Search, CreditCard, Truck, CheckCircle, ChevronUp, ChevronDown, ChevronsUpDown, Send, Archive, ArchiveRestore, RotateCcw } from "lucide-react";
+import { usePermissions } from "@/hooks/usePermissions";
 import { Textarea } from "@/components/ui/textarea";
 import { ImageWithViewer } from "@/components/common/ImageViewer";
 import BulkPaymentModal from "@/components/orders/BulkPaymentModal";
@@ -180,6 +181,8 @@ function CellValue({ col, order }) {
 
 export default function MyOrders() {
   const { user, loading: authLoading } = useCurrentUser();
+  const { can } = usePermissions();
+  const canArchiveOrder = can("order:archive_order");
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [alipayReturnMsg, setAlipayReturnMsg] = useState(null);
@@ -358,9 +361,9 @@ export default function MyOrders() {
   const paymentPendingOrders = filtered.filter(o => o.order_status === "payment_pending" && o.payment_status !== "awaiting_confirmation");
   const selectedPaymentPending = filtered.filter(o => selectedIds.includes(o.id) && o.order_status === "payment_pending" && o.payment_status !== "awaiting_confirmation");
 
-  // Orders eligible for bulk archive
-  const deliveredOrders = filtered.filter(o => o.order_status === "delivered" && !o.is_archived);
-  const selectedDelivered = filtered.filter(o => selectedIds.includes(o.id) && o.order_status === "delivered" && !o.is_archived);
+  // Orders eligible for bulk archive (only if user has archive permission)
+  const deliveredOrders = canArchiveOrder ? filtered.filter(o => o.order_status === "delivered" && !o.is_archived) : [];
+  const selectedDelivered = canArchiveOrder ? filtered.filter(o => selectedIds.includes(o.id) && o.order_status === "delivered" && !o.is_archived) : [];
 
   const toggleSelect = (id) => {
     setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
@@ -614,7 +617,7 @@ export default function MyOrders() {
                       </div>
                     );
                   })()}
-                  {order.order_status === "delivered" && !order.is_archived && (
+                  {order.order_status === "delivered" && !order.is_archived && canArchiveOrder && (
                     <Button size="sm" variant="outline" className="h-7 text-xs px-2 text-gray-500"
                       onClick={() => handleArchiveOrder(order)}>
                       <Archive className="w-3 h-3 mr-1" />存档

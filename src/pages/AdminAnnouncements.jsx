@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { tenantEntity } from "@/lib/tenantApi";
+import { usePermissions } from "@/hooks/usePermissions";
 import { Plus, Edit2, Trash2, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +16,11 @@ const TYPE_COLORS = { info: "bg-blue-100 text-blue-700", warning: "bg-yellow-100
 const AUDIENCE_LABELS = { all: "全部用户", users: "一般用户", admins: "管理员" };
 
 export default function AdminAnnouncements() {
+  const { can, isAdmin } = usePermissions();
+  const canCreate = isAdmin || can("announcement:create_announcement");
+  const canEdit = isAdmin || can("announcement:edit_announcement");
+  const canDelete = isAdmin || can("announcement:delete_announcement");
+  
   const [announcements, setAnnouncements] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -64,9 +70,11 @@ export default function AdminAnnouncements() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-gray-900">公告管理</h1>
-        <Button className="bg-red-600 hover:bg-red-700 text-sm" onClick={() => { setEditing(null); setShowForm(!showForm); }}>
-          <Plus className="w-4 h-4 mr-1" />新增公告
-        </Button>
+        {canCreate && (
+          <Button className="bg-red-600 hover:bg-red-700 text-sm" onClick={() => { setEditing(null); setShowForm(!showForm); }}>
+            <Plus className="w-4 h-4 mr-1" />新增公告
+          </Button>
+        )}
       </div>
 
       {showForm && (
@@ -135,16 +143,22 @@ export default function AdminAnnouncements() {
                 <p className="text-xs text-gray-400 mt-1">{new Date(a.created_date).toLocaleDateString("zh-CN")}{a.expires_at ? ` · 过期：${a.expires_at}` : ""}</p>
               </div>
               <div className="flex items-center gap-1.5 flex-shrink-0">
-                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => handleToggle(a)}>
-                  {a.is_active ? "隐藏" : "显示"}
-                </Button>
-                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => openEdit(a)}>
-                  <Edit2 className="w-3 h-3" />
-                </Button>
-                <Button size="sm" variant="ghost" className="h-7 text-xs text-red-500" onClick={() => handleDelete(a.id)}>
-                  <Trash2 className="w-3 h-3" />
-                </Button>
-              </div>
+                 {canEdit && (
+                   <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => handleToggle(a)}>
+                     {a.is_active ? "隐藏" : "显示"}
+                   </Button>
+                 )}
+                 {canEdit && (
+                   <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => openEdit(a)}>
+                     <Edit2 className="w-3 h-3" />
+                   </Button>
+                 )}
+                 {canDelete && (
+                   <Button size="sm" variant="ghost" className="h-7 text-xs text-red-500" onClick={() => handleDelete(a.id)}>
+                     <Trash2 className="w-3 h-3" />
+                   </Button>
+                 )}
+               </div>
             </div>
           </div>
         ))}

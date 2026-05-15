@@ -37,10 +37,10 @@ const STATUS_FILTERS = [
   { v: "delivered",        l: "已签收" },
 ];
 
-const TABS = [
+const ALL_TABS = [
   { key: "pools", label: "发货申请" },
-  { key: "consolidation", label: "用户拼邮" },
-  { key: "official_kanban", label: "官方拼邮看板" },
+  { key: "consolidation", label: "用户拼邮", permKey: "consolidation" },
+  { key: "official_kanban", label: "官方拼邮看板", permKey: "official_kanban" },
 ];
 
 const METHOD_LABELS = {
@@ -54,6 +54,8 @@ export default function ShippingPool() {
   const canDirectShipment = can("shipping:direct_shipment");
   const canConsolidateTransit = can("shipping:consolidate_to_transit");
   const canConsolidateOther = can("shipping:consolidate_to_other_address");
+  const canViewOtherConsolidation = can("view:other_user_consolidation_pool");
+  const canViewOfficialKanban = can("view:official_consolidation_kanban");
   
   const [pools, setPools] = useState([]);
   const [consolidationOrders, setConsolidationOrders] = useState([]);
@@ -359,6 +361,7 @@ export default function ShippingPool() {
   };
 
   const isAdmin = user?.role === "admin" || user?.role === "platform_admin" || user?.role === "tenant_admin" || user?.role === "staff";
+  
 
   // "发货申请" tab: direct (non-consolidation) pools
   // Admin sees all; regular users see their own + non-private pools from others in same tenant
@@ -875,18 +878,27 @@ export default function ShippingPool() {
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="flex gap-1 border-b border-gray-200">
-        {TABS.map(tab => (
-          <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${activeTab === tab.key ? "border-red-600 text-red-600" : "border-transparent text-gray-500 hover:text-gray-800"}`}>
-            {tab.label}
-            {tab.key === "pools" && <span className="ml-1.5 text-xs bg-gray-100 text-gray-500 rounded px-1.5 py-0.5">{directPools.length}</span>}
-            {tab.key === "consolidation" && <span className="ml-1.5 text-xs bg-gray-100 text-gray-500 rounded px-1.5 py-0.5">{userConsPools.length}</span>}
-            {tab.key === "official_kanban" && <span className="ml-1.5 text-xs bg-gray-100 text-gray-500 rounded px-1.5 py-0.5">{officialConsPools.length}</span>}
-          </button>
-        ))}
-      </div>
+      {/* Tabs — filtered by permissions */}
+      {(() => {
+        const visibleTabs = ALL_TABS.filter(tab => {
+          if (tab.key === "consolidation") return isAdmin || canViewOtherConsolidation;
+          if (tab.key === "official_kanban") return isAdmin || canViewOfficialKanban;
+          return true;
+        });
+        return (
+          <div className="flex gap-1 border-b border-gray-200">
+            {visibleTabs.map(tab => (
+              <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${activeTab === tab.key ? "border-red-600 text-red-600" : "border-transparent text-gray-500 hover:text-gray-800"}`}>
+                {tab.label}
+                {tab.key === "pools" && <span className="ml-1.5 text-xs bg-gray-100 text-gray-500 rounded px-1.5 py-0.5">{directPools.length}</span>}
+                {tab.key === "consolidation" && <span className="ml-1.5 text-xs bg-gray-100 text-gray-500 rounded px-1.5 py-0.5">{userConsPools.length}</span>}
+                {tab.key === "official_kanban" && <span className="ml-1.5 text-xs bg-gray-100 text-gray-500 rounded px-1.5 py-0.5">{officialConsPools.length}</span>}
+              </button>
+            ))}
+          </div>
+        );
+      })()}
 
       {/* ---- TAB: SHIPPING POOLS ---- */}
       {activeTab === "pools" && (
