@@ -2,18 +2,18 @@ import { PERMISSIONS_PRESET } from "@/lib/permissionsPreset";
 import { Check } from "lucide-react";
 
 const ACCENT_CLASSES = {
-  green: { on: "bg-green-500 border-green-500", row: "bg-green-50 hover:bg-green-100", text: "text-green-900", cat: "bg-green-50 text-green-700 border-green-200" },
-  purple: { on: "bg-purple-500 border-purple-500", row: "bg-purple-50 hover:bg-purple-100", text: "text-purple-900", cat: "bg-purple-50 text-purple-700 border-purple-200" },
-  blue: { on: "bg-blue-500 border-blue-500", row: "bg-blue-50 hover:bg-blue-100", text: "text-blue-900", cat: "bg-blue-50 text-blue-700 border-blue-200" },
+  green:  { pill: "bg-green-100 text-green-800 border-green-300", pillOn: "bg-green-500 text-white border-green-500", cat: "bg-green-50 text-green-700 border-green-200", check: "text-white" },
+  purple: { pill: "bg-gray-100 text-gray-600 border-gray-200",  pillOn: "bg-purple-500 text-white border-purple-500", cat: "bg-purple-50 text-purple-700 border-purple-200", check: "text-white" },
+  blue:   { pill: "bg-gray-100 text-gray-600 border-gray-200",  pillOn: "bg-blue-500 text-white border-blue-500",   cat: "bg-blue-50 text-blue-700 border-blue-200",     check: "text-white" },
 };
 
 /**
- * PermissionGrid — shared permission selection component.
+ * PermissionGrid — pill-style inline permission selector.
+ * Parents and children render as compact inline pills, grouped by category.
  *
  * Props:
- *   selected   : string[]   — array of selected permission name strings
+ *   selected   : string[]
  *   onToggle   : (names: string[], forceOn?: boolean) => void
- *                — called with an array of names + optional forceOn flag
  *   accentColor: "green" | "purple" | "blue"
  *   disabled   : boolean (optional)
  */
@@ -29,10 +29,8 @@ export default function PermissionGrid({ selected = [], onToggle, accentColor = 
   };
 
   const handleChildToggle = (parent, child) => {
-    // toggling child: if child is being turned on, also turn on parent
     const childOn = selectedSet.has(child.name);
     if (!childOn) {
-      // turn on child + ensure parent is on
       const toAdd = [child.name];
       if (!selectedSet.has(parent.name)) toAdd.push(parent.name);
       onToggle(toAdd, true);
@@ -60,85 +58,63 @@ export default function PermissionGrid({ selected = [], onToggle, accentColor = 
           (p.children || []).forEach(c => allCatNames.push(c.name));
         });
         const catOnCount = allCatNames.filter(n => selectedSet.has(n)).length;
-        const catAllOn = catOnCount === allCatNames.length;
 
         return (
           <div key={cat.category}>
-            {/* Category header — click to bulk toggle */}
+            {/* Category header */}
             <button
               type="button"
               disabled={disabled}
               onClick={() => handleCategoryToggle(cat)}
-              className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors ${
-                catOnCount > 0 ? `${accent.cat}` : "bg-gray-50 text-gray-600"
-              } text-xs font-semibold hover:opacity-80`}
+              className={`w-full px-3 py-1 text-left flex items-center justify-between transition-colors hover:opacity-80 text-xs font-semibold ${
+                catOnCount > 0 ? accent.cat : "bg-gray-50 text-gray-500"
+              }`}
             >
               <span>{cat.category}</span>
-              <span className="font-normal opacity-70">{catOnCount}/{allCatNames.length}</span>
+              <span className="font-normal opacity-60">{catOnCount}/{allCatNames.length}</span>
             </button>
 
-            {/* Permissions in this category */}
-            <div className="divide-y divide-gray-50">
+            {/* Pills row */}
+            <div className="px-3 py-2 flex flex-wrap gap-1.5 bg-white">
               {cat.permissions.map(perm => {
                 const parentOn = selectedSet.has(perm.name);
                 const children = perm.children || [];
                 const childOnCount = children.filter(c => selectedSet.has(c.name)).length;
-                const hasPartialChildren = children.length > 0 && childOnCount > 0 && childOnCount < children.length;
+                const hasPartial = children.length > 0 && childOnCount > 0 && childOnCount < children.length;
 
                 return (
-                  <div key={perm.name}>
-                    {/* Parent permission row */}
+                  <div key={perm.name} className="flex flex-wrap gap-1">
+                    {/* Parent pill */}
                     <button
                       type="button"
                       disabled={disabled}
                       onClick={() => handleParentToggle(perm)}
-                      className={`flex items-center gap-2.5 px-3 py-1.5 text-left w-full transition-colors ${
-                        parentOn ? accent.row : "bg-white hover:bg-gray-50"
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs transition-all cursor-pointer select-none ${
+                        parentOn ? accent.pillOn : hasPartial ? "bg-gray-100 text-gray-600 border-gray-300 border-dashed" : accent.pill
                       }`}
                     >
-                      <span className={`w-3.5 h-3.5 rounded flex items-center justify-center flex-shrink-0 border-2 transition-colors ${
-                        parentOn
-                          ? accent.on
-                          : hasPartialChildren
-                          ? "border-gray-400 bg-gray-100"
-                          : "border-gray-300 bg-white"
-                      }`}>
-                        {parentOn && <Check className="w-2 h-2 text-white" strokeWidth={3} />}
-                        {!parentOn && hasPartialChildren && <span className="w-1.5 h-0.5 bg-gray-500 rounded" />}
-                      </span>
-                      <span className={`text-xs flex-1 ${parentOn ? `${accent.text} font-medium` : "text-gray-600"}`}>
-                        {perm.display_name}
-                      </span>
+                      {parentOn && <Check className="w-2.5 h-2.5 flex-shrink-0" strokeWidth={3} />}
+                      {perm.display_name}
                     </button>
 
-                    {/* Child permissions */}
-                    {children.length > 0 && (
-                      <div className="pl-6 border-l-2 border-gray-100 ml-3 divide-y divide-gray-50">
-                        {children.map(child => {
-                          const childOn = selectedSet.has(child.name);
-                          return (
-                            <button
-                              key={child.name}
-                              type="button"
-                              disabled={disabled}
-                              onClick={() => handleChildToggle(perm, child)}
-                              className={`flex items-center gap-2 px-3 py-1 text-left w-full transition-colors ${
-                                childOn ? accent.row : "bg-white hover:bg-gray-50"
-                              }`}
-                            >
-                              <span className={`w-3 h-3 rounded flex items-center justify-center flex-shrink-0 border-2 transition-colors ${
-                                childOn ? accent.on : "border-gray-300 bg-white"
-                              }`}>
-                                {childOn && <Check className="w-1.5 h-1.5 text-white" strokeWidth={3} />}
-                              </span>
-                              <span className={`text-xs flex-1 ${childOn ? `${accent.text} font-medium` : "text-gray-500"}`}>
-                                {child.display_name}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
+                    {/* Child pills — indented inline after parent */}
+                    {children.map(child => {
+                      const childOn = selectedSet.has(child.name);
+                      return (
+                        <button
+                          key={child.name}
+                          type="button"
+                          disabled={disabled}
+                          onClick={() => handleChildToggle(perm, child)}
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs transition-all cursor-pointer select-none ml-1 ${
+                            childOn ? accent.pillOn : "bg-gray-50 text-gray-500 border-gray-200 border-dashed"
+                          }`}
+                        >
+                          {childOn && <Check className="w-2.5 h-2.5 flex-shrink-0" strokeWidth={3} />}
+                          <span className="opacity-70 mr-0.5">↳</span>{child.display_name}
+                        </button>
+                      );
+                    })}
                   </div>
                 );
               })}
