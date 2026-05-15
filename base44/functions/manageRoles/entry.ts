@@ -152,9 +152,13 @@ Deno.serve(async (req) => {
 
       if (isPlatformAdmin) {
         // 平台管理员可以查看所有角色
-        if (tenant_id_filter !== undefined) {
+        if (tenant_id_filter !== undefined && tenant_id_filter !== null) {
           query.tenant_id = tenant_id_filter;
+        } else if (tenant_id_filter === null) {
+          // Explicitly filter for global roles (tenant_id = null)
+          query.is_global = true;
         }
+        // If tenant_id_filter is undefined, return all roles (no filter)
       } else {
         // 租户用户只能查看自己租户的角色和全局角色
         query = {

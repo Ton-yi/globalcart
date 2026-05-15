@@ -93,7 +93,7 @@ export default function GlobalRoleManager() {
         base44.functions.invoke('managePermissions', { action: 'listPermissions', data: { tenant_id_filter: null } }),
       ]);
       const allRoles = rolesRes.data?.roles || [];
-      const dbPredefined = allRoles.filter(r => r.is_global === true && r.is_predefined === true);
+      const dbPredefined = allRoles.filter(r => !!r.is_global && !!r.is_predefined);
       
       // Merge: for each default builtin, use DB version if exists (matched by predefined_key), else show the static default
       const merged = BUILTIN_ROLE_DEFAULTS.map(def => {
@@ -104,7 +104,7 @@ export default function GlobalRoleManager() {
       // Also include any DB predefined roles not in BUILTIN_ROLE_DEFAULTS
       const extraDB = dbPredefined.filter(r => !BUILTIN_ROLE_DEFAULTS.find(d => d.predefined_key === r.predefined_key));
       setPredefinedRoles([...merged, ...extraDB.map(r => ({ ...r, _isInDB: true }))]);
-      setCustomRoles(allRoles.filter(r => r.is_global === true && r.is_predefined !== true));
+      setCustomRoles(allRoles.filter(r => !!r.is_global && !r.is_predefined));
       setPermissions(permsRes.data?.permissions || []);
     } catch (e) {
       setPermMsg({ type: 'error', text: e.message });
