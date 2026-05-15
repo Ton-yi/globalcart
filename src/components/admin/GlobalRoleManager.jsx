@@ -175,12 +175,27 @@ function PermissionGrid({ selected, onToggle, accentColor = "purple", disabled =
     <div className="space-y-4">
       {PERMISSIONS_PRESET.map(cat => (
         <div key={cat.category}>
-          <div className={`text-xs font-semibold px-2 py-1 rounded mb-2 border inline-flex items-center gap-1.5 ${accent.heading}`}>
-            <Shield className="w-3 h-3" />{cat.category}
-            <span className="text-gray-400 font-normal">
-              ({countSelected(cat.permissions)}/{countAll(cat.permissions)})
-            </span>
-          </div>
+          {(() => {
+            const total = countAll(cat.permissions);
+            const selCount = countSelected(cat.permissions);
+            const allOn = selCount === total;
+            // Collect all perm names in this category (parent + children)
+            const allNames = cat.permissions.flatMap(p => [p.name, ...(p.children || []).map(c => c.name)]);
+            return (
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={() => onToggle(allNames, !allOn)}
+                className={`text-xs font-semibold px-2 py-1 rounded mb-2 border inline-flex items-center gap-1.5 transition-colors ${accent.heading} ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:brightness-95"}`}
+              >
+                <Shield className="w-3 h-3" />{cat.category}
+                <span className={`font-normal ${selCount > 0 ? "text-current" : "text-gray-400"}`}>
+                  ({selCount}/{total})
+                </span>
+                {allOn && <Check className="w-3 h-3" strokeWidth={3} />}
+              </button>
+            );
+          })()}
           <div className="flex flex-wrap gap-1.5">
             {cat.permissions.map(perm => (
               <PermItem key={perm.name} perm={perm} selected={selected} onToggle={onToggle} accent={accent} disabled={disabled} />
