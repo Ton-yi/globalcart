@@ -1,4 +1,61 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+
+const BUILTIN_USER_PERMISSIONS = [
+  "order:submit_purchase_request",
+  "shipping:notify_shipment",
+  "shipping:direct_shipment",
+  "message:send_message",
+  "message:send_order_message",
+  "message:send_shipping_message",
+  "message:send_image",
+  "payment:self_pay",
+  "payment:manual_pay",
+  "payment:pre_pay",
+  "payment:pay_full_amount",
+  "order:archive_order",
+  "profile:change_display_name",
+  "profile:change_avatar",
+  "profile:change_auto_archive_settings",
+  "view:my_orders_module",
+  "addon:select_value_added_services",
+  "addon:select_order_value_added_services",
+  "addon:select_shipping_value_added_services",
+];
+
+async function ensureTenantBuiltinRoles(base44, tenantId) {
+  const existing = await base44.asServiceRole.entities.Role.filter({ tenant_id: tenantId, is_predefined: true });
+  const existingKeys = (existing || []).map(r => r.predefined_key);
+
+  if (!existingKeys.includes('builtin_user')) {
+    await base44.asServiceRole.entities.Role.create({
+      tenant_id: tenantId,
+      name: '用户',
+      description: '普通用户内置角色，新注册用户默认分配',
+      color: '#6b7280',
+      is_global: false,
+      is_predefined: true,
+      predefined_key: 'builtin_user',
+      direct_permissions: BUILTIN_USER_PERMISSIONS,
+      overridden_permissions: [],
+    });
+    console.log(`[ensureTenantBuiltinRoles] Created builtin_user for tenant ${tenantId}`);
+  }
+
+  if (!existingKeys.includes('builtin_admin')) {
+    await base44.asServiceRole.entities.Role.create({
+      tenant_id: tenantId,
+      name: '管理员',
+      description: '租户管理员内置角色，拥有全部权限',
+      color: '#dc2626',
+      is_global: false,
+      is_predefined: true,
+      predefined_key: 'builtin_admin',
+      direct_permissions: [],
+      overridden_permissions: [],
+    });
+    console.log(`[ensureTenantBuiltinRoles] Created builtin_admin for tenant ${tenantId}`);
+  }
+}
 
 function extractEmailFromJwt(req) {
   try {
@@ -118,6 +175,16 @@ Deno.serve(async (req) => {
 
     // Tenant-owned roles (created when tenant was initialized from global platform roles)
     const tenantRoles = tenantRolesRes || [];
+
+    // Auto-init builtin roles for existing tenants that predate the feature (idempotent, fire-and-forget)
+    if (tenantId && (isPlatformAdmin || isTenantAdmin)) {
+      const hasBuiltin = tenantRoles.some(r => r.is_predefined);
+      if (!hasBuiltin) {
+        ensureTenantBuiltinRoles(base44, tenantId).catch(e =>
+          console.warn('[getAdminUsersPageData] ensureTenantBuiltinRoles failed:', e.message)
+        );
+      }
+    }
 
     console.log(`[TIMING] getAdminUsersPageData | TOTAL: ${Date.now() - t0}ms`);
     return Response.json({ users, orders, tenants, diagnose, roles: tenantRoles });

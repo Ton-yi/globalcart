@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
 /**
  * Entity automation: fires on User create events.
@@ -51,6 +51,7 @@ Deno.serve(async (req) => {
       // Strategy 1: Only one active tenant — assign automatically
       if (tenants.length === 1) {
         await base44.asServiceRole.entities.User.update(targetUser.id, { tenant_id: tenants[0].id });
+        await assignBuiltinUserRole(base44, targetUser.id, tenants[0].id);
         console.log(`autoAssignTenant: assigned single tenant ${tenants[0].code} to ${targetUser.email}`);
         results.push({ email: targetUser.email, tenant_id: tenants[0].id, reason: 'single_tenant' });
         continue;
@@ -64,6 +65,7 @@ Deno.serve(async (req) => {
         const inviter = inviterRecords?.[0];
         if (inviter?.tenant_id) {
           await base44.asServiceRole.entities.User.update(targetUser.id, { tenant_id: inviter.tenant_id });
+          await assignBuiltinUserRole(base44, targetUser.id, inviter.tenant_id);
           console.log(`autoAssignTenant: assigned tenant ${inviter.tenant_id} (from inviter ${inviterEmail}) to ${targetUser.email}`);
           results.push({ email: targetUser.email, tenant_id: inviter.tenant_id, reason: 'inviter_tenant' });
           continue;
@@ -78,6 +80,7 @@ Deno.serve(async (req) => {
 
       if (assignedAdmins.length === 1) {
         await base44.asServiceRole.entities.User.update(targetUser.id, { tenant_id: assignedAdmins[0].tenant_id });
+        await assignBuiltinUserRole(base44, targetUser.id, assignedAdmins[0].tenant_id);
         console.log(`autoAssignTenant: assigned tenant ${assignedAdmins[0].tenant_id} (from sole admin) to ${targetUser.email}`);
         results.push({ email: targetUser.email, tenant_id: assignedAdmins[0].tenant_id, reason: 'sole_admin_tenant' });
         continue;
@@ -99,3 +102,32 @@ Deno.serve(async (req) => {
     return Response.json({ error: error.message }, { status: 500 });
   }
 });
+
+/**
+ * 将租户的 builtin_user 内置角色赋给用户（仅限 role==='user' 的普通用户）
+ */
+async function assignBuiltinUserRole(base44, userId, tenantId) {
+  try {
+    // 只对 role==='user' 的普通用户自动分配内置角色
+    const users = await base44.asServiceRole.entities.User.filter({ id: userId });
+    const targetUser = users?.[0];
+    if (!targetUser || targetUser.role !== 'user') return;
+
+    const builtinRoles = await base44.asServiceRole.entities.Role.filter({
+      tenant_id: tenantId,
+      predefined_key: 'builtin_user',
+    });
+    const builtinRole = builtinRoles?.[0];
+    if (!builtinRole) return;
+
+    const existingIds = targetUser.assigned_role_ids || [];
+    if (existingIds.includes(builtinRole.id)) return;
+
+    await base44.asServiceRole.entities.User.update(userId, {
+      assigned_role_ids: [...existingIds, builtinRole.id],
+    });
+    console.log(`assignBuiltinUserRole: assigned builtin_user role ${builtinRole.id} to user ${userId}`);
+  } catch (e) {
+    console.warn(`assignBuiltinUserRole failed for user ${userId}:`, e.message);
+  }
+}

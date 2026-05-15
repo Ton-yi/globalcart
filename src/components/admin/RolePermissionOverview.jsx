@@ -154,25 +154,28 @@ export default function RolePermissionOverview({ roles = [], isPlatformAdmin = f
                       </button>
                     </td>
                     {(isTenantAdmin || isPlatformAdmin) && (
-                      <td className="py-2 px-3 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() => handleEdit(role)}
-                            className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-indigo-600"
-                            title="编辑角色"
-                          >
-                            <Pencil className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(role.id, role.name)}
-                            disabled={deleting[role.id]}
-                            className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-600 disabled:opacity-50"
-                            title="删除角色"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
+                     <td className="py-2 px-3 text-right">
+                       <div className="flex items-center justify-end gap-1">
+                         <button
+                           onClick={() => handleEdit(role)}
+                           className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-indigo-600"
+                           title="编辑角色"
+                         >
+                           <Pencil className="w-3.5 h-3.5" />
+                         </button>
+                         {/* 内置预定义角色不允许租户管理员删除 */}
+                         {(!role.is_predefined || isPlatformAdmin) && (
+                           <button
+                             onClick={() => handleDelete(role.id, role.name)}
+                             disabled={deleting[role.id]}
+                             className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-600 disabled:opacity-50"
+                             title="删除角色"
+                           >
+                             <Trash2 className="w-3.5 h-3.5" />
+                           </button>
+                         )}
+                       </div>
+                     </td>
                     )}
                   </tr>
                   

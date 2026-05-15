@@ -58,6 +58,10 @@ Deno.serve(async (req) => {
         contact_info: contact_info || '',
         is_active: true,
       });
+
+      // 为新租户自动创建内置预定义角色
+      await initTenantBuiltinRoles(base44, tenant.id);
+
       return Response.json({ tenant });
     }
 
@@ -140,6 +144,15 @@ Deno.serve(async (req) => {
       return Response.json({ tenant });
     }
 
+    // ── init_builtin_roles: ensure builtin roles exist for a tenant (platform_admin) ──
+    if (action === 'init_builtin_roles') {
+      if (!isPlatformAdmin && !isAdmin) return Response.json({ error: 'Forbidden' }, { status: 403 });
+      const { tenant_id } = body;
+      if (!tenant_id) return Response.json({ error: 'tenant_id required' }, { status: 400 });
+      await initTenantBuiltinRoles(base44, tenant_id);
+      return Response.json({ success: true });
+    }
+
     // ── assign_all: set tenant_id on every user missing it (platform_admin only) ──
     if (action === 'assign_all') {
       if (!isPlatformAdmin && !isAdmin) return Response.json({ error: 'Forbidden' }, { status: 403 });
@@ -161,3 +174,64 @@ Deno.serve(async (req) => {
     return Response.json({ error: error.message }, { status: 500 });
   }
 });
+
+/**
+ * 为租户创建两个内置预定义角色：用户（builtin_user）和管理员（builtin_admin）
+ * 若已存在则跳过，保证幂等。
+ */
+async function initTenantBuiltinRoles(base44, tenantId) {
+  const BUILTIN_USER_PERMISSIONS = [
+    "order:submit_purchase_request",
+    "shipping:notify_shipment",
+    "shipping:direct_shipment",
+    "message:send_message",
+    "message:send_order_message",
+    "message:send_shipping_message",
+    "message:send_image",
+    "payment:self_pay",
+    "payment:manual_pay",
+    "payment:pre_pay",
+    "payment:pay_full_amount",
+    "order:archive_order",
+    "profile:change_display_name",
+    "profile:change_avatar",
+    "profile:change_auto_archive_settings",
+    "view:my_orders_module",
+    "addon:select_value_added_services",
+    "addon:select_order_value_added_services",
+    "addon:select_shipping_value_added_services",
+  ];
+
+  const existing = await base44.asServiceRole.entities.Role.filter({ tenant_id: tenantId, is_predefined: true });
+  const existingKeys = (existing || []).map(r => r.predefined_key);
+
+  if (!existingKeys.includes('builtin_user')) {
+    await base44.asServiceRole.entities.Role.create({
+      tenant_id: tenantId,
+      name: '用户',
+      description: '普通用户内置角色，新注册用户默认分配',
+      color: '#6b7280',
+      is_global: false,
+      is_predefined: true,
+      predefined_key: 'builtin_user',
+      direct_permissions: BUILTIN_USER_PERMISSIONS,
+      overridden_permissions: [],
+    });
+    console.log(`[initTenantBuiltinRoles] Created builtin_user for tenant ${tenantId}`);
+  }
+
+  if (!existingKeys.includes('builtin_admin')) {
+    await base44.asServiceRole.entities.Role.create({
+      tenant_id: tenantId,
+      name: '管理员',
+      description: '租户管理员内置角色，拥有全部权限',
+      color: '#dc2626',
+      is_global: false,
+      is_predefined: true,
+      predefined_key: 'builtin_admin',
+      direct_permissions: [], // 管理员通过系统角色权限控制，此处留空
+      overridden_permissions: [],
+    });
+    console.log(`[initTenantBuiltinRoles] Created builtin_admin for tenant ${tenantId}`);
+  }
+}
