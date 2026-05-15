@@ -367,7 +367,7 @@ export default function AdminUsers() {
               <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">角色</th>
               <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500 hidden md:table-cell">订单数</th>
               <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500 hidden md:table-cell">注册时间</th>
-              <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">分配角色</th>
+              <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">分配角色权限标签</th>
               <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">状态</th>
               <th className="text-right px-4 py-2.5 text-xs font-medium text-gray-500">操作</th>
             </tr>
