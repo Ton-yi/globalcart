@@ -5,8 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Trash2, ChevronDown, ChevronUp, Check, Shield, Lock } from "lucide-react";
+import { Plus, Trash2, ChevronDown, ChevronUp, Shield, Lock } from "lucide-react";
 import { PERMISSIONS_PRESET } from "@/lib/permissionsPreset";
+import PermissionGrid from "@/components/admin/PermissionGrid.jsx";
 
 // Flat map of all permission names -> display_name for lookup
 const PERM_LABEL_MAP = {};
@@ -63,149 +64,6 @@ function groupByResource(permissions) {
   }, {});
 }
 
-// Permission item — compact pill style, parent groups children inline in a bordered cluster
-function PermItem({ perm, selected, onToggle, accent, disabled }) {
-  const children = perm.children || [];
-  const isOn = selected.includes(perm.name);
-  const childNames = children.map(c => c.name);
-  const selectedChildren = childNames.filter(n => selected.includes(n));
-  const allChildrenOn = childNames.length > 0 && selectedChildren.length === childNames.length;
-  const someChildrenOn = selectedChildren.length > 0 && !allChildrenOn;
-
-  const handleParentClick = () => {
-    if (children.length === 0) {
-      onToggle([perm.name]);
-    } else {
-      const allOn = isOn && allChildrenOn;
-      onToggle([perm.name, ...childNames], !allOn);
-    }
-  };
-
-  // No children: plain pill
-  if (children.length === 0) {
-    return (
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={handleParentClick}
-        className={`text-left rounded border px-2 py-1 transition-all focus:outline-none flex items-center gap-1.5 ${
-          isOn ? accent.card : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"
-        } ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
-      >
-        <span className={`w-3 h-3 rounded border-2 flex-shrink-0 flex items-center justify-center ${
-          isOn ? accent.check : "border-gray-300 bg-white"
-        }`}>
-          {isOn && <Check className="w-1.5 h-1.5 text-white" strokeWidth={3} />}
-        </span>
-        <span className={`text-xs leading-tight ${isOn ? "text-gray-900 font-medium" : "text-gray-600"}`}>
-          {perm.display_name}
-        </span>
-      </button>
-    );
-  }
-
-  // Has children: parent pill + children pills grouped in one bordered cluster
-  const clusterActive = isOn || selectedChildren.length > 0;
-  return (
-    <div className={`inline-flex items-center rounded border gap-0 overflow-hidden ${
-      clusterActive ? accent.card : "border-gray-300 bg-gray-50"
-    }`}>
-      {/* Parent pill */}
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={handleParentClick}
-        className={`flex items-center gap-1.5 px-2 py-1 border-r transition-all focus:outline-none ${
-          clusterActive ? "border-current/20" : "border-gray-300"
-        } ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:brightness-95"}`}
-      >
-        <span className={`w-3 h-3 rounded border-2 flex-shrink-0 flex items-center justify-center relative ${
-          isOn ? accent.check : someChildrenOn ? "border-gray-400 bg-gray-300" : "border-gray-400 bg-white"
-        }`}>
-          {isOn && <Check className="w-1.5 h-1.5 text-white" strokeWidth={3} />}
-          {!isOn && someChildrenOn && <span className="w-1.5 h-0.5 bg-gray-600 rounded absolute" />}
-        </span>
-        <span className={`text-xs font-semibold leading-tight ${isOn ? "text-gray-900" : "text-gray-700"}`}>
-          {perm.display_name}
-        </span>
-        <span className="text-xs text-gray-400 ml-0.5">({selectedChildren.length}/{children.length})</span>
-      </button>
-
-      {/* Children pills */}
-      <div className="flex items-center flex-wrap gap-px px-1 py-0.5">
-        {children.map(child => {
-          const childOn = selected.includes(child.name);
-          return (
-            <button
-              key={child.name}
-              type="button"
-              disabled={disabled}
-              onClick={() => onToggle([child.name])}
-              className={`flex items-center gap-1 px-1.5 py-0.5 rounded transition-all focus:outline-none text-xs ${
-                childOn
-                  ? `${accent.check} text-white`
-                  : "bg-white border border-gray-300 text-gray-500 hover:border-gray-400 hover:bg-gray-50"
-              } ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
-            >
-              {childOn && <Check className="w-2 h-2" strokeWidth={3} />}
-              {child.display_name}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-// Permission grid from PERMISSIONS_PRESET (full granularity, includes children)
-function PermissionGrid({ selected, onToggle, accentColor = "purple", disabled = false }) {
-  const accent = {
-    purple: { card: "border-purple-300 bg-purple-50 shadow-sm", check: "bg-purple-600 border-purple-600", heading: "text-purple-700 border-purple-200 bg-purple-50" },
-    green:  { card: "border-green-300 bg-green-50 shadow-sm",   check: "bg-green-600 border-green-600",   heading: "text-green-700 border-green-200 bg-green-50"   },
-  }[accentColor];
-
-  const countAll = (perms) => perms.reduce((n, p) => n + 1 + (p.children?.length || 0), 0);
-  const countSelected = (perms) => perms.reduce((n, p) => {
-    let c = selected.includes(p.name) ? 1 : 0;
-    c += (p.children || []).filter(ch => selected.includes(ch.name)).length;
-    return n + c;
-  }, 0);
-
-  return (
-    <div className="space-y-4">
-      {PERMISSIONS_PRESET.map(cat => (
-        <div key={cat.category}>
-          {(() => {
-            const total = countAll(cat.permissions);
-            const selCount = countSelected(cat.permissions);
-            const allOn = selCount === total;
-            // Collect all perm names in this category (parent + children)
-            const allNames = cat.permissions.flatMap(p => [p.name, ...(p.children || []).map(c => c.name)]);
-            return (
-              <button
-                type="button"
-                disabled={disabled}
-                onClick={() => onToggle(allNames, !allOn)}
-                className={`text-xs font-semibold px-2 py-1 rounded mb-2 border inline-flex items-center gap-1.5 transition-colors ${accent.heading} ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:brightness-95"}`}
-              >
-                <Shield className="w-3 h-3" />{cat.category}
-                <span className={`font-normal ${selCount > 0 ? "text-current" : "text-gray-400"}`}>
-                  ({selCount}/{total})
-                </span>
-                {allOn && <Check className="w-3 h-3" strokeWidth={3} />}
-              </button>
-            );
-          })()}
-          <div className="flex flex-wrap gap-1.5">
-            {cat.permissions.map(perm => (
-              <PermItem key={perm.name} perm={perm} selected={selected} onToggle={onToggle} accent={accent} disabled={disabled} />
-            ))}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 export default function GlobalRoleManager() {
   const [customRoles, setCustomRoles] = useState([]);

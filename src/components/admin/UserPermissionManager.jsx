@@ -3,11 +3,10 @@ import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Check, X } from "lucide-react";
 import { PERMISSIONS_PRESET } from "@/lib/permissionsPreset";
+import PermissionGrid from "@/components/admin/PermissionGrid.jsx";
 
-// Flatten PERMISSIONS_PRESET into a flat list of { id, name, category }
-// including children (sub-permissions)
+// Flatten for counting overrides
 function flattenPreset(preset) {
   const result = [];
   preset.forEach(cat => {
@@ -22,7 +21,6 @@ function flattenPreset(preset) {
 }
 
 const ALL_PERMISSIONS = flattenPreset(PERMISSIONS_PRESET);
-const CATEGORIES = [...new Set(ALL_PERMISSIONS.map(p => p.category))];
 
 /**
  * Compute base permissions from a set of role IDs.
@@ -102,12 +100,15 @@ export default function UserPermissionManager({ user, allRoles: allRolesProp, on
     // Don't reset effectivePerms — keep manual choices
   };
 
-  // Toggle a single permission on/off in the effective set
-  const togglePerm = (permId) => {
+  // Toggle one or more permissions (batch); forceOn optional
+  const togglePerm = (names, forceOn) => {
     setEffectivePerms(prev => {
       const next = new Set(prev);
-      if (next.has(permId)) next.delete(permId);
-      else next.add(permId);
+      names.forEach(permId => {
+        const shouldAdd = forceOn !== undefined ? forceOn : !next.has(permId);
+        if (shouldAdd) next.add(permId);
+        else next.delete(permId);
+      });
       return next;
     });
   };
@@ -148,12 +149,7 @@ export default function UserPermissionManager({ user, allRoles: allRolesProp, on
     setSaving(false);
   };
 
-  const permsByCategory = useMemo(() => {
-    return CATEGORIES.map(cat => ({
-      category: cat,
-      perms: ALL_PERMISSIONS.filter(p => p.category === cat),
-    }));
-  }, []);
+
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -212,54 +208,13 @@ export default function UserPermissionManager({ user, allRoles: allRolesProp, on
                 <span className="text-xs text-gray-400">{effectivePerms.size} 项已开启</span>
               </div>
             </div>
-
-            <div className="border rounded-lg overflow-hidden divide-y divide-gray-100">
-              {permsByCategory.map(({ category, perms }) => (
-                <div key={category}>
-                  <div className="px-3 py-1.5 bg-gray-50 text-xs font-semibold text-gray-600 flex items-center justify-between">
-                    <span>{category}</span>
-                    <span className="text-gray-400 font-normal">
-                      {perms.filter(p => effectivePerms.has(p.id)).length}/{perms.length}
-                    </span>
-                  </div>
-                  <div className="divide-y divide-gray-100">
-                    {perms.map(p => {
-                      const isOn = effectivePerms.has(p.id);
-                      const isOverridden = overrides[p.id] !== undefined;
-                      return (
-                        <button
-                          key={p.id}
-                          type="button"
-                          onClick={() => togglePerm(p.id)}
-                          className={`flex items-center gap-2.5 px-3 py-2 text-left w-full transition-colors ${
-                            isOn ? 'bg-green-50 hover:bg-green-100' : 'bg-white hover:bg-gray-50'
-                          }`}
-                        >
-                          <span className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 border-2 transition-colors ${
-                            isOn ? 'bg-green-500 border-green-500' : 'border-gray-300 bg-white'
-                          }`}>
-                            {isOn && <Check className="w-2.5 h-2.5 text-white" strokeWidth={3} />}
-                          </span>
-                          <span className={`text-xs flex-1 ${isOn ? 'text-green-900 font-medium' : 'text-gray-500'}`}>
-                            {p.name}
-                          </span>
-                          {isOverridden && (
-                            <span className={`text-2xs font-bold px-1 rounded flex-shrink-0 ${
-                              overrides[p.id] === 'add' ? 'text-blue-600 bg-blue-50' : 'text-red-500 bg-red-50'
-                            }`}>
-                              {overrides[p.id] === 'add' ? '＋改' : '−改'}
-                            </span>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-
+            <PermissionGrid
+              selected={[...effectivePerms]}
+              onToggle={togglePerm}
+              accentColor="green"
+            />
             {/* Legend */}
-            <div className="flex items-center gap-4 mt-2 text-2xs text-gray-400">
+            <div className="flex items-center gap-4 mt-2 text-xs text-gray-400">
               <span className="flex items-center gap-1"><span className="text-blue-500 font-bold">＋改</span> 超出角色新增</span>
               <span className="flex items-center gap-1"><span className="text-red-400 font-bold">−改</span> 角色有但已移除</span>
             </div>

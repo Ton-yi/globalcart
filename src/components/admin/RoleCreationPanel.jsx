@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ChevronDown, ChevronUp, Plus, Download, Copy } from "lucide-react";
+import PermissionGrid from "@/components/admin/PermissionGrid.jsx";
 import ImageUploader from "@/components/common/ImageUploader";
 import { PERMISSIONS_PRESET } from "@/lib/permissionsPreset";
 
@@ -66,10 +67,16 @@ export default function RoleCreationPanel({ tenantId, onRoleCreated, existingRol
     }
   };
 
-  const togglePermission = (permId) => {
-    setSelectedPermissions(prev =>
-      prev.includes(permId) ? prev.filter(p => p !== permId) : [...prev, permId]
-    );
+  const togglePermission = (names, forceOn) => {
+    setSelectedPermissions(prev => {
+      let perms = [...prev];
+      names.forEach(name => {
+        const shouldAdd = forceOn !== undefined ? forceOn : !perms.includes(name);
+        if (shouldAdd) { if (!perms.includes(name)) perms.push(name); }
+        else { perms = perms.filter(x => x !== name); }
+      });
+      return perms;
+    });
   };
 
 
@@ -239,38 +246,17 @@ export default function RoleCreationPanel({ tenantId, onRoleCreated, existingRol
 
           {/* 权限详细设置 */}
           <div>
-            <Label className="text-xs text-gray-500 block mb-2">权限设置</Label>
-            <div className="space-y-2 max-h-64 overflow-y-auto bg-gray-50 p-2 rounded border border-gray-200">
-              {Object.entries(permissionsByCategory).map(([category, perms]) => (
-                <div key={category}>
-                  <button
-                    className="text-xs font-medium text-gray-600 py-1 flex items-center gap-1 w-full"
-                    onClick={() => setExpandedCategory(expandedCategory === category ? null : category)}
-                  >
-                    {expandedCategory === category ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                    {category}
-                  </button>
-                  {expandedCategory === category && (
-                    <div className="pl-4 space-y-1">
-                      {perms.map(p => (
-                        <label key={p.id} className={`flex items-center gap-2 cursor-pointer py-0.5 ${p.isChild ? "pl-4" : ""}`}>
-                          <input
-                            type="checkbox"
-                            checked={selectedPermissions.includes(p.id)}
-                            onChange={() => togglePermission(p.id)}
-                            className="w-3.5 h-3.5 rounded border-gray-300"
-                          />
-                          <span className={`text-xs ${p.isChild ? "text-gray-500" : "text-gray-700"}`}>{p.name}</span>
-                        </label>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
+            <div className="flex items-center justify-between mb-2">
+              <Label className="text-xs text-gray-500">权限设置</Label>
+              <span className="text-xs text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200">
+                已选 {selectedPermissions.length} 项
+              </span>
             </div>
-            <p className="text-xs text-gray-400 mt-2">
-              已选 {selectedPermissions.length} 项权限
-            </p>
+            <PermissionGrid
+              selected={selectedPermissions}
+              onToggle={togglePermission}
+              accentColor="purple"
+            />
           </div>
 
           {/* 操作按钮 */}
