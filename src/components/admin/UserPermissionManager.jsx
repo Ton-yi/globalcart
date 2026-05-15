@@ -120,11 +120,20 @@ export default function UserPermissionManager({ user, allRoles: allRolesProp, on
     [selectedRoleIds, loadedRoles]
   );
 
-  const handleApplyRole = (role) => {
-    const perms = new Set(role?.direct_permissions || []);
+  const handleApplyRole = (role, adding) => {
+    const rolePerms = new Set(role?.direct_permissions || []);
     setEffectivePerms(prev => {
       const next = new Set(prev);
-      perms.forEach(p => next.add(p));
+      if (adding) {
+        rolePerms.forEach(p => next.add(p));
+      } else {
+        // Compute perms still covered by remaining roles, then remove anything only this role provided
+        const remainingRoleIds = selectedRoleIds.filter(id => id !== role.id);
+        const remainingBase = computeBasePerms(remainingRoleIds, loadedRoles);
+        rolePerms.forEach(p => {
+          if (!remainingBase.has(p)) next.delete(p);
+        });
+      }
       return next;
     });
   };
@@ -193,7 +202,7 @@ export default function UserPermissionManager({ user, allRoles: allRolesProp, on
                   return (
                     <button
                       key={role.id}
-                      onClick={() => { handleRoleToggle(role.id); handleApplyRole(role); }}
+                      onClick={() => { const adding = !selectedRoleIds.includes(role.id); handleRoleToggle(role.id); handleApplyRole(role, adding); }}
                       className={`px-3 py-2 rounded-lg border-2 text-left text-sm font-medium transition-colors ${
                         isOn ? 'bg-blue-50 border-blue-400 text-blue-800' : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-gray-300'
                       }`}
