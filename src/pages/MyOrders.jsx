@@ -550,9 +550,11 @@ export default function MyOrders() {
                     return (
                       <div className="flex flex-col gap-1 items-start">
                         {pool && (
-                          <span className="text-xs font-mono text-purple-700 bg-purple-50 border border-purple-100 px-1.5 py-0.5 rounded">
+                          <button
+                            className="text-xs font-mono text-purple-700 bg-purple-50 border border-purple-100 px-1.5 py-0.5 rounded hover:bg-purple-100 hover:border-purple-300 transition-colors cursor-pointer"
+                            onClick={() => setViewPool(pool)}>
                             {pool.pool_code || pool.id.slice(-6).toUpperCase()}
-                          </span>
+                          </button>
                         )}
                         {hasPendingEdit && (
                           <span className="text-xs text-orange-600 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded flex items-center gap-1">
@@ -582,9 +584,11 @@ export default function MyOrders() {
                     const hasPendingRewarehouse = pendingEditRequests.some(r => r.order_id === order.id && r.is_rewarehouse_request);
                     return (
                       <div className="flex flex-col gap-1 items-start">
-                        <span className="text-xs font-mono text-purple-700 bg-purple-50 border border-purple-100 px-1.5 py-0.5 rounded">
+                        <button
+                          className="text-xs font-mono text-purple-700 bg-purple-50 border border-purple-100 px-1.5 py-0.5 rounded hover:bg-purple-100 hover:border-purple-300 transition-colors cursor-pointer"
+                          onClick={() => setViewPool(pool)}>
                           {pool.pool_code || pool.id.slice(-6).toUpperCase()}
-                        </span>
+                        </button>
                         <Button size="sm" className="h-7 text-xs bg-orange-600 hover:bg-orange-700"
                           onClick={() => setViewPool(pool)}>
                           <CreditCard className="w-3 h-3 mr-1" />去付运费
