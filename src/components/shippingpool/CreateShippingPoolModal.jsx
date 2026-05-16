@@ -33,6 +33,8 @@ export default function CreateShippingPoolModal({ isAdmin, onClose, onSuccess })
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  const [poolTitle, setPoolTitle] = useState("");
+
   const [form, setForm] = useState({
     recipient_name: "",
     recipient_phone: "",
@@ -139,6 +141,7 @@ export default function CreateShippingPoolModal({ isAdmin, onClose, onSuccess })
     await shippingPoolApi.create({
       ...form,
       pool_code,
+      title: poolTitle.trim() || "",
       order_ids: selectedOrderIds,
       order_names: selectedOrders.map(o => o.product_name || ""),
       creator_email: user.email,
@@ -363,6 +366,12 @@ export default function CreateShippingPoolModal({ isAdmin, onClose, onSuccess })
                   <Label className="text-xs text-gray-500">计划发货日期</Label>
                   <Input type="date" className="mt-1 h-8 text-sm" value={form.scheduled_ship_date} onChange={e => f("scheduled_ship_date", e.target.value)} />
                 </div>
+              </div>
+
+              {/* Pool title */}
+              <div>
+                <Label className="text-xs text-gray-500">发货申请名称（可选）</Label>
+                <Input className="mt-1 h-8 text-sm" placeholder="不填则使用系统自动生成的编号" value={poolTitle} onChange={e => setPoolTitle(e.target.value)} />
               </div>
 
               {/* Note */}
