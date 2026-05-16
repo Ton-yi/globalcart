@@ -31,6 +31,11 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
+    // platform_admin bypasses all granular permission checks — return early
+    if (user.role === 'platform_admin') {
+      return Response.json({ is_active: true, permissions: [] });
+    }
+
     const records = await base44.asServiceRole.entities.User.filter({ email: user.email });
     const userRecord = records?.[0];
     if (!userRecord) return Response.json({ is_active: true, permissions: [] });
