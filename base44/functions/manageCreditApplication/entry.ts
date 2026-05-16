@@ -291,6 +291,94 @@ Deno.serve(async (req) => {
       return Response.json({ success: true });
     }
 
+    // === USER: use credit to pay for a shipping pool ===
+    if (action === 'use_credit_for_pool') {
+      const { pool_id } = body;
+      if (!pool_id) return Response.json({ error: 'pool_id required' }, { status: 400 });
+
+      if (!userRecord.credit_enabled) {
+        return Response.json({ error: '您的记账功能未开启' }, { status: 403 });
+      }
+
+      // Load pool and verify tenant ownership
+      const pools = await base44.asServiceRole.entities.ShippingPool.filter({ id: pool_id });
+      const pool = pools?.[0];
+      if (!pool || pool.tenant_id !== tenantId) {
+        return Response.json({ error: 'Pool not found' }, { status: 404 });
+      }
+      if (pool.status !== 'awaiting_payment') {
+        return Response.json({ error: 'Pool is not in awaiting_payment status' }, { status: 400 });
+      }
+
+      // Determine the amount this user owes
+      const supplements = pool.supplement_amount_per_user || [];
+      const mySupplement = supplements.find(s => s.user_email === user.email);
+      let amountJpy;
+      if (mySupplement) {
+        amountJpy = Math.round(mySupplement.supplement_jpy || 0);
+      } else {
+        const myBreakdown = (pool.fee_breakdown_per_user || []).find(b => b.user_email === user.email);
+        if (myBreakdown) {
+          amountJpy = Math.ceil((myBreakdown.total_jpy || 0) / 10) * 10;
+        } else {
+          amountJpy = Math.round(pool.shipping_fee_jpy || 0);
+        }
+      }
+
+      if (amountJpy <= 0) {
+        return Response.json({ error: '无需支付费用' }, { status: 400 });
+      }
+
+      // Check remaining credit
+      const currentBalance = userRecord.credit_balance_jpy || 0;
+      const currentLimit = userRecord.credit_limit_jpy || 0;
+      const remaining = currentLimit - currentBalance;
+      if (remaining < amountJpy) {
+        return Response.json({ error: `记账额度不足，剩余 ¥${Math.round(remaining)}，需要 ¥${amountJpy}` }, { status: 400 });
+      }
+
+      // Deduct from credit balance
+      const newBalance = currentBalance + amountJpy;
+      await base44.asServiceRole.entities.User.update(userRecord.id, {
+        credit_balance_jpy: newBalance,
+      });
+
+      // Determine if multi-user pool
+      const participantEmails = [...new Set((pool.fee_breakdown_per_user || []).map(b => b.user_email))];
+      const isMultiUserPool = (pool.consolidation_type && pool.consolidation_type !== "") && participantEmails.length > 1;
+
+      if (isMultiUserPool) {
+        // Per-user payment entry
+        const existingPayments = pool.per_user_payments || [];
+        const myEntry = {
+          user_email: user.email,
+          payment_status: 'awaiting_confirmation',
+          payment_method: 'credit',
+          submitted_at: new Date().toISOString(),
+        };
+        const updatedPayments = [
+          ...existingPayments.filter(p => p.user_email !== user.email),
+          myEntry,
+        ];
+        const allSubmitted = participantEmails.every(email =>
+          email === user.email || updatedPayments.find(p => p.user_email === email && (p.payment_status === 'awaiting_confirmation' || p.payment_status === 'paid'))
+        );
+        await base44.asServiceRole.entities.ShippingPool.update(pool_id, {
+          per_user_payments: updatedPayments,
+          payment_status: allSubmitted ? 'awaiting_confirmation' : 'partial',
+          status: allSubmitted ? 'awaiting_payment_confirmation' : pool.status,
+        });
+      } else {
+        await base44.asServiceRole.entities.ShippingPool.update(pool_id, {
+          payment_status: 'awaiting_confirmation',
+          payment_method: 'credit',
+          status: 'awaiting_payment_confirmation',
+        });
+      }
+
+      return Response.json({ success: true, new_balance_jpy: newBalance });
+    }
+
     return Response.json({ error: 'Unknown action' }, { status: 400 });
 
   } catch (error) {

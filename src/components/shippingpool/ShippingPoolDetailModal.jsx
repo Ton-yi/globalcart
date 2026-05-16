@@ -371,12 +371,20 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
 
   // User: pay via credit (deferred billing)
   const handleCreditPayment = async () => {
-    await shippingPoolApi.update(pool.id, {
-      payment_status: "awaiting_confirmation",
-      payment_method: "credit",
-      status: "awaiting_payment_confirmation",
+    const res = await base44.functions.invoke('manageCreditApplication', {
+      action: 'use_credit_for_pool',
+      pool_id: pool.id,
     });
-    setPool(p => ({ ...p, payment_status: "awaiting_confirmation", payment_method: "credit", status: "awaiting_payment_confirmation" }));
+    if (res.data?.success) {
+      // Optimistically update UI — reload pool from backend to get accurate per_user_payments
+      const poolsRes = await base44.functions.invoke('getTenantShippingPools', {});
+      const freshPool = (poolsRes.data?.pools || []).find(p => p.id === pool.id);
+      if (freshPool) setPool(p => ({ ...p, ...freshPool }));
+      // Update local credit state
+      if (res.data?.new_balance_jpy !== undefined) {
+        setUserCredit(c => c ? { ...c, credit_balance_jpy: res.data.new_balance_jpy } : c);
+      }
+    }
   };
 
   // User: generate Alipay payment link for shipping fee
