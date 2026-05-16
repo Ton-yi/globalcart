@@ -37,8 +37,9 @@ const ALL_STATUSES = [
 
 export default function AdminOrderEditModal({ order, initialItemSizeTemplates, onClose, onSaved, onOpenPool, shippingPools = [], currentUser = null, userProfileMap = {} }) {
   const { can, isAdmin } = usePermissions();
-  const canEditStatus = isAdmin || can("order:edit_order_status");
-  const canEditAmount = isAdmin || can("order:edit_order_amount");
+  const canEditOrder = isAdmin || can("order:edit_order");
+  const canEditStatus = canEditOrder || can("order:edit_order_status");
+  const canEditAmount = canEditOrder || can("order:edit_order_amount");
   const canPlaceOrder = isAdmin || can("order:place_order");
   const canWarehouseIn = isAdmin || can("order:warehouse_in");
 

@@ -185,6 +185,7 @@ export default function MyOrders() {
   const canArchiveOrder = can("order:archive_order");
   const canRequestRewarehouse = can("shipping:request_rewarehouse");
   const canEditShipmentRequest = can("shipping:edit_shipment_request");
+  const canNotifyShipment = can("shipping:notify_shipment");
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [alipayReturnMsg, setAlipayReturnMsg] = useState(null);
@@ -423,7 +424,7 @@ export default function MyOrders() {
       </div>
 
       {/* Bulk action bars */}
-      {selectedInWarehouse.length > 0 && (
+      {selectedInWarehouse.length > 0 && canNotifyShipment && (
         <div className="flex items-center gap-3 bg-teal-50 border border-teal-200 rounded-xl px-4 py-2.5">
           <span className="text-sm text-teal-700 font-medium">已选 {selectedInWarehouse.length} 件已入库包裹</span>
           <Button size="sm" className="h-7 text-xs bg-teal-600 hover:bg-teal-700 ml-auto"
@@ -536,7 +537,7 @@ export default function MyOrders() {
                       <CreditCard className="w-3 h-3 mr-1" />付款
                     </Button>
                   )}
-                  {order.order_status === "in_warehouse" && (
+                  {order.order_status === "in_warehouse" && canNotifyShipment && (
                     <Button size="sm" className="h-7 text-xs bg-teal-600 hover:bg-teal-700"
                       onClick={() => setShipmentOrder(order)}>
                       <Truck className="w-3 h-3 mr-1" />通知发货
