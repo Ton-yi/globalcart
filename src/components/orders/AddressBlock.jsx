@@ -31,51 +31,48 @@ export default function AddressBlock({
   // Ensure newAddress has all structured fields
   const addrValue = { ...EMPTY_ADDRESS_FORM, ...newAddress };
 
+  // When no saved addresses, auto-treat as new mode for submit validation purposes
+  const effectiveNewMode = isNewMode || !hasSaved;
+
   return (
     <div className="space-y-2">
       <label className="text-xs text-gray-500 font-medium uppercase tracking-wide flex items-center gap-1.5">
         <MapPin className="w-3.5 h-3.5" />{label}
       </label>
 
-      {hasSaved && (
-        <Select
-          value={isNewMode ? "__new__" : (selectedId || "")}
-          onValueChange={onSelect}
-        >
-          <SelectTrigger className="mt-0.5">
-            <SelectValue placeholder="选择地址簿中的地址" />
-          </SelectTrigger>
-          <SelectContent>
-            {savedAddresses.map(a => (
-              <SelectItem key={a.id} value={a.id}>{a.label}</SelectItem>
-            ))}
-            <SelectItem value="__new__">
-              <span className="flex items-center gap-1.5 text-blue-600">
-                <PlusCircle className="w-3.5 h-3.5" />输入新地址
-              </span>
-            </SelectItem>
-          </SelectContent>
-        </Select>
-      )}
+      {/* Always show the dropdown selector */}
+      <Select
+        value={effectiveNewMode ? "__new__" : (selectedId || "")}
+        onValueChange={onSelect}
+      >
+        <SelectTrigger className="mt-0.5">
+          <SelectValue placeholder="选择地址簿中的地址" />
+        </SelectTrigger>
+        <SelectContent>
+          {savedAddresses.map(a => (
+            <SelectItem key={a.id} value={a.id}>{a.label}</SelectItem>
+          ))}
+          <SelectItem value="__new__">
+            <span className="flex items-center gap-1.5 text-blue-600">
+              <PlusCircle className="w-3.5 h-3.5" />添加新地址
+            </span>
+          </SelectItem>
+        </SelectContent>
+      </Select>
 
       {/* Show existing address detail */}
-      {!isNewMode && selectedAddr && (
+      {!effectiveNewMode && selectedAddr && (
         <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 text-xs text-gray-600 whitespace-pre-wrap">
           {selectedAddr.full_text || formatAddressPreview(selectedAddr)}
         </div>
       )}
 
       {/* New address structured input */}
-      {(isNewMode || !hasSaved) && (
+      {effectiveNewMode && (
         <div className="border border-blue-200 rounded-xl p-3 bg-blue-50/40 space-y-2">
-          {!hasSaved && (
-            <p className="text-xs text-gray-400 flex items-center gap-1 mb-1">
-              <PlusCircle className="w-3.5 h-3.5" />填写收货地址
-            </p>
-          )}
           {/* Address label */}
           <div>
-            <label className="text-xs text-gray-500 font-medium block mb-1">地址标签</label>
+            <label className="text-xs text-gray-500 font-medium block mb-1">地址标签 <span className="text-red-400">*</span></label>
             <Input
               placeholder="如：家、公司"
               className="h-8 text-sm bg-white"

@@ -316,6 +316,16 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
   const consolidation = consType !== "";
   const hasConsolidationConditions = consolidation && (deadline || minWeight);
 
+  // An address slot is "satisfied" when:
+  //  - user picked a saved address (selectedId is set and not new mode), OR
+  //  - new address form is open (isNewMode or no saved addresses) AND form is valid
+  const isAddressSlotOk = (slot) => {
+    const inNewMode = !!addressInputMode[slot] || savedAddresses.length === 0;
+    if (inNewMode) return isAddressFormValid(newAddress) && !!(newAddress.label?.trim());
+    const id = slot === "final" ? finalAddressId : selectedAddress;
+    return !!id;
+  };
+
   // Calculate total weight for all orders
   const totalWeight = targetOrders.reduce((s, o) => s + (o.weight_g || 0), 0);
 
@@ -369,11 +379,11 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
   const handleSubmit = async () => {
     if (!method && !isJoiningPool) return;
     if (!isJoiningPool && consType === "transit" && !selectedTransitId) return;
-    if (!isJoiningPool && consType === "transit" && !finalAddressId && !addressInputMode["final"]) return;
-    if (isJoiningPool && !finalAddressId && !addressInputMode["final"]) return;
+    if (!isJoiningPool && consType === "transit" && !isAddressSlotOk("final")) return;
+    if (isJoiningPool && !isAddressSlotOk("final")) return;
     if (isJoiningPool && selectedPool?.consolidation_type === "transit" && !selectedTransitMethodId) return;
-    if (!isJoiningPool && consType === "" && !selectedAddress && !addressInputMode["direct"]) return;
-    if (!isJoiningPool && consType === "other" && !selectedAddress && !addressInputMode["other"]) return;
+    if (!isJoiningPool && consType === "" && !joinDirectPool && !isAddressSlotOk("direct")) return;
+    if (!isJoiningPool && consType === "other" && !isAddressSlotOk("other")) return;
     if (joinExistingPool && !selectedPoolId) return;
     setSubmitting(true);
 
@@ -382,7 +392,8 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
 
     // Determine effective address object for each slot
     const getEffectiveAddr = (slot) => {
-      if (addressInputMode[slot]) {
+      const inNewMode = !!addressInputMode[slot] || savedAddresses.length === 0;
+      if (inNewMode) {
         // user typed a new address — compute full_text dynamically
         if (!isAddressFormValid(newAddress)) return null;
         return { id: `new_${Date.now()}`, label: newAddress.label || "新地址", full_text: serializeAddressToText(newAddress), ...newAddress };
@@ -935,6 +946,83 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
           </div>
         </div>
 
+        {/* Footer: missing required fields reminder */}
+        {(() => {
+          const missing = [];
+          if (!method && !joinDirectPool && !isJoiningPool) missing.push("发货方式");
+          if (!isJoiningPool && consType === "transit" && !selectedTransitId) missing.push("中转地");
+          if (!isJoiningPool && consType === "transit" && !isAddressSlotOk("final")) {
+            const inNew = !!addressInputMode["final"] || savedAddresses.length === 0;
+            if (inNew) {
+              if (!newAddress.label?.trim()) missing.push("收货地址：地址标签");
+              if (!newAddress.recipient_name?.trim()) missing.push("收货地址：受取人お名前");
+              if (!newAddress.country?.trim()) missing.push("收货地址：受取人国名");
+              if (!newAddress.addr2?.trim()) missing.push("収货地址：住所2");
+              if (!newAddress.addr1?.trim()) missing.push("收货地址：住所1");
+              if (!newAddress.state?.trim()) missing.push("收货地址：州名など");
+              if (!newAddress.phone?.trim()) missing.push("收货地址：連絡先電話番号");
+            } else {
+              missing.push("最终收货地址");
+            }
+          }
+          if (isJoiningPool && !isAddressSlotOk("final")) {
+            const inNew = !!addressInputMode["final"] || savedAddresses.length === 0;
+            if (inNew) {
+              if (!newAddress.label?.trim()) missing.push("收货地址：地址标签");
+              if (!newAddress.recipient_name?.trim()) missing.push("收货地址：受取人お名前");
+              if (!newAddress.country?.trim()) missing.push("收货地址：受取人国名");
+              if (!newAddress.addr2?.trim()) missing.push("収货地址：住所2");
+              if (!newAddress.addr1?.trim()) missing.push("收货地址：住所1");
+              if (!newAddress.state?.trim()) missing.push("收货地址：州名など");
+              if (!newAddress.phone?.trim()) missing.push("收货地址：連絡先電話番号");
+            } else {
+              missing.push("最终收货地址");
+            }
+          }
+          if (!isJoiningPool && consType === "" && !joinDirectPool && !isAddressSlotOk("direct")) {
+            const inNew = !!addressInputMode["direct"] || savedAddresses.length === 0;
+            if (inNew) {
+              if (!newAddress.label?.trim()) missing.push("收货地址：地址标签");
+              if (!newAddress.recipient_name?.trim()) missing.push("收货地址：受取人お名前");
+              if (!newAddress.country?.trim()) missing.push("收货地址：受取人国名");
+              if (!newAddress.addr2?.trim()) missing.push("收货地址：住所2");
+              if (!newAddress.addr1?.trim()) missing.push("收货地址：住所1");
+              if (!newAddress.state?.trim()) missing.push("收货地址：州名など");
+              if (!newAddress.phone?.trim()) missing.push("收货地址：連絡先電話番号");
+            } else {
+              missing.push("收货地址");
+            }
+          }
+          if (!isJoiningPool && consType === "other" && !isAddressSlotOk("other")) {
+            const inNew = !!addressInputMode["other"] || savedAddresses.length === 0;
+            if (inNew) {
+              if (!newAddress.label?.trim()) missing.push("拼邮地址：地址标签");
+              if (!newAddress.recipient_name?.trim()) missing.push("拼邮地址：受取人お名前");
+              if (!newAddress.country?.trim()) missing.push("拼邮地址：受取人国名");
+              if (!newAddress.addr2?.trim()) missing.push("拼邮地址：住所2");
+              if (!newAddress.addr1?.trim()) missing.push("拼邮地址：住所1");
+              if (!newAddress.state?.trim()) missing.push("拼邮地址：州名など");
+              if (!newAddress.phone?.trim()) missing.push("拼邮地址：連絡先電話番号");
+            } else {
+              missing.push("拼邮目标地址");
+            }
+          }
+          if (joinExistingPool && !selectedPoolId) missing.push("拼邮需求");
+          if (joinDirectPool && !selectedDirectPoolId) missing.push("发货申请");
+          if (missing.length === 0) return null;
+          return (
+            <div className="px-5 pb-3">
+              <div className="bg-orange-50 border border-orange-200 rounded-lg px-3 py-2">
+                <p className="text-xs font-medium text-orange-700 mb-1">⚠️ 请填写以下必填项后再提交：</p>
+                <ul className="space-y-0.5">
+                  {missing.map((m, i) => (
+                    <li key={i} className="text-xs text-orange-600">· {m}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          );
+        })()}
         <div className="px-5 py-3 border-t flex gap-2 justify-end">
           <Button variant="outline" size="sm" onClick={onClose}>取消</Button>
           <Button
@@ -945,11 +1033,11 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
                (!method && !joinDirectPool && !isJoiningPool) || submitting ||
                (method && !isJoiningPool && getMethodError()) ||
                (!isJoiningPool && consType === "transit" && !selectedTransitId) ||
-               (!isJoiningPool && consType === "transit" && !finalAddressId && !addressInputMode["final"]) ||
-               (isJoiningPool && !finalAddressId && !addressInputMode["final"]) ||
+               (!isJoiningPool && consType === "transit" && !isAddressSlotOk("final")) ||
+               (isJoiningPool && !isAddressSlotOk("final")) ||
                (isJoiningPool && selectedPool?.consolidation_type === "transit" && !selectedTransitMethodId) ||
-               (!isJoiningPool && consType === "" && !selectedAddress && !addressInputMode["direct"]) ||
-               (!isJoiningPool && consType === "other" && !selectedAddress && !addressInputMode["other"]) ||
+               (!isJoiningPool && consType === "" && !joinDirectPool && !isAddressSlotOk("direct")) ||
+               (!isJoiningPool && consType === "other" && !isAddressSlotOk("other")) ||
                (joinExistingPool && !selectedPoolId) ||
                (joinDirectPool && !selectedDirectPoolId)
              }
