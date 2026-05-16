@@ -23,10 +23,14 @@ Deno.serve(async (req) => {
     const currentRoles = Array.isArray(user.roles) ? user.roles : [];
     const mergedRoles = [...new Set([...currentRoles, ...roles])];
 
-    const updated = await base44.asServiceRole.entities.User.update(user.id, { roles: mergedRoles });
+    // Also set the singular `role` field used by permission checks throughout the app
+    const updated = await base44.asServiceRole.entities.User.update(user.id, {
+      roles: mergedRoles,
+      role: 'platform_admin',
+    });
     return Response.json({ 
       success: true, 
-      user: { id: user.id, email: user.email, roles: updated.roles } 
+      user: { id: user.id, email: user.email, role: updated.role, roles: updated.roles } 
     });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
