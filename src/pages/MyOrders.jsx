@@ -183,6 +183,8 @@ export default function MyOrders() {
   const { user, loading: authLoading } = useCurrentUser();
   const { can } = usePermissions();
   const canArchiveOrder = can("order:archive_order");
+  const canRequestRewarehouse = can("shipping:request_rewarehouse");
+  const canEditShipmentRequest = can("shipping:edit_shipment_request");
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [alipayReturnMsg, setAlipayReturnMsg] = useState(null);
@@ -562,7 +564,7 @@ export default function MyOrders() {
                             <CreditCard className="w-3 h-3 mr-1" />去付运费
                           </Button>
                         )}
-                        {pool && pool.status !== "shipped" && pool.status !== "delivered" && !hasPendingEdit && !poolAwaitingPayment && (
+                        {canEditShipmentRequest && pool && pool.status !== "shipped" && pool.status !== "delivered" && !hasPendingEdit && !poolAwaitingPayment && (
                           <Button size="sm" variant="outline" className="h-6 text-xs px-2"
                             onClick={() => { setEditShipOrder(order); setEditShipPool(pool); }}>
                             编辑出货
@@ -586,7 +588,7 @@ export default function MyOrders() {
                           onClick={() => setViewPool(pool)}>
                           <CreditCard className="w-3 h-3 mr-1" />去付运费
                         </Button>
-                        {allowUserRewarehouse && !hasPendingRewarehouse && (
+                        {allowUserRewarehouse && canRequestRewarehouse && !hasPendingRewarehouse && (
                           <Button size="sm" variant="outline" className="h-6 text-xs px-2 text-gray-500 border-gray-300"
                             onClick={() => { setRewarehouseOrder({ order, pool }); setRewarehouseNote(""); }}>
                             <RotateCcw className="w-3 h-3 mr-1" />申请再入库

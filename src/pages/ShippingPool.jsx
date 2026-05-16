@@ -56,6 +56,7 @@ export default function ShippingPool() {
   const canConsolidateOther = can("shipping:consolidate_to_other_address");
   const canViewOtherConsolidation = can("view:other_user_consolidation_pool");
   const canViewOfficialKanban = can("view:official_consolidation_kanban");
+  const canSelectShippingAddons = can("addon:select_shipping_value_added_services");
   
   const [pools, setPools] = useState([]);
   const [consolidationOrders, setConsolidationOrders] = useState([]);
@@ -825,7 +826,7 @@ export default function ShippingPool() {
                   )}
 
                   {/* Shipping Addons */}
-                  {shippingAddons.length > 0 && (
+                  {shippingAddons.length > 0 && canSelectShippingAddons && (
                     <div>
                       <Label className="text-xs text-gray-500 font-medium block mb-2">发货增值服务（可选）</Label>
                       <div className="space-y-1.5">

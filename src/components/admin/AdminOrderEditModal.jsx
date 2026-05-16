@@ -39,6 +39,8 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
   const { can, isAdmin } = usePermissions();
   const canEditStatus = isAdmin || can("order:edit_order_status");
   const canEditAmount = isAdmin || can("order:edit_order_amount");
+  const canPlaceOrder = isAdmin || can("order:place_order");
+  const canWarehouseIn = isAdmin || can("order:warehouse_in");
 
   const [tab, setTab] = useState((order.unread_roles || []).includes("admin") ? "messages" : "actions"); // "actions" | "edit" | "messages"
   const [saving, setSaving] = useState(false);
@@ -644,12 +646,12 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
                   <div className="flex gap-2 flex-wrap">
                     {order.has_split_marker && (order.split_sections || []).length > 1 && !splitResult ? (
                       <Button size="sm" className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-xs"
-                        onClick={handleSplitOrder} disabled={splitting || saving}>
+                        onClick={handleSplitOrder} disabled={splitting || saving || !canPlaceOrder}>
                         {splitting ? <><Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />拆分中...</> : <><GitBranch className="w-3.5 h-3.5 mr-1" />下单并拆分</>}
                       </Button>
                     ) : (
                       <Button size="sm" className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-xs"
-                        onClick={handleMarkPurchased} disabled={saving}>
+                        onClick={handleMarkPurchased} disabled={saving || !canPlaceOrder}>
                         ✓ 购买完成 → 已下单
                       </Button>
                     )}
@@ -808,7 +810,7 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
                   )}
 
                   <Button size="sm" className="w-full bg-teal-600 hover:bg-teal-700 text-xs"
-                    onClick={handleMarkInWarehouse} disabled={saving}>
+                    onClick={handleMarkInWarehouse} disabled={saving || !canWarehouseIn}>
                     {order.split_index === -1 ? "✓ 父订单确认入库（-00单）" : "✓ 确认入库"}
                   </Button>
                 </div>

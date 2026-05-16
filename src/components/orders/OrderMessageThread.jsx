@@ -32,7 +32,8 @@ function Avatar({ name, imageUrl, size = "sm" }) {
 
 export default function OrderMessageThread({ order, currentUser, isAdmin, onMessageSent, contactInfo, composeOnly = false, hideHistory = false, userProfileMap = {} }) {
   const { can } = usePermissions();
-  const canSendMessage = can("message:send_message");
+  // Allow if user has parent permission OR specific child permission
+  const canSendMessage = can("message:send_message") || can("message:send_order_message");
   const canSendImage = can("message:send_image");
   
   const [localMessages, setLocalMessages] = useState(order.messages || []);

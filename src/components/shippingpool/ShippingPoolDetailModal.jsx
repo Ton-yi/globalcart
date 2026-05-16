@@ -6,6 +6,7 @@
 import { useState, useEffect, useRef } from "react";
 import { X, Package, Send, Image, Edit2, Save, MoreVertical, ArrowRight, RotateCcw, Loader2, Search, Trash2, AlertCircle, CheckCircle, XCircle, CreditCard, ExternalLink, Upload, Truck, MapPin, PlusCircle, MoveRight, Star } from "lucide-react";
 import { base44 } from "@/api/base44Client";
+import { usePermissions } from "@/hooks/usePermissions";
 import { updateOrder, tenantEntity, shippingPoolApi, userPrefApi, fetchTenantConfig } from "@/lib/tenantApi";
 import { getExchangeRates } from "@/lib/exchangeRates";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -39,6 +40,12 @@ const METHOD_LABELS = {
 };
 
 export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, currentUser, pendingEditRequests: initialPendingEdits = [], boxTemplates = [], shippingMethods = [], defaultPackingFeeSingle = 0, defaultPackingFeeConsolidation = 0, allowReadyToShipWithoutPayment = false, transitLocations = [], transitShippingMethods = [], availableAddons = [], allowUserRewarehouse = false, onClose, onUpdated }) {
+  const { can } = usePermissions();
+  const canDeleteShipment = isAdmin && can("shipping:delete_shipment_request");
+  const canEditPackage = isAdmin && can("shipping:edit_package");
+  const canRequestRewarehouse = !isAdmin && can("shipping:request_rewarehouse");
+  const canSendShippingMessage = isAdmin || can("message:send_shipping_message");
+
   const [pool, setPool] = useState(initialPool);
   const [orders, setOrders] = useState([]);
   const [messageText, setMessageText] = useState("");
@@ -648,7 +655,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                 <Edit2 className="w-4 h-4" />
               </button>
             }
-            {isAdmin && pool.status !== "shipped" && pool.status !== "delivered" &&
+            {canDeleteShipment && pool.status !== "shipped" && pool.status !== "delivered" &&
               <button
                 onClick={() => setConfirmDelete(true)}
                 className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-600 transition-colors"
@@ -735,7 +742,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                 orders: orders.filter(o => (o.user_email || "__unknown__") === email),
               }));
 
-              const isRewarehousePool = !isAdmin && allowUserRewarehouse && (pool.status === "awaiting_payment" || pool.status === "awaiting_payment_confirmation");
+              const isRewarehousePool = canRequestRewarehouse && allowUserRewarehouse && (pool.status === "awaiting_payment" || pool.status === "awaiting_payment_confirmation");
 
               const renderOrder = (o) => {
                 const isEditingThis = editingOrderData?.id === o.id;
@@ -796,7 +803,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                             </div>
                             <div className="flex items-center gap-1">
                               {/* Admin can edit any order */}
-                              {isAdmin && pool.status !== "shipped" && pool.status !== "delivered" &&
+                              {canEditPackage && pool.status !== "shipped" && pool.status !== "delivered" &&
                           <div className="flex items-center gap-1">
                                   <button
                               onClick={() => setEditingOrderData({ ...o })}
@@ -1788,13 +1795,15 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                 </div>
               }
               <div className="flex items-center justify-between">
+                {canSendShippingMessage && can("message:send_image") && (
                 <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer hover:text-gray-700">
                   <Image className="w-3.5 h-3.5" />
                   {imageFile ? "更换图片" : "附加图片"}
                   <input type="file" accept="image/*" className="hidden" onChange={(e) => setImageFile(e.target.files[0])} />
                 </label>
+                )}
                 <Button size="sm" className="h-7 text-xs bg-gray-800 hover:bg-gray-900"
-                onClick={handleSendMessage} disabled={sendingMsg || !messageText.trim() && !imageFile}>
+                onClick={handleSendMessage} disabled={sendingMsg || (!messageText.trim() && !imageFile) || !canSendShippingMessage}>
                   <Send className="w-3 h-3 mr-1" />{sendingMsg ? "发送中..." : "发送"}
                 </Button>
               </div>

@@ -16,6 +16,8 @@ export default function Payment() {
   const navigate = useNavigate();
   const { can } = usePermissions();
   const canSkipProof = can("payment:skip_proof_upload");
+  const canSelfPay = can("payment:self_pay");
+  const canManualPay = can("payment:manual_pay");
   const urlParams = new URLSearchParams(window.location.search);
   const orderId = urlParams.get("order_id");
   const method = urlParams.get("method") || "alipay";
@@ -157,7 +159,7 @@ export default function Payment() {
       </Card>
 
       {/* Payment Method: Alipay */}
-      {method === "alipay" && (
+      {method === "alipay" && canSelfPay && (
         <Card className="border-blue-200">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
@@ -204,7 +206,7 @@ export default function Payment() {
       )}
 
       {/* Other methods — show QR and note from admin config */}
-      {method !== "alipay" && (
+      {method !== "alipay" && (!isAutoCallback || canSelfPay) && canManualPay && (
         <Card className="border-gray-200">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
