@@ -9,6 +9,7 @@ import ReactMarkdown from "react-markdown";
 import { ImageWithViewer } from "@/components/common/ImageViewer";
 import { base44 } from "@/api/base44Client";
 import { updateOrder, fetchShippingPools, tenantEntity } from "@/lib/tenantApi";
+import { usePermissions } from "@/hooks/usePermissions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { getStatusLabel, getStatusColor, USER_CAN_RESUBMIT_PROOF_STATUSES } from "@/lib/orderStatus";
@@ -19,6 +20,9 @@ import ShippingEditModal from "@/components/shippingpool/ShippingEditModal";
 import SplitAfterWarehouseModal from "./SplitAfterWarehouseModal";
 
 export default function OrderDetailDrawer({ order, currentUser, initialUserPreference, initialPaidOrderReminder, initialUserProfileMap = {}, allowSplitAfterWarehouse = false, onClose, onAction }) {
+  const { can } = usePermissions();
+  const canNotifyShipment = can("shipping:notify_shipment");
+  const canEditShipmentRequest = can("shipping:edit_shipment_request");
   const [showMessages, setShowMessages] = useState(true);
   const [confirmingDelivered, setConfirmingDelivered] = useState(false);
   const [contactInfo, setContactInfo] = useState(initialUserPreference?.contact_info || "");
@@ -350,13 +354,13 @@ export default function OrderDetailDrawer({ order, currentUser, initialUserPrefe
                 <Upload className="w-4 h-4 mr-2" />重新提交付款凭证
               </Button>
             )}
-            {status === "in_warehouse" && (
+            {status === "in_warehouse" && canNotifyShipment && (
               <Button className="w-full bg-teal-600 hover:bg-teal-700 text-sm"
                 onClick={() => setShowShipment(true)}>
                 <Truck className="w-4 h-4 mr-2" />通知发货
               </Button>
             )}
-            {status === "notified_shipment" && (
+            {status === "notified_shipment" && canEditShipmentRequest && (
               <Button variant="outline" className="w-full text-sm"
                 disabled={loadingPool}
                 onClick={async () => {
