@@ -217,6 +217,7 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
   const [currentUser, setCurrentUser] = useState(null);
 
   // Customs declaration (single shipment only)
+  const [poolTitle, setPoolTitle] = useState("");
   const [customsData, setCustomsData] = useState(null);
 
   // Addons & transit shipping method
@@ -506,6 +507,7 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
 
       await shippingPoolApi.create({
         pool_code,
+        title: poolTitle.trim() || "",
         consolidation_type: consType || "",
         order_ids: orderIds,
         order_names: targetOrders.map(o => o.product_name || ""),
@@ -950,6 +952,19 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
               selectedAddonIds={selectedAddonIds}
               setSelectedAddonIds={setSelectedAddonIds}
             />
+          )}
+
+          {/* Pool title — only when creating a new pool (not joining existing) */}
+          {!joinDirectPool && !isJoiningPool && (
+            <div>
+              <label className="text-xs text-gray-500 font-medium uppercase tracking-wide">发货申请名称（可选）</label>
+              <Input
+                placeholder="不填则使用系统自动生成的编号"
+                value={poolTitle}
+                onChange={e => setPoolTitle(e.target.value)}
+                className="mt-1.5"
+              />
+            </div>
           )}
 
           {/* Note */}
