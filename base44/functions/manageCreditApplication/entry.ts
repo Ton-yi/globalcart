@@ -306,8 +306,8 @@ Deno.serve(async (req) => {
       if (!pool || pool.tenant_id !== tenantId) {
         return Response.json({ error: 'Pool not found' }, { status: 404 });
       }
-      if (pool.status !== 'awaiting_payment') {
-        return Response.json({ error: 'Pool is not in awaiting_payment status' }, { status: 400 });
+      if (pool.status !== 'awaiting_payment' && pool.status !== 'awaiting_payment_confirmation') {
+        return Response.json({ error: 'Pool is not in a payment-pending status' }, { status: 400 });
       }
 
       // Determine the amount this user owes
