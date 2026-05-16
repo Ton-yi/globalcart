@@ -147,10 +147,15 @@ Deno.serve(async (req) => {
           'payment_status', 'payment_method', 'payment_proof_url', 'status',
           'alipay_trade_no', 'alipay_transaction_id',
         ]);
+        // Fields that a user is allowed to write when joining an existing pool
+        const JOIN_POOL_FIELDS = new Set([
+          'order_ids', 'order_names', 'total_weight_g',
+        ]);
         const updatingKeys = Object.keys(data);
         const isPaymentOnlyUpdate = updatingKeys.length > 0 && updatingKeys.every(k => PAYMENT_FIELDS.has(k));
+        const isJoinPoolUpdate = updatingKeys.length > 0 && updatingKeys.every(k => JOIN_POOL_FIELDS.has(k));
 
-        if (!isCreator && !isPaymentOnlyUpdate) {
+        if (!isCreator && !isPaymentOnlyUpdate && !isJoinPoolUpdate) {
           return Response.json({ error: 'Forbidden: Can only update your own shipping pools' }, { status: 403 });
         }
       }
