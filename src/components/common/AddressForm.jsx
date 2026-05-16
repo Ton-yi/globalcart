@@ -84,7 +84,10 @@ export function isAddressFormValid(v) {
 }
 
 export default function AddressForm({ value, onChange, className = "" }) {
-  const f = (k, v) => onChange({ ...value, [k]: v });
+  // Only pass the single changed field as a partial object.
+  // The caller (AddressBlock) merges it with its own state via functional setState,
+  // so there's no risk of stale-snapshot overwrites between rapid field changes.
+  const f = (k, v) => onChange({ [k]: v });
 
   const phoneCode = getPhoneCode(value.country);
 

@@ -469,9 +469,22 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
         });
       }
     } else if (isJoiningPool && selectedPool) {
+      // When joining an existing pool, we update the pool's order list.
+      // If the user filled a new address for this join, also persist it to the pool.
+      const joinAddrObj = getEffectiveAddr("final");
+      const joinAddrUpdate = joinAddrObj ? {
+        destination_country: joinAddrObj.country || "",
+        recipient_name: joinAddrObj.recipient_name || "",
+        recipient_phone: joinAddrObj.phone || "",
+        address_line1: joinAddrObj.addr2 || "",
+        address_line2: joinAddrObj.addr1 || "",
+        city: joinAddrObj.addr3 || "",
+        state: joinAddrObj.state || "",
+      } : {};
       await shippingPoolApi.update(selectedPool.id, {
         order_ids: [...new Set([...(selectedPool.order_ids || []), ...orderIds])],
         total_weight_g: (selectedPool.total_weight_g || 0) + totalWeight,
+        ...joinAddrUpdate,
       });
     } else {
       const transitLoc = transitLocations.find(l => l.id === selectedTransitId);

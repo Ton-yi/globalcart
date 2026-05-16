@@ -28,11 +28,16 @@ export default function AddressBlock({
   const hasSaved = savedAddresses.length > 0;
   const selectedAddr = hasSaved && !isNewMode ? savedAddresses.find(a => a.id === selectedId) : null;
 
-  // Ensure newAddress has all structured fields
+  // Ensure newAddress has all structured fields (label is kept separately in AddressBlock)
   const addrValue = { ...EMPTY_ADDRESS_FORM, ...newAddress };
 
   // When no saved addresses, auto-treat as new mode for submit validation purposes
   const effectiveNewMode = isNewMode || !hasSaved;
+
+  // Handle AddressForm field changes — always preserve the label field
+  const handleAddressFormChange = (updatedFields) => {
+    onNewAddressChange(prev => ({ ...prev, ...updatedFields }));
+  };
 
   return (
     <div className="space-y-2">
@@ -82,7 +87,7 @@ export default function AddressBlock({
           </div>
           <AddressForm
             value={addrValue}
-            onChange={v => onNewAddressChange(prev => ({ ...prev, ...v }))}
+            onChange={handleAddressFormChange}
           />
           <label className="flex items-center gap-2 cursor-pointer pt-1">
             <Checkbox
