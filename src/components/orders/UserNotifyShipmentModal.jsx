@@ -484,8 +484,8 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
       const pool_code = `${prefix}${nextSeq}`;
 
       const addrObj = consType === "transit"
-        ? (addressInputMode["final"] ? (isAddressFormValid(newAddress) ? newAddress : null) : savedAddresses.find(a => a.id === finalAddressId))
-        : (addressInputMode[consType === "other" ? "other" : "direct"] ? (isAddressFormValid(newAddress) ? newAddress : null) : savedAddresses.find(a => a.id === selectedAddress));
+        ? getEffectiveAddr("final")
+        : getEffectiveAddr(consType === "other" ? "other" : "direct");
       const transitMethod = transitMethods.find(m => m.id === selectedTransitMethodId);
 
       // Extract destination country from the address object
