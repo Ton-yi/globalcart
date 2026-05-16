@@ -511,6 +511,40 @@ export default function AdminShippingInfoPanel({
     onPoolUpdated?.({ ...pool, ...fullPayload });
   };
 
+  const handleConfirmPaymentAndShip = async () => {
+    if (!trackingNumber) return;
+    setConfirmingSaving(true);
+    const existingPerUserPayments = pool.per_user_payments || [];
+    const updatedPerUserPayments = existingPerUserPayments.map(p => ({
+      ...p,
+      payment_status: "paid",
+      confirmed_at: p.confirmed_at || new Date().toISOString(),
+    }));
+    const shippedDate = new Date().toISOString().split("T")[0];
+    const payload = {
+      ...buildUpdatePayload(),
+      status: "shipped",
+      payment_status: "paid",
+      admin_confirmed_payment: true,
+      supplement_amount_per_user: [],
+      per_user_payments: updatedPerUserPayments,
+      shipped_date: shippedDate,
+    };
+    await shippingPoolApi.update(pool.id, payload);
+    await Promise.all(
+      (pool.order_ids || []).map(id =>
+        updateOrder(id, {
+          order_status: "shipped",
+          tracking_number: trackingNumber,
+          shipped_date: shippedDate,
+        })
+      )
+    );
+    setPool(p => ({ ...p, ...payload }));
+    setConfirmingSaving(false);
+    onPoolUpdated?.({ ...pool, ...payload });
+  };
+
   const handleShip = async () => {
     if (!trackingNumber) return;
     setSaving(true);
@@ -1135,18 +1169,32 @@ export default function AdminShippingInfoPanel({
                     }
                     return null;
                   })()}
-                  <Button size="sm" className="bg-green-600 hover:bg-green-700 w-full"
-                    onClick={handleConfirmPayment}
-                    disabled={confirmingSaving || (!allowReadyToShipWithoutPayment && (() => {
-                      const perUserPayments = pool.per_user_payments || [];
-                      const isMultiUser = perUserPayments.length > 0;
-                      return isMultiUser
-                        ? !(perUserPayments.length > 0 && perUserPayments.every(p => p.payment_status === "paid"))
-                        : !(pool.payment_status === "awaiting_confirmation" || pool.payment_status === "paid");
-                    })())}>
-                    <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
-                    {confirmingSaving ? "确认中..." : "全部确认收款，进入待发货"}
-                  </Button>
+                  {(() => {
+                    const perUserPayments = pool.per_user_payments || [];
+                    const isMultiUser = perUserPayments.length > 0;
+                    const allPaid = isMultiUser
+                      ? perUserPayments.every(p => p.payment_status === "paid")
+                      : pool.payment_status === "awaiting_confirmation" || pool.payment_status === "paid";
+                    const paymentOk = allowReadyToShipWithoutPayment || allPaid;
+                    const canShipDirectly = paymentOk && !!trackingNumber;
+                    return (
+                      <div className="space-y-1.5">
+                        <Button size="sm" className="bg-green-600 hover:bg-green-700 w-full"
+                          onClick={handleConfirmPayment}
+                          disabled={confirmingSaving || !paymentOk}>
+                          <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
+                          {confirmingSaving ? "确认中..." : "全部确认收款，进入待发货"}
+                        </Button>
+                        <Button size="sm" className="bg-red-600 hover:bg-red-700 w-full"
+                          onClick={handleConfirmPaymentAndShip}
+                          disabled={confirmingSaving || !canShipDirectly}
+                          title={!trackingNumber ? "需填写运单号" : !paymentOk ? "需全员付款" : ""}>
+                          <Truck className="w-3.5 h-3.5 mr-1.5" />
+                          {confirmingSaving ? "确认中..." : canShipDirectly ? "全部确认收款并进入已发货" : `全部确认收款并进入已发货${!trackingNumber ? "（需填写运单号）" : "（需全员付款）"}`}
+                        </Button>
+                      </div>
+                    );
+                  })()}
                 </div>
                 {hasPerUserFeeChanged && (() => {
                   const prevJpy = savedGrandTotalJpy;
