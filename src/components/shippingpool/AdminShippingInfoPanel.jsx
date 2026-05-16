@@ -1158,7 +1158,7 @@ export default function AdminShippingInfoPanel({
                     const perUserPayments = pool.per_user_payments || [];
                     const isMultiUser = perUserPayments.length > 0;
                     const allPaid = isMultiUser
-                      ? perUserPayments.length > 0 && perUserPayments.every(p => p.payment_status === "paid")
+                      ? perUserPayments.every(p => p.payment_status === "paid") || pool.payment_status === "paid"
                       : pool.payment_status === "awaiting_confirmation" || pool.payment_status === "paid";
                     if (!allPaid) {
                       return (
@@ -1173,7 +1173,7 @@ export default function AdminShippingInfoPanel({
                     const perUserPayments = pool.per_user_payments || [];
                     const isMultiUser = perUserPayments.length > 0;
                     const allPaid = isMultiUser
-                      ? perUserPayments.every(p => p.payment_status === "paid")
+                      ? perUserPayments.every(p => p.payment_status === "paid") || pool.payment_status === "paid"
                       : pool.payment_status === "awaiting_confirmation" || pool.payment_status === "paid";
                     const paymentOk = allowReadyToShipWithoutPayment || allPaid;
                     const canShipDirectly = paymentOk && !!trackingNumber;
