@@ -408,13 +408,14 @@ export default function SubmitOrder() {
 
             <div>
               <Label className="text-sm">商品图片（可选）</Label>
-              <div className="space-y-2">
+              <div className={`border-2 rounded-lg transition-colors ${
+                form.product_image_url ? "border-green-300 bg-green-50" :
+                uploading ? "border-blue-200 bg-blue-50" :
+                "border-gray-200 hover:border-blue-300"
+              }`}>
+                {/* Upload area */}
                 <div
-                  className={`cursor-text p-3 border-2 rounded-lg transition-colors focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                    form.product_image_url ? "border-green-300 bg-green-50" :
-                    uploading ? "border-blue-200 bg-blue-50" :
-                    "border-gray-200 hover:border-blue-300"
-                  }`}
+                  className="cursor-text p-3 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   onDragOver={e => e.preventDefault()}
                   onDrop={e => {
                     e.preventDefault();
@@ -440,11 +441,11 @@ export default function SubmitOrder() {
                     ? <div className="flex items-center gap-2 text-blue-500 text-sm"><Upload className="w-4 h-4 animate-pulse" /><span>上传中...</span></div>
                     : <div className="text-sm text-gray-500">粘贴图片、点击选择或拖拽图片到此处上传</div>}
                 </div>
-                <div>
-                  <Label className="text-xs text-gray-500">或粘贴图片URL</Label>
+                {/* URL input inside the same box */}
+                <div className="border-t border-dashed border-gray-200 px-3 py-2">
                   <Input
                     type="text"
-                    placeholder="https://example.com/image.jpg"
+                    placeholder="或粘贴图片URL..."
                     value={form.product_image_url || ""}
                     onChange={e => setForm(f => ({ ...f, product_image_url: e.target.value }))}
                     onPaste={e => {
@@ -455,7 +456,7 @@ export default function SubmitOrder() {
                         if (file) handleImageUpload(file);
                       }
                     }}
-                    className="mt-1 text-sm"
+                    className="text-sm border-0 shadow-none bg-transparent px-0 h-7 focus-visible:ring-0"
                   />
                 </div>
               </div>
