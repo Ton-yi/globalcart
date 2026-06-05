@@ -290,7 +290,6 @@ export default function AdminShippingInfoPanel({
       box_price_jpy: btId ? boxPrice : 0,
       final_weight_g: parseFloat(finalWeightG) || 0,
       shipping_fee_jpy: parseFloat(shippingFeeJpy) || 0,
-      actual_fee: parseFloat(shippingFeeJpy) || 0,
       fee_currency: "JPY",
       packing_fee_jpy: totalPackingFee,
       packing_fees_per_user: effectivePackingFeesPerUser,
@@ -852,7 +851,7 @@ export default function AdminShippingInfoPanel({
           <div className="space-y-2">
             {/* Global base fee — always shown */}
             <div>
-              <Label className="text-xs text-gray-500 block mb-1.5">全局捆包作业手续费 (JPY) <span className="text-gray-400 font-normal">（参与平摊）</span></Label>
+              <Label className="text-xs text-gray-500 block mb-1.5">全局捆包作业服务费 (JPY) <span className="text-gray-400 font-normal">（参与平摊）</span></Label>
               <div className="flex items-center gap-1.5">
                 <Input className="h-8 text-sm flex-1" type="text" inputMode="decimal" placeholder="0"
                   value={basePackingFee === 0 ? "" : basePackingFee}

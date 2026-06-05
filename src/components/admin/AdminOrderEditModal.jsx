@@ -251,13 +251,10 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
   // notified_shipment → shipping_fee_pending
   const handleSetShippingFee = async () => {
     setSaving(true);
-    const finalFee = parseFloat(shippingFee) || 0;
-    const credit = parseFloat(order.balance_credit || 0);
-    const netFee = Math.max(0, finalFee - credit);
     await updateOrder(order.id, {
       order_status: "shipping_fee_pending",
       shipping_total_weight_g: parseFloat(shippingWeight) || 0,
-      shipping_fee_amount: netFee,
+      shipping_fee_amount: parseFloat(shippingFee) || 0,
       shipping_fee_currency: shippingCurrency,
       tracking_number: trackingNumber,
       admin_note: form.admin_note,

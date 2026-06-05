@@ -28,6 +28,15 @@
       "default": false,
       "description": "\u662f\u5426\u4e3a\u5e73\u53f0\u7ea7\u89d2\u8272"
     },
+    "is_predefined": {
+      "type": "boolean",
+      "default": false,
+      "description": "\u662f\u5426\u4e3a\u79df\u6237\u5185\u7f6e\u9884\u5b9a\u4e49\u89d2\u8272\uff08\u4e0d\u53ef\u88ab\u79df\u6237\u7ba1\u7406\u5458\u5220\u9664\uff0c\u65b0\u7528\u6237\u81ea\u52a8\u5206\u914d\u7684\u57fa\u7840\u89d2\u8272\uff09"
+    },
+    "predefined_key": {
+      "type": "string",
+      "description": "\u9884\u5b9a\u4e49\u89d2\u8272\u6807\u8bc6\u952e\uff08\u5982 builtin_user\u3001builtin_admin\uff09\uff0c\u7528\u4e8e\u7cfb\u7edf\u903b\u8f91\u8bc6\u522b"
+    },
     "parent_role_id": {
       "type": "string",
       "description": "\u7236\u89d2\u8272ID\uff0c\u7528\u4e8e\u6743\u9650\u7ee7\u627f\u3002\u4ec5\u652f\u6301\u5355\u4e00\u7ee7\u627f\u3002"

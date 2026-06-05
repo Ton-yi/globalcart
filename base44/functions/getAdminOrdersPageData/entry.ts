@@ -107,8 +107,8 @@ Deno.serve(async (req) => {
     // Extract packing fee defaults from site settings
     const settingsMap = {};
     for (const s of (siteSettings || [])) { settingsMap[s.key] = s.value; }
-    const defaultPackingFeeSingle = parseFloat(settingsMap['packing_fee_single'] || settingsMap['default_packing_fee'] || '0') || 0;
-    const defaultPackingFeeConsolidation = parseFloat(settingsMap['packing_fee_consolidation'] || '0') || 0;
+    const defaultPackingFeeSingle = parseFloat(settingsMap['default_packing_fee_single'] || '0') || 0;
+    const defaultPackingFeeConsolidation = parseFloat(settingsMap['default_packing_fee_consolidation'] || '0') || 0;
 
     return Response.json({
       orders: orders || [],
