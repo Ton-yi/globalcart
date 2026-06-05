@@ -81,11 +81,23 @@ Deno.serve(async (req) => {
     }
 
     console.log(`[TIMING] getTenantConfigData | TOTAL: ${Date.now()-t0}ms`);
+    console.log(`[DIAG] getTenantConfigData | shippingMethods count: ${shippingMethods?.length || 0}`);
+
+    // Deduplicate shipping methods by id (defensive programming)
+    const uniqueShippingMethods = (() => {
+      const methods = shippingMethods || [];
+      const seen = new Map();
+      return methods.filter(m => {
+        if (seen.has(m.id)) return false;
+        seen.set(m.id, true);
+        return true;
+      });
+    })();
 
     return Response.json({
       itemSizeTemplates: itemSizeTemplates || [],
       storeTagRules: storeTagRules || [],
-      shippingMethods: shippingMethods || [],
+      shippingMethods: uniqueShippingMethods,
       transitMethods: transitMethods || [],
       transitLocations: transitLocations || [],
       addons: addons || [],

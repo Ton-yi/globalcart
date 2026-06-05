@@ -58,25 +58,33 @@ export default function PreShipmentForm() {
 
   useEffect(() => {
     if (!orderId || !user) return;
-    Promise.all([
-      base44.functions.invoke('getTenantOrders', {}).then(r => (r.data?.orders || []).find(o => o.id === orderId)),
-      fetchTenantConfig(),
-      tenantEntity.list('UserPreference', { user_email: user.email }).catch(() => []),
-      base44.functions.invoke('managePaymentMethod', { action: 'list' }).then(r => r.data?.methods || []).catch(() => []),
-    ]).then(([ord, cfg, prefs, methods]) => {
-      setOrder(ord || null);
-      // Deduplicate shipping methods by id
-      const uniqueMethods = (cfg.shippingMethods || []).filter(m => m.is_active !== false);
-      const seen = new Map();
-      const deduped = uniqueMethods.filter(m => {
-        if (seen.has(m.id)) return false;
-        seen.set(m.id, true);
-        return true;
-      });
-      setShippingMethods(deduped);
-      setTransitLocations((cfg.transitLocations || []).filter(l => l.is_active !== false));
-      setShippingAddons((cfg.addons || []).filter(a => a.addon_type === 'shipping' && a.is_active !== false));
-      setPaymentMethods(methods);
+    
+    const loadData = async () => {
+      try {
+        const [ord, cfg, prefs, methods] = await Promise.all([
+          base44.functions.invoke('getTenantOrders', {}).then(r => (r.data?.orders || []).find(o => o.id === orderId)),
+          fetchTenantConfig(),
+          tenantEntity.list('UserPreference', { user_email: user.email }).catch(() => []),
+          base44.functions.invoke('managePaymentMethod', { action: 'list' }).then(r => r.data?.methods || []).catch(() => []),
+        ]);
+        
+        setOrder(ord || null);
+        
+        // Deduplicate shipping methods by id - ensure unique
+        const allMethods = (cfg.shippingMethods || []).filter(m => m.is_active !== false);
+        const uniqueMap = new Map();
+        allMethods.forEach(m => {
+          if (!uniqueMap.has(m.id)) {
+            uniqueMap.set(m.id, m);
+          }
+        });
+        const deduped = Array.from(uniqueMap.values());
+        console.log('[PreShipmentForm] Shipping methods - total:', allMethods.length, 'after dedup:', deduped.length, 'IDs:', deduped.map(m => m.id));
+        setShippingMethods(deduped);
+        
+        setTransitLocations((cfg.transitLocations || []).filter(l => l.is_active !== false));
+        setShippingAddons((cfg.addons || []).filter(a => a.addon_type === 'shipping' && a.is_active !== false));
+        setPaymentMethods(methods || []);
 
       const pref = prefs[0];
       const addrs = (pref?.saved_addresses || []).map(a => ({ ...EMPTY_ADDRESS_FORM, ...a }));
@@ -91,8 +99,14 @@ export default function PreShipmentForm() {
         setUseNewAddress(true);
       }
       setLoading(false);
-    }).catch(() => setLoading(false));
-  }, [orderId, user]);
+      } catch (error) {
+        console.error('[PreShipmentForm] Load error:', error);
+        setLoading(false);
+      }
+    };
+    
+    loadData();
+  }, [orderId, user?.email]); // Use user.email instead of user object to prevent re-renders
 
   const handleAddressSelect = (id) => {
     if (id === "__new__") {
@@ -308,9 +322,11 @@ export default function PreShipmentForm() {
             <Label className="text-xs text-gray-500">运输方式 *</Label>
             {shippingMethods.length > 0 ? (
               <Select value={shippingMethod} onValueChange={setShippingMethod}>
-                <SelectTrigger className="mt-1 h-9 text-sm"><SelectValue placeholder="选择运输方式..." /></SelectTrigger>
+                <SelectTrigger className="mt-1 h-9 text-sm">
+                  <SelectValue placeholder="选择运输方式..." />
+                </SelectTrigger>
                 <SelectContent>
-                  {shippingMethods.map(m => <SelectItem key={m.id} value={m.code}>{m.name}</SelectItem>)}
+                  {shippingMethods.map(m => <SelectItem key={`${m.id}-${m.code}`} value={m.code}>{m.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             ) : (
