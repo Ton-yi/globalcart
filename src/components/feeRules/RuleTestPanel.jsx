@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Play, ChevronDown, ChevronUp, AlertCircle, CheckCircle2 } from "lucide-react";
 
 // 下单阶段优先变量（以商品货款为基数）
-const ORDER_COMPACT_VARS = ['goodsAmount', 'itemCount', 'sourceSite', 'customerLevel', 'customerTags'];
+const ORDER_COMPACT_VARS = ['goodsAmount', 'itemCount', 'sourceSite', 'customerLevel'];
 // 发货阶段优先变量（以实际运费为基数）
 const SHIPPING_COMPACT_VARS = ['shippingFee', 'weight', 'shippingMethod', 'hasTransit', 'storageSize', 'customerLevel', 'country'];
 
@@ -20,7 +20,6 @@ const DEFAULT_TEST_VALUES = {
   itemCount: 1,
   sourceSite: '',
   customerLevel: '',
-  customerTags: '',
   currency: 'JPY',
   country: 'CN',
   shippingMethod: '',
