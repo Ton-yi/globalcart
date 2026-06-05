@@ -174,13 +174,10 @@ export default function PostOrderTieredEditor({ value = [], onChange }) {
             <div>
               <div className="text-xs text-gray-400 mb-1">发货方式</div>
               <MultiChipSelect label="方式"
-                options={shippingMethodOptions.length > 0 ? shippingMethodOptions : []}
+                options={shippingMethodOptions}
                 value={tier.shipping_methods || []}
                 onChange={v => updateTier(i, 'shipping_methods', v)}
-                renderOption={v => {
-                  const found = shippingMethodOptions.find(o => o.value === v);
-                  return found ? found.label : v;
-                }}
+                renderOption={v => shippingMethodOptions.find(o => o.value === v)?.label ?? v}
               />
             </div>
             <div>
@@ -212,13 +209,10 @@ export default function PostOrderTieredEditor({ value = [], onChange }) {
             <div>
               <div className="text-xs text-gray-400 mb-1">入库尺寸</div>
               <MultiChipSelect label="尺寸"
-                options={sizeTemplateOptions.length > 0 ? sizeTemplateOptions : [{ value: 'small', label: '小件' }, { value: 'medium', label: '中件' }, { value: 'large', label: '大件' }, { value: 'oversized', label: '超大件' }]}
+                options={sizeTemplateOptions}
                 value={tier.storage_sizes || []}
                 onChange={v => updateTier(i, 'storage_sizes', v)}
-                renderOption={v => {
-                  const found = sizeTemplateOptions.find(o => o.value === v);
-                  return found ? found.label : v;
-                }}
+                renderOption={v => sizeTemplateOptions.find(o => o.value === v)?.label ?? v}
               />
             </div>
           </div>

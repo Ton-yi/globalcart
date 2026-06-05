@@ -239,7 +239,7 @@ const COLOR_PRESETS = [
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label className="text-xs text-gray-500">标签标签 *</Label>
+              <Label className="text-xs text-gray-500">标签名称 *</Label>
               <Input
                 className="mt-1 h-8 text-sm"
                 placeholder="駿河屋"
