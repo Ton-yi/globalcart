@@ -65,7 +65,15 @@ export default function PreShipmentForm() {
       base44.functions.invoke('managePaymentMethod', { action: 'list' }).then(r => r.data?.methods || []).catch(() => []),
     ]).then(([ord, cfg, prefs, methods]) => {
       setOrder(ord || null);
-      setShippingMethods((cfg.shippingMethods || []).filter(m => m.is_active !== false));
+      // Deduplicate shipping methods by id
+      const uniqueMethods = (cfg.shippingMethods || []).filter(m => m.is_active !== false);
+      const seen = new Map();
+      const deduped = uniqueMethods.filter(m => {
+        if (seen.has(m.id)) return false;
+        seen.set(m.id, true);
+        return true;
+      });
+      setShippingMethods(deduped);
       setTransitLocations((cfg.transitLocations || []).filter(l => l.is_active !== false));
       setShippingAddons((cfg.addons || []).filter(a => a.addon_type === 'shipping' && a.is_active !== false));
       setPaymentMethods(methods);
@@ -302,16 +310,7 @@ export default function PreShipmentForm() {
               <Select value={shippingMethod} onValueChange={setShippingMethod}>
                 <SelectTrigger className="mt-1 h-9 text-sm"><SelectValue placeholder="选择运输方式..." /></SelectTrigger>
                 <SelectContent>
-                  {(() => {
-                    const seen = new Set();
-                    return shippingMethods
-                      .filter(m => {
-                        if (seen.has(m.id)) return false;
-                        seen.add(m.id);
-                        return true;
-                      })
-                      .map(m => <SelectItem key={m.id} value={m.code}>{m.name}</SelectItem>);
-                  })()}
+                  {shippingMethods.map(m => <SelectItem key={m.id} value={m.code}>{m.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             ) : (
