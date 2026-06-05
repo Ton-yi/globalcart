@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { ALL_COUNTRIES } from "@/lib/countries";
 import { tenantEntity } from "@/lib/tenantApi";
 import { invalidateTenantCountriesCache } from "@/hooks/useTenantCountries";
+import { invalidateTenantConfigCache } from "@/lib/configCache";
 
 export default function CountrySettingsManager({ initialConfig, settingId, onReload }) {
   // rows: [{ code, name, nameJa, enabled }]
@@ -80,6 +81,7 @@ export default function CountrySettingsManager({ initialConfig, settingId, onRel
         category: 'general',
       });
     }
+    invalidateTenantConfigCache();
     invalidateTenantCountriesCache();
     setSaving(false);
     setSaved(true);
