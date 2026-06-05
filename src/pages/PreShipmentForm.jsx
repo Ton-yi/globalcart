@@ -43,6 +43,8 @@ export default function PreShipmentForm() {
 
   // Form state
   const [consType, setConsType] = useState(""); // "" = direct, "transit" = transit
+  const [joinOfficialPool, setJoinOfficialPool] = useState(false); // Join official shipping pool
+  const [selectedPoolId, setSelectedPoolId] = useState(""); // Specific pool selection
   const [shippingMethod, setShippingMethod] = useState("");
   const [scheduledDate, setScheduledDate] = useState("");
   const [userNote, setUserNote] = useState("");
@@ -52,6 +54,9 @@ export default function PreShipmentForm() {
   const [selectedAddressId, setSelectedAddressId] = useState("");
   const [useNewAddress, setUseNewAddress] = useState(false);
   const [saveAddress, setSaveAddress] = useState(false);
+  
+  // Official pools for selection
+  const [officialPools, setOfficialPools] = useState([]);
 
   // Payment after submit (direct to payment page if needed)
   const [paymentMethod, setPaymentMethod] = useState("");
@@ -63,11 +68,12 @@ export default function PreShipmentForm() {
     
     const loadData = async () => {
       try {
-        const [ord, cfg, prefs, methods] = await Promise.all([
+        const [ord, cfg, prefs, methods, poolsRes] = await Promise.all([
           base44.functions.invoke('getTenantOrders', {}).then(r => (r.data?.orders || []).find(o => o.id === orderId)),
           fetchTenantConfig(),
           tenantEntity.list('UserPreference', { user_email: user.email }).catch(() => []),
           base44.functions.invoke('managePaymentMethod', { action: 'list' }).then(r => r.data?.methods || []).catch(() => []),
+          base44.functions.invoke('getTenantShippingPools', { status: 'pending' }).catch(() => ({ data: { pools: [] } })),
         ]);
         
         if (!isMounted) return;
@@ -83,7 +89,6 @@ export default function PreShipmentForm() {
           }
         });
         const deduped = Array.from(uniqueMap.values());
-        console.log('[PreShipmentForm] Shipping methods - total:', allMethods.length, 'after dedup:', deduped.length, 'IDs:', deduped.map(m => m.id));
         
         // Only update if data actually changed (prevent unnecessary re-renders)
         setShippingMethods(prev => {
@@ -111,6 +116,11 @@ export default function PreShipmentForm() {
           const newIds = (methods || []).map(m => m.id || m.name).join(',');
           return prevIds === newIds ? prev : (methods || []);
         });
+        
+        // Set official pools (admin-created pools)
+        const allPools = poolsRes.data?.pools || [];
+        const adminPools = allPools.filter(p => p.is_admin_created === true);
+        setOfficialPools(adminPools);
 
         const pref = prefs[0];
         const addrs = (pref?.saved_addresses || []).map(a => ({ ...EMPTY_ADDRESS_FORM, ...a }));
@@ -158,6 +168,7 @@ export default function PreShipmentForm() {
   const canSubmit = () => {
     if (!shippingMethod) return false;
     if (consType === "transit") return !!transitLocationId;
+    if (consType === "official_pool") return true; // No address needed for official pool
     return isAddressFormValid(address);
   };
 
@@ -184,6 +195,10 @@ export default function PreShipmentForm() {
 
     const effectiveAddress = useNewAddress ? address : (savedAddresses.find(a => a.id === selectedAddressId) || address);
     const transitLoc = transitLocations.find(l => l.id === transitLocationId);
+    
+    // Handle official pool selection
+    const selectedPool = officialPools.find(p => p.id === selectedPoolId);
+    const poolCode = selectedPool?.pool_code || "";
 
     const preShipment = {
       shipping_method: shippingMethod,
@@ -192,10 +207,12 @@ export default function PreShipmentForm() {
       consType,
       transit_location_id: consType === "transit" ? transitLocationId : "",
       transit_location_name: consType === "transit" ? (transitLoc?.name || "") : "",
-      address: consType === "transit" ? {} : { ...effectiveAddress },
+      address: consType === "transit" || consType === "official_pool" ? {} : { ...effectiveAddress },
       selected_addon_ids: selectedAddonIds,
       selected_addons: selectedAddons.map(a => ({ id: a.id, name: a.name, fee: a.fee, fee_currency: a.fee_currency })),
-      pool_created: false,
+      pool_created: consType === "official_pool",
+      target_pool_id: consType === "official_pool" ? selectedPoolId : "",
+      target_pool_code: consType === "official_pool" ? poolCode : "",
     };
 
     await base44.functions.invoke('updateTenantOrder', {
@@ -306,14 +323,21 @@ export default function PreShipmentForm() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {/* Direct vs transit */}
+          {/* Direct vs transit vs official pool */}
           <div className="space-y-2">
             {[
               { key: "", label: "直接发货", desc: "货品直接从日本发往收货地址" },
               ...(transitLocations.length > 0 ? [{ key: "transit", label: "发往中转地", desc: "货品先发往中转地，再自行安排" }] : []),
+              { key: "official_pool", label: "加入官方拼邮", desc: "加入管理员创建的拼邮池，享受优惠运费" },
             ].map(opt => (
               <label key={opt.key} className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${consType === opt.key ? "border-red-300 bg-red-50" : "border-gray-200 hover:bg-gray-50"}`}>
-                <input type="radio" checked={consType === opt.key} onChange={() => setConsType(opt.key)} className="mt-0.5 accent-red-600" />
+                <input type="radio" checked={consType === opt.key} onChange={() => {
+                  setConsType(opt.key);
+                  if (opt.key === "official_pool") {
+                    setJoinOfficialPool(true);
+                    setUseNewAddress(false);
+                  }
+                }} className="mt-0.5 accent-red-600" />
                 <div>
                   <span className="text-sm font-medium text-gray-800">{opt.label}</span>
                   <p className="text-xs text-gray-400 mt-0.5">{opt.desc}</p>
@@ -335,6 +359,37 @@ export default function PreShipmentForm() {
                   </div>
                 </label>
               ))}
+            </div>
+          )}
+          
+          {/* Official pool selection */}
+          {consType === "official_pool" && (
+            <div className="space-y-2 border border-blue-100 rounded-xl p-3 bg-blue-50/40">
+              <Label className="text-xs text-blue-700 font-medium">选择要加入的官方拼邮池</Label>
+              {officialPools.length > 0 ? (
+                <div className="space-y-2">
+                  <label className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${!selectedPoolId ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
+                    <input type="radio" checked={!selectedPoolId} onChange={() => setSelectedPoolId("")} className="mt-0.5 accent-blue-600" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-800">默认拼官方</p>
+                      <p className="text-xs text-gray-500">系统将自动匹配最近的同运输方式拼邮池</p>
+                    </div>
+                  </label>
+                  {officialPools.map(pool => (
+                    <label key={pool.id} className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${selectedPoolId === pool.id ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
+                      <input type="radio" checked={selectedPoolId === pool.id} onChange={() => setSelectedPoolId(pool.id)} className="mt-0.5 accent-blue-600" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-gray-800">{pool.title || pool.pool_code}</p>
+                        <p className="text-xs text-gray-500">已参团：{pool.order_ids?.length || 0} 单 · 截止：{pool.consolidation_deadline || '未设置'}</p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-sm text-gray-500 py-2">
+                  暂无可用的官方拼邮池，将默认加入最近的同类型拼邮
+                </div>
+              )}
             </div>
           )}
         </CardContent>

@@ -262,10 +262,10 @@ export default function SubmitOrder() {
           <p className="text-sm text-gray-700">是否预先填写出货信息？入库后系统将自动生成发货申请，无需手动通知。</p>
           <div className="flex flex-col sm:flex-row gap-2">
             <Button
-              className="flex-1 bg-red-600 hover:bg-red-700"
+              className="flex-1 bg-blue-600 hover:bg-blue-700"
               onClick={() => navigate(`/PreShipmentForm?order_id=${createdOrder.id}`)}
             >
-              填写预出货信息
+              前往预出货
             </Button>
             {(createdOrder.paymentMode === "prepay" || createdOrder.paymentMode === "fullpay") ? (
               <Button variant="outline" className="flex-1"
@@ -274,7 +274,7 @@ export default function SubmitOrder() {
                   const selectedCurrency = selectedMethodObj?.payment_currency || "JPY";
                   navigate(`/Payment?order_id=${createdOrder.id}&method=${createdOrder.paymentMethod || "other"}&pay_currency=${selectedCurrency}`);
                 }}>
-                跳过，直接付款
+                提交并前往付款
               </Button>
             ) : (
               <Button variant="outline" className="flex-1" onClick={() => navigate(createPageUrl("MyOrders"))}>
