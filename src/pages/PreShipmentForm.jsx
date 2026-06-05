@@ -59,6 +59,8 @@ export default function PreShipmentForm() {
   useEffect(() => {
     if (!orderId || !user) return;
     
+    let isMounted = true;
+    
     const loadData = async () => {
       try {
         const [ord, cfg, prefs, methods] = await Promise.all([
@@ -67,6 +69,8 @@ export default function PreShipmentForm() {
           tenantEntity.list('UserPreference', { user_email: user.email }).catch(() => []),
           base44.functions.invoke('managePaymentMethod', { action: 'list' }).then(r => r.data?.methods || []).catch(() => []),
         ]);
+        
+        if (!isMounted) return;
         
         setOrder(ord || null);
         
@@ -80,33 +84,59 @@ export default function PreShipmentForm() {
         });
         const deduped = Array.from(uniqueMap.values());
         console.log('[PreShipmentForm] Shipping methods - total:', allMethods.length, 'after dedup:', deduped.length, 'IDs:', deduped.map(m => m.id));
-        setShippingMethods(deduped);
         
-        setTransitLocations((cfg.transitLocations || []).filter(l => l.is_active !== false));
-        setShippingAddons((cfg.addons || []).filter(a => a.addon_type === 'shipping' && a.is_active !== false));
-        setPaymentMethods(methods || []);
+        // Only update if data actually changed (prevent unnecessary re-renders)
+        setShippingMethods(prev => {
+          const prevIds = prev.map(m => m.id).join(',');
+          const newIds = deduped.map(m => m.id).join(',');
+          return prevIds === newIds ? prev : deduped;
+        });
+        
+        setTransitLocations(prev => {
+          const filtered = (cfg.transitLocations || []).filter(l => l.is_active !== false);
+          const prevIds = prev.map(l => l.id).join(',');
+          const newIds = filtered.map(l => l.id).join(',');
+          return prevIds === newIds ? prev : filtered;
+        });
+        
+        setShippingAddons(prev => {
+          const filtered = (cfg.addons || []).filter(a => a.addon_type === 'shipping' && a.is_active !== false);
+          const prevIds = prev.map(a => a.id).join(',');
+          const newIds = filtered.map(a => a.id).join(',');
+          return prevIds === newIds ? prev : filtered;
+        });
+        
+        setPaymentMethods(prev => {
+          const prevIds = prev.map(m => m.id || m.name).join(',');
+          const newIds = (methods || []).map(m => m.id || m.name).join(',');
+          return prevIds === newIds ? prev : (methods || []);
+        });
 
-      const pref = prefs[0];
-      const addrs = (pref?.saved_addresses || []).map(a => ({ ...EMPTY_ADDRESS_FORM, ...a }));
-      setSavedAddresses(addrs);
-      const defaultId = pref?.default_address_id || "";
-      const defaultAddr = addrs.find(a => a.id === defaultId) || addrs[0];
-      if (defaultAddr) {
-        setSelectedAddressId(defaultAddr.id);
-        setAddress({ label: defaultAddr.label || "", ...defaultAddr });
-        setUseNewAddress(false);
-      } else {
-        setUseNewAddress(true);
-      }
-      setLoading(false);
+        const pref = prefs[0];
+        const addrs = (pref?.saved_addresses || []).map(a => ({ ...EMPTY_ADDRESS_FORM, ...a }));
+        setSavedAddresses(addrs);
+        const defaultId = pref?.default_address_id || "";
+        const defaultAddr = addrs.find(a => a.id === defaultId) || addrs[0];
+        if (defaultAddr) {
+          setSelectedAddressId(defaultAddr.id);
+          setAddress({ label: defaultAddr.label || "", ...defaultAddr });
+          setUseNewAddress(false);
+        } else {
+          setUseNewAddress(true);
+        }
+        if (isMounted) setLoading(false);
       } catch (error) {
         console.error('[PreShipmentForm] Load error:', error);
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     };
     
     loadData();
-  }, [orderId, user?.email]); // Use user.email instead of user object to prevent re-renders
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [orderId, user?.email]);
 
   const handleAddressSelect = (id) => {
     if (id === "__new__") {
