@@ -6,7 +6,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { timePage } from "@/lib/timing";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { ShoppingBag, Calculator, Info, Upload, Plus, X, ChevronsUpDown, HelpCircle, CreditCard, AlertTriangle, Lock } from "lucide-react";
+import { ShoppingBag, Calculator, Info, Upload, Plus, X, ChevronsUpDown, HelpCircle, CreditCard, AlertTriangle, Lock, Truck } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { usePermissions } from "@/hooks/usePermissions";
 import PaymentMethodSelector from "@/components/common/PaymentMethodSelector";
@@ -712,17 +712,54 @@ export default function SubmitOrder() {
           </CardContent>
         </Card>
 
-        {!canSubmitOrder ? (
+        {/* Pre-shipment button - shown when order can be submitted */}
+        {canSubmitOrder && (
+          <div className="space-y-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full border-purple-300 text-purple-700 hover:bg-purple-50"
+              disabled={submitting || !form.product_name}
+              onClick={async () => {
+                // Submit order first, then navigate to pre-shipment
+                setSubmitting(true);
+                try {
+                  const orderData = {
+                    ...form,
+                    payment_mode: paymentMode,
+                    payment_method: (paymentMode === "prepay" || paymentMode === "fullpay") ? paymentMethod : null,
+                    selected_addon_ids: selectedAddons,
+                  };
+                  const res = await base44.functions.invoke('createTenantOrder', { orderData });
+                  if (res.data?.order) {
+                    window.location.href = `/PreShipmentForm?order_id=${res.data.order.id}`;
+                  }
+                } catch (error) {
+                  console.error('Order submission error:', error);
+                } finally {
+                  setSubmitting(false);
+                }
+              }}
+            >
+              <Truck className="w-4 h-4 mr-2" />
+              填写预出货信息
+            </Button>
+            <Button
+              type="submit"
+              disabled={submitting || !form.product_name}
+              className="w-full bg-red-600 hover:bg-red-700"
+            >
+              <ShoppingBag className="w-4 h-4 mr-2" />
+              {submitting ? "提交中..." :
+                (paymentMode === "credit_weekly" || paymentMode === "credit_monthly") ? "提交需求（记账）" :
+                paymentMode === "deferred" ? "提交需求（后付款）" : "提交并前往付款"}
+            </Button>
+          </div>
+        )}
+        {!canSubmitOrder && (
           <Button type="button" disabled className="w-full bg-gray-400">
             <Lock className="w-4 h-4 mr-2" />
             您没有权限提交购买需求
-          </Button>
-        ) : (
-          <Button type="submit" disabled={submitting || !form.product_name} className="w-full bg-red-600 hover:bg-red-700">
-            <ShoppingBag className="w-4 h-4 mr-2" />
-            {submitting ? "提交中..." :
-              (paymentMode === "credit_weekly" || paymentMode === "credit_monthly") ? "提交需求（记账）" :
-              paymentMode === "deferred" ? "提交需求（后付款）" : "提交并前往付款"}
           </Button>
         )}
       </form>}
