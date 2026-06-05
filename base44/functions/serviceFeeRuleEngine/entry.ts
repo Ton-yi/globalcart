@@ -179,40 +179,168 @@ class Parser {
   }
 }
 
+// ─── 辅助：匹配客户等级（levels 为空=全部；否则 OR 匹配 name） ──────────────────
+function matchCustomerLevel(customerLevel, levels) {
+  if (!levels || levels.length === 0) return true;
+  const cl = String(customerLevel || '').trim().toLowerCase();
+  return levels.some(l => String(l.name || '').trim().toLowerCase() === cl);
+}
+
 // ─── 计算服务费 ────────────────────────────────────────────────────────────────
 function calcFee(rule, variables) {
   const steps = [];
+  let matchedConfig = null;
   try {
     const vars = { ...variables };
     if (typeof vars.hasTransit === 'boolean') vars.hasTransit = vars.hasTransit ? 1 : 0;
     let baseFee = 0;
+    const isShipping = rule.fee_phase === 'shipping';
 
     if (rule.mode === 'simple') {
-      const rate = (parseFloat(rule.simple_rate) || 0) / 100;
-      const isShipping = rule.fee_phase === 'shipping';
-      const baseAmount = isShipping ? (parseFloat(vars.shippingFee) || 0) : (parseFloat(vars.goodsAmount) || 0);
-      const baseLabel = isShipping ? '实际运费' : '商品货款';
-      baseFee = baseAmount * rate + (parseFloat(rule.simple_fixed_fee) || 0);
-      steps.push(`${baseLabel}: ¥${baseAmount} × ${rule.simple_rate}% + 固定¥${rule.simple_fixed_fee || 0} = ¥${baseFee}`);
+      if (isShipping) {
+        // 发货阶段：按 shipping_fee_simple_config 行匹配客户等级（顺序优先）
+        const config = rule.shipping_fee_simple_config || [];
+        const baseAmount = parseFloat(vars.shippingFee) || 0;
+        let matched = false;
 
-    } else if (rule.mode === 'tiered') {
-      const amount = rule.fee_phase === 'shipping'
-        ? (parseFloat(vars.shippingFee) || 0)
-        : (parseFloat(vars.goodsAmount) || 0);
-      const tiers = rule.tiered_config || [];
-      let matched = false;
-      for (const tier of tiers) {
-        const from = parseFloat(tier.from) || 0;
-        const toVal = tier.to !== null && tier.to !== undefined ? parseFloat(tier.to) : Infinity;
-        if (amount >= from && amount < toVal) {
-          const rate = (parseFloat(tier.rate) || 0) / 100;
-          const fixed = parseFloat(tier.fixed_fee) || 0;
-          baseFee = amount * rate + fixed;
-          steps.push(`阶梯命中: ¥${from}~${tier.to ?? '∞'}, ${tier.rate}% + 固定¥${fixed} = ¥${baseFee}`);
-          matched = true; break;
+        for (let i = 0; i < config.length; i++) {
+          const row = config[i];
+          if (matchCustomerLevel(vars.customerLevel, row.levels || [])) {
+            const rate = (parseFloat(row.rate) || 0) / 100;
+            const fixed = parseFloat(row.fixed_fee_jpy) || 0;
+            baseFee = baseAmount * rate + fixed;
+            const levelDesc = (row.levels || []).length === 0 ? '全部用户' : row.levels.map(l => l.name).join('、');
+            steps.push(`命中配置行 #${i + 1}（${levelDesc}）：¥${baseAmount} × ${row.rate || 0}% + 固定¥${fixed} = ¥${baseFee}`);
+            matchedConfig = { rowIndex: i, row };
+            matched = true; break;
+          }
+        }
+
+        if (!matched) {
+          const rate = (parseFloat(rule.simple_rate) || 0) / 100;
+          const fixed = parseFloat(rule.simple_fixed_fee) || 0;
+          baseFee = baseAmount * rate + fixed;
+          steps.push(`未命中配置行，使用默认费率：¥${baseAmount} × ${rule.simple_rate || 0}% + 固定¥${fixed} = ¥${baseFee}`);
+        }
+      } else {
+        // 下单阶段：customer_level_filter → store_filter → 默认
+        const levelFilter = rule.customer_level_filter || [];
+        const storeFilter = rule.store_filter || [];
+        const baseAmount = parseFloat(vars.goodsAmount) || 0;
+        let matched = false;
+
+        for (let i = 0; i < levelFilter.length; i++) {
+          const row = levelFilter[i];
+          if (matchCustomerLevel(vars.customerLevel, [row])) {
+            const rate = (parseFloat(row.rate) || 0) / 100;
+            const fixed = parseFloat(row.fixed_fee) || 0;
+            baseFee = baseAmount * rate + fixed;
+            steps.push(`命中客户等级配置（${row.name}）：¥${baseAmount} × ${row.rate || 0}% + 固定¥${fixed} = ¥${baseFee}`);
+            matchedConfig = { type: 'customer_level', row };
+            matched = true; break;
+          }
+        }
+
+        if (!matched) {
+          for (let i = 0; i < storeFilter.length; i++) {
+            const row = storeFilter[i];
+            if (String(vars.sourceSite || '').trim() === String(row.tag_label || '').trim()) {
+              const rate = (parseFloat(row.rate) || 0) / 100;
+              const fixed = parseFloat(row.fixed_fee) || 0;
+              baseFee = baseAmount * rate + fixed;
+              steps.push(`命中网站配置（${row.tag_label}）：¥${baseAmount} × ${row.rate || 0}% + 固定¥${fixed} = ¥${baseFee}`);
+              matchedConfig = { type: 'store_tag', row };
+              matched = true; break;
+            }
+          }
+        }
+
+        if (!matched) {
+          const rate = (parseFloat(rule.simple_rate) || 0) / 100;
+          const fixed = parseFloat(rule.simple_fixed_fee) || 0;
+          baseFee = baseAmount * rate + fixed;
+          steps.push(`使用默认费率：¥${baseAmount} × ${rule.simple_rate || 0}% + 固定¥${fixed} = ¥${baseFee}`);
         }
       }
-      if (!matched) steps.push('未命中任何阶梯，服务费为0');
+
+    } else if (rule.mode === 'tiered') {
+      if (isShipping) {
+        // 发货阶段 tiered：按 shipping_fee_tiered_config，所有字段 AND 匹配
+        const config = rule.shipping_fee_tiered_config || [];
+        const baseAmount = parseFloat(vars.shippingFee) || 0;
+        let matched = false;
+
+        for (let i = 0; i < config.length; i++) {
+          const row = config[i];
+
+          // 1. 客户等级（空=全部，OR）
+          if (!matchCustomerLevel(vars.customerLevel, row.customer_levels || [])) continue;
+
+          // 2. 收货国家（空=全部，OR）
+          const countries = row.countries || [];
+          if (countries.length > 0 && !countries.includes(vars.country || '')) continue;
+
+          // 3. 发货方式（空=全部，OR）
+          const methods = row.shipping_methods || [];
+          if (methods.length > 0 && !methods.includes(vars.shippingMethod || '')) continue;
+
+          // 4. 是否中转（null=不限）
+          if (row.has_transit !== null && row.has_transit !== undefined) {
+            const rowTransit = row.has_transit === true || row.has_transit === 1;
+            const varTransit = vars.hasTransit === 1 || vars.hasTransit === true;
+            if (rowTransit !== varTransit) continue;
+          }
+
+          // 5. 重量范围
+          const wFrom = row.weight_from_g !== null && row.weight_from_g !== undefined ? parseFloat(row.weight_from_g) : null;
+          const wTo = row.weight_to_g !== null && row.weight_to_g !== undefined ? parseFloat(row.weight_to_g) : null;
+          const w = parseFloat(vars.weight) || 0;
+          if (wFrom !== null && w < wFrom) continue;
+          if (wTo !== null && w >= wTo) continue;
+
+          // 6. 入库尺寸（空=全部，OR，与 item_size_title 比较）
+          const sizes = row.storage_sizes || [];
+          if (sizes.length > 0 && !sizes.includes(vars.storageSize || '')) continue;
+
+          // 全部条件命中
+          const rate = (parseFloat(row.rate) || 0) / 100;
+          const fixed = parseFloat(row.fixed_fee_jpy) || 0;
+          baseFee = baseAmount * rate + fixed;
+
+          const condParts = [];
+          if ((row.customer_levels || []).length > 0) condParts.push(`等级:${row.customer_levels.map(l => l.name).join('/')}`);
+          if (countries.length > 0) condParts.push(`国家:${countries.join('/')}`);
+          if (methods.length > 0) condParts.push(`方式:${methods.join('/')}`);
+          if (row.has_transit !== null && row.has_transit !== undefined) condParts.push(`中转:${row.has_transit ? '是' : '否'}`);
+          if (wFrom !== null || wTo !== null) condParts.push(`重量:${wFrom ?? 0}g~${wTo ?? '∞'}g`);
+          if (sizes.length > 0) condParts.push(`尺寸:${sizes.join('/')}`);
+
+          steps.push(`命中规则 #${i + 1}${condParts.length ? `（${condParts.join('，')}）` : '（全部用户）'}：¥${baseAmount} × ${row.rate || 0}% + 固定¥${fixed} = ¥${baseFee}`);
+          matchedConfig = { rowIndex: i, row };
+          matched = true; break;
+        }
+
+        if (!matched) steps.push('未命中任何发货阶梯规则，服务费为0');
+      } else {
+        // 下单阶段 tiered：按货款金额范围匹配 tiered_config
+        const amount = parseFloat(vars.goodsAmount) || 0;
+        const tiers = rule.tiered_config || [];
+        let matched = false;
+        for (let i = 0; i < tiers.length; i++) {
+          const tier = tiers[i];
+          const from = parseFloat(tier.from) || 0;
+          const toVal = tier.to !== null && tier.to !== undefined ? parseFloat(tier.to) : Infinity;
+          if (amount >= from && amount < toVal) {
+            const rate = (parseFloat(tier.rate) || 0) / 100;
+            const fixed = parseFloat(tier.fixed_fee) || 0;
+            baseFee = amount * rate + fixed;
+            steps.push(`命中金额阶梯 #${i + 1}（¥${from}~${tier.to ?? '∞'}）：¥${amount} × ${tier.rate || 0}% + 固定¥${fixed} = ¥${baseFee}`);
+            matchedConfig = { rowIndex: i, tier };
+            matched = true; break;
+          }
+        }
+        if (!matched) steps.push('未命中任何金额阶梯，服务费为0');
+      }
 
     } else if (rule.mode === 'formula') {
       const formula = rule.formula || '';
@@ -240,9 +368,9 @@ function calcFee(rule, variables) {
     else if (rm === 'floor') baseFee = Math.floor(baseFee / unit) * unit;
     if (rm !== 'none' && before !== baseFee) steps.push(`取整(${rm}, 单位${unit}): ¥${before} → ¥${baseFee}`);
 
-    return { fee: Math.max(0, baseFee), steps, error: null };
+    return { fee: Math.max(0, baseFee), steps, matchedConfig, error: null };
   } catch (err) {
-    return { fee: 0, steps, error: err.message };
+    return { fee: 0, steps, matchedConfig: null, error: err.message };
   }
 }
 
@@ -371,7 +499,7 @@ Deno.serve(async (req) => {
         return Response.json({ error: 'Forbidden' }, { status: 403 });
       }
       const result = calcFee(rule, body.variables || {});
-      return Response.json({ ...result, rule_id: rule.id, rule_name: rule.name, rule_version: rule.version });
+      return Response.json({ ...result, rule_id: rule.id, rule_name: rule.name, rule_version: rule.version, matched_config: result.matchedConfig });
     }
 
     // ── apply_to_order ─────────────────────────────────────────────────────────
