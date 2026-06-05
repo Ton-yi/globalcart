@@ -5,6 +5,12 @@
  */
 
 export const COUNTRY_ZONES = {
+  zone0: {
+    label: "日本国内",
+    countries: [
+      { code: "JP", name: "日本", nameJa: "日本" },
+    ],
+  },
   zone1: {
     label: "第1地帯（中国・韓国・台湾）",
     countries: [
