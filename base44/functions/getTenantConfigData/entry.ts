@@ -59,7 +59,8 @@ Deno.serve(async (req) => {
       transitMethods,
       transitLocations,
       addons,
-      announcements
+      announcements,
+      siteSettings
     ] = await Promise.all([
       base44.asServiceRole.entities.ItemSizeTemplate.filter(filter),
       base44.asServiceRole.entities.OnlineStoreTagRule.filter(filter),
@@ -67,9 +68,18 @@ Deno.serve(async (req) => {
       base44.asServiceRole.entities.TransitShippingMethod.filter(filter),
       base44.asServiceRole.entities.TransitLocation.filter(filter),
       base44.asServiceRole.entities.AddonOption.filter({ ...filter, addon_type: 'shipping' }),
-      base44.asServiceRole.entities.Announcement.filter({ ...filter, is_active: true })
+      base44.asServiceRole.entities.Announcement.filter({ ...filter, is_active: true }),
+      base44.asServiceRole.entities.SiteSettings.filter(filter),
     ]);
-    console.log(`[TIMING] getTenantConfigData | 7x parallel entity queries: ${Date.now()-t3}ms`);
+    console.log(`[TIMING] getTenantConfigData | 8x parallel entity queries: ${Date.now()-t3}ms`);
+
+    // Parse tenant countries config
+    const countriesConfigRaw = (siteSettings || []).find(s => s.key === 'tenant_countries_config');
+    let countriesConfig = null;
+    if (countriesConfigRaw?.value) {
+      try { countriesConfig = JSON.parse(countriesConfigRaw.value); } catch { /* ignore */ }
+    }
+
     console.log(`[TIMING] getTenantConfigData | TOTAL: ${Date.now()-t0}ms`);
 
     return Response.json({
@@ -79,7 +89,8 @@ Deno.serve(async (req) => {
       transitMethods: transitMethods || [],
       transitLocations: transitLocations || [],
       addons: addons || [],
-      announcements: announcements || []
+      announcements: announcements || [],
+      countriesConfig,
     });
 
   } catch (error) {

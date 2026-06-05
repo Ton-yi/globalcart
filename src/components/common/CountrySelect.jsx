@@ -9,6 +9,7 @@ import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown, Search, X } from "lucide-react";
 import { COUNTRY_ZONES, ALL_COUNTRIES } from "@/lib/countries";
+import { useTenantCountries } from "@/hooks/useTenantCountries";
 
 const ZONE_OPTIONS = [
   { code: "zone1", name: "第1地帯", nameJa: "第1地帯（中国・韓国・台湾）", zone: "zone1" },
@@ -32,6 +33,7 @@ export default function CountrySelect({
   const ref = useRef(null);
   const btnRef = useRef(null);
   const dropdownRef = useRef(null);
+  const { countries: tenantCountries } = useTenantCountries();
 
   const isZone = value && value.startsWith("zone");
   const selectedCountry = !isZone && value ? ALL_COUNTRIES.find(c => c.code === value) : null;
@@ -68,9 +70,9 @@ export default function CountrySelect({
   };
 
   const filtered = search.trim()
-    ? ALL_COUNTRIES.filter(c =>
+    ? tenantCountries.filter(c =>
         c.name.includes(search) ||
-        c.nameJa.includes(search) ||
+        (c.nameJa && c.nameJa.includes(search)) ||
         c.code.toLowerCase().includes(search.toLowerCase())
       )
     : null;
@@ -150,14 +152,11 @@ export default function CountrySelect({
                 ))
               )
             ) : (
-              Object.entries(COUNTRY_ZONES).map(([zone, { label, countries }]) => (
-                <div key={zone}>
-                  <div className="px-3 py-1.5 text-xs font-semibold text-gray-400 bg-gray-50 sticky top-0">{label}</div>
-                  {countries.map(c => (
-                    <CountryItem key={c.code} country={{ ...c, zone }} selected={value === c.code} onSelect={handleSelect} />
-                  ))}
-                </div>
-              ))
+              <div>
+                {tenantCountries.map(c => (
+                  <CountryItem key={c.code} country={c} selected={value === c.code} onSelect={handleSelect} />
+                ))}
+              </div>
             )}
           </div>
         </div>,

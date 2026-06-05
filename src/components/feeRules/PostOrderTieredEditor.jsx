@@ -8,11 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2, ChevronDown, ChevronUp, X } from "lucide-react";
-import { ALL_COUNTRIES } from "@/lib/countries";
-
-const PINNED_CODES = ['CN', 'TW', 'HK'];
-const PINNED = PINNED_CODES.map(code => ALL_COUNTRIES.find(c => c.code === code)).filter(Boolean);
-const SORTED_COUNTRIES = [...PINNED, ...ALL_COUNTRIES.filter(c => !PINNED_CODES.includes(c.code))];
+import { useTenantCountries } from "@/hooks/useTenantCountries";
 
 
 
@@ -149,9 +145,11 @@ const EMPTY_TIER = {
 export default function PostOrderTieredEditor({ value = [], onChange }) {
   const [tiers, setTiers] = useState([]);
   const [roles, setRoles] = useState([]);
-  const [countryOptions, setCountryOptions] = useState([]);
   const [shippingMethodOptions, setShippingMethodOptions] = useState([]);
   const [sizeTemplateOptions, setSizeTemplateOptions] = useState([]);
+  const { countries: tenantCountries } = useTenantCountries();
+
+  const countryOptions = tenantCountries.map(c => ({ value: c.code, label: `${c.name}(${c.code})` }));
 
   useEffect(() => {
     Promise.all([
@@ -165,8 +163,6 @@ export default function PostOrderTieredEditor({ value = [], onChange }) {
       setShippingMethodOptions((sm.data?.methods || []).map(m => ({ value: m.code || m.name, label: m.name })));
       setSizeTemplateOptions((st.data?.templates || []).map(t => ({ value: t.id, label: t.title })));
     });
-    const opts = SORTED_COUNTRIES.map(c => ({ value: c.code, label: `${c.name}(${c.code})` }));
-    setCountryOptions(opts);
   }, []);
 
   const addTier = () => onChange([...value, { ...EMPTY_TIER }]);

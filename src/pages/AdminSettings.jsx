@@ -27,6 +27,7 @@ import CreditApplicationManager from "@/components/admin/CreditApplicationManage
 import PaymentMethodManager from "@/components/admin/PaymentMethodManager";
 import TenantRoleManagerForUsers from "@/components/admin/TenantRoleManagerForUsers";
 import PermissionViewer from "@/components/admin/PermissionViewer";
+import CountrySettingsManager from "@/components/admin/CountrySettingsManager";
 
 function CustomsHazmatTextEditor({ settings, onReload }) {
   const s = settings.find(s => s.key === 'customs_hazmat_text');
@@ -106,6 +107,7 @@ const TABS = [
   { key: "item_sizes", label: "物品尺寸" },
   { key: "box_templates", label: "外箱模板" },
   { key: "store_tags", label: "商城标签规则" },
+  { key: "countries", label: "国家设置" },
   { key: "theme", label: "界面主题" },
   { key: "permissions", label: "权限一览" },
 ];
@@ -137,6 +139,8 @@ export default function AdminSettings() {
   const [boxTemplates, setBoxTemplates] = useState(null);
   const [memberTiers, setMemberTiers] = useState([]);
   const [paymentMethods, setPaymentMethods] = useState([]);
+  const [countriesConfig, setCountriesConfig] = useState(null);
+  const [countriesConfigId, setCountriesConfigId] = useState(null);
 
   const load = async () => {
     const t = timePage('AdminSettings');
@@ -166,6 +170,10 @@ export default function AdminSettings() {
       setMemberTiers(data.memberTiers || []);
       setPaymentMethods(data.paymentMethods || []);
       if (data.rates) setLiveRates(data.rates);
+      setCountriesConfig(data.countriesConfig || null);
+      // Find the SiteSettings record ID for the countries config
+      const ccRecord = (data.settings || []).find(s => s.key === 'tenant_countries_config');
+      setCountriesConfigId(ccRecord?.id || null);
 
       // Populate the shared config cache so Layout's fetchTenantConfig() is a cache-hit
       // and does NOT fire a separate getTenantConfigData request
@@ -178,6 +186,7 @@ export default function AdminSettings() {
           itemSizeTemplates: data.itemSizeTemplates || [],
           storeTagRules: data.storeTagRules || [],
           addons: data.addons || [],
+          countriesConfig: data.countriesConfig || null,
         });
       }
 
@@ -424,6 +433,24 @@ export default function AdminSettings() {
         <Card className="border-gray-200">
           <CardContent className="pt-5">
             <OnlineStoreTagManager initialData={storeTagRules} />
+          </CardContent>
+        </Card>
+      )}
+
+      {activeTab === "countries" && (
+        <Card className="border-gray-200">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold text-gray-700">国家·地区设置</CardTitle>
+            <p className="text-xs text-gray-400 mt-1">
+              控制哪些国家·地区出现在收货地址选框中，并设置显示顺序。置顶的国家在所有下拉框中优先显示。
+            </p>
+          </CardHeader>
+          <CardContent>
+            <CountrySettingsManager
+              initialConfig={countriesConfig}
+              settingId={countriesConfigId}
+              onReload={load}
+            />
           </CardContent>
         </Card>
       )}

@@ -9,16 +9,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Play, ChevronDown, ChevronUp, AlertCircle, CheckCircle2 } from "lucide-react";
 import { ALL_COUNTRIES } from "@/lib/countries";
-
-const PINNED_COUNTRY_CODES = ['CN', 'TW', 'HK'];
-const PINNED_COUNTRIES = PINNED_COUNTRY_CODES.map(code => ALL_COUNTRIES.find(c => c.code === code)).filter(Boolean);
-const OTHER_COUNTRIES = ALL_COUNTRIES.filter(c => !PINNED_COUNTRY_CODES.includes(c.code));
-const ALL_SORTED_COUNTRIES = [...PINNED_COUNTRIES, ...OTHER_COUNTRIES];
+import { useTenantCountries } from "@/hooks/useTenantCountries";
 
 function CountrySelect({ value, onChange }) {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const ref = useRef();
+  const { countries: tenantCountries } = useTenantCountries();
 
   useEffect(() => {
     const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
@@ -27,10 +24,10 @@ function CountrySelect({ value, onChange }) {
   }, []);
 
   const filtered = query.trim()
-    ? ALL_SORTED_COUNTRIES.filter(c =>
+    ? tenantCountries.filter(c =>
         c.name.includes(query) || c.code.toLowerCase().includes(query.toLowerCase())
       )
-    : ALL_SORTED_COUNTRIES;
+    : tenantCountries;
 
   const selected = ALL_COUNTRIES.find(c => c.code === value);
 
@@ -52,14 +49,9 @@ function CountrySelect({ value, onChange }) {
               placeholder="输入筛选..." className="w-full h-7 px-2 text-xs border border-gray-200 rounded outline-none" />
           </div>
           <div className="max-h-48 overflow-y-auto">
-            {!query.trim() && (
-              <div className="px-2 py-0.5 text-xs text-gray-400 bg-gray-50 font-medium sticky top-0">常用</div>
-            )}
-            {filtered.map((c, i) => (
+            {filtered.map(c => (
               <button key={c.code} type="button" onClick={() => select(c.code)}
-                className={`w-full text-left px-3 py-1.5 text-xs hover:bg-blue-50 ${
-                  !query.trim() && i === PINNED_COUNTRIES.length ? 'border-t border-gray-100' : ''
-                } ${value === c.code ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}>
+                className={`w-full text-left px-3 py-1.5 text-xs hover:bg-blue-50 ${value === c.code ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}>
                 {c.name} ({c.code})
               </button>
             ))}

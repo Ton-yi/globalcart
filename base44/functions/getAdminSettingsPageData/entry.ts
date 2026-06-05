@@ -103,6 +103,13 @@ Deno.serve(async (req) => {
     const rates = await ratesPromise;
     console.log(`[TIMING] getAdminSettingsPageData | TOTAL: ${Date.now()-t0}ms`);
 
+    // Parse tenant countries config
+    const countriesConfigRaw = (settings || []).find(s => s.key === 'tenant_countries_config');
+    let countriesConfig = null;
+    if (countriesConfigRaw?.value) {
+      try { countriesConfig = JSON.parse(countriesConfigRaw.value); } catch { /* ignore */ }
+    }
+
     return Response.json({
       settings: settings || [],
       addons: addons || [],
@@ -115,6 +122,7 @@ Deno.serve(async (req) => {
       memberTiers: memberTiers || [],
       paymentMethods: paymentMethods || [],
       rates,
+      countriesConfig,
     });
 
   } catch (error) {
