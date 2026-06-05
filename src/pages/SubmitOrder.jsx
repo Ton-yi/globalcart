@@ -104,6 +104,7 @@ export default function SubmitOrder() {
 
     let serviceFeeJpy = 0;
     let feeRateDisplay = null;
+    let feeSteps = null;
 
     if (activeRule) {
       // Use the rule engine to calculate service fee
@@ -117,7 +118,8 @@ export default function SubmitOrder() {
       };
       const res = await base44.functions.invoke('serviceFeeRuleEngine', { action: 'evaluate', variables, rule: activeRule });
       serviceFeeJpy = res.data?.fee ?? 0;
-      feeRateDisplay = activeRule.name; // show rule name instead of flat %
+      feeRateDisplay = activeRule.name;
+      feeSteps = res.data?.steps || null; // calculation steps from rule engine
     } else {
       // Fall back to settings.service_fee_rate
       const fallbackRate = (parseFloat(settings.service_fee_rate) || 10) / 100;
@@ -134,6 +136,7 @@ export default function SubmitOrder() {
       totalJpy: Math.round(totalJpy),
       prepayJpy: Math.round(prepayJpy),
       feeRateDisplay,
+      feeSteps,
       prepayRate: (prepayRate * 100).toFixed(0),
     });
   };
@@ -501,30 +504,52 @@ export default function SubmitOrder() {
                 <Calculator className="w-4 h-4" /> {settings.prepay_enabled !== 'false' ? '预付款估算' : '费用估算'}
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              {/* Compact formula above */}
-              <div className="text-xs text-gray-400 font-mono leading-5 bg-white border border-gray-100 rounded px-3 py-2">
-                <span className="text-gray-500">¥{parseFloat(calculated.jpy).toLocaleString()}</span>
-                <span className="text-gray-300 mx-1 ml-2">+</span>
-                <span className="text-gray-500">{calculated.feeRateDisplay}服务费</span>
-                <span className="text-gray-300 mx-1">=</span>
-                <span className="text-gray-600">¥{calculated.serviceFeeJpy}</span>
-                {parseFloat(calculated.addonTotal) > 0 && (
-                  <>
-                    <span className="text-gray-300 mx-1 ml-2">+</span>
-                    <span className="text-gray-500">增值</span>
-                    <span className="text-gray-300 mx-1">=</span>
-                    <span className="text-gray-600">¥{calculated.addonTotal}</span>
-                  </>
+            <CardContent className="space-y-2">
+              {/* Detailed fee breakdown */}
+              <div className="bg-white border border-gray-100 rounded-lg overflow-hidden text-sm">
+                {/* Goods amount */}
+                <div className="flex items-center justify-between px-3 py-2 border-b border-gray-50">
+                  <span className="text-gray-500">货款</span>
+                  <span className="text-gray-700 font-medium">¥{parseFloat(calculated.jpy).toLocaleString()}</span>
+                </div>
+                {/* Service fee with detail */}
+                <div className="border-b border-gray-50">
+                  <div className="flex items-center justify-between px-3 py-2">
+                    <span className="text-gray-500 flex items-center gap-1">
+                      服务费
+                      {calculated.feeRateDisplay && (
+                        <span className="text-xs text-gray-400 bg-gray-50 border border-gray-100 rounded px-1.5 py-0.5">{calculated.feeRateDisplay}</span>
+                      )}
+                    </span>
+                    <span className="text-gray-700 font-medium">¥{calculated.serviceFeeJpy.toLocaleString()}</span>
+                  </div>
+                  {/* Rule engine steps */}
+                  {calculated.feeSteps && calculated.feeSteps.length > 0 && (
+                    <div className="px-3 pb-2 space-y-0.5">
+                      {calculated.feeSteps.map((step, i) => (
+                        <div key={i} className="text-xs text-gray-400 font-mono pl-2 border-l-2 border-gray-100">{step}</div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {/* Addon total */}
+                {calculated.addonTotal > 0 && (
+                  <div className="flex items-center justify-between px-3 py-2 border-b border-gray-50">
+                    <span className="text-gray-500">增值服务</span>
+                    <span className="text-gray-700 font-medium">¥{calculated.addonTotal.toLocaleString()}</span>
+                  </div>
                 )}
-                <span className="text-gray-300 mx-1 ml-2">→</span>
-                <span className="font-semibold text-gray-700">总额 ¥{calculated.totalJpy}</span>
+                {/* Total */}
+                <div className="flex items-center justify-between px-3 py-2.5 bg-gray-50">
+                  <span className="text-gray-700 font-semibold">合计</span>
+                  <span className="text-gray-900 font-bold">¥{calculated.totalJpy.toLocaleString()}</span>
+                </div>
               </div>
               {/* Prepay highlight — only when prepay is enabled */}
               {settings.prepay_enabled !== 'false' && (
                 <div className="flex items-center justify-between bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3">
                   <span className="text-sm text-gray-700 font-medium">预付款 ({calculated.prepayRate}%)</span>
-                  <span className="text-lg font-bold text-red-600">¥{calculated.prepayJpy}</span>
+                  <span className="text-lg font-bold text-red-600">¥{calculated.prepayJpy.toLocaleString()}</span>
                 </div>
               )}
             </CardContent>
