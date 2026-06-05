@@ -64,7 +64,7 @@ function LevelPickerSingle({ value, onChange, tiers, roles }) {
                   {roles.map(opt => (
                     <button key={opt.id} type="button" onClick={() => select({ type: 'role', id: opt.id, name: opt.name })}
                       className={`w-full flex items-center gap-2 px-2 py-1.5 hover:bg-blue-50 text-left text-xs ${value?.id === opt.id ? 'bg-blue-50' : ''}`}>
-                      <span className="px-1 py-0.5 rounded bg-purple-50 text-purple-700">{opt.name}</span>
+                      <span className={`px-1 py-0.5 rounded ${opt.color || 'bg-gray-100 text-gray-700'}`}>{opt.name}</span>
                       {value?.id === opt.id && <span className="text-blue-500 ml-auto">✓</span>}
                     </button>
                   ))}
