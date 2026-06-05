@@ -1,20 +1,115 @@
 /**
  * 发货阶段简单比例编辑器
- * 配置：用户等级 → 运费费率 + 固定费
- * value: [{type:'all'|'tier'|'role', id?, name, rate, fixed_fee_jpy}]
+ * 配置：客户等级（多选）→ 运费费率 + 固定费
+ * value: [{levels:[{type,id,name,color}], rate, fixed_fee_jpy}]
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, ChevronUp, ChevronDown } from "lucide-react";
+import { Plus, Trash2, X, ChevronDown, ArrowUp } from "lucide-react";
+
+// Render a role badge using hex color
+function RoleColorBadge({ name, color }) {
+  if (!color) return <span className="px-1 py-0.5 rounded bg-gray-100 text-gray-700 text-xs">{name}</span>;
+  return (
+    <span className="px-1 py-0.5 rounded text-xs font-medium"
+      style={{ backgroundColor: color + '22', color, border: `1px solid ${color}44` }}>
+      {name}
+    </span>
+  );
+}
+
+// Multi-select picker for customer levels
+function LevelPicker({ value = [], onChange, tiers, roles }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef();
+
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const selectedIds = new Set(value.map(v => v.id));
+  const allOptions = [
+    ...tiers.map(t => ({ type: 'tier', id: t.id, name: t.name, color: t.color })),
+    ...roles.map(r => ({ type: 'role', id: r.id, name: r.name, color: r.color })),
+  ];
+
+  const toggle = (opt) => {
+    if (selectedIds.has(opt.id)) {
+      onChange(value.filter(v => v.id !== opt.id));
+    } else {
+      onChange([...value, { type: opt.type, id: opt.id, name: opt.name, color: opt.color }]);
+    }
+  };
+
+  return (
+    <div className="relative" ref={ref}>
+      <button type="button" onClick={() => setOpen(v => !v)}
+        className="w-full min-h-[32px] flex flex-wrap gap-1 items-center px-2 py-1 border border-gray-200 rounded-md bg-white hover:border-blue-300 text-left">
+        {value.length === 0
+          ? <span className="text-xs text-gray-400">所有用户</span>
+          : value.map(v => (
+            <span key={v.id} className="inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-xs"
+              style={v.color ? { backgroundColor: v.color + '22', color: v.color, border: `1px solid ${v.color}44` }
+                : { backgroundColor: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}>
+              {v.name}
+              <button type="button" onClick={e => { e.stopPropagation(); toggle(v); }} className="ml-0.5 hover:opacity-70">
+                <X className="w-2.5 h-2.5" />
+              </button>
+            </span>
+          ))
+        }
+        <ChevronDown className="w-3 h-3 text-gray-300 ml-auto flex-shrink-0" />
+      </button>
+      {open && (
+        <div className="absolute top-full left-0 z-30 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg min-w-[160px] max-h-48 overflow-y-auto">
+          <button type="button" onClick={() => { onChange([]); setOpen(false); }}
+            className={`w-full flex items-center gap-2 px-2 py-1.5 hover:bg-gray-50 text-left text-xs border-b border-gray-100 ${value.length === 0 ? 'bg-gray-50 font-medium' : ''}`}>
+            <span className="px-1 py-0.5 rounded bg-gray-100 text-gray-600">全部用户</span>
+            {value.length === 0 && <span className="text-blue-500 ml-auto">✓</span>}
+          </button>
+          {allOptions.length === 0
+            ? <div className="text-xs text-gray-400 text-center py-2">暂无等级</div>
+            : <>
+              {tiers.length > 0 && (
+                <>
+                  <div className="px-2 py-1 text-xs text-gray-400 bg-gray-50 font-medium sticky top-8">会员等级</div>
+                  {tiers.map(opt => (
+                    <button key={opt.id} type="button" onClick={() => toggle(opt)}
+                      className={`w-full flex items-center gap-2 px-2 py-1.5 hover:bg-blue-50 text-left text-xs ${selectedIds.has(opt.id) ? 'bg-blue-50' : ''}`}>
+                      <RoleColorBadge name={opt.name} color={opt.color} />
+                      {selectedIds.has(opt.id) && <span className="text-blue-500 ml-auto">✓</span>}
+                    </button>
+                  ))}
+                </>
+              )}
+              {roles.length > 0 && (
+                <>
+                  <div className="px-2 py-1 text-xs text-gray-400 bg-gray-50 font-medium sticky top-8">角色标签</div>
+                  {roles.map(opt => (
+                    <button key={opt.id} type="button" onClick={() => toggle({ type: 'role', id: opt.id, name: opt.name, color: opt.color })}
+                      className={`w-full flex items-center gap-2 px-2 py-1.5 hover:bg-blue-50 text-left text-xs ${selectedIds.has(opt.id) ? 'bg-blue-50' : ''}`}>
+                      <RoleColorBadge name={opt.name} color={opt.color} />
+                      {selectedIds.has(opt.id) && <span className="text-blue-500 ml-auto">✓</span>}
+                    </button>
+                  ))}
+                </>
+              )}
+            </>
+          }
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function PostOrderSimpleEditor({ value = [], onChange }) {
   const [tiers, setTiers] = useState([]);
   const [roles, setRoles] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -27,28 +122,16 @@ export default function PostOrderSimpleEditor({ value = [], onChange }) {
     });
   }, []);
 
-  const allOptions = [
-    { type: 'all', id: 'all', name: '所有用户（默认）' },
-    ...tiers.map(t => ({ type: 'tier', id: t.id, name: t.name, color: t.color })),
-    ...roles.map(r => ({ type: 'role', id: r.id, name: r.name })),
-  ];
-
-  const selectedIds = new Set(value.map(v => v.id || v.type));
-
-  const addItem = (opt) => {
-    const key = opt.id || opt.type;
-    if (selectedIds.has(key)) return;
-    onChange([...value, { type: opt.type, id: opt.id, name: opt.name, rate: 0, fixed_fee_jpy: 0 }]);
-    setOpen(false);
+  const addRow = () => {
+    onChange([...value, { levels: [], rate: 0, fixed_fee_jpy: 0 }]);
   };
 
-  const removeItem = (idx) => onChange(value.filter((_, i) => i !== idx));
+  const removeRow = (idx) => onChange(value.filter((_, i) => i !== idx));
 
-  const moveItem = (idx, dir) => {
+  const moveRowUp = (idx) => {
+    if (idx === 0) return;
     const arr = [...value];
-    const t = idx + dir;
-    if (t < 0 || t >= arr.length) return;
-    [arr[idx], arr[t]] = [arr[t], arr[idx]];
+    [arr[idx], arr[idx - 1]] = [arr[idx - 1], arr[idx]];
     onChange(arr);
   };
 
@@ -58,68 +141,54 @@ export default function PostOrderSimpleEditor({ value = [], onChange }) {
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-5 gap-2 text-xs text-gray-500 font-medium px-1">
-        <span className="col-span-2">客户等级</span>
+      <div className="grid gap-2 text-xs text-gray-500 font-medium px-1" style={{gridTemplateColumns:'1fr 70px 70px 32px 32px'}}>
+        <span>客户等级</span>
         <span>运费费率 %</span>
         <span>固定费 ¥</span>
         <span></span>
+        <span></span>
       </div>
 
-      {value.map((item, idx) => (
-        <div key={idx} className="grid grid-cols-5 gap-2 items-center">
-          <div className="col-span-2 flex items-center gap-1">
-            <div className="flex flex-col gap-0.5 mr-1">
-              <button type="button" onClick={() => moveItem(idx, -1)} disabled={idx === 0} className="text-gray-300 hover:text-gray-500 disabled:opacity-20">
-                <ChevronUp className="w-3 h-3" />
-              </button>
-              <button type="button" onClick={() => moveItem(idx, 1)} disabled={idx === value.length - 1} className="text-gray-300 hover:text-gray-500 disabled:opacity-20">
-                <ChevronDown className="w-3 h-3" />
-              </button>
+      {loading ? (
+        <div className="text-xs text-gray-400 text-center py-3">加载选项...</div>
+      ) : (
+        value.map((item, idx) => (
+          <div key={idx} className="grid gap-2 items-center" style={{gridTemplateColumns:'1fr 70px 70px 32px 32px'}}>
+            <LevelPicker
+              value={item.levels || []}
+              onChange={v => update(idx, 'levels', v)}
+              tiers={tiers}
+              roles={roles}
+            />
+            <div className="flex items-center gap-1">
+              <Input className="h-8 text-xs" type="number" step="0.1" value={item.rate ?? 0}
+                onChange={e => update(idx, 'rate', parseFloat(e.target.value) || 0)} placeholder="0" />
+              <span className="text-xs text-gray-400">%</span>
             </div>
-            <Badge className={`text-xs truncate max-w-full ${item.type === 'all' ? 'bg-gray-100 text-gray-600' : item.type === 'tier' ? 'bg-blue-50 text-blue-700' : 'bg-purple-50 text-purple-700'}`}>
-              {item.name}
-            </Badge>
+            <Input className="h-8 text-xs" type="number" value={item.fixed_fee_jpy ?? 0}
+              onChange={e => update(idx, 'fixed_fee_jpy', parseFloat(e.target.value) || 0)} placeholder="0" />
+            <button type="button" onClick={() => removeRow(idx)} className="text-red-400 hover:text-red-600">
+              <Trash2 className="w-4 h-4" />
+            </button>
+            {idx > 0
+              ? <button type="button" onClick={() => moveRowUp(idx)} className="text-gray-400 hover:text-blue-500" title="上移一行">
+                  <ArrowUp className="w-4 h-4" />
+                </button>
+              : <span />
+            }
           </div>
-          <div className="flex items-center gap-1">
-            <Input className="h-8 text-xs" type="number" step="0.1" value={item.rate ?? 0}
-              onChange={e => update(idx, 'rate', parseFloat(e.target.value) || 0)} placeholder="0" />
-            <span className="text-xs text-gray-400">%</span>
-          </div>
-          <Input className="h-8 text-xs" type="number" value={item.fixed_fee_jpy ?? 0}
-            onChange={e => update(idx, 'fixed_fee_jpy', parseFloat(e.target.value) || 0)} placeholder="0" />
-          <button type="button" onClick={() => removeItem(idx)} className="text-red-400 hover:text-red-600">
-            <Trash2 className="w-4 h-4" />
-          </button>
-        </div>
-      ))}
+        ))
+      )}
 
-      {value.length === 0 && (
+      {value.length === 0 && !loading && (
         <div className="text-xs text-gray-400 text-center py-3 border border-dashed rounded-lg">暂未配置，将对所有用户使用默认费率</div>
       )}
 
-      {/* Add picker */}
-      <div className="relative">
-        <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => setOpen(v => !v)}>
-          <Plus className="w-3.5 h-3.5 mr-1" />添加客户等级配置
-        </Button>
-        {open && (
-          <div className="absolute bottom-full left-0 right-0 mb-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 max-h-48 overflow-y-auto">
-            {loading ? (
-              <div className="text-xs text-gray-400 text-center py-3">加载中...</div>
-            ) : allOptions.map(opt => (
-              <button key={opt.id} type="button" onClick={() => addItem(opt)}
-                disabled={selectedIds.has(opt.id)}
-                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-blue-50 text-left disabled:opacity-40 text-sm">
-                <Badge className={`text-xs ${opt.type === 'all' ? 'bg-gray-100 text-gray-600' : opt.type === 'tier' ? 'bg-blue-50 text-blue-700' : 'bg-purple-50 text-purple-700'}`}>
-                  {opt.name}
-                </Badge>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+      <Button type="button" variant="outline" size="sm" onClick={addRow} className="w-full">
+        <Plus className="w-3.5 h-3.5 mr-1" />添加费率配置行
+      </Button>
 
-      <p className="text-xs text-gray-400">费率乘算实际国际运费，固定费额外叠加。序号越小优先级越高，匹配到第一个符合等级即生效。</p>
+      <p className="text-xs text-gray-400">费率乘算实际国际运费，固定费额外叠加。序号越小优先级越高，匹配到第一个符合等级即生效。客户等级为空=匹配所有用户。</p>
     </div>
   );
 }
