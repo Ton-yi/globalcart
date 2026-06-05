@@ -8,7 +8,7 @@ import { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Trash2, X, ChevronDown } from "lucide-react";
+import { Plus, Trash2, X, ChevronDown, ArrowUp } from "lucide-react";
 
 // Render a role badge using hex color
 function RoleColorBadge({ name, color }) {
@@ -129,6 +129,13 @@ export default function SimpleRuleEditor({
 
   const removeRow = (i) => onCustomerLevelFilterChange(customerLevelFilter.filter((_, idx) => idx !== i));
 
+  const moveRowUp = (i) => {
+    if (i === 0) return;
+    const arr = [...customerLevelFilter];
+    [arr[i - 1], arr[i]] = [arr[i], arr[i - 1]];
+    onCustomerLevelFilterChange(arr);
+  };
+
   // Normalize legacy rows: single {type,id,name} → {levels:[...]}
   const normalizeRow = (row) => {
     if (row.levels) return row;
@@ -156,10 +163,11 @@ export default function SimpleRuleEditor({
       {/* Per-level rate table */}
       <div className="border-t border-gray-200 pt-3 space-y-2">
         <p className="text-xs text-gray-500 font-medium">按客户等级覆盖费率（优先于默认费率）</p>
-        <div className="grid gap-2 text-xs text-gray-400 font-medium px-1" style={{gridTemplateColumns:'1fr 70px 70px 32px'}}>
+        <div className="grid gap-2 text-xs text-gray-400 font-medium px-1" style={{gridTemplateColumns:'1fr 70px 70px 32px 32px'}}>
           <span>客户等级（可多选）</span>
           <span>费率 %</span>
           <span>固定费 ¥</span>
+          <span></span>
           <span></span>
         </div>
 
@@ -169,7 +177,7 @@ export default function SimpleRuleEditor({
           customerLevelFilter.map((row, i) => {
             const normalized = normalizeRow(row);
             return (
-              <div key={i} className="grid gap-2 items-center" style={{gridTemplateColumns:'1fr 70px 70px 32px'}}>
+              <div key={i} className="grid gap-2 items-center" style={{gridTemplateColumns:'1fr 70px 70px 32px 32px'}}>
                 <LevelPickerMulti
                   value={normalized.levels}
                   onChange={v => updateRow(i, 'levels', v)}
@@ -183,6 +191,12 @@ export default function SimpleRuleEditor({
                 <button type="button" onClick={() => removeRow(i)} className="text-red-400 hover:text-red-600">
                   <Trash2 className="w-4 h-4" />
                 </button>
+                {i > 0
+                  ? <button type="button" onClick={() => moveRowUp(i)} className="text-gray-400 hover:text-blue-500" title="上移一行">
+                      <ArrowUp className="w-4 h-4" />
+                    </button>
+                  : <span />
+                }
               </div>
             );
           })
