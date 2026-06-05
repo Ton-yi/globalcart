@@ -1,0 +1,434 @@
+/**
+ * PreShipmentForm - 预出货信息填写页
+ * 用户在提交订单后，预先填写出货信息。
+ * 订单入库后系统自动按此信息生成发货申请。
+ * URL params: order_id
+ */
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { createPageUrl } from "@/utils";
+import { base44 } from "@/api/base44Client";
+import { fetchTenantConfig, tenantEntity } from "@/lib/tenantApi";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import AddressForm, { EMPTY_ADDRESS_FORM, serializeAddressToText, isAddressFormValid } from "@/components/common/AddressForm";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Truck, Package, MapPin, Check, ChevronLeft, PlusCircle, Zap } from "lucide-react";
+import PaymentMethodSelector from "@/components/common/PaymentMethodSelector";
+
+export default function PreShipmentForm() {
+  const navigate = useNavigate();
+  const { user } = useCurrentUser();
+  const urlParams = new URLSearchParams(window.location.search);
+  const orderId = urlParams.get("order_id");
+
+  const [order, setOrder] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
+  // Config data
+  const [shippingMethods, setShippingMethods] = useState([]);
+  const [transitLocations, setTransitLocations] = useState([]);
+  const [shippingAddons, setShippingAddons] = useState([]);
+  const [savedAddresses, setSavedAddresses] = useState([]);
+  const [paymentMethods, setPaymentMethods] = useState([]);
+
+  // Form state
+  const [consType, setConsType] = useState(""); // "" = direct, "transit" = transit
+  const [shippingMethod, setShippingMethod] = useState("");
+  const [scheduledDate, setScheduledDate] = useState("");
+  const [userNote, setUserNote] = useState("");
+  const [transitLocationId, setTransitLocationId] = useState("");
+  const [selectedAddonIds, setSelectedAddonIds] = useState([]);
+  const [address, setAddress] = useState({ label: "", ...EMPTY_ADDRESS_FORM });
+  const [selectedAddressId, setSelectedAddressId] = useState("");
+  const [useNewAddress, setUseNewAddress] = useState(false);
+  const [saveAddress, setSaveAddress] = useState(false);
+
+  // Payment after submit (direct to payment page if needed)
+  const [paymentMethod, setPaymentMethod] = useState("");
+
+  useEffect(() => {
+    if (!orderId || !user) return;
+    Promise.all([
+      base44.functions.invoke('getTenantOrders', {}).then(r => (r.data?.orders || []).find(o => o.id === orderId)),
+      fetchTenantConfig(),
+      tenantEntity.list('UserPreference', { user_email: user.email }).catch(() => []),
+      base44.functions.invoke('managePaymentMethod', { action: 'list' }).then(r => r.data?.methods || []).catch(() => []),
+    ]).then(([ord, cfg, prefs, methods]) => {
+      setOrder(ord || null);
+      setShippingMethods((cfg.shippingMethods || []).filter(m => m.is_active !== false));
+      setTransitLocations((cfg.transitLocations || []).filter(l => l.is_active !== false));
+      setShippingAddons((cfg.addons || []).filter(a => a.addon_type === 'shipping' && a.is_active !== false));
+      setPaymentMethods(methods);
+
+      const pref = prefs[0];
+      const addrs = (pref?.saved_addresses || []).map(a => ({ ...EMPTY_ADDRESS_FORM, ...a }));
+      setSavedAddresses(addrs);
+      const defaultId = pref?.default_address_id || "";
+      const defaultAddr = addrs.find(a => a.id === defaultId) || addrs[0];
+      if (defaultAddr) {
+        setSelectedAddressId(defaultAddr.id);
+        setAddress({ label: defaultAddr.label || "", ...defaultAddr });
+        setUseNewAddress(false);
+      } else {
+        setUseNewAddress(true);
+      }
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, [orderId, user]);
+
+  const handleAddressSelect = (id) => {
+    if (id === "__new__") {
+      setSelectedAddressId("");
+      setUseNewAddress(true);
+      setAddress({ label: "", ...EMPTY_ADDRESS_FORM });
+      setSaveAddress(false);
+    } else {
+      setSelectedAddressId(id);
+      setUseNewAddress(false);
+      const addr = savedAddresses.find(a => a.id === id);
+      if (addr) setAddress({ label: addr.label || "", ...addr });
+      setSaveAddress(false);
+    }
+  };
+
+  const selectedAddons = shippingAddons.filter(a => selectedAddonIds.includes(a.id));
+
+  const canSubmit = () => {
+    if (!shippingMethod) return false;
+    if (consType === "transit") return !!transitLocationId;
+    return isAddressFormValid(address);
+  };
+
+  const handleSubmit = async () => {
+    if (!canSubmit() || submitting) return;
+    setSubmitting(true);
+
+    // Save new address if requested
+    if (useNewAddress && saveAddress && isAddressFormValid(address) && address.label?.trim()) {
+      const existingPrefs = await tenantEntity.list('UserPreference', { user_email: user.email });
+      const existingAddrs = existingPrefs[0]?.saved_addresses || [];
+      const newEntry = {
+        id: Date.now().toString(),
+        label: address.label.trim(),
+        full_text: serializeAddressToText(address),
+        ...address,
+      };
+      if (existingPrefs.length > 0) {
+        await tenantEntity.update('UserPreference', existingPrefs[0].id, { saved_addresses: [...existingAddrs, newEntry] });
+      } else {
+        await tenantEntity.create('UserPreference', { user_email: user.email, saved_addresses: [newEntry] });
+      }
+    }
+
+    const effectiveAddress = useNewAddress ? address : (savedAddresses.find(a => a.id === selectedAddressId) || address);
+    const transitLoc = transitLocations.find(l => l.id === transitLocationId);
+
+    const preShipment = {
+      shipping_method: shippingMethod,
+      scheduled_ship_date: scheduledDate,
+      user_note: userNote,
+      consType,
+      transit_location_id: consType === "transit" ? transitLocationId : "",
+      transit_location_name: consType === "transit" ? (transitLoc?.name || "") : "",
+      address: consType === "transit" ? {} : { ...effectiveAddress },
+      selected_addon_ids: selectedAddonIds,
+      selected_addons: selectedAddons.map(a => ({ id: a.id, name: a.name, fee: a.fee, fee_currency: a.fee_currency })),
+      pool_created: false,
+    };
+
+    await base44.functions.invoke('updateTenantOrder', {
+      order_id: orderId,
+      pre_shipment: preShipment,
+    });
+
+    setSubmitted(true);
+    setSubmitting(false);
+  };
+
+  if (loading) {
+    return <div className="max-w-2xl mx-auto py-12 text-center text-gray-400 text-sm">加载中...</div>;
+  }
+
+  if (!order) {
+    return (
+      <div className="max-w-2xl mx-auto py-12 text-center text-gray-400">
+        <p className="text-sm">订单不存在或无法访问</p>
+        <Button variant="outline" size="sm" className="mt-4" onClick={() => navigate(createPageUrl("MyOrders"))}>返回我的订单</Button>
+      </div>
+    );
+  }
+
+  if (submitted) {
+    return (
+      <div className="max-w-2xl mx-auto space-y-6">
+        <div className="text-center py-8">
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Check className="w-8 h-8 text-green-600" />
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">预出货信息已保存</h2>
+          <p className="text-sm text-gray-500 max-w-sm mx-auto">
+            订单入库后，系统将自动按照您填写的信息生成发货申请，无需再手动操作。
+          </p>
+        </div>
+
+        {/* Order summary */}
+        <Card className="border-green-100 bg-green-50">
+          <CardContent className="pt-4 pb-3">
+            <div className="flex items-start gap-3">
+              <Package className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-gray-800">{order.product_name}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{order.order_number}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="flex gap-3">
+          <Button variant="outline" className="flex-1" onClick={() => navigate(createPageUrl("MyOrders"))}>
+            查看我的订单
+          </Button>
+          {(order.payment_status === "awaiting_payment" || order.order_status === "payment_pending") && (
+            <Button className="flex-1 bg-red-600 hover:bg-red-700"
+              onClick={() => {
+                const m = paymentMethods.find(pm => (pm.provider_key || pm.name) === paymentMethod);
+                const cur = m?.payment_currency || "JPY";
+                navigate(`/Payment?order_id=${orderId}&method=${paymentMethod || "other"}&pay_currency=${cur}`);
+              }}>
+              前往付款
+            </Button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-2xl mx-auto space-y-5">
+      <div className="flex items-center gap-3">
+        <button onClick={() => navigate(createPageUrl("MyOrders"))} className="text-gray-400 hover:text-gray-600">
+          <ChevronLeft className="w-5 h-5" />
+        </button>
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">预出货信息</h1>
+          <p className="text-sm text-gray-400 mt-0.5">预先填写，入库后自动生成发货申请</p>
+        </div>
+      </div>
+
+      {/* Order card */}
+      <Card className="border-gray-200">
+        <CardContent className="pt-4 pb-3">
+          <div className="flex items-start gap-3">
+            <Package className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-gray-800 truncate">{order.product_name}</p>
+              <p className="text-xs text-gray-400 mt-0.5">{order.order_number} · ¥{(order.estimated_jpy || 0).toLocaleString()}</p>
+            </div>
+            <Badge variant="outline" className="text-xs flex-shrink-0">预出货</Badge>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Alert className="border-blue-200 bg-blue-50">
+        <Zap className="w-4 h-4 text-blue-600" />
+        <AlertDescription className="text-blue-800 text-sm">
+          填写后，管理员确认订单入库时，系统将自动按此信息创建发货申请，跳过手动通知步骤。
+        </AlertDescription>
+      </Alert>
+
+      {/* Shipping method */}
+      <Card className="border-gray-200">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+            <Truck className="w-4 h-4" />发货方式
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {/* Direct vs transit */}
+          <div className="space-y-2">
+            {[
+              { key: "", label: "直接发货", desc: "货品直接从日本发往收货地址" },
+              ...(transitLocations.length > 0 ? [{ key: "transit", label: "发往中转地", desc: "货品先发往中转地，再自行安排" }] : []),
+            ].map(opt => (
+              <label key={opt.key} className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${consType === opt.key ? "border-red-300 bg-red-50" : "border-gray-200 hover:bg-gray-50"}`}>
+                <input type="radio" checked={consType === opt.key} onChange={() => setConsType(opt.key)} className="mt-0.5 accent-red-600" />
+                <div>
+                  <span className="text-sm font-medium text-gray-800">{opt.label}</span>
+                  <p className="text-xs text-gray-400 mt-0.5">{opt.desc}</p>
+                </div>
+              </label>
+            ))}
+          </div>
+
+          {/* Transit location */}
+          {consType === "transit" && (
+            <div className="space-y-2 border border-blue-100 rounded-xl p-3 bg-blue-50/40">
+              <Label className="text-xs text-blue-700 font-medium">选择中转地 *</Label>
+              {transitLocations.map(l => (
+                <label key={l.id} className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${transitLocationId === l.id ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
+                  <input type="radio" checked={transitLocationId === l.id} onChange={() => setTransitLocationId(l.id)} className="mt-0.5 accent-blue-600" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-800">{l.name}</p>
+                    {l.manager_contact && <p className="text-xs text-gray-400">联系：{l.manager_contact}</p>}
+                  </div>
+                </label>
+              ))}
+            </div>
+          )}
+
+          {/* Shipping method */}
+          <div>
+            <Label className="text-xs text-gray-500">运输方式 *</Label>
+            {shippingMethods.length > 0 ? (
+              <Select value={shippingMethod} onValueChange={setShippingMethod}>
+                <SelectTrigger className="mt-1 h-9 text-sm"><SelectValue placeholder="选择运输方式..." /></SelectTrigger>
+                <SelectContent>
+                  {shippingMethods.map(m => <SelectItem key={m.id} value={m.code}>{m.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Input className="mt-1 h-9 text-sm" placeholder="如：EMS、海运..." value={shippingMethod} onChange={e => setShippingMethod(e.target.value)} />
+            )}
+          </div>
+
+          {/* Scheduled date */}
+          <div>
+            <Label className="text-xs text-gray-500">期望发货日期（可选）</Label>
+            <div className="flex gap-2 mt-1">
+              <button type="button"
+                onClick={() => setScheduledDate(scheduledDate === "__asap__" ? "" : "__asap__")}
+                className={`flex items-center gap-1.5 px-3 h-9 rounded-md border text-sm transition-colors ${scheduledDate === "__asap__" ? "border-orange-400 bg-orange-50 text-orange-600 font-medium" : "border-gray-200 text-gray-500 hover:bg-gray-50"}`}>
+                ⚡ 尽快
+              </button>
+              <Input type="date" className="h-9 text-sm flex-1"
+                value={scheduledDate === "__asap__" ? "" : scheduledDate}
+                onChange={e => setScheduledDate(e.target.value)} />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Address (only for direct shipment) */}
+      {consType === "" && (
+        <Card className="border-gray-200">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+              <MapPin className="w-4 h-4" />收货地址
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {savedAddresses.length > 0 && (
+              <Select value={useNewAddress ? "__new__" : (selectedAddressId || "")} onValueChange={handleAddressSelect}>
+                <SelectTrigger><SelectValue placeholder="选择地址簿中的地址" /></SelectTrigger>
+                <SelectContent>
+                  {savedAddresses.map(a => <SelectItem key={a.id} value={a.id}>{a.label}</SelectItem>)}
+                  <SelectItem value="__new__">
+                    <span className="flex items-center gap-1.5 text-blue-600"><PlusCircle className="w-3.5 h-3.5" />输入新地址</span>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+            {!useNewAddress && selectedAddressId && (() => {
+              const addr = savedAddresses.find(a => a.id === selectedAddressId);
+              return addr ? (
+                <div className="bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 text-xs text-gray-600 whitespace-pre-wrap">
+                  {addr.full_text || serializeAddressToText(addr)}
+                </div>
+              ) : null;
+            })()}
+            {(useNewAddress || savedAddresses.length === 0) && (
+              <div className="space-y-3">
+                <div>
+                  <Label className="text-xs text-gray-500">地址标签</Label>
+                  <Input className="mt-1 h-8 text-sm" placeholder="如：家、公司"
+                    value={address.label || ""} onChange={e => setAddress(p => ({ ...p, label: e.target.value }))} />
+                </div>
+                <AddressForm value={address} onChange={v => setAddress(p => ({ ...p, ...v }))} />
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <Checkbox checked={saveAddress} onCheckedChange={v => setSaveAddress(!!v)} />
+                  <span className="text-xs text-gray-600">保存此地址到地址簿</span>
+                </label>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Addons */}
+      {shippingAddons.length > 0 && (
+        <Card className="border-gray-200">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold text-gray-700">发货增值服务（可选）</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {shippingAddons.map(a => (
+              <label key={a.id} className={`flex items-center justify-between gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${selectedAddonIds.includes(a.id) ? "border-yellow-400 bg-yellow-50" : "border-gray-200 hover:bg-gray-50"}`}>
+                <div className="flex items-center gap-2">
+                  <Checkbox checked={selectedAddonIds.includes(a.id)}
+                    onCheckedChange={v => setSelectedAddonIds(prev => v ? [...prev, a.id] : prev.filter(id => id !== a.id))} />
+                  <div>
+                    <span className="text-sm font-medium text-gray-800">{a.name}</span>
+                    {a.description && <span className="text-xs text-gray-400 ml-2">{a.description}</span>}
+                  </div>
+                </div>
+                <span className="text-xs font-medium text-yellow-700 flex-shrink-0">+{a.fee_currency || "JPY"} {Number(a.fee || 0).toLocaleString()}</span>
+              </label>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Note */}
+      <Card className="border-gray-200">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-semibold text-gray-700">备注（可选）</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Textarea rows={2} className="text-sm" placeholder="特殊要求、包装说明..."
+            value={userNote} onChange={e => setUserNote(e.target.value)} />
+        </CardContent>
+      </Card>
+
+      {/* Payment section (if order needs payment) */}
+      {(order.payment_status === "awaiting_payment" || order.order_status === "payment_pending") && (
+        <Card className="border-gray-200">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold text-gray-700">付款方式</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <PaymentMethodSelector
+              value={paymentMethod}
+              onChange={m => setPaymentMethod(m.value)}
+              prefetched={paymentMethods.length > 0 ? paymentMethods : null}
+              activeColor="border-red-500 bg-red-50 text-red-700"
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Actions */}
+      <div className="flex gap-3 pb-4">
+        <Button variant="outline" className="flex-1" onClick={() => navigate(createPageUrl("MyOrders"))}>
+          跳过，稍后再说
+        </Button>
+        <Button
+          className="flex-1 bg-red-600 hover:bg-red-700"
+          disabled={!canSubmit() || submitting}
+          onClick={handleSubmit}
+        >
+          {submitting ? "保存中..." : "保存预出货信息"}
+        </Button>
+      </div>
+    </div>
+  );
+}

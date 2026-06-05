@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { Package, RefreshCw, Search, CreditCard, Truck, CheckCircle, ChevronUp, ChevronDown, ChevronsUpDown, Send, Archive, ArchiveRestore, RotateCcw } from "lucide-react";
+import { Package, RefreshCw, Search, CreditCard, Truck, CheckCircle, ChevronUp, ChevronDown, ChevronsUpDown, Send, Archive, ArchiveRestore, RotateCcw, Zap } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Textarea } from "@/components/ui/textarea";
 import { ImageWithViewer } from "@/components/common/ImageViewer";
@@ -180,6 +181,7 @@ function CellValue({ col, order }) {
 }
 
 export default function MyOrders() {
+  const navigate = useNavigate();
   const { user, loading: authLoading } = useCurrentUser();
   const { can } = usePermissions();
   const canArchiveOrder = can("order:archive_order");
@@ -541,6 +543,17 @@ export default function MyOrders() {
                     <Button size="sm" className="h-7 text-xs bg-teal-600 hover:bg-teal-700"
                       onClick={() => setShipmentOrder(order)}>
                       <Truck className="w-3 h-3 mr-1" />通知发货
+                    </Button>
+                  )}
+                  {order.order_status === "in_warehouse" && order.pre_shipment && !order.pre_shipment.pool_created && (
+                    <span className="inline-flex items-center gap-1 text-xs bg-blue-100 text-blue-700 border border-blue-200 px-1.5 py-0.5 rounded-full font-medium w-fit">
+                      <Zap className="w-2.5 h-2.5" />预出货
+                    </span>
+                  )}
+                  {order.order_status === "payment_pending" && !order.pre_shipment && (
+                    <Button size="sm" variant="outline" className="h-6 text-xs px-2 text-blue-600 border-blue-200"
+                      onClick={() => navigate(`/PreShipmentForm?order_id=${order.id}`)}>
+                      <Zap className="w-3 h-3 mr-1" />预出货
                     </Button>
                   )}
                   {order.order_status === "notified_shipment" && (() => {

@@ -53,6 +53,7 @@ export default function SubmitOrder() {
   const [paymentMode, setPaymentMode] = useState(""); // set after settings load: "prepay" | "deferred" | "credit_weekly" | "credit_monthly"
   const [userCredit, setUserCredit] = useState(null); // user's credit status
   const [creditDowngradeMsg, setCreditDowngradeMsg] = useState(null); // shown after submit if credit downgraded
+  const [createdOrder, setCreatedOrder] = useState(null); // after successful submission, show pre-shipment option
 
   useEffect(() => {
     const t = timePage('SubmitOrder');
@@ -220,13 +221,11 @@ export default function SubmitOrder() {
     }
 
     if (isDeferred || isCredit) {
-      navigate(createPageUrl("MyOrders"));
+      // Show pre-shipment option before going to orders list
+      setCreatedOrder({ ...order, paymentMode: paymentMode, paymentMethod });
     } else {
-      // prepay or fullpay — both go to Payment page
-      // Find the selected payment method's currency to pass to Payment page
-      const selectedMethodObj = paymentMethods.find(m => (m.provider_key || m.name) === paymentMethod);
-      const selectedCurrency = selectedMethodObj?.payment_currency || "JPY";
-      navigate(`/Payment?order_id=${order.id}&method=${paymentMethod || "other"}&pay_currency=${selectedCurrency}`);
+      // Show pre-shipment option; user can proceed to payment or skip
+      setCreatedOrder({ ...order, paymentMode: paymentMode, paymentMethod });
     }
   };
 
@@ -248,16 +247,54 @@ export default function SubmitOrder() {
         </Alert>
       )}
 
-      {settings.prepay_enabled !== 'false' && (
+      {/* Post-submission: offer pre-shipment form or go to payment */}
+      {createdOrder && (
+        <div className="border-2 border-green-200 rounded-2xl bg-green-50 p-5 space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+              <ShoppingBag className="w-4 h-4 text-white" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-green-800">订单提交成功！</p>
+              <p className="text-xs text-green-600 mt-0.5">{createdOrder.order_number}</p>
+            </div>
+          </div>
+          <p className="text-sm text-gray-700">是否预先填写出货信息？入库后系统将自动生成发货申请，无需手动通知。</p>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button
+              className="flex-1 bg-red-600 hover:bg-red-700"
+              onClick={() => navigate(`/PreShipmentForm?order_id=${createdOrder.id}`)}
+            >
+              填写预出货信息
+            </Button>
+            {(createdOrder.paymentMode === "prepay" || createdOrder.paymentMode === "fullpay") ? (
+              <Button variant="outline" className="flex-1"
+                onClick={() => {
+                  const selectedMethodObj = paymentMethods.find(m => (m.provider_key || m.name) === createdOrder.paymentMethod);
+                  const selectedCurrency = selectedMethodObj?.payment_currency || "JPY";
+                  navigate(`/Payment?order_id=${createdOrder.id}&method=${createdOrder.paymentMethod || "other"}&pay_currency=${selectedCurrency}`);
+                }}>
+                跳过，直接付款
+              </Button>
+            ) : (
+              <Button variant="outline" className="flex-1" onClick={() => navigate(createPageUrl("MyOrders"))}>
+                跳过，查看订单
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {settings.prepay_enabled !== 'false' && !createdOrder && (
         <Alert className="border-blue-200 bg-blue-50">
           <Info className="w-4 h-4 text-blue-600" />
           <AlertDescription className="text-blue-800 text-sm">
-            预付款 = (日元货款总价 + 服务费 + 增值费用) × {parseFloat(settings.prepay_rate) || (DEFAULT_PREPAY_RATE * 100).toFixed(0)}%。订单确认后可补款或抵扣余额。
+            预付款 = (日元货款总价 + 服务费 + 增值费用) × {parseFloat(settings.prepay_rate) || Math.round(DEFAULT_PREPAY_RATE * 100)}%。订单确认后可补款或抵扣余额。
           </AlertDescription>
         </Alert>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-5">
+      {createdOrder ? null : <form onSubmit={handleSubmit} className="space-y-5">
         <Card className="border-gray-200">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold text-gray-700">商品信息</CardTitle>
@@ -688,7 +725,7 @@ export default function SubmitOrder() {
               paymentMode === "deferred" ? "提交需求（后付款）" : "提交并前往付款"}
           </Button>
         )}
-      </form>
+      </form>}
     </div>
   );
 }

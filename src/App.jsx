@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import PlatformAdminSettings from '@/pages/PlatformAdminSettings';
 import AdminFeeRules from '@/pages/AdminFeeRules';
+import PreShipmentForm from '@/pages/PreShipmentForm';
 
 
 const { Pages, Layout, mainPage } = pagesConfig;
@@ -68,6 +69,11 @@ const AuthenticatedApp = () => {
       <Route path="/AdminFeeRules" element={
         <LayoutWrapper currentPageName="AdminFeeRules">
           <AdminFeeRules />
+        </LayoutWrapper>
+      } />
+      <Route path="/PreShipmentForm" element={
+        <LayoutWrapper currentPageName="PreShipmentForm">
+          <PreShipmentForm />
         </LayoutWrapper>
       } />
       <Route path="*" element={<PageNotFound />} />
