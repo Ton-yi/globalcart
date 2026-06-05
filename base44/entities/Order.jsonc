@@ -45,25 +45,25 @@
     },
     "service_fee_rate": {
       "type": "number",
-      "description": "\u670d\u52a1\u8d39\u7387%",
+      "description": "\u670d\u52a1\u8d39\u7387%\uff08\u5feb\u7167\uff0c\u63d0\u4ea4\u65f6\u8bb0\u5f55\uff09",
       "default": 10
     },
     "prepayment_amount": {
       "type": "number",
-      "description": "\u9884\u4ed8\u6b3e\u91d1\u989d\uff08\u4ee5prepayment_currency\u4e3a\u5355\u4f4d\uff1b\u652f\u4ed8\u5b9d\u4ed8\u6b3e\u540e\u66f4\u65b0\u4e3a\u5b9e\u9645\u652f\u4ed8CNY\u91d1\u989d\uff09"
+      "description": "\u9884\u4ed8\u6b3e\u91d1\u989d\uff08\u4ee5prepayment_currency\u4e3a\u5355\u4f4d\uff09"
     },
     "prepayment_currency": {
       "type": "string",
-      "description": "\u9884\u4ed8\u6b3e\u8d27\u5e01\uff08\u63d0\u4ea4\u65f6\u4e3aJPY\uff1b\u652f\u4ed8\u5b9d\u56de\u8c03\u786e\u8ba4\u540e\u66f4\u65b0\u4e3a\u5b9e\u9645\u652f\u4ed8\u8d27\u5e01\u5982CNY\uff09",
+      "description": "\u9884\u4ed8\u6b3e\u8d27\u5e01",
       "default": "JPY"
     },
     "prepayment_amount_jpy": {
       "type": "number",
-      "description": "\u9884\u4ed8\u6b3e\u539f\u59cbJPY\u91d1\u989d\uff08\u521b\u5efa\u65f6\u8bb0\u5f55\uff0c\u4e0d\u968f\u6c47\u7387\u66f4\u65b0\uff09"
+      "description": "\u9884\u4ed8\u6b3e\u539f\u59cbJPY\u91d1\u989d\uff08\u521b\u5efa\u65f6\u8bb0\u5f55\uff09"
     },
     "prepayment_amount_cny": {
       "type": "number",
-      "description": "\u652f\u4ed8\u5b9d\u751f\u6210\u94fe\u63a5\u65f6\u6362\u7b97\u7684CNY\u91d1\u989d\uff08\u5f85\u652f\u4ed8\u72b6\u6001\u4e0b\u7684\u9884\u671f\u652f\u4ed8\u91d1\u989d\uff09"
+      "description": "\u652f\u4ed8\u5b9d\u751f\u6210\u94fe\u63a5\u65f6\u6362\u7b97\u7684CNY\u91d1\u989d"
     },
     "prepayment_rate_jpy_cny": {
       "type": "number",
@@ -137,8 +137,7 @@
     },
     "is_archived": {
       "type": "boolean",
-      "default": false,
-      "description": "\u662f\u5426\u5df2\u5b58\u6863"
+      "default": false
     },
     "archived_at": {
       "type": "string",
@@ -149,87 +148,68 @@
       "items": {
         "type": "string"
       },
-      "description": "\u6709\u672a\u8bfb\u6d88\u606f\u7684\u89d2\u8272\u5217\u8868\uff08admin/user\uff09",
       "default": []
     },
     "online_store_tag": {
       "type": "string",
-      "description": "\u5546\u57ce\u6807\u7b7e\uff08\u81ea\u52a8\u8bc6\u522b\uff09",
       "default": "\u5176\u5b83"
     },
     "online_store_tag_color": {
       "type": "string",
-      "description": "\u5546\u57ce\u6807\u7b7e\u989c\u8272\uff08Tailwind class\uff09",
       "default": "bg-gray-100 text-gray-700"
     },
     "cancel_reason": {
-      "type": "string",
-      "description": "\u53d6\u6d88\u7406\u7531"
+      "type": "string"
     },
     "payment_due_date": {
       "type": "string",
-      "format": "date",
-      "description": "\u4ed8\u6b3e\u622a\u6b62\u65e5\u671f"
+      "format": "date"
     },
     "admin_confirmed_amount": {
-      "type": "number",
-      "description": "\u7ba1\u7406\u5458\u786e\u8ba4\u91d1\u989d"
+      "type": "number"
     },
     "supplement_requested": {
       "type": "boolean",
-      "default": false,
-      "description": "\u662f\u5426\u5df2\u8bf7\u6c42\u8865\u6b3e"
+      "default": false
     },
     "supplement_amount": {
-      "type": "number",
-      "description": "\u9700\u8865\u6b3e\u91d1\u989d"
+      "type": "number"
     },
     "admin_note": {
-      "type": "string",
-      "description": "\u7ba1\u7406\u5458\u5907\u6ce8"
+      "type": "string"
     },
     "user_note": {
-      "type": "string",
-      "description": "\u7528\u6237\u5907\u6ce8"
+      "type": "string"
     },
     "payment_proof_url": {
-      "type": "string",
-      "description": "\u4ed8\u6b3e\u51ed\u8bc1\u56fe\u7247URL"
+      "type": "string"
     },
     "product_image_url": {
-      "type": "string",
-      "description": "\u5546\u54c1\u56fe\u7247URL"
+      "type": "string"
     },
     "purchase_screenshot_url": {
-      "type": "string",
-      "description": "\u8d2d\u4e70\u622a\u56feURL\uff08\u7ba1\u7406\u5458\u4e0a\u4f20\uff09"
+      "type": "string"
     },
     "arrival_photo_url": {
-      "type": "string",
-      "description": "\u5230\u8d27\u56fe\u7247URL\uff08\u7ba1\u7406\u5458\u4e0a\u4f20\uff09"
+      "type": "string"
     },
     "weight_g": {
       "type": "number",
-      "description": "\u8d27\u54c1\u91cd\u91cf(g)",
       "default": 100
     },
     "shipping_method": {
-      "type": "string",
-      "description": "\u7528\u6237\u9009\u62e9\u7684\u53d1\u8d27\u65b9\u5f0f"
+      "type": "string"
     },
     "consolidation_requested": {
       "type": "boolean",
-      "default": false,
-      "description": "\u662f\u5426\u8bf7\u6c42\u62fc\u90ae"
+      "default": false
     },
     "consolidation_deadline": {
       "type": "string",
-      "format": "date",
-      "description": "\u62fc\u90ae\u622a\u6b62\u65e5\u671f"
+      "format": "date"
     },
     "consolidation_min_weight_g": {
-      "type": "number",
-      "description": "\u62fc\u90ae\u6700\u4f4e\u91cd\u91cf(g)"
+      "type": "number"
     },
     "consolidation_timeout_action": {
       "type": "string",
@@ -237,86 +217,68 @@
         "ship_individually",
         "next_consolidation",
         "return_to_storage"
-      ],
-      "description": "\u62fc\u90ae\u8d85\u65f6\u5904\u7406\u65b9\u5f0f"
+      ]
     },
     "consolidation_pool_id": {
-      "type": "string",
-      "description": "\u6240\u5c5e\u62fc\u90ae\u6c60ID"
+      "type": "string"
     },
     "shipping_fee_amount": {
-      "type": "number",
-      "description": "\u8fd0\u8d39\u91d1\u989d"
+      "type": "number"
     },
     "shipping_fee_currency": {
       "type": "string",
-      "default": "CNY",
-      "description": "\u8fd0\u8d39\u8d27\u5e01"
+      "default": "CNY"
     },
     "shipping_total_weight_g": {
-      "type": "number",
-      "description": "\u51fa\u8d27\u603b\u91cd\u91cf(g)"
+      "type": "number"
     },
     "tracking_number": {
-      "type": "string",
-      "description": "\u8fd0\u5355\u53f7"
+      "type": "string"
     },
     "alipay_trade_no": {
-      "type": "string",
-      "description": "\u652f\u4ed8\u5b9d\u5546\u6237\u8ba2\u5355\u53f7(out_trade_no)"
+      "type": "string"
     },
     "alipay_transaction_id": {
-      "type": "string",
-      "description": "\u652f\u4ed8\u5b9d\u4ea4\u6613\u6d41\u6c34\u53f7(trade_no)"
+      "type": "string"
     },
     "shipping_alipay_trade_no": {
-      "type": "string",
-      "description": "\u8fd0\u8d39\u652f\u4ed8\u5b9d\u5546\u6237\u8ba2\u5355\u53f7"
+      "type": "string"
     },
     "item_size_template_id": {
-      "type": "string",
-      "description": "\u7269\u54c1\u5c3a\u5bf8\u6a21\u677fID"
+      "type": "string"
     },
     "item_size_title": {
-      "type": "string",
-      "description": "\u7269\u54c1\u5c3a\u5bf8\u540d\u79f0"
+      "type": "string"
     },
     "item_size_extra_fee": {
       "type": "number",
-      "description": "\u7269\u54c1\u5c3a\u5bf8\u989d\u5916\u8d39\u7528",
       "default": 0
     },
     "item_size_fee_currency": {
       "type": "string",
-      "description": "\u7269\u54c1\u5c3a\u5bf8\u8d39\u7528\u8d27\u5e01",
       "default": "JPY"
     },
     "purchased_date": {
       "type": "string",
-      "format": "date",
-      "description": "\u4e0b\u5355\u65e5"
+      "format": "date"
     },
     "in_warehouse_date": {
       "type": "string",
-      "format": "date",
-      "description": "\u5165\u5e93\u65e5"
+      "format": "date"
     },
     "shipped_date": {
       "type": "string",
-      "format": "date",
-      "description": "\u53d1\u8d27\u65e5"
+      "format": "date"
     },
     "submit_date": {
       "type": "string",
-      "format": "date",
-      "description": "\u63d0\u4ea4\u65e5"
+      "format": "date"
     },
     "selected_addon_ids": {
       "type": "array",
       "items": {
         "type": "string"
       },
-      "description": "\u9009\u62e9\u7684\u4e0b\u5355\u589e\u503c\u670d\u52a1ID\u5217\u8868",
       "default": []
     },
     "selected_addons": {
@@ -324,42 +286,20 @@
       "items": {
         "type": "object"
       },
-      "description": "\u9009\u62e9\u7684\u4e0b\u5355\u589e\u503c\u670d\u52a1\u660e\u7ec6 [{id, name, fee, fee_currency}]",
-      "default": []
+      "default": [],
+      "description": "\u589e\u503c\u670d\u52a1\u660e\u7ec6 [{id, name, fee, fee_currency}]"
     },
     "rewarehouse_fee_jpy": {
       "type": "number",
-      "description": "\u518d\u5165\u5e93\u518d\u5904\u7406\u8d39\u7528 (JPY)\uff0c\u5728\u4e0b\u6b21\u63d0\u4ea4\u53d1\u8d27\u65f6\u52a0\u7b97\u5230\u8fd0\u8d39\u4e2d",
       "default": 0
     },
     "customs_declaration": {
       "type": "object",
-      "description": "\u7528\u6237\u586b\u5199\u7684\u62a5\u5173\u5355\u4fe1\u606f",
       "properties": {
         "items": {
           "type": "array",
           "items": {
-            "type": "object",
-            "properties": {
-              "id": {
-                "type": "number"
-              },
-              "name": {
-                "type": "string"
-              },
-              "unit_price": {
-                "type": "string"
-              },
-              "currency": {
-                "type": "string"
-              },
-              "weight_g": {
-                "type": "string"
-              },
-              "quantity": {
-                "type": "number"
-              }
-            }
+            "type": "object"
           }
         },
         "content_type": {
@@ -378,7 +318,6 @@
     },
     "messages": {
       "type": "array",
-      "description": "\u8ba2\u5355\u7559\u8a00\u5386\u53f2",
       "items": {
         "type": "object",
         "properties": {
@@ -411,33 +350,59 @@
       }
     },
     "pre_reply_status": {
-      "type": "string",
-      "description": "\u7559\u8a00\u72b6\u6001\u524d\u7684\u8ba2\u5355\u72b6\u6001\uff08\u517c\u5bb9\u5b57\u6bb5\uff09"
+      "type": "string"
     },
     "parent_order_id": {
-      "type": "string",
-      "description": "\u7236\u8ba2\u5355ID\uff08\u62c6\u5355\u540e\u5b50\u8ba2\u5355\u6307\u5411\u7236\u8ba2\u5355\uff1b\u7236\u8ba2\u5355\u672c\u8eab\u4e3a\u7a7a\uff09"
+      "type": "string"
     },
     "split_index": {
-      "type": "number",
-      "description": "\u62c6\u5355\u5e8f\u53f7\uff08\u5b50\u8ba2\u5355\uff1a1\u30012\u30013...\uff1b-1\u8868\u793a\u5f85\u4e0b\u5355\u7684\u5408\u5e76\u5355\u5373 -00 \u5355\uff09"
+      "type": "number"
     },
     "split_total": {
-      "type": "number",
-      "description": "\u62c6\u5206\u603b\u6570\uff08\u5b50\u8ba2\u5355\u548c\u7236\u8ba2\u5355\u90fd\u8bb0\u5f55\u76f8\u540c\u7684\u503c\uff09"
+      "type": "number"
     },
     "has_split_marker": {
       "type": "boolean",
-      "default": false,
-      "description": "\u5546\u54c1\u94fe\u63a5\u4e2d\u662f\u5426\u542b\u6709 --- \u5206\u5272\u7ebf\uff08\u63d0\u4ea4\u65f6\u8bc6\u522b\uff09"
+      "default": false
     },
     "split_sections": {
       "type": "array",
       "items": {
         "type": "string"
       },
-      "description": "\u6309 --- \u5206\u5272\u540e\u7684\u5404\u7ec4\u94fe\u63a5\uff08\u6bcf\u9879\u4e3a\u4e00\u7ec4\u94fe\u63a5\u6587\u672c\uff09",
       "default": []
+    },
+    "service_fee_rule_id": {
+      "type": "string",
+      "description": "\u670d\u52a1\u8d39\u89c4\u5219ID\u5feb\u7167"
+    },
+    "service_fee_rule_name": {
+      "type": "string",
+      "description": "\u670d\u52a1\u8d39\u89c4\u5219\u540d\u79f0\u5feb\u7167"
+    },
+    "service_fee_rule_version": {
+      "type": "number",
+      "description": "\u670d\u52a1\u8d39\u89c4\u5219\u7248\u672c\u53f7\u5feb\u7167"
+    },
+    "formula_snapshot": {
+      "type": "string",
+      "description": "\u8ba1\u7b97\u65f6\u4f7f\u7528\u7684\u516c\u5f0f\u5feb\u7167"
+    },
+    "input_variables_snapshot": {
+      "type": "string",
+      "description": "\u8ba1\u7b97\u65f6\u8f93\u5165\u53d8\u91cfJSON\u5feb\u7167"
+    },
+    "service_fee_amount": {
+      "type": "number",
+      "description": "\u670d\u52a1\u8d39\u91d1\u989d\u5feb\u7167 (JPY)"
+    },
+    "calculation_steps": {
+      "type": "string",
+      "description": "\u8ba1\u7b97\u8fc7\u7a0bJSON\u5feb\u7167"
+    },
+    "calculated_at": {
+      "type": "string",
+      "description": "\u670d\u52a1\u8d39\u8ba1\u7b97\u65f6\u95f4\u6233"
     }
   },
   "required": [

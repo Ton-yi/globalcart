@@ -1,0 +1,130 @@
+{
+  "name": "ServiceFeeRule",
+  "type": "object",
+  "properties": {
+    "tenant_id": {
+      "type": "string",
+      "description": "\u6240\u5c5e\u79df\u6237ID"
+    },
+    "name": {
+      "type": "string",
+      "description": "\u89c4\u5219\u540d\u79f0"
+    },
+    "description": {
+      "type": "string",
+      "description": "\u89c4\u5219\u8bf4\u660e"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "inactive",
+        "draft"
+      ],
+      "default": "draft",
+      "description": "\u89c4\u5219\u72b6\u6001\uff1aactive=\u542f\u7528, inactive=\u505c\u7528, draft=\u8349\u7a3f"
+    },
+    "priority": {
+      "type": "number",
+      "default": 0,
+      "description": "\u4f18\u5148\u7ea7\uff08\u6570\u5b57\u8d8a\u5927\u8d8a\u4f18\u5148\uff09"
+    },
+    "effective_from": {
+      "type": "string",
+      "format": "date",
+      "description": "\u751f\u6548\u65e5\u671f"
+    },
+    "effective_until": {
+      "type": "string",
+      "format": "date",
+      "description": "\u5931\u6548\u65e5\u671f\uff08\u7a7a=\u6c38\u4e45\u6709\u6548\uff09"
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "simple",
+        "tiered",
+        "formula"
+      ],
+      "default": "simple",
+      "description": "\u89c4\u5219\u6a21\u5f0f\uff1asimple=\u7b80\u5355\u6bd4\u4f8b, tiered=\u9636\u68af\u8d39\u7387, formula=\u9ad8\u7ea7\u516c\u5f0f"
+    },
+    "formula": {
+      "type": "string",
+      "description": "\u9ad8\u7ea7\u516c\u5f0f\uff08formula\u6a21\u5f0f\uff09"
+    },
+    "simple_rate": {
+      "type": "number",
+      "description": "\u7b80\u5355\u6bd4\u4f8b\u8d39\u7387 (%)"
+    },
+    "tiered_config": {
+      "type": "array",
+      "description": "\u9636\u68af\u914d\u7f6e [{from, to, rate, fixed_fee}]",
+      "items": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "number"
+          },
+          "to": {
+            "type": "number"
+          },
+          "rate": {
+            "type": "number"
+          },
+          "fixed_fee": {
+            "type": "number"
+          }
+        }
+      },
+      "default": []
+    },
+    "min_fee": {
+      "type": "number",
+      "default": 0,
+      "description": "\u6700\u4f4e\u670d\u52a1\u8d39 (JPY)\uff0c0=\u4e0d\u9650"
+    },
+    "max_fee": {
+      "type": "number",
+      "default": 0,
+      "description": "\u5c01\u9876\u670d\u52a1\u8d39 (JPY)\uff0c0=\u4e0d\u9650"
+    },
+    "round_mode": {
+      "type": "string",
+      "enum": [
+        "round",
+        "ceil",
+        "floor",
+        "none"
+      ],
+      "default": "round",
+      "description": "\u53d6\u6574\u65b9\u5f0f"
+    },
+    "round_unit": {
+      "type": "number",
+      "default": 1,
+      "description": "\u53d6\u6574\u5355\u4f4d\uff08\u598210=\u53d6\u6574\u523010\u7684\u500d\u6570\uff09"
+    },
+    "version": {
+      "type": "number",
+      "default": 1,
+      "description": "\u7248\u672c\u53f7\uff0c\u6bcf\u6b21\u4fee\u6539\u81ea\u589e"
+    },
+    "formula_snapshot": {
+      "type": "string",
+      "description": "\u5f53\u524d\u7248\u672c\u516c\u5f0f\u5feb\u7167\uff08\u53ea\u8bfb\uff0c\u968fversion\u66f4\u65b0\uff09"
+    },
+    "config_snapshot": {
+      "type": "string",
+      "description": "\u5f53\u524d\u7248\u672c\u5b8c\u6574\u914d\u7f6eJSON\u5feb\u7167"
+    },
+    "is_archived": {
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "required": [
+    "name",
+    "mode"
+  ]
+}

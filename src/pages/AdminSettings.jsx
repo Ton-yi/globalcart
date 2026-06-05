@@ -4,7 +4,9 @@ import { base44 } from "@/api/base44Client";
 import { tenantEntity } from "@/lib/tenantApi";
 import { setTenantConfigCache } from "@/lib/configCache";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { Settings, Save, Plus, Trash2, Star, Lock, Eye, EyeOff, Truck, Palette, TrendingUp, Zap, Building2, Users, CheckCircle2 } from "lucide-react";
+import { Settings, Save, Plus, Trash2, Star, Lock, Eye, EyeOff, Truck, Palette, TrendingUp, Zap, Building2, Users, CheckCircle2, ExternalLink } from "lucide-react";
+import { Link } from "react-router-dom";
+import { createPageUrl } from "@/utils";
 import ThemeSelector from "@/components/common/ThemeSelector";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -96,6 +98,7 @@ const CAT_COLORS = { fee: "bg-yellow-100 text-yellow-700", payment: "bg-green-10
 
 const TABS = [
   { key: "general", label: "基本设置" },
+  { key: "fee_rules", label: "服务费规则" },
   { key: "payment_methods", label: "支付方式" },
   { key: "member_tiers", label: "会员阶级" },
   { key: "shipping_methods", label: "运输方式" },
@@ -285,6 +288,29 @@ export default function AdminSettings() {
           </button>
         ))}
       </div>
+
+      {activeTab === "fee_rules" && (
+        <Card className="border-yellow-200">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+              <Zap className="w-4 h-4 text-yellow-500" />服务费规则引擎
+            </CardTitle>
+            <p className="text-xs text-gray-400 mt-1">
+              设置灵活的服务费计算规则，支持固定比例、阶梯费率和高级公式。规则修改不影响历史订单。
+            </p>
+          </CardHeader>
+          <CardContent>
+            <Link to={createPageUrl("AdminFeeRules")}>
+              <Button className="bg-yellow-600 hover:bg-yellow-700 w-full sm:w-auto">
+                <ExternalLink className="w-4 h-4 mr-2" />进入服务费规则中心
+              </Button>
+            </Link>
+            <p className="text-xs text-gray-400 mt-3">
+              在规则中心可以创建多条规则、设置生效时间和优先级、使用高级公式（含沙箱安全计算），并在保存前进行实时测试预览。
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {activeTab === "payment_methods" && (
         <Card className="border-gray-200">
