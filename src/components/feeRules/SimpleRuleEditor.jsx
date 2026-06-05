@@ -10,6 +10,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, Trash2, X, ChevronDown } from "lucide-react";
 
+// Render a role badge using hex color (with light bg + dark text derived from the color)
+function RoleColorBadge({ name, color }) {
+  if (!color) return <span className="px-1 py-0.5 rounded bg-gray-100 text-gray-700">{name}</span>;
+  return (
+    <span className="px-1 py-0.5 rounded text-xs font-medium"
+      style={{ backgroundColor: color + '22', color, border: `1px solid ${color}44` }}>
+      {name}
+    </span>
+  );
+}
+
 // Inline single-select for one customer level / role per row
 function LevelPickerSingle({ value, onChange, tiers, roles }) {
   const [open, setOpen] = useState(false);
@@ -23,7 +34,7 @@ function LevelPickerSingle({ value, onChange, tiers, roles }) {
 
   const allOptions = [
     ...tiers.map(t => ({ type: 'tier', id: t.id, name: t.name, color: t.color })),
-    ...roles.map(r => ({ type: 'role', id: r.id, name: r.name })),
+    ...roles.map(r => ({ type: 'role', id: r.id, name: r.name, color: r.color })),
   ];
 
   const select = (opt) => {
@@ -62,9 +73,9 @@ function LevelPickerSingle({ value, onChange, tiers, roles }) {
                 <>
                   <div className="px-2 py-1 text-xs text-gray-400 bg-gray-50 font-medium sticky top-0">角色标签</div>
                   {roles.map(opt => (
-                    <button key={opt.id} type="button" onClick={() => select({ type: 'role', id: opt.id, name: opt.name })}
+                    <button key={opt.id} type="button" onClick={() => select({ type: 'role', id: opt.id, name: opt.name, color: opt.color })}
                       className={`w-full flex items-center gap-2 px-2 py-1.5 hover:bg-blue-50 text-left text-xs ${value?.id === opt.id ? 'bg-blue-50' : ''}`}>
-                      <span className={`px-1 py-0.5 rounded ${opt.color || 'bg-gray-100 text-gray-700'}`}>{opt.name}</span>
+                      <RoleColorBadge name={opt.name} color={opt.color} />
                       {value?.id === opt.id && <span className="text-blue-500 ml-auto">✓</span>}
                     </button>
                   ))}
