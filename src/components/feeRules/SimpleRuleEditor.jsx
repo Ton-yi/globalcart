@@ -45,13 +45,32 @@ function LevelPickerSingle({ value, onChange, tiers, roles }) {
         <div className="absolute top-full left-0 z-30 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg min-w-[150px] max-h-48 overflow-y-auto">
           {allOptions.length === 0
             ? <div className="text-xs text-gray-400 text-center py-2">暂无等级</div>
-            : allOptions.map(opt => (
-              <button key={opt.id} type="button" onClick={() => select(opt)}
-                className={`w-full flex items-center gap-2 px-2 py-1.5 hover:bg-blue-50 text-left text-xs ${value?.id === opt.id ? 'bg-blue-50' : ''}`}>
-                <span className={`px-1 py-0.5 rounded ${opt.color || 'bg-gray-100 text-gray-700'}`}>{opt.name}</span>
-                {value?.id === opt.id && <span className="text-blue-500 ml-auto">✓</span>}
-              </button>
-            ))
+            : <>
+              {tiers.length > 0 && (
+                <>
+                  <div className="px-2 py-1 text-xs text-gray-400 bg-gray-50 font-medium sticky top-0">会员等级</div>
+                  {tiers.map(opt => (
+                    <button key={opt.id} type="button" onClick={() => select(opt)}
+                      className={`w-full flex items-center gap-2 px-2 py-1.5 hover:bg-blue-50 text-left text-xs ${value?.id === opt.id ? 'bg-blue-50' : ''}`}>
+                      <span className={`px-1 py-0.5 rounded ${opt.color || 'bg-gray-100 text-gray-700'}`}>{opt.name}</span>
+                      {value?.id === opt.id && <span className="text-blue-500 ml-auto">✓</span>}
+                    </button>
+                  ))}
+                </>
+              )}
+              {roles.length > 0 && (
+                <>
+                  <div className="px-2 py-1 text-xs text-gray-400 bg-gray-50 font-medium sticky top-0">角色标签</div>
+                  {roles.map(opt => (
+                    <button key={opt.id} type="button" onClick={() => select({ type: 'role', id: opt.id, name: opt.name })}
+                      className={`w-full flex items-center gap-2 px-2 py-1.5 hover:bg-blue-50 text-left text-xs ${value?.id === opt.id ? 'bg-blue-50' : ''}`}>
+                      <span className="px-1 py-0.5 rounded bg-purple-50 text-purple-700">{opt.name}</span>
+                      {value?.id === opt.id && <span className="text-blue-500 ml-auto">✓</span>}
+                    </button>
+                  ))}
+                </>
+              )}
+            </>
           }
         </div>
       )}
