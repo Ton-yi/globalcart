@@ -46,10 +46,13 @@ export function buildCountryList(config) {
   if (!config || !Array.isArray(config) || config.length === 0) {
     return ALL_COUNTRIES;
   }
+  // All codes that appear in config (enabled OR disabled)
+  const allConfigCodes = new Set(config.map(c => c.code));
+  // Only keep enabled ones, in config order
   const enabled = config.filter(c => c.enabled !== false);
-  const configCodes = new Set(enabled.map(c => c.code));
   const inConfig = enabled.map(c => ALL_COUNTRIES.find(ac => ac.code === c.code)).filter(Boolean);
-  const rest = ALL_COUNTRIES.filter(c => !configCodes.has(c.code));
+  // Countries not in config at all (newly added to ALL_COUNTRIES) — append at end
+  const rest = ALL_COUNTRIES.filter(c => !allConfigCodes.has(c.code));
   return [...inConfig, ...rest];
 }
 
