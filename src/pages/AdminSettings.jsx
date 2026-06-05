@@ -641,6 +641,36 @@ export default function AdminSettings() {
                   );
                 })()}
 
+                {/* Pre-shipment feature enable toggle */}
+                {(() => {
+                  const s = Object.values(grouped).flat().find(s => s.key === 'pre_shipment_enabled');
+                  const enabled = s?.value !== 'false';
+                  return (
+                    <div className="flex items-center justify-between pb-1 border-b border-gray-100">
+                      <div>
+                        <Label className="text-sm">开启预出货功能</Label>
+                        <p className="text-xs text-gray-400 mt-0.5">开启后，用户提交订单后可预先填写发货信息，入库后自动生成发货申请</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const newVal = enabled ? 'false' : 'true';
+                          if (s) {
+                            updateSetting(s.id, 'value', newVal);
+                            await tenantEntity.update('SiteSettings', s.id, { value: newVal });
+                          } else {
+                            await tenantEntity.create('SiteSettings', { key: 'pre_shipment_enabled', value: newVal, category: 'shipping', description: '是否开启预出货功能' });
+                            await load();
+                          }
+                        }}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${enabled ? 'bg-purple-500' : 'bg-gray-200'}`}
+                      >
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                      </button>
+                    </div>
+                  );
+                })()}
+
                 {/* Allow user pool edit instantly toggle */}
                 {(() => {
                   const s = grouped.fee?.find(s => s.key === 'allow_user_pool_edit_instant') ||
@@ -668,6 +698,76 @@ export default function AdminSettings() {
                       >
                         <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${enabled ? 'translate-x-6' : 'translate-x-1'}`} />
                       </button>
+                    </div>
+                  );
+                })()}
+
+                {/* Pre-shipment feature toggle */}
+                {(() => {
+                  const allSettings = Object.values(grouped).flat();
+                  const sToggle = allSettings.find(s => s.key === 'pre_shipment_enabled');
+                  const enabled = sToggle?.value !== 'false';
+                  return (
+                    <div className="flex items-center justify-between pb-1 border-b border-gray-100">
+                      <div>
+                        <Label className="text-sm">开启预出货功能</Label>
+                        <p className="text-xs text-gray-400 mt-0.5">开启后，用户可在提交订单后预先填写发货信息，入库后自动生成发货申请</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const newVal = enabled ? 'false' : 'true';
+                          if (sToggle) {
+                            updateSetting(sToggle.id, 'value', newVal);
+                            await tenantEntity.update('SiteSettings', sToggle.id, { value: newVal });
+                          } else {
+                            await tenantEntity.create('SiteSettings', { key: 'pre_shipment_enabled', value: newVal, category: 'shipping', description: '是否开启预出货功能' });
+                            await load();
+                          }
+                        }}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${enabled ? 'bg-purple-600' : 'bg-gray-200'}`}
+                      >
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                      </button>
+                    </div>
+                  );
+                })()}
+
+                {/* Pre-shipment allowed shipping methods */}
+                {(() => {
+                  const allSettings = Object.values(grouped).flat();
+                  const preShipmentEnabled = allSettings.find(s => s.key === 'pre_shipment_enabled')?.value !== 'false';
+                  if (!preShipmentEnabled) return null;
+                  const sMethods = allSettings.find(s => s.key === 'pre_shipment_allowed_methods');
+                  const allowedMethods = sMethods?.value || '';
+                  return (
+                    <div className="pb-1 border-b border-gray-100 pl-4 border-l-2 border-l-purple-200">
+                      <Label className="text-sm text-purple-700">允许的预出货发货方式</Label>
+                      <p className="text-xs text-gray-400 mt-0.5 mb-2">填写允许用户预出货的运输方式代码，用逗号分隔（如：EMS,SAL,DHL）。留空则允许所有运输方式</p>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          className="h-8 text-sm flex-1"
+                          placeholder="EMS,SAL,DHL,FedEx"
+                          value={allowedMethods}
+                          onChange={async e => {
+                            const val = e.target.value;
+                            if (sMethods) {
+                              updateSetting(sMethods.id, 'value', val);
+                              await tenantEntity.update('SiteSettings', sMethods.id, { value: val });
+                            } else {
+                              await tenantEntity.create('SiteSettings', { key: 'pre_shipment_allowed_methods', value: val, category: 'shipping', description: '预出货允许的运输方式代码（逗号分隔）' });
+                              await load();
+                            }
+                          }}
+                        />
+                      </div>
+                      {allowedMethods && (
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {allowedMethods.split(',').map(m => m.trim()).filter(Boolean).map((m, i) => (
+                            <Badge key={i} variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">{m}</Badge>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   );
                 })()}
