@@ -293,6 +293,25 @@ Deno.serve(async (req) => {
       return Response.json({ rules: (rules || []).filter(r => !r.is_archived) });
     }
 
+    // ── list_member_tiers ──────────────────────────────────────────────────────
+    if (action === 'list_member_tiers') {
+      const tiers = await base44.asServiceRole.entities.MemberTier.filter({ tenant_id: tenantId });
+      return Response.json({ tiers: (tiers || []).filter(t => t.is_active !== false) });
+    }
+
+    // ── list_roles ─────────────────────────────────────────────────────────────
+    if (action === 'list_roles') {
+      const roles = await base44.asServiceRole.entities.Role.filter({ tenant_id: tenantId });
+      return Response.json({ roles: (roles || []).filter(r => !r.is_archived && !r.is_global) });
+    }
+
+    // ── list_store_tags ────────────────────────────────────────────────────────
+    if (action === 'list_store_tags') {
+      const tags = await base44.asServiceRole.entities.OnlineStoreTagRule.filter({ tenant_id: tenantId });
+      const active = (tags || []).filter(t => t.is_active !== false).sort((a, b) => (parseFloat(b.priority) || 0) - (parseFloat(a.priority) || 0));
+      return Response.json({ tags: active });
+    }
+
     // ── get_active_rule ────────────────────────────────────────────────────────
     if (action === 'get_active_rule') {
       const rules = await base44.asServiceRole.entities.ServiceFeeRule.filter({ tenant_id: tenantId });

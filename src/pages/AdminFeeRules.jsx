@@ -32,6 +32,8 @@ const MODE_COLORS = {
   tiered: 'bg-purple-50 text-purple-600',
   formula: 'bg-orange-50 text-orange-600'
 };
+const PHASE_LABELS = { order: '下单服务费', shipping: '发货前服务费' };
+const PHASE_COLORS = { order: 'bg-teal-50 text-teal-700', shipping: 'bg-indigo-50 text-indigo-700' };
 
 export default function AdminFeeRules() {
   const { user } = useCurrentUser();
@@ -85,8 +87,20 @@ export default function AdminFeeRules() {
   const sortedRules = [...rules].sort((a, b) => (parseFloat(b.priority) || 0) - (parseFloat(a.priority) || 0));
 
   const getRuleSummary = (rule) => {
-    if (rule.mode === 'simple') return `${rule.simple_rate}% × 货款`;
-    if (rule.mode === 'tiered') return `${rule.tiered_config?.length || 0} 个阶梯`;
+    const phase = rule.fee_phase || 'order';
+    if (rule.mode === 'simple') {
+      if (phase === 'shipping') {
+        const cnt = rule.shipping_fee_simple_config?.length || 0;
+        return cnt > 0 ? `${cnt} 个等级配置` : '简单比例（运费）';
+      }
+      const parts = [`${rule.simple_rate}% × 货款`];
+      if (rule.simple_fixed_fee > 0) parts.push(`+ ¥${rule.simple_fixed_fee}`);
+      return parts.join(' ');
+    }
+    if (rule.mode === 'tiered') {
+      if (phase === 'shipping') return `${rule.shipping_fee_tiered_config?.length || 0} 条发货规则`;
+      return `${rule.tiered_config?.length || 0} 个阶梯`;
+    }
     if (rule.mode === 'formula') return rule.formula ? rule.formula.slice(0, 50) + (rule.formula.length > 50 ? '…' : '') : '（无公式）';
     return '';
   };
@@ -158,6 +172,7 @@ export default function AdminFeeRules() {
                       <Badge className={`text-xs flex items-center gap-1 ${STATUS_COLORS[rule.status]}`}>
                         {STATUS_ICONS[rule.status]}{STATUS_LABELS[rule.status]}
                       </Badge>
+                      <Badge className={`text-xs ${PHASE_COLORS[rule.fee_phase || 'order']}`}>{PHASE_LABELS[rule.fee_phase || 'order']}</Badge>
                       <Badge className={`text-xs ${MODE_COLORS[rule.mode]}`}>{MODE_LABELS[rule.mode]}</Badge>
                       {rule.priority > 0 && (
                         <Badge className="text-xs bg-gray-100 text-gray-500">优先级 {rule.priority}</Badge>

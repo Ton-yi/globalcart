@@ -1,11 +1,14 @@
 /**
- * 规则编辑弹窗 — 支持简单/阶梯/公式三模式 + 测试面板
+ * 规则编辑弹窗 — 支持下单/发货两阶段，各自三种模式
  */
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { validateFormula } from "@/lib/feeRuleEngine";
 import FormulaEditor from "./FormulaEditor";
 import TieredRuleEditor from "./TieredRuleEditor";
+import PostOrderSimpleEditor from "./PostOrderSimpleEditor";
+import PostOrderTieredEditor from "./PostOrderTieredEditor";
+import CustomerLevelSelector from "./CustomerLevelSelector";
 import RuleTestPanel from "./RuleTestPanel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,31 +16,39 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { X, Save, FlaskConical, AlertCircle } from "lucide-react";
+import { X, Save, FlaskConical, AlertCircle, ShoppingCart, Truck } from "lucide-react";
 
 const EMPTY_RULE = {
   name: '', description: '', status: 'draft', priority: 0,
   effective_from: '', effective_until: '',
-  mode: 'simple', formula: '', simple_rate: 8,
+  fee_phase: 'order',
+  mode: 'simple', formula: '',
+  simple_rate: 8, simple_fixed_fee: 0,
+  customer_level_filter: [],
+  store_filter: [],
   tiered_config: [],
+  shipping_fee_simple_config: [],
+  shipping_fee_tiered_config: [],
   min_fee: 0, max_fee: 0, round_mode: 'round', round_unit: 1,
 };
 
 const STATUS_LABELS = { active: '启用', inactive: '停用', draft: '草稿' };
 const STATUS_COLORS = { active: 'bg-green-100 text-green-700', inactive: 'bg-gray-100 text-gray-500', draft: 'bg-yellow-100 text-yellow-700' };
-const MODE_LABELS = { simple: '简单比例', tiered: '阶梯费率', formula: '高级公式' };
+
+// Mode options per phase
+const ORDER_MODES = { simple: '简单比例', tiered: '阶梯费率', formula: '高级公式' };
+const SHIPPING_MODES = { simple: '简单比例', tiered: '阶梯费率', formula: '高级公式' };
 
 export default function RuleEditorModal({ rule: initialRule, onClose, onSaved }) {
   const [rule, setRule] = useState(initialRule ? { ...EMPTY_RULE, ...initialRule } : { ...EMPTY_RULE });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState('edit'); // 'edit' | 'test'
+  const [activeTab, setActiveTab] = useState('edit');
   const [formulaValid, setFormulaValid] = useState(null);
 
   useEffect(() => {
     if (rule.mode === 'formula' && rule.formula?.trim()) {
-      const v = validateFormula(rule.formula);
-      setFormulaValid(v);
+      setFormulaValid(validateFormula(rule.formula));
     } else {
       setFormulaValid(null);
     }
@@ -63,10 +74,12 @@ export default function RuleEditorModal({ rule: initialRule, onClose, onSaved })
   };
 
   const currentRule = { ...rule, tiered_config: rule.tiered_config || [] };
+  const isShipping = rule.fee_phase === 'shipping';
+  const modeOptions = isShipping ? SHIPPING_MODES : ORDER_MODES;
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[92vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <div className="flex items-center gap-3">
@@ -97,11 +110,30 @@ export default function RuleEditorModal({ rule: initialRule, onClose, onSaved })
                 </Alert>
               )}
 
+              {/* Fee Phase selector */}
+              <div>
+                <Label className="text-xs text-gray-500 block mb-2">收费阶段</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { key: 'order', icon: ShoppingCart, label: '下单时服务费', desc: '用户提交代购单时收取，基于商品货款计算' },
+                    { key: 'shipping', icon: Truck, label: '发货前服务费', desc: '商品入库后至发货前收取，基于实际运费计算' },
+                  ].map(({ key, icon: Icon, label, desc }) => (
+                    <button key={key} type="button" onClick={() => set('fee_phase', key)}
+                      className={`p-3 rounded-lg border-2 text-left transition-all ${rule.fee_phase === key ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                      <div className={`flex items-center gap-1.5 text-sm font-medium mb-1 ${rule.fee_phase === key ? 'text-blue-700' : 'text-gray-700'}`}>
+                        <Icon className="w-3.5 h-3.5" />{label}
+                      </div>
+                      <div className="text-xs text-gray-400">{desc}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Basic info */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
                   <Label className="text-xs text-gray-500">规则名称 *</Label>
-                  <Input className="mt-1 h-9" value={rule.name} onChange={e => set('name', e.target.value)} placeholder="例：默认服务费 8%" />
+                  <Input className="mt-1 h-9" value={rule.name} onChange={e => set('name', e.target.value)} placeholder="例：VIP下单服务费" />
                 </div>
                 <div>
                   <Label className="text-xs text-gray-500">规则状态</Label>
@@ -134,7 +166,7 @@ export default function RuleEditorModal({ rule: initialRule, onClose, onSaved })
               <div>
                 <Label className="text-xs text-gray-500 block mb-2">计算模式</Label>
                 <div className="grid grid-cols-3 gap-2">
-                  {Object.entries(MODE_LABELS).map(([k, label]) => (
+                  {Object.entries(modeOptions).map(([k, label]) => (
                     <button key={k} type="button" onClick={() => set('mode', k)}
                       className={`py-2.5 px-3 rounded-lg border-2 text-sm font-medium transition-all ${rule.mode === k ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-500 hover:border-gray-300'}`}>
                       {label}
@@ -145,30 +177,78 @@ export default function RuleEditorModal({ rule: initialRule, onClose, onSaved })
 
               {/* Mode-specific config */}
               <div className="border border-gray-100 rounded-lg p-4 bg-gray-50/50">
-                {rule.mode === 'simple' && (
-                  <div>
-                    <Label className="text-xs text-gray-500">服务费率 (%)</Label>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Input className="h-9 text-sm w-28" type="number" step="0.1" value={rule.simple_rate ?? 8}
-                        onChange={e => set('simple_rate', parseFloat(e.target.value) || 0)} />
-                      <span className="text-sm text-gray-500">% × 商品货款</span>
-                      {rule.simple_rate > 0 && (
-                        <code className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded font-mono ml-2">
-                          goodsAmount * {rule.simple_rate}%
-                        </code>
-                      )}
+                {/* ── ORDER PHASE ── */}
+                {!isShipping && rule.mode === 'simple' && (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs text-gray-500">服务费率 (%)</Label>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Input className="h-9 text-sm w-28" type="number" step="0.1" value={rule.simple_rate ?? 8}
+                            onChange={e => set('simple_rate', parseFloat(e.target.value) || 0)} />
+                          <span className="text-sm text-gray-500">% × 货款</span>
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-gray-500">固定费 (JPY)</Label>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Input className="h-9 text-sm w-28" type="number" value={rule.simple_fixed_fee ?? 0}
+                            onChange={e => set('simple_fixed_fee', parseFloat(e.target.value) || 0)} />
+                          <span className="text-sm text-gray-500">¥</span>
+                        </div>
+                      </div>
+                    </div>
+                    {(rule.simple_rate > 0 || rule.simple_fixed_fee > 0) && (
+                      <code className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded font-mono block">
+                        goodsAmount × {rule.simple_rate}% + ¥{rule.simple_fixed_fee ?? 0}
+                      </code>
+                    )}
+                    <div className="border-t border-gray-200 pt-3">
+                      <CustomerLevelSelector
+                        value={rule.customer_level_filter || []}
+                        onChange={v => set('customer_level_filter', v)}
+                        showRateFields={false}
+                      />
                     </div>
                   </div>
                 )}
-                {rule.mode === 'tiered' && (
+
+                {!isShipping && rule.mode === 'tiered' && (
                   <TieredRuleEditor
                     tiers={rule.tiered_config || []}
                     onChange={t => set('tiered_config', t)}
+                    customerLevelFilter={rule.customer_level_filter || []}
+                    onCustomerLevelFilterChange={v => set('customer_level_filter', v)}
+                    storeFilter={rule.store_filter || []}
+                    onStoreFilterChange={v => set('store_filter', v)}
                   />
                 )}
-                {rule.mode === 'formula' && (
+
+                {!isShipping && rule.mode === 'formula' && (
                   <div>
                     <Label className="text-xs text-gray-500 block mb-2">高级公式</Label>
+                    <FormulaEditor value={rule.formula || ''} onChange={v => set('formula', v)} />
+                  </div>
+                )}
+
+                {/* ── SHIPPING PHASE ── */}
+                {isShipping && rule.mode === 'simple' && (
+                  <PostOrderSimpleEditor
+                    value={rule.shipping_fee_simple_config || []}
+                    onChange={v => set('shipping_fee_simple_config', v)}
+                  />
+                )}
+
+                {isShipping && rule.mode === 'tiered' && (
+                  <PostOrderTieredEditor
+                    value={rule.shipping_fee_tiered_config || []}
+                    onChange={v => set('shipping_fee_tiered_config', v)}
+                  />
+                )}
+
+                {isShipping && rule.mode === 'formula' && (
+                  <div>
+                    <Label className="text-xs text-gray-500 block mb-2">高级公式（可使用 shippingFee 等运费相关变量）</Label>
                     <FormulaEditor value={rule.formula || ''} onChange={v => set('formula', v)} />
                   </div>
                 )}

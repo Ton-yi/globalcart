@@ -14,6 +14,15 @@
       "type": "string",
       "description": "\u89c4\u5219\u8bf4\u660e"
     },
+    "fee_phase": {
+      "type": "string",
+      "enum": [
+        "order",
+        "shipping"
+      ],
+      "default": "order",
+      "description": "\u6536\u8d39\u9636\u6bb5: order=\u4e0b\u5355\u65f6\u670d\u52a1\u8d39, shipping=\u4e0b\u5355\u540e\u81f3\u53d1\u8d27\u524d\u670d\u52a1\u8d39"
+    },
     "status": {
       "type": "string",
       "enum": [
@@ -22,7 +31,7 @@
         "draft"
       ],
       "default": "draft",
-      "description": "\u89c4\u5219\u72b6\u6001\uff1aactive=\u542f\u7528, inactive=\u505c\u7528, draft=\u8349\u7a3f"
+      "description": "\u89c4\u5219\u72b6\u6001"
     },
     "priority": {
       "type": "number",
@@ -47,7 +56,7 @@
         "formula"
       ],
       "default": "simple",
-      "description": "\u89c4\u5219\u6a21\u5f0f\uff1asimple=\u7b80\u5355\u6bd4\u4f8b, tiered=\u9636\u68af\u8d39\u7387, formula=\u9ad8\u7ea7\u516c\u5f0f"
+      "description": "\u89c4\u5219\u6a21\u5f0f"
     },
     "formula": {
       "type": "string",
@@ -57,37 +66,60 @@
       "type": "number",
       "description": "\u7b80\u5355\u6bd4\u4f8b\u8d39\u7387 (%)"
     },
+    "simple_fixed_fee": {
+      "type": "number",
+      "default": 0,
+      "description": "\u7b80\u5355\u6bd4\u4f8b\u56fa\u5b9a\u8d39 (JPY)"
+    },
+    "customer_level_filter": {
+      "type": "array",
+      "description": "\u5ba2\u6237\u7b49\u7ea7\u8fc7\u6ee4\u5668\uff0c\u6309\u4f18\u5148\u7ea7\u6392\u5217 [{type:'tier'|'role', id, name, rate, fixed_fee}]",
+      "items": {
+        "type": "object"
+      },
+      "default": []
+    },
+    "store_filter": {
+      "type": "array",
+      "description": "\u4e0b\u5355\u7f51\u7ad9\u8fc7\u6ee4\uff08\u7a7a=\u6240\u6709\uff09['all'] \u6216 tag_label \u5217\u8868",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
     "tiered_config": {
       "type": "array",
-      "description": "\u9636\u68af\u914d\u7f6e [{from, to, rate, fixed_fee}]",
+      "description": "\u9636\u68af\u914d\u7f6e [{from, to, rate, fixed_fee, customer_levels, store_tags}]",
       "items": {
-        "type": "object",
-        "properties": {
-          "from": {
-            "type": "number"
-          },
-          "to": {
-            "type": "number"
-          },
-          "rate": {
-            "type": "number"
-          },
-          "fixed_fee": {
-            "type": "number"
-          }
-        }
+        "type": "object"
+      },
+      "default": []
+    },
+    "shipping_fee_simple_config": {
+      "type": "array",
+      "description": "\u53d1\u8d27\u9636\u6bb5\u7b80\u5355\u6bd4\u4f8b\u914d\u7f6e\uff08\u6309\u7528\u6237\u7b49\u7ea7\uff09[{type:'tier'|'role'|'all', id, name, rate, fixed_fee_jpy}]",
+      "items": {
+        "type": "object"
+      },
+      "default": []
+    },
+    "shipping_fee_tiered_config": {
+      "type": "array",
+      "description": "\u53d1\u8d27\u9636\u6bb5\u9636\u68af\u8d39\u7387\u914d\u7f6e [{customer_levels, countries, shipping_methods, has_transit, weight_from_g, weight_to_g, storage_size, rate, fixed_fee_jpy}]",
+      "items": {
+        "type": "object"
       },
       "default": []
     },
     "min_fee": {
       "type": "number",
       "default": 0,
-      "description": "\u6700\u4f4e\u670d\u52a1\u8d39 (JPY)\uff0c0=\u4e0d\u9650"
+      "description": "\u6700\u4f4e\u670d\u52a1\u8d39 (JPY\uff0c0=\u4e0d\u9650)"
     },
     "max_fee": {
       "type": "number",
       "default": 0,
-      "description": "\u5c01\u9876\u670d\u52a1\u8d39 (JPY)\uff0c0=\u4e0d\u9650"
+      "description": "\u5c01\u9876\u670d\u52a1\u8d39 (JPY\uff0c0=\u4e0d\u9650)"
     },
     "round_mode": {
       "type": "string",
@@ -103,16 +135,16 @@
     "round_unit": {
       "type": "number",
       "default": 1,
-      "description": "\u53d6\u6574\u5355\u4f4d\uff08\u598210=\u53d6\u6574\u523010\u7684\u500d\u6570\uff09"
+      "description": "\u53d6\u6574\u5355\u4f4d"
     },
     "version": {
       "type": "number",
       "default": 1,
-      "description": "\u7248\u672c\u53f7\uff0c\u6bcf\u6b21\u4fee\u6539\u81ea\u589e"
+      "description": "\u7248\u672c\u53f7"
     },
     "formula_snapshot": {
       "type": "string",
-      "description": "\u5f53\u524d\u7248\u672c\u516c\u5f0f\u5feb\u7167\uff08\u53ea\u8bfb\uff0c\u968fversion\u66f4\u65b0\uff09"
+      "description": "\u5f53\u524d\u7248\u672c\u516c\u5f0f\u5feb\u7167"
     },
     "config_snapshot": {
       "type": "string",
