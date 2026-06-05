@@ -1,13 +1,75 @@
 /**
  * 规则测试面板 — 按规则阶段显示对应变量，选项从后端动态加载
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { ALLOWED_VARIABLES, VARIABLE_LABELS } from "@/lib/feeRuleEngine";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Play, ChevronDown, ChevronUp, AlertCircle, CheckCircle2 } from "lucide-react";
+import { ALL_COUNTRIES } from "@/lib/countries";
+
+const PINNED_COUNTRY_CODES = ['CN', 'TW', 'HK'];
+const PINNED_COUNTRIES = PINNED_COUNTRY_CODES.map(code => ALL_COUNTRIES.find(c => c.code === code)).filter(Boolean);
+const OTHER_COUNTRIES = ALL_COUNTRIES.filter(c => !PINNED_COUNTRY_CODES.includes(c.code));
+const ALL_SORTED_COUNTRIES = [...PINNED_COUNTRIES, ...OTHER_COUNTRIES];
+
+function CountrySelect({ value, onChange }) {
+  const [query, setQuery] = useState('');
+  const [open, setOpen] = useState(false);
+  const ref = useRef();
+
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const filtered = query.trim()
+    ? ALL_SORTED_COUNTRIES.filter(c =>
+        c.name.includes(query) || c.code.toLowerCase().includes(query.toLowerCase())
+      )
+    : ALL_SORTED_COUNTRIES;
+
+  const selected = ALL_COUNTRIES.find(c => c.code === value);
+
+  const select = (code) => { onChange(code); setOpen(false); setQuery(''); };
+
+  return (
+    <div className="relative mt-0.5" ref={ref}>
+      <button type="button" onClick={() => setOpen(o => !o)}
+        className="w-full h-8 flex items-center justify-between px-2 border border-gray-200 rounded-md bg-white text-sm hover:border-blue-300">
+        <span className={selected ? 'text-gray-800' : 'text-gray-400'}>
+          {selected ? `${selected.name} (${selected.code})` : '-- 选择国家 --'}
+        </span>
+        <ChevronDown className="w-3 h-3 text-gray-300 flex-shrink-0" />
+      </button>
+      {open && (
+        <div className="absolute top-full left-0 z-40 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg w-full min-w-[180px]">
+          <div className="p-1.5 border-b border-gray-100">
+            <input autoFocus value={query} onChange={e => setQuery(e.target.value)}
+              placeholder="输入筛选..." className="w-full h-7 px-2 text-xs border border-gray-200 rounded outline-none" />
+          </div>
+          <div className="max-h-48 overflow-y-auto">
+            {!query.trim() && (
+              <div className="px-2 py-0.5 text-xs text-gray-400 bg-gray-50 font-medium sticky top-0">常用</div>
+            )}
+            {filtered.map((c, i) => (
+              <button key={c.code} type="button" onClick={() => select(c.code)}
+                className={`w-full text-left px-3 py-1.5 text-xs hover:bg-blue-50 ${
+                  !query.trim() && i === PINNED_COUNTRIES.length ? 'border-t border-gray-100' : ''
+                } ${value === c.code ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}>
+                {c.name} ({c.code})
+              </button>
+            ))}
+            {filtered.length === 0 && <div className="text-xs text-gray-400 text-center py-2">无匹配</div>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // 下单阶段优先变量（以商品货款为基数）
 const ORDER_COMPACT_VARS = ['goodsAmount', 'itemCount', 'sourceSite', 'customerLevel'];
@@ -147,6 +209,10 @@ export default function RuleTestPanel({ rule }) {
           ))}
         </select>
       );
+    }
+
+    if (v === 'country') {
+      return <CountrySelect value={vars[v]} onChange={val => setVar(v, val)} />;
     }
 
     if (v === 'storageSize') {
