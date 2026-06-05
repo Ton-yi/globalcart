@@ -8,8 +8,7 @@ import FormulaEditor from "./FormulaEditor";
 import TieredRuleEditor from "./TieredRuleEditor";
 import PostOrderSimpleEditor from "./PostOrderSimpleEditor";
 import PostOrderTieredEditor from "./PostOrderTieredEditor";
-import CustomerLevelSelector from "./CustomerLevelSelector";
-import StoreTagSelector from "./StoreTagSelector";
+import SimpleRuleEditor from "./SimpleRuleEditor";
 import RuleTestPanel from "./RuleTestPanel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -180,41 +179,14 @@ export default function RuleEditorModal({ rule: initialRule, onClose, onSaved })
               <div className="border border-gray-100 rounded-lg p-4 bg-gray-50/50">
                 {/* ── ORDER PHASE ── */}
                 {!isShipping && rule.mode === 'simple' && (
-                  <div className="space-y-4">
-                    {/* Default / fallback rate */}
-                    <div>
-                      <Label className="text-xs text-gray-500 block mb-2">默认费率（未匹配到任何等级/网站时适用）</Label>
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-1.5">
-                          <Input className="h-9 text-sm w-24" type="number" step="0.1" value={rule.simple_rate ?? 8}
-                            onChange={e => set('simple_rate', parseFloat(e.target.value) || 0)} />
-                          <span className="text-sm text-gray-500">% × 货款</span>
-                        </div>
-                        <span className="text-gray-300">+</span>
-                        <div className="flex items-center gap-1.5">
-                          <Input className="h-9 text-sm w-24" type="number" value={rule.simple_fixed_fee ?? 0}
-                            onChange={e => set('simple_fixed_fee', parseFloat(e.target.value) || 0)} />
-                          <span className="text-sm text-gray-500">¥ 固定</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Customer level → rate */}
-                    <div className="border-t border-gray-200 pt-3">
-                      <CustomerLevelSelector
-                        value={rule.customer_level_filter || []}
-                        onChange={v => set('customer_level_filter', v)}
-                      />
-                    </div>
-
-                    {/* Store tag → rate */}
-                    <div className="border-t border-gray-200 pt-3">
-                      <StoreTagSelector
-                        value={rule.store_filter || []}
-                        onChange={v => set('store_filter', v)}
-                      />
-                    </div>
-                  </div>
+                  <SimpleRuleEditor
+                    simpleRate={rule.simple_rate}
+                    simpleFixedFee={rule.simple_fixed_fee}
+                    onSimpleRateChange={v => set('simple_rate', v)}
+                    onSimpleFixedFeeChange={v => set('simple_fixed_fee', v)}
+                    customerLevelFilter={rule.customer_level_filter || []}
+                    onCustomerLevelFilterChange={v => set('customer_level_filter', v)}
+                  />
                 )}
 
                 {!isShipping && rule.mode === 'tiered' && (
