@@ -10,20 +10,39 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2, ChevronDown, ChevronUp, X } from "lucide-react";
 import { ALL_COUNTRIES } from "@/lib/countries";
 
+const PINNED_CODES = ['CN', 'TW', 'HK'];
+const PINNED = PINNED_CODES.map(code => ALL_COUNTRIES.find(c => c.code === code)).filter(Boolean);
+const SORTED_COUNTRIES = [...PINNED, ...ALL_COUNTRIES.filter(c => !PINNED_CODES.includes(c.code))];
 
 
-function MultiChipSelect({ label, options, value = [], onChange, renderOption }) {
+
+function MultiChipSelect({ label, options, value = [], onChange, renderOption, filterable = false }) {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const ref = useState(() => ({ current: null }))[0];
   const isAll = value.length === 0;
+
+  useEffect(() => {
+    if (!filterable) return;
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [filterable]);
 
   const toggle = (v) => {
     if (value.includes(v)) onChange(value.filter(x => x !== v));
     else onChange([...value, v]);
   };
 
+  const filtered = filterable && query.trim()
+    ? options.filter(opt => (opt.label ?? opt).toLowerCase().includes(query.toLowerCase()) || (opt.value ?? opt).toLowerCase().includes(query.toLowerCase()))
+    : options;
+
+  const handleOpen = () => { setOpen(o => !o); setQuery(''); };
+
   return (
-    <div className="relative">
-      <button type="button" onClick={() => setOpen(o => !o)}
+    <div className="relative" ref={filterable ? (el => { ref.current = el; }) : undefined}>
+      <button type="button" onClick={handleOpen}
         className="w-full flex flex-wrap gap-0.5 items-center px-2 py-1 border border-gray-200 rounded bg-white hover:border-gray-300 text-xs min-h-[30px]">
         {isAll ? (
           <span className="text-gray-400">{label}(全部)</span>
@@ -40,18 +59,27 @@ function MultiChipSelect({ label, options, value = [], onChange, renderOption })
         <ChevronDown className="w-3 h-3 text-gray-300 ml-auto flex-shrink-0" />
       </button>
       {open && (
-        <div className="absolute top-full left-0 z-30 mt-0.5 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto min-w-[140px]">
-          <button type="button" onClick={() => { onChange([]); setOpen(false); }}
-            className={`w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 ${isAll ? 'font-medium text-blue-700' : 'text-gray-600'}`}>
-            全部
-          </button>
-          {options.map(opt => (
-            <button key={opt.value ?? opt} type="button"
-              onClick={() => toggle(opt.value ?? opt)}
-              className={`w-full text-left px-3 py-1.5 text-xs hover:bg-blue-50 ${value.includes(opt.value ?? opt) ? 'bg-blue-50 text-blue-700' : 'text-gray-700'}`}>
-              {opt.label ?? opt}
+        <div className="absolute top-full left-0 z-30 mt-0.5 bg-white border border-gray-200 rounded-lg shadow-lg min-w-[140px]">
+          {filterable && (
+            <div className="p-1.5 border-b border-gray-100">
+              <input autoFocus value={query} onChange={e => setQuery(e.target.value)}
+                placeholder="输入筛选..." className="w-full h-7 px-2 text-xs border border-gray-200 rounded outline-none" />
+            </div>
+          )}
+          <div className="max-h-40 overflow-y-auto">
+            <button type="button" onClick={() => { onChange([]); setOpen(false); setQuery(''); }}
+              className={`w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 ${isAll ? 'font-medium text-blue-700' : 'text-gray-600'}`}>
+              全部
             </button>
-          ))}
+            {filtered.map(opt => (
+              <button key={opt.value ?? opt} type="button"
+                onClick={() => toggle(opt.value ?? opt)}
+                className={`w-full text-left px-3 py-1.5 text-xs hover:bg-blue-50 ${value.includes(opt.value ?? opt) ? 'bg-blue-50 text-blue-700' : 'text-gray-700'}`}>
+                {opt.label ?? opt}
+              </button>
+            ))}
+            {filtered.length === 0 && <div className="text-xs text-gray-400 text-center py-2">无匹配</div>}
+          </div>
         </div>
       )}
     </div>
@@ -137,7 +165,7 @@ export default function PostOrderTieredEditor({ value = [], onChange }) {
       setShippingMethodOptions((sm.data?.methods || []).map(m => ({ value: m.code || m.name, label: m.name })));
       setSizeTemplateOptions((st.data?.templates || []).map(t => ({ value: t.id, label: t.title })));
     });
-    const opts = ALL_COUNTRIES.map(c => ({ value: c.code, label: `${c.name}(${c.code})` }));
+    const opts = SORTED_COUNTRIES.map(c => ({ value: c.code, label: `${c.name}(${c.code})` }));
     setCountryOptions(opts);
   }, []);
 
@@ -165,7 +193,7 @@ export default function PostOrderTieredEditor({ value = [], onChange }) {
             <div>
               <div className="text-xs text-gray-400 mb-1">收货国家</div>
               <MultiChipSelect label="国家" options={countryOptions} value={tier.countries || []}
-                onChange={v => updateTier(i, 'countries', v)} renderOption={v => v} />
+                onChange={v => updateTier(i, 'countries', v)} renderOption={v => v} filterable />
             </div>
           </div>
 
