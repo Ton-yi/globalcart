@@ -10,9 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2, ChevronDown, ChevronUp, X } from "lucide-react";
 import { ALL_COUNTRIES } from "@/lib/countries";
 
-const SHIPPING_METHODS = ['EMS', 'DHL', 'FedEx', 'SAL', 'surface', 'other'];
-const STORAGE_SIZES = ['small', 'medium', 'large', 'oversized'];
-const STORAGE_SIZE_LABELS = { small: '小件', medium: '中件', large: '大件', oversized: '超大件' };
+
 
 function MultiChipSelect({ label, options, value = [], onChange, renderOption }) {
   const [open, setOpen] = useState(false);
@@ -124,14 +122,20 @@ export default function PostOrderTieredEditor({ value = [], onChange }) {
   const [tiers, setTiers] = useState([]);
   const [roles, setRoles] = useState([]);
   const [countryOptions, setCountryOptions] = useState([]);
+  const [shippingMethodOptions, setShippingMethodOptions] = useState([]);
+  const [sizeTemplateOptions, setSizeTemplateOptions] = useState([]);
 
   useEffect(() => {
     Promise.all([
       base44.functions.invoke('serviceFeeRuleEngine', { action: 'list_member_tiers' }),
       base44.functions.invoke('serviceFeeRuleEngine', { action: 'list_roles' }),
-    ]).then(([t, r]) => {
+      base44.functions.invoke('serviceFeeRuleEngine', { action: 'list_shipping_methods' }),
+      base44.functions.invoke('serviceFeeRuleEngine', { action: 'list_item_size_templates' }),
+    ]).then(([t, r, sm, st]) => {
       setTiers(t.data?.tiers || []);
       setRoles((r.data?.roles || []).filter(x => !x.is_global && !x.is_archived));
+      setShippingMethodOptions((sm.data?.methods || []).map(m => ({ value: m.code || m.name, label: m.name })));
+      setSizeTemplateOptions((st.data?.templates || []).map(t => ({ value: t.id, label: t.title })));
     });
     const opts = ALL_COUNTRIES.map(c => ({ value: c.code, label: `${c.name}(${c.code})` }));
     setCountryOptions(opts);
@@ -169,8 +173,15 @@ export default function PostOrderTieredEditor({ value = [], onChange }) {
           <div className="grid grid-cols-2 gap-2">
             <div>
               <div className="text-xs text-gray-400 mb-1">发货方式</div>
-              <MultiChipSelect label="方式" options={SHIPPING_METHODS} value={tier.shipping_methods || []}
-                onChange={v => updateTier(i, 'shipping_methods', v)} />
+              <MultiChipSelect label="方式"
+                options={shippingMethodOptions.length > 0 ? shippingMethodOptions : []}
+                value={tier.shipping_methods || []}
+                onChange={v => updateTier(i, 'shipping_methods', v)}
+                renderOption={v => {
+                  const found = shippingMethodOptions.find(o => o.value === v);
+                  return found ? found.label : v;
+                }}
+              />
             </div>
             <div>
               <div className="text-xs text-gray-400 mb-1">是否中转</div>
@@ -200,9 +211,15 @@ export default function PostOrderTieredEditor({ value = [], onChange }) {
             </div>
             <div>
               <div className="text-xs text-gray-400 mb-1">入库尺寸</div>
-              <MultiChipSelect label="尺寸" options={STORAGE_SIZES.map(s => ({ value: s, label: STORAGE_SIZE_LABELS[s] }))}
-                value={tier.storage_sizes || []} onChange={v => updateTier(i, 'storage_sizes', v)}
-                renderOption={v => STORAGE_SIZE_LABELS[v] || v} />
+              <MultiChipSelect label="尺寸"
+                options={sizeTemplateOptions.length > 0 ? sizeTemplateOptions : [{ value: 'small', label: '小件' }, { value: 'medium', label: '中件' }, { value: 'large', label: '大件' }, { value: 'oversized', label: '超大件' }]}
+                value={tier.storage_sizes || []}
+                onChange={v => updateTier(i, 'storage_sizes', v)}
+                renderOption={v => {
+                  const found = sizeTemplateOptions.find(o => o.value === v);
+                  return found ? found.label : v;
+                }}
+              />
             </div>
           </div>
 

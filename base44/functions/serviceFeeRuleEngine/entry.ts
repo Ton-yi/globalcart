@@ -312,6 +312,20 @@ Deno.serve(async (req) => {
       return Response.json({ tags: active });
     }
 
+    // ── list_shipping_methods ──────────────────────────────────────────────────
+    if (action === 'list_shipping_methods') {
+      const methods = await base44.asServiceRole.entities.ShippingMethod.filter({ tenant_id: tenantId });
+      const active = (methods || []).filter(m => m.is_active !== false);
+      return Response.json({ methods: active });
+    }
+
+    // ── list_item_size_templates ───────────────────────────────────────────────
+    if (action === 'list_item_size_templates') {
+      const templates = await base44.asServiceRole.entities.ItemSizeTemplate.filter({ tenant_id: tenantId });
+      const active = (templates || []).filter(t => t.is_active !== false);
+      return Response.json({ templates: active });
+    }
+
     // ── get_active_rule ────────────────────────────────────────────────────────
     if (action === 'get_active_rule') {
       const rules = await base44.asServiceRole.entities.ServiceFeeRule.filter({ tenant_id: tenantId });

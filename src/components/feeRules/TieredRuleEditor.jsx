@@ -115,6 +115,7 @@ function TagPicker({ value = [], onChange, tags }) {
   }, []);
 
   const selectedSet = new Set(value);
+  const tagMap = Object.fromEntries(tags.map(t => [t.tag_label, t]));
 
   const toggle = (label) => {
     if (selectedSet.has(label)) onChange(value.filter(v => v !== label));
@@ -127,24 +128,31 @@ function TagPicker({ value = [], onChange, tags }) {
         className="w-full min-h-[32px] flex flex-wrap gap-1 items-center px-2 py-1 border border-gray-200 rounded-md bg-white hover:border-orange-300 text-left">
         {value.length === 0
           ? <span className="text-xs text-gray-400">所有</span>
-          : value.map(v => (
-            <span key={v} className="inline-flex items-center gap-0.5 bg-orange-50 text-orange-700 border border-orange-100 rounded px-1 py-0.5 text-xs">
-              {v}
-              <button type="button" onClick={e => { e.stopPropagation(); toggle(v); }} className="hover:text-red-500 ml-0.5"><X className="w-2.5 h-2.5" /></button>
-            </span>
-          ))
+          : value.map(v => {
+            const tag = tagMap[v];
+            return (
+              <span key={v} className={`inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-xs ${tag?.tag_color || 'bg-orange-50 text-orange-700'}`}>
+                {v}
+                <button type="button" onClick={e => { e.stopPropagation(); toggle(v); }} className="hover:opacity-70 ml-0.5"><X className="w-2.5 h-2.5" /></button>
+              </span>
+            );
+          })
         }
         <ChevronDown className="w-3 h-3 text-gray-300 ml-auto flex-shrink-0" />
       </button>
       {open && (
         <div className="absolute top-full left-0 z-30 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg min-w-[140px] max-h-48 overflow-y-auto">
-          <div className="px-2 py-1 text-xs text-gray-400 bg-gray-50 font-medium">所有网站（空=不限）</div>
+          <button type="button" onClick={() => { onChange([]); setOpen(false); }}
+            className={`w-full flex items-center gap-2 px-2 py-1.5 hover:bg-gray-50 text-left text-xs border-b border-gray-100 ${value.length === 0 ? 'bg-gray-50 font-medium' : ''}`}>
+            <span className="px-1 py-0.5 rounded bg-gray-100 text-gray-600">全部网站</span>
+            {value.length === 0 && <span className="text-orange-500 ml-auto">✓</span>}
+          </button>
           {tags.length === 0
-            ? <div className="text-xs text-gray-400 text-center py-2">暂无标签</div>
+            ? <div className="text-xs text-gray-400 text-center py-2">暂无标签（请先在网站设置中配置）</div>
             : tags.map(tag => (
               <button key={tag.tag_label} type="button" onClick={() => toggle(tag.tag_label)}
                 className={`w-full flex items-center gap-2 px-2 py-1.5 hover:bg-orange-50 text-left text-xs ${selectedSet.has(tag.tag_label) ? 'bg-orange-50' : ''}`}>
-                <span className={`px-1 py-0.5 rounded ${tag.tag_color || 'bg-gray-100 text-gray-700'}`}>{tag.tag_label}</span>
+                <span className={`px-1 py-0.5 rounded text-xs ${tag.tag_color || 'bg-gray-100 text-gray-700'}`}>{tag.tag_label}</span>
                 {selectedSet.has(tag.tag_label) && <span className="text-orange-500 ml-auto">✓</span>}
               </button>
             ))
