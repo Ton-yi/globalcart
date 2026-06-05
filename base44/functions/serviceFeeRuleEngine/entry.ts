@@ -224,6 +224,8 @@ function calcFee(rule, variables) {
         }
       } else {
         // 下单阶段：customer_level_filter → store_filter → 默认
+        // 每行结构: {levels:[{type,id,name}], rate, fixed_fee}
+        // levels 为空 = 匹配全部用户
         const levelFilter = rule.customer_level_filter || [];
         const storeFilter = rule.store_filter || [];
         const baseAmount = parseFloat(vars.goodsAmount) || 0;
@@ -231,12 +233,15 @@ function calcFee(rule, variables) {
 
         for (let i = 0; i < levelFilter.length; i++) {
           const row = levelFilter[i];
-          if (matchCustomerLevel(vars.customerLevel, [row])) {
+          // 兼容旧版单level行 {type,id,name} 和新版 {levels:[...]}
+          const levels = row.levels !== undefined ? (row.levels || []) : (row.id ? [row] : []);
+          if (matchCustomerLevel(vars.customerLevel, levels)) {
             const rate = (parseFloat(row.rate) || 0) / 100;
             const fixed = parseFloat(row.fixed_fee) || 0;
+            const desc = levels.length === 0 ? '全部用户' : levels.map(l => l.name).join('、');
             baseFee = baseAmount * rate + fixed;
-            steps.push(`命中客户等级配置（${row.name}）：¥${baseAmount} × ${row.rate || 0}% + 固定¥${fixed} = ¥${baseFee}`);
-            matchedConfig = { type: 'customer_level', row };
+            steps.push(`命中客户等级配置行 #${i+1}（${desc}）：¥${baseAmount} × ${row.rate || 0}% + 固定¥${fixed} = ¥${baseFee}`);
+            matchedConfig = { type: 'customer_level', rowIndex: i, row };
             matched = true; break;
           }
         }
@@ -244,12 +249,16 @@ function calcFee(rule, variables) {
         if (!matched) {
           for (let i = 0; i < storeFilter.length; i++) {
             const row = storeFilter[i];
-            if (String(vars.sourceSite || '').trim() === String(row.tag_label || '').trim()) {
+            // store_filter 行：tag_label 为空 = 匹配全部网站
+            const tagLabel = String(row.tag_label || '').trim();
+            const sourceSite = String(vars.sourceSite || '').trim();
+            if (tagLabel === '' || tagLabel === sourceSite) {
               const rate = (parseFloat(row.rate) || 0) / 100;
               const fixed = parseFloat(row.fixed_fee) || 0;
+              const desc = tagLabel === '' ? '全部网站' : tagLabel;
               baseFee = baseAmount * rate + fixed;
-              steps.push(`命中网站配置（${row.tag_label}）：¥${baseAmount} × ${row.rate || 0}% + 固定¥${fixed} = ¥${baseFee}`);
-              matchedConfig = { type: 'store_tag', row };
+              steps.push(`命中网站配置行 #${i+1}（${desc}）：¥${baseAmount} × ${row.rate || 0}% + 固定¥${fixed} = ¥${baseFee}`);
+              matchedConfig = { type: 'store_tag', rowIndex: i, row };
               matched = true; break;
             }
           }
@@ -322,22 +331,43 @@ function calcFee(rule, variables) {
 
         if (!matched) steps.push('未命中任何发货阶梯规则，服务费为0');
       } else {
-        // 下单阶段 tiered：按货款金额范围匹配 tiered_config
+        // 下单阶段 tiered：按货款金额范围 + 客户等级 + 下单网站匹配 tiered_config
+        // 每行结构: {from, to, customer_levels:[{type,id,name}], store_tags:[tag_label], rate, fixed_fee}
+        // customer_levels/store_tags 为空 = 匹配全部
         const amount = parseFloat(vars.goodsAmount) || 0;
-        const tiers = rule.tiered_config || [];
+        const tierRows = rule.tiered_config || [];
         let matched = false;
-        for (let i = 0; i < tiers.length; i++) {
-          const tier = tiers[i];
+        for (let i = 0; i < tierRows.length; i++) {
+          const tier = tierRows[i];
+
+          // 1. 金额范围
           const from = parseFloat(tier.from) || 0;
           const toVal = tier.to !== null && tier.to !== undefined ? parseFloat(tier.to) : Infinity;
-          if (amount >= from && amount < toVal) {
-            const rate = (parseFloat(tier.rate) || 0) / 100;
-            const fixed = parseFloat(tier.fixed_fee) || 0;
-            baseFee = amount * rate + fixed;
-            steps.push(`命中金额阶梯 #${i + 1}（¥${from}~${tier.to ?? '∞'}）：¥${amount} × ${tier.rate || 0}% + 固定¥${fixed} = ¥${baseFee}`);
-            matchedConfig = { rowIndex: i, tier };
-            matched = true; break;
+          if (amount < from || amount >= toVal) continue;
+
+          // 2. 客户等级（空=全部，OR匹配）
+          const levels = tier.customer_levels || [];
+          if (!matchCustomerLevel(vars.customerLevel, levels)) continue;
+
+          // 3. 下单网站（空=全部，OR匹配 tag_label）
+          const storeTags = tier.store_tags || [];
+          if (storeTags.length > 0) {
+            const sourceSite = String(vars.sourceSite || '').trim();
+            if (!storeTags.some(tag => String(tag || '').trim() === sourceSite)) continue;
           }
+
+          // 全部条件命中
+          const rate = (parseFloat(tier.rate) || 0) / 100;
+          const fixed = parseFloat(tier.fixed_fee) || 0;
+          baseFee = amount * rate + fixed;
+
+          const condParts = [`¥${from}~${tier.to ?? '∞'}`];
+          if (levels.length > 0) condParts.push(`等级:${levels.map(l => l.name).join('/')}`);
+          if (storeTags.length > 0) condParts.push(`网站:${storeTags.join('/')}`);
+
+          steps.push(`命中金额阶梯 #${i + 1}（${condParts.join('，')}）：¥${amount} × ${tier.rate || 0}% + 固定¥${fixed} = ¥${baseFee}`);
+          matchedConfig = { rowIndex: i, tier };
+          matched = true; break;
         }
         if (!matched) steps.push('未命中任何金额阶梯，服务费为0');
       }
