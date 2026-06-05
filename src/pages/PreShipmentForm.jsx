@@ -246,7 +246,7 @@ export default function PreShipmentForm() {
         </AlertDescription>
       </Alert>
 
-      {/* Shipping method */}
+      {/* Consignment type & transit location */}
       <Card className="border-gray-200">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
@@ -285,8 +285,17 @@ export default function PreShipmentForm() {
               ))}
             </div>
           )}
+        </CardContent>
+      </Card>
 
-          {/* Shipping method */}
+      {/* Shipping method & date */}
+      <Card className="border-gray-200">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+            <Package className="w-4 h-4" />运输方式
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
           <div>
             <Label className="text-xs text-gray-500">运输方式 *</Label>
             {shippingMethods.length > 0 ? (
@@ -301,7 +310,6 @@ export default function PreShipmentForm() {
             )}
           </div>
 
-          {/* Scheduled date */}
           <div>
             <Label className="text-xs text-gray-500">期望发货日期（可选）</Label>
             <div className="flex gap-2 mt-1">
