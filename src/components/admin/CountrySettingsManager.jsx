@@ -63,6 +63,10 @@ export default function CountrySettingsManager({ initialConfig, settingId, onRel
   };
 
   const handleSave = async () => {
+    if (enabledCount === 0) {
+      alert("至少需要启用一个国家·地区才能保存。");
+      return;
+    }
     setSaving(true);
     const config = rows.map(r => ({ code: r.code, enabled: r.enabled }));
     const value = JSON.stringify(config);
