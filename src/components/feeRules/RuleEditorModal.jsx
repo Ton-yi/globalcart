@@ -221,10 +221,6 @@ export default function RuleEditorModal({ rule: initialRule, onClose, onSaved })
                   <TieredRuleEditor
                     tiers={rule.tiered_config || []}
                     onChange={t => set('tiered_config', t)}
-                    customerLevelFilter={rule.customer_level_filter || []}
-                    onCustomerLevelFilterChange={v => set('customer_level_filter', v)}
-                    storeFilter={rule.store_filter || []}
-                    onStoreFilterChange={v => set('store_filter', v)}
                   />
                 )}
 
