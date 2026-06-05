@@ -302,7 +302,16 @@ export default function PreShipmentForm() {
               <Select value={shippingMethod} onValueChange={setShippingMethod}>
                 <SelectTrigger className="mt-1 h-9 text-sm"><SelectValue placeholder="选择运输方式..." /></SelectTrigger>
                 <SelectContent>
-                  {shippingMethods.map(m => <SelectItem key={m.id} value={m.code}>{m.name}</SelectItem>)}
+                  {(() => {
+                    const seen = new Set();
+                    return shippingMethods
+                      .filter(m => {
+                        if (seen.has(m.id)) return false;
+                        seen.add(m.id);
+                        return true;
+                      })
+                      .map(m => <SelectItem key={m.id} value={m.code}>{m.name}</SelectItem>);
+                  })()}
                 </SelectContent>
               </Select>
             ) : (
