@@ -10,7 +10,7 @@
 
 // ─── 白名单变量 ───────────────────────────────────────────────────────────────
 export const ALLOWED_VARIABLES = [
-  'goodsAmount',       // 商品货款 (JPY)
+  'goodsAmount',       // 商品货款 (JPY) — 下单阶段主要基数
   'orderAmount',       // 订单总金额（含服务费前）
   'itemCount',         // 商品数量
   'sourceSite',        // 下单网站标签（字符串）
@@ -21,8 +21,9 @@ export const ALLOWED_VARIABLES = [
   'shippingMethod',    // 发货方式
   'hasTransit',        // 是否使用中转地（true/false）
   'weight',            // 重量(g)
-  'storageSize',       // 入库尺寸（字符串：small/medium/large/extra）
+  'storageSize',       // 入库尺寸（字符串，物品尺寸模板标题）
   'storageDays',       // 仓储天数
+  'shippingFee',       // 实际国际运费 (JPY) — 发货阶段主要基数
   'valueAddedServiceAmount', // 增值服务金额 (JPY)
 ];
 
@@ -41,6 +42,7 @@ export const VARIABLE_LABELS = {
   weight: '重量 (g)',
   storageSize: '入库尺寸',
   storageDays: '仓储天数',
+  shippingFee: '实际运费 (JPY)',
   valueAddedServiceAmount: '增值服务金额 (JPY)',
 };
 
@@ -379,11 +381,20 @@ export function calculateServiceFee(rule, variables) {
 
     if (rule.mode === 'simple') {
       const rate = (parseFloat(rule.simple_rate) || 0) / 100;
-      baseFee = (parseFloat(vars.goodsAmount) || 0) * rate;
-      steps.push(`基础费率: ${vars.goodsAmount} × ${rate * 100}% = ${baseFee}`);
+      // 发货阶段：以实际运费为基数；下单阶段：以商品货款为基数
+      const isShipping = rule.fee_phase === 'shipping';
+      const baseAmount = isShipping
+        ? (parseFloat(vars.shippingFee) || 0)
+        : (parseFloat(vars.goodsAmount) || 0);
+      const baseLabel = isShipping ? '实际运费' : '商品货款';
+      baseFee = baseAmount * rate + (parseFloat(rule.simple_fixed_fee) || 0);
+      steps.push(`${baseLabel}: ¥${baseAmount} × ${rate * 100}% + 固定¥${rule.simple_fixed_fee || 0} = ¥${baseFee}`);
 
     } else if (rule.mode === 'tiered') {
-      const amount = parseFloat(vars.goodsAmount) || 0;
+      // 发货阶段 tiered 也以运费为基数（下单阶段以货款为基数）
+      const amount = rule.fee_phase === 'shipping'
+        ? (parseFloat(vars.shippingFee) || 0)
+        : (parseFloat(vars.goodsAmount) || 0);
       const tiers = rule.tiered_config || [];
       let matched = false;
       for (const tier of tiers) {
@@ -490,8 +501,9 @@ export function buildOrderVariables(order, userRecord = null) {
     shippingMethod: order.shipping_method || '',
     hasTransit: order.consolidation_pool_id ? 1 : 0,
     weight: parseFloat(order.weight_g) || 0,
-    storageSize: order.item_size_title || 'small',
-    storageDays: 0, // calculated dynamically
+    storageSize: order.item_size_title || '',
+    storageDays: 0,
+    shippingFee: parseFloat(order.shipping_fee_amount) || 0, // 发货阶段服务费基数
     valueAddedServiceAmount: (order.selected_addons || []).reduce((sum, a) => sum + (parseFloat(a.fee) || 0), 0),
   };
 }

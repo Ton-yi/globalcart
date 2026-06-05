@@ -9,10 +9,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Play, ChevronDown, ChevronUp, AlertCircle } from "lucide-react";
 
-// 下单阶段优先变量
+// 下单阶段优先变量（以商品货款为基数）
 const ORDER_COMPACT_VARS = ['goodsAmount', 'itemCount', 'sourceSite', 'customerLevel', 'customerTags'];
-// 发货阶段优先变量
-const SHIPPING_COMPACT_VARS = ['weight', 'shippingMethod', 'hasTransit', 'storageSize', 'customerLevel', 'country'];
+// 发货阶段优先变量（以实际运费为基数）
+const SHIPPING_COMPACT_VARS = ['shippingFee', 'weight', 'shippingMethod', 'hasTransit', 'storageSize', 'customerLevel', 'country'];
 
 const DEFAULT_TEST_VALUES = {
   goodsAmount: 10000,
@@ -28,6 +28,7 @@ const DEFAULT_TEST_VALUES = {
   weight: 500,
   storageSize: '',
   storageDays: 3,
+  shippingFee: 3000,
   valueAddedServiceAmount: 0,
 };
 
@@ -75,7 +76,7 @@ export default function RuleTestPanel({ rule }) {
     setVars(prev => ({
       ...prev,
       [key]: key === 'hasTransit' ? (val === 'true' || val === '1' || val === true ? 1 : 0) :
-              ['goodsAmount', 'orderAmount', 'itemCount', 'weight', 'storageDays', 'valueAddedServiceAmount'].includes(key)
+              ['goodsAmount', 'orderAmount', 'itemCount', 'weight', 'storageDays', 'shippingFee', 'valueAddedServiceAmount'].includes(key)
                 ? (parseFloat(val) || 0) : val
     }));
   };
@@ -141,7 +142,8 @@ export default function RuleTestPanel({ rule }) {
           className="mt-0.5 w-full h-8 text-sm border border-gray-200 rounded-md px-2 bg-white">
           <option value="">-- 选择尺寸 --</option>
           {sizeTemplates.map(t => (
-            <option key={t.id} value={t.id}>{t.title}</option>
+            // 使用 title 作为值，与 buildOrderVariables 中 item_size_title 一致
+            <option key={t.id} value={t.title}>{t.title}</option>
           ))}
         </select>
       );
@@ -158,6 +160,16 @@ export default function RuleTestPanel({ rule }) {
 
   return (
     <div className="space-y-4">
+      {isShipping && (
+        <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 text-xs text-blue-700">
+          <strong>发货阶段：</strong>服务费以「实际运费」为基数计算，请先填写实际运费金额。
+        </div>
+      )}
+      {!isShipping && (
+        <div className="bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 text-xs text-gray-600">
+          <strong>下单阶段：</strong>服务费以「商品货款」为基数计算。
+        </div>
+      )}
       {loadingOptions && (
         <p className="text-xs text-gray-400">正在加载选项数据…</p>
       )}

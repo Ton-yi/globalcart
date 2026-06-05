@@ -16,7 +16,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 const ALLOWED_VARIABLES = [
   'goodsAmount', 'orderAmount', 'itemCount', 'sourceSite', 'customerLevel',
   'customerTags', 'currency', 'country', 'shippingMethod', 'hasTransit',
-  'weight', 'storageSize', 'storageDays', 'valueAddedServiceAmount',
+  'weight', 'storageSize', 'storageDays', 'shippingFee', 'valueAddedServiceAmount',
 ];
 
 const ALLOWED_FUNCTIONS = new Set([
@@ -189,11 +189,16 @@ function calcFee(rule, variables) {
 
     if (rule.mode === 'simple') {
       const rate = (parseFloat(rule.simple_rate) || 0) / 100;
-      baseFee = (parseFloat(vars.goodsAmount) || 0) * rate;
-      steps.push(`简单比例: ¥${vars.goodsAmount} × ${rule.simple_rate}% = ¥${baseFee}`);
+      const isShipping = rule.fee_phase === 'shipping';
+      const baseAmount = isShipping ? (parseFloat(vars.shippingFee) || 0) : (parseFloat(vars.goodsAmount) || 0);
+      const baseLabel = isShipping ? '实际运费' : '商品货款';
+      baseFee = baseAmount * rate + (parseFloat(rule.simple_fixed_fee) || 0);
+      steps.push(`${baseLabel}: ¥${baseAmount} × ${rule.simple_rate}% + 固定¥${rule.simple_fixed_fee || 0} = ¥${baseFee}`);
 
     } else if (rule.mode === 'tiered') {
-      const amount = parseFloat(vars.goodsAmount) || 0;
+      const amount = rule.fee_phase === 'shipping'
+        ? (parseFloat(vars.shippingFee) || 0)
+        : (parseFloat(vars.goodsAmount) || 0);
       const tiers = rule.tiered_config || [];
       let matched = false;
       for (const tier of tiers) {
@@ -392,6 +397,12 @@ Deno.serve(async (req) => {
         orderAmount: parseFloat(order.estimated_jpy) || 0,
         itemCount: parseFloat(order.quantity) || 1,
         sourceSite: order.online_store_tag || '其它',
+        customerLevel: '',
+        shippingMethod: order.shipping_method || '',
+        hasTransit: order.consolidation_pool_id ? 1 : 0,
+        weight: parseFloat(order.weight_g) || 0,
+        storageSize: order.item_size_title || '',
+        shippingFee: parseFloat(order.shipping_fee_amount) || 0,
         valueAddedServiceAmount: (order.selected_addons || []).reduce((s, a) => s + (parseFloat(a.fee) || 0), 0),
       };
 
