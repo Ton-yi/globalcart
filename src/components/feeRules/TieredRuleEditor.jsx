@@ -63,6 +63,11 @@ function LevelPicker({ value = [], onChange, tiers, roles }) {
       </button>
       {open && (
         <div className="absolute top-full left-0 z-30 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg min-w-[150px] max-h-48 overflow-y-auto">
+          <button type="button" onClick={() => { onChange([]); setOpen(false); }}
+            className={`w-full flex items-center gap-2 px-2 py-1.5 hover:bg-gray-50 text-left text-xs border-b border-gray-100 ${value.length === 0 ? 'bg-gray-50 font-medium' : ''}`}>
+            <span className="px-1 py-0.5 rounded bg-gray-100 text-gray-600">全部等级</span>
+            {value.length === 0 && <span className="text-blue-500 ml-auto">✓</span>}
+          </button>
           {allOptions.length === 0
             ? <div className="text-xs text-gray-400 text-center py-2">暂无等级</div>
             : <>
