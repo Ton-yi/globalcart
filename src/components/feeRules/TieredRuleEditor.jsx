@@ -27,18 +27,16 @@ export default function TieredRuleEditor({
 
   return (
     <div className="space-y-4">
-      {/* Customer level filter */}
+      {/* Customer level rates */}
       <div className="pb-3 border-b border-gray-200">
         <CustomerLevelSelector
           value={customerLevelFilter}
           onChange={onCustomerLevelFilterChange}
-          showRateFields={false}
         />
       </div>
 
-      {/* Store tag filter */}
+      {/* Store tag rates */}
       <div className="pb-3 border-b border-gray-200">
-        <label className="text-xs text-gray-500 block mb-1.5">下单网站过滤</label>
         <StoreTagSelector value={storeFilter} onChange={onStoreFilterChange} />
       </div>
 

@@ -1,15 +1,16 @@
 /**
- * 客户等级选择器 — 从 MemberTier 和 Role 中选取，支持多选+优先级排序
- * value: [{type:'tier'|'role', id, name, rate?, fixed_fee?}]  （按优先级排列）
+ * 客户等级费率配置 — 每个客户等级平行对应一套服务费率
+ * value: [{type:'tier'|'role', id, name, rate, fixed_fee}]
+ * 列表顺序 = 匹配优先级（可上下调整），但核心语义是"各等级对应各自的费率"
  */
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Plus, X, GripVertical, ChevronUp, ChevronDown } from "lucide-react";
+import { Plus, X, ChevronUp, ChevronDown, Trash2 } from "lucide-react";
 
-export default function CustomerLevelSelector({ value = [], onChange, showRateFields = false }) {
+export default function CustomerLevelSelector({ value = [], onChange }) {
   const [tiers, setTiers] = useState([]);
   const [roles, setRoles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -50,14 +51,13 @@ export default function CustomerLevelSelector({ value = [], onChange, showRateFi
   };
 
   const updateItem = (idx, key, val) => {
-    const arr = value.map((v, i) => i === idx ? { ...v, [key]: val } : v);
-    onChange(arr);
+    onChange(value.map((v, i) => i === idx ? { ...v, [key]: val } : v));
   };
 
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <span className="text-xs text-gray-500">客户等级过滤（按优先级，未配置=匹配所有）</span>
+        <span className="text-xs text-gray-500">客户等级 → 服务费率（未配置=使用全局费率）</span>
         <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => setOpen(v => !v)}>
           <Plus className="w-3 h-3 mr-1" />添加等级
         </Button>
@@ -80,7 +80,6 @@ export default function CustomerLevelSelector({ value = [], onChange, showRateFi
                   disabled={selectedIds.has(t.id)}
                   className="w-full flex items-center gap-2 px-3 py-2 hover:bg-blue-50 text-left disabled:opacity-40 disabled:cursor-not-allowed">
                   <span className={`px-1.5 py-0.5 rounded text-xs ${t.color || 'bg-gray-100 text-gray-700'}`}>{t.name}</span>
-                  <span className="text-xs text-gray-400 ml-1">会员阶级</span>
                 </button>
               ))}
               {roles.filter(r => !r.is_global && !r.is_archived).length > 0 && (
@@ -91,7 +90,7 @@ export default function CustomerLevelSelector({ value = [], onChange, showRateFi
                   disabled={selectedIds.has(r.id)}
                   className="w-full flex items-center gap-2 px-3 py-2 hover:bg-blue-50 text-left disabled:opacity-40 disabled:cursor-not-allowed">
                   <span className="text-xs font-medium text-gray-700">{r.name}</span>
-                  <span className="text-xs text-gray-400">角色标签</span>
+                  <span className="text-xs text-gray-400">角色</span>
                 </button>
               ))}
             </>
@@ -99,12 +98,28 @@ export default function CustomerLevelSelector({ value = [], onChange, showRateFi
         </div>
       )}
 
-      {/* Selected items with priority order */}
+      {/* Rate table */}
       {value.length > 0 && (
-        <div className="space-y-1.5">
+        <div className="space-y-1">
+          <div className="grid grid-cols-6 gap-2 text-xs text-gray-400 font-medium px-1 pt-1">
+            <span className="col-span-2">等级</span>
+            <span className="col-span-1 text-center">费率 %</span>
+            <span className="col-span-1 text-center">固定费 ¥</span>
+            <span className="col-span-1 text-center">排序</span>
+            <span></span>
+          </div>
           {value.map((item, idx) => (
-            <div key={item.id} className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5">
-              <div className="flex flex-col gap-0.5">
+            <div key={item.id} className="grid grid-cols-6 gap-2 items-center bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5">
+              <div className="col-span-2 flex items-center gap-1.5 min-w-0">
+                <Badge className={`text-xs truncate ${item.type === 'tier' ? 'bg-blue-50 text-blue-700' : 'bg-purple-50 text-purple-700'}`}>
+                  {item.name}
+                </Badge>
+              </div>
+              <Input className="h-7 text-xs col-span-1" type="number" step="0.1" value={item.rate ?? 8}
+                onChange={e => updateItem(idx, 'rate', parseFloat(e.target.value) || 0)} placeholder="8" />
+              <Input className="h-7 text-xs col-span-1" type="number" value={item.fixed_fee ?? 0}
+                onChange={e => updateItem(idx, 'fixed_fee', parseFloat(e.target.value) || 0)} placeholder="0" />
+              <div className="col-span-1 flex items-center gap-0.5 justify-center">
                 <button type="button" onClick={() => moveItem(idx, -1)} disabled={idx === 0} className="text-gray-300 hover:text-gray-500 disabled:opacity-20">
                   <ChevronUp className="w-3 h-3" />
                 </button>
@@ -112,32 +127,12 @@ export default function CustomerLevelSelector({ value = [], onChange, showRateFi
                   <ChevronDown className="w-3 h-3" />
                 </button>
               </div>
-              <span className="text-xs text-gray-400 w-5 text-center font-mono">#{idx + 1}</span>
-              <Badge className={`text-xs flex-shrink-0 ${item.type === 'tier' ? 'bg-blue-50 text-blue-700' : 'bg-purple-50 text-purple-700'}`}>
-                {item.name}
-              </Badge>
-              <span className="text-xs text-gray-400">{item.type === 'tier' ? '会员' : '角色'}</span>
-
-              {showRateFields && (
-                <>
-                  <div className="flex items-center gap-1 ml-auto">
-                    <Input className="h-7 w-16 text-xs" type="number" step="0.1" value={item.rate ?? 8}
-                      onChange={e => updateItem(idx, 'rate', parseFloat(e.target.value) || 0)} placeholder="费率%" />
-                    <span className="text-xs text-gray-400">%</span>
-                    <span className="text-xs text-gray-300">+</span>
-                    <Input className="h-7 w-16 text-xs" type="number" value={item.fixed_fee ?? 0}
-                      onChange={e => updateItem(idx, 'fixed_fee', parseFloat(e.target.value) || 0)} placeholder="固定¥" />
-                    <span className="text-xs text-gray-400">¥</span>
-                  </div>
-                </>
-              )}
-
-              <button type="button" onClick={() => removeItem(item.id)} className="text-gray-300 hover:text-red-500 ml-auto flex-shrink-0">
+              <button type="button" onClick={() => removeItem(item.id)} className="text-gray-300 hover:text-red-500">
                 <X className="w-3.5 h-3.5" />
               </button>
             </div>
           ))}
-          <p className="text-xs text-gray-400">序号越小优先级越高，匹配到第一个符合的等级后生效</p>
+          <p className="text-xs text-gray-400 pt-1">每个等级对应独立费率。排序决定优先级（同用户多等级时取最高序）。</p>
         </div>
       )}
     </div>

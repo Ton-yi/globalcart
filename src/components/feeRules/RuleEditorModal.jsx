@@ -9,6 +9,7 @@ import TieredRuleEditor from "./TieredRuleEditor";
 import PostOrderSimpleEditor from "./PostOrderSimpleEditor";
 import PostOrderTieredEditor from "./PostOrderTieredEditor";
 import CustomerLevelSelector from "./CustomerLevelSelector";
+import StoreTagSelector from "./StoreTagSelector";
 import RuleTestPanel from "./RuleTestPanel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -180,34 +181,37 @@ export default function RuleEditorModal({ rule: initialRule, onClose, onSaved })
                 {/* ── ORDER PHASE ── */}
                 {!isShipping && rule.mode === 'simple' && (
                   <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <Label className="text-xs text-gray-500">服务费率 (%)</Label>
-                        <div className="flex items-center gap-2 mt-1">
-                          <Input className="h-9 text-sm w-28" type="number" step="0.1" value={rule.simple_rate ?? 8}
+                    {/* Default / fallback rate */}
+                    <div>
+                      <Label className="text-xs text-gray-500 block mb-2">默认费率（未匹配到任何等级/网站时适用）</Label>
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1.5">
+                          <Input className="h-9 text-sm w-24" type="number" step="0.1" value={rule.simple_rate ?? 8}
                             onChange={e => set('simple_rate', parseFloat(e.target.value) || 0)} />
                           <span className="text-sm text-gray-500">% × 货款</span>
                         </div>
-                      </div>
-                      <div>
-                        <Label className="text-xs text-gray-500">固定费 (JPY)</Label>
-                        <div className="flex items-center gap-2 mt-1">
-                          <Input className="h-9 text-sm w-28" type="number" value={rule.simple_fixed_fee ?? 0}
+                        <span className="text-gray-300">+</span>
+                        <div className="flex items-center gap-1.5">
+                          <Input className="h-9 text-sm w-24" type="number" value={rule.simple_fixed_fee ?? 0}
                             onChange={e => set('simple_fixed_fee', parseFloat(e.target.value) || 0)} />
-                          <span className="text-sm text-gray-500">¥</span>
+                          <span className="text-sm text-gray-500">¥ 固定</span>
                         </div>
                       </div>
                     </div>
-                    {(rule.simple_rate > 0 || rule.simple_fixed_fee > 0) && (
-                      <code className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded font-mono block">
-                        goodsAmount × {rule.simple_rate}% + ¥{rule.simple_fixed_fee ?? 0}
-                      </code>
-                    )}
+
+                    {/* Customer level → rate */}
                     <div className="border-t border-gray-200 pt-3">
                       <CustomerLevelSelector
                         value={rule.customer_level_filter || []}
                         onChange={v => set('customer_level_filter', v)}
-                        showRateFields={false}
+                      />
+                    </div>
+
+                    {/* Store tag → rate */}
+                    <div className="border-t border-gray-200 pt-3">
+                      <StoreTagSelector
+                        value={rule.store_filter || []}
+                        onChange={v => set('store_filter', v)}
                       />
                     </div>
                   </div>
