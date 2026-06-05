@@ -54,6 +54,14 @@ export default function CountrySettingsManager({ initialConfig, settingId, onRel
     setRows(ALL_COUNTRIES.map(c => ({ ...c, enabled: true })));
   };
 
+  const handleEnableAll = () => {
+    setRows(prev => prev.map(r => ({ ...r, enabled: true })));
+  };
+
+  const handleDisableAll = () => {
+    setRows(prev => prev.map(r => ({ ...r, enabled: false })));
+  };
+
   const handleSave = async () => {
     setSaving(true);
     const config = rows.map(r => ({ code: r.code, enabled: r.enabled }));
@@ -94,6 +102,12 @@ export default function CountrySettingsManager({ initialConfig, settingId, onRel
           <span className="ml-1 text-gray-400">（拖拽行可调整顺序，置顶的国家在选择框中优先显示）</span>
         </p>
         <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={handleEnableAll}>
+            全部启用
+          </Button>
+          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={handleDisableAll}>
+            全部禁用
+          </Button>
           <Button size="sm" variant="outline" className="h-7 text-xs" onClick={handleReset}>
             <RotateCcw className="w-3 h-3 mr-1" />恢复默认
           </Button>
