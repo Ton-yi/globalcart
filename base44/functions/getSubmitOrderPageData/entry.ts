@@ -76,17 +76,26 @@ Deno.serve(async (req) => {
     }
 
     const t1 = Date.now();
-    const [addons, siteSettings, liveRates] = await Promise.all([
+    const [addons, siteSettings, feeRules, liveRates] = await Promise.all([
       base44.asServiceRole.entities.AddonOption.filter({ tenant_id: tenantId }),
       base44.asServiceRole.entities.SiteSettings.filter({ tenant_id: tenantId }),
+      base44.asServiceRole.entities.ServiceFeeRule.filter({ tenant_id: tenantId }),
       fetchLiveRates(),
     ]);
-    console.log(`[TIMING] getSubmitOrderPageData | 3x parallel queries: ${Date.now() - t1}ms`);
+    console.log(`[TIMING] getSubmitOrderPageData | 4x parallel queries: ${Date.now() - t1}ms`);
     console.log(`[TIMING] getSubmitOrderPageData | TOTAL: ${Date.now() - t0}ms`);
 
     // Build settings map
     const settingsMap = {};
     (siteSettings || []).forEach(s => { settingsMap[s.key] = s.value; });
+
+    // Pick active order-phase fee rule
+    const now = new Date().toISOString().slice(0, 10);
+    const activeRule = (feeRules || [])
+      .filter(r => !r.is_archived && r.status === 'active' && r.fee_phase !== 'shipping')
+      .filter(r => !r.effective_from || r.effective_from <= now)
+      .filter(r => !r.effective_until || r.effective_until >= now)
+      .sort((a, b) => (parseFloat(b.priority) || 0) - (parseFloat(a.priority) || 0))[0] || null;
 
     // Merge live rates with increment adjustments from settings
     const baseRates = liveRates || DEFAULT_RATES;
@@ -105,6 +114,7 @@ Deno.serve(async (req) => {
       addons: (addons || []).filter(a => (!a.addon_type || a.addon_type === 'order') && a.is_active !== false),
       settings: settingsMap,
       rates,
+      activeRule,  // null means fall back to settings.service_fee_rate
     });
 
   } catch (error) {

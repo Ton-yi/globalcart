@@ -81,11 +81,19 @@ Deno.serve(async (req) => {
     // === Credit accounting: if order uses credit payment, check limit and update balance ===
     if (body.payment_mode === 'credit') {
       const creditAmount = parseFloat(body.estimated_jpy) || 0;
-      const serviceFeeRate = parseFloat(body.service_fee_rate) || 10;
       const addonTotal = (body.selected_addons || []).reduce((sum, a) => {
         return sum + (parseFloat(a.fee) || 0);
       }, 0);
-      const totalJpy = Math.round(creditAmount + creditAmount * (serviceFeeRate / 100) + addonTotal);
+      // Use service_fee_amount if already calculated by the rule engine (snapshot on order),
+      // otherwise fall back to the submitted service_fee_rate (legacy path)
+      let serviceFeeJpy = 0;
+      if (order.service_fee_amount != null && order.service_fee_amount > 0) {
+        serviceFeeJpy = parseFloat(order.service_fee_amount) || 0;
+      } else {
+        const serviceFeeRate = parseFloat(body.service_fee_rate) || 10;
+        serviceFeeJpy = creditAmount * (serviceFeeRate / 100);
+      }
+      const totalJpy = Math.round(creditAmount + serviceFeeJpy + addonTotal);
 
       const currentUser = userRecord[0];
       const currentBalance = parseFloat(currentUser.credit_balance_jpy) || 0;

@@ -19,8 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 
-// Default rates (overridden by settings)
-const DEFAULT_SERVICE_FEE_RATE = 0.10;
+// Default prepay rate fallback
 const DEFAULT_PREPAY_RATE = 0.80;
 
 export default function SubmitOrder() {
@@ -36,6 +35,7 @@ export default function SubmitOrder() {
   const canApplyCredit = can("payment:apply_credit");
   const [rates, setRates] = useState(null);
   const [settings, setSettings] = useState({});
+  const [activeRule, setActiveRule] = useState(null);
   const [productUrls, setProductUrls] = useState([""]);
   const [urlMode, setUrlMode] = useState("multi"); // "textarea" | "multi"
   const [addonOptions, setAddonOptions] = useState([]);
@@ -63,6 +63,7 @@ export default function SubmitOrder() {
       const data = r.data || {};
       setAddonOptions(data.addons || []);
       setRates(data.rates || null);
+      setActiveRule(data.activeRule || null);
       const parsed = {};
       Object.entries(data.settings || {}).forEach(([k, v]) => { parsed[k] = v; });
       setSettings(parsed);
@@ -95,29 +96,49 @@ export default function SubmitOrder() {
     return sum + convertAddonFee(opt);
   }, 0);
 
-  const calculate = () => {
+  const calculate = async () => {
     const jpy = parseFloat(form.estimated_jpy);
     if (!jpy || jpy <= 0) { setCalculated(null); return; }
-    // Get rates from settings
-    const serviceFeeRate = (parseFloat(settings.service_fee_rate) || DEFAULT_SERVICE_FEE_RATE) / 100;
     const prepayRate = (parseFloat(settings.prepay_rate) || DEFAULT_PREPAY_RATE) / 100;
-    // Calculate all fees in JPY
-    const serviceFeeJpy = jpy * serviceFeeRate;
     const addonTotalJpy = getAddonTotal();
+
+    let serviceFeeJpy = 0;
+    let feeRateDisplay = null;
+
+    if (activeRule) {
+      // Use the rule engine to calculate service fee
+      const variables = {
+        goodsAmount: jpy,
+        orderAmount: jpy,
+        itemCount: 1,
+        sourceSite: '其它', // unknown at submit time; rule engine will use default
+        customerLevel: '', // unknown at submit time; rule engine will use default
+        valueAddedServiceAmount: addonTotalJpy,
+      };
+      const res = await base44.functions.invoke('serviceFeeRuleEngine', { action: 'evaluate', variables, rule: activeRule });
+      serviceFeeJpy = res.data?.fee ?? 0;
+      feeRateDisplay = activeRule.name; // show rule name instead of flat %
+    } else {
+      // Fall back to settings.service_fee_rate
+      const fallbackRate = (parseFloat(settings.service_fee_rate) || 10) / 100;
+      serviceFeeJpy = jpy * fallbackRate;
+      feeRateDisplay = `${(parseFloat(settings.service_fee_rate) || 10).toFixed(0)}%`;
+    }
+
     const totalJpy = jpy + serviceFeeJpy + addonTotalJpy;
     const prepayJpy = totalJpy * prepayRate;
     setCalculated({
-      jpy: jpy,
+      jpy,
       serviceFeeJpy: Math.round(serviceFeeJpy),
       addonTotal: Math.round(addonTotalJpy),
       totalJpy: Math.round(totalJpy),
       prepayJpy: Math.round(prepayJpy),
-      feeRate: (serviceFeeRate * 100).toFixed(0),
-      prepayRate: (prepayRate * 100).toFixed(0)
+      feeRateDisplay,
+      prepayRate: (prepayRate * 100).toFixed(0),
     });
   };
 
-  useEffect(() => { if (form.estimated_jpy) calculate(); }, [form.estimated_jpy, selectedAddons, settings]);
+  useEffect(() => { if (form.estimated_jpy) calculate(); }, [form.estimated_jpy, selectedAddons, settings, activeRule]);
 
   const handleImageUpload = async (file) => {
     if (!file) return;
@@ -171,7 +192,7 @@ export default function SubmitOrder() {
       user_name: user.full_name || user.email,
       quantity: 1,
       estimated_jpy: parseFloat(form.estimated_jpy) || 0,
-      service_fee_rate: parseFloat(settings.service_fee_rate) || (DEFAULT_SERVICE_FEE_RATE * 100),
+      service_fee_rate: parseFloat(settings.service_fee_rate) || 10,
       prepayment_amount: isFullpay ? (calculated ? parseFloat(calculated.totalJpy) : 0) : (calculated ? parseFloat(calculated.prepayJpy) : 0),
       prepayment_currency: "JPY",
       online_store_tag: tagResult.tag_label,
@@ -228,7 +249,7 @@ export default function SubmitOrder() {
         <Alert className="border-blue-200 bg-blue-50">
           <Info className="w-4 h-4 text-blue-600" />
           <AlertDescription className="text-blue-800 text-sm">
-            预付款 = (日元货款总价 + {parseFloat(settings.service_fee_rate) || (DEFAULT_SERVICE_FEE_RATE * 100)}% 服务费 + 增值费用) × {parseFloat(settings.prepay_rate) || (DEFAULT_PREPAY_RATE * 100)}%。订单确认后可补款或抵扣余额。
+            预付款 = (日元货款总价 + 服务费 + 增值费用) × {parseFloat(settings.prepay_rate) || (DEFAULT_PREPAY_RATE * 100).toFixed(0)}%。订单确认后可补款或抵扣余额。
           </AlertDescription>
         </Alert>
       )}
@@ -485,7 +506,7 @@ export default function SubmitOrder() {
               <div className="text-xs text-gray-400 font-mono leading-5 bg-white border border-gray-100 rounded px-3 py-2">
                 <span className="text-gray-500">¥{parseFloat(calculated.jpy).toLocaleString()}</span>
                 <span className="text-gray-300 mx-1 ml-2">+</span>
-                <span className="text-gray-500">{calculated.feeRate}%服务费</span>
+                <span className="text-gray-500">{calculated.feeRateDisplay}服务费</span>
                 <span className="text-gray-300 mx-1">=</span>
                 <span className="text-gray-600">¥{calculated.serviceFeeJpy}</span>
                 {parseFloat(calculated.addonTotal) > 0 && (
