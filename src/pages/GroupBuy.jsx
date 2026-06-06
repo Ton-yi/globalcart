@@ -63,7 +63,7 @@ export default function GroupBuy() {
     title: '', template_id: '', deadline: '', on_deadline_action: 'cancel', condition_tier_id: '',
   });
   const [entryForm, setEntryForm] = useState(null); // the join form data
-  const [urlForDetect, setUrlForDetect] = useState('');
+
 
   const loadData = useCallback(async () => {
     if (!user) return;
@@ -105,14 +105,12 @@ export default function GroupBuy() {
   // We approximate by creator; entries loaded on detail open
   const myCreatedRequests = requests.filter(r => r.creator_email === user?.email);
 
-  // Detect template from URL input in create form
-  const handleUrlChange = (url) => {
-    setUrlForDetect(url);
-    if (url && templates.length > 0) {
-      const detected = detectTemplate(url, templates);
-      if (detected) {
-        setCreateForm(f => ({ ...f, template_id: detected.id }));
-      }
+  // Called when user types product URL in join form
+  const handleProductUrlDetect = (url) => {
+    if (!url || templates.length === 0) return;
+    const detected = detectTemplate(url, templates);
+    if (detected) {
+      setCreateForm(f => ({ ...f, template_id: detected.id, condition_tier_id: '' }));
     }
   };
 
@@ -152,7 +150,6 @@ export default function GroupBuy() {
       setShowCreateForm(false);
       setCreateForm({ title: '', template_id: '', deadline: '', on_deadline_action: 'cancel', condition_tier_id: '' });
       setEntryForm(null);
-      setUrlForDetect('');
       loadData();
     }
   };
@@ -237,13 +234,6 @@ export default function GroupBuy() {
                       value={createForm.title} onChange={e => setCreateForm(f => ({ ...f, title: e.target.value }))} />
                   </div>
 
-                  {/* URL auto-detect */}
-                  <div className="col-span-2">
-                    <Label className="text-xs text-gray-500">输入链接自动识别店铺（可选）</Label>
-                    <Input className="mt-1 h-8 text-sm" placeholder="https://www.amazon.co.jp/..."
-                      value={urlForDetect} onChange={e => handleUrlChange(e.target.value)} />
-                  </div>
-
                   <div>
                     <Label className="text-xs text-gray-500">拼单店铺 *</Label>
                     <Select value={createForm.template_id} onValueChange={v => setCreateForm(f => ({ ...f, template_id: v, condition_tier_id: '' }))}>
@@ -303,6 +293,9 @@ export default function GroupBuy() {
                     onDataChange={setEntryForm}
                     onSuccess={() => {}}
                     onCancel={() => {}}
+                    templates={templates.filter(t => t.status === 'approved' && t.is_active !== false)}
+                    currentTemplateId={createForm.template_id}
+                    onTemplateDetected={(tpl) => setCreateForm(f => ({ ...f, template_id: tpl.id, condition_tier_id: '' }))}
                   />
                 </div>
 
@@ -395,6 +388,7 @@ export default function GroupBuy() {
           isAdmin={isAdmin}
           onClose={closeDetail}
           onRefresh={() => { loadData(); openDetail(selectedRequest); }}
+          templates={templates.filter(t => t.status === 'approved' && t.is_active !== false)}
         />
       )}
     </div>

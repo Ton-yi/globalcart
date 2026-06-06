@@ -20,7 +20,7 @@ const STATUS_CONFIG = {
   expired:   { label: "已过期", color: "bg-gray-100 text-gray-500" },
 };
 
-export default function GroupBuyDetailModal({ request, entries = [], currentUser, isAdmin, onClose, onRefresh }) {
+export default function GroupBuyDetailModal({ request, entries = [], currentUser, isAdmin, onClose, onRefresh, templates = [] }) {
   const [showJoinForm, setShowJoinForm] = useState(false);
   const [completing, setCompleting] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -163,6 +163,8 @@ export default function GroupBuyDetailModal({ request, entries = [], currentUser
                   currentUser={currentUser}
                   onSuccess={() => { setShowJoinForm(false); onRefresh?.(); }}
                   onCancel={() => setShowJoinForm(false)}
+                  templates={templates}
+                  currentTemplateId={request.template_id}
                 />
               ) : (
                 <Button className="w-full bg-indigo-600 hover:bg-indigo-700" onClick={() => setShowJoinForm(true)}>

@@ -10,7 +10,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { base44 } from "@/api/base44Client";
 
-export default function GroupBuyJoinForm({ request, currentUser, onSuccess, onCancel, isCreateMode = false, onDataChange }) {
+// Detect template from URL using keywords
+function detectTemplate(url, templates) {
+  if (!url || !templates?.length) return null;
+  for (const t of templates) {
+    if (t.status !== 'approved' || t.is_active === false) continue;
+    const keywords = t.url_keywords || [];
+    if (keywords.some(kw => url.toLowerCase().includes(kw.toLowerCase()))) return t;
+  }
+  return null;
+}
+
+export default function GroupBuyJoinForm({ request, currentUser, onSuccess, onCancel, isCreateMode = false, onDataChange, templates = [], onTemplateDetected, currentTemplateId }) {
   const [form, setForm] = useState({
     product_url: '',
     product_name: '',
@@ -23,11 +34,29 @@ export default function GroupBuyJoinForm({ request, currentUser, onSuccess, onCa
   });
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [urlConflict, setUrlConflict] = useState(null); // detected template when it conflicts
 
   const sf = (k, v) => {
     const updated = { ...form, [k]: v };
     setForm(updated);
     onDataChange?.(updated);
+  };
+
+  const handleProductUrlChange = (url) => {
+    sf('product_url', url);
+    if (!url) { setUrlConflict(null); return; }
+    const detected = detectTemplate(url, templates);
+    if (detected) {
+      if (currentTemplateId && detected.id !== currentTemplateId) {
+        // Conflict: URL belongs to a different store
+        setUrlConflict(detected);
+      } else {
+        setUrlConflict(null);
+        onTemplateDetected?.(detected);
+      }
+    } else {
+      setUrlConflict(null);
+    }
   };
 
   const handleImageUpload = async (file) => {
@@ -61,7 +90,20 @@ export default function GroupBuyJoinForm({ request, currentUser, onSuccess, onCa
       <div>
         <Label className="text-xs text-gray-500">商品链接</Label>
         <Input className="mt-1 h-8 text-sm" placeholder="https://..." value={form.product_url}
-          onChange={e => sf('product_url', e.target.value)} />
+          onChange={e => handleProductUrlChange(e.target.value)} />
+        {urlConflict && (
+          <p className="mt-1 text-xs text-orange-600 bg-orange-50 border border-orange-200 rounded px-2 py-1">
+            ⚠️ 该链接属于「{urlConflict.name}」，与当前拼单店铺不同，请分开提交
+          </p>
+        )}
+        {!urlConflict && form.product_url && isCreateMode && !currentTemplateId && (
+          (() => {
+            const det = detectTemplate(form.product_url, templates);
+            return det ? (
+              <p className="mt-1 text-xs text-green-600">✓ 已识别店铺：{det.name}</p>
+            ) : null;
+          })()
+        )}
       </div>
 
       <div>
