@@ -93,7 +93,7 @@ Deno.serve(async (req) => {
 
     // ── review_template ──────────────────────────────────────────────
     if (action === 'review_template') {
-      if (!isTenantAdmin) return Response.json({ error: 'Forbidden' }, { status: 403 });
+      if (!isTenantAdmin && !isAdmin) return Response.json({ error: 'Forbidden' }, { status: 403 });
       const { template_id, decision, reject_reason } = body; // decision: 'approve' | 'reject'
       const existing = (await base44.asServiceRole.entities.GroupBuyTemplate.filter({ id: template_id }))?.[0];
       if (!existing || existing.tenant_id !== tenantId) {
