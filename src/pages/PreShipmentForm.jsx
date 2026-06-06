@@ -163,7 +163,16 @@ export default function PreShipmentForm() {
     }
   };
 
-  const selectedAddons = shippingAddons.filter(a => selectedAddonIds.includes(a.id));
+  // Filter addons based on selected transit location's disabled_addon_ids
+  const selectedTransitLocation = transitLocations.find(l => l.id === transitLocationId);
+  const disabledAddonIds = (consType === "transit" && selectedTransitLocation?.disabled_addon_ids) 
+    ? selectedTransitLocation.disabled_addon_ids 
+    : [];
+  const availableAddons = shippingAddons.filter(a => !disabledAddonIds.includes(a.id));
+
+  // Remove any selected addons that are now disabled when transit location changes
+  const effectiveSelectedAddonIds = selectedAddonIds.filter(id => !disabledAddonIds.includes(id));
+  const selectedAddons = availableAddons.filter(a => effectiveSelectedAddonIds.includes(a.id));
 
   const canSubmit = () => {
     if (!shippingMethod) return false;
@@ -208,7 +217,7 @@ export default function PreShipmentForm() {
       transit_location_id: consType === "transit" ? transitLocationId : "",
       transit_location_name: consType === "transit" ? (transitLoc?.name || "") : "",
       address: consType === "transit" || consType === "official_pool" ? {} : { ...effectiveAddress },
-      selected_addon_ids: selectedAddonIds,
+      selected_addon_ids: effectiveSelectedAddonIds,
       selected_addons: selectedAddons.map(a => ({ id: a.id, name: a.name, fee: a.fee, fee_currency: a.fee_currency })),
       pool_created: consType === "official_pool",
       target_pool_id: consType === "official_pool" ? selectedPoolId : "",
@@ -482,16 +491,16 @@ export default function PreShipmentForm() {
       )}
 
       {/* Addons */}
-      {shippingAddons.length > 0 && (
+      {availableAddons.length > 0 && (
         <Card className="border-gray-200">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold text-gray-700">发货增值服务（可选）</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            {shippingAddons.map(a => (
-              <label key={a.id} className={`flex items-center justify-between gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${selectedAddonIds.includes(a.id) ? "border-yellow-400 bg-yellow-50" : "border-gray-200 hover:bg-gray-50"}`}>
+            {availableAddons.map(a => (
+              <label key={a.id} className={`flex items-center justify-between gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${effectiveSelectedAddonIds.includes(a.id) ? "border-yellow-400 bg-yellow-50" : "border-gray-200 hover:bg-gray-50"}`}>
                 <div className="flex items-center gap-2">
-                  <Checkbox checked={selectedAddonIds.includes(a.id)}
+                  <Checkbox checked={effectiveSelectedAddonIds.includes(a.id)}
                     onCheckedChange={v => setSelectedAddonIds(prev => v ? [...prev, a.id] : prev.filter(id => id !== a.id))} />
                   <div>
                     <span className="text-sm font-medium text-gray-800">{a.name}</span>
