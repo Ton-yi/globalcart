@@ -105,11 +105,11 @@ export default function Layout({ children, currentPageName }) {
   let navItems = [visibleUserNav[0]]; // Always show Home
   
   if (isPlatformAdmin) {
-    // Platform admin: show all admin items plus personal profile
-    navItems = [...navItems, ...platformAdminNav, ...tenantAdminNav.filter(item => item.canAccess), { label: "个人档案", icon: User, page: "UserPreferences" }];
+    // Platform admin: show user nav + platform admin items + tenant admin items + personal profile
+    navItems = [...navItems, ...visibleUserNav.slice(1), ...platformAdminNav, ...tenantAdminNav.filter(item => item.canAccess), { label: "个人档案", icon: User, page: "UserPreferences" }];
   } else if (isTenantAdmin) {
-    // Tenant admin: show tenant admin items plus personal profile
-    navItems = [...navItems, ...tenantAdminNav.filter(item => item.canAccess), { label: "个人档案", icon: User, page: "UserPreferences" }];
+    // Tenant admin: show user nav + tenant admin items + personal profile
+    navItems = [...navItems, ...visibleUserNav.slice(1), ...tenantAdminNav.filter(item => item.canAccess), { label: "个人档案", icon: User, page: "UserPreferences" }];
   } else if (isStaff) {
     // Staff: show user pages + any admin pages they have permission for
     const staffAdminItems = tenantAdminNav.filter(item => item.canAccess);
