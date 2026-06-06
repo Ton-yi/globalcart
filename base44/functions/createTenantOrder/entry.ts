@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
 /**
  * Create an order with automatic tenant_id assignment from authenticated user
@@ -18,18 +18,22 @@ Deno.serve(async (req) => {
     // Remove any tenant_id from request body (security: never trust client)
     delete body.tenant_id;
 
-    // Get user record to find tenant_id
-    const userRecord = await base44.asServiceRole.entities.User.filter({ email: user.email });
-    if (!userRecord || userRecord.length === 0) {
+    // Get user record to find tenant_id - use asServiceRole to bypass RLS
+    const userRecords = await base44.asServiceRole.entities.User.filter({ email: user.email }, undefined, 1);
+    if (!userRecords || userRecords.length === 0) {
       return Response.json({ error: 'User record not found' }, { status: 404 });
     }
 
-    const tenantId = userRecord[0].tenant_id;
+    const userRecord = userRecords[0];
+    const tenantId = userRecord.tenant_id;
+    
+    // Platform admins can create orders without tenant (for platform-level operations)
+    // For regular users, tenant_id is required
     if (!tenantId && user.role !== 'platform_admin') {
       return Response.json({ error: 'User has no tenant assigned' }, { status: 403 });
     }
 
-    // For platform admins, tenant_id must be provided in body; for others it's auto-assigned
+    // For platform admins, tenant_id can be provided in body; for others it's auto-assigned
     const assignedTenantId = user.role === 'platform_admin' && body.tenant_id 
       ? body.tenant_id 
       : tenantId;
@@ -49,8 +53,8 @@ Deno.serve(async (req) => {
     const dateStr = `${yyyy}${mm}${dd}`;
     const prefix = `TY${dateStr}`;
 
-    // Fetch all orders with this prefix for the tenant to find max seq
-    const existingOrders = await base44.asServiceRole.entities.Order.filter({ tenant_id: assignedTenantId });
+    // Fetch today's orders for this tenant to find max seq - use asServiceRole to bypass RLS
+    const existingOrders = await base44.asServiceRole.entities.Order.filter({ tenant_id: assignedTenantId }, undefined, 500);
     const todayOrders = (existingOrders || []).filter(o => (o.order_number || '').startsWith(prefix));
     const maxSeq = todayOrders.reduce((max, o) => {
       const seq = parseInt((o.order_number || '').slice(prefix.length), 10) || 0;

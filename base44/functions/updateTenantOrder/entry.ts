@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
 /**
  * Update an order with tenant isolation verification
@@ -23,20 +23,22 @@ Deno.serve(async (req) => {
     // Security: never allow changing tenant_id from client
     delete updateData.tenant_id;
 
-    // Get user record and tenant_id
-    const userRecord = await base44.asServiceRole.entities.User.filter({ email: user.email });
-    if (!userRecord || userRecord.length === 0) {
+    // Get user record and tenant_id - use asServiceRole to bypass RLS
+    const userRecords = await base44.asServiceRole.entities.User.filter({ email: user.email }, undefined, 1);
+    if (!userRecords || userRecords.length === 0) {
       return Response.json({ error: 'User record not found' }, { status: 404 });
     }
 
-    const tenantId = userRecord[0].tenant_id;
+    const userRecord = userRecords[0];
+    const tenantId = userRecord.tenant_id;
+    
     if (!tenantId && user.role !== 'platform_admin') {
       return Response.json({ error: 'User has no tenant assigned' }, { status: 403 });
     }
 
-    // Fetch order to verify ownership
-    const orderResult = await base44.asServiceRole.entities.Order.filter({ id: order_id });
-    const order = Array.isArray(orderResult) ? orderResult[0] : orderResult;
+    // Fetch order to verify ownership - use asServiceRole to bypass RLS
+    const orderRecords = await base44.asServiceRole.entities.Order.filter({ id: order_id }, undefined, 1);
+    const order = Array.isArray(orderRecords) ? orderRecords[0] : orderRecords;
 
     if (!order) {
       return Response.json({ error: 'Order not found' }, { status: 404 });
