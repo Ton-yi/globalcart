@@ -440,8 +440,8 @@ export default function PreShipmentForm() {
         </CardContent>
       </Card>
 
-      {/* Shipping method & date — hidden when a specific official pool is selected */}
-      {!specificPoolSelected && <Card className="border-gray-200">
+      {/* Shipping method & date — greyed out when a specific official pool is selected */}
+      <Card className={`border-gray-200 transition-opacity ${specificPoolSelected ? "opacity-40 pointer-events-none" : ""}`}>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
             <Package className="w-4 h-4" />运输方式
@@ -478,7 +478,7 @@ export default function PreShipmentForm() {
             </div>
           </div>
         </CardContent>
-      </Card>}
+      </Card>
 
       {/* Address (only for direct shipment) */}
       {consType === "" && (
