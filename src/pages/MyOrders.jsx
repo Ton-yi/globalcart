@@ -545,16 +545,22 @@ export default function MyOrders() {
                       <Truck className="w-3 h-3 mr-1" />通知发货
                     </Button>
                   )}
+                  {/* Pre-shipment badge / button: show for all orders not yet in warehouse and not cancelled */}
+                  {!["in_warehouse", "notified_shipment", "notified_shipment_fee_pending", "shipping_fee_pending", "ready_to_ship", "shipped", "delivered", "cancelled"].includes(order.order_status) && (
+                    order.pre_shipment
+                      ? <Button size="sm" variant="outline" className="h-6 text-xs px-2 text-purple-600 border-purple-200 hover:bg-purple-50"
+                          onClick={() => navigate(`/PreShipmentForm?order_id=${order.id}`)}>
+                          <Zap className="w-3 h-3 mr-1" />编辑预出货
+                        </Button>
+                      : <Button size="sm" variant="outline" className="h-6 text-xs px-2 text-blue-600 border-blue-200 hover:bg-blue-50"
+                          onClick={() => navigate(`/PreShipmentForm?order_id=${order.id}`)}>
+                          <Zap className="w-3 h-3 mr-1" />预出货
+                        </Button>
+                  )}
                   {order.order_status === "in_warehouse" && order.pre_shipment && !order.pre_shipment.pool_created && (
                     <span className="inline-flex items-center gap-1 text-xs bg-blue-100 text-blue-700 border border-blue-200 px-1.5 py-0.5 rounded-full font-medium w-fit">
-                      <Zap className="w-2.5 h-2.5" />预出货
+                      <Zap className="w-2.5 h-2.5" />已预出货
                     </span>
-                  )}
-                  {order.order_status === "payment_pending" && !order.pre_shipment && (
-                    <Button size="sm" variant="outline" className="h-6 text-xs px-2 text-blue-600 border-blue-200"
-                      onClick={() => navigate(`/PreShipmentForm?order_id=${order.id}`)}>
-                      <Zap className="w-3 h-3 mr-1" />预出货
-                    </Button>
                   )}
                   {order.order_status === "notified_shipment" && (() => {
                     const pool = shippingPools.find(p => (p.order_ids || []).includes(order.id));

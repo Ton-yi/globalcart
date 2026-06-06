@@ -79,6 +79,19 @@ export default function PreShipmentForm() {
         if (!isMounted) return;
         
         setOrder(ord || null);
+
+        // Pre-fill form if order already has pre_shipment data (edit mode)
+        if (ord?.pre_shipment) {
+          const ps = ord.pre_shipment;
+          if (ps.shipping_method) setShippingMethod(ps.shipping_method);
+          if (ps.scheduled_ship_date) setScheduledDate(ps.scheduled_ship_date);
+          if (ps.user_note) setUserNote(ps.user_note);
+          if (ps.consType !== undefined) setConsType(ps.consType || "");
+          if (ps.transit_location_id) setTransitLocationId(ps.transit_location_id);
+          if (ps.selected_addon_ids) setSelectedAddonIds(ps.selected_addon_ids);
+          if (ps.pool_created) setJoinOfficialPool(true);
+          if (ps.target_pool_id) setSelectedPoolId(ps.target_pool_id);
+        }
         
         // Deduplicate shipping methods by id - ensure unique
         const allMethods = (cfg.shippingMethods || []).filter(m => m.is_active !== false);
@@ -125,14 +138,23 @@ export default function PreShipmentForm() {
         const pref = prefs[0];
         const addrs = (pref?.saved_addresses || []).map(a => ({ ...EMPTY_ADDRESS_FORM, ...a }));
         setSavedAddresses(addrs);
-        const defaultId = pref?.default_address_id || "";
-        const defaultAddr = addrs.find(a => a.id === defaultId) || addrs[0];
-        if (defaultAddr) {
-          setSelectedAddressId(defaultAddr.id);
-          setAddress({ label: defaultAddr.label || "", ...defaultAddr });
-          setUseNewAddress(false);
-        } else {
+
+        // If editing and order has a saved address, restore it
+        const existingAddress = ord?.pre_shipment?.address;
+        if (existingAddress && existingAddress.recipient_name) {
+          setAddress({ label: existingAddress.label || "", ...existingAddress });
           setUseNewAddress(true);
+          setSelectedAddressId("");
+        } else {
+          const defaultId = pref?.default_address_id || "";
+          const defaultAddr = addrs.find(a => a.id === defaultId) || addrs[0];
+          if (defaultAddr) {
+            setSelectedAddressId(defaultAddr.id);
+            setAddress({ label: defaultAddr.label || "", ...defaultAddr });
+            setUseNewAddress(false);
+          } else {
+            setUseNewAddress(true);
+          }
         }
         if (isMounted) setLoading(false);
       } catch (error) {
@@ -298,7 +320,7 @@ export default function PreShipmentForm() {
           <ChevronLeft className="w-5 h-5" />
         </button>
         <div>
-          <h1 className="text-xl font-bold text-gray-900">预出货信息</h1>
+          <h1 className="text-xl font-bold text-gray-900">{order?.pre_shipment ? "编辑预出货信息" : "预出货信息"}</h1>
           <p className="text-sm text-gray-400 mt-0.5">预先填写，入库后自动生成发货申请</p>
         </div>
       </div>
