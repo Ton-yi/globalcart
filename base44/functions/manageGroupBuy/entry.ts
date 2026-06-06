@@ -43,8 +43,11 @@ Deno.serve(async (req) => {
     // ── list_templates ───────────────────────────────────────────────
     if (action === 'list_templates') {
       const all = await base44.asServiceRole.entities.GroupBuyTemplate.filter({ tenant_id: tenantId });
-      // Users see approved+active; admins see all
-      const visible = isAdmin ? all : (all || []).filter(t => t.status === 'approved' && t.is_active !== false);
+      // Admins see all; users see approved+active OR their own submissions (any status)
+      const visible = isAdmin ? all : (all || []).filter(t =>
+        (t.status === 'approved' && t.is_active !== false) ||
+        t.created_by_email === user.email
+      );
       return Response.json({ templates: visible || [] });
     }
 
