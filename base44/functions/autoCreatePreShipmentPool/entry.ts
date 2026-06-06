@@ -35,8 +35,44 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Order has no tenant_id' }, { status: 400 });
     }
 
-    // Generate pool code
     const consType = pre.consType || '';
+
+    // --- Case 1: User selected a specific official pool → join it directly ---
+    if (consType === 'official_pool' && pre.target_pool_id) {
+      const targetPoolResults = await base44.asServiceRole.entities.ShippingPool.filter({ id: pre.target_pool_id });
+      const targetPool = (targetPoolResults || [])[0];
+
+      if (!targetPool) {
+        return Response.json({ error: `Target pool ${pre.target_pool_id} not found` }, { status: 404 });
+      }
+
+      // Add order to the existing pool
+      const updatedOrderIds = [...(targetPool.order_ids || []), order.id];
+      const updatedOrderNames = [...(targetPool.order_names || []), order.product_name].filter(Boolean);
+      const updatedWeight = (targetPool.total_weight_g || 0) + (order.weight_g || 0);
+
+      await base44.asServiceRole.entities.ShippingPool.update(pre.target_pool_id, {
+        order_ids: updatedOrderIds,
+        order_names: updatedOrderNames,
+        total_weight_g: updatedWeight,
+      });
+
+      // Update order: link to this pool, mark as notified_shipment
+      await base44.asServiceRole.entities.Order.update(order.id, {
+        order_status: 'notified_shipment',
+        consolidation_pool_id: pre.target_pool_id,
+        pre_shipment: {
+          ...pre,
+          pool_created: true,
+          pool_id: pre.target_pool_id,
+        },
+      });
+
+      console.log(`[autoCreatePreShipmentPool] Joined existing official pool ${targetPool.pool_code} for order ${order.id}`);
+      return Response.json({ success: true, pool_code: targetPool.pool_code, pool_id: pre.target_pool_id, joined_existing: true });
+    }
+
+    // --- Case 2: Create a new pool (direct / transit / official_pool with auto-match) ---
     const transitLoc = pre.transit_location_id
       ? (await base44.asServiceRole.entities.TransitLocation.filter({ id: pre.transit_location_id }))?.[0]
       : null;
@@ -54,8 +90,6 @@ Deno.serve(async (req) => {
 
     const addr = pre.address || {};
     const isAsap = pre.scheduled_ship_date === '__asap__';
-
-    // Determine destination country from address
     const destinationCountry = addr.country || '';
 
     const pool = await base44.asServiceRole.entities.ShippingPool.create({
