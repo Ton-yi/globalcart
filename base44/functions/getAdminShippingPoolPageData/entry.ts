@@ -130,8 +130,9 @@ Deno.serve(async (req) => {
         const poolMap = {};
         sortedPools.forEach(p => { poolMap[p.id] = p; });
         const reordered = savedOrder.map(id => poolMap[id]).filter(Boolean);
-        sortedPools.forEach(p => { if (!savedOrder.includes(p.id)) reordered.push(p); });
-        sortedPools = reordered;
+        // New pools (not in saved order) go to the FRONT so they appear first
+        const newPools = sortedPools.filter(p => !savedOrder.includes(p.id));
+        sortedPools = [...newPools, ...reordered];
       } catch (e) {
         console.error('Failed to apply pool order:', e);
       }
