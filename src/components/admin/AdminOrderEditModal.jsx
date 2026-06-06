@@ -8,7 +8,7 @@ import ReactMarkdown from "react-markdown";
 import { base44 } from "@/api/base44Client";
 import { updateOrder, tenantEntity } from "@/lib/tenantApi";
 import { usePermissions } from "@/hooks/usePermissions";
-import { X, ExternalLink, Copy, Loader2, CheckCircle, Upload, AlertTriangle, MessageCircle, Package, Send, Layers, Scissors, GitBranch, GitPullRequest, Lock } from "lucide-react";
+import { X, ExternalLink, Copy, Loader2, CheckCircle, Upload, AlertTriangle, MessageCircle, Package, Send, Layers, Scissors, GitBranch, GitPullRequest, Lock, Zap } from "lucide-react";
 import { ImageWithViewer } from "@/components/common/ImageViewer";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -86,6 +86,9 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
   const [shippingFee, setShippingFee] = useState(order.shipping_fee_amount || "");
   const [shippingCurrency, setShippingCurrency] = useState(order.shipping_fee_currency || "CNY");
   const [trackingNumber, setTrackingNumber] = useState(order.tracking_number || "");
+
+  // Post-warehouse state (for pre_shipment pool creation result)
+  const [warehouseDone, setWarehouseDone] = useState(null); // { poolId } or null
 
   // Split order state
   const [splitting, setSplitting] = useState(false);
@@ -226,7 +229,7 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
   };
 
   // purchased → in_warehouse
-  const handleMarkInWarehouse = async () => {
+  const handleMarkInWarehouse = async ({ andOpenPool = false } = {}) => {
     setSaving(true);
     const updates = {
       order_status: "in_warehouse",
@@ -245,6 +248,23 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
       }
     }
     await updateOrder(order.id, updates);
+
+    // If order has pre_shipment, trigger pool creation
+    if (order.pre_shipment && !order.pre_shipment.pool_created) {
+      const poolRes = await base44.functions.invoke('autoCreatePreShipmentPool', { order_id: order.id });
+      const poolId = poolRes?.data?.pool_id || null;
+      if (andOpenPool && poolId) {
+        onSaved();
+        onOpenPool?.(poolId);
+        return;
+      }
+      if (poolId) {
+        setWarehouseDone({ poolId });
+        setSaving(false);
+        return;
+      }
+    }
+
     onSaved();
   };
 
@@ -807,10 +827,51 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
                     </div>
                   )}
 
-                  <Button size="sm" className="w-full bg-teal-600 hover:bg-teal-700 text-xs"
-                    onClick={handleMarkInWarehouse} disabled={saving || !canWarehouseIn}>
-                    {order.split_index === -1 ? "✓ 父订单确认入库（-00单）" : "✓ 确认入库"}
-                  </Button>
+                  {/* Pre-shipment info preview */}
+                  {order.pre_shipment && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 space-y-1">
+                      <div className="flex items-center gap-1.5 text-xs font-medium text-blue-700">
+                        <Zap className="w-3 h-3" />用户已填写预出货信息
+                      </div>
+                      <div className="space-y-0.5 text-xs text-gray-600">
+                        {order.pre_shipment.shipping_method && <div>运输方式：<strong>{order.pre_shipment.shipping_method}</strong></div>}
+                        {order.pre_shipment.transit_location_name && <div>中转地：<strong>{order.pre_shipment.transit_location_name}</strong></div>}
+                        {order.pre_shipment.scheduled_ship_date && <div>计划发货：<strong>{order.pre_shipment.scheduled_ship_date}</strong></div>}
+                        {order.pre_shipment.user_note && <div>备注：{order.pre_shipment.user_note}</div>}
+                      </div>
+                    </div>
+                  )}
+
+                  {warehouseDone ? (
+                    <div className="space-y-2">
+                      <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-xs text-green-700 flex items-center gap-1.5">
+                        <CheckCircle className="w-3.5 h-3.5" />入库完成，已自动创建发货申请
+                      </div>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" className="flex-1 text-xs" onClick={onSaved}>关闭</Button>
+                        <Button size="sm" className="flex-1 bg-teal-600 hover:bg-teal-700 text-xs"
+                          onClick={() => { onSaved(); onOpenPool?.(warehouseDone.poolId); }}>
+                          <Send className="w-3 h-3 mr-1" />查看发货申请
+                        </Button>
+                      </div>
+                    </div>
+                  ) : order.pre_shipment ? (
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" className="flex-1 text-xs text-teal-600 border-teal-300"
+                        onClick={() => handleMarkInWarehouse()} disabled={saving || !canWarehouseIn}>
+                        {saving ? <><Loader2 className="w-3 h-3 animate-spin mr-1" />处理中...</> : "✓ 确认入库"}
+                      </Button>
+                      <Button size="sm" className="flex-1 bg-teal-600 hover:bg-teal-700 text-xs"
+                        onClick={() => handleMarkInWarehouse({ andOpenPool: true })} disabled={saving || !canWarehouseIn}>
+                        {saving ? <><Loader2 className="w-3 h-3 animate-spin mr-1" />处理中...</> : <><Zap className="w-3 h-3 mr-1" />确认入库并查看发货申请</>}
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button size="sm" className="w-full bg-teal-600 hover:bg-teal-700 text-xs"
+                      onClick={() => handleMarkInWarehouse()} disabled={saving || !canWarehouseIn}>
+                      {order.split_index === -1 ? "✓ 父订单确认入库（-00单）" : "✓ 确认入库"}
+                    </Button>
+                  )}
                 </div>
               )}
 

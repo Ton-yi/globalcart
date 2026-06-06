@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import AdminOrderEditModal from "@/components/admin/AdminOrderEditModal";
+import PreShipmentBadge from "@/components/admin/PreShipmentBadge";
 import { getStatusLabel, getStatusColor } from "@/lib/orderStatus";
 import ColumnCustomizer from "@/components/orders/ColumnCustomizer";
 import { matchStoreTagResult } from "@/lib/onlineStoreTag";
@@ -634,6 +635,9 @@ export default function AdminOrders() {
                                 onClick={() => handleQuickOrdered(order)}>
                                 已下单
                               </Button>
+                        )}
+                        {order.order_status === "purchased" && order.pre_shipment && (
+                          <PreShipmentBadge preShipment={order.pre_shipment} />
                         )}
                         {order.order_status === "purchased" && canWarehouseIn && (
                           <Button size="sm" variant="outline" className="h-6 text-xs px-2 text-teal-600 border-teal-200"
