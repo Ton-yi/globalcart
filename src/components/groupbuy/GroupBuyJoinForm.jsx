@@ -47,15 +47,25 @@ export default function GroupBuyJoinForm({ request, currentUser, onSuccess, onCa
   const handleProductUrlChange = (url) => {
     sf('product_url', url);
     if (!url) { setUrlConflict(null); return; }
-    const firstUrl = url.split('\n').find(l => l.trim())?.trim() || '';
-    const detected = detectTemplate(firstUrl, templates);
-    if (detected) {
-      if (currentTemplateId && detected.id !== currentTemplateId) {
+    
+    const lines = url.split('\n').map(l => l.trim()).filter(l => l);
+    const detectedTemplates = lines.map(line => detectTemplate(line, templates)).filter(Boolean);
+    const uniqueTemplates = [...new Map(detectedTemplates.map(t => [t.id, t])).values()];
+    
+    // Check if multiple stores detected
+    if (uniqueTemplates.length > 1) {
+      setUrlConflict({ multiStore: true, templates: uniqueTemplates });
+      return;
+    }
+    
+    const firstDetected = uniqueTemplates[0];
+    if (firstDetected) {
+      if (currentTemplateId && firstDetected.id !== currentTemplateId) {
         // Conflict: URL belongs to a different store
-        setUrlConflict(detected);
+        setUrlConflict(firstDetected);
       } else {
         setUrlConflict(null);
-        onTemplateDetected?.(detected);
+        onTemplateDetected?.(firstDetected);
       }
     } else {
       setUrlConflict(null);
@@ -142,7 +152,12 @@ export default function GroupBuyJoinForm({ request, currentUser, onSuccess, onCa
             if (e.key === 'Enter' && !e.shiftKey) e.stopPropagation();
           }}
         />
-        {urlConflict && (
+        {urlConflict && urlConflict.multiStore && (
+          <p className="mt-1 text-xs text-orange-600 bg-orange-50 border border-orange-200 rounded px-2 py-1">
+            ⚠️ 检测到多个店铺的商品：{urlConflict.templates.map(t => t.name).join('、')}，请分开提交
+          </p>
+        )}
+        {urlConflict && !urlConflict.multiStore && (
           <p className="mt-1 text-xs text-orange-600 bg-orange-50 border border-orange-200 rounded px-2 py-1">
             ⚠️ 该链接属于「{urlConflict.name}」，与当前拼单店铺不同，请分开提交
           </p>
