@@ -251,8 +251,19 @@ export default function PreShipmentForm() {
       pre_shipment: preShipment,
     });
 
-    setSubmitted(true);
     setSubmitting(false);
+
+    // If order needs payment, redirect directly to payment page
+    const needsPayment = order.payment_status === "awaiting_payment" || order.order_status === "payment_pending";
+    if (needsPayment) {
+      const m = paymentMethods.find(pm => (pm.provider_key || pm.name) === paymentMethod || pm.value === paymentMethod);
+      const cur = m?.payment_currency || "JPY";
+      const method = paymentMethod || "other";
+      navigate(`/Payment?order_id=${orderId}&method=${method}&pay_currency=${cur}`);
+      return;
+    }
+
+    setSubmitted(true);
   };
 
   if (loading) {
