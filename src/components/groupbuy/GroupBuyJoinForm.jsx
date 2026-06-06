@@ -119,8 +119,8 @@ export default function GroupBuyJoinForm({ request, currentUser, onSuccess, onCa
       </div>
 
       <div>
-        <Label className="text-xs text-gray-500">商品名称 *</Label>
-        <Input className="mt-1 h-8 text-sm" placeholder="商品名称" required value={form.product_name}
+        <Label className="text-xs text-gray-500">订单名称 *</Label>
+        <Input className="mt-1 h-8 text-sm" placeholder="订单名称" required value={form.product_name}
           onChange={e => sf('product_name', e.target.value)} />
       </div>
 
