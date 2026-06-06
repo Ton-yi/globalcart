@@ -25,8 +25,8 @@ Deno.serve(async (req) => {
 
     const filter = isPlatformAdmin ? {} : { tenant_id: tenantId };
     const [allUsers, allPrefs] = await Promise.all([
-      base44.asServiceRole.entities.User.filter(filter),
-      base44.asServiceRole.entities.UserPreference.filter(tenantId ? { tenant_id: tenantId } : {}),
+      base44.asServiceRole.entities.User.filter(filter, '-created_date', 50),
+      base44.asServiceRole.entities.UserPreference.filter(tenantId ? { tenant_id: tenantId } : {}, '-created_date', 50),
     ]);
 
     // Build a map from email -> pref

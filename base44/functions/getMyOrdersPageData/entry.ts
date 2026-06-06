@@ -77,19 +77,19 @@ Deno.serve(async (req) => {
       base44.asServiceRole.entities.Order.filter(
         { tenant_id: tenantId, user_email: user.email },
         '-updated_date',
-        500
+        50
       ),
-      base44.asServiceRole.entities.ShippingPool.filter(tenantFilter),
-      base44.asServiceRole.entities.OnlineStoreTagRule.filter(tenantFilter),
-      base44.asServiceRole.entities.TransitLocation.filter(tenantFilter),
-      base44.asServiceRole.entities.AddonOption.filter({ ...tenantFilter, addon_type: 'shipping', is_active: true }),
-      base44.asServiceRole.entities.TransitShippingMethod.filter({ ...tenantFilter, is_active: true }),
-      base44.asServiceRole.entities.ShippingMethod.filter({ ...tenantFilter, is_active: true }),
+      base44.asServiceRole.entities.ShippingPool.filter(tenantFilter, '-created_date', 50),
+      base44.asServiceRole.entities.OnlineStoreTagRule.filter(tenantFilter, '-created_date', 50),
+      base44.asServiceRole.entities.TransitLocation.filter(tenantFilter, '-created_date', 50),
+      base44.asServiceRole.entities.AddonOption.filter({ ...tenantFilter, addon_type: 'shipping', is_active: true }, '-created_date', 50),
+      base44.asServiceRole.entities.TransitShippingMethod.filter({ ...tenantFilter, is_active: true }, '-created_date', 50),
+      base44.asServiceRole.entities.ShippingMethod.filter({ ...tenantFilter, is_active: true }, '-created_date', 50),
       // Filter by user_email only (not tenant_id) so legacy records without tenant_id are also found
-      base44.asServiceRole.entities.UserPreference.filter({ user_email: user.email }),
-      base44.asServiceRole.entities.SiteSettings.filter({ tenant_id: tenantId }),
-      base44.asServiceRole.entities.User.filter(tenantFilter),
-      base44.asServiceRole.entities.ShippingEditRequest.filter({ tenant_id: tenantId, user_email: user.email, status: 'pending' }),
+      base44.asServiceRole.entities.UserPreference.filter({ user_email: user.email }, '-created_date', 50),
+      base44.asServiceRole.entities.SiteSettings.filter({ tenant_id: tenantId }, '-created_date', 50),
+      base44.asServiceRole.entities.User.filter(tenantFilter, '-created_date', 50),
+      base44.asServiceRole.entities.ShippingEditRequest.filter({ tenant_id: tenantId, user_email: user.email, status: 'pending' }, '-created_date', 50),
     ]);
     console.log(`[TIMING] getMyOrdersPageData | 10x parallel queries: ${Date.now() - t1}ms`);
     console.log(`[TIMING] getMyOrdersPageData | TOTAL: ${Date.now() - t0}ms`);
@@ -117,7 +117,7 @@ Deno.serve(async (req) => {
     const allTenantEmails = (allTenantUsers || []).map(u => u.email).filter(Boolean);
     let tenantUserPrefs = [];
     if (allTenantEmails.length > 0) {
-      tenantUserPrefs = await base44.asServiceRole.entities.UserPreference.filter({ tenant_id: tenantId });
+      tenantUserPrefs = await base44.asServiceRole.entities.UserPreference.filter({ tenant_id: tenantId }, '-created_date', 50);
     }
     const prefsByEmail = {};
     for (const p of tenantUserPrefs) {

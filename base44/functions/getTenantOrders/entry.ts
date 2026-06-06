@@ -58,7 +58,7 @@ Deno.serve(async (req) => {
     const t3 = Date.now();
     let orders;
     if (isPlatformAdmin) {
-      orders = await base44.asServiceRole.entities.Order.list('-updated_date', 500);
+      orders = await base44.asServiceRole.entities.Order.list('-updated_date', 50);
       console.log(`[TIMING] getTenantOrders | Order.list (platform_admin): ${Date.now()-t3}ms`);
       console.log(`[TIMING] getTenantOrders | TOTAL: ${Date.now()-t0}ms | count: ${orders?.length}`);
       return Response.json({ orders: orders || [] });
@@ -90,7 +90,7 @@ Deno.serve(async (req) => {
           return Response.json({ orders: [] });
         }
         // Fetch all tenant orders and filter to those in the pool
-        const allTenantOrders = await base44.asServiceRole.entities.Order.filter({ tenant_id: tenantId }, '-updated_date', 500);
+        const allTenantOrders = await base44.asServiceRole.entities.Order.filter({ tenant_id: tenantId }, '-updated_date', 50);
         const poolOrders = allTenantOrders.filter(o => poolOrderIds.includes(o.id));
         console.log(`[TIMING] getTenantOrders | pool_id scoped fetch: ${Date.now()-t3}ms | count: ${poolOrders.length}`);
         return Response.json({ orders: poolOrders });
@@ -103,7 +103,7 @@ Deno.serve(async (req) => {
       filter.user_email = user.email;
     }
 
-    orders = await base44.asServiceRole.entities.Order.filter(filter, '-updated_date', 500);
+    orders = await base44.asServiceRole.entities.Order.filter(filter, '-updated_date', 50);
     console.log(`[TIMING] getTenantOrders | Order.filter (tenant): ${Date.now()-t3}ms | count: ${orders?.length} | all: ${!!body.all}`);
     console.log(`[TIMING] getTenantOrders | TOTAL: ${Date.now()-t0}ms`);
     return Response.json({ orders: orders || [] });

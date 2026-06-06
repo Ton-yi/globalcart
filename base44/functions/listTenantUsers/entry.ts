@@ -47,7 +47,7 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Account suspended' }, { status: 403 });
     }
 
-    const allTenantUsers = await base44.asServiceRole.entities.User.filter({ tenant_id: tenantId });
+    const allTenantUsers = await base44.asServiceRole.entities.User.filter({ tenant_id: tenantId }, '-created_date', 50);
 
     const others = (allTenantUsers || [])
       .filter(u => u.email !== user.email)

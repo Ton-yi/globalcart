@@ -43,7 +43,7 @@ Deno.serve(async (req) => {
 
     const t3 = Date.now();
     if (user.role === 'platform_admin') {
-      const allPools = await base44.asServiceRole.entities.ShippingPool.list();
+      const allPools = await base44.asServiceRole.entities.ShippingPool.list('-created_date', 50);
       console.log(`[TIMING] getTenantShippingPools | ShippingPool.list (platform_admin): ${Date.now()-t3}ms | count: ${allPools?.length}`);
       console.log(`[TIMING] getTenantShippingPools | TOTAL: ${Date.now()-t0}ms`);
       return Response.json({ pools: allPools || [] });
@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
       return Response.json({ pools: [] });
     }
 
-    const tenantPools = await base44.asServiceRole.entities.ShippingPool.filter({ tenant_id: tenantId });
+    const tenantPools = await base44.asServiceRole.entities.ShippingPool.filter({ tenant_id: tenantId }, '-created_date', 50);
     console.log(`[TIMING] getTenantShippingPools | ShippingPool.filter (tenant): ${Date.now()-t3}ms | count: ${tenantPools?.length}`);
 
     const accessiblePools = (tenantPools || []).filter(pool => {

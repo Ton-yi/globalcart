@@ -77,9 +77,9 @@ Deno.serve(async (req) => {
 
     const t1 = Date.now();
     const [addons, siteSettings, feeRules, liveRates] = await Promise.all([
-      base44.asServiceRole.entities.AddonOption.filter({ tenant_id: tenantId }),
-      base44.asServiceRole.entities.SiteSettings.filter({ tenant_id: tenantId }),
-      base44.asServiceRole.entities.ServiceFeeRule.filter({ tenant_id: tenantId }),
+      base44.asServiceRole.entities.AddonOption.filter({ tenant_id: tenantId }, '-created_date', 50),
+      base44.asServiceRole.entities.SiteSettings.filter({ tenant_id: tenantId }, '-created_date', 50),
+      base44.asServiceRole.entities.ServiceFeeRule.filter({ tenant_id: tenantId }, '-created_date', 50),
       fetchLiveRates(),
     ]);
     console.log(`[TIMING] getSubmitOrderPageData | 4x parallel queries: ${Date.now() - t1}ms`);
