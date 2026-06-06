@@ -34,7 +34,9 @@ export default function GroupBuyJoinForm({ request, currentUser, onSuccess, onCa
   });
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [urlConflict, setUrlConflict] = useState(null); // detected template when it conflicts
+  const [urlConflict, setUrlConflict] = useState(null);
+  const [dragOver, setDragOver] = useState(false);
+  const [imageUrlInput, setImageUrlInput] = useState('');
 
   const sf = (k, v) => {
     const updated = { ...form, [k]: v };
@@ -66,6 +68,38 @@ export default function GroupBuyJoinForm({ request, currentUser, onSuccess, onCa
     const { file_url } = await base44.integrations.Core.UploadFile({ file });
     sf('product_image_url', file_url);
     setUploading(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) {
+      handleImageUpload(file);
+    }
+  };
+
+  const handlePaste = async (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        const file = item.getAsFile();
+        if (file) {
+          await handleImageUpload(file);
+          break;
+        }
+      } else if (item.type === 'text/plain') {
+        // If user pasted a URL instead of image
+        item.getAsString((text) => {
+          if (text.trim().match(/^https?:\/\//)) {
+            setImageUrlInput(text.trim());
+            sf('product_image_url', text.trim());
+          }
+        });
+        break;
+      }
+    }
   };
 
   const handleSubmit = async () => {
@@ -138,24 +172,49 @@ export default function GroupBuyJoinForm({ request, currentUser, onSuccess, onCa
         </div>
         <div>
           <Label className="text-xs text-gray-500">商品图片（可选）</Label>
-          <div className="mt-1 h-8 border border-dashed border-gray-200 rounded-md flex items-center px-2 cursor-pointer hover:border-indigo-300 text-xs text-gray-400"
-            onClick={() => document.getElementById('gb-img-input')?.click()}>
-            {form.product_image_url ? (
-              <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                <img src={form.product_image_url} alt="" className="h-5 w-5 object-cover rounded" />
-                <span className="truncate text-green-600">已上传</span>
-                <button type="button" className="ml-auto text-gray-400 hover:text-red-500" onClick={e => { e.stopPropagation(); sf('product_image_url', ''); }}>
-                  <X className="w-3 h-3" />
-                </button>
-              </div>
-            ) : uploading ? (
-              <span className="text-blue-400">上传中...</span>
-            ) : (
-              <span><Upload className="w-3 h-3 inline mr-1" />点击上传</span>
-            )}
-          </div>
+          {form.product_image_url ? (
+            <div className="mt-1 flex items-center gap-2 border border-gray-200 rounded-md p-2 bg-gray-50">
+              <img src={form.product_image_url} alt="" className="h-10 w-10 object-cover rounded" />
+              <span className="text-xs text-green-600 truncate flex-1">已上传</span>
+              <button type="button" className="text-gray-400 hover:text-red-500" onClick={() => sf('product_image_url', '')}>
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <div
+              className={`mt-1 border-2 border-dashed rounded-md p-3 text-center cursor-pointer transition-colors ${
+                dragOver ? 'border-indigo-400 bg-indigo-50' : 'border-gray-200 hover:border-indigo-300'
+              }`}
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={handleDrop}
+              onPaste={handlePaste}
+              onClick={() => document.getElementById('gb-img-input')?.click()}
+            >
+              {uploading ? (
+                <span className="text-xs text-blue-400">上传中...</span>
+              ) : (
+                <div className="text-xs text-gray-400">
+                  <Upload className="w-3.5 h-3.5 inline mr-1" />
+                  点击上传 / 拖拽 / 粘贴
+                </div>
+              )}
+            </div>
+          )}
           <input id="gb-img-input" type="file" accept="image/*" className="hidden"
             onChange={e => { const f = e.target.files[0]; if (f) handleImageUpload(f); }} />
+          {!form.product_image_url && (
+            <div className="mt-2 flex gap-2">
+              <Input
+                className="h-8 text-xs flex-1"
+                placeholder="或输入图片 URL..."
+                value={imageUrlInput}
+                onChange={e => setImageUrlInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleImageUrlSubmit()}
+              />
+              <Button size="sm" variant="outline" className="h-8 text-xs" onClick={handleImageUrlSubmit}>使用 URL</Button>
+            </div>
+          )}
         </div>
       </div>
 
