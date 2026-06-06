@@ -94,18 +94,27 @@ export default function GroupBuyJoinForm({ request, currentUser, onSuccess, onCa
   const handlePaste = async (e) => {
     const items = e.clipboardData?.items;
     if (!items) return;
+    
+    // First, look for images in clipboard
     for (const item of items) {
       if (item.type.startsWith('image/')) {
+        e.preventDefault();
         const file = item.getAsFile();
         if (file) {
           await handleImageUpload(file);
-          break;
+          return;
         }
-      } else if (item.type === 'text/plain') {
+      }
+    }
+    
+    // If no image found, check for text URL
+    for (const item of items) {
+      if (item.type === 'text/plain') {
         item.getAsString((text) => {
-          if (text.trim().match(/^https?:\/\//)) {
-            setImageUrlInput(text.trim());
-            sf('product_image_url', text.trim());
+          const trimmed = text.trim();
+          if (trimmed.match(/^https?:\/\//)) {
+            setImageUrlInput(trimmed);
+            sf('product_image_url', trimmed);
           }
         });
         break;
