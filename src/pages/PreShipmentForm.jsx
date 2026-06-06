@@ -250,10 +250,17 @@ export default function PreShipmentForm() {
       target_pool_title: consType === "official_pool" && selectedPool ? (selectedPool.title || selectedPool.pool_code) : "",
     };
 
-    await base44.functions.invoke('updateTenantOrder', {
+    const res = await base44.functions.invoke('updateTenantOrder', {
       order_id: orderId,
       pre_shipment: preShipment,
     });
+
+    // Update local order state so subsequent edits in the same session see fresh data
+    if (res?.data?.order) {
+      setOrder(res.data.order);
+    } else {
+      setOrder(prev => ({ ...prev, pre_shipment: preShipment }));
+    }
 
     setSubmitting(false);
 

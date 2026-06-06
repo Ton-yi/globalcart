@@ -92,6 +92,14 @@ Deno.serve(async (req) => {
       }
     }
 
+    // If updating pre_shipment, preserve pool_created/pool_id that were set by automation
+    // so re-editing doesn't cause duplicate pool creation on next warehouse-in event
+    if (updateData.pre_shipment && order.pre_shipment) {
+      const existing = order.pre_shipment;
+      if (existing.pool_created) updateData.pre_shipment.pool_created = true;
+      if (existing.pool_id) updateData.pre_shipment.pool_id = existing.pool_id;
+    }
+
     // Update order
     const updatedOrder = await base44.asServiceRole.entities.Order.update(order_id, updateData);
 
