@@ -721,23 +721,38 @@ export default function SubmitOrder() {
               className="w-full border-purple-300 text-purple-700 hover:bg-purple-50"
               disabled={submitting || !form.product_name}
               onClick={async () => {
-                // Submit order first, then navigate to pre-shipment
                 setSubmitting(true);
-                try {
-                  const orderData = {
-                    ...form,
-                    payment_mode: paymentMode,
-                    payment_method: (paymentMode === "prepay" || paymentMode === "fullpay") ? paymentMethod : null,
-                    selected_addon_ids: selectedAddons,
-                  };
-                  const res = await base44.functions.invoke('createTenantOrder', { orderData });
-                  if (res.data?.order) {
-                    window.location.href = `/PreShipmentForm?order_id=${res.data.order.id}`;
-                  }
-                } catch (error) {
-                  console.error('Order submission error:', error);
-                } finally {
-                  setSubmitting(false);
+                const selectedAddonObjects = selectedAddons.map(id => addonOptions.find(a => a.id === id)).filter(Boolean);
+                const urlsText = urlMode === "textarea"
+                  ? (productUrls[0] || "").split("\n").map(s => s.trim()).filter(Boolean).join("\n")
+                  : productUrls.filter(u => u.trim()).join("\n");
+                const isCredit = paymentMode === "credit_weekly" || paymentMode === "credit_monthly";
+                const isDeferred = paymentMode === "deferred";
+                const isFullpay = paymentMode === "fullpay";
+                const tagResult = await detectPrimaryStoreTagResult(urlsText);
+                const res = await base44.functions.invoke('createTenantOrder', {
+                  ...form,
+                  product_url: urlsText,
+                  user_email: user.email,
+                  user_name: user.full_name || user.email,
+                  quantity: 1,
+                  estimated_jpy: parseFloat(form.estimated_jpy) || 0,
+                  service_fee_rate: parseFloat(settings.service_fee_rate) || 10,
+                  prepayment_amount: isFullpay ? (calculated ? parseFloat(calculated.totalJpy) : 0) : (calculated ? parseFloat(calculated.prepayJpy) : 0),
+                  prepayment_currency: "JPY",
+                  online_store_tag: tagResult.tag_label,
+                  online_store_tag_color: tagResult.tag_color,
+                  payment_mode: isCredit ? "credit" : isDeferred ? "deferred" : "prepay",
+                  credit_cycle: isCredit ? (paymentMode === "credit_weekly" ? "weekly" : "monthly") : null,
+                  order_status: (isDeferred || isCredit) ? "paid" : "payment_pending",
+                  payment_status: (isDeferred || isCredit) ? "paid" : "awaiting_payment",
+                  user_note: form.user_note || "",
+                  selected_addon_ids: selectedAddons,
+                  selected_addons: selectedAddonObjects.map(a => ({ id: a.id, name: a.name, fee: parseFloat(a.fee) || 0, fee_currency: a.fee_currency || "JPY" })),
+                });
+                setSubmitting(false);
+                if (res.data?.order) {
+                  window.location.href = `/PreShipmentForm?order_id=${res.data.order.id}`;
                 }
               }}
             >
