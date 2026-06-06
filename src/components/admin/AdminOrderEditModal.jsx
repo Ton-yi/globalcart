@@ -834,8 +834,17 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
                         <Zap className="w-3 h-3" />用户已填写预出货信息
                       </div>
                       <div className="space-y-0.5 text-xs text-gray-600">
+                        {/* Shipment type */}
+                        <div>
+                          发货方式：<strong>
+                            {order.pre_shipment.consType === 'transit' 
+                              ? `中转地发货 (${order.pre_shipment.transit_location_name || '未指定'})`
+                              : order.pre_shipment.consType === 'official'
+                              ? '官方拼邮'
+                              : '直接发货'}
+                          </strong>
+                        </div>
                         {order.pre_shipment.shipping_method && <div>运输方式：<strong>{order.pre_shipment.shipping_method}</strong></div>}
-                        {order.pre_shipment.transit_location_name && <div>中转地：<strong>{order.pre_shipment.transit_location_name}</strong></div>}
                         {order.pre_shipment.scheduled_ship_date && <div>计划发货：<strong>{order.pre_shipment.scheduled_ship_date}</strong></div>}
                         {order.pre_shipment.user_note && <div>备注：{order.pre_shipment.user_note}</div>}
                       </div>
