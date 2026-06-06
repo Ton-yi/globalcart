@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { Zap, X } from "lucide-react";
 
 /**
@@ -30,12 +31,13 @@ export default function PreShipmentBadge({ preShipment }) {
         <Zap className="w-2.5 h-2.5" />预出货
       </button>
 
-      {open && (
+      {open && createPortal(
         <>
           {/* backdrop to close */}
           <div className="fixed inset-0 z-40" onClick={e => { e.stopPropagation(); setOpen(false); }} />
           <div
-            className="absolute left-0 top-6 z-50 bg-white border border-blue-200 rounded-lg shadow-lg p-3 min-w-[200px] max-w-[260px]"
+            className="fixed bg-white border border-blue-200 rounded-lg shadow-xl p-3 min-w-[200px] max-w-[280px] z-50"
+            style={{ top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-2">
@@ -59,7 +61,8 @@ export default function PreShipmentBadge({ preShipment }) {
               </div>
             )}
           </div>
-        </>
+        </>,
+        document.body
       )}
     </div>
   );
