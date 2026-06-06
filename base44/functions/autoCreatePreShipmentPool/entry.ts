@@ -10,7 +10,15 @@ Deno.serve(async (req) => {
     const base44 = createClientFromRequest(req);
     const body = await req.json();
 
-    const { event, data: order } = body;
+    const { event, data: automationOrder, order_id } = body;
+
+    // Support both: automation webhook payload ({ event, data: order })
+    // and direct invocation ({ order_id })
+    let order = automationOrder;
+    if (!order && order_id) {
+      const results = await base44.asServiceRole.entities.Order.filter({ id: order_id });
+      order = (results || [])[0];
+    }
 
     if (!order || !order.id) {
       return Response.json({ error: 'No order data in payload' }, { status: 400 });
