@@ -1,7 +1,7 @@
 /**
  * GroupBuyJoinForm - 用户加入拼单的表单
  */
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,10 +64,12 @@ export default function GroupBuyJoinForm({ request, currentUser, onSuccess, onCa
         // Conflict: URL belongs to a different store
         setUrlConflict(firstDetected);
       } else {
+        // Matched current template or no template selected yet - clear conflict
         setUrlConflict(null);
         onTemplateDetected?.(firstDetected);
       }
     } else {
+      // No template detected - clear conflict
       setUrlConflict(null);
     }
   };
@@ -133,6 +135,26 @@ export default function GroupBuyJoinForm({ request, currentUser, onSuccess, onCa
 
   const isEarlier = form.custom_deadline && request?.deadline && form.custom_deadline < request.deadline;
   const isLater   = form.custom_deadline && request?.deadline && form.custom_deadline > request.deadline;
+
+  // Re-check URL conflict when template changes
+  useEffect(() => {
+    if (currentTemplateId && form.product_url) {
+      const lines = form.product_url.split('\n').map(l => l.trim()).filter(l => l);
+      const detectedTemplates = lines.map(line => detectTemplate(line, templates)).filter(Boolean);
+      const uniqueTemplates = [...new Map(detectedTemplates.map(t => [t.id, t])).values()];
+      
+      if (uniqueTemplates.length > 1) {
+        // Still multi-store - keep warning
+        setUrlConflict({ multiStore: true, templates: uniqueTemplates });
+      } else if (uniqueTemplates.length === 1 && uniqueTemplates[0].id !== currentTemplateId) {
+        // Single store but different from current - show conflict
+        setUrlConflict(uniqueTemplates[0]);
+      } else {
+        // Matched or no template - clear conflict
+        setUrlConflict(null);
+      }
+    }
+  }, [currentTemplateId]);
 
   return (
     <div className={`${!isCreateMode ? 'border border-indigo-200 rounded-xl p-4 bg-indigo-50/20 space-y-3' : 'space-y-3'}`}>
