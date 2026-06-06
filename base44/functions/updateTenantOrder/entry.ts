@@ -92,12 +92,16 @@ Deno.serve(async (req) => {
       }
     }
 
-    // If updating pre_shipment, preserve pool_created/pool_id that were set by automation
-    // so re-editing doesn't cause duplicate pool creation on next warehouse-in event
+    // If updating pre_shipment, preserve pool_id/pool_created ONLY when the automation
+    // has already run (i.e. the order is already in notified_shipment status).
+    // Before in-warehouse, the user should be free to change their pool selection freely.
     if (updateData.pre_shipment && order.pre_shipment) {
       const existing = order.pre_shipment;
-      if (existing.pool_created) updateData.pre_shipment.pool_created = true;
-      if (existing.pool_id) updateData.pre_shipment.pool_id = existing.pool_id;
+      const alreadyProcessed = existing.pool_id && order.order_status === 'notified_shipment';
+      if (alreadyProcessed) {
+        updateData.pre_shipment.pool_created = true;
+        updateData.pre_shipment.pool_id = existing.pool_id;
+      }
     }
 
     // Update order

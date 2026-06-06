@@ -86,11 +86,15 @@ export default function PreShipmentForm() {
           if (ps.shipping_method) setShippingMethod(ps.shipping_method);
           if (ps.scheduled_ship_date) setScheduledDate(ps.scheduled_ship_date);
           if (ps.user_note) setUserNote(ps.user_note);
-          if (ps.consType !== undefined) setConsType(ps.consType || "");
+          const savedConsType = ps.consType || "";
+          setConsType(savedConsType);
           if (ps.transit_location_id) setTransitLocationId(ps.transit_location_id);
           if (ps.selected_addon_ids) setSelectedAddonIds(ps.selected_addon_ids);
-          if (ps.pool_created) setJoinOfficialPool(true);
-          if (ps.target_pool_id) setSelectedPoolId(ps.target_pool_id);
+          // Restore the specific pool selection (use target_pool_id, NOT pool_created which is an automation flag)
+          if (savedConsType === "official_pool") {
+            setJoinOfficialPool(true);
+            setSelectedPoolId(ps.target_pool_id || "");
+          }
         }
         
         // Deduplicate shipping methods by id - ensure unique
