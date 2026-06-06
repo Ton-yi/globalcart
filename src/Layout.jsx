@@ -154,7 +154,7 @@ export default function Layout({ children, currentPageName }) {
 
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between h-14">
+        <div className="w-full px-4 sm:px-6 flex items-center justify-between h-14">
           <div className="flex items-center gap-3">
             <button className="md:hidden p-1" onClick={() => setMobileOpen(!mobileOpen)}>
               {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -297,7 +297,7 @@ export default function Layout({ children, currentPageName }) {
         )}
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 relative">
+      <main className="w-full max-w-[1600px] mx-auto px-4 sm:px-6 py-6 relative">
         {isSuspended && (
           <div className="absolute inset-0 z-40 bg-white/70 backdrop-blur-sm flex items-center justify-center rounded-lg">
             <div className="text-center p-8">
