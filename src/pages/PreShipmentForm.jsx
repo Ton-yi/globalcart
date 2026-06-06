@@ -196,10 +196,13 @@ export default function PreShipmentForm() {
   const effectiveSelectedAddonIds = selectedAddonIds.filter(id => !disabledAddonIds.includes(id));
   const selectedAddons = availableAddons.filter(a => effectiveSelectedAddonIds.includes(a.id));
 
+  // When user picks a specific official pool (not "default"), shipping method is not required
+  const specificPoolSelected = consType === "official_pool" && !!selectedPoolId;
+
   const canSubmit = () => {
-    if (!shippingMethod) return false;
+    if (!specificPoolSelected && !shippingMethod) return false;
     if (consType === "transit") return !!transitLocationId;
-    if (consType === "official_pool") return true; // No address needed for official pool
+    if (consType === "official_pool") return true;
     return isAddressFormValid(address);
   };
 
@@ -437,8 +440,8 @@ export default function PreShipmentForm() {
         </CardContent>
       </Card>
 
-      {/* Shipping method & date */}
-      <Card className="border-gray-200">
+      {/* Shipping method & date — hidden when a specific official pool is selected */}
+      {!specificPoolSelected && <Card className="border-gray-200">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
             <Package className="w-4 h-4" />运输方式
@@ -475,7 +478,7 @@ export default function PreShipmentForm() {
             </div>
           </div>
         </CardContent>
-      </Card>
+      </Card>}
 
       {/* Address (only for direct shipment) */}
       {consType === "" && (
