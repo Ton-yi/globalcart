@@ -45,7 +45,8 @@ export default function GroupBuyJoinForm({ request, currentUser, onSuccess, onCa
   const handleProductUrlChange = (url) => {
     sf('product_url', url);
     if (!url) { setUrlConflict(null); return; }
-    const detected = detectTemplate(url, templates);
+    const firstUrl = url.split('\n').find(l => l.trim())?.trim() || '';
+    const detected = detectTemplate(firstUrl, templates);
     if (detected) {
       if (currentTemplateId && detected.id !== currentTemplateId) {
         // Conflict: URL belongs to a different store
@@ -88,9 +89,19 @@ export default function GroupBuyJoinForm({ request, currentUser, onSuccess, onCa
       {!isCreateMode && <h4 className="text-sm font-semibold text-indigo-800">填写我的需求</h4>}
 
       <div>
-        <Label className="text-xs text-gray-500">商品链接</Label>
-        <Input className="mt-1 h-8 text-sm" placeholder="https://..." value={form.product_url}
-          onChange={e => handleProductUrlChange(e.target.value)} />
+        <Label className="text-xs text-gray-500">商品链接（多个链接请每行一个）</Label>
+        <Textarea
+          className="mt-1 text-sm"
+          rows={2}
+          placeholder={"https://...\nhttps://...（可多行）"}
+          value={form.product_url}
+          onChange={e => handleProductUrlChange(e.target.value)}
+          onKeyDown={e => {
+            // Allow Enter to add newline; Shift+Enter also adds newline (default textarea behavior)
+            // No special handling needed — just prevent form submission on Enter
+            if (e.key === 'Enter' && !e.shiftKey) e.stopPropagation();
+          }}
+        />
         {urlConflict && (
           <p className="mt-1 text-xs text-orange-600 bg-orange-50 border border-orange-200 rounded px-2 py-1">
             ⚠️ 该链接属于「{urlConflict.name}」，与当前拼单店铺不同，请分开提交
@@ -98,7 +109,8 @@ export default function GroupBuyJoinForm({ request, currentUser, onSuccess, onCa
         )}
         {!urlConflict && form.product_url && isCreateMode && !currentTemplateId && (
           (() => {
-            const det = detectTemplate(form.product_url, templates);
+            const firstUrl = form.product_url.split('\n').find(l => l.trim());
+            const det = firstUrl ? detectTemplate(firstUrl.trim(), templates) : null;
             return det ? (
               <p className="mt-1 text-xs text-green-600">✓ 已识别店铺：{det.name}</p>
             ) : null;
