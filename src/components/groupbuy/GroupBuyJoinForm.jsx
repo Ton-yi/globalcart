@@ -173,7 +173,7 @@ export default function GroupBuyJoinForm({ request, currentUser, onSuccess, onCa
       <div className="grid grid-cols-2 gap-3">
         <div>
           <Label className="text-xs text-gray-500">日元金额 (JPY) *</Label>
-          <Input className="mt-1 h-8 text-sm" type="number" min={0} placeholder="0"
+          <Input className="mt-1 h-8 text-sm" placeholder="0"
             value={form.estimated_jpy} onChange={e => sf('estimated_jpy', e.target.value)} />
         </div>
         <div>
