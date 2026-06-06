@@ -9,7 +9,7 @@ import { getCurrentSubdomain } from "@/lib/tenantBranding";
 import { 
   ShoppingBag, Package, Truck, User, Settings, 
   Bell, LogOut, Menu, X, Shield,
-  Home, Users, BarChart3, Store, Send, Zap, UserPlus
+  Home, Users, BarChart3, Store, Send, Zap, UserPlus, ChevronDown
 } from "lucide-react";
 import { MidnightToggle } from "@/components/common/ThemeSelector";
 import { Badge } from "@/components/ui/badge";
@@ -78,10 +78,12 @@ export default function Layout({ children, currentPageName }) {
 
   const userNav = [
     { label: "首页", icon: Home, page: "Home" },
-    { label: "提交需求", icon: ShoppingBag, page: "SubmitOrder", requiredRole: "user" },
+    { label: "提交需求", icon: ShoppingBag, page: "SubmitOrder", requiredRole: "user", subItems: [
+      { label: "普通下单", icon: ShoppingBag, page: "SubmitOrder" },
+      { label: "拼下单", icon: UserPlus, page: "GroupBuy" },
+    ]},
     { label: "我的订单", icon: Package, page: "MyOrders", requiredRole: "user", hidden: !canViewMyOrders },
     { label: "发货 & 拼邮", icon: Send, page: "ShippingPool", requiredRole: "user" },
-    { label: "拼下单", icon: UserPlus, page: "GroupBuy", requiredRole: "user" },
     { label: "个人设置", icon: User, page: "UserPreferences" },
   ];
 
@@ -173,20 +175,56 @@ export default function Layout({ children, currentPageName }) {
 
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-1">
-            {navItems.map(({ label, icon: NavIcon, page }) => (
-              <Link
-                key={page}
-                to={createPageUrl(page)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm transition-colors ${
-                  currentPageName === page
-                    ? "bg-gray-100 text-gray-900 font-medium"
-                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
-                }`}
-              >
-                <NavIcon className="w-3.5 h-3.5" />
-                {label}
-              </Link>
-            ))}
+            {navItems.map(({ label, icon: NavIcon, page, subItems }) => {
+              const isActive = currentPageName === page || (subItems && subItems.some(s => s.page === currentPageName));
+              if (subItems) {
+                return (
+                  <div key={page} className="relative group">
+                    <Link
+                      to={createPageUrl(page)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm transition-colors ${
+                        isActive ? "bg-gray-100 text-gray-900 font-medium" : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                      }`}
+                    >
+                      <NavIcon className="w-3.5 h-3.5" />
+                      {label}
+                      <ChevronDown className="w-3 h-3 ml-0.5 opacity-50" />
+                    </Link>
+                    {/* Dropdown */}
+                    <div className="absolute left-0 top-full pt-1 hidden group-hover:block z-50">
+                      <div className="bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[130px]">
+                        {subItems.map(({ label: subLabel, icon: SubIcon, page: subPage }) => (
+                          <Link
+                            key={subPage}
+                            to={createPageUrl(subPage)}
+                            className={`flex items-center gap-2 px-3 py-2 text-sm transition-colors ${
+                              currentPageName === subPage
+                                ? "bg-gray-50 text-gray-900 font-medium"
+                                : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                            }`}
+                          >
+                            <SubIcon className="w-3.5 h-3.5" />
+                            {subLabel}
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+              return (
+                <Link
+                  key={page}
+                  to={createPageUrl(page)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm transition-colors ${
+                    isActive ? "bg-gray-100 text-gray-900 font-medium" : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                  }`}
+                >
+                  <NavIcon className="w-3.5 h-3.5" />
+                  {label}
+                </Link>
+              );
+            })}
             {/* Shop placeholder */}
             <span className="flex items-center gap-1.5 px-3 py-1.5 rounded text-sm text-gray-400 cursor-default">
               <Store className="w-3.5 h-3.5" />
@@ -225,18 +263,36 @@ export default function Layout({ children, currentPageName }) {
         {/* Mobile Nav */}
         {mobileOpen && (
           <div className="md:hidden border-t bg-white px-4 py-3 space-y-1">
-            {navItems.map(({ label, icon: NavIcon, page }) => (
-              <Link
-                key={page}
-                to={createPageUrl(page)}
-                onClick={() => setMobileOpen(false)}
-                className={`flex items-center gap-2 px-3 py-2 rounded text-sm ${
-                  currentPageName === page ? "bg-gray-100 font-medium" : "text-gray-600"
-                }`}
-              >
-                <NavIcon className="w-4 h-4" />
-                {label}
-              </Link>
+            {navItems.map(({ label, icon: NavIcon, page, subItems }) => (
+              <div key={page}>
+                <Link
+                  to={createPageUrl(page)}
+                  onClick={() => setMobileOpen(false)}
+                  className={`flex items-center gap-2 px-3 py-2 rounded text-sm ${
+                    currentPageName === page ? "bg-gray-100 font-medium" : "text-gray-600"
+                  }`}
+                >
+                  <NavIcon className="w-4 h-4" />
+                  {label}
+                </Link>
+                {subItems && (
+                  <div className="ml-6 mt-0.5 space-y-0.5">
+                    {subItems.map(({ label: subLabel, icon: SubIcon, page: subPage }) => (
+                      <Link
+                        key={subPage}
+                        to={createPageUrl(subPage)}
+                        onClick={() => setMobileOpen(false)}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded text-sm ${
+                          currentPageName === subPage ? "bg-gray-100 font-medium" : "text-gray-500"
+                        }`}
+                      >
+                        <SubIcon className="w-3.5 h-3.5" />
+                        {subLabel}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
             ))}
           </div>
         )}
