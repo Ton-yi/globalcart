@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Zap, X } from "lucide-react";
 
@@ -8,6 +8,8 @@ import { Zap, X } from "lucide-react";
  */
 export default function PreShipmentBadge({ preShipment }) {
   const [open, setOpen] = useState(false);
+  const [popoverPos, setPopoverPos] = useState({ top: 0, left: 0 });
+  const buttonRef = useRef(null);
 
   if (!preShipment) return null;
 
@@ -25,7 +27,18 @@ export default function PreShipmentBadge({ preShipment }) {
   return (
     <div className="relative inline-block">
       <button
-        onClick={e => { e.stopPropagation(); setOpen(v => !v); }}
+        ref={buttonRef}
+        onClick={e => { 
+          e.stopPropagation(); 
+          if (buttonRef.current) {
+            const rect = buttonRef.current.getBoundingClientRect();
+            setPopoverPos({ 
+              top: rect.bottom + 6,
+              left: rect.left 
+            });
+          }
+          setOpen(v => !v); 
+        }}
         className="inline-flex items-center gap-1 text-xs bg-blue-100 text-blue-700 border border-blue-200 px-1.5 py-0.5 rounded-full font-medium hover:bg-blue-200 transition-colors"
       >
         <Zap className="w-2.5 h-2.5" />预出货
@@ -37,7 +50,7 @@ export default function PreShipmentBadge({ preShipment }) {
           <div className="fixed inset-0 z-40" onClick={e => { e.stopPropagation(); setOpen(false); }} />
           <div
             className="fixed bg-white border border-blue-200 rounded-lg shadow-xl p-3 min-w-[200px] max-w-[280px] z-50"
-            style={{ top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}
+            style={{ top: `${popoverPos.top}px`, left: `${popoverPos.left}px` }}
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-2">
