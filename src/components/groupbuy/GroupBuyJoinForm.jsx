@@ -188,14 +188,21 @@ export default function GroupBuyJoinForm({ request, currentUser, onSuccess, onCa
             </div>
           ) : (
             <div
-              className={`mt-1 border-2 border-dashed rounded-md p-3 text-center cursor-pointer transition-colors ${
+              className={`mt-1 border-2 border-dashed rounded-md p-3 text-center cursor-pointer transition-colors outline-none focus:border-indigo-400 ${
                 dragOver ? 'border-indigo-400 bg-indigo-50' : 'border-gray-200 hover:border-indigo-300'
               }`}
+              tabIndex={0}
               onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
               onDragLeave={() => setDragOver(false)}
               onDrop={handleDrop}
               onPaste={handlePaste}
               onClick={() => document.getElementById('gb-img-input')?.click()}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  document.getElementById('gb-img-input')?.click();
+                }
+              }}
             >
               {uploading ? (
                 <span className="text-xs text-blue-400">上传中...</span>
