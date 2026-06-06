@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { parseNaturalPrice } from "@/lib/naturalNumber";
 import { detectPrimaryStoreTagResult } from "@/lib/onlineStoreTag";
 import { base44 } from "@/api/base44Client";
 
@@ -427,19 +428,14 @@ export default function SubmitOrder() {
                  onChange={e => setForm(f => ({ ...f, estimated_jpy: e.target.value }))}
                  onBlur={e => {
                    const raw = e.target.value.trim();
-                   if (/^[\d+\-*/().\s]+$/.test(raw)) {
-                     try {
-                       // eslint-disable-next-line no-new-func
-                       const result = Function('"use strict"; return (' + raw + ')')();
-                       if (typeof result === "number" && isFinite(result) && result > 0) {
-                         setForm(f => ({ ...f, estimated_jpy: String(Math.round(result)) }));
-                       }
-                     } catch (_) {}
+                   const result = parseNaturalPrice(raw);
+                   if (result !== null) {
+                     setForm(f => ({ ...f, estimated_jpy: String(result) }));
                    }
                  }}
                  className="mt-1"
-               />
-               <p className="text-xs text-gray-400 mt-1">支持四则运算，如 500+500</p>
+                 />
+                 <p className="text-xs text-gray-400 mt-1">支持四则运算及自然语言，如 500+500、一百加五百、one hundred plus twenty</p>
              </div>
 
             {/* Addon options — only shown if user has permission */}
