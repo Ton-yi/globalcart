@@ -92,9 +92,11 @@ export default function Layout({ children, currentPageName }) {
     { label: "订单管理", icon: Package, page: "AdminOrders", canAccess: canAccessAdminOrders },
     { label: "发货池", icon: Send, page: "AdminShippingPool", canAccess: canAccessAdminShippingPool },
     { label: "用户管理", icon: Users, page: "AdminUsers", canAccess: canAccessAdminUsers },
-    { label: "公告管理", icon: Bell, page: "AdminAnnouncements", canAccess: canAccessAdminAnnouncements },
-    { label: "服务费规则", icon: Zap, page: "AdminFeeRules", canAccess: canAccessAdminSettings },
-    { label: "网站设置", icon: Settings, page: "AdminSettings", canAccess: canAccessAdminSettings },
+    { label: "网站设置", icon: Settings, page: "AdminSettings", canAccess: canAccessAdminSettings, subItems: [
+      ...(canAccessAdminAnnouncements ? [{ label: "公告管理", icon: Bell, page: "AdminAnnouncements" }] : []),
+      ...(canAccessAdminSettings ? [{ label: "服务费规则", icon: Zap, page: "AdminFeeRules" }] : []),
+      { label: "网站设置", icon: Settings, page: "AdminSettings" },
+    ]},
   ];
 
   const platformAdminNav = [
@@ -107,17 +109,14 @@ export default function Layout({ children, currentPageName }) {
   let navItems = [visibleUserNav[0]]; // Always show Home
   
   if (isPlatformAdmin) {
-    // Platform admin: show user nav + platform admin items + tenant admin items + personal profile
-    navItems = [...navItems, ...visibleUserNav.slice(1), ...platformAdminNav, ...tenantAdminNav.filter(item => item.canAccess), { label: "个人档案", icon: User, page: "UserPreferences" }];
+    navItems = [...navItems, ...visibleUserNav.slice(1), ...platformAdminNav, ...tenantAdminNav.filter(item => item.canAccess)];
   } else if (isTenantAdmin) {
-    // Tenant admin: show user nav + tenant admin items + personal profile
-    navItems = [...navItems, ...visibleUserNav.slice(1), ...tenantAdminNav.filter(item => item.canAccess), { label: "个人档案", icon: User, page: "UserPreferences" }];
+    navItems = [...navItems, ...visibleUserNav.slice(1), ...tenantAdminNav.filter(item => item.canAccess)];
   } else if (isStaff) {
-    // Staff: show user pages + any admin pages they have permission for
     const staffAdminItems = tenantAdminNav.filter(item => item.canAccess);
-    navItems = [...navItems, ...visibleUserNav.slice(1), ...staffAdminItems, { label: "个人档案", icon: User, page: "UserPreferences" }];
+    navItems = [...navItems, ...visibleUserNav.slice(1), ...staffAdminItems];
   } else if (isTenantUser) {
-    navItems = [...navItems, ...visibleUserNav.slice(1), { label: "个人档案", icon: User, page: "UserPreferences" }];
+    navItems = [...navItems, ...visibleUserNav.slice(1)];
   } else {
     navItems = visibleUserNav;
   }
