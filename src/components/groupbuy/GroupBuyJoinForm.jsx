@@ -37,7 +37,7 @@ export default function GroupBuyJoinForm({ request, currentUser, onSuccess, onCa
   const [urlConflict, setUrlConflict] = useState(null);
   const [dragOver, setDragOver] = useState(false);
   const [imageUrlInput, setImageUrlInput] = useState('');
-  const uploadZoneRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   const sf = (k, v) => {
     const updated = { ...form, [k]: v };
@@ -146,32 +146,16 @@ export default function GroupBuyJoinForm({ request, currentUser, onSuccess, onCa
   const isEarlier = form.custom_deadline && request?.deadline && form.custom_deadline < request.deadline;
   const isLater   = form.custom_deadline && request?.deadline && form.custom_deadline > request.deadline;
 
-  // Global paste handler - works even when upload zone doesn't have focus
+  // Auto-focus paste input when component mounts - allows Ctrl+V anywhere
   useEffect(() => {
-    const handleGlobalPaste = async (e) => {
-      // Only handle paste if target is not an input/textarea
-      const target = e.target;
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
-      
-      const items = e.clipboardData?.items;
-      if (!items) return;
-      
-      // Look for images in clipboard
-      for (const item of items) {
-        if (item.type.startsWith('image/')) {
-          e.preventDefault();
-          const file = item.getAsFile();
-          if (file && !form.product_image_url) {
-            await handleImageUpload(file);
-            return;
-          }
-        }
+    const timer = setTimeout(() => {
+      const pasteInput = document.querySelector('input[tabIndex="-1"][onPaste]');
+      if (pasteInput) {
+        pasteInput.focus();
       }
-    };
-
-    window.addEventListener('paste', handleGlobalPaste);
-    return () => window.removeEventListener('paste', handleGlobalPaste);
-  }, [form.product_image_url]);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Re-check URL conflict when template changes
   useEffect(() => {
@@ -262,36 +246,42 @@ export default function GroupBuyJoinForm({ request, currentUser, onSuccess, onCa
             </div>
           ) : (
             <div
-              ref={uploadZoneRef}
-              className={`mt-1 border-2 border-dashed rounded-md p-3 text-center cursor-pointer transition-colors outline-none focus:border-indigo-400 ${
+              className={`mt-1 border-2 border-dashed rounded-md p-3 text-center cursor-pointer transition-colors ${
                 dragOver ? 'border-indigo-400 bg-indigo-50' : 'border-gray-200 hover:border-indigo-300'
               }`}
-              tabIndex={0}
               onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
               onDragLeave={() => setDragOver(false)}
               onDrop={handleDrop}
-              onPaste={handlePaste}
-              onClick={() => document.getElementById('gb-img-input')?.click()}
-              onFocus={() => uploadZoneRef.current?.focus()}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  document.getElementById('gb-img-input')?.click();
-                }
-              }}
+              onClick={() => fileInputRef.current?.click()}
             >
               {uploading ? (
                 <span className="text-xs text-blue-400">上传中...</span>
               ) : (
                 <div className="text-xs text-gray-400">
                   <Upload className="w-3.5 h-3.5 inline mr-1" />
-                  点击上传 / 拖拽 / 粘贴
+                  点击上传 / 拖拽 / 粘贴图片
                 </div>
               )}
+              {/* Hidden file input */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleImageUpload(file);
+                }}
+              />
+              {/* Hidden paste input - receives Ctrl+V / Cmd+V */}
+              <input
+                type="text"
+                onPaste={handlePaste}
+                className="opacity-0 absolute pointer-events-none"
+                tabIndex={-1}
+              />
             </div>
           )}
-          <input id="gb-img-input" type="file" accept="image/*" className="hidden"
-            onChange={e => { const f = e.target.files[0]; if (f) handleImageUpload(f); }} />
           {!form.product_image_url && (
             <div className="mt-2 flex gap-2">
               <Input
