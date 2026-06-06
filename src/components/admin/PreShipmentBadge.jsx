@@ -22,7 +22,8 @@ export default function PreShipmentBadge({ preShipment }) {
     modeLabel = `中转拼邮 → ${ps.transit_location_name}`;
     modeColor = "text-purple-700";
   } else if (ps.consType === "official_pool" || ps.pool_id) {
-    modeLabel = "官方拼邮看板";
+    const poolName = ps.target_pool_title || ps.target_pool_code || "";
+    modeLabel = poolName ? `官方拼邮 → ${poolName}` : "官方拼邮看板（自动匹配）";
     modeColor = "text-indigo-700";
   } else {
     modeLabel = "直接发货";

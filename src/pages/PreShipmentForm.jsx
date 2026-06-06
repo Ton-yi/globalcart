@@ -247,6 +247,7 @@ export default function PreShipmentForm() {
       pool_created: consType === "official_pool",
       target_pool_id: consType === "official_pool" ? selectedPoolId : "",
       target_pool_code: consType === "official_pool" ? poolCode : "",
+      target_pool_title: consType === "official_pool" && selectedPool ? (selectedPool.title || selectedPool.pool_code) : "",
     };
 
     await base44.functions.invoke('updateTenantOrder', {
