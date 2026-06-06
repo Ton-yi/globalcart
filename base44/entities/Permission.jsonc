@@ -42,5 +42,51 @@
     "description",
     "resource_type",
     "action"
-  ]
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": {
+          "$in": [
+            "admin",
+            "tenant_admin",
+            "platform_admin"
+          ]
+        }
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": {
+          "$in": [
+            "admin",
+            "tenant_admin",
+            "platform_admin"
+          ]
+        }
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": {
+          "$in": [
+            "admin",
+            "tenant_admin",
+            "platform_admin"
+          ]
+        }
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": {
+          "$in": [
+            "admin",
+            "tenant_admin",
+            "platform_admin"
+          ]
+        }
+      }
+    }
+  }
 }
