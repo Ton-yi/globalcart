@@ -9,7 +9,7 @@ import { getCurrentSubdomain } from "@/lib/tenantBranding";
 import { 
   ShoppingBag, Package, Truck, User, Settings, 
   Bell, LogOut, Menu, X, Shield,
-  Home, Users, BarChart3, Store, Send, Zap
+  Home, Users, BarChart3, Store, Send, Zap, UserPlus
 } from "lucide-react";
 import { MidnightToggle } from "@/components/common/ThemeSelector";
 import { Badge } from "@/components/ui/badge";
@@ -81,6 +81,7 @@ export default function Layout({ children, currentPageName }) {
     { label: "提交需求", icon: ShoppingBag, page: "SubmitOrder", requiredRole: "user" },
     { label: "我的订单", icon: Package, page: "MyOrders", requiredRole: "user", hidden: !canViewMyOrders },
     { label: "发货 & 拼邮", icon: Send, page: "ShippingPool", requiredRole: "user" },
+    { label: "拼下单", icon: UserPlus, page: "GroupBuy", requiredRole: "user" },
     { label: "个人设置", icon: User, page: "UserPreferences" },
   ];
 
