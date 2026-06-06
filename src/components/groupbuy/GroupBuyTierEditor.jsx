@@ -35,6 +35,7 @@ export default function GroupBuyTierEditor({ tiers = [], onChange }) {
 
   return (
     <div className="space-y-2">
+      <style>{`input[type="number"]::-webkit-outer-spin-button, input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; } input[type="number"] { -moz-appearance: textfield; }`}</style>
       <div className="flex items-center justify-between">
         <Label className="text-xs text-gray-500">运费区间阶梯</Label>
         <Button type="button" size="sm" variant="outline" onClick={addTier} className="h-7 text-xs gap-1">
