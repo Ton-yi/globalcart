@@ -90,7 +90,6 @@ export default function GroupBuyJoinForm({ request, currentUser, onSuccess, onCa
           break;
         }
       } else if (item.type === 'text/plain') {
-        // If user pasted a URL instead of image
         item.getAsString((text) => {
           if (text.trim().match(/^https?:\/\//)) {
             setImageUrlInput(text.trim());
@@ -99,6 +98,13 @@ export default function GroupBuyJoinForm({ request, currentUser, onSuccess, onCa
         });
         break;
       }
+    }
+  };
+
+  const handleImageUrlSubmit = () => {
+    if (imageUrlInput.trim()) {
+      sf('product_image_url', imageUrlInput.trim());
+      setImageUrlInput('');
     }
   };
 
