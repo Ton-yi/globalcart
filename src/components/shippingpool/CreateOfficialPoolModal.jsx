@@ -48,6 +48,20 @@ export default function CreateOfficialPoolModal({ onClose, onSuccess }) {
 
       const locs = await tenantEntity.list('TransitLocation', { is_active: true });
       setTransitLocations(locs);
+
+      // Auto-select the default official pool transit location
+      const defaultLoc = locs.find(l => l.is_default_official_pool);
+      if (defaultLoc) {
+        setForm(p => ({
+          ...p,
+          transit_location_id: defaultLoc.id,
+          recipient_name: defaultLoc.manager_contact || "",
+          address_line1: defaultLoc.address || "",
+          city: defaultLoc.province || "",
+          destination_country: defaultLoc.country || "",
+        }));
+      }
+
       setLoading(false);
     };
     init().catch(console.error);

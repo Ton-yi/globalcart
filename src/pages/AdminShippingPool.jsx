@@ -57,7 +57,7 @@ export default function AdminShippingPool() {
   // Location form
   const [showLocForm, setShowLocForm] = useState(false);
   const [editingLoc, setEditingLoc] = useState(null);
-  const [locForm, setLocForm] = useState({ name: "", code_prefix: "", country: "", province: "", address: "", handling_fee: 0, handling_fee_currency: "JPY", manager_email: "", manager_contact: "", allow_storage: false, allow_pickup: false, description: "", is_active: true, disabled_transit_method_ids: [], disabled_addon_ids: [] });
+  const [locForm, setLocForm] = useState({ name: "", code_prefix: "", country: "", province: "", address: "", handling_fee: 0, handling_fee_currency: "JPY", manager_email: "", manager_contact: "", allow_storage: false, allow_pickup: false, description: "", is_active: true, is_default_official_pool: false, disabled_transit_method_ids: [], disabled_addon_ids: [] });
   const [savingLoc, setSavingLoc] = useState(false);
   const [allUsers, setAllUsers] = useState([]);
   const [transitMethods, setTransitMethods] = useState([]);
@@ -151,6 +151,11 @@ export default function AdminShippingPool() {
 
   const handleLocSave = async () => {
     setSavingLoc(true);
+    // If setting as default, clear the flag on all other locations first
+    if (locForm.is_default_official_pool) {
+      const others = locations.filter(l => l.is_default_official_pool && l.id !== editingLoc?.id);
+      await Promise.all(others.map(l => tenantEntity.update('TransitLocation', l.id, { is_default_official_pool: false })));
+    }
     if (editingLoc) {
       await tenantEntity.update('TransitLocation', editingLoc.id, locForm);
     } else {
@@ -159,7 +164,7 @@ export default function AdminShippingPool() {
     await fetchLocations();
     setShowLocForm(false);
     setEditingLoc(null);
-    setLocForm({ name: "", code_prefix: "", country: "", province: "", address: "", handling_fee: 0, handling_fee_currency: "JPY", manager_email: "", manager_contact: "", allow_storage: false, allow_pickup: false, description: "", is_active: true, disabled_transit_method_ids: [], disabled_addon_ids: [] });
+    setLocForm({ name: "", code_prefix: "", country: "", province: "", address: "", handling_fee: 0, handling_fee_currency: "JPY", manager_email: "", manager_contact: "", allow_storage: false, allow_pickup: false, description: "", is_active: true, is_default_official_pool: false, disabled_transit_method_ids: [], disabled_addon_ids: [] });
     setSavingLoc(false);
   };
 
@@ -175,6 +180,7 @@ export default function AdminShippingPool() {
       disabled_transit_method_ids: loc.disabled_transit_method_ids || [],
       disabled_addon_ids: loc.disabled_addon_ids || [],
       description: loc.description || "", is_active: loc.is_active !== false,
+      is_default_official_pool: loc.is_default_official_pool || false,
     });
     setShowLocForm(true);
   };
@@ -440,6 +446,18 @@ export default function AdminShippingPool() {
                 </label>
               </div>
 
+              {/* Default official pool toggle */}
+              <div className="flex items-center justify-between border border-orange-200 rounded-lg px-3 py-2 bg-orange-50">
+                <div>
+                  <p className="text-xs font-medium text-orange-700">设为默认官方拼邮中转地</p>
+                  <p className="text-xs text-orange-500 mt-0.5">开启后，创建官方拼邮需求时将自动选取此中转地（全租户唯一）</p>
+                </div>
+                <Switch
+                  checked={locForm.is_default_official_pool}
+                  onCheckedChange={v => lf("is_default_official_pool", v)}
+                />
+              </div>
+
               {/* Disable transit methods for this location */}
               {transitMethods.length > 0 && (
                 <div>
@@ -520,6 +538,9 @@ export default function AdminShippingPool() {
                       )}
                       {loc.allow_storage && <Badge className="text-xs bg-blue-100 text-blue-600">可暂存</Badge>}
                       {loc.allow_pickup && <Badge className="text-xs bg-teal-100 text-teal-600">可自取</Badge>}
+                      {loc.is_default_official_pool && (
+                        <Badge className="text-xs bg-orange-100 text-orange-700">⭐ 默认官方拼邮</Badge>
+                      )}
                       <Badge className={`text-xs ${loc.is_active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
                         {loc.is_active ? "启用" : "停用"}
                       </Badge>
@@ -534,6 +555,31 @@ export default function AdminShippingPool() {
                   <div className="flex items-center gap-1 flex-shrink-0">
                     {canManageTransitLocations && (
                       <>
+                        {!loc.is_default_official_pool && (
+                          <button
+                            title="设为默认官方拼邮中转地"
+                            onClick={async () => {
+                              // Clear existing default, then set this one
+                              const others = locations.filter(l => l.is_default_official_pool);
+                              await Promise.all(others.map(l => tenantEntity.update('TransitLocation', l.id, { is_default_official_pool: false })));
+                              await tenantEntity.update('TransitLocation', loc.id, { is_default_official_pool: true });
+                              fetchLocations();
+                            }}
+                            className="p-1.5 rounded hover:bg-orange-50 text-gray-300 hover:text-orange-500">
+                            <Check className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {loc.is_default_official_pool && (
+                          <button
+                            title="取消默认官方拼邮中转地"
+                            onClick={async () => {
+                              await tenantEntity.update('TransitLocation', loc.id, { is_default_official_pool: false });
+                              fetchLocations();
+                            }}
+                            className="p-1.5 rounded hover:bg-orange-50 text-orange-500 hover:text-orange-700">
+                            <Check className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                         <button onClick={() => handleLocToggle(loc)} className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-700">
                           {loc.is_active ? <XIcon className="w-3.5 h-3.5" /> : <Check className="w-3.5 h-3.5" />}
                         </button>

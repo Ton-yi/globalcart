@@ -81,6 +81,11 @@
       "default": true,
       "description": "\u662f\u5426\u542f\u7528"
     },
+    "is_default_official_pool": {
+      "type": "boolean",
+      "default": false,
+      "description": "\u662f\u5426\u4e3a\u9ed8\u8ba4\u5b98\u65b9\u62fc\u90ae\u4e2d\u8f6c\u5730\uff08\u5168\u79df\u6237\u552f\u4e00\uff0c\u521b\u5efa\u5b98\u65b9\u62fc\u90ae\u65f6\u81ea\u52a8\u9009\u4e2d\uff09"
+    },
     "supported_methods": {
       "type": "array",
       "items": {
