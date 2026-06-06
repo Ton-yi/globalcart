@@ -14,9 +14,23 @@ export default function PreShipmentBadge({ preShipment }) {
   if (!preShipment) return null;
 
   const ps = preShipment;
+
+  // Determine shipping mode label
+  let modeLabel = "";
+  let modeColor = "text-gray-700";
+  if (ps.consType === "transit" && ps.transit_location_name) {
+    modeLabel = `中转拼邮 → ${ps.transit_location_name}`;
+    modeColor = "text-purple-700";
+  } else if (ps.consType === "official_pool" || ps.pool_id) {
+    modeLabel = "官方拼邮看板";
+    modeColor = "text-indigo-700";
+  } else {
+    modeLabel = "直接发货";
+    modeColor = "text-green-700";
+  }
+
   const lines = [];
   if (ps.shipping_method) lines.push({ label: "运输方式", value: ps.shipping_method });
-  if (ps.transit_location_name) lines.push({ label: "中转地", value: ps.transit_location_name });
   if (ps.scheduled_ship_date) lines.push({ label: "计划发货", value: ps.scheduled_ship_date });
   if ((ps.selected_addons || []).length > 0)
     lines.push({ label: "增值服务", value: (ps.selected_addons || []).map(a => a.name || a.id).join("、") });
@@ -61,8 +75,16 @@ export default function PreShipmentBadge({ preShipment }) {
                 <X className="w-3.5 h-3.5 text-gray-400 hover:text-gray-600" />
               </button>
             </div>
+            {/* Shipping mode highlight */}
+            <div className={`text-xs font-semibold mb-2 px-2 py-1 rounded ${
+              modeColor === "text-purple-700" ? "bg-purple-50 border border-purple-200 text-purple-700" :
+              modeColor === "text-indigo-700" ? "bg-indigo-50 border border-indigo-200 text-indigo-700" :
+              "bg-green-50 border border-green-200 text-green-700"
+            }`}>
+              {modeLabel}
+            </div>
             {lines.length === 0 ? (
-              <p className="text-xs text-gray-400">用户已填写预出货，但无详细信息。</p>
+              <p className="text-xs text-gray-400">无其他详细信息。</p>
             ) : (
               <div className="space-y-1">
                 {lines.map((l, i) => (
