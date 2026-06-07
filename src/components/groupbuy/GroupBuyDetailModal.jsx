@@ -253,9 +253,21 @@ export default function GroupBuyDetailModal({ request, entries = [], currentUser
                 <>
                   <div>
                     <Label className="text-xs text-gray-500">实际运费总计（JPY）*</Label>
-                    <Input className="mt-1 h-8 text-sm" type="number" min={0}
-                      placeholder="0（免运费也请填0）"
-                      value={actualShippingFee} onChange={e => setActualShippingFee(e.target.value)} />
+                    <div className="flex gap-1 mt-1">
+                      <Button size="sm" variant="outline" className="h-8 px-2 text-xs" 
+                        onClick={() => {
+                          const num = parseInt(actualShippingFee) || 0;
+                          setActualShippingFee(String(Math.max(0, num - 100)));
+                        }}>-100</Button>
+                      <Input className="h-8 text-sm flex-1" type="number" min={0}
+                        placeholder="0（免运费也请填0）"
+                        value={actualShippingFee} onChange={e => setActualShippingFee(e.target.value)} />
+                      <Button size="sm" variant="outline" className="h-8 px-2 text-xs"
+                        onClick={() => {
+                          const num = parseInt(actualShippingFee) || 0;
+                          setActualShippingFee(String(num + 100));
+                        }}>+100</Button>
+                    </div>
                     {shippingFeeNum > 0 && activeEntries.length > 0 && (
                       <p className="text-xs text-gray-400 mt-1">默认平分：每人 ¥{defaultShare}（可在上方条目处单独修改）</p>
                     )}
