@@ -3,7 +3,7 @@
  * Users: view details, join if not joined, cancel own entry
  * Admins: complete (convert to orders) or cancel the whole request
  */
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { X, Users, Calendar, ShoppingBag, CheckCircle2, XCircle, Loader2, Trash2, DollarSign, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -78,6 +78,21 @@ export default function GroupBuyDetailModal({ request, entries = [], currentUser
     onRefresh?.();
     onClose?.();
   };
+
+  // Real-time subscription: refresh when entries or the request itself change
+  useEffect(() => {
+    const unsubEntry = base44.entities.GroupBuyEntry.subscribe((event) => {
+      if (event.data?.request_id === request.id || event.type === 'create') {
+        onRefresh?.();
+      }
+    });
+    const unsubRequest = base44.entities.GroupBuyRequest.subscribe((event) => {
+      if (event.id === request.id) {
+        onRefresh?.();
+      }
+    });
+    return () => { unsubEntry(); unsubRequest(); };
+  }, [request.id]);
 
   const handleBackdropMouseDown = (e) => {
     // Close only if mousedown started outside the content box
