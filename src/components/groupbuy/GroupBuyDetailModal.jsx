@@ -231,10 +231,22 @@ export default function GroupBuyDetailModal({ request, entries = [], currentUser
                       <p className="text-sm font-semibold text-gray-800">¥{Math.round(entry.estimated_jpy).toLocaleString()}</p>
                       {/* Admin: override fee input */}
                       {isAdmin && showCompleteForm && (
-                        <Input className="mt-1 h-6 text-xs w-20 text-right"
-                          placeholder={String(defaultShare)}
-                          value={feeOverrides[entry.id] ?? ''}
-                          onChange={e => setFeeOverrides(o => ({ ...o, [entry.id]: e.target.value }))} />
+                        <div className="flex items-center gap-0.5 mt-1">
+                          <Button size="sm" variant="outline" className="h-6 px-1 text-[10px]"
+                            onClick={() => setFeeOverrides(o => {
+                              const cur = parseInt(o[entry.id] ?? defaultShare) || 0;
+                              return { ...o, [entry.id]: String(Math.max(0, cur - 100)) };
+                            })}>-100</Button>
+                          <Input className="h-6 text-xs w-16 text-right"
+                            placeholder={String(defaultShare)}
+                            value={feeOverrides[entry.id] ?? ''}
+                            onChange={e => setFeeOverrides(o => ({ ...o, [entry.id]: e.target.value }))} />
+                          <Button size="sm" variant="outline" className="h-6 px-1 text-[10px]"
+                            onClick={() => setFeeOverrides(o => {
+                              const cur = parseInt(o[entry.id] ?? defaultShare) || 0;
+                              return { ...o, [entry.id]: String(cur + 100) };
+                            })}>+100</Button>
+                        </div>
                       )}
                     </div>
                   </div>
