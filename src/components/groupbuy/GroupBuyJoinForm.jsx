@@ -21,7 +21,18 @@ function detectTemplate(url, templates) {
   return null;
 }
 
+// Check if a URL matches a specific template's keywords
+function urlMatchesTemplate(url, template) {
+  if (!url || !template) return false;
+  const keywords = template.url_keywords || [];
+  return keywords.some(kw => url.toLowerCase().includes(kw.toLowerCase()));
+}
+
 export default function GroupBuyJoinForm({ request, currentUser, onSuccess, onCancel, isCreateMode = false, onDataChange, templates = [], onTemplateDetected, currentTemplateId }) {
+  // When joining (not creating), restrict URLs to the request's template
+  const restrictTemplate = !isCreateMode && currentTemplateId
+    ? templates.find(t => t.id === currentTemplateId) || null
+    : null;
   const [form, setForm] = useState({
     product_url: '',
     product_name: '',
@@ -35,6 +46,7 @@ export default function GroupBuyJoinForm({ request, currentUser, onSuccess, onCa
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [urlConflict, setUrlConflict] = useState(null);
+  const [urlMismatch, setUrlMismatch] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [imageUrlInput, setImageUrlInput] = useState('');
   const fileInputRef = useRef(null);
@@ -47,9 +59,18 @@ export default function GroupBuyJoinForm({ request, currentUser, onSuccess, onCa
 
   const handleProductUrlChange = (url) => {
     sf('product_url', url);
-    if (!url) { setUrlConflict(null); return; }
-    
+    if (!url) { setUrlConflict(null); setUrlMismatch(false); return; }
+
     const lines = url.split('\n').map(l => l.trim()).filter(l => l);
+
+    // Join mode: validate every URL must belong to the request's template
+    if (restrictTemplate) {
+      const hasInvalidLine = lines.some(line => !urlMatchesTemplate(line, restrictTemplate));
+      setUrlMismatch(hasInvalidLine);
+      setUrlConflict(null);
+      return;
+    }
+
     const detectedTemplates = lines.map(line => detectTemplate(line, templates)).filter(Boolean);
     const uniqueTemplates = [...new Map(detectedTemplates.map(t => [t.id, t])).values()];
     
@@ -132,6 +153,7 @@ export default function GroupBuyJoinForm({ request, currentUser, onSuccess, onCa
 
   const handleSubmit = async () => {
     if (!form.product_name || !form.estimated_jpy) return;
+    if (urlMismatch) return;
     setSubmitting(true);
     await base44.functions.invoke('manageGroupBuy', {
       action: 'join_request',
@@ -195,6 +217,11 @@ export default function GroupBuyJoinForm({ request, currentUser, onSuccess, onCa
             if (e.key === 'Enter' && !e.shiftKey) e.stopPropagation();
           }}
         />
+        {urlMismatch && restrictTemplate && (
+          <p className="mt-1 text-xs text-red-600 bg-red-50 border border-red-200 rounded px-2 py-1">
+            ⚠️ 只能添加「{restrictTemplate.name}」的商品链接，请检查输入的网址
+          </p>
+        )}
         {urlConflict && urlConflict.multiStore && (
           <p className="mt-1 text-xs text-orange-600 bg-orange-50 border border-orange-200 rounded px-2 py-1">
             ⚠️ 检测到多个店铺的商品：{urlConflict.templates.map(t => t.name).join('、')}，请分开提交
@@ -327,7 +354,7 @@ export default function GroupBuyJoinForm({ request, currentUser, onSuccess, onCa
 
       {!isCreateMode && (
         <div className="flex gap-2 pt-1">
-          <Button size="sm" onClick={handleSubmit} disabled={submitting || !form.product_name || !form.estimated_jpy}
+          <Button size="sm" onClick={handleSubmit} disabled={submitting || !form.product_name || !form.estimated_jpy || urlMismatch}
             className="bg-indigo-600 hover:bg-indigo-700 text-xs h-8">
             {submitting ? '提交中...' : '确认加入'}
           </Button>
