@@ -74,7 +74,7 @@ export default function Layout({ children, currentPageName }) {
   const canAccessAdminUsers = isPlatformAdmin || isTenantAdmin || can("user:read") || can("view:user_management_page");
   const canAccessAdminAnnouncements = isPlatformAdmin || isTenantAdmin || can("view:announcement_management_page");
 
-  const canViewMyOrders = isAdmin || can("view:my_orders_module");
+  const canViewMyOrders = isAdmin || isTenantUser || can("view:my_orders_module");
 
   const userNav = [
     { label: "首页", icon: Home, page: "Home" },
