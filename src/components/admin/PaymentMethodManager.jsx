@@ -241,7 +241,8 @@ function EditForm({ form, onChange, onSave, onCancel, saving, onUpload, uploadin
 }
 
 // ── Main component ─────────────────────────────────────────────────────────
-export default function PaymentMethodManager({ onReload }) {
+// alipaySettings: parent passes all SiteSettings records so we don't double-fetch getAdminSettingsPageData
+export default function PaymentMethodManager({ onReload, alipaySettings = [] }) {
   const [methods, setMethods] = useState([]);
   const [alipayKeySettings, setAlipayKeySettings] = useState([]);
   const [alipayKeyIds, setAlipayKeyIds] = useState({});
@@ -259,21 +260,21 @@ export default function PaymentMethodManager({ onReload }) {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
 
+  // Derive alipay key settings from parent-provided settings to avoid double-fetching
+  useEffect(() => {
+    if (alipaySettings.length > 0) {
+      const keySettings = alipaySettings.filter(s => s.key.startsWith('alipay_key_'));
+      const ids = {};
+      keySettings.forEach(s => { ids[s.key] = s.id; });
+      setAlipayKeySettings(keySettings);
+      setAlipayKeyIds(ids);
+    }
+  }, [alipaySettings]);
+
   const reload = async () => {
     setLoading(true);
-    const [methodsRes, settingsRes] = await Promise.all([
-      base44.functions.invoke('managePaymentMethod', { action: 'list' }),
-      base44.functions.invoke('getAdminSettingsPageData', {}),
-    ]);
+    const methodsRes = await base44.functions.invoke('managePaymentMethod', { action: 'list' });
     setMethods(methodsRes.data?.methods || []);
-
-    const allSettings = settingsRes.data?.settings || [];
-    const keySettings = allSettings.filter(s => s.key.startsWith('alipay_key_'));
-    const ids = {};
-    keySettings.forEach(s => { ids[s.key] = s.id; });
-    setAlipayKeySettings(keySettings);
-    setAlipayKeyIds(ids);
-
     setLoading(false);
     onReload?.();
   };

@@ -5,6 +5,7 @@ import { tenantEntity } from "@/lib/tenantApi";
 import { setTenantConfigCache } from "@/lib/configCache";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Settings, Save, Plus, Trash2, Star, Lock, Eye, EyeOff, Truck, Palette, TrendingUp, Zap, Building2, Users, CheckCircle2, ExternalLink } from "lucide-react";
+import { runInBatches } from "@/lib/apiUtils";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import ThemeSelector from "@/components/common/ThemeSelector";
@@ -216,7 +217,11 @@ export default function AdminSettings() {
   const handleSaveCategory = async (category) => {
     setSaving(true);
     const itemsToSave = settings.filter(s => s.category === category);
-    await Promise.all(itemsToSave.map(s => tenantEntity.update('SiteSettings', s.id, { value: s.value, description: s.description })));
+    // Use batches of 3 to avoid 429 rate limits
+    await runInBatches(
+      itemsToSave.map(s => () => tenantEntity.update('SiteSettings', s.id, { value: s.value, description: s.description })),
+      3, 150
+    );
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
@@ -224,7 +229,11 @@ export default function AdminSettings() {
 
   const handleSaveAll = async () => {
     setSaving(true);
-    await Promise.all(settings.map(s => tenantEntity.update('SiteSettings', s.id, { value: s.value, description: s.description })));
+    // Use batches of 3 to avoid 429 rate limits
+    await runInBatches(
+      settings.map(s => () => tenantEntity.update('SiteSettings', s.id, { value: s.value, description: s.description })),
+      3, 150
+    );
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
@@ -328,7 +337,7 @@ export default function AdminSettings() {
             <p className="text-xs text-gray-400 mt-1">支付宝自动支付的密钥可在添加后点击「密钥」按钮配置。</p>
           </CardHeader>
           <CardContent>
-            <PaymentMethodManager onReload={load} />
+            <PaymentMethodManager onReload={load} alipaySettings={settings} />
           </CardContent>
         </Card>
       )}
@@ -389,7 +398,7 @@ export default function AdminSettings() {
           </Card>
 
           {/* Pending credit applications */}
-          <CreditApplicationManager />
+          <CreditApplicationManager memberTiers={memberTiers} />
         </div>
       )}
 

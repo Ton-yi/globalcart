@@ -5,34 +5,34 @@
  */
 import { base44 } from '@/api/base44Client';
 import { getTenantConfigCache, setTenantConfigCache } from '@/lib/configCache';
+import { invokeWithRetry } from '@/lib/apiUtils';
 
 // ─── Orders ──────────────────────────────────────────────────────────────────
 
 export async function fetchMyOrders() {
-  const res = await base44.functions.invoke('getTenantOrders', {});
+  const res = await invokeWithRetry('getTenantOrders', {});
   return res.data?.orders || [];
 }
 
 export async function fetchAllOrders() {
-  // Admin-level: backend still enforces tenant isolation
-  const res = await base44.functions.invoke('getTenantOrders', { all: true });
+  const res = await invokeWithRetry('getTenantOrders', { all: true });
   return res.data?.orders || [];
 }
 
 export async function createOrder(data) {
-  const res = await base44.functions.invoke('createTenantOrder', data);
+  const res = await invokeWithRetry('createTenantOrder', data);
   return res.data?.order;
 }
 
 export async function updateOrder(order_id, data) {
-  const res = await base44.functions.invoke('updateTenantOrder', { order_id, ...data });
+  const res = await invokeWithRetry('updateTenantOrder', { order_id, ...data });
   return res.data?.order;
 }
 
 // ─── Shipping Pools ───────────────────────────────────────────────────────────
 
 export async function fetchShippingPools() {
-  const res = await base44.functions.invoke('getTenantShippingPools', {});
+  const res = await invokeWithRetry('getTenantShippingPools', {});
   return res.data?.pools || [];
 }
 
@@ -43,7 +43,7 @@ export async function fetchTenantConfig({ force = false } = {}) {
     const cached = getTenantConfigCache();
     if (cached) return cached;
   }
-  const res = await base44.functions.invoke('getTenantConfigData', {});
+  const res = await invokeWithRetry('getTenantConfigData', {});
   const data = res.data || {};
   setTenantConfigCache(data);
   return data;
@@ -52,7 +52,7 @@ export async function fetchTenantConfig({ force = false } = {}) {
 // ─── Settings ─────────────────────────────────────────────────────────────────
 
 export async function fetchTenantSettings() {
-  const res = await base44.functions.invoke('getTenantSettings', {});
+  const res = await invokeWithRetry('getTenantSettings', {});
   return res.data?.settings || {};
 }
 
@@ -66,7 +66,7 @@ export async function fetchAnnouncements() {
 // ─── Generic tenant-safe entity mutations ─────────────────────────────────────
 
 async function mutate(entity, action, opts = {}) {
-  const res = await base44.functions.invoke('mutateTenantEntity', { entity, action, ...opts });
+  const res = await invokeWithRetry('mutateTenantEntity', { entity, action, ...opts });
   if (res.data?.error) throw new Error(res.data.error);
   return res.data;
 }
@@ -99,16 +99,16 @@ export const userPrefApi = {
 // ─── Page-level aggregated APIs ───────────────────────────────────────────────
 
 export async function fetchMyOrdersPageData() {
-  const res = await base44.functions.invoke('getMyOrdersPageData', {});
+  const res = await invokeWithRetry('getMyOrdersPageData', {});
   return res.data || { orders: [], pools: [], storeTagRules: [] };
 }
 
 export async function fetchAdminShippingPoolPageData() {
-  const res = await base44.functions.invoke('getAdminShippingPoolPageData', {});
+  const res = await invokeWithRetry('getAdminShippingPoolPageData', {});
   return res.data || { pools: [], locations: [], users: [], transitMethods: [], addonOptions: [] };
 }
 
 export async function fetchSubmitOrderPageData() {
-  const res = await base44.functions.invoke('getSubmitOrderPageData', {});
+  const res = await invokeWithRetry('getSubmitOrderPageData', {});
   return res.data || { addons: [], settings: {}, rates: null };
 }

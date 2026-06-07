@@ -19,23 +19,23 @@ const STATUS_LABELS = {
   rejected: { label: "已拒绝", color: "bg-red-100 text-red-600" },
 };
 
-export default function CreditApplicationManager({ compact = false }) {
+// memberTiers should be passed from parent (AdminSettings) to avoid double-fetching getAdminSettingsPageData
+export default function CreditApplicationManager({ compact = false, memberTiers: memberTiersProp = [] }) {
   const [applications, setApplications] = useState([]);
-  const [memberTiers, setMemberTiers] = useState([]);
+  const [memberTiers, setMemberTiers] = useState(memberTiersProp);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(!compact);
   const [reviewing, setReviewing] = useState(null); // application_id being reviewed
   const [reviewData, setReviewData] = useState({ admin_note: "", override_limit_jpy: "", override_cycle: "", member_tier_id: "" });
 
+  // Sync memberTiers from parent prop when it changes
+  useEffect(() => { if (memberTiersProp.length > 0) setMemberTiers(memberTiersProp); }, [memberTiersProp]);
+
   const load = async () => {
     setLoading(true);
     try {
-      const [appsRes, settingsRes] = await Promise.all([
-        base44.functions.invoke('manageCreditApplication', { action: 'list' }),
-        base44.functions.invoke('getAdminSettingsPageData', {}).catch(() => ({ data: { memberTiers: [] } })),
-      ]);
+      const appsRes = await base44.functions.invoke('manageCreditApplication', { action: 'list' });
       setApplications(appsRes.data?.applications || []);
-      setMemberTiers(settingsRes.data?.memberTiers || []);
     } catch (err) {
       console.error('CreditApplicationManager load error:', err);
     }
