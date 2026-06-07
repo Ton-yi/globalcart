@@ -3,7 +3,7 @@
  * Users: view details, join if not joined, cancel own entry
  * Admins: complete (convert to orders) or cancel the whole request
  */
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { X, Users, Calendar, ShoppingBag, CheckCircle2, XCircle, Loader2, Trash2, DollarSign, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,8 @@ export default function GroupBuyDetailModal({ request, entries = [], currentUser
   const [actualShippingFee, setActualShippingFee] = useState('');
   const [feeOverrides, setFeeOverrides] = useState({});
   const [adminNote, setAdminNote] = useState('');
+  const modalRef = useRef(null);
+  const contentRef = useRef(null);
 
   const activeEntries = entries.filter(e => e.status === 'active');
   const myEntry = entries.find(e => e.user_email === currentUser?.email && e.status === 'active');
@@ -75,9 +77,24 @@ export default function GroupBuyDetailModal({ request, entries = [], currentUser
     onClose?.();
   };
 
+  const handleBackdropMouseDown = (e) => {
+    // Close only if mousedown started outside the content box
+    if (e.target === modalRef.current) {
+      onClose?.();
+    }
+  };
+
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl w-full max-w-2xl shadow-xl my-4">
+    <div
+      ref={modalRef}
+      className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto"
+      onMouseDown={handleBackdropMouseDown}
+    >
+      <div
+        ref={contentRef}
+        className="bg-white rounded-2xl w-full max-w-2xl shadow-xl my-4"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="flex items-start justify-between p-5 border-b border-gray-100">
           <div className="flex-1 min-w-0 pr-4">
