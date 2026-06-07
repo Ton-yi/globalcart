@@ -9,7 +9,19 @@ export const PERMISSIONS_PRESET = [
       {
         name: "order:submit_purchase_request",
         display_name: "可提交购买需求",
-        description: "取消则无法提交购买需求创建新订单"
+        description: "取消则无法提交购买需求创建新订单",
+        children: [
+          {
+            name: "order:submit_group_buy_request",
+            display_name: "可提交拼下单",
+            description: "取消则不可发起或加入拼下单申请"
+          },
+          {
+            name: "order:submit_group_buy_template",
+            display_name: "可添加拼下单店铺模板",
+            description: "取消则不可提交拼下单店铺模板（供管理员审核）"
+          }
+        ]
       },
       {
         name: "order:submit_split_request",

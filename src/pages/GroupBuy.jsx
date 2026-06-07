@@ -181,7 +181,7 @@ export default function GroupBuy() {
           <Button size="sm" variant="outline" onClick={loadData} className="h-8 text-xs gap-1">
             <RefreshCw className="w-3.5 h-3.5" />刷新
           </Button>
-          {tab === 'plaza' && (
+          {tab === 'plaza' && (isAdmin || can('order:submit_group_buy_request')) && (
             <Button size="sm" className="h-8 text-xs bg-indigo-600 hover:bg-indigo-700 gap-1"
               onClick={() => { setShowCreateForm(true); setCreateForm(f => ({ ...f, deadline: defaultDeadline })); }}>
               <Plus className="w-3.5 h-3.5" />发起拼单
@@ -333,10 +333,12 @@ export default function GroupBuy() {
             <div className="text-center py-16 text-gray-400">
               <ShoppingBag className="w-12 h-12 mx-auto mb-3 opacity-30" />
               <p className="text-sm">暂无拼单</p>
-              <Button size="sm" className="mt-3 bg-indigo-600 hover:bg-indigo-700 text-xs"
-                onClick={() => { setShowCreateForm(true); setCreateForm(f => ({ ...f, deadline: defaultDeadline })); }}>
-                发起第一个拼单
-              </Button>
+              {(isAdmin || can('order:submit_group_buy_request')) && (
+                <Button size="sm" className="mt-3 bg-indigo-600 hover:bg-indigo-700 text-xs"
+                  onClick={() => { setShowCreateForm(true); setCreateForm(f => ({ ...f, deadline: defaultDeadline })); }}>
+                  发起第一个拼单
+                </Button>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

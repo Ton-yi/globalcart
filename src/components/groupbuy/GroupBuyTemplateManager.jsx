@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { base44 } from "@/api/base44Client";
+import { usePermissions } from "@/hooks/usePermissions";
 import GroupBuyTierEditor from "./GroupBuyTierEditor";
 
 const STATUS_CONFIG = {
@@ -27,6 +28,8 @@ const emptyForm = {
 };
 
 export default function GroupBuyTemplateManager({ templates, onRefresh, isAdmin, currentUser }) {
+  const { can } = usePermissions();
+  const canSubmitTemplate = isAdmin || can('order:submit_group_buy_template');
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(emptyForm);
@@ -85,9 +88,11 @@ export default function GroupBuyTemplateManager({ templates, onRefresh, isAdmin,
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-gray-700">店铺模板</h3>
-        <Button size="sm" variant="outline" onClick={openCreate} className="h-7 text-xs gap-1">
-          <Plus className="w-3.5 h-3.5" />新建模板
-        </Button>
+        {canSubmitTemplate && (
+          <Button size="sm" variant="outline" onClick={openCreate} className="h-7 text-xs gap-1">
+            <Plus className="w-3.5 h-3.5" />新建模板
+          </Button>
+        )}
       </div>
 
       {/* Form */}

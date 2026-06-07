@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { base44 } from "@/api/base44Client";
+import { usePermissions } from "@/hooks/usePermissions";
 import GroupBuyJoinForm from "./GroupBuyJoinForm";
 
 const STATUS_CONFIG = {
@@ -21,6 +22,7 @@ const STATUS_CONFIG = {
 };
 
 export default function GroupBuyDetailModal({ request, entries = [], currentUser, isAdmin, onClose, onRefresh, templates = [] }) {
+  const { can } = usePermissions();
   const [showJoinForm, setShowJoinForm] = useState(false);
   const [completing, setCompleting] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -172,7 +174,7 @@ export default function GroupBuyDetailModal({ request, entries = [], currentUser
           )}
 
           {/* Join button */}
-          {request.status === 'open' && !myEntry && !myCompletedEntry && (
+          {request.status === 'open' && !myEntry && !myCompletedEntry && (isAdmin || can('order:submit_group_buy_request')) && (
             <div>
               {showJoinForm ? (
                 <GroupBuyJoinForm
