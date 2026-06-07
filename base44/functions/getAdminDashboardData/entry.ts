@@ -42,8 +42,8 @@ Deno.serve(async (req) => {
     }
 
     const [allUsers, orders] = await Promise.all([
-      base44.asServiceRole.entities.User.filter(userFilter, '-created_date', 50),
-      base44.asServiceRole.entities.Order.filter(orderFilter, '-updated_date', 50),
+      base44.asServiceRole.entities.User.filter(userFilter),
+      base44.asServiceRole.entities.Order.filter(orderFilter),
     ]);
 
     // Exclude admins from user count (mirrors listNonAdminUsers logic)

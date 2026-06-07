@@ -7,7 +7,7 @@
 
 let _cache = null;
 let _cacheTs = 0;
-const TTL_MS = 60_000; // Match React Query staleTime
+const TTL_MS = 30_000;
 
 export function getTenantConfigCache() {
   if (_cache && Date.now() - _cacheTs < TTL_MS) return _cache;

@@ -4,10 +4,9 @@
  */
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { fetchShippingPools, tenantEntity, shippingPoolApi } from "@/lib/tenantApi";
+import { fetchShippingPools, tenantEntity, fetchTenantConfig, shippingPoolApi } from "@/lib/tenantApi";
 import { timePage } from "@/lib/timing";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { usePageData } from "@/hooks/usePageData";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Plus, RefreshCw, Truck, X, Package, MapPin, ChevronRight, ChevronLeft, Check, Scale, Calendar, Info, Layers, Lock, Users, Search, PlusCircle, Archive, ArchiveRestore, CreditCard } from "lucide-react";
 import { getCountry } from "@/lib/countries";
@@ -133,19 +132,16 @@ export default function ShippingPool() {
     t.done('data ready');
   };
 
-  // Cached tenant config — avoids re-fetching on navigation (shared with other pages via React Query)
-  const { data: tenantConfig } = usePageData('getTenantConfigData', {}, { enabled: !!user });
-
   useEffect(() => {
-    if (tenantConfig) {
-      setTransitShippingMethods((tenantConfig.transitMethods || []).filter(m => m.is_active !== false));
-      setShippingAddons((tenantConfig.addons || []).filter(a => a.addon_type === "shipping" && a.is_active !== false));
-      setShippingMethods((tenantConfig.shippingMethods || []).filter(m => m.is_active !== false));
+    if (user) {
+      fetchData(user);
+      // Pre-load transit methods so the detail modal has them available
+      fetchTenantConfig().then(cfg => {
+        setTransitShippingMethods((cfg.transitMethods || []).filter(m => m.is_active !== false));
+        setShippingAddons((cfg.addons || []).filter(a => a.addon_type === "shipping" && a.is_active !== false));
+        setShippingMethods((cfg.shippingMethods || []).filter(m => m.is_active !== false));
+      }).catch(() => {});
     }
-  }, [tenantConfig]);
-
-  useEffect(() => {
-    if (user) fetchData(user);
   }, [user]);
 
   // Open inline create form
@@ -170,9 +166,8 @@ export default function ShippingPool() {
     setTransitShippingMethods([]);
     setSelectedTransitMethodId("");
     setFormLoading(true);
-    // Use already-cached tenantConfig from usePageData; fall back to fetching if not yet loaded
-    const configData = tenantConfig || {};
-    const [prefs, usersRes, inWarehouseOrders] = await Promise.all([
+    const [configData, prefs, usersRes, inWarehouseOrders] = await Promise.all([
+      fetchTenantConfig(),
       tenantEntity.list('UserPreference', { user_email: user.email }).catch(() => []),
       base44.functions.invoke("listTenantUsers", {}).catch(() => ({ data: { users: [] } })),
       base44.functions.invoke('getTenantOrders', {})
@@ -182,9 +177,9 @@ export default function ShippingPool() {
     setAvailableOrders(inWarehouseOrders);
     setTransitLocations((configData.transitLocations || []).filter(l => l.is_active !== false));
     setTransitShippingMethods((configData.transitMethods || []).filter(m => m.is_active !== false));
-    setShippingAddons((configData.addons || []).filter(a => a.addon_type === "shipping" && a.is_active !== false));
-    setShippingMethods((configData.shippingMethods || []).filter(m => m.is_active !== false));
-    setAllUsers(usersRes?.data?.users || []);
+      setShippingAddons((configData.addons || []).filter(a => a.addon_type === "shipping" && a.is_active !== false));
+      setShippingMethods((configData.shippingMethods || []).filter(m => m.is_active !== false));
+      setAllUsers(usersRes?.data?.users || []);
     const pref = prefs[0];
     const addrs = (pref?.saved_addresses || []).map(a => ({ ...EMPTY_ADDRESS_FORM, ...a }));
     setSavedAddresses(addrs);

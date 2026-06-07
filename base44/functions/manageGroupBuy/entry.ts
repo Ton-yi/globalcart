@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
 
     // ── list_templates ───────────────────────────────────────────────
     if (action === 'list_templates') {
-      const all = await base44.asServiceRole.entities.GroupBuyTemplate.filter({ tenant_id: tenantId }, '-created_date', 50);
+      const all = await base44.asServiceRole.entities.GroupBuyTemplate.filter({ tenant_id: tenantId });
       // Admins see all; users see approved+active OR their own submissions (any status)
       const visible = isAdmin ? all : (all || []).filter(t =>
         (t.status === 'approved' && t.is_active !== false) ||
@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
       const { template_id, ...updateFields } = body;
       if (!template_id) return Response.json({ error: 'template_id required' }, { status: 400 });
 
-      const existing = (await base44.asServiceRole.entities.GroupBuyTemplate.filter({ id: template_id }, '-created_date', 50))?.[0];
+      const existing = (await base44.asServiceRole.entities.GroupBuyTemplate.filter({ id: template_id }))?.[0];
       if (!existing || existing.tenant_id !== tenantId) {
         return Response.json({ error: 'Template not found' }, { status: 404 });
       }
@@ -95,7 +95,7 @@ Deno.serve(async (req) => {
     if (action === 'review_template') {
       if (!isTenantAdmin && !isAdmin) return Response.json({ error: 'Forbidden' }, { status: 403 });
       const { template_id, decision, reject_reason } = body; // decision: 'approve' | 'reject'
-      const existing = (await base44.asServiceRole.entities.GroupBuyTemplate.filter({ id: template_id }, '-created_date', 50))?.[0];
+      const existing = (await base44.asServiceRole.entities.GroupBuyTemplate.filter({ id: template_id }))?.[0];
       if (!existing || existing.tenant_id !== tenantId) {
         return Response.json({ error: 'Template not found' }, { status: 404 });
       }
@@ -109,7 +109,7 @@ Deno.serve(async (req) => {
     // ── delete_template ──────────────────────────────────────────────
     if (action === 'delete_template') {
       const { template_id } = body;
-      const existing = (await base44.asServiceRole.entities.GroupBuyTemplate.filter({ id: template_id }, '-created_date', 50))?.[0];
+      const existing = (await base44.asServiceRole.entities.GroupBuyTemplate.filter({ id: template_id }))?.[0];
       if (!existing || existing.tenant_id !== tenantId) {
         return Response.json({ error: 'Template not found' }, { status: 404 });
       }
@@ -123,7 +123,7 @@ Deno.serve(async (req) => {
     // ── list_requests ────────────────────────────────────────────────
     if (action === 'list_requests') {
       const { status_filter } = body; // optional: 'open' | 'completed' | 'all'
-      const all = await base44.asServiceRole.entities.GroupBuyRequest.filter({ tenant_id: tenantId }, '-created_date', 50);
+      const all = await base44.asServiceRole.entities.GroupBuyRequest.filter({ tenant_id: tenantId });
       let filtered = all || [];
       if (status_filter && status_filter !== 'all') {
         filtered = filtered.filter(r => r.status === status_filter);
@@ -136,11 +136,11 @@ Deno.serve(async (req) => {
     // ── get_request ──────────────────────────────────────────────────
     if (action === 'get_request') {
       const { request_id } = body;
-      const reqRecord = (await base44.asServiceRole.entities.GroupBuyRequest.filter({ id: request_id }, '-created_date', 50))?.[0];
+      const reqRecord = (await base44.asServiceRole.entities.GroupBuyRequest.filter({ id: request_id }))?.[0];
       if (!reqRecord || reqRecord.tenant_id !== tenantId) {
         return Response.json({ error: 'Request not found' }, { status: 404 });
       }
-      const entries = await base44.asServiceRole.entities.GroupBuyEntry.filter({ request_id }, '-created_date', 50);
+      const entries = await base44.asServiceRole.entities.GroupBuyEntry.filter({ request_id });
       const activeEntries = (entries || []).filter(e => e.status !== 'cancelled');
       return Response.json({ request: reqRecord, entries: entries || [], active_entries: activeEntries });
     }
@@ -154,7 +154,7 @@ Deno.serve(async (req) => {
         return Response.json({ error: 'title, template_id, deadline are required' }, { status: 400 });
       }
       // Get template for tier info
-      const template = (await base44.asServiceRole.entities.GroupBuyTemplate.filter({ id: template_id }, '-created_date', 50))?.[0];
+      const template = (await base44.asServiceRole.entities.GroupBuyTemplate.filter({ id: template_id }))?.[0];
       if (!template || template.tenant_id !== tenantId || template.status !== 'approved') {
         return Response.json({ error: 'Template not available' }, { status: 404 });
       }
@@ -227,7 +227,7 @@ Deno.serve(async (req) => {
       }
 
       // Check if user already has an active entry
-      const existing = await base44.asServiceRole.entities.GroupBuyEntry.filter({ request_id, user_email: user.email }, '-created_date', 50);
+      const existing = await base44.asServiceRole.entities.GroupBuyEntry.filter({ request_id, user_email: user.email });
       const activeExisting = (existing || []).find(e => e.status === 'active');
       if (activeExisting) {
         return Response.json({ error: 'Already joined this request' }, { status: 409 });
@@ -264,7 +264,7 @@ Deno.serve(async (req) => {
     // ── update_entry ─────────────────────────────────────────────────
     if (action === 'update_entry') {
       const { entry_id, ...updateFields } = body;
-      const entry = (await base44.asServiceRole.entities.GroupBuyEntry.filter({ id: entry_id }, '-created_date', 50))?.[0];
+      const entry = (await base44.asServiceRole.entities.GroupBuyEntry.filter({ id: entry_id }))?.[0];
       if (!entry || entry.tenant_id !== tenantId) {
         return Response.json({ error: 'Entry not found' }, { status: 404 });
       }
@@ -295,7 +295,7 @@ Deno.serve(async (req) => {
     // ── cancel_entry ─────────────────────────────────────────────────
     if (action === 'cancel_entry') {
       const { entry_id } = body;
-      const entry = (await base44.asServiceRole.entities.GroupBuyEntry.filter({ id: entry_id }, '-created_date', 50))?.[0];
+      const entry = (await base44.asServiceRole.entities.GroupBuyEntry.filter({ id: entry_id }))?.[0];
       if (!entry || entry.tenant_id !== tenantId) {
         return Response.json({ error: 'Entry not found' }, { status: 404 });
       }
@@ -331,7 +331,7 @@ Deno.serve(async (req) => {
       }
 
       const totalShipping = parseFloat(actual_shipping_fee_jpy) || 0;
-      const entries = await base44.asServiceRole.entities.GroupBuyEntry.filter({ request_id }, '-created_date', 50);
+      const entries = await base44.asServiceRole.entities.GroupBuyEntry.filter({ request_id });
       const activeEntries = (entries || []).filter(e => e.status === 'active');
 
       if (activeEntries.length === 0) {
@@ -421,7 +421,7 @@ Deno.serve(async (req) => {
         admin_note: admin_note || '',
       });
       // Cancel all active entries
-      const entries = await base44.asServiceRole.entities.GroupBuyEntry.filter({ request_id }, '-created_date', 50);
+      const entries = await base44.asServiceRole.entities.GroupBuyEntry.filter({ request_id });
       await Promise.all((entries || []).filter(e => e.status === 'active').map(e =>
         base44.asServiceRole.entities.GroupBuyEntry.update(e.id, { status: 'cancelled' })
       ));

@@ -4,7 +4,6 @@ import { detectPrimaryStoreTagResult } from "@/lib/onlineStoreTag";
 import { base44 } from "@/api/base44Client";
 
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { usePageData } from "@/hooks/usePageData";
 import { timePage } from "@/lib/timing";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -35,8 +34,12 @@ export default function SubmitOrder() {
   const canFullPay = can("payment:pay_full_amount");
   const canDeferredPay = can("payment:deferred_pay");
   const canApplyCredit = can("payment:apply_credit");
+  const [rates, setRates] = useState(null);
+  const [settings, setSettings] = useState({});
+  const [activeRule, setActiveRule] = useState(null);
   const [productUrls, setProductUrls] = useState([""]);
   const [urlMode, setUrlMode] = useState("multi"); // "textarea" | "multi"
+  const [addonOptions, setAddonOptions] = useState([]);
   const [selectedAddons, setSelectedAddons] = useState([]);
   const [form, setForm] = useState({
     product_name: "", product_description: "",
@@ -47,29 +50,36 @@ export default function SubmitOrder() {
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("");
+  const [paymentMethods, setPaymentMethods] = useState([]);
   const [paymentMode, setPaymentMode] = useState(""); // set after settings load: "prepay" | "deferred" | "credit_weekly" | "credit_monthly"
+  const [userCredit, setUserCredit] = useState(null); // user's credit status
   const [creditDowngradeMsg, setCreditDowngradeMsg] = useState(null); // shown after submit if credit downgraded
   const [createdOrder, setCreatedOrder] = useState(null); // after successful submission, show pre-shipment option
 
-  // Cached page data — won't re-fetch within 60s when navigating back
-  const { data: pageData } = usePageData('getSubmitOrderPageData', {}, { enabled: !!user });
-  const { data: creditData } = usePageData('manageCreditApplication', { action: 'get_user_credit' }, { enabled: !!user });
-  const { data: paymentMethodsData } = usePageData('managePaymentMethod', { action: 'list' }, { enabled: !!user });
-
-  const addonOptions = pageData?.addons || [];
-  const rates = pageData?.rates || null;
-  const activeRule = pageData?.activeRule || null;
-  const settings = pageData?.settings || {};
-  const userCredit = creditData || null;
-  const paymentMethods = paymentMethodsData?.methods || [];
-
-  // Set default payment mode once settings are loaded
   useEffect(() => {
-    if (pageData && !paymentMode) {
-      const prepayOn = (pageData.settings || {}).prepay_enabled !== 'false';
+    const t = timePage('SubmitOrder');
+    Promise.all([
+      t.timeCall('getSubmitOrderPageData', () => base44.functions.invoke('getSubmitOrderPageData', {})),
+      base44.functions.invoke('manageCreditApplication', { action: 'get_user_credit' }),
+    ]).then(([r, creditR]) => {
+      const data = r.data || {};
+      setAddonOptions(data.addons || []);
+      setRates(data.rates || null);
+      setActiveRule(data.activeRule || null);
+      const parsed = {};
+      Object.entries(data.settings || {}).forEach(([k, v]) => { parsed[k] = v; });
+      setSettings(parsed);
+      // Default payment mode based on prepay_enabled setting
+      const prepayOn = parsed.prepay_enabled !== 'false';
       setPaymentMode(prepayOn ? "prepay" : "fullpay");
-    }
-  }, [pageData]);
+      setUserCredit(creditR.data || null);
+      t.done('data ready');
+    }).catch(() => {});
+    // Load payment methods separately (lightweight)
+    base44.functions.invoke('managePaymentMethod', { action: 'list' })
+      .then(r => { setPaymentMethods(r.data?.methods || []); })
+      .catch(() => {});
+  }, []);
 
   // Convert addon fee to JPY (all calculations in JPY)
   const convertAddonFee = (opt) => {

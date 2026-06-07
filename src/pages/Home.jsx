@@ -1,9 +1,11 @@
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
+import { fetchAnnouncements } from "@/lib/tenantApi";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useTenantBranding } from "@/hooks/useTenantBranding";
-import { usePageData } from "@/hooks/usePageData";
+import { timePage } from "@/lib/timing";
 import { ShoppingBag, Truck, Package, ArrowRight, Bell, CheckCircle, Globe } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,13 +15,21 @@ import { getStatusLabel, getStatusColor } from "@/lib/orderStatus";
 export default function Home() {
   const { user } = useCurrentUser();
   const { tenant } = useTenantBranding();
+  const [recentOrders, setRecentOrders] = useState([]);
+  const [announcements, setAnnouncements] = useState([]);
 
-  // Cached: navigating away and back won't re-fetch within 60s
-  const { data: ordersData } = usePageData('getTenantOrders', {}, { enabled: !!user });
-  const { data: configData } = usePageData('getTenantConfigData', {}, { enabled: !!user });
-
-  const recentOrders = (ordersData?.orders || []).slice(0, 5);
-  const announcements = (configData?.announcements || []).filter(a => a.is_active);
+  useEffect(() => {
+    const t = timePage('Home');
+    Promise.all([
+      t.timeCall('getTenantOrders', () => base44.functions.invoke('getTenantOrders', {})
+        .then(r => (r.data?.orders || []).slice(0, 5)).catch(() => [])),
+      t.timeCall('fetchAnnouncements (config cache)', () => fetchAnnouncements().catch(() => [])),
+    ]).then(([orders, ann]) => {
+      setRecentOrders(orders);
+      setAnnouncements(ann);
+      t.done('data ready');
+    });
+  }, []);
 
   const steps = [
     { icon: ShoppingBag, title: "提交购买需求", desc: "填写商品链接、数量，系统自动估算预付款" },

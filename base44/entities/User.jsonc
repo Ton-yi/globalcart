@@ -23,16 +23,16 @@
       "items": {
         "type": "string"
       },
-      "description": "\u5206\u914d\u7ed9\u7528\u6237\u7684\u79df\u6237\u81ea\u5b9a\u4e49\u89d2\u8272 ID \u5217\u8868",
+      "description": "\u5206\u914d\u7ed9\u7528\u6237\u7684\u79df\u6237\u81ea\u5b9a\u4e49\u89d2\u8272ID\u5217\u8868",
       "default": []
     },
     "tenant_id": {
       "type": "string",
-      "description": "\u6240\u5c5e\u79df\u6237 ID"
+      "description": "\u6240\u5c5e\u79df\u6237ID"
     },
     "avatar_url": {
       "type": "string",
-      "description": "\u7528\u6237\u5934\u50cf URL"
+      "description": "\u7528\u6237\u5934\u50cfURL"
     },
     "display_name": {
       "type": "string",
@@ -45,7 +45,7 @@
     },
     "member_tier_id": {
       "type": "string",
-      "description": "\u4f1a\u5458\u9636\u7ea7 ID\uff08\u5bf9\u5e94 MemberTier \u5b9e\u4f53\uff09"
+      "description": "\u4f1a\u5458\u9636\u7ea7ID\uff08\u5bf9\u5e94MemberTier\u5b9e\u4f53\uff09"
     },
     "member_tier_name": {
       "type": "string",
@@ -76,11 +76,11 @@
     },
     "credit_start_date": {
       "type": "string",
-      "description": "\u8bb0\u8d26\u5f00\u59cb\u65e5\u671f\uff08ISO \u65e5\u671f\uff09"
+      "description": "\u8bb0\u8d26\u5f00\u59cb\u65e5\u671f\uff08ISO\u65e5\u671f\uff09"
     },
     "credit_next_due_date": {
       "type": "string",
-      "description": "\u4e0b\u6b21\u7ed3\u5e10\u65e5\u671f\uff08ISO \u65e5\u671f\uff09"
+      "description": "\u4e0b\u6b21\u7ed3\u5e10\u65e5\u671f\uff08ISO\u65e5\u671f\uff09"
     },
     "credit_pending_trade_no": {
       "type": "string",
@@ -88,7 +88,7 @@
     },
     "credit_last_payment_date": {
       "type": "string",
-      "description": "\u6700\u540e\u4e00\u6b21\u8fd8\u6b3e\u65e5\u671f\uff08ISO \u65e5\u671f\uff09"
+      "description": "\u6700\u540e\u4e00\u6b21\u8fd8\u6b3e\u65e5\u671f\uff08ISO\u65e5\u671f\uff09"
     },
     "credit_last_payment_amount": {
       "type": "number",
@@ -98,65 +98,5 @@
   },
   "required": [
     "roles"
-  ],
-  "rls": {
-    "create": {
-      "user_condition": {
-        "role": {
-          "$in": [
-            "admin",
-            "tenant_admin",
-            "platform_admin"
-          ]
-        }
-      }
-    },
-    "read": {
-      "$or": [
-        {
-          "data.email": "{{user.email}}"
-        },
-        {
-          "user_condition": {
-            "role": {
-              "$in": [
-                "admin",
-                "tenant_admin",
-                "platform_admin"
-              ]
-            }
-          }
-        }
-      ]
-    },
-    "update": {
-      "$or": [
-        {
-          "data.email": "{{user.email}}"
-        },
-        {
-          "user_condition": {
-            "role": {
-              "$in": [
-                "admin",
-                "tenant_admin",
-                "platform_admin"
-              ]
-            }
-          }
-        }
-      ]
-    },
-    "delete": {
-      "user_condition": {
-        "role": {
-          "$in": [
-            "admin",
-            "tenant_admin",
-            "platform_admin"
-          ]
-        }
-      }
-    }
-  }
+  ]
 }
