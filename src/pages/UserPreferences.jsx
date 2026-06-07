@@ -8,6 +8,7 @@ import { User, Save, Camera, Plus, Trash2, MapPin, Edit2, Check, Star, Palette, 
 import AvatarCropModal from "@/components/common/AvatarCropModal";
 import ThemeSelector from "@/components/common/ThemeSelector";
 import CreditPanel from "@/components/user/CreditPanel";
+import UserRolePermissionsCard from "@/components/user/UserRolePermissionsCard";
 import { getCountry } from "@/lib/countries";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -269,6 +270,9 @@ export default function UserPreferences() {
           </CardContent>
         </Card>
       )}
+
+      {/* 等级与权限 */}
+      <UserRolePermissionsCard />
 
       {/* 联系方式 */}
       <Card className="border-gray-200">
