@@ -21,6 +21,10 @@ export const queryClientInstance = new QueryClient({
       refetchOnWindowFocus: false,
       retry: shouldRetry,
       retryDelay,
+      // Cache page-level data for 60 seconds — avoids re-fetching when navigating back
+      staleTime: 60_000,
+      // Keep unused query data in memory for 5 minutes
+      gcTime: 5 * 60_000,
     },
     mutations: {
       retry: (failureCount, error) => {
