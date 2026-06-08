@@ -45,6 +45,7 @@ export default function UserPreferences() {
     default_address_id: "",
     auto_archive_order_days: 7,
     auto_archive_pool_days: 7,
+    order_info_public: false,
   });
   const [transitMethods, setTransitMethods] = useState([]);
   // Unified address list: each has { id, label, country, full_text }
@@ -98,6 +99,7 @@ export default function UserPreferences() {
           default_address_id: p.default_address_id || "",
           auto_archive_order_days: p.auto_archive_order_days !== undefined ? p.auto_archive_order_days : 7,
           auto_archive_pool_days: p.auto_archive_pool_days !== undefined ? p.auto_archive_pool_days : 7,
+          order_info_public: p.order_info_public === true,
         });
         // Merge saved_addresses from ALL pref records (deduplicate by id)
         const allAddrs = sorted.flatMap(r => r.saved_addresses || []);

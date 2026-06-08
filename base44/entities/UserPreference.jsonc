@@ -4,7 +4,7 @@
   "properties": {
     "tenant_id": {
       "type": "string",
-      "description": "\u6240\u5c5e\u79df\u6237ID"
+      "description": "\u6240\u5c5e\u79df\u6237 ID"
     },
     "user_email": {
       "type": "string",
@@ -12,7 +12,7 @@
     },
     "contact_info": {
       "type": "string",
-      "description": "\u8054\u7cfb\u65b9\u5f0f\uff08\u5fae\u4fe1/Line/WhatsApp\u7b49\uff09\uff0c\u663e\u793a\u4e8e\u7559\u8a00\u754c\u9762"
+      "description": "\u8054\u7cfb\u65b9\u5f0f\uff08\u5fae\u4fe1/Line/WhatsApp \u7b49\uff09\uff0c\u663e\u793a\u4e8e\u7559\u8a00\u754c\u9762"
     },
     "contact_public": {
       "type": "boolean",
@@ -57,7 +57,7 @@
     },
     "preferred_transit_shipping_id": {
       "type": "string",
-      "description": "\u9ed8\u8ba4\u4e2d\u8f6c\u8fd0\u8f93\u65b9\u5f0fID\uff08\u5bf9\u5e94TransitShippingMethod\u5b9e\u4f53\uff09"
+      "description": "\u9ed8\u8ba4\u4e2d\u8f6c\u8fd0\u8f93\u65b9\u5f0f ID\uff08\u5bf9\u5e94 TransitShippingMethod \u5b9e\u4f53\uff09"
     },
     "prefer_consolidation": {
       "type": "boolean",
@@ -71,24 +71,29 @@
     },
     "default_address_id": {
       "type": "string",
-      "description": "\u9ed8\u8ba4\u6536\u8d27\u5730\u5740ID\uff08\u5bf9\u5e94saved_addresses\u4e2d\u7684id\uff09"
+      "description": "\u9ed8\u8ba4\u6536\u8d27\u5730\u5740 ID\uff08\u5bf9\u5e94 saved_addresses \u4e2d\u7684 id\uff09"
     },
     "saved_addresses": {
       "type": "array",
       "items": {
         "type": "object"
       },
-      "description": "\u4fdd\u5b58\u7684\u5730\u5740\u5217\u8868\uff08\u6bcf\u6761\u542bid, label, country, full_text\uff09"
+      "description": "\u4fdd\u5b58\u7684\u5730\u5740\u5217\u8868\uff08\u6bcf\u6761\u542b id, label, country, full_text\uff09"
     },
     "auto_archive_order_days": {
       "type": "number",
-      "description": "\u8ba2\u5355\u6536\u8d27\u540e\u81ea\u52a8\u5b58\u6863\u5929\u6570\uff080=\u4e0d\u81ea\u52a8\u5b58\u6863\uff0c\u9ed8\u8ba47\u5929\uff09",
+      "description": "\u8ba2\u5355\u6536\u8d27\u540e\u81ea\u52a8\u5b58\u6863\u5929\u6570\uff080=\u4e0d\u81ea\u52a8\u5b58\u6863\uff0c\u9ed8\u8ba4 7 \u5929\uff09",
       "default": 7
     },
     "auto_archive_pool_days": {
       "type": "number",
-      "description": "\u53d1\u8d27\u7533\u8bf7\u7b7e\u6536\u540e\u81ea\u52a8\u5b58\u6863\u5929\u6570\uff080=\u4e0d\u81ea\u52a8\u5b58\u6863\uff0c\u9ed8\u8ba47\u5929\uff09",
+      "description": "\u53d1\u8d27\u7533\u8bf7\u7b7e\u6536\u540e\u81ea\u52a8\u5b58\u6863\u5929\u6570\uff080=\u4e0d\u81ea\u52a8\u5b58\u6863\uff0c\u9ed8\u8ba4 7 \u5929\uff09",
       "default": 7
+    },
+    "order_info_public": {
+      "type": "boolean",
+      "default": false,
+      "description": "\u516c\u5f00\u663e\u793a\u6211\u7684\u8ba2\u5355\u4fe1\u606f\uff08true=\u6240\u6709\u7528\u6237\u53ef\u89c1\u5546\u54c1\u540d\u79f0\u7b49\u8be6\u60c5\uff0cfalse=\u4ec5\u7ba1\u7406\u5458\u548c\u672c\u4eba\u53ef\u89c1\uff09"
     }
   },
   "required": [

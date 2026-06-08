@@ -23,6 +23,7 @@ import OrderDetailDrawer from "@/components/orders/OrderDetailDrawer";
 import OfficialPoolUserGroupModal from "@/components/shippingpool/OfficialPoolUserGroupModal";
 import OfficialPoolOrderDetailModal from "@/components/shippingpool/OfficialPoolOrderDetailModal";
 import CreateOfficialPoolModal from "@/components/shippingpool/CreateOfficialPoolModal";
+import PrivacyAwareOrderInfo from "@/components/shippingpool/PrivacyAwareOrderInfo";
 
 const STATUS_COLORS = {
   pending: "bg-gray-100 text-gray-600",
@@ -54,10 +55,18 @@ const ORDER_STATUS_LABELS = {
 // staging:              "staging-{orderId}"
 
 // ─── Draggable Task Card ──────────────────────────────────────────────────────
-function DraggableTaskCard({ draggableId, index, entry, order, group, pool, currentUser, isAdmin, shippingAddons, savedAddresses, onRefresh, selected, onSelect }) {
+function DraggableTaskCard({ draggableId, index, entry, order, group, pool, currentUser, isAdmin, shippingAddons, savedAddresses, onRefresh, selected, onSelect, userPrefsMap }) {
   const [editOpen, setEditOpen] = useState(false);
   const isSelf = group?.user_email === currentUser?.email;
   const canEdit = isSelf || isAdmin;
+  // Only allow drag if admin or self (regardless of privacy setting)
+  const canDrag = canEdit;
+  
+  // Check if order info should be visible to current user
+  const orderOwnerEmail = group?.user_email || order?.user_email;
+  const ownerPref = userPrefsMap?.[orderOwnerEmail];
+  const isOrderInfoPublic = ownerPref?.order_info_public === true;
+  const canSeeOrderInfo = isAdmin || isSelf || isOrderInfoPublic;
 
   const handleClick = (e) => {
     if (e.shiftKey) { e.preventDefault(); onSelect?.(draggableId); return; }
@@ -74,33 +83,22 @@ function DraggableTaskCard({ draggableId, index, entry, order, group, pool, curr
             className={`border rounded-xl px-3 py-2.5 bg-white transition-all relative
               ${snapshot.isDragging ? "shadow-lg border-blue-300 rotate-1" : ""}
               ${selected ? "border-blue-400 bg-blue-50 ring-2 ring-blue-300" : canEdit ? "border-gray-200 hover:border-blue-300 hover:bg-blue-50/40 hover:shadow-sm" : "border-gray-200"}
-              ${canEdit ? "cursor-pointer" : ""}`}
+              ${canDrag ? "cursor-pointer" : "cursor-default"}`}
             onClick={handleClick}
           >
             {selected && <CheckSquare className="absolute top-2 right-2 w-3.5 h-3.5 text-blue-500" />}
             <div className="flex items-start gap-2">
-              <div
-                {...provided.dragHandleProps}
-                className="flex-shrink-0 mt-0.5 cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500"
-                onClick={e => e.stopPropagation()}
-              >
-                <GripVertical className="w-3.5 h-3.5" />
-              </div>
-              <Package className="w-3.5 h-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-gray-800 truncate">{order?.product_name || entry.order_id.slice(-8)}</p>
-                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                  {group && <span className="text-xs text-gray-400">{group.user_name || group.user_email}</span>}
-                  {order?.weight_g > 0 && <span className="text-xs text-gray-400">{order.weight_g}g</span>}
-                  {(order?.messages?.length > 0 || entry.note) && (
-                    <Badge className="text-xs bg-amber-100 text-amber-700 border-amber-200 px-1 py-0">
-                      <MessageSquare className="w-2.5 h-2.5 mr-0.5" />
-                      {order.messages?.length || 0}
-                    </Badge>
-                  )}
+              {canDrag && (
+                <div
+                  {...provided.dragHandleProps}
+                  className="flex-shrink-0 mt-0.5 cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500"
+                  onClick={e => e.stopPropagation()}
+                >
+                  <GripVertical className="w-3.5 h-3.5" />
                 </div>
-                {entry.note && <p className="text-xs text-gray-400 mt-0.5 truncate">{entry.note}</p>}
-              </div>
+              )}
+              <Package className="w-3.5 h-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
+              <PrivacyAwareOrderInfo order={order} entry={entry} canSeeOrderInfo={canSeeOrderInfo} />
               {canEdit && !selected && <Edit2 className="w-3 h-3 text-gray-300 hover:text-gray-500 flex-shrink-0 mt-0.5" />}
             </div>
           </div>
@@ -199,7 +197,7 @@ function DraggableStagingCard({ draggableId, index, order, officialPools, isAdmi
 }
 
 // ─── Draggable Group Card ─────────────────────────────────────────────────────
-function DraggableGroupCard({ draggableId, index, group, allOrders, pool, currentUser, isAdmin, shippingAddons, savedAddresses, onRefresh, selected, onSelect, selectedIds, onSelectEntry, autoExpandOnDrop }) {
+function DraggableGroupCard({ draggableId, index, group, allOrders, pool, currentUser, isAdmin, shippingAddons, savedAddresses, onRefresh, selected, onSelect, selectedIds, onSelectEntry, autoExpandOnDrop, userPrefsMap }) {
   const [expanded, setExpanded] = useState(false);
   const [editGroupOpen, setEditGroupOpen] = useState(false);
   const [editOrderEntry, setEditOrderEntry] = useState(null);
@@ -207,6 +205,13 @@ function DraggableGroupCard({ draggableId, index, group, allOrders, pool, curren
   const orderEntries = group.order_entries || [];
   const isSelf = group.user_email === currentUser?.email;
   const canEdit = isSelf || isAdmin;
+  const canDrag = canEdit;
+  
+  // Check privacy setting for group owner
+  const ownerPref = userPrefsMap?.[group.user_email];
+  const isOrderInfoPublic = ownerPref?.order_info_public === true;
+  const canSeeOrderInfo = isAdmin || isSelf || isOrderInfoPublic;
+  
   const resolvedOrders = orderEntries.map(entry => ({
     entry,
     order: allOrders.find(o => o.id === entry.order_id) || null,
@@ -255,13 +260,15 @@ function DraggableGroupCard({ draggableId, index, group, allOrders, pool, curren
               onClick={handleCardClick}
             >
               <div className="flex items-center gap-2 min-w-0">
-                <div
-                  {...provided.dragHandleProps}
-                  className="flex-shrink-0 cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500"
-                  onClick={e => e.stopPropagation()}
-                >
-                  <GripVertical className="w-3.5 h-3.5" />
-                </div>
+                {canDrag && (
+                  <div
+                    {...provided.dragHandleProps}
+                    className="flex-shrink-0 cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500"
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <GripVertical className="w-3.5 h-3.5" />
+                  </div>
+                )}
                 <button
                   onClick={handleToggleExpand}
                   className="p-0.5 rounded hover:bg-blue-100 text-blue-400 hover:text-blue-600 transition-colors"
@@ -312,29 +319,17 @@ function DraggableGroupCard({ draggableId, index, group, allOrders, pool, curren
                             canEdit && setEditOrderEntry({ entry, order });
                           }}
                         >
-                          <div
-                            {...provided.dragHandleProps}
-                            className="flex-shrink-0 mt-0.5 cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500"
-                            onClick={e => e.stopPropagation()}
-                          >
-                            <GripVertical className="w-3.5 h-3.5" />
-                          </div>
-                          <Package className="w-3.5 h-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium text-gray-700 truncate">{order?.product_name || entry.order_id.slice(-8)}</p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              {order?.order_number && <span className="text-xs text-gray-400">{order.order_number}</span>}
-                              {order?.weight_g > 0 && <span className="text-xs text-gray-400">{order.weight_g}g</span>}
-                              {!entry.use_group_address && <Badge className="text-xs bg-orange-100 text-orange-600 px-1 py-0">独立地址</Badge>}
-                              {(order?.messages?.length > 0 || entry.note) && (
-                                <Badge className="text-xs bg-amber-100 text-amber-700 border-amber-200 px-1 py-0">
-                                  <MessageSquare className="w-2.5 h-2.5 mr-0.5" />
-                                  {order.messages?.length || 0}
-                                </Badge>
-                              )}
+                          {canDrag && (
+                            <div
+                              {...provided.dragHandleProps}
+                              className="flex-shrink-0 mt-0.5 cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500"
+                              onClick={e => e.stopPropagation()}
+                            >
+                              <GripVertical className="w-3.5 h-3.5" />
                             </div>
-                            {entry.note && <p className="text-xs text-gray-400 mt-0.5 truncate">{entry.note}</p>}
-                          </div>
+                          )}
+                          <Package className="w-3.5 h-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
+                          <PrivacyAwareOrderInfo order={order} entry={entry} canSeeOrderInfo={canSeeOrderInfo} />
                           {isEntrySelected ? <CheckSquare className="w-3.5 h-3.5 text-blue-500 flex-shrink-0 mt-0.5" /> : canEdit && <Edit2 className="w-3 h-3 text-gray-300 hover:text-gray-500 flex-shrink-0 mt-0.5" />}
                         </div>
                       )}
@@ -468,7 +463,7 @@ function AddToStagingModal({ allOrders, officialPools, currentUser, stagedOrderI
 }
 
 // ─── Pool Column (Droppable) ──────────────────────────────────────────────────
-function PoolColumn({ pool, allOrders, currentUser, isAdmin, shippingAddons, savedAddresses, onPoolClick, onRefresh, columnDragHandleProps, selectedIds, onSelectItem, lastDropTarget }) {
+function PoolColumn({ pool, allOrders, currentUser, isAdmin, shippingAddons, savedAddresses, onPoolClick, onRefresh, columnDragHandleProps, selectedIds, onSelectItem, lastDropTarget, userPrefsMap }) {
   const [joinOpen, setJoinOpen] = useState(false);
 
   const perUserGroups = pool.per_user_groups || [];
@@ -558,6 +553,7 @@ function PoolColumn({ pool, allOrders, currentUser, isAdmin, shippingAddons, sav
                     selectedIds={selectedIds}
                     onSelectEntry={onSelectItem}
                     autoExpandOnDrop={shouldExpand}
+                    userPrefsMap={userPrefsMap}
                   />
                 );
               } else {
@@ -579,6 +575,7 @@ function PoolColumn({ pool, allOrders, currentUser, isAdmin, shippingAddons, sav
                     onRefresh={onRefresh}
                     selected={selectedIds?.has(entryDraggableId)}
                     onSelect={onSelectItem}
+                    userPrefsMap={userPrefsMap}
                   />
                 );
               }
@@ -746,6 +743,7 @@ function StagingColumn({ allOrders, officialPools, currentUser, isAdmin, onRefre
 export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAdmin, showPoolSorter, setShowPoolSorter, onPoolClick, onRefresh, onLocalUpdate }) {
   const [shippingAddons, setShippingAddons] = useState([]);
   const [savedAddresses, setSavedAddresses] = useState([]);
+  const [userPrefsMap, setUserPrefsMap] = useState({});
   const [createPoolOpen, setCreatePoolOpen] = useState(false);
   const [columnOrder, setColumnOrder] = useState(() => pools.map(p => p.id));
   // Multi-select: Set of draggableIds
@@ -767,10 +765,16 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
     if (!currentUser) return;
     Promise.all([
       fetchTenantConfig(),
-      tenantEntity.list('UserPreference', { user_email: currentUser.email }).catch(() => []),
+      tenantEntity.list('UserPreference', {}).catch(() => []),
     ]).then(([cfg, prefs]) => {
       setShippingAddons((cfg.addons || []).filter(a => a.addon_type === "shipping" && a.is_active !== false));
-      const addrs = (prefs[0]?.saved_addresses || []).map(a => ({ ...EMPTY_ADDRESS_FORM, ...a }));
+      // Build a map of user_email -> preference for quick lookup
+      const prefsMap = {};
+      prefs.forEach(p => {
+        prefsMap[p.user_email] = p;
+      });
+      setUserPrefsMap(prefsMap);
+      const addrs = (prefs.find(p => p.user_email === currentUser.email)?.saved_addresses || []).map(a => ({ ...EMPTY_ADDRESS_FORM, ...a }));
       setSavedAddresses(addrs);
     }).catch(() => {});
   }, [currentUser?.email]);
@@ -1110,6 +1114,7 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
                               selectedIds={selectedIds}
                               onSelectItem={handleSelectItem}
                               lastDropTarget={lastDropTarget}
+                              userPrefsMap={userPrefsMap}
                             />
                           </div>
                         )}
@@ -1128,6 +1133,7 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
                         selectedIds={selectedIds}
                         onSelectItem={handleSelectItem}
                         lastDropTarget={lastDropTarget}
+                        userPrefsMap={userPrefsMap}
                       />
                     )
                   ))}
