@@ -8,7 +8,7 @@ import { tenantEntity } from "@/lib/tenantApi";
 import { timePage } from "@/lib/timing";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { usePermissions } from "@/hooks/usePermissions";
-import { Plus, RefreshCw, Truck, MapPin, Edit2, Trash2, Check, X as XIcon, AlertCircle, Layers, Archive, ArchiveRestore, Settings2 } from "lucide-react";
+import { Plus, RefreshCw, Truck, MapPin, Edit2, Trash2, Check, X as XIcon, AlertCircle, Layers, Archive, ArchiveRestore, Settings2, LogIn } from "lucide-react";
 import { getCountry } from "@/lib/countries";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -528,7 +528,15 @@ export default function AdminShippingPool() {
             </div>
           ) : (
             <div className="space-y-2">
-              {locations.map(loc => (
+              {/* Sort: locations without manager first */}
+              {(() => {
+                const sortedLocations = [...locations].sort((a, b) => {
+                  const aHasManager = !!a.manager_email;
+                  const bHasManager = !!b.manager_email;
+                  if (aHasManager === bHasManager) return 0;
+                  return aHasManager ? 1 : -1; // No manager first
+                });
+                return sortedLocations.map(loc => {
                 <div key={loc.id} className="flex items-start gap-3 border border-gray-200 rounded-xl p-4 bg-white">
                   <MapPin className={`w-4 h-4 mt-0.5 flex-shrink-0 ${loc.is_active ? "text-red-500" : "text-gray-300"}`} />
                   <div className="flex-1 min-w-0">
@@ -550,6 +558,12 @@ export default function AdminShippingPool() {
                       <Badge className={`text-xs ${loc.is_active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
                         {loc.is_active ? "启用" : "停用"}
                       </Badge>
+                      {!loc.manager_email && (
+                        <Badge className="text-xs bg-orange-100 text-orange-700 border-orange-200">
+                          <AlertCircle className="w-2.5 h-2.5 mr-1 inline" />
+                          未分配负责人
+                        </Badge>
+                      )}
                     </div>
                     <div className="flex flex-wrap gap-x-3 mt-0.5">
                       {loc.address && <p className="text-xs text-gray-500">{loc.address}</p>}
@@ -561,6 +575,17 @@ export default function AdminShippingPool() {
                   <div className="flex items-center gap-1 flex-shrink-0">
                     {canManageTransitLocations && (
                       <>
+                        {/* Work Panel Button */}
+                        <a
+                          href={`/TransitLocationWork/${loc.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="打开中转地工作面板"
+                          className="inline-flex items-center gap-1 px-2 py-1.5 rounded bg-red-50 text-red-600 hover:bg-red-100 text-xs font-medium transition-colors"
+                        >
+                          <LogIn className="w-3.5 h-3.5" />
+                          工作面板
+                        </a>
                         {!loc.is_default_official_pool && (
                           <button
                             title="设为默认官方拼邮中转地"
@@ -599,7 +624,8 @@ export default function AdminShippingPool() {
                     )}
                   </div>
                 </div>
-              ))}
+              );
+            })}
             </div>
           )}
         </div>

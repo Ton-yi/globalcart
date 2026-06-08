@@ -10,6 +10,7 @@ import PlatformAdminSettings from '@/pages/PlatformAdminSettings';
 import AdminFeeRules from '@/pages/AdminFeeRules';
 import PreShipmentForm from '@/pages/PreShipmentForm';
 import GroupBuy from '@/pages/GroupBuy';
+import TransitLocationWork from '@/pages/TransitLocationWork';
 
 
 const { Pages, Layout, mainPage } = pagesConfig;
@@ -80,6 +81,11 @@ const AuthenticatedApp = () => {
       <Route path="/GroupBuy" element={
         <LayoutWrapper currentPageName="GroupBuy">
           <GroupBuy />
+        </LayoutWrapper>
+      } />
+      <Route path="/TransitLocationWork/:transit_location_id" element={
+        <LayoutWrapper currentPageName="TransitLocationWork">
+          <TransitLocationWork />
         </LayoutWrapper>
       } />
       <Route path="*" element={<PageNotFound />} />
