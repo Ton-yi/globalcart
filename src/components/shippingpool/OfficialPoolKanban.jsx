@@ -883,14 +883,28 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
       }
     }
 
-    // Commit pool patches to backend
+    // OPTIMISTIC UI: Immediately update local state before backend calls
+    if (onLocalUpdate) {
+      for (const [poolId, patch] of poolPatches.entries()) {
+        const originalPool = pools.find(p => p.id === poolId);
+        if (originalPool) {
+          onLocalUpdate({ ...originalPool, ...patch });
+        }
+      }
+    }
+    setSelectedIds(new Set());
+
+    // Commit pool patches to backend in background (non-blocking)
     const poolUpdatePromises = [];
     for (const [poolId, patch] of poolPatches.entries()) {
       poolUpdatePromises.push(shippingPoolApi.update(poolId, patch));
     }
-    await Promise.all(poolUpdatePromises);
+    Promise.all(poolUpdatePromises).catch(err => {
+      console.error('Pool update failed:', err);
+      // Optionally revert UI on failure
+    });
 
-    // Update order records
+    // Update order records in background (non-blocking)
     const orderUpdatePromises = orderItems.map(({ orderId, srcPool }) => {
       const order = allOrders.find(o => o.id === orderId);
       if (!order) return Promise.resolve();
@@ -916,20 +930,9 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
       }
       return Promise.resolve();
     });
-    await Promise.all(orderUpdatePromises);
-
-    // Notify parent of local updates for optimistic UI (pass full pool objects)
-    if (onLocalUpdate) {
-      for (const [poolId, patch] of poolPatches.entries()) {
-        const originalPool = pools.find(p => p.id === poolId);
-        if (originalPool) {
-          onLocalUpdate({ ...originalPool, ...patch });
-        }
-      }
-    }
-
-    setSelectedIds(new Set());
-    // Do NOT call onRefresh - let user manually save/refresh
+    Promise.all(orderUpdatePromises).catch(err => {
+      console.error('Order update failed:', err);
+    });
   };
 
   if (pools.length === 0) {
