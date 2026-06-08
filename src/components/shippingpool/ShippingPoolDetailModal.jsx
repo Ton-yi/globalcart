@@ -1368,7 +1368,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
             shippingMethods={shippingMethods}
             defaultPackingFeeSingle={defaultPackingFeeSingle}
             defaultPackingFeeConsolidation={defaultPackingFeeConsolidation}
-            allowReadyToShipWithoutPayment={allowReadyToShipWithoutPayment}
+            allowShipWithoutPayment={allowReadyToShipWithoutPayment}
             allowShipWithoutPaymentSingle={allowShipWithoutPaymentSingle}
             allowShipWithoutPaymentUserPool={allowShipWithoutPaymentUserPool}
             allowShipWithoutPaymentOfficialPool={allowShipWithoutPaymentOfficialPool}
