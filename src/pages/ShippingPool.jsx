@@ -1111,9 +1111,9 @@ export default function ShippingPool() {
                 <Button size="sm" className="bg-green-600 hover:bg-green-700 h-7 text-xs" onClick={async () => {
                   setSubmitting(true);
                   try {
-                    // Commit all local pool changes to backend
+                    // Commit all changed pools to backend
                     const promises = Object.values(localPools || {}).map(localPool => {
-                      const original = pools.find(p => p.id === localPool.id);
+                      const original = officialConsPools.find(p => p.id === localPool.id);
                       const patch = {};
                       if (JSON.stringify(localPool.order_ids) !== JSON.stringify(original?.order_ids)) patch.order_ids = localPool.order_ids;
                       if (localPool.total_weight_g !== original?.total_weight_g) patch.total_weight_g = localPool.total_weight_g;
@@ -1121,6 +1121,31 @@ export default function ShippingPool() {
                       return shippingPoolApi.update(localPool.id, patch);
                     });
                     await Promise.all(promises);
+                    // Also update order records to reflect new pool assignments
+                    const orderUpdates = [];
+                    Object.values(localPools || {}).forEach(localPool => {
+                      const original = officialConsPools.find(p => p.id === localPool.id);
+                      if (original) {
+                        const removedOrderIds = (original.order_ids || []).filter(id => !(localPool.order_ids || []).includes(id));
+                        const addedOrderIds = (localPool.order_ids || []).filter(id => !(original.order_ids || []).includes(id));
+                        removedOrderIds.forEach(orderId => {
+                          orderUpdates.push(base44.functions.invoke('updateTenantOrder', {
+                            order_id: orderId,
+                            consolidation_pool_id: "",
+                            pre_shipment: { pool_created: false, pool_id: "", consType: "official_pool" },
+                          }));
+                        });
+                        addedOrderIds.forEach(orderId => {
+                          orderUpdates.push(base44.functions.invoke('updateTenantOrder', {
+                            order_id: orderId,
+                            consolidation_pool_id: localPool.id,
+                            order_status: "notified_shipment",
+                            pre_shipment: { pool_created: true, pool_id: localPool.id, consType: "official_pool" },
+                          }));
+                        });
+                      }
+                    });
+                    await Promise.all(orderUpdates);
                     setLocalPools(null);
                     setHasUnsavedChanges(false);
                     fetchData(user);
@@ -1148,14 +1173,15 @@ export default function ShippingPool() {
               onRefresh={() => fetchData(user)}
               onLocalUpdate={(updatedPool) => {
                 setLocalPools(prev => {
-                  // Initialize with all current pools if this is the first update
-                  const base = prev || {};
-                  const allPoolsMap = {};
-                  (officialConsPools || []).forEach(p => { allPoolsMap[p.id] = p; });
-                  const next = { ...base, ...allPoolsMap };
+                  // If first update, initialize with all pools from current displayed state
+                  const base = prev ? { ...prev } : {};
+                  if (!prev) {
+                    // First time: start from current displayed pools (which may already be localPools or officialConsPools)
+                    (localPools ? Object.values(localPools) : officialConsPools || []).forEach(p => { base[p.id] = p; });
+                  }
                   // Apply the updated pool
-                  next[updatedPool.id] = updatedPool;
-                  return next;
+                  base[updatedPool.id] = updatedPool;
+                  return base;
                 });
                 setHasUnsavedChanges(true);
               }}
