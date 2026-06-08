@@ -455,6 +455,42 @@
         },
         "pool_id": {
           "type": "string"
+        },
+        "fullpay_once_config": {
+          "type": "object",
+          "description": "\u4e00\u6b21\u4ed8\u6b3e\u914d\u7f6e\uff08\u5728\u9884\u51fa\u8d27\u9636\u6bb5\u586b\u5199\uff09",
+          "properties": {
+            "user_estimated_weight_g": {
+              "type": "number",
+              "description": "\u7528\u6237\u9884\u4f30\u91cd\u91cf\uff08g\uff09"
+            },
+            "shipping_method_code": {
+              "type": "string",
+              "description": "\u7528\u6237\u9009\u62e9\u7684\u8fd0\u8f93\u65b9\u5f0f\u4ee3\u7801"
+            },
+            "destination_country": {
+              "type": "string",
+              "description": "\u76ee\u7684\u5730\u56fd\u5bb6\uff08\u4ece\u9ed8\u8ba4\u5730\u5740\u81ea\u52a8\u83b7\u53d6\uff09"
+            },
+            "estimated_shipping_fee_jpy": {
+              "type": "number",
+              "description": "\u9884\u4f30\u8fd0\u8d39\uff08JPY\uff09"
+            },
+            "total_paid_jpy": {
+              "type": "number",
+              "description": "\u603b\u4ed8\u6b3e\u91d1\u989d\uff08\u8d27\u6b3e + \u670d\u52a1\u8d39 + \u9884\u4f30\u8fd0\u8d39\uff09"
+            },
+            "settlement_status": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "needs_supplement",
+                "needs_refund",
+                "settled"
+              ],
+              "description": "\u7ed3\u7b97\u72b6\u6001"
+            }
+          }
         }
       }
     },
@@ -473,50 +509,6 @@
     "group_buy_allocated_shipping_fee_jpy": {
       "type": "number",
       "description": "\u62fc\u5355\u5206\u644a\u7684\u8fd0\u8d39\uff08JPY\uff09\uff0c\u62fc\u5355\u5b8c\u6210\u65f6\u5199\u5165"
-    },
-    "fullpay_once_config": {
-      "type": "object",
-      "description": "\u4e00\u6b21\u4ed8\u6b3e\u914d\u7f6e\uff08\u8d27\u6b3e + \u9884\u4f30\u8fd0\u8d39\uff09",
-      "properties": {
-        "user_estimated_weight_g": {
-          "type": "number",
-          "description": "\u7528\u6237\u9884\u4f30\u91cd\u91cf\uff08g\uff09"
-        },
-        "shipping_method_code": {
-          "type": "string",
-          "description": "\u7528\u6237\u9009\u62e9\u7684\u8fd0\u8f93\u65b9\u5f0f\u4ee3\u7801"
-        },
-        "destination_country": {
-          "type": "string",
-          "description": "\u76ee\u7684\u5730\u56fd\u5bb6"
-        },
-        "estimated_shipping_fee_jpy": {
-          "type": "number",
-          "description": "\u9884\u4f30\u8fd0\u8d39\uff08JPY\uff09"
-        },
-        "total_paid_jpy": {
-          "type": "number",
-          "description": "\u603b\u4ed8\u6b3e\u91d1\u989d\uff08\u8d27\u6b3e + \u670d\u52a1\u8d39 + \u9884\u4f30\u8fd0\u8d39\uff09"
-        },
-        "weight_difference_g": {
-          "type": "number",
-          "description": "\u91cd\u91cf\u5dee\u5f02\uff08\u5b9e\u9645 - \u9884\u4f30\uff09"
-        },
-        "fee_difference_jpy": {
-          "type": "number",
-          "description": "\u8fd0\u8d39\u5dee\u5f02\uff08\u5b9e\u9645 - \u9884\u4f30\uff09"
-        },
-        "settlement_status": {
-          "type": "string",
-          "enum": [
-            "pending",
-            "needs_supplement",
-            "needs_refund",
-            "settled"
-          ],
-          "description": "\u7ed3\u7b97\u72b6\u6001"
-        }
-      }
     }
   },
   "required": [

@@ -20,10 +20,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Truck, Package, MapPin, Check, ChevronLeft, PlusCircle, Zap, Search } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Truck, Package, MapPin, Check, ChevronLeft, PlusCircle, Zap, Search, Calculator, AlertTriangle } from "lucide-react";
 import PaymentMethodSelector from "@/components/common/PaymentMethodSelector";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import PreShipmentFormFullPayOnce from "@/components/PreShipmentFormFullPayOnce";
 
 export default function PreShipmentForm() {
   const navigate = useNavigate();
@@ -60,6 +62,11 @@ export default function PreShipmentForm() {
   const [selectedAddressId, setSelectedAddressId] = useState("");
   const [useNewAddress, setUseNewAddress] = useState(false);
   const [saveAddress, setSaveAddress] = useState(false);
+
+  // One-time payment state
+  const [fullPayOnceEnabled, setFullPayOnceEnabled] = useState(false);
+  const [userEstimatedWeight, setUserEstimatedWeight] = useState("");
+  const [estimatedShippingFee, setEstimatedShippingFee] = useState(0);
 
   // Official pools for selection
   const [officialPools, setOfficialPools] = useState([]);
@@ -313,6 +320,19 @@ export default function PreShipmentForm() {
     const existingPool = officialPools.find((p) => p.id === selectedExistingPoolId);
     const existingPoolCode = existingPool?.pool_code || "";
 
+    // Get destination country from address
+    const destinationCountry = effectiveAddress?.country || "";
+    
+    // One-time payment config
+    const fullPayOnceConfig = fullPayOnceEnabled && userEstimatedWeight && estimatedShippingFee > 0 ? {
+      user_estimated_weight_g: parseFloat(userEstimatedWeight) || 0,
+      shipping_method_code: shippingMethod,
+      destination_country: destinationCountry,
+      estimated_shipping_fee_jpy: estimatedShippingFee,
+      total_paid_jpy: (order.estimated_jpy || 0) + (order.service_fee_amount || 0) + estimatedShippingFee,
+      settlement_status: "pending"
+    } : null;
+
     const preShipment = {
       shipping_method: shippingMethod,
       scheduled_ship_date: scheduledDate,
@@ -336,13 +356,25 @@ export default function PreShipmentForm() {
       target_pool_id: consType === "official_pool" ? selectedPoolId : joinExistingPool ? selectedExistingPoolId : "",
       target_pool_code: consType === "official_pool" ? poolCode : joinExistingPool ? existingPoolCode : "",
       target_pool_title: consType === "official_pool" && selectedPool ? selectedPool.title || selectedPool.pool_code : joinExistingPool && existingPool ? existingPool.title || existingPool.pool_code : "",
-      join_existing_pool: joinExistingPool
+      join_existing_pool: joinExistingPool,
+      // One-time payment config
+      fullpay_once_config: fullPayOnceConfig
     };
 
-    const res = await base44.functions.invoke('updateTenantOrder', {
+    const updatePayload = {
       order_id: orderId,
       pre_shipment: preShipment
-    });
+    };
+    
+    // Also update order-level fields for one-time payment
+    if (fullPayOnceConfig) {
+      updatePayload.user_estimated_weight_g = fullPayOnceConfig.user_estimated_weight_g;
+      updatePayload.shipping_method = fullPayOnceConfig.shipping_method_code;
+      updatePayload.destination_country = fullPayOnceConfig.destination_country;
+      updatePayload.fullpay_once_config = fullPayOnceConfig;
+    }
+    
+    const res = await base44.functions.invoke('updateTenantOrder', updatePayload);
 
     // Update local order state so subsequent edits in the same session see fresh data
     if (res?.data?.order) {
@@ -1047,6 +1079,21 @@ export default function PreShipmentForm() {
           </CardContent>
         </Card>
       }
+
+      {/* One-time payment configuration */}
+      <PreShipmentFormFullPayOnce
+        shippingMethods={shippingMethods}
+        consType={consType}
+        joinExistingPool={joinExistingPool}
+        selectedExistingPoolId={selectedExistingPoolId}
+        userEstimatedWeight={userEstimatedWeight}
+        setUserEstimatedWeight={setUserEstimatedWeight}
+        estimatedShippingFee={estimatedShippingFee}
+        setEstimatedShippingFee={setEstimatedShippingFee}
+        fullPayOnceEnabled={fullPayOnceEnabled}
+        setFullPayOnceEnabled={setFullPayOnceEnabled}
+        order={order}
+      />
 
       {/* Note */}
       <Card className="border-gray-200">
