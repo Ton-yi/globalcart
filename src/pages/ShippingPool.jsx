@@ -8,7 +8,7 @@ import { fetchShippingPools, tenantEntity, fetchTenantConfig, shippingPoolApi } 
 import { timePage } from "@/lib/timing";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { usePermissions } from "@/hooks/usePermissions";
-import { Plus, RefreshCw, Truck, X, Package, MapPin, ChevronRight, ChevronLeft, Check, Scale, Calendar, Info, Layers, Lock, Users, Search, PlusCircle, Archive, ArchiveRestore, CreditCard } from "lucide-react";
+import { Plus, RefreshCw, Truck, X, Package, MapPin, ChevronRight, ChevronLeft, Check, Scale, Calendar, Info, Layers, Lock, Users, Search, PlusCircle, Archive, ArchiveRestore, CreditCard, CheckCircle2 } from "lucide-react";
 import { getCountry } from "@/lib/countries";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -59,9 +59,11 @@ export default function ShippingPool() {
   const canSelectShippingAddons = can("addon:select_shipping_value_added_services");
   
   const [pools, setPools] = useState([]);
+  const [localPools, setLocalPools] = useState(null); // Local optimistic updates for official kanban
   const [consolidationOrders, setConsolidationOrders] = useState([]);
   const [pendingEditRequests, setPendingEditRequests] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [activeTab, setActiveTab] = useState("pools");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedPool, setSelectedPool] = useState(null);
@@ -122,6 +124,8 @@ export default function ShippingPool() {
     (usersRes || []).forEach(u => { profileMap[u.email] = u; });
     setUserProfileMap(profileMap);
     setPools(allPools);
+    setLocalPools(null); // Clear local overrides on full refresh
+    setHasUnsavedChanges(false);
     setAllOrders(myOrders);
     setPendingEditRequests(editReqs.filter(r => r.status === 'pending'));
 
@@ -1093,22 +1097,42 @@ export default function ShippingPool() {
       {/* ---- TAB: OFFICIAL CONSOLIDATION KANBAN ---- */}
       {activeTab === "official_kanban" && (
         <>
-          {!isAdmin && (
-            <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-sm text-blue-800">
-              <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
-              <p>官方拼邮看板展示管理员组织的拼邮请求。您可以将自己的包裹拖拽到其它拼邮请求中。</p>
-            </div>
-          )}
+          <div className="flex items-center justify-between gap-2 mb-2">
+            {!isAdmin && (
+              <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-sm text-blue-800">
+                <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                <p>官方拼邮看板展示管理员组织的拼邮请求。您可以将自己的包裹拖拽到其它拼邮请求中。</p>
+              </div>
+            )}
+            {hasUnsavedChanges && localPools && (
+              <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-4 py-2.5 text-sm text-green-700 ml-auto">
+                <CheckCircle2 className="w-4 h-4" />
+                <span>有未保存的更改</span>
+                <Button size="sm" className="bg-green-600 hover:bg-green-700 h-7 text-xs" onClick={() => fetchData(user)}>
+                  刷新
+                </Button>
+                <Button variant="ghost" size="sm" className="h-7 text-xs text-green-600 hover:text-green-700" onClick={() => { setLocalPools(null); setHasUnsavedChanges(false); }}>放弃</Button>
+              </div>
+            )}
+          </div>
           {loading ? (
             <div className="text-center py-16 text-gray-400 text-sm">加载中...</div>
           ) : (
             <OfficialPoolKanban
-              pools={officialConsPools}
+              pools={localPools ? Object.values(localPools) : officialConsPools}
               allOrders={allOrders}
               currentUser={user}
               isAdmin={isAdmin}
               onPoolClick={setSelectedPool}
               onRefresh={() => fetchData(user)}
+              onLocalUpdate={(updatedPool) => {
+                setLocalPools(prev => {
+                  const next = prev ? { ...prev } : {};
+                  next[updatedPool.id] = updatedPool;
+                  return next;
+                });
+                setHasUnsavedChanges(true);
+              }}
             />
           )}
         </>

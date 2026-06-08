@@ -686,7 +686,7 @@ function StagingColumn({ allOrders, officialPools, currentUser, isAdmin, onRefre
 }
 
 // ─── Main Kanban ──────────────────────────────────────────────────────────────
-export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAdmin, showPoolSorter, setShowPoolSorter, onPoolClick, onRefresh }) {
+export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAdmin, showPoolSorter, setShowPoolSorter, onPoolClick, onRefresh, onLocalUpdate }) {
   const [shippingAddons, setShippingAddons] = useState([]);
   const [savedAddresses, setSavedAddresses] = useState([]);
   const [createPoolOpen, setCreatePoolOpen] = useState(false);
@@ -917,6 +917,16 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
       return Promise.resolve();
     });
     await Promise.all(orderUpdatePromises);
+
+    // Notify parent of local updates for optimistic UI (pass full pool objects)
+    if (onLocalUpdate) {
+      for (const [poolId, patch] of poolPatches.entries()) {
+        const originalPool = pools.find(p => p.id === poolId);
+        if (originalPool) {
+          onLocalUpdate({ ...originalPool, ...patch });
+        }
+      }
+    }
 
     setSelectedIds(new Set());
     onRefresh?.();
