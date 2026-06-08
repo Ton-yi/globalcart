@@ -2,8 +2,11 @@
  * OfficialPoolKanban
  * Admin-created official consolidation pools displayed as kanban columns.
  * Supports drag-and-drop of order tasks between columns (including the staging column).
+ * Multi-entry user groups are draggable as a whole.
+ * Individual entries within groups are also draggable.
+ * Shift+click enables multi-select; selected items can be dragged together.
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { base44 } from "@/api/base44Client";
 import { shippingPoolApi, tenantEntity, fetchTenantConfig } from "@/lib/tenantApi";
@@ -13,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import {
   Users, Package, Scale, Plus, ChevronDown, ChevronRight,
   Settings2, Edit2, MapPin, Layers, Calendar, ArrowUpDown,
-  Inbox, GripVertical, Clock, Warehouse, ArrowRight, X, CheckCircle2, Loader2
+  Inbox, GripVertical, Clock, Warehouse, ArrowRight, X, CheckCircle2, Loader2, CheckSquare
 } from "lucide-react";
 import JoinOfficialPoolModal from "@/components/shippingpool/JoinOfficialPoolModal";
 import OrderDetailDrawer from "@/components/orders/OrderDetailDrawer";
@@ -45,11 +48,21 @@ const ORDER_STATUS_LABELS = {
   notified_shipment: "待发货",
 };
 
+// draggableId formats:
+// pool entry (single):  "pool-{poolId}-order-{orderId}"
+// pool group (multi):   "pool-{poolId}-group-{userEmail}"
+// staging:              "staging-{orderId}"
+
 // ─── Draggable Task Card ──────────────────────────────────────────────────────
-function DraggableTaskCard({ draggableId, index, entry, order, group, pool, currentUser, isAdmin, shippingAddons, savedAddresses, onRefresh }) {
+function DraggableTaskCard({ draggableId, index, entry, order, group, pool, currentUser, isAdmin, shippingAddons, savedAddresses, onRefresh, selected, onSelect }) {
   const [editOpen, setEditOpen] = useState(false);
   const isSelf = group?.user_email === currentUser?.email;
   const canEdit = isSelf || isAdmin;
+
+  const handleClick = (e) => {
+    if (e.shiftKey) { e.preventDefault(); onSelect?.(draggableId); return; }
+    canEdit && !editOpen && setEditOpen(true);
+  };
 
   return (
     <>
@@ -58,9 +71,13 @@ function DraggableTaskCard({ draggableId, index, entry, order, group, pool, curr
           <div
             ref={provided.innerRef}
             {...provided.draggableProps}
-            className={`border rounded-xl px-3 py-2.5 bg-white transition-all ${snapshot.isDragging ? "shadow-lg border-blue-300 rotate-1" : canEdit ? "border-gray-200 hover:border-blue-300 hover:bg-blue-50/40 hover:shadow-sm" : "border-gray-200"} ${canEdit ? "cursor-pointer" : ""}`}
-            onClick={() => canEdit && !snapshot.isDragging && setEditOpen(true)}
+            className={`border rounded-xl px-3 py-2.5 bg-white transition-all relative
+              ${snapshot.isDragging ? "shadow-lg border-blue-300 rotate-1" : ""}
+              ${selected ? "border-blue-400 bg-blue-50 ring-2 ring-blue-300" : canEdit ? "border-gray-200 hover:border-blue-300 hover:bg-blue-50/40 hover:shadow-sm" : "border-gray-200"}
+              ${canEdit ? "cursor-pointer" : ""}`}
+            onClick={handleClick}
           >
+            {selected && <CheckSquare className="absolute top-2 right-2 w-3.5 h-3.5 text-blue-500" />}
             <div className="flex items-start gap-2">
               <div
                 {...provided.dragHandleProps}
@@ -78,7 +95,7 @@ function DraggableTaskCard({ draggableId, index, entry, order, group, pool, curr
                 </div>
                 {entry.note && <p className="text-xs text-gray-400 mt-0.5 truncate">{entry.note}</p>}
               </div>
-              {canEdit && <Edit2 className="w-3 h-3 text-gray-300 hover:text-gray-500 flex-shrink-0 mt-0.5" />}
+              {canEdit && !selected && <Edit2 className="w-3 h-3 text-gray-300 hover:text-gray-500 flex-shrink-0 mt-0.5" />}
             </div>
           </div>
         )}
@@ -100,13 +117,18 @@ function DraggableTaskCard({ draggableId, index, entry, order, group, pool, curr
 }
 
 // ─── Draggable Staging Task Card ──────────────────────────────────────────────
-function DraggableStagingCard({ draggableId, index, order, officialPools, isAdmin, currentUser, onRemove }) {
+function DraggableStagingCard({ draggableId, index, order, officialPools, isAdmin, currentUser, onRemove, selected, onSelect }) {
   const [detailOpen, setDetailOpen] = useState(false);
   const pre = order?.pre_shipment;
   const targetPoolId = pre?.target_pool_id;
   const targetPool = officialPools.find(p => p.id === targetPoolId);
   const targetLabel = targetPool ? (targetPool.title || targetPool.pool_code) : "待匹配";
   const isInWarehouse = order?.order_status === "in_warehouse";
+
+  const handleClick = (e) => {
+    if (e.shiftKey) { e.preventDefault(); onSelect?.(draggableId); return; }
+    !detailOpen && setDetailOpen(true);
+  };
 
   return (
     <>
@@ -115,9 +137,13 @@ function DraggableStagingCard({ draggableId, index, order, officialPools, isAdmi
           <div
             ref={provided.innerRef}
             {...provided.draggableProps}
-            className={`border rounded-xl px-3 py-2.5 bg-white transition-all ${snapshot.isDragging ? "shadow-lg border-blue-300 rotate-1" : isInWarehouse ? "border-green-200 hover:border-green-300 hover:bg-green-50/40" : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"} cursor-pointer`}
-            onClick={() => !snapshot.isDragging && setDetailOpen(true)}
+            className={`border rounded-xl px-3 py-2.5 bg-white transition-all relative
+              ${snapshot.isDragging ? "shadow-lg border-blue-300 rotate-1" : ""}
+              ${selected ? "border-blue-400 bg-blue-50 ring-2 ring-blue-300" : isInWarehouse ? "border-green-200 hover:border-green-300 hover:bg-green-50/40" : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"}
+              cursor-pointer`}
+            onClick={handleClick}
           >
+            {selected && <CheckSquare className="absolute top-2 right-8 w-3.5 h-3.5 text-blue-500" />}
             <div className="flex items-start gap-2">
               <div
                 {...provided.dragHandleProps}
@@ -166,8 +192,8 @@ function DraggableStagingCard({ draggableId, index, order, officialPools, isAdmi
   );
 }
 
-// ─── Group Card (non-draggable container) ─────────────────────────────────────
-function UserGroupCard({ group, allOrders, pool, currentUser, isAdmin, shippingAddons, savedAddresses, onRefresh }) {
+// ─── Draggable Group Card ─────────────────────────────────────────────────────
+function DraggableGroupCard({ draggableId, index, group, allOrders, pool, currentUser, isAdmin, shippingAddons, savedAddresses, onRefresh, selected, onSelect, selectedIds, onSelectEntry }) {
   const [expanded, setExpanded] = useState(false);
   const [editGroupOpen, setEditGroupOpen] = useState(false);
   const [editOrderEntry, setEditOrderEntry] = useState(null);
@@ -181,56 +207,90 @@ function UserGroupCard({ group, allOrders, pool, currentUser, isAdmin, shippingA
   }));
   const totalWeight = resolvedOrders.reduce((s, { order }) => s + (order?.weight_g || 0), 0);
 
+  const handleHeaderClick = (e) => {
+    if (e.shiftKey) { e.preventDefault(); onSelect?.(draggableId); return; }
+    setExpanded(v => !v);
+  };
+
   return (
-    <div className="border border-gray-200 rounded-xl overflow-hidden bg-white hover:border-blue-200 transition-colors">
-      <div
-        className="flex items-center justify-between px-3 py-2.5 bg-blue-50/60 border-b border-blue-100 cursor-pointer hover:bg-blue-100/60 transition-colors"
-        onClick={() => setExpanded(v => !v)}
-      >
-        <div className="flex items-center gap-2 min-w-0">
-          {expanded ? <ChevronDown className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />}
-          <Users className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
-          <span className="text-sm font-medium text-gray-800 truncate">{group.group_label || group.user_name || group.user_email}</span>
-          <Badge variant="outline" className="text-xs flex-shrink-0">{orderEntries.length}件</Badge>
-        </div>
-        <div className="flex items-center gap-1.5 flex-shrink-0">
-          <span className="text-xs text-gray-400">{totalWeight}g</span>
-          {canEdit && (
-            <button onClick={e => { e.stopPropagation(); setEditGroupOpen(true); }} className="p-1 rounded hover:bg-blue-100 text-gray-400 hover:text-blue-600 transition-colors">
-              <Edit2 className="w-3 h-3" />
-            </button>
-          )}
-        </div>
-      </div>
-      {group.group_final_address?.recipient_name && (
-        <div className="px-3 py-1.5 flex items-center gap-1.5 text-xs text-gray-400 border-b border-gray-100">
-          <MapPin className="w-3 h-3" />
-          <span className="truncate">{group.group_final_address.recipient_name}{group.group_final_address.state ? ` · ${group.group_final_address.state}` : ""}</span>
-        </div>
-      )}
-      {expanded && (
-        <div className="divide-y divide-gray-50">
-          {resolvedOrders.map(({ entry, order }) => (
+    <>
+      <Draggable draggableId={draggableId} index={index}>
+        {(provided, snapshot) => (
+          <div
+            ref={provided.innerRef}
+            {...provided.draggableProps}
+            className={`border rounded-xl overflow-hidden bg-white transition-colors
+              ${snapshot.isDragging ? "shadow-lg opacity-90" : ""}
+              ${selected ? "border-blue-400 ring-2 ring-blue-300" : "border-gray-200 hover:border-blue-200"}`}
+          >
             <div
-              key={entry.order_id}
-              className="flex items-start gap-2.5 px-3 py-2.5 hover:bg-gray-50 cursor-pointer transition-colors"
-              onClick={() => canEdit && setEditOrderEntry({ entry, order })}
+              className={`flex items-center justify-between px-3 py-2.5 border-b cursor-pointer transition-colors
+                ${selected ? "bg-blue-100/70 border-blue-200" : "bg-blue-50/60 border-blue-100 hover:bg-blue-100/60"}`}
+              onClick={handleHeaderClick}
             >
-              <Package className="w-3.5 h-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-gray-700 truncate">{order?.product_name || entry.order_id.slice(-8)}</p>
-                <div className="flex items-center gap-2 mt-0.5">
-                  {order?.order_number && <span className="text-xs text-gray-400">{order.order_number}</span>}
-                  {order?.weight_g > 0 && <span className="text-xs text-gray-400">{order.weight_g}g</span>}
-                  {!entry.use_group_address && <Badge className="text-xs bg-orange-100 text-orange-600 px-1 py-0">独立地址</Badge>}
+              <div className="flex items-center gap-2 min-w-0">
+                <div
+                  {...provided.dragHandleProps}
+                  className="flex-shrink-0 cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500"
+                  onClick={e => e.stopPropagation()}
+                >
+                  <GripVertical className="w-3.5 h-3.5" />
                 </div>
-                {entry.note && <p className="text-xs text-gray-400 mt-0.5 truncate">{entry.note}</p>}
+                {expanded ? <ChevronDown className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />}
+                <Users className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
+                <span className="text-sm font-medium text-gray-800 truncate">{group.group_label || group.user_name || group.user_email}</span>
+                <Badge variant="outline" className="text-xs flex-shrink-0">{orderEntries.length}件</Badge>
+                {selected && <CheckSquare className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />}
               </div>
-              {canEdit && <Edit2 className="w-3 h-3 text-gray-300 hover:text-gray-500 flex-shrink-0 mt-0.5" />}
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                <span className="text-xs text-gray-400">{totalWeight}g</span>
+                {canEdit && (
+                  <button onClick={e => { e.stopPropagation(); setEditGroupOpen(true); }} className="p-1 rounded hover:bg-blue-100 text-gray-400 hover:text-blue-600 transition-colors">
+                    <Edit2 className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
             </div>
-          ))}
-        </div>
-      )}
+            {group.group_final_address?.recipient_name && (
+              <div className="px-3 py-1.5 flex items-center gap-1.5 text-xs text-gray-400 border-b border-gray-100">
+                <MapPin className="w-3 h-3" />
+                <span className="truncate">{group.group_final_address.recipient_name}{group.group_final_address.state ? ` · ${group.group_final_address.state}` : ""}</span>
+              </div>
+            )}
+            {expanded && (
+              <div className="divide-y divide-gray-50">
+                {resolvedOrders.map(({ entry, order }, entryIdx) => {
+                  const entryDraggableId = `pool-${pool.id}-order-${entry.order_id}`;
+                  const isEntrySelected = selectedIds?.has(entryDraggableId);
+                  return (
+                    <div
+                      key={entry.order_id}
+                      className={`flex items-start gap-2.5 px-3 py-2.5 cursor-pointer transition-colors
+                        ${isEntrySelected ? "bg-blue-50" : "hover:bg-gray-50"}`}
+                      onClick={(e) => {
+                        if (e.shiftKey) { e.preventDefault(); onSelectEntry?.(entryDraggableId); return; }
+                        canEdit && setEditOrderEntry({ entry, order });
+                      }}
+                    >
+                      <Package className="w-3.5 h-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-gray-700 truncate">{order?.product_name || entry.order_id.slice(-8)}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          {order?.order_number && <span className="text-xs text-gray-400">{order.order_number}</span>}
+                          {order?.weight_g > 0 && <span className="text-xs text-gray-400">{order.weight_g}g</span>}
+                          {!entry.use_group_address && <Badge className="text-xs bg-orange-100 text-orange-600 px-1 py-0">独立地址</Badge>}
+                        </div>
+                        {entry.note && <p className="text-xs text-gray-400 mt-0.5 truncate">{entry.note}</p>}
+                      </div>
+                      {isEntrySelected ? <CheckSquare className="w-3.5 h-3.5 text-blue-500 flex-shrink-0 mt-0.5" /> : canEdit && <Edit2 className="w-3 h-3 text-gray-300 hover:text-gray-500 flex-shrink-0 mt-0.5" />}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </Draggable>
       {editGroupOpen && (
         <OfficialPoolUserGroupModal pool={pool} group={group} shippingAddons={shippingAddons} savedAddresses={savedAddresses}
           onClose={() => setEditGroupOpen(false)} onSuccess={() => { setEditGroupOpen(false); onRefresh?.(); }} />
@@ -240,7 +300,7 @@ function UserGroupCard({ group, allOrders, pool, currentUser, isAdmin, shippingA
           shippingAddons={shippingAddons} savedAddresses={savedAddresses}
           onClose={() => setEditOrderEntry(null)} onSuccess={() => { setEditOrderEntry(null); onRefresh?.(); }} />
       )}
-    </div>
+    </>
   );
 }
 
@@ -353,7 +413,7 @@ function AddToStagingModal({ allOrders, officialPools, currentUser, stagedOrderI
 }
 
 // ─── Pool Column (Droppable) ──────────────────────────────────────────────────
-function PoolColumn({ pool, allOrders, currentUser, isAdmin, shippingAddons, savedAddresses, onPoolClick, onRefresh, columnDragHandleProps }) {
+function PoolColumn({ pool, allOrders, currentUser, isAdmin, shippingAddons, savedAddresses, onPoolClick, onRefresh, columnDragHandleProps, selectedIds, onSelectItem }) {
   const [joinOpen, setJoinOpen] = useState(false);
 
   const perUserGroups = pool.per_user_groups || [];
@@ -366,15 +426,14 @@ function PoolColumn({ pool, allOrders, currentUser, isAdmin, shippingAddons, sav
   const myOrderIds = new Set((myGroup?.order_entries || []).map(e => e.order_id));
   const hasInWarehouse = allOrders.some(o => o.order_status === "in_warehouse" && !myOrderIds.has(o.id));
 
-  // Build draggable items: each order entry gets its own draggable
+  // Build draggable items list (groups with 1+ entries are all draggable; groups with 2+ also expose individual entries when expanded)
   const draggableItems = [];
-  const multiEntryGroups = [];
   perUserGroups.forEach(group => {
     const entries = group.order_entries || [];
     if (entries.length >= 2) {
-      multiEntryGroups.push(group);
+      draggableItems.push({ type: "group", group });
     } else if (entries.length === 1) {
-      draggableItems.push({ group, entry: entries[0] });
+      draggableItems.push({ type: "entry", group, entry: entries[0] });
     }
   });
 
@@ -422,40 +481,50 @@ function PoolColumn({ pool, allOrders, currentUser, isAdmin, shippingAddons, sav
             {...provided.droppableProps}
             className={`flex-1 space-y-2 min-h-[60px] rounded-xl transition-colors p-1 ${snapshot.isDraggingOver ? "bg-blue-50 ring-2 ring-blue-200" : ""}`}
           >
-            {/* Multi-entry groups (not individually draggable as a whole, but shown) */}
-            {multiEntryGroups.map(group => (
-              <UserGroupCard
-                key={group.user_email}
-                group={group}
-                allOrders={allOrders}
-                pool={pool}
-                currentUser={currentUser}
-                isAdmin={isAdmin}
-                shippingAddons={shippingAddons}
-                savedAddresses={savedAddresses}
-                onRefresh={onRefresh}
-              />
-            ))}
-
-            {/* Single-entry items (draggable) */}
-            {draggableItems.map(({ group, entry }, idx) => {
-              const order = allOrders.find(o => o.id === entry.order_id) || null;
-              return (
-                <DraggableTaskCard
-                  key={entry.order_id}
-                  draggableId={`pool-${pool.id}-order-${entry.order_id}`}
-                  index={multiEntryGroups.length + idx}
-                  entry={entry}
-                  order={order}
-                  group={group}
-                  pool={pool}
-                  currentUser={currentUser}
-                  isAdmin={isAdmin}
-                  shippingAddons={shippingAddons}
-                  savedAddresses={savedAddresses}
-                  onRefresh={onRefresh}
-                />
-              );
+            {draggableItems.map(({ type, group, entry }, idx) => {
+              if (type === "group") {
+                const groupDraggableId = `pool-${pool.id}-group-${group.user_email}`;
+                return (
+                  <DraggableGroupCard
+                    key={group.user_email}
+                    draggableId={groupDraggableId}
+                    index={idx}
+                    group={group}
+                    allOrders={allOrders}
+                    pool={pool}
+                    currentUser={currentUser}
+                    isAdmin={isAdmin}
+                    shippingAddons={shippingAddons}
+                    savedAddresses={savedAddresses}
+                    onRefresh={onRefresh}
+                    selected={selectedIds?.has(groupDraggableId)}
+                    onSelect={onSelectItem}
+                    selectedIds={selectedIds}
+                    onSelectEntry={onSelectItem}
+                  />
+                );
+              } else {
+                const entryDraggableId = `pool-${pool.id}-order-${entry.order_id}`;
+                const order = allOrders.find(o => o.id === entry.order_id) || null;
+                return (
+                  <DraggableTaskCard
+                    key={entry.order_id}
+                    draggableId={entryDraggableId}
+                    index={idx}
+                    entry={entry}
+                    order={order}
+                    group={group}
+                    pool={pool}
+                    currentUser={currentUser}
+                    isAdmin={isAdmin}
+                    shippingAddons={shippingAddons}
+                    savedAddresses={savedAddresses}
+                    onRefresh={onRefresh}
+                    selected={selectedIds?.has(entryDraggableId)}
+                    onSelect={onSelectItem}
+                  />
+                );
+              }
             })}
 
             {perUserGroups.length === 0 && !snapshot.isDraggingOver && (
@@ -490,7 +559,7 @@ function PoolColumn({ pool, allOrders, currentUser, isAdmin, shippingAddons, sav
 }
 
 // ─── Staging Column (Droppable) ───────────────────────────────────────────────
-function StagingColumn({ allOrders, officialPools, currentUser, isAdmin, onRefresh }) {
+function StagingColumn({ allOrders, officialPools, currentUser, isAdmin, onRefresh, selectedIds, onSelectItem }) {
   const [addModalOpen, setAddModalOpen] = useState(false);
 
   const allOfficialPoolOrderIds = new Set(officialPools.flatMap(p => p.order_ids || []));
@@ -540,7 +609,6 @@ function StagingColumn({ allOrders, officialPools, currentUser, isAdmin, onRefre
             className={`flex-1 min-h-[60px] rounded-xl transition-colors p-1 ${snapshot.isDraggingOver ? "bg-blue-50 ring-2 ring-blue-200" : ""}`}
           >
             <div className="space-y-2">
-              {/* In-warehouse group header */}
               {inWarehouseOrders.length > 0 && (
                 <div className="flex items-center gap-1.5 px-2 py-1">
                   <Warehouse className="w-3 h-3 text-green-500" />
@@ -558,10 +626,11 @@ function StagingColumn({ allOrders, officialPools, currentUser, isAdmin, onRefre
                   isAdmin={isAdmin}
                   currentUser={currentUser}
                   onRemove={handleRemove}
+                  selected={selectedIds?.has(`staging-${order.id}`)}
+                  onSelect={onSelectItem}
                 />
               ))}
 
-              {/* Pending group header */}
               {pendingOrders.length > 0 && (
                 <div className="flex items-center gap-1.5 px-2 py-1 mt-1">
                   <Clock className="w-3 h-3 text-gray-400" />
@@ -579,6 +648,8 @@ function StagingColumn({ allOrders, officialPools, currentUser, isAdmin, onRefre
                   isAdmin={isAdmin}
                   currentUser={currentUser}
                   onRemove={handleRemove}
+                  selected={selectedIds?.has(`staging-${order.id}`)}
+                  onSelect={onSelectItem}
                 />
               ))}
 
@@ -620,8 +691,10 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
   const [savedAddresses, setSavedAddresses] = useState([]);
   const [createPoolOpen, setCreatePoolOpen] = useState(false);
   const [columnOrder, setColumnOrder] = useState(() => pools.map(p => p.id));
+  // Multi-select: Set of draggableIds
+  const [selectedIds, setSelectedIds] = useState(new Set());
 
-  // Keep columnOrder in sync when pools change from outside (new pool added, etc.)
+  // Keep columnOrder in sync when pools change from outside
   useEffect(() => {
     setColumnOrder(prev => {
       const poolIds = pools.map(p => p.id);
@@ -643,7 +716,108 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
     }).catch(() => {});
   }, [currentUser?.email]);
 
+  // Clear selection on click outside (non-shift)
+  useEffect(() => {
+    const handler = (e) => { if (!e.shiftKey) setSelectedIds(new Set()); };
+    window.addEventListener("click", handler);
+    return () => window.removeEventListener("click", handler);
+  }, []);
+
+  const handleSelectItem = useCallback((draggableId) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(draggableId)) next.delete(draggableId);
+      else next.add(draggableId);
+      return next;
+    });
+  }, []);
+
   const orderedPools = columnOrder.map(id => pools.find(p => p.id === id)).filter(Boolean);
+
+  // Parse a draggableId into { type, orderId, srcPoolId, userEmail }
+  const parseDraggableId = (draggableId) => {
+    if (draggableId.startsWith("staging-")) {
+      return { type: "staging", orderId: draggableId.slice("staging-".length) };
+    }
+    const orderMatch = draggableId.match(/^pool-(.+)-order-(.+)$/);
+    if (orderMatch) return { type: "pool-order", srcPoolId: orderMatch[1], orderId: orderMatch[2] };
+    const groupMatch = draggableId.match(/^pool-(.+)-group-(.+)$/);
+    if (groupMatch) return { type: "pool-group", srcPoolId: groupMatch[1], userEmail: groupMatch[2] };
+    return null;
+  };
+
+  // Move a single order entry from srcPool to destPool
+  const moveOrderToPool = async (orderId, srcPool, destPool) => {
+    const order = allOrders.find(o => o.id === orderId);
+    if (!order) return;
+
+    let entryToMove = null;
+    const newSrcGroups = srcPool ? (srcPool.per_user_groups || []).map(g => {
+      const entry = (g.order_entries || []).find(e => e.order_id === orderId);
+      if (entry) entryToMove = entry;
+      return { ...g, order_entries: (g.order_entries || []).filter(e => e.order_id !== orderId) };
+    }).filter(g => (g.order_entries || []).length > 0) : null;
+
+    if (srcPool) {
+      await shippingPoolApi.update(srcPool.id, {
+        order_ids: (srcPool.order_ids || []).filter(id => id !== orderId),
+        total_weight_g: Math.max(0, (srcPool.total_weight_g || 0) - (order.weight_g || 0)),
+        per_user_groups: newSrcGroups,
+      });
+    }
+
+    if (destPool) {
+      const newEntry = entryToMove || {
+        order_id: orderId, note: order.pre_shipment?.user_note || "", image_urls: [],
+        selected_addon_ids: order.pre_shipment?.selected_addon_ids || [],
+        selected_addons: order.pre_shipment?.selected_addons || [],
+        use_group_address: true, override_final_address: null,
+      };
+      const existingGroups = destPool.per_user_groups || [];
+      const existingIdx = existingGroups.findIndex(g => g.user_email === order.user_email);
+      let newDestGroups;
+      if (existingIdx >= 0) {
+        newDestGroups = existingGroups.map((g, i) => {
+          if (i !== existingIdx) return g;
+          const exists = (g.order_entries || []).some(e => e.order_id === orderId);
+          if (exists) return g;
+          return { ...g, order_entries: [...(g.order_entries || []), newEntry] };
+        });
+      } else {
+        newDestGroups = [...existingGroups, {
+          user_email: order.user_email, user_name: order.user_name || order.user_email,
+          group_label: order.user_name || order.user_email,
+          note: "", image_urls: [], selected_addon_ids: [], selected_addons: [],
+          group_final_address: null, order_entries: [newEntry],
+        }];
+      }
+      await shippingPoolApi.update(destPool.id, {
+        order_ids: [...new Set([...(destPool.order_ids || []), orderId])],
+        order_names: [...(destPool.order_names || []), order.product_name].filter(Boolean),
+        total_weight_g: (destPool.total_weight_g || 0) + (order.weight_g || 0),
+        per_user_groups: newDestGroups,
+      });
+      await base44.functions.invoke('updateTenantOrder', {
+        order_id: orderId,
+        order_status: (!srcPool && order.order_status === "in_warehouse") ? "notified_shipment" : order.order_status,
+        consolidation_pool_id: destPool.id,
+        pre_shipment: { ...(order.pre_shipment || {}), pool_created: true, pool_id: destPool.id, consType: "official_pool", target_pool_id: destPool.id },
+      });
+    } else {
+      // Moving to staging
+      const sPool = srcPool || pools.find(p => (p.order_ids || []).includes(orderId));
+      await base44.functions.invoke('updateTenantOrder', {
+        order_id: orderId,
+        consolidation_pool_id: "",
+        pre_shipment: {
+          ...(order.pre_shipment || {}),
+          consType: "official_pool", pool_created: false, pool_id: "",
+          target_pool_id: sPool?.id || "", target_pool_code: sPool?.pool_code || "",
+          target_pool_title: sPool?.title || sPool?.pool_code || "",
+        },
+      });
+    }
+  };
 
   // ─── Drag end handler ───────────────────────────────────────────────────────
   const handleDragEnd = async (result) => {
@@ -662,182 +836,54 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
       return;
     }
 
-    if (source.droppableId === destination.droppableId) return; // same column, no-op for now
+    if (source.droppableId === destination.droppableId) return;
 
     const srcId = source.droppableId;
     const dstId = destination.droppableId;
+    const destPool = dstId.startsWith("pool-") ? pools.find(p => p.id === dstId.slice("pool-".length)) : null;
 
-    // Parse draggableId: "pool-{poolId}-order-{orderId}" or "staging-{orderId}"
-    let orderId = null;
-    let srcPoolId = null;
+    // Collect all draggableIds to move (the dragged one + any other selected ones)
+    const idsToMove = selectedIds.has(draggableId)
+      ? [...selectedIds]
+      : [draggableId];
 
-    if (draggableId.startsWith("staging-")) {
-      orderId = draggableId.slice("staging-".length);
-    } else if (draggableId.startsWith("pool-")) {
-      // "pool-{poolId}-order-{orderId}"
-      const match = draggableId.match(/^pool-(.+)-order-(.+)$/);
-      if (match) { srcPoolId = match[1]; orderId = match[2]; }
-    }
-    if (!orderId) return;
+    // Process each draggableId
+    for (const did of idsToMove) {
+      const parsed = parseDraggableId(did);
+      if (!parsed) continue;
 
-    const order = allOrders.find(o => o.id === orderId);
-    if (!order) return;
-
-    // ── Moving FROM staging TO a pool ──
-    if (srcId === "staging" && dstId.startsWith("pool-")) {
-      const destPoolId = dstId.slice("pool-".length);
-      const destPool = pools.find(p => p.id === destPoolId);
-      if (!destPool) return;
-
-      // Add to pool
-      const existingGroups = destPool.per_user_groups || [];
-      const existingGroupIdx = existingGroups.findIndex(g => g.user_email === order.user_email);
-      const newEntry = {
-        order_id: order.id,
-        note: order.pre_shipment?.user_note || "",
-        image_urls: [],
-        selected_addon_ids: order.pre_shipment?.selected_addon_ids || [],
-        selected_addons: order.pre_shipment?.selected_addons || [],
-        use_group_address: true,
-        override_final_address: null,
-      };
-      let newGroups;
-      if (existingGroupIdx >= 0) {
-        newGroups = existingGroups.map((g, i) => {
-          if (i !== existingGroupIdx) return g;
-          const exists = (g.order_entries || []).some(e => e.order_id === order.id);
-          if (exists) return g;
-          return { ...g, order_entries: [...(g.order_entries || []), newEntry] };
-        });
-      } else {
-        newGroups = [...existingGroups, {
-          user_email: order.user_email,
-          user_name: order.user_name || order.user_email,
-          group_label: order.user_name || order.user_email,
-          note: "", image_urls: [], selected_addon_ids: [], selected_addons: [],
-          group_final_address: null,
-          order_entries: [newEntry],
-        }];
+      if (parsed.type === "staging") {
+        // staging → pool
+        if (destPool) {
+          await moveOrderToPool(parsed.orderId, null, destPool);
+        }
+      } else if (parsed.type === "pool-order") {
+        const srcPool = pools.find(p => p.id === parsed.srcPoolId);
+        if (dstId === "staging") {
+          await moveOrderToPool(parsed.orderId, srcPool, null);
+        } else if (destPool && parsed.srcPoolId !== destPool.id) {
+          await moveOrderToPool(parsed.orderId, srcPool, destPool);
+        }
+      } else if (parsed.type === "pool-group") {
+        // Move all entries of the group
+        const srcPool = pools.find(p => p.id === parsed.srcPoolId);
+        const group = srcPool?.per_user_groups?.find(g => g.user_email === parsed.userEmail);
+        if (!group) continue;
+        const orderIds = (group.order_entries || []).map(e => e.order_id);
+        for (const oid of orderIds) {
+          // Need up-to-date srcPool after each move; re-fetch from current pools state is tricky,
+          // so do sequential moves. Refresh once at end.
+          if (dstId === "staging") {
+            await moveOrderToPool(oid, srcPool, null);
+          } else if (destPool && parsed.srcPoolId !== destPool.id) {
+            await moveOrderToPool(oid, srcPool, destPool);
+          }
+        }
       }
-      await shippingPoolApi.update(destPoolId, {
-        order_ids: [...new Set([...(destPool.order_ids || []), order.id])],
-        order_names: [...(destPool.order_names || []), order.product_name].filter(Boolean),
-        total_weight_g: (destPool.total_weight_g || 0) + (order.weight_g || 0),
-        per_user_groups: newGroups,
-      });
-      // Mark pre_shipment as joined
-      await base44.functions.invoke('updateTenantOrder', {
-        order_id: order.id,
-        order_status: order.order_status === "in_warehouse" ? "notified_shipment" : order.order_status,
-        consolidation_pool_id: destPoolId,
-        pre_shipment: { ...(order.pre_shipment || {}), pool_created: true, pool_id: destPoolId, consType: "official_pool" },
-      });
-      onRefresh?.();
-      return;
     }
 
-    // ── Moving FROM a pool TO staging ──
-    if (srcId.startsWith("pool-") && dstId === "staging") {
-      if (!srcPoolId) return;
-      const srcPool = pools.find(p => p.id === srcPoolId);
-      if (!srcPool) return;
-
-      // Remove from pool
-      const newGroups = (srcPool.per_user_groups || []).map(g => ({
-        ...g,
-        order_entries: (g.order_entries || []).filter(e => e.order_id !== orderId),
-      })).filter(g => (g.order_entries || []).length > 0);
-
-      await shippingPoolApi.update(srcPoolId, {
-        order_ids: (srcPool.order_ids || []).filter(id => id !== orderId),
-        total_weight_g: Math.max(0, (srcPool.total_weight_g || 0) - (order.weight_g || 0)),
-        per_user_groups: newGroups,
-      });
-      // Put back to staging
-      await base44.functions.invoke('updateTenantOrder', {
-        order_id: order.id,
-        consolidation_pool_id: "",
-        pre_shipment: {
-          ...(order.pre_shipment || {}),
-          consType: "official_pool",
-          pool_created: false,
-          pool_id: "",
-          target_pool_id: srcPoolId,
-          target_pool_code: srcPool.pool_code || "",
-          target_pool_title: srcPool.title || srcPool.pool_code || "",
-        },
-      });
-      onRefresh?.();
-      return;
-    }
-
-    // ── Moving FROM one pool TO another pool ──
-    if (srcId.startsWith("pool-") && dstId.startsWith("pool-")) {
-      const destPoolId = dstId.slice("pool-".length);
-      if (!srcPoolId || srcPoolId === destPoolId) return;
-      const srcPool = pools.find(p => p.id === srcPoolId);
-      const destPool = pools.find(p => p.id === destPoolId);
-      if (!srcPool || !destPool) return;
-
-      // Remove from source pool
-      let entryToMove = null;
-      const newSrcGroups = (srcPool.per_user_groups || []).map(g => {
-        const entry = (g.order_entries || []).find(e => e.order_id === orderId);
-        if (entry) entryToMove = entry;
-        return { ...g, order_entries: (g.order_entries || []).filter(e => e.order_id !== orderId) };
-      }).filter(g => (g.order_entries || []).length > 0);
-
-      await shippingPoolApi.update(srcPoolId, {
-        order_ids: (srcPool.order_ids || []).filter(id => id !== orderId),
-        total_weight_g: Math.max(0, (srcPool.total_weight_g || 0) - (order.weight_g || 0)),
-        per_user_groups: newSrcGroups,
-      });
-
-      // Add to dest pool
-      const newEntry = entryToMove || {
-        order_id: orderId, note: "", image_urls: [], selected_addon_ids: [], selected_addons: [],
-        use_group_address: true, override_final_address: null,
-      };
-      const existingGroups = destPool.per_user_groups || [];
-      const existingIdx = existingGroups.findIndex(g => g.user_email === order.user_email);
-      let newDestGroups;
-      if (existingIdx >= 0) {
-        newDestGroups = existingGroups.map((g, i) => {
-          if (i !== existingIdx) return g;
-          const exists = (g.order_entries || []).some(e => e.order_id === orderId);
-          if (exists) return g;
-          return { ...g, order_entries: [...(g.order_entries || []), newEntry] };
-        });
-      } else {
-        newDestGroups = [...existingGroups, {
-          user_email: order.user_email,
-          user_name: order.user_name || order.user_email,
-          group_label: order.user_name || order.user_email,
-          note: "", image_urls: [], selected_addon_ids: [], selected_addons: [],
-          group_final_address: null,
-          order_entries: [newEntry],
-        }];
-      }
-      await shippingPoolApi.update(destPoolId, {
-        order_ids: [...new Set([...(destPool.order_ids || []), orderId])],
-        order_names: [...(destPool.order_names || []), order.product_name].filter(Boolean),
-        total_weight_g: (destPool.total_weight_g || 0) + (order.weight_g || 0),
-        per_user_groups: newDestGroups,
-      });
-
-      await base44.functions.invoke('updateTenantOrder', {
-        order_id: orderId,
-        consolidation_pool_id: destPoolId,
-        pre_shipment: {
-          ...(order.pre_shipment || {}),
-          pool_id: destPoolId,
-          target_pool_id: destPoolId,
-          target_pool_code: destPool.pool_code || "",
-          target_pool_title: destPool.title || destPool.pool_code || "",
-        },
-      });
-      onRefresh?.();
-    }
+    setSelectedIds(new Set());
+    onRefresh?.();
   };
 
   if (pools.length === 0) {
@@ -865,8 +911,16 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
           {isAdmin && showPoolSorter && (
             <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-600">
               <ArrowUpDown className="w-4 h-4 text-gray-400" />
-              <span>拖拽任务卡片可在列之间移动；管理员可拖拽列头调整顺序</span>
+              <span>拖拽任务卡片可在列之间移动；Shift+点击多选后可批量拖动；管理员可拖拽列头调整顺序</span>
               <Button variant="ghost" size="sm" className="ml-auto h-6 text-xs" onClick={() => setShowPoolSorter?.(false)}>关闭</Button>
+            </div>
+          )}
+
+          {selectedIds.size > 0 && (
+            <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-xl px-4 py-2.5 text-sm text-blue-700">
+              <CheckSquare className="w-4 h-4" />
+              <span>已选中 {selectedIds.size} 项，拖拽任意选中项可批量移动</span>
+              <Button variant="ghost" size="sm" className="ml-auto h-6 text-xs text-blue-500 hover:text-blue-700" onClick={() => setSelectedIds(new Set())}>取消选择</Button>
             </div>
           )}
 
@@ -878,9 +932,11 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
               currentUser={currentUser}
               isAdmin={isAdmin}
               onRefresh={onRefresh}
+              selectedIds={selectedIds}
+              onSelectItem={handleSelectItem}
             />
 
-            {/* Todoist-style "add section" divider — invisible until hover */}
+            {/* Add section button */}
             {isAdmin && (
               <div className="flex-shrink-0 flex items-stretch group/addbtn">
                 <button
@@ -888,9 +944,7 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
                   title="创建新官方拼邮需求"
                   className="flex flex-col items-center justify-center w-6 relative"
                 >
-                  {/* vertical line: hidden by default, shown on hover */}
                   <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-px bg-transparent group-hover/addbtn:bg-blue-400 transition-colors duration-200" />
-                  {/* label pill: hidden by default, shown on hover */}
                   <span
                     className="relative z-10 bg-white border border-transparent group-hover/addbtn:border-blue-400 group-hover/addbtn:text-blue-500 text-transparent transition-colors duration-200 rounded-full px-1.5 py-0.5 whitespace-nowrap select-none"
                     style={{ writingMode: "vertical-lr", fontSize: "10px", letterSpacing: "0.05em" }}
@@ -928,6 +982,8 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
                               onPoolClick={onPoolClick}
                               onRefresh={onRefresh}
                               columnDragHandleProps={colProvided.dragHandleProps}
+                              selectedIds={selectedIds}
+                              onSelectItem={handleSelectItem}
                             />
                           </div>
                         )}
@@ -943,6 +999,8 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
                         savedAddresses={savedAddresses}
                         onPoolClick={onPoolClick}
                         onRefresh={onRefresh}
+                        selectedIds={selectedIds}
+                        onSelectItem={handleSelectItem}
                       />
                     )
                   ))}
