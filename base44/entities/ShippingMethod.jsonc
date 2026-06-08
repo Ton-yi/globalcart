@@ -4,7 +4,7 @@
   "properties": {
     "tenant_id": {
       "type": "string",
-      "description": "\u6240\u5c5e\u79df\u6237ID"
+      "description": "\u6240\u5c5e\u79df\u6237 ID"
     },
     "name": {
       "type": "string",
@@ -12,7 +12,7 @@
     },
     "code": {
       "type": "string",
-      "description": "\u8fd0\u8f93\u65b9\u5f0f\u4ee3\u7801\uff08\u5982EMS\u3001surface\uff09"
+      "description": "\u8fd0\u8f93\u65b9\u5f0f\u4ee3\u7801\uff08\u5982 EMS\u3001surface\uff09"
     },
     "icon": {
       "type": "string",
@@ -24,7 +24,7 @@
     },
     "transit_days": {
       "type": "string",
-      "description": "\u65f6\u6548\uff08\u5982\uff1a5-10\u4e2a\u5de5\u4f5c\u65e5\uff09"
+      "description": "\u65f6\u6548\uff08\u5982\uff1a5-10 \u4e2a\u5de5\u4f5c\u65e5\uff09"
     },
     "description": {
       "type": "string",
@@ -34,6 +34,21 @@
       "type": "boolean",
       "default": true,
       "description": "\u662f\u5426\u542f\u7528"
+    },
+    "enabled_for_direct_ship": {
+      "type": "boolean",
+      "default": true,
+      "description": "\u662f\u5426\u542f\u7528\u5355\u72ec\u53d1\u8d27\uff08\u76f4\u63a5\u53d1\u8d27\uff09"
+    },
+    "enabled_for_user_pool": {
+      "type": "boolean",
+      "default": true,
+      "description": "\u662f\u5426\u542f\u7528\u62fc\u90ae\u53d1\u8d27\uff08\u7528\u6237\u62fc\u90ae\uff09"
+    },
+    "enabled_for_official_pool": {
+      "type": "boolean",
+      "default": true,
+      "description": "\u662f\u5426\u542f\u7528\u5b98\u65b9\u62fc\u90ae\u53d1\u8d27"
     },
     "rate_mode": {
       "type": "string",
@@ -97,12 +112,12 @@
     },
     "min_weight_g": {
       "type": "number",
-      "description": "\u6700\u5c0f\u8fd0\u8f93\u91cd\u91cf(g)",
+      "description": "\u6700\u5c0f\u8fd0\u8f93\u91cd\u91cf (g)",
       "default": 0
     },
     "max_weight_g": {
       "type": "number",
-      "description": "\u6700\u5927\u8fd0\u8f93\u91cd\u91cf(g)",
+      "description": "\u6700\u5927\u8fd0\u8f93\u91cd\u91cf (g)",
       "default": 0
     },
     "disabled_item_size_template_ids": {
@@ -110,7 +125,7 @@
       "items": {
         "type": "string"
       },
-      "description": "\u7981\u7528\u7684\u7269\u54c1\u5c3a\u5bf8\u6a21\u677fID\u5217\u8868",
+      "description": "\u7981\u7528\u7684\u7269\u54c1\u5c3a\u5bf8\u6a21\u677f ID \u5217\u8868",
       "default": []
     }
   },

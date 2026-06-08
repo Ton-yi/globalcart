@@ -19,17 +19,17 @@ import { getCountry, getCountryZone, EMS_RATES, COUNTRY_ZONES, ALL_COUNTRIES } f
 const CURRENCIES = ["JPY", "CNY", "USD", "TWD", "HKD", "EUR"];
 
 const ZONE_LABELS = {
-  zone1: "第1地帯",
-  zone2: "第2地帯",
-  zone3: "第3地帯",
-  zone4: "第4地帯",
-  zone5: "第5地帯",
+  zone1: "第 1 地帯",
+  zone2: "第 2 地帯",
+  zone3: "第 3 地帯",
+  zone4: "第 4 地帯",
+  zone5: "第 5 地帯",
 };
 
 const DEFAULT_METHODS = [
-  { name: "EMS空运", code: "EMS", icon: "Plane", color: "#2563EB", transit_days: "5-10个工作日", description: "日本邮政EMS国际特快专递，速度快，适合贵重物品", is_active: true, rate_mode: "simple", simple_rates: [], detailed_rates: [] },
-  { name: "海运", code: "surface", icon: "Ship", color: "#0891B2", transit_days: "30-60天", description: "日本邮政海运，价格实惠，适合大件/重件", is_active: true, rate_mode: "simple", simple_rates: [], detailed_rates: [] },
-  { name: "小型包装物空运", code: "small_packet_air", icon: "Package", color: "#7C3AED", transit_days: "10-20个工作日", description: "小型包裹空运，价格适中，适合轻小件", is_active: true, rate_mode: "simple", simple_rates: [], detailed_rates: [] },
+  { name: "EMS 空运", code: "EMS", icon: "Plane", color: "#2563EB", transit_days: "5-10 个工作日", description: "日本邮政 EMS 国际特快专递，速度快，适合贵重物品", is_active: true, enabled_for_direct_ship: true, enabled_for_user_pool: true, enabled_for_official_pool: true, rate_mode: "simple", simple_rates: [], detailed_rates: [] },
+  { name: "海运", code: "surface", icon: "Ship", color: "#0891B2", transit_days: "30-60 天", description: "日本邮政海运，价格实惠，适合大件/重件", is_active: true, enabled_for_direct_ship: true, enabled_for_user_pool: true, enabled_for_official_pool: true, rate_mode: "simple", simple_rates: [], detailed_rates: [] },
+  { name: "小型包装物空运", code: "small_packet_air", icon: "Package", color: "#7C3AED", transit_days: "10-20 个工作日", description: "小型包裹空运，价格适中，适合轻小件", is_active: true, enabled_for_direct_ship: true, enabled_for_user_pool: true, enabled_for_official_pool: true, rate_mode: "simple", simple_rates: [], detailed_rates: [] },
 ];
 
 /** Generate detailed_rates for EMS from lib/countries.js EMS_RATES, per zone */
@@ -95,7 +95,7 @@ function RateRow({ rate, onChange, onDelete }) {
         />
       </div>
       <div>
-        <Label className="text-xs text-gray-400">首重(g)</Label>
+        <Label className="text-xs text-gray-400">首重 (g)</Label>
         <Input type="number" className="h-7 text-xs mt-0.5" value={rate.first_weight_g || ""} onChange={e => onChange({ ...rate, first_weight_g: parseFloat(e.target.value) || 0 })} placeholder="500" />
       </div>
       <div>
@@ -103,7 +103,7 @@ function RateRow({ rate, onChange, onDelete }) {
         <Input type="number" className="h-7 text-xs mt-0.5" value={rate.first_weight_fee || ""} onChange={e => onChange({ ...rate, first_weight_fee: parseFloat(e.target.value) || 0 })} placeholder="1200" />
       </div>
       <div>
-        <Label className="text-xs text-gray-400">续重单位(g)</Label>
+        <Label className="text-xs text-gray-400">续重单位 (g)</Label>
         <Input type="number" className="h-7 text-xs mt-0.5" value={rate.additional_unit_g || ""} onChange={e => onChange({ ...rate, additional_unit_g: parseFloat(e.target.value) || 0 })} placeholder="500" />
       </div>
       <div>
@@ -139,11 +139,11 @@ function DetailedRateRow({ rate, onChange, onDelete }) {
         />
       </div>
       <div>
-        <Label className="text-xs text-gray-400">起始(g)</Label>
+        <Label className="text-xs text-gray-400">起始 (g)</Label>
         <Input type="number" className="h-7 text-xs mt-0.5" value={rate.weight_from_g || ""} onChange={e => onChange({ ...rate, weight_from_g: parseFloat(e.target.value) || 0 })} placeholder="0" />
       </div>
       <div>
-        <Label className="text-xs text-gray-400">结束(g)</Label>
+        <Label className="text-xs text-gray-400">结束 (g)</Label>
         <Input type="number" className="h-7 text-xs mt-0.5" value={rate.weight_to_g || ""} onChange={e => onChange({ ...rate, weight_to_g: parseFloat(e.target.value) || 0 })} placeholder="1000" />
       </div>
       <div>
@@ -282,7 +282,7 @@ function MethodCard({ method, onSave, onDelete, itemSizeTemplates = [] }) {
                 </div>
                 <div>
                   <Label className="text-xs text-gray-500">时效</Label>
-                  <Input className="mt-1 h-8 text-sm" value={form.transit_days || ""} onChange={e => f("transit_days", e.target.value)} placeholder="5-10个工作日" />
+                  <Input className="mt-1 h-8 text-sm" value={form.transit_days || ""} onChange={e => f("transit_days", e.target.value)} placeholder="5-10 个工作日" />
                 </div>
               </div>
               <div>
@@ -330,6 +330,28 @@ function MethodCard({ method, onSave, onDelete, itemSizeTemplates = [] }) {
                 </div>
               )}
 
+              {/* Shipping mode toggles */}
+              <div>
+                <Label className="text-xs text-gray-500 font-medium">发货方式设置</Label>
+                <div className="grid grid-cols-3 gap-2 mt-2">
+                  <label className={`flex flex-col items-center gap-1.5 px-3 py-2.5 rounded-lg border cursor-pointer text-xs ${form.enabled_for_direct_ship !== false ? "border-green-300 bg-green-50 text-green-700" : "border-gray-200 text-gray-500"}`}>
+                    <input type="checkbox" className="hidden" checked={form.enabled_for_direct_ship !== false} onChange={() => f("enabled_for_direct_ship", !(form.enabled_for_direct_ship === false))} />
+                    <span className="font-medium">单独发货</span>
+                    <span className="text-[10px]">直接发货</span>
+                  </label>
+                  <label className={`flex flex-col items-center gap-1.5 px-3 py-2.5 rounded-lg border cursor-pointer text-xs ${form.enabled_for_user_pool !== false ? "border-blue-300 bg-blue-50 text-blue-700" : "border-gray-200 text-gray-500"}`}>
+                    <input type="checkbox" className="hidden" checked={form.enabled_for_user_pool !== false} onChange={() => f("enabled_for_user_pool", !(form.enabled_for_user_pool === false))} />
+                    <span className="font-medium">拼邮发货</span>
+                    <span className="text-[10px]">用户拼邮</span>
+                  </label>
+                  <label className={`flex flex-col items-center gap-1.5 px-3 py-2.5 rounded-lg border cursor-pointer text-xs ${form.enabled_for_official_pool !== false ? "border-purple-300 bg-purple-50 text-purple-700" : "border-gray-200 text-gray-500"}`}>
+                    <input type="checkbox" className="hidden" checked={form.enabled_for_official_pool !== false} onChange={() => f("enabled_for_official_pool", !(form.enabled_for_official_pool === false))} />
+                    <span className="font-medium">官方拼邮</span>
+                    <span className="text-[10px]">官方拼邮</span>
+                  </label>
+                </div>
+              </div>
+
               {/* Rate mode */}
               <div>
                 <Label className="text-xs text-gray-500 font-medium">费率设置模式</Label>
@@ -338,7 +360,7 @@ function MethodCard({ method, onSave, onDelete, itemSizeTemplates = [] }) {
                     <label key={mode} className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer text-sm ${form.rate_mode === mode ? "border-red-300 bg-red-50 text-red-700" : "border-gray-200 text-gray-600"}`}>
                       <input type="radio" className="hidden" checked={form.rate_mode === mode} onChange={() => f("rate_mode", mode)} />
                       {form.rate_mode === mode && <Check className="w-3.5 h-3.5" />}
-                      {mode === "simple" ? "简易设置（首重+续重）" : "详细设置（按重量区间）"}
+                      {mode === "simple" ? "简易设置（首重 + 续重）" : "详细设置（按重量区间）"}
                     </label>
                   ))}
                 </div>
@@ -348,7 +370,7 @@ function MethodCard({ method, onSave, onDelete, itemSizeTemplates = [] }) {
               {isEMS && (
                 <div className="flex items-center gap-3 bg-blue-50 border border-blue-100 rounded-lg p-3">
                   <Info className="w-4 h-4 text-blue-500 flex-shrink-0" />
-                  <span className="text-xs text-blue-700 flex-1">EMS 方式可直接从日本邮政官方费率表（lib/countries.js）导入，按5个地带自动生成费率。</span>
+                  <span className="text-xs text-blue-700 flex-1">EMS 方式可直接从日本邮政官方费率表（lib/countries.js）导入，按 5 个地带自动生成费率。</span>
                   <Button size="sm" variant="outline" className="h-7 text-xs border-blue-300 text-blue-700 hover:bg-blue-100 flex-shrink-0" onClick={handleImportEMS}>
                     <Download className="w-3 h-3 mr-1" />导入官方费率
                   </Button>
@@ -364,7 +386,7 @@ function MethodCard({ method, onSave, onDelete, itemSizeTemplates = [] }) {
                       <Plus className="w-3 h-3 mr-1" />添加
                     </Button>
                   </div>
-                  <p className="text-xs text-gray-400">费率 = 首重费 + 续重费 × ceil((实重 - 首重) / 续重单位)。国家字段支持输入国家代码(CN/US)或地带代码(zone1~zone5)。</p>
+                  <p className="text-xs text-gray-400">费率 = 首重费 + 续重费 × ceil((实重 - 首重) / 续重单位)。国家字段支持输入国家代码 (CN/US) 或地带代码 (zone1~zone5)。</p>
                   {(form.simple_rates || []).map((rate, idx) => (
                     <RateRow key={idx} rate={rate} onChange={u => updateSimpleRate(idx, u)} onDelete={() => deleteSimpleRate(idx)} />
                   ))}
@@ -383,7 +405,7 @@ function MethodCard({ method, onSave, onDelete, itemSizeTemplates = [] }) {
                       <Plus className="w-3 h-3 mr-1" />添加区间
                     </Button>
                   </div>
-                  <p className="text-xs text-gray-400">国家字段支持输入国家代码(CN/US)或地带代码(zone1~zone5)。</p>
+                  <p className="text-xs text-gray-400">国家字段支持输入国家代码 (CN/US) 或地带代码 (zone1~zone5)。</p>
                   <div className="max-h-80 overflow-y-auto space-y-1.5 pr-1">
                     {(form.detailed_rates || []).map((rate, idx) => (
                       <DetailedRateRow key={idx} rate={rate} onChange={u => updateDetailedRate(idx, u)} onDelete={() => deleteDetailedRate(idx)} />
@@ -406,6 +428,14 @@ function MethodCard({ method, onSave, onDelete, itemSizeTemplates = [] }) {
             // Read-only view
             <div className="space-y-3 text-sm text-gray-700">
               {method.description && <p className="text-gray-600">{method.description}</p>}
+              
+              {/* Shipping mode badges */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge className={`text-xs ${method.enabled_for_direct_ship !== false ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-400"}`}>单独发货</Badge>
+                <Badge className={`text-xs ${method.enabled_for_user_pool !== false ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-400"}`}>拼邮发货</Badge>
+                <Badge className={`text-xs ${method.enabled_for_official_pool !== false ? "bg-purple-100 text-purple-700" : "bg-gray-100 text-gray-400"}`}>官方拼邮</Badge>
+              </div>
+              
               {method.rate_mode === "simple" && (method.simple_rates || []).length > 0 && (
                 <div>
                   <p className="text-xs font-medium text-gray-500 mb-2">简易费率</p>
@@ -478,7 +508,7 @@ export default function ShippingMethodManager({ initialData = null, itemSizeTemp
   const [methods, setMethods] = useState(null); // null = not yet initialized
   const [loading, setLoading] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
-  const [newForm, setNewForm] = useState({ name: "", code: "", color: "#6B7280", transit_days: "", description: "", is_active: true, rate_mode: "simple", simple_rates: [], detailed_rates: [], min_weight_g: 0, max_weight_g: 0, disabled_item_size_template_ids: [] });
+  const [newForm, setNewForm] = useState({ name: "", code: "", color: "#6B7280", transit_days: "", description: "", is_active: true, enabled_for_direct_ship: true, enabled_for_user_pool: true, enabled_for_official_pool: true, rate_mode: "simple", simple_rates: [], detailed_rates: [], min_weight_g: 0, max_weight_g: 0, disabled_item_size_template_ids: [] });
   const [seeding, setSeeding] = useState(false);
 
   // Initialize from initialData prop when it arrives
@@ -517,7 +547,7 @@ export default function ShippingMethodManager({ initialData = null, itemSizeTemp
     setLoading(true);
     const created = await tenantEntity.create('ShippingMethod', newForm);
     setMethods(prev => [...(prev || []), created]);
-    setNewForm({ name: "", code: "", color: "#6B7280", transit_days: "", description: "", is_active: true, rate_mode: "simple", simple_rates: [], detailed_rates: [] });
+    setNewForm({ name: "", code: "", color: "#6B7280", transit_days: "", description: "", is_active: true, enabled_for_direct_ship: true, enabled_for_user_pool: true, enabled_for_official_pool: true, rate_mode: "simple", simple_rates: [], detailed_rates: [] });
     setShowAdd(false);
     setLoading(false);
   };
@@ -543,7 +573,7 @@ export default function ShippingMethodManager({ initialData = null, itemSizeTemp
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label className="text-xs text-gray-500">名称 *</Label>
-              <Input className="mt-1 h-8 text-sm" value={newForm.name} onChange={e => setNewForm(p => ({ ...p, name: e.target.value }))} placeholder="EMS空运" />
+              <Input className="mt-1 h-8 text-sm" value={newForm.name} onChange={e => setNewForm(p => ({ ...p, name: e.target.value }))} placeholder="EMS 空运" />
             </div>
             <div>
               <Label className="text-xs text-gray-500">代码 *</Label>
@@ -558,7 +588,7 @@ export default function ShippingMethodManager({ initialData = null, itemSizeTemp
             </div>
             <div>
               <Label className="text-xs text-gray-500">时效</Label>
-              <Input className="mt-1 h-8 text-sm" value={newForm.transit_days} onChange={e => setNewForm(p => ({ ...p, transit_days: e.target.value }))} placeholder="5-10个工作日" />
+              <Input className="mt-1 h-8 text-sm" value={newForm.transit_days} onChange={e => setNewForm(p => ({ ...p, transit_days: e.target.value }))} placeholder="5-10 个工作日" />
             </div>
           </div>
           <div className="flex gap-2 justify-end">
