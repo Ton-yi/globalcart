@@ -7,7 +7,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { timePage } from "@/lib/timing";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { ShoppingBag, Calculator, Info, Upload, Plus, X, ChevronsUpDown, HelpCircle, CreditCard, AlertTriangle, Lock, Truck } from "lucide-react";
+import { ShoppingBag, Calculator, Info, Upload, Plus, X, ChevronsUpDown, HelpCircle, CreditCard, AlertTriangle, Lock, Truck, Package } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { usePermissions } from "@/hooks/usePermissions";
 import PaymentMethodSelector from "@/components/common/PaymentMethodSelector";
@@ -20,6 +20,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 
 // Default prepay rate fallback
 const DEFAULT_PREPAY_RATE = 0.80;
@@ -57,6 +58,13 @@ export default function SubmitOrder() {
   const [paymentMode, setPaymentMode] = useState(""); // set after settings load: "prepay" | "deferred" | "credit_weekly" | "credit_monthly"
   const [userCredit, setUserCredit] = useState(null); // user's credit status
   const [creditDowngradeMsg, setCreditDowngradeMsg] = useState(null); // shown after submit if credit downgraded
+  // Full payment once config (货款 + 预估运费)
+  const [fullPayOnceEnabled, setFullPayOnceEnabled] = useState(false);
+  const [shippingMethods, setShippingMethods] = useState([]);
+  const [selectedShippingMethod, setSelectedShippingMethod] = useState("");
+  const [userEstimatedWeight, setUserEstimatedWeight] = useState("");
+  const [estimatedShippingFee, setEstimatedShippingFee] = useState(0);
+  const [destinationCountry, setDestinationCountry] = useState("");
 
   useEffect(() => {
     const t = timePage('SubmitOrder');
@@ -81,6 +89,17 @@ export default function SubmitOrder() {
     base44.functions.invoke('managePaymentMethod', { action: 'list' }).
     then((r) => {setPaymentMethods(r.data?.methods || []);}).
     catch(() => {});
+    
+    // Load shipping methods for full payment once feature
+    base44.functions.invoke('getTenantShippingPools', { action: 'list_shipping_methods' }).
+    then((r) => {setShippingMethods(r.data?.methods || []);}).
+    catch(() => {});
+    
+    // Load saved preference for fullpay once
+    const saved = localStorage.getItem('fullpay_once_enabled');
+    if (saved === 'true') {
+      setFullPayOnceEnabled(true);
+    }
   }, []);
 
   // Convert addon fee to JPY (all calculations in JPY)
@@ -155,6 +174,53 @@ export default function SubmitOrder() {
   };
 
   useEffect(() => {if (form.estimated_jpy) calculate();}, [form.estimated_jpy, selectedAddons, settings, activeRule]);
+
+  // Calculate estimated shipping fee based on weight and shipping method
+  useEffect(() => {
+    if (!fullPayOnceEnabled || !userEstimatedWeight || !selectedShippingMethod || !rates) {
+      setEstimatedShippingFee(0);
+      return;
+    }
+    
+    const weight = parseFloat(userEstimatedWeight) || 0;
+    const method = shippingMethods.find(m => m.code === selectedShippingMethod);
+    if (!method) {
+      setEstimatedShippingFee(0);
+      return;
+    }
+    
+    // Calculate shipping fee based on rate mode
+    let fee = 0;
+    const country = destinationCountry || "CN"; // Default to China
+    
+    if (method.rate_mode === "simple") {
+      const rate = method.simple_rates?.find(r => r.country === country);
+      if (rate) {
+        const firstWeight = rate.first_weight_g || 500;
+        const firstFee = rate.first_weight_fee || 0;
+        const additionalUnit = rate.additional_unit_g || 500;
+        const additionalFee = rate.additional_unit_fee || 0;
+        
+        if (weight <= firstWeight) {
+          fee = firstFee;
+        } else {
+          const additionalUnits = Math.ceil((weight - firstWeight) / additionalUnit);
+          fee = firstFee + (additionalUnits * additionalFee);
+        }
+      }
+    } else if (method.rate_mode === "detailed") {
+      const rate = method.detailed_rates?.find(r => 
+        r.country === country && 
+        weight >= r.weight_from_g && 
+        weight <= r.weight_to_g
+      );
+      if (rate) {
+        fee = rate.fee || 0;
+      }
+    }
+    
+    setEstimatedShippingFee(Math.round(fee));
+  }, [fullPayOnceEnabled, userEstimatedWeight, selectedShippingMethod, destinationCountry, shippingMethods, rates]);
 
   const handleImageUpload = async (file) => {
     if (!file) return;

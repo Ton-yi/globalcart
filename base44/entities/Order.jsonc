@@ -4,7 +4,7 @@
   "properties": {
     "tenant_id": {
       "type": "string",
-      "description": "\u6240\u5c5e\u79df\u6237ID"
+      "description": "\u6240\u5c5e\u79df\u6237 ID"
     },
     "order_number": {
       "type": "string",
@@ -50,7 +50,7 @@
     },
     "prepayment_amount": {
       "type": "number",
-      "description": "\u9884\u4ed8\u6b3e\u91d1\u989d\uff08\u4ee5prepayment_currency\u4e3a\u5355\u4f4d\uff09"
+      "description": "\u9884\u4ed8\u6b3e\u91d1\u989d\uff08\u4ee5 prepayment_currency \u4e3a\u5355\u4f4d\uff09"
     },
     "prepayment_currency": {
       "type": "string",
@@ -59,19 +59,19 @@
     },
     "prepayment_amount_jpy": {
       "type": "number",
-      "description": "\u9884\u4ed8\u6b3e\u539f\u59cbJPY\u91d1\u989d\uff08\u521b\u5efa\u65f6\u8bb0\u5f55\uff09"
+      "description": "\u9884\u4ed8\u6b3e\u539f\u59cb JPY \u91d1\u989d\uff08\u521b\u5efa\u65f6\u8bb0\u5f55\uff09"
     },
     "prepayment_amount_cny": {
       "type": "number",
-      "description": "\u652f\u4ed8\u5b9d\u751f\u6210\u94fe\u63a5\u65f6\u6362\u7b97\u7684CNY\u91d1\u989d"
+      "description": "\u652f\u4ed8\u5b9d\u751f\u6210\u94fe\u63a5\u65f6\u6362\u7b97\u7684 CNY \u91d1\u989d"
     },
     "prepayment_rate_jpy_cny": {
       "type": "number",
-      "description": "\u751f\u6210\u652f\u4ed8\u5b9d\u94fe\u63a5\u65f6\u4f7f\u7528\u7684JPY\u2192CNY\u6c47\u7387"
+      "description": "\u751f\u6210\u652f\u4ed8\u5b9d\u94fe\u63a5\u65f6\u4f7f\u7528\u7684 JPY\u2192CNY \u6c47\u7387"
     },
     "paid_amount": {
       "type": "number",
-      "description": "\u5b9e\u9645\u5df2\u4ed8\u91d1\u989d\uff08JPY\u8ba1\uff09"
+      "description": "\u5b9e\u9645\u5df2\u4ed8\u91d1\u989d\uff08JPY \u8ba1\uff09"
     },
     "balance_credit": {
       "type": "number",
@@ -95,10 +95,11 @@
       "type": "string",
       "enum": [
         "prepay",
-        "deferred"
+        "deferred",
+        "fullpay_once"
       ],
       "default": "prepay",
-      "description": "\u4ed8\u6b3e\u6a21\u5f0f"
+      "description": "\u4ed8\u6b3e\u6a21\u5f0f\uff1aprepay=\u9884\u4ed8\u6b3e\uff0cdeferred=\u540e\u4ed8\u6b3e\uff0cfullpay_once=\u4e00\u6b21\u4ed8\u6b3e\uff08\u8d27\u6b3e + \u9884\u4f30\u8fd0\u8d39\uff09"
     },
     "payment_status": {
       "type": "string",
@@ -141,7 +142,7 @@
     },
     "archived_at": {
       "type": "string",
-      "description": "\u5b58\u6863\u65f6\u95f4\uff08ISO\u65f6\u95f4\u6233\uff09"
+      "description": "\u5b58\u6863\u65f6\u95f4\uff08ISO \u65f6\u95f4\u6233\uff09"
     },
     "unread_roles": {
       "type": "array",
@@ -196,6 +197,10 @@
     "weight_g": {
       "type": "number",
       "default": 100
+    },
+    "user_estimated_weight_g": {
+      "type": "number",
+      "description": "\u7528\u6237\u9884\u4f30\u91cd\u91cf\uff08g\uff09\uff0c\u4e00\u6b21\u4ed8\u6b3e\u65f6\u4f7f\u7528"
     },
     "shipping_method": {
       "type": "string"
@@ -374,7 +379,7 @@
     },
     "service_fee_rule_id": {
       "type": "string",
-      "description": "\u670d\u52a1\u8d39\u89c4\u5219ID\u5feb\u7167"
+      "description": "\u670d\u52a1\u8d39\u89c4\u5219 ID \u5feb\u7167"
     },
     "service_fee_rule_name": {
       "type": "string",
@@ -390,7 +395,7 @@
     },
     "input_variables_snapshot": {
       "type": "string",
-      "description": "\u8ba1\u7b97\u65f6\u8f93\u5165\u53d8\u91cfJSON\u5feb\u7167"
+      "description": "\u8ba1\u7b97\u65f6\u8f93\u5165\u53d8\u91cf JSON \u5feb\u7167"
     },
     "service_fee_amount": {
       "type": "number",
@@ -398,7 +403,7 @@
     },
     "calculation_steps": {
       "type": "string",
-      "description": "\u8ba1\u7b97\u8fc7\u7a0bJSON\u5feb\u7167"
+      "description": "\u8ba1\u7b97\u8fc7\u7a0b JSON \u5feb\u7167"
     },
     "calculated_at": {
       "type": "string",
@@ -451,11 +456,11 @@
     },
     "group_buy_request_id": {
       "type": "string",
-      "description": "\u6765\u6e90\u62fc\u5355\u7533\u8bf7ID\uff08\u62fc\u5355\u751f\u6210\u7684\u8ba2\u5355\uff09"
+      "description": "\u6765\u6e90\u62fc\u5355\u7533\u8bf7 ID\uff08\u62fc\u5355\u751f\u6210\u7684\u8ba2\u5355\uff09"
     },
     "group_buy_entry_id": {
       "type": "string",
-      "description": "\u6765\u6e90\u62fc\u5355\u6761\u76eeID"
+      "description": "\u6765\u6e90\u62fc\u5355\u6761\u76ee ID"
     },
     "group_buy_request_title": {
       "type": "string",
@@ -464,6 +469,46 @@
     "group_buy_allocated_shipping_fee_jpy": {
       "type": "number",
       "description": "\u62fc\u5355\u5206\u644a\u7684\u8fd0\u8d39\uff08JPY\uff09\uff0c\u62fc\u5355\u5b8c\u6210\u65f6\u5199\u5165"
+    },
+    "fullpay_once_config": {
+      "type": "object",
+      "description": "\u4e00\u6b21\u4ed8\u6b3e\u914d\u7f6e\uff08\u8d27\u6b3e + \u9884\u4f30\u8fd0\u8d39\uff09",
+      "properties": {
+        "user_estimated_weight_g": {
+          "type": "number",
+          "description": "\u7528\u6237\u9884\u4f30\u91cd\u91cf\uff08g\uff09"
+        },
+        "shipping_method_code": {
+          "type": "string",
+          "description": "\u7528\u6237\u9009\u62e9\u7684\u8fd0\u8f93\u65b9\u5f0f\u4ee3\u7801"
+        },
+        "estimated_shipping_fee_jpy": {
+          "type": "number",
+          "description": "\u9884\u4f30\u8fd0\u8d39\uff08JPY\uff09"
+        },
+        "total_paid_jpy": {
+          "type": "number",
+          "description": "\u603b\u4ed8\u6b3e\u91d1\u989d\uff08\u8d27\u6b3e + \u670d\u52a1\u8d39 + \u9884\u4f30\u8fd0\u8d39\uff09"
+        },
+        "weight_difference_g": {
+          "type": "number",
+          "description": "\u91cd\u91cf\u5dee\u5f02\uff08\u5b9e\u9645 - \u9884\u4f30\uff09"
+        },
+        "fee_difference_jpy": {
+          "type": "number",
+          "description": "\u8fd0\u8d39\u5dee\u5f02\uff08\u5b9e\u9645 - \u9884\u4f30\uff09"
+        },
+        "settlement_status": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "needs_supplement",
+            "needs_refund",
+            "settled"
+          ],
+          "description": "\u7ed3\u7b97\u72b6\u6001"
+        }
+      }
     }
   },
   "required": [
