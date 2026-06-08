@@ -690,6 +690,7 @@ export default function PreShipmentForm() {
           }
           
           {/* Official pool selection */}
+          {console.log('[PreShipmentForm] consType:', consType, 'officialPools length:', officialPools.length)}
           {consType === "official_pool" &&
           <div className="space-y-3 border border-blue-100 rounded-xl p-4 bg-blue-50/40">
               <div>
