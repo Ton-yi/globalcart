@@ -34,6 +34,7 @@ export default function OfficialPoolUserGroupModal({ pool, group, shippingAddons
   const [selectedAddonIds, setSelectedAddonIds] = useState(group.selected_addon_ids || []);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [sendingNote, setSendingNote] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState(null);
   const fileInputRef = useRef(null);
@@ -75,21 +76,38 @@ export default function OfficialPoolUserGroupModal({ pool, group, shippingAddons
       group_final_address: groupAddress,
     };
 
+    // Update the entire per_user_groups array (not just this group)
+    const newGroups = (pool.per_user_groups || []).map(g =>
+      g.user_email === group.user_email ? updatedGroup : g
+    );
+
+    const prevNotes = notes;
+    const prevDraftText = draftText;
+    const prevDraftImages = draftImages;
+
     // Optimistically update local state
     setNotes(updatedNotes);
     setDraftText("");
     setDraftImages([]);
 
-    await shippingPoolApi.update(pool.id, { per_user_groups: [updatedGroup] });
+    try {
+      await shippingPoolApi.update(pool.id, { per_user_groups: newGroups });
+    } catch (error) {
+      console.error('Failed to save note:', error);
+      // Rollback on error
+      setNotes(prevNotes);
+      setDraftText(prevDraftText);
+      setDraftImages(prevDraftImages);
+      alert('保存留言失败，请重试');
+    }
   };
 
   const handleDeleteNote = async (idx) => {
+    const deletedNote = notes[idx];
     const updatedNotes = notes.filter((_, i) => i !== idx);
+    const prevNotes = notes;
     
-    // Optimistically update local state
-    setNotes(updatedNotes);
-    
-    // Save to database immediately
+    // Update the entire per_user_groups array (not just this group)
     const updatedGroup = {
       ...group,
       group_label: groupLabel,
@@ -101,7 +119,21 @@ export default function OfficialPoolUserGroupModal({ pool, group, shippingAddons
       group_final_address: groupAddress,
     };
 
-    await shippingPoolApi.update(pool.id, { per_user_groups: [updatedGroup] });
+    const newGroups = (pool.per_user_groups || []).map(g =>
+      g.user_email === group.user_email ? updatedGroup : g
+    );
+
+    // Optimistically update local state
+    setNotes(updatedNotes);
+
+    try {
+      await shippingPoolApi.update(pool.id, { per_user_groups: newGroups });
+    } catch (error) {
+      console.error('Failed to delete note:', error);
+      // Rollback on error
+      setNotes(prevNotes);
+      alert('删除留言失败，请重试');
+    }
   };
 
   const handleAddressSave = (v) => setGroupAddress(p => ({ ...p, ...v }));
@@ -340,9 +372,9 @@ export default function OfficialPoolUserGroupModal({ pool, group, shippingAddons
                     size="sm"
                     className="h-7 px-3 text-xs bg-blue-600 hover:bg-blue-700"
                     onClick={handleSendNote}
-                    disabled={!draftText.trim() && draftImages.length === 0}
+                    disabled={!draftText.trim() && draftImages.length === 0 || sendingNote}
                   >
-                    <Send className="w-3 h-3 mr-1" />发送
+                    {sendingNote ? <><Loader2 className="w-3 h-3 mr-1 animate-spin" />发送中...</> : <><Send className="w-3 h-3 mr-1" />发送</>}
                   </Button>
                 </div>
               </div>

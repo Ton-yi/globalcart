@@ -40,6 +40,7 @@ export default function OfficialPoolOrderDetailModal({ pool, group, orderEntry, 
   const [selectedSavedId, setSelectedSavedId] = useState("");
   const [uploadingImage, setUploadingImage] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [sendingNote, setSendingNote] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState(null);
   const fileInputRef = useRef(null);
@@ -67,7 +68,7 @@ export default function OfficialPoolOrderDetailModal({ pool, group, orderEntry, 
     const updatedEntry = {
       ...orderEntry,
       notes: updatedNotes,
-      note: updatedNotes[0]?.text || "", // Keep legacy field from first note
+      note: updatedNotes[0]?.text || "",
       image_urls: updatedNotes[0]?.image_urls || [],
     };
 
@@ -85,8 +86,20 @@ export default function OfficialPoolOrderDetailModal({ pool, group, orderEntry, 
     setNotes(updatedNotes);
     setDraftText("");
     setDraftImages([]);
+    setSendingNote(true);
 
-    await shippingPoolApi.update(pool.id, { per_user_groups: newGroups });
+    try {
+      await shippingPoolApi.update(pool.id, { per_user_groups: newGroups });
+    } catch (error) {
+      console.error('Failed to save note:', error);
+      // Rollback on error
+      setNotes(notes);
+      setDraftText(draftText);
+      setDraftImages(draftImages);
+      alert('保存留言失败，请重试');
+    } finally {
+      setSendingNote(false);
+    }
   };
 
   const handleDeleteNote = async (idx) => {
@@ -113,7 +126,14 @@ export default function OfficialPoolOrderDetailModal({ pool, group, orderEntry, 
       };
     });
 
-    await shippingPoolApi.update(pool.id, { per_user_groups: newGroups });
+    try {
+      await shippingPoolApi.update(pool.id, { per_user_groups: newGroups });
+    } catch (error) {
+      console.error('Failed to delete note:', error);
+      // Rollback on error
+      setNotes(notes);
+      alert('删除留言失败，请重试');
+    }
   };
 
   const handleSave = async () => {
