@@ -21,6 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
+import CountrySelect from "@/components/common/CountrySelect";
 
 // Default prepay rate fallback
 const DEFAULT_PREPAY_RATE = 0.80;
@@ -90,14 +91,14 @@ export default function SubmitOrder() {
     then((r) => {setPaymentMethods(r.data?.methods || []);}).
     catch(() => {});
     
-    // Load shipping methods for full payment once feature
+    // Load shipping methods for one-time payment calculation
     base44.functions.invoke('getTenantShippingPools', { action: 'list_shipping_methods' }).
     then((r) => {setShippingMethods(r.data?.methods || []);}).
     catch(() => {});
     
-    // Load saved preference for fullpay once
-    const saved = localStorage.getItem('fullpay_once_enabled');
-    if (saved === 'true') {
+    // Load saved preference for one-time payment
+    const savedPreference = localStorage.getItem('fullPayOnceEnabled');
+    if (savedPreference === 'true') {
       setFullPayOnceEnabled(true);
     }
   }, []);
@@ -175,14 +176,19 @@ export default function SubmitOrder() {
 
   useEffect(() => {if (form.estimated_jpy) calculate();}, [form.estimated_jpy, selectedAddons, settings, activeRule]);
 
-  // Calculate estimated shipping fee based on weight and shipping method
+  // Calculate estimated shipping fee for one-time payment
   useEffect(() => {
-    if (!fullPayOnceEnabled || !userEstimatedWeight || !selectedShippingMethod || !rates) {
+    if (!fullPayOnceEnabled || !userEstimatedWeight || !selectedShippingMethod || !shippingMethods.length) {
       setEstimatedShippingFee(0);
       return;
     }
     
     const weight = parseFloat(userEstimatedWeight) || 0;
+    if (weight <= 0) {
+      setEstimatedShippingFee(0);
+      return;
+    }
+    
     const method = shippingMethods.find(m => m.code === selectedShippingMethod);
     if (!method) {
       setEstimatedShippingFee(0);
@@ -193,8 +199,8 @@ export default function SubmitOrder() {
     let fee = 0;
     const country = destinationCountry || "CN"; // Default to China
     
-    if (method.rate_mode === "simple") {
-      const rate = method.simple_rates?.find(r => r.country === country);
+    if (method.rate_mode === "simple" && method.simple_rates) {
+      const rate = method.simple_rates.find(r => r.country === country);
       if (rate) {
         const firstWeight = rate.first_weight_g || 500;
         const firstFee = rate.first_weight_fee || 0;
@@ -208,8 +214,8 @@ export default function SubmitOrder() {
           fee = firstFee + (additionalUnits * additionalFee);
         }
       }
-    } else if (method.rate_mode === "detailed") {
-      const rate = method.detailed_rates?.find(r => 
+    } else if (method.rate_mode === "detailed" && method.detailed_rates) {
+      const rate = method.detailed_rates.find(r => 
         r.country === country && 
         weight >= r.weight_from_g && 
         weight <= r.weight_to_g
@@ -220,7 +226,7 @@ export default function SubmitOrder() {
     }
     
     setEstimatedShippingFee(Math.round(fee));
-  }, [fullPayOnceEnabled, userEstimatedWeight, selectedShippingMethod, destinationCountry, shippingMethods, rates]);
+  }, [fullPayOnceEnabled, userEstimatedWeight, selectedShippingMethod, destinationCountry, shippingMethods]);
 
   const handleImageUpload = async (file) => {
     if (!file) return;
@@ -288,28 +294,46 @@ export default function SubmitOrder() {
     const isCredit = paymentMode === "credit_weekly" || paymentMode === "credit_monthly";
     const isDeferred = paymentMode === "deferred";
     const isFullpay = paymentMode === "fullpay";
+    const isFullpayOnce = fullPayOnceEnabled && (paymentMode === "prepay" || paymentMode === "fullpay");
     const tagResult = await detectPrimaryStoreTagResult(urlsText);
+    
+    // Calculate total payment amount for one-time payment mode
+    const prepaymentAmount = isFullpayOnce 
+      ? (calculated ? parseFloat(calculated.totalJpy) + estimatedShippingFee : 0)
+      : isFullpay 
+        ? (calculated ? parseFloat(calculated.totalJpy) : 0)
+        : (calculated ? parseFloat(calculated.prepayJpy) : 0);
+    
     // createTenantOrder auto-assigns tenant_id from session
     const res = await base44.functions.invoke('createTenantOrder', {
       ...form,
       product_url: urlsText,
-
       user_email: user.email,
       user_name: user.full_name || user.email,
       quantity: 1,
       estimated_jpy: parseFloat(form.estimated_jpy) || 0,
       service_fee_rate: parseFloat(settings.service_fee_rate) || 10,
-      prepayment_amount: isFullpay ? calculated ? parseFloat(calculated.totalJpy) : 0 : calculated ? parseFloat(calculated.prepayJpy) : 0,
+      prepayment_amount: prepaymentAmount,
       prepayment_currency: "JPY",
       online_store_tag: tagResult.tag_label,
       online_store_tag_color: tagResult.tag_color,
-      payment_mode: isCredit ? "credit" : isDeferred ? "deferred" : "prepay",
-      credit_cycle: isCredit ? paymentMode === "credit_weekly" ? "weekly" : "monthly" : null,
+      payment_mode: isFullpayOnce ? "fullpay_once" : isCredit ? "credit" : isDeferred ? "deferred" : "prepay",
+      credit_cycle: isCredit ? (paymentMode === "credit_weekly" ? "weekly" : "monthly") : null,
       order_status: isDeferred || isCredit ? "paid" : "payment_pending",
       payment_status: isDeferred || isCredit ? "paid" : "awaiting_payment",
       user_note: form.user_note || "",
       selected_addon_ids: selectedAddons,
-      selected_addons: selectedAddonObjects.map((a) => ({ id: a.id, name: a.name, fee: parseFloat(a.fee) || 0, fee_currency: a.fee_currency || "JPY" }))
+      selected_addons: selectedAddonObjects.map((a) => ({ id: a.id, name: a.name, fee: parseFloat(a.fee) || 0, fee_currency: a.fee_currency || "JPY" })),
+      // One-time payment config
+      user_estimated_weight_g: isFullpayOnce ? parseFloat(userEstimatedWeight) || 0 : undefined,
+      shipping_method: isFullpayOnce ? selectedShippingMethod : undefined,
+      fullpay_once_config: isFullpayOnce ? {
+        user_estimated_weight_g: parseFloat(userEstimatedWeight) || 0,
+        shipping_method_code: selectedShippingMethod,
+        estimated_shipping_fee_jpy: estimatedShippingFee,
+        total_paid_jpy: prepaymentAmount,
+        settlement_status: "pending"
+      } : undefined
     });
     const order = res.data?.order;
 
@@ -721,6 +745,112 @@ export default function SubmitOrder() {
           </Card>
         }
 
+        {/* One-time payment (fullpay once) configuration */}
+        {(paymentMode === "prepay" || paymentMode === "fullpay") &&
+        <Card className="border-gray-200">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-semibold text-gray-700">一次付款（货款 + 预估运费）</CardTitle>
+                <Switch
+                  checked={fullPayOnceEnabled}
+                  onCheckedChange={setFullPayOnceEnabled}
+                  className="data-[state=checked]:bg-green-600"
+                />
+              </div>
+              <p className="text-xs text-gray-500 mt-1">启用后，提交时一次性支付货款 + 服务费 + 预估运费，多退少补</p>
+            </CardHeader>
+            {fullPayOnceEnabled &&
+          <CardContent className="space-y-4">
+              {/* Weight input */}
+              <div>
+                <Label className="text-sm">预估重量 (g) *</Label>
+                <Input
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="例如：500"
+                  value={userEstimatedWeight}
+                  onChange={(e) => setUserEstimatedWeight(e.target.value)}
+                  className="mt-1"
+                />
+                <p className="text-xs text-gray-400 mt-1">请输入商品预估重量（克），用于计算运费</p>
+              </div>
+
+              {/* Destination country */}
+              <div>
+                <Label className="text-sm">目的地国家/地区 *</Label>
+                <CountrySelect
+                  value={destinationCountry}
+                  onChange={(val) => setDestinationCountry(val)}
+                  placeholder="选择目的地国家/地区"
+                />
+              </div>
+
+              {/* Shipping method selection */}
+              <div>
+                <Label className="text-sm">运输方式 *</Label>
+                <div className="grid grid-cols-2 gap-2 mt-1">
+                  {shippingMethods.filter(m => m.enabled_for_direct_ship !== false).map((method) => (
+                    <button
+                      key={method.code}
+                      type="button"
+                      onClick={() => setSelectedShippingMethod(method.code)}
+                      className={`p-3 rounded-lg border-2 text-sm font-medium transition-all text-left ${
+                        selectedShippingMethod === method.code
+                          ? "border-blue-500 bg-blue-50 text-blue-700"
+                          : "border-gray-200 text-gray-500 hover:border-gray-300"
+                      }`}
+                    >
+                      <div className="font-semibold flex items-center gap-1.5">
+                        {method.icon && <span className="text-base">{method.icon}</span>}
+                        {method.name}
+                      </div>
+                      {method.transit_days && (
+                        <div className="text-xs mt-0.5 opacity-70">{method.transit_days}</div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Estimated shipping fee display */}
+              {estimatedShippingFee > 0 && (
+                <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-green-800 font-medium">预估运费</span>
+                    <span className="text-lg font-bold text-green-700">¥{estimatedShippingFee.toLocaleString()}</span>
+                  </div>
+                  <p className="text-xs text-green-600 mt-1">
+                    基于 {userEstimatedWeight}g · 实际重量以仓库测量为准，多退少补
+                  </p>
+                </div>
+              )}
+
+              {/* Total payment summary */}
+              {estimatedShippingFee > 0 && calculated && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-blue-800 font-medium">一次付款总额</span>
+                    <span className="text-xl font-bold text-blue-700">
+                      ¥{(calculated.totalJpy + estimatedShippingFee).toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="text-xs text-blue-600 space-y-0.5">
+                    <div className="flex justify-between">
+                      <span>货款 + 服务费 + 增值服务：</span>
+                      <span>¥{calculated.totalJpy.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>预估运费：</span>
+                      <span>¥{estimatedShippingFee.toLocaleString()}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+            }
+          </Card>
+        }
+
         <Card className="border-gray-200">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold text-gray-700">备注</CardTitle>
@@ -730,6 +860,115 @@ export default function SubmitOrder() {
             onChange={(e) => setForm((f) => ({ ...f, user_note: e.target.value }))} rows={2} />
           </CardContent>
         </Card>
+
+        {/* One-time payment (fullpay_once) configuration */}
+        {settings.prepay_enabled !== 'false' && (
+          <Card className="border-gray-200">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-semibold text-gray-700">一次付款（货款 + 预估运费）</CardTitle>
+                <Switch
+                  checked={fullPayOnceEnabled}
+                  onCheckedChange={setFullPayOnceEnabled}
+                  aria-label="启用一次付款"
+                />
+              </div>
+            </CardHeader>
+            {fullPayOnceEnabled && (
+              <CardContent className="space-y-4">
+                <p className="text-xs text-gray-500">
+                  一次付清货款和预估运费，多退少补。仓库实际测量重量后，如有差异将通知您补款或退款。
+                </p>
+
+                {/* Weight input */}
+                <div>
+                  <Label className="text-sm">预估重量（克）*</Label>
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    placeholder="例如：500"
+                    value={userEstimatedWeight}
+                    onChange={(e) => setUserEstimatedWeight(e.target.value)}
+                    className="mt-1"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">请输入您预估的包裹重量（单位：克）</p>
+                </div>
+
+                {/* Destination country */}
+                <div>
+                  <Label className="text-sm">目的地国家/地区 *</Label>
+                  <CountrySelect
+                    value={destinationCountry}
+                    onChange={setDestinationCountry}
+                    placeholder="选择目的地国家/地区"
+                  />
+                </div>
+
+                {/* Shipping method selection */}
+                <div>
+                  <Label className="text-sm">运输方式 *</Label>
+                  <div className="grid grid-cols-2 gap-2 mt-1">
+                    {shippingMethods.filter(m => m.enabled_for_direct_ship !== false).map((method) => (
+                      <button
+                        key={method.code}
+                        type="button"
+                        onClick={() => setSelectedShippingMethod(method.code)}
+                        className={`p-3 rounded-lg border-2 text-sm font-medium transition-all text-left ${
+                          selectedShippingMethod === method.code
+                            ? "border-blue-500 bg-blue-50 text-blue-700"
+                            : "border-gray-200 text-gray-500 hover:border-gray-300"
+                        }`}
+                      >
+                        <div className="font-semibold flex items-center gap-1.5">
+                          {method.icon && <span className="text-base">{method.icon}</span>}
+                          {method.name}
+                        </div>
+                        {method.transit_days && (
+                          <div className="text-xs mt-0.5 opacity-70">{method.transit_days}</div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Estimated shipping fee display */}
+                {estimatedShippingFee > 0 && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-green-800 font-medium">预估运费</span>
+                      <span className="text-lg font-bold text-green-700">¥{estimatedShippingFee.toLocaleString()}</span>
+                    </div>
+                    <p className="text-xs text-green-600 mt-1">
+                      基于 {userEstimatedWeight}g · 实际重量以仓库测量为准，多退少补
+                    </p>
+                  </div>
+                )}
+
+                {/* Total payment summary */}
+                {estimatedShippingFee > 0 && calculated && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-blue-800 font-medium">一次付款总额</span>
+                      <span className="text-xl font-bold text-blue-700">
+                        ¥{(calculated.totalJpy + estimatedShippingFee).toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="text-xs text-blue-600 space-y-0.5">
+                      <div className="flex justify-between">
+                        <span>货款 + 服务费 + 增值服务：</span>
+                        <span>¥{calculated.totalJpy.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>预估运费：</span>
+                        <span>¥{estimatedShippingFee.toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            )}
+          </Card>
+        )}
 
         {/* Payment mode selection */}
         <Card className="border-gray-200">
@@ -885,7 +1124,16 @@ export default function SubmitOrder() {
               const isCredit = paymentMode === "credit_weekly" || paymentMode === "credit_monthly";
               const isDeferred = paymentMode === "deferred";
               const isFullpay = paymentMode === "fullpay";
+              const isFullpayOnce = fullPayOnceEnabled && (paymentMode === "prepay" || paymentMode === "fullpay");
               const tagResult = await detectPrimaryStoreTagResult(urlsText);
+              
+              // Calculate total payment amount for one-time payment mode
+              const prepaymentAmount = isFullpayOnce 
+                ? (calculated ? parseFloat(calculated.totalJpy) + estimatedShippingFee : 0)
+                : isFullpay 
+                  ? (calculated ? parseFloat(calculated.totalJpy) : 0)
+                  : (calculated ? parseFloat(calculated.prepayJpy) : 0);
+              
               const res = await base44.functions.invoke('createTenantOrder', {
                 ...form,
                 product_url: urlsText,
@@ -894,17 +1142,27 @@ export default function SubmitOrder() {
                 quantity: 1,
                 estimated_jpy: parseFloat(form.estimated_jpy) || 0,
                 service_fee_rate: parseFloat(settings.service_fee_rate) || 10,
-                prepayment_amount: isFullpay ? calculated ? parseFloat(calculated.totalJpy) : 0 : calculated ? parseFloat(calculated.prepayJpy) : 0,
+                prepayment_amount: prepaymentAmount,
                 prepayment_currency: "JPY",
                 online_store_tag: tagResult.tag_label,
                 online_store_tag_color: tagResult.tag_color,
-                payment_mode: isCredit ? "credit" : isDeferred ? "deferred" : "prepay",
-                credit_cycle: isCredit ? paymentMode === "credit_weekly" ? "weekly" : "monthly" : null,
+                payment_mode: isFullpayOnce ? "fullpay_once" : isCredit ? "credit" : isDeferred ? "deferred" : "prepay",
+                credit_cycle: isCredit ? (paymentMode === "credit_weekly" ? "weekly" : "monthly") : null,
                 order_status: isDeferred || isCredit ? "paid" : "payment_pending",
                 payment_status: isDeferred || isCredit ? "paid" : "awaiting_payment",
                 user_note: form.user_note || "",
                 selected_addon_ids: selectedAddons,
-                selected_addons: selectedAddonObjects.map((a) => ({ id: a.id, name: a.name, fee: a.fee, fee_currency: a.fee_currency }))
+                selected_addons: selectedAddonObjects.map((a) => ({ id: a.id, name: a.name, fee: a.fee, fee_currency: a.fee_currency })),
+                // One-time payment config
+                user_estimated_weight_g: isFullpayOnce ? parseFloat(userEstimatedWeight) || 0 : undefined,
+                shipping_method: isFullpayOnce ? selectedShippingMethod : undefined,
+                fullpay_once_config: isFullpayOnce ? {
+                  user_estimated_weight_g: parseFloat(userEstimatedWeight) || 0,
+                  shipping_method_code: selectedShippingMethod,
+                  estimated_shipping_fee_jpy: estimatedShippingFee,
+                  total_paid_jpy: prepaymentAmount,
+                  settlement_status: "pending"
+                } : undefined
               });
               setSubmitting(false);
               if (res.data?.order) {
