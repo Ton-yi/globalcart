@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { X, Package, MapPin, Image as ImageIcon, Loader2, Link as LinkIcon, PlusCircle } from "lucide-react";
+import { X, Package, MapPin, Image as ImageIcon, Loader2, Link as LinkIcon, PlusCircle, Upload } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const ORDER_STATUS_LABELS = {
@@ -171,59 +171,66 @@ export default function OfficialPoolOrderDetailModal({ pool, group, orderEntry, 
             </div>
           )}
 
-          {/* Note */}
+          {/* Note + Images (merged) */}
           <div>
-            <p className="text-xs font-medium text-gray-500 mb-1.5">订单备注</p>
-            <Textarea rows={2} className="text-sm" placeholder="此订单的特殊要求..." value={note} onChange={e => setNote(e.target.value)} />
-          </div>
+            <p className="text-xs font-medium text-gray-500 mb-1.5">备注</p>
+            {/* Textarea: accepts paste & drag-over */}
+            <div
+              className="relative"
+              onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget)) setDragOver(false); }}
+              onDrop={async e => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files?.[0]; if (f) await uploadFile(f); }}
+            >
+              <Textarea
+                rows={3}
+                className={`text-sm transition-colors ${dragOver ? "border-blue-400 bg-blue-50 ring-1 ring-blue-300" : ""}`}
+                placeholder="此订单的特殊要求..."
+                value={note}
+                onChange={e => setNote(e.target.value)}
+                onPaste={async e => {
+                  const items = e.clipboardData?.items;
+                  if (!items) return;
+                  for (const item of items) {
+                    if (item.type.startsWith("image/")) {
+                      e.preventDefault();
+                      const file = item.getAsFile();
+                      if (file) await uploadFile(file);
+                      return;
+                    }
+                  }
+                }}
+              />
+              {dragOver && (
+                <div className="absolute inset-0 rounded-md flex items-center justify-center pointer-events-none">
+                  <span className="bg-blue-600 text-white text-xs font-medium px-3 py-1 rounded-full shadow">松开以上传图片</span>
+                </div>
+              )}
+              {uploadingImage && (
+                <div className="absolute inset-0 rounded-md bg-white/70 flex items-center justify-center pointer-events-none">
+                  <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                </div>
+              )}
+            </div>
 
-          {/* Images */}
-          <div>
-            <p className="text-xs font-medium text-gray-500 mb-1.5">图片备注</p>
+            {/* Uploaded image thumbnails */}
             {imageUrls.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-2">
+              <div className="flex flex-wrap gap-2 mt-2">
                 {imageUrls.map((url, i) => (
-                  <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-gray-200 group">
+                  <div key={i} className="relative w-14 h-14 rounded-lg overflow-hidden border border-gray-200 group">
                     <img src={url} alt="" className="w-full h-full object-cover" />
                     <button onClick={() => setImageUrls(prev => prev.filter((_, j) => j !== i))}
                       className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                      <X className="w-3.5 h-3.5 text-white" />
+                      <X className="w-3 h-3 text-white" />
                     </button>
                   </div>
                 ))}
               </div>
             )}
-            <label
-              className={`relative flex flex-col items-center justify-center w-full rounded-xl border-2 border-dashed transition-colors cursor-pointer ${dragOver ? "border-blue-400 bg-blue-50" : "border-gray-200 hover:border-blue-300 hover:bg-gray-50"}`}
-              style={{ minHeight: 88 }}
-              onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={handleDrop}
-            >
-              {uploadingImage ? (
-                <div className="flex flex-col items-center gap-1.5 py-5">
-                  <Loader2 className="w-5 h-5 animate-spin text-blue-400" />
-                  <span className="text-xs text-gray-400">上传中…</span>
-                </div>
-              ) : (
-                <>
-                  <div className="flex flex-col items-center gap-1 pt-4 pb-2 pointer-events-none select-none">
-                    <ImageIcon className="w-5 h-5 text-gray-300" />
-                    <span className="text-xs text-gray-400">拖拽或点击上传 · 也可在下方粘贴</span>
-                  </div>
-                  <textarea
-                    rows={1}
-                    placeholder="在此处 Ctrl+V 粘贴截图…"
-                    className="w-full px-3 py-2 mx-3 mb-3 text-xs rounded-lg border border-gray-200 bg-white resize-none focus:outline-none focus:border-blue-300 text-gray-500 placeholder:text-gray-300"
-                    style={{ width: "calc(100% - 24px)" }}
-                    onPaste={handlePasteArea}
-                    onClick={e => e.stopPropagation()}
-                    onChange={() => {}}
-                    value=""
-                    readOnly
-                  />
-                </>
-              )}
+
+            {/* Upload button */}
+            <label className="mt-2 inline-flex items-center gap-1.5 text-xs text-gray-400 hover:text-blue-500 cursor-pointer transition-colors">
+              <Upload className="w-3.5 h-3.5" />
+              上传图片
               <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={uploadingImage} />
             </label>
           </div>
