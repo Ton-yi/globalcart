@@ -21,7 +21,15 @@ function AddonRow({ a, editingId, editFields, onEdit, onCancel, onSave, onToggle
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm font-medium text-gray-800">{a.name}</span>
-            <span className="text-sm text-red-600">+{a.fee_currency || "JPY"} {Number(parseFloat(a.fee) || 0).toFixed(0)}</span>
+            {a.is_user_customizable ? (
+              <>
+                <Badge className="text-xs bg-green-100 text-green-700 border-green-200">用户可自定义</Badge>
+                <span className="text-xs text-gray-500">区间：{a.fee_currency || "JPY"} {a.min_fee} - {a.max_fee}</span>
+                <span className="text-xs text-gray-400">默认：{a.fee_currency || "JPY"} {Number(a.fee || 0).toLocaleString()}</span>
+              </>
+            ) : (
+              <span className="text-sm text-red-600">+{a.fee_currency || "JPY"} {Number(a.fee || 0).toLocaleString()}</span>
+            )}
             {!a.is_active && <Badge className="text-xs bg-gray-100 text-gray-400">已禁用</Badge>}
           </div>
           {a.description && <p className="text-xs text-gray-400">{a.description}</p>}
