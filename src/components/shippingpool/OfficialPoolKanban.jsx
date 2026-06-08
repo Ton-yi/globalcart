@@ -16,6 +16,7 @@ import {
   Inbox, GripVertical, Clock, Warehouse, ArrowRight, X, CheckCircle2, Loader2
 } from "lucide-react";
 import JoinOfficialPoolModal from "@/components/shippingpool/JoinOfficialPoolModal";
+import OrderDetailModal from "@/components/orders/OrderDetailModal";
 import OfficialPoolUserGroupModal from "@/components/shippingpool/OfficialPoolUserGroupModal";
 import OfficialPoolOrderDetailModal from "@/components/shippingpool/OfficialPoolOrderDetailModal";
 import CreateOfficialPoolModal from "@/components/shippingpool/CreateOfficialPoolModal";
@@ -100,6 +101,7 @@ function DraggableTaskCard({ draggableId, index, entry, order, group, pool, curr
 
 // ─── Draggable Staging Task Card ──────────────────────────────────────────────
 function DraggableStagingCard({ draggableId, index, order, officialPools, isAdmin, onRemove }) {
+  const [detailOpen, setDetailOpen] = useState(false);
   const pre = order?.pre_shipment;
   const targetPoolId = pre?.target_pool_id;
   const targetPool = officialPools.find(p => p.id === targetPoolId);
@@ -107,47 +109,54 @@ function DraggableStagingCard({ draggableId, index, order, officialPools, isAdmi
   const isInWarehouse = order?.order_status === "in_warehouse";
 
   return (
-    <Draggable draggableId={draggableId} index={index}>
-      {(provided, snapshot) => (
-        <div
-          ref={provided.innerRef}
-          {...provided.draggableProps}
-          className={`border rounded-xl px-3 py-2.5 bg-white transition-all ${snapshot.isDragging ? "shadow-lg border-blue-300 rotate-1" : isInWarehouse ? "border-green-200 hover:border-green-300 hover:bg-green-50/40" : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"} cursor-grab active:cursor-grabbing`}
-        >
-          <div className="flex items-start gap-2">
-            <div
-              {...provided.dragHandleProps}
-              className="flex-shrink-0 mt-0.5 cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500"
-            >
-              <GripVertical className="w-3.5 h-3.5" />
-            </div>
-            <Package className={`w-3.5 h-3.5 mt-0.5 flex-shrink-0 ${isInWarehouse ? "text-green-400" : "text-gray-300"}`} />
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium text-gray-800 truncate">{order?.product_name || draggableId.slice(-8)}</p>
-              <div className="flex items-center gap-1.5 mt-0.5">
-                {order?.order_number && <span className="text-xs text-gray-400">{order.order_number}</span>}
-                <Badge className={`text-xs px-1 py-0 ${isInWarehouse ? "bg-green-100 text-green-700" : "bg-amber-50 text-amber-600"}`}>
-                  {ORDER_STATUS_LABELS[order?.order_status] || order?.order_status}
-                </Badge>
-              </div>
-              <div className="flex items-center gap-1 mt-1">
-                <ArrowRight className="w-3 h-3 text-gray-300 flex-shrink-0" />
-                <span className="text-xs text-gray-400 truncate">→ {targetLabel}</span>
-              </div>
-            </div>
-            {isAdmin && (
-              <button
-                onClick={() => onRemove?.(order)}
-                className="p-1 rounded hover:bg-red-50 text-gray-300 hover:text-red-400 transition-colors flex-shrink-0"
-                title="从暂存区移除"
+    <>
+      <Draggable draggableId={draggableId} index={index}>
+        {(provided, snapshot) => (
+          <div
+            ref={provided.innerRef}
+            {...provided.draggableProps}
+            className={`border rounded-xl px-3 py-2.5 bg-white transition-all ${snapshot.isDragging ? "shadow-lg border-blue-300 rotate-1" : isInWarehouse ? "border-green-200 hover:border-green-300 hover:bg-green-50/40" : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"} cursor-pointer`}
+            onClick={() => !snapshot.isDragging && setDetailOpen(true)}
+          >
+            <div className="flex items-start gap-2">
+              <div
+                {...provided.dragHandleProps}
+                className="flex-shrink-0 mt-0.5 cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500"
+                onClick={e => e.stopPropagation()}
               >
-                <X className="w-3 h-3" />
-              </button>
-            )}
+                <GripVertical className="w-3.5 h-3.5" />
+              </div>
+              <Package className={`w-3.5 h-3.5 mt-0.5 flex-shrink-0 ${isInWarehouse ? "text-green-400" : "text-gray-300"}`} />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-gray-800 truncate">{order?.product_name || draggableId.slice(-8)}</p>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  {order?.order_number && <span className="text-xs text-gray-400">{order.order_number}</span>}
+                  <Badge className={`text-xs px-1 py-0 ${isInWarehouse ? "bg-green-100 text-green-700" : "bg-amber-50 text-amber-600"}`}>
+                    {ORDER_STATUS_LABELS[order?.order_status] || order?.order_status}
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-1 mt-1">
+                  <ArrowRight className="w-3 h-3 text-gray-300 flex-shrink-0" />
+                  <span className="text-xs text-gray-400 truncate">→ {targetLabel}</span>
+                </div>
+              </div>
+              {isAdmin && (
+                <button
+                  onClick={e => { e.stopPropagation(); onRemove?.(order); }}
+                  className="p-1 rounded hover:bg-red-50 text-gray-300 hover:text-red-400 transition-colors flex-shrink-0"
+                  title="从暂存区移除"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
           </div>
-        </div>
+        )}
+      </Draggable>
+      {detailOpen && order && (
+        <OrderDetailModal order={order} onClose={() => setDetailOpen(false)} />
       )}
-    </Draggable>
+    </>
   );
 }
 
