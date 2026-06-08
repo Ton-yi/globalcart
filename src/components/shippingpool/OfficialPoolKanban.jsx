@@ -4,9 +4,10 @@
  * Users can join a pool; ≥2 orders from same user → folded as task group card.
  * Todoist-style: parent task group (user-level) + sub-tasks (order-level).
  */
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { shippingPoolApi } from "@/lib/tenantApi";
+import { tenantEntity, fetchTenantConfig } from "@/lib/tenantApi";
+import { EMPTY_ADDRESS_FORM } from "@/components/common/AddressForm";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { 
@@ -310,8 +311,20 @@ function PoolColumn({ pool, allOrders, currentUser, isAdmin, shippingAddons, sav
 }
 
 export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAdmin, showPoolSorter, setShowPoolSorter, onPoolClick, onRefresh }) {
-  const [shippingAddons] = useState([]);
-  const [savedAddresses] = useState([]);
+  const [shippingAddons, setShippingAddons] = useState([]);
+  const [savedAddresses, setSavedAddresses] = useState([]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    Promise.all([
+      fetchTenantConfig(),
+      tenantEntity.list('UserPreference', { user_email: currentUser.email }).catch(() => []),
+    ]).then(([cfg, prefs]) => {
+      setShippingAddons((cfg.addons || []).filter(a => a.addon_type === "shipping" && a.is_active !== false));
+      const addrs = (prefs[0]?.saved_addresses || []).map(a => ({ ...EMPTY_ADDRESS_FORM, ...a }));
+      setSavedAddresses(addrs);
+    }).catch(() => {});
+  }, [currentUser?.email]);
 
   if (pools.length === 0) {
     return (
