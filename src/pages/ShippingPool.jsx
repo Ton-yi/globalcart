@@ -102,6 +102,7 @@ export default function ShippingPool() {
   const [shippingAddons, setShippingAddons] = useState([]);
   const [selectedAddonIds, setSelectedAddonIds] = useState([]);
   const [addonCustomFees, setAddonCustomFees] = useState({});
+  const [addonFeeErrors, setAddonFeeErrors] = useState({});
   const [transitShippingMethods, setTransitShippingMethods] = useState([]);
   const [selectedTransitMethodId, setSelectedTransitMethodId] = useState("");
   const [userProfileMap, setUserProfileMap] = useState({});
@@ -169,6 +170,7 @@ export default function ShippingPool() {
     setShippingAddons([]);
     setSelectedAddonIds([]);
     setAddonCustomFees({});
+    setAddonFeeErrors({});
     setTransitShippingMethods([]);
     setSelectedTransitMethodId("");
     setFormLoading(true);
@@ -253,6 +255,19 @@ export default function ShippingPool() {
 
   const handleSubmit = async () => {
     if (selectedOrderIds.length === 0) return;
+    
+    // Validate addon custom fees are within range
+    const hasFeeErrors = Object.entries(addonCustomFees).some(([addonId, fee]) => {
+      const addon = shippingAddons.find(a => a.id === addonId);
+      return addon && addon.is_user_customizable && selectedAddonIds.includes(addonId) && 
+             (fee < addon.min_fee || fee > addon.max_fee);
+    });
+    
+    if (hasFeeErrors) {
+      alert('请确保所有自定义增值服务的金额都在指定区间内');
+      return;
+    }
+    
     setSubmitting(true);
 
     // Determine effective address fields
@@ -876,20 +891,32 @@ export default function ShippingPool() {
                               {isCustomizable && isSelected && (
                                 <div className="mt-2 ml-6 flex items-center gap-2">
                                   <span className="text-[10px] text-green-600 font-medium">用户可自定义</span>
-                                  <Input
-                                    type="number"
-                                    className="h-7 w-28 text-xs [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                    placeholder={`${a.min_fee}-${a.max_fee}`}
-                                    value={addonCustomFees[a.id] ?? a.fee}
-                                    min={a.min_fee}
-                                    max={a.max_fee}
-                                    onChange={(e) => {
-                                      const value = parseFloat(e.target.value) || 0;
-                                      const clamped = Math.max(a.min_fee || 0, Math.min(a.max_fee || 0, value));
-                                      setAddonCustomFees(prev => ({ ...prev, [a.id]: clamped }));
-                                    }}
-                                    onClick={(e) => e.stopPropagation()}
-                                  />
+                                  <div className="flex flex-col gap-1 w-full">
+                                    <Input
+                                      type="number"
+                                      className="h-7 w-28 text-xs [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                      placeholder={`${a.min_fee}-${a.max_fee}`}
+                                      value={addonCustomFees[a.id] ?? a.fee}
+                                      onChange={(e) => {
+                                        const value = parseFloat(e.target.value) || 0;
+                                        setAddonCustomFees(prev => ({ ...prev, [a.id]: value }));
+                                        // Check if value is within range
+                                        if (value < a.min_fee || value > a.max_fee) {
+                                          setAddonFeeErrors(prev => ({ ...prev, [a.id]: `请输入${a.min_fee}-${a.max_fee}之间的金额` }));
+                                        } else {
+                                          setAddonFeeErrors(prev => {
+                                            const newErrors = { ...prev };
+                                            delete newErrors[a.id];
+                                            return newErrors;
+                                          });
+                                        }
+                                      }}
+                                      onClick={(e) => e.stopPropagation()}
+                                    />
+                                    {addonFeeErrors[a.id] && (
+                                      <span className="text-[10px] text-red-600">{addonFeeErrors[a.id]}</span>
+                                    )}
+                                  </div>
                                   <span className="text-xs text-yellow-700">{a.fee_currency || "JPY"}</span>
                                 </div>
                               )}
