@@ -1099,9 +1099,14 @@ export default function AdminShippingInfoPanel({
               </>
             )}
 
-            {isAwaitingConfirmation && (
+            {(isAwaitingPayment || isAwaitingConfirmation) && (
               <>
                 <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2.5 space-y-2">
+                  {isAwaitingPayment && !pool.payment_proof_url && (
+                    <p className="text-xs text-blue-700 font-medium">
+                      等待用户付款中。{allowShipWithoutPayment && trackingNumber ? "开启「允许未付款时进入已发货」后，填写运单号即可直接确认发货。" : ""}
+                    </p>
+                  )}
                   {/* Multi-user: show per-user payment status */}
                   {(() => {
                     const perUserPayments = pool.per_user_payments || [];
