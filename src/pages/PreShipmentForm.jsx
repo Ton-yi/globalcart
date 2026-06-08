@@ -182,13 +182,24 @@ export default function PreShipmentForm() {
           setSelectedAddressId("");
         } else {
           const defaultId = pref?.default_address_id || "";
-          const defaultAddr = addrs.find((a) => a.id === defaultId) || addrs[0];
+          console.log('[PreShipmentForm] Default address ID:', defaultId);
+          console.log('[PreShipmentForm] Available addresses:', addrs.map(a => ({ id: a.id, label: a.label })));
+          const defaultAddr = addrs.find((a) => a.id === defaultId);
+          console.log('[PreShipmentForm] Found default address:', defaultAddr);
           if (defaultAddr) {
             setSelectedAddressId(defaultAddr.id);
             setAddress({ label: defaultAddr.label || "", ...defaultAddr });
             setUseNewAddress(false);
           } else {
-            setUseNewAddress(true);
+            // Fallback to first address if default not found
+            const firstAddr = addrs[0];
+            if (firstAddr) {
+              setSelectedAddressId(firstAddr.id);
+              setAddress({ label: firstAddr.label || "", ...firstAddr });
+              setUseNewAddress(false);
+            } else {
+              setUseNewAddress(true);
+            }
           }
         }
         if (isMounted) setLoading(false);
