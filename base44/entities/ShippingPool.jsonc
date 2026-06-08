@@ -26,12 +26,12 @@
         "cancelled"
       ],
       "default": "pending",
-      "description": "\u53d1\u8d27\u6c60\u72b6\u6001\uff1apending=\u5f85\u5904\u7406, awaiting_payment=\u5f85\u4ed8\u6b3e, awaiting_payment_confirmation=\u5f85\u786e\u8ba4\u4ed8\u6b3e, ready_to_ship=\u5f85\u53d1\u8d27, shipped=\u5df2\u53d1\u8d27, delivered=\u5df2\u7b7e\u6536"
+      "description": "\u53d1\u8d27\u6c60\u72b6\u6001"
     },
     "is_archived": {
       "type": "boolean",
       "default": false,
-      "description": "\u662f\u5426\u5df2\u5b58\u6863\uff08\u5df2\u7b7e\u6536\u7684\u53d1\u8d27\u7533\u8bf7\u7528\u6237\u53ef\u5b58\u6863\uff09"
+      "description": "\u662f\u5426\u5df2\u5b58\u6863"
     },
     "archived_at": {
       "type": "string",
@@ -122,7 +122,7 @@
     },
     "final_address_id": {
       "type": "string",
-      "description": "\u6700\u7ec8\u6536\u8d27\u5730\u5740ID\uff08\u4e2d\u8f6c\u5730\u62fc\u90ae\u540e\u53d1\u5f80\u6b64\u5730\u5740\uff09"
+      "description": "\u6700\u7ec8\u6536\u8d27\u5730\u5740ID\uff08\u4e2d\u8f6c\u5730\u62fc\u90ae\u540e\u53d1\u5f80\u6b64\u5904\uff09"
     },
     "shipping_method": {
       "type": "string",
@@ -264,7 +264,7 @@
         "paid"
       ],
       "default": "unpaid",
-      "description": "\u8fd0\u8d39\u4ed8\u6b3e\u72b6\u6001\uff1aunpaid=\u672a\u4ed8\u6b3e, partial=\u90e8\u5206\u5df2\u4ed8\u6b3e, awaiting_confirmation=\u7b49\u5f85\u786e\u8ba4, paid=\u5df2\u4ed8\u6b3e"
+      "description": "\u8fd0\u8d39\u4ed8\u6b3e\u72b6\u6001"
     },
     "payment_method": {
       "type": "string",
@@ -330,6 +330,147 @@
         "type": "object"
       },
       "description": "\u6c9f\u901a\u6d88\u606f\u8bb0\u5f55"
+    },
+    "per_user_groups": {
+      "type": "array",
+      "description": "\u5b98\u65b9\u62fc\u90ae\u7528\u6237\u4efb\u52a1\u7ec4\uff1a\u6bcf\u4e2a\u7528\u6237\u5728\u6b64pool\u5185\u7684\u8ba2\u5355\u5206\u7ec4\u3001\u5730\u5740\u53ca\u589e\u503c\u670d\u52a1\u8bbe\u7f6e",
+      "default": [],
+      "items": {
+        "type": "object",
+        "properties": {
+          "user_email": {
+            "type": "string"
+          },
+          "user_name": {
+            "type": "string"
+          },
+          "group_label": {
+            "type": "string",
+            "description": "\u7528\u6237\u81ea\u5b9a\u4e49\u4efb\u52a1\u7ec4\u540d\u79f0\uff08\u9ed8\u8ba4\u4e3a\u7528\u6237\u540d\uff09"
+          },
+          "note": {
+            "type": "string",
+            "description": "\u4efb\u52a1\u7ec4\u5907\u6ce8"
+          },
+          "image_urls": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": []
+          },
+          "selected_addon_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": []
+          },
+          "selected_addons": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "default": []
+          },
+          "group_final_address": {
+            "type": "object",
+            "description": "\u4efb\u52a1\u7ec4\u7ea7\u522b\u9ed8\u8ba4\u6700\u7ec8\u6536\u8d27\u5730\u5740",
+            "properties": {
+              "recipient_name": {
+                "type": "string"
+              },
+              "country": {
+                "type": "string"
+              },
+              "addr1": {
+                "type": "string"
+              },
+              "addr2": {
+                "type": "string"
+              },
+              "addr3": {
+                "type": "string"
+              },
+              "state": {
+                "type": "string"
+              },
+              "phone": {
+                "type": "string"
+              }
+            }
+          },
+          "order_entries": {
+            "type": "array",
+            "description": "\u8be5\u7528\u6237\u5728\u6b64pool\u4e2d\u7684\u8ba2\u5355\u6761\u76ee\uff08\u5b50\u4efb\u52a1\uff09",
+            "items": {
+              "type": "object",
+              "properties": {
+                "order_id": {
+                  "type": "string"
+                },
+                "note": {
+                  "type": "string"
+                },
+                "image_urls": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "default": []
+                },
+                "selected_addon_ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "default": []
+                },
+                "selected_addons": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  },
+                  "default": []
+                },
+                "override_final_address": {
+                  "type": "object",
+                  "description": "\u8986\u76d6\u4efb\u52a1\u7ec4\u5730\u5740\u7684\u5355\u8ba2\u5355\u6700\u7ec8\u6536\u8d27\u5730\u5740\uff0c\u4e3anull\u5219\u4f7f\u7528\u4efb\u52a1\u7ec4\u5730\u5740",
+                  "properties": {
+                    "recipient_name": {
+                      "type": "string"
+                    },
+                    "country": {
+                      "type": "string"
+                    },
+                    "addr1": {
+                      "type": "string"
+                    },
+                    "addr2": {
+                      "type": "string"
+                    },
+                    "addr3": {
+                      "type": "string"
+                    },
+                    "state": {
+                      "type": "string"
+                    },
+                    "phone": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "use_group_address": {
+                  "type": "boolean",
+                  "default": true,
+                  "description": "\u662f\u5426\u4f7f\u7528\u4efb\u52a1\u7ec4\u5730\u5740\uff08false\u5219\u4f7f\u7528override_final_address\uff09"
+                }
+              }
+            },
+            "default": []
+          }
+        }
+      }
     }
   },
   "required": [
