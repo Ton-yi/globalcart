@@ -841,12 +841,22 @@ export default function ShippingPool() {
                                 checked={selectedAddonIds.includes(a.id)}
                                 onCheckedChange={v => setSelectedAddonIds(prev => v ? [...prev, a.id] : prev.filter(id => id !== a.id))}
                               />
-                              <div>
-                                <span className="text-sm font-medium text-gray-800">{a.name}</span>
-                                {a.description && <span className="text-xs text-gray-400 ml-2">{a.description}</span>}
+                              <div className="flex flex-col gap-0.5">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-sm font-medium text-gray-800">{a.name}</span>
+                                  {a.is_user_customizable && (
+                                    <Badge className="text-[10px] bg-green-100 text-green-700 border-green-200">用户可自定义</Badge>
+                                  )}
+                                  {a.description && <span className="text-xs text-gray-400">{a.description}</span>}
+                                </div>
+                                {a.is_user_customizable && (
+                                  <span className="text-[10px] text-gray-500">区间：{a.fee_currency || "JPY"} {a.min_fee} - {a.max_fee} · 默认：{Number(a.fee || 0).toLocaleString()}</span>
+                                )}
                               </div>
                             </div>
-                            <span className="text-xs font-medium text-yellow-700 flex-shrink-0">+{a.fee_currency || "JPY"} {Number(a.fee || 0).toLocaleString()}</span>
+                            {!a.is_user_customizable && (
+                              <span className="text-xs font-medium text-yellow-700 flex-shrink-0">+{a.fee_currency || "JPY"} {Number(a.fee || 0).toLocaleString()}</span>
+                            )}
                           </label>
                         ))}
                       </div>
