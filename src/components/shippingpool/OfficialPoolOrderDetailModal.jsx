@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { X, Package, MapPin, Loader2, Link as LinkIcon, PlusCircle, Upload, Send, MessageSquare } from "lucide-react";
+import { X, Package, MapPin, Loader2, Link as LinkIcon, PlusCircle, Upload, Send, MessageSquare, User } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const ORDER_STATUS_LABELS = {
@@ -201,6 +201,11 @@ export default function OfficialPoolOrderDetailModal({ pool, group, orderEntry, 
             <div className="min-w-0">
               <h2 className="font-semibold text-gray-900 text-sm truncate">{order?.product_name || "订单详情"}</h2>
               <p className="text-xs text-gray-400">{order?.order_number || orderEntry.order_id.slice(-8)}</p>
+              {/* User name display */}
+              <div className="flex items-center gap-1 mt-1 text-xs text-gray-500">
+                <User className="w-3 h-3 text-gray-400" />
+                <span className="font-medium">{group?.user_name || order?.user_name || group?.user_email?.split('@')[0] || order?.user_email?.split('@')[0] || '未知用户'}</span>
+              </div>
             </div>
           </div>
           <button onClick={onClose} className="p-1 rounded hover:bg-gray-100 text-gray-400 flex-shrink-0"><X className="w-4 h-4" /></button>

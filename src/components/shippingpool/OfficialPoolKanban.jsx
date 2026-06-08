@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import {
   Users, Package, Scale, Plus, ChevronDown, ChevronRight,
   Settings2, Edit2, MapPin, Layers, Calendar, ArrowUpDown,
-  Inbox, GripVertical, Clock, Warehouse, ArrowRight, X, CheckCircle2, Loader2, CheckSquare, MessageSquare
+  Inbox, GripVertical, Clock, Warehouse, ArrowRight, X, CheckCircle2, Loader2, CheckSquare, MessageSquare, User
 } from "lucide-react";
 import JoinOfficialPoolModal from "@/components/shippingpool/JoinOfficialPoolModal";
 import OrderDetailDrawer from "@/components/orders/OrderDetailDrawer";
@@ -76,7 +76,8 @@ function DraggableTaskCard({ draggableId, index, entry, order, group, pool, curr
   return (
     <>
       {/* User name label above task card */}
-      <div className="text-xs text-gray-500 font-medium mb-1 ml-1">
+      <div className="text-xs text-gray-600 font-semibold mb-1 ml-0.5 flex items-center gap-1">
+        <User className="w-3 h-3 text-gray-400" />
         {group?.user_name || order?.user_name || group?.user_email?.split('@')[0] || order?.user_email?.split('@')[0] || '未知用户'}
       </div>
       <Draggable draggableId={draggableId} index={index}>
