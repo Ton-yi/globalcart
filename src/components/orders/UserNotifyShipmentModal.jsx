@@ -8,6 +8,7 @@
  */
 import { useState, useEffect } from "react";
 import { X, Truck, Package, MapPin, Lock, Users, Search, Star } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import CustomsDeclarationForm from "@/components/orders/CustomsDeclarationForm";
 import { serializeAddressToText, isAddressFormValid, EMPTY_ADDRESS_FORM } from "@/components/common/AddressForm";
 import AddressBlock from "@/components/orders/AddressBlock";
@@ -133,7 +134,7 @@ function TransitMethodSection({ consType, selectedTransitId, transitLocations, t
   );
 }
 
-function TransitAddonSection({ consType, selectedTransitId, transitLocations, shippingAddons, selectedAddonIds, setSelectedAddonIds }) {
+function TransitAddonSection({ consType, selectedTransitId, transitLocations, shippingAddons, selectedAddonIds, setSelectedAddonIds, addonCustomFees, setAddonCustomFees, addonFeeErrors, setAddonFeeErrors }) {
   // When consType is "transit", filter out addons disabled by the selected transit location
   const disabledAddonIds = consType === "transit"
     ? (transitLocations.find(l => l.id === selectedTransitId)?.disabled_addon_ids || [])
@@ -148,21 +149,68 @@ function TransitAddonSection({ consType, selectedTransitId, transitLocations, sh
         <Star className="w-3.5 h-3.5" />增值服务（可选）
       </label>
       <div className="mt-1.5 space-y-1.5">
-        {visibleAddons.map(a => (
-          <label key={a.id} className={`flex items-center justify-between gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${selectedAddonIds.includes(a.id) ? "border-yellow-400 bg-yellow-50" : "border-gray-200 hover:bg-gray-50"}`}>
-            <div className="flex items-center gap-2">
-              <Checkbox
-                checked={selectedAddonIds.includes(a.id)}
-                onCheckedChange={v => setSelectedAddonIds(prev => v ? [...prev, a.id] : prev.filter(id => id !== a.id))}
-              />
-              <div>
-                <span className="text-sm font-medium text-gray-800">{a.name}</span>
-                {a.description && <span className="text-xs text-gray-400 ml-2">{a.description}</span>}
-              </div>
+        {visibleAddons.map(a => {
+          const isSelected = selectedAddonIds.includes(a.id);
+          const isCustomizable = a.is_user_customizable;
+          return (
+            <div key={a.id} className={`rounded-lg border p-2.5 transition-colors ${isSelected ? "border-yellow-400 bg-yellow-50" : "border-gray-200 hover:bg-gray-50"}`}>
+              <label className="flex items-center justify-between gap-3 cursor-pointer">
+                <div className="flex items-center gap-2 flex-1">
+                  <Checkbox
+                    checked={isSelected}
+                    onCheckedChange={v => setSelectedAddonIds(prev => v ? [...prev, a.id] : prev.filter(id => id !== a.id))}
+                  />
+                  <div className="flex flex-col gap-0.5">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-medium text-gray-800">{a.name}</span>
+                      {isCustomizable && (
+                        <Badge className="text-[10px] bg-green-100 text-green-700 border-green-200">用户可自定义</Badge>
+                      )}
+                      {a.description && <span className="text-xs text-gray-400">{a.description}</span>}
+                    </div>
+                    {isCustomizable && (
+                      <span className="text-[10px] text-gray-500">区间：{a.fee_currency || "JPY"} {a.min_fee} - {a.max_fee} · 默认：{Number(a.fee || 0).toLocaleString()}</span>
+                    )}
+                  </div>
+                </div>
+                {!isCustomizable && (
+                  <span className="text-xs font-medium text-yellow-700 flex-shrink-0">+{a.fee_currency || "JPY"} {Number(a.fee || 0).toLocaleString()}</span>
+                )}
+              </label>
+              {isCustomizable && isSelected && (
+                <div className="mt-2 ml-6 flex flex-col gap-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-green-600 font-medium">用户可自定义</span>
+                    <Input
+                      type="number"
+                      className="h-7 w-28 text-xs [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      placeholder={`${a.min_fee}-${a.max_fee}`}
+                      value={addonCustomFees[a.id] ?? a.fee}
+                      onChange={(e) => {
+                        const value = parseFloat(e.target.value) || 0;
+                        setAddonCustomFees(prev => ({ ...prev, [a.id]: value }));
+                        if (value < a.min_fee || value > a.max_fee) {
+                          setAddonFeeErrors(prev => ({ ...prev, [a.id]: `请输入${a.min_fee}-${a.max_fee}之间的金额` }));
+                        } else {
+                          setAddonFeeErrors(prev => {
+                            const newErrors = { ...prev };
+                            delete newErrors[a.id];
+                            return newErrors;
+                          });
+                        }
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    <span className="text-xs text-yellow-700">{a.fee_currency || "JPY"}</span>
+                  </div>
+                  {addonFeeErrors[a.id] && (
+                    <span className="text-[10px] text-red-600">{addonFeeErrors[a.id]}</span>
+                  )}
+                </div>
+              )}
             </div>
-            <span className="text-xs font-medium text-yellow-700 flex-shrink-0">+{a.fee_currency || "JPY"} {Number(a.fee || 0).toLocaleString()}</span>
-          </label>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -223,6 +271,8 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
   // Addons & transit shipping method
   const [shippingAddons, setShippingAddons] = useState(initialData?.addons || []);
   const [selectedAddonIds, setSelectedAddonIds] = useState([]);
+  const [addonCustomFees, setAddonCustomFees] = useState({});
+  const [addonFeeErrors, setAddonFeeErrors] = useState({});
   const [transitMethods, setTransitMethods] = useState(initialData?.transitMethods || []);
   const [selectedTransitMethodId, setSelectedTransitMethodId] = useState(
     initialData?.userPreference?.preferred_transit_shipping_id || ""
@@ -386,6 +436,19 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
     if (!isJoiningPool && consType === "" && !joinDirectPool && !isAddressSlotOk("direct")) return;
     if (!isJoiningPool && consType === "other" && !isAddressSlotOk("other")) return;
     if (joinExistingPool && !selectedPoolId) return;
+    
+    // Validate addon custom fees are within range
+    const hasFeeErrors = Object.entries(addonCustomFees).some(([addonId, fee]) => {
+      const addon = shippingAddons.find(a => a.id === addonId);
+      return addon && addon.is_user_customizable && selectedAddonIds.includes(addonId) && 
+             (fee < addon.min_fee || fee > addon.max_fee);
+    });
+    
+    if (hasFeeErrors) {
+      alert('请确保所有自定义增值服务的金额都在指定区间内');
+      return;
+    }
+    
     setSubmitting(true);
 
     const u = currentUser || await base44.auth.me();
@@ -432,7 +495,16 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
     const selectedAddons = shippingAddons.filter(a => selectedAddonIds.includes(a.id));
     const addonUpdates = selectedAddonIds.length > 0 ? {
       selected_addon_ids: selectedAddonIds,
-      selected_addons: selectedAddons.map(a => ({ id: a.id, name: a.name, fee: a.fee, fee_currency: a.fee_currency })),
+      selected_addons: selectedAddons.map(a => {
+        const customFee = addonCustomFees[a.id];
+        const isCustomizable = a.is_user_customizable;
+        return {
+          id: a.id,
+          name: a.name,
+          fee: isCustomizable && customFee !== undefined ? customFee : a.fee,
+          fee_currency: a.fee_currency
+        };
+      }),
     } : {};
 
     // Attach customs declaration data if filled out (single shipment only)
@@ -951,6 +1023,10 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
               shippingAddons={shippingAddons}
               selectedAddonIds={selectedAddonIds}
               setSelectedAddonIds={setSelectedAddonIds}
+              addonCustomFees={addonCustomFees}
+              setAddonCustomFees={setAddonCustomFees}
+              addonFeeErrors={addonFeeErrors}
+              setAddonFeeErrors={setAddonFeeErrors}
             />
           )}
 
