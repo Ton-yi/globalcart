@@ -163,6 +163,11 @@ function DraggableStagingCard({ draggableId, index, order, officialPools, isAdmi
               </div>
               <Package className={`w-3.5 h-3.5 mt-0.5 flex-shrink-0 ${isInWarehouse ? "text-green-400" : "text-gray-300"}`} />
               <div className="flex-1 min-w-0">
+                {/* User name label */}
+                <div className="text-xs text-gray-600 font-semibold mb-0.5 flex items-center gap-1">
+                  <User className="w-3 h-3 text-gray-400" />
+                  {order?.user_name || order?.user_email?.split('@')[0] || '未知用户'}
+                </div>
                 <p className="text-xs font-medium text-gray-800 truncate">{order?.product_name || draggableId.slice(-8)}</p>
                 <div className="flex items-center gap-1.5 mt-0.5">
                   {order?.order_number && <span className="text-xs text-gray-400">{order.order_number}</span>}
