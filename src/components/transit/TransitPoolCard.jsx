@@ -21,10 +21,13 @@ export default function TransitPoolCard({ pool, transitStatus, isSelected, onTog
 
   return (
     <Card 
-      className={`border border-gray-200 hover:shadow-md transition-shadow cursor-pointer ${
+      className={`border border-gray-200 hover:shadow-md transition-shadow ${
         isSelected ? 'ring-2 ring-red-500' : ''
-      }`}
-      onClick={onClick}
+      } ${onClick ? 'cursor-pointer' : ''}`}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick?.();
+      }}
     >
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-2">

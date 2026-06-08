@@ -11,6 +11,7 @@ import AdminFeeRules from '@/pages/AdminFeeRules';
 import PreShipmentForm from '@/pages/PreShipmentForm';
 import GroupBuy from '@/pages/GroupBuy';
 import TransitLocationWork from '@/pages/TransitLocationWork';
+import TransitPoolWork from '@/pages/TransitPoolWork';
 
 
 const { Pages, Layout, mainPage } = pagesConfig;
@@ -86,6 +87,11 @@ const AuthenticatedApp = () => {
       <Route path="/TransitLocationWork/:transit_location_id" element={
         <LayoutWrapper currentPageName="TransitLocationWork">
           <TransitLocationWork />
+        </LayoutWrapper>
+      } />
+      <Route path="/TransitPoolWork/:pool_id" element={
+        <LayoutWrapper currentPageName="TransitPoolWork">
+          <TransitPoolWork />
         </LayoutWrapper>
       } />
       <Route path="*" element={<PageNotFound />} />
