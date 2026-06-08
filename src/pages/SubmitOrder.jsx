@@ -518,11 +518,11 @@ export default function SubmitOrder() {
                             type="number"
                             className="h-7 w-28 text-xs [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                             placeholder={`${opt.min_fee}-${opt.max_fee}`}
-                            value={addonCustomFees[opt.id] !== undefined ? addonCustomFees[opt.id] : opt.fee}
+                            value={addonCustomFees[opt.id] ?? opt.fee}
                             onChange={(e) => {
                               const val = e.target.value;
                               const value = val === '' ? '' : parseFloat(val) || 0;
-                              setAddonCustomFees((prev) => ({ ...prev, [opt.id]: value === '' ? 0 : value }));
+                              setAddonCustomFees((prev) => ({ ...prev, [opt.id]: value }));
                               if (value === '' || value < opt.min_fee || value > opt.max_fee) {
                                 setAddonFeeErrors((prev) => ({ ...prev, [opt.id]: value === '' ? '请输入金额' : `请输入${opt.min_fee}-${opt.max_fee}之间的金额` }));
                               } else {
