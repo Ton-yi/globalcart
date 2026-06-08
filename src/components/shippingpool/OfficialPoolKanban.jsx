@@ -1,23 +1,23 @@
 /**
  * OfficialPoolKanban
  * Admin-created official consolidation pools displayed as kanban columns.
- * Users can join a pool; ≥2 orders from same user → folded as task group card.
- * Todoist-style: parent task group (user-level) + sub-tasks (order-level).
+ * Supports drag-and-drop of order tasks between columns (including the staging column).
  */
 import { useState, useEffect } from "react";
+import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { base44 } from "@/api/base44Client";
-import { tenantEntity, fetchTenantConfig } from "@/lib/tenantApi";
+import { shippingPoolApi, tenantEntity, fetchTenantConfig } from "@/lib/tenantApi";
 import { EMPTY_ADDRESS_FORM } from "@/components/common/AddressForm";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { 
-  Users, Package, Scale, Plus, ChevronDown, ChevronRight, 
-  Settings2, Edit2, MapPin, Layers, Calendar, ArrowUpDown 
+import {
+  Users, Package, Scale, Plus, ChevronDown, ChevronRight,
+  Settings2, Edit2, MapPin, Layers, Calendar, ArrowUpDown,
+  Inbox, GripVertical, Clock, Warehouse, ArrowRight, X, CheckCircle2, Loader2
 } from "lucide-react";
 import JoinOfficialPoolModal from "@/components/shippingpool/JoinOfficialPoolModal";
 import OfficialPoolUserGroupModal from "@/components/shippingpool/OfficialPoolUserGroupModal";
 import OfficialPoolOrderDetailModal from "@/components/shippingpool/OfficialPoolOrderDetailModal";
-import OfficialPoolStagingColumn from "@/components/shippingpool/OfficialPoolStagingColumn";
 
 const STATUS_COLORS = {
   pending: "bg-gray-100 text-gray-600",
@@ -37,137 +37,51 @@ const STATUS_LABELS = {
   delivered: "已签收",
 };
 
-function UserGroupCard({ group, allOrders, pool, currentUser, isAdmin, shippingAddons, savedAddresses, onRefresh }) {
-  const [expanded, setExpanded] = useState(false);
-  const [editGroupOpen, setEditGroupOpen] = useState(false);
-  const [editOrderEntry, setEditOrderEntry] = useState(null); // { entry, order }
+const ORDER_STATUS_LABELS = {
+  pending_confirmation: "待确认", payment_pending: "待付款", paid: "已付款",
+  pending_purchase: "待购买", purchased: "已购买", in_warehouse: "已入库",
+  notified_shipment: "待发货",
+};
 
-  const orderEntries = group.order_entries || [];
-  const isSelf = group.user_email === currentUser?.email;
-  const canEdit = isSelf || isAdmin;
-
-  // Resolve full order objects
-  const resolvedOrders = orderEntries.map(entry => ({
-    entry,
-    order: allOrders.find(o => o.id === entry.order_id) || null,
-  }));
-
-  const totalWeight = resolvedOrders.reduce((s, { order }) => s + (order?.weight_g || 0), 0);
-
-  return (
-    <div className="border border-gray-200 rounded-xl overflow-hidden bg-white">
-      {/* Group header */}
-      <div
-        className="flex items-center justify-between px-3 py-2.5 bg-blue-50/60 border-b border-blue-100 cursor-pointer hover:bg-blue-50"
-        onClick={() => setExpanded(v => !v)}
-      >
-        <div className="flex items-center gap-2 min-w-0">
-          {expanded ? <ChevronDown className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />}
-          <Users className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
-          <span className="text-sm font-medium text-gray-800 truncate">{group.group_label || group.user_name || group.user_email}</span>
-          <Badge variant="outline" className="text-xs flex-shrink-0">{orderEntries.length}件</Badge>
-        </div>
-        <div className="flex items-center gap-1.5 flex-shrink-0">
-          <span className="text-xs text-gray-400">{totalWeight}g</span>
-          {canEdit && (
-            <button
-              onClick={e => { e.stopPropagation(); setEditGroupOpen(true); }}
-              className="p-1 rounded hover:bg-blue-100 text-gray-400 hover:text-blue-600 transition-colors"
-            >
-              <Edit2 className="w-3 h-3" />
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Group address indicator */}
-      {group.group_final_address?.recipient_name && (
-        <div className="px-3 py-1.5 flex items-center gap-1.5 text-xs text-gray-400 border-b border-gray-100">
-          <MapPin className="w-3 h-3" />
-          <span className="truncate">{group.group_final_address.recipient_name}{group.group_final_address.state ? ` · ${group.group_final_address.state}` : ""}</span>
-        </div>
-      )}
-
-      {/* Order entries (sub-tasks) */}
-      {expanded && (
-        <div className="divide-y divide-gray-50">
-          {resolvedOrders.map(({ entry, order }) => (
-            <div
-              key={entry.order_id}
-              className="flex items-start gap-2.5 px-3 py-2.5 hover:bg-gray-50 cursor-pointer transition-colors"
-              onClick={() => canEdit && setEditOrderEntry({ entry, order })}
-            >
-              <Package className="w-3.5 h-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-gray-700 truncate">{order?.product_name || entry.order_id.slice(-8)}</p>
-                <div className="flex items-center gap-2 mt-0.5">
-                  {order?.order_number && <span className="text-xs text-gray-400">{order.order_number}</span>}
-                  {order?.weight_g > 0 && <span className="text-xs text-gray-400">{order.weight_g}g</span>}
-                  {!entry.use_group_address && (
-                    <Badge className="text-xs bg-orange-100 text-orange-600 px-1 py-0">独立地址</Badge>
-                  )}
-                </div>
-                {entry.note && <p className="text-xs text-gray-400 mt-0.5 truncate">{entry.note}</p>}
-              </div>
-              {canEdit && <Edit2 className="w-3 h-3 text-gray-300 hover:text-gray-500 flex-shrink-0 mt-0.5" />}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {editGroupOpen && (
-        <OfficialPoolUserGroupModal
-          pool={pool}
-          group={group}
-          shippingAddons={shippingAddons}
-          savedAddresses={savedAddresses}
-          onClose={() => setEditGroupOpen(false)}
-          onSuccess={() => { setEditGroupOpen(false); onRefresh?.(); }}
-        />
-      )}
-
-      {editOrderEntry && (
-        <OfficialPoolOrderDetailModal
-          pool={pool}
-          group={group}
-          orderEntry={editOrderEntry.entry}
-          order={editOrderEntry.order}
-          shippingAddons={shippingAddons}
-          savedAddresses={savedAddresses}
-          onClose={() => setEditOrderEntry(null)}
-          onSuccess={() => { setEditOrderEntry(null); onRefresh?.(); }}
-        />
-      )}
-    </div>
-  );
-}
-
-function SingleOrderCard({ entry, order, group, pool, currentUser, isAdmin, shippingAddons, savedAddresses, onRefresh }) {
+// ─── Draggable Task Card ──────────────────────────────────────────────────────
+function DraggableTaskCard({ draggableId, index, entry, order, group, pool, currentUser, isAdmin, shippingAddons, savedAddresses, onRefresh }) {
   const [editOpen, setEditOpen] = useState(false);
   const isSelf = group?.user_email === currentUser?.email;
   const canEdit = isSelf || isAdmin;
 
   return (
     <>
-      <div
-        className={`border border-gray-200 rounded-xl px-3 py-2.5 bg-white hover:shadow-sm transition-all ${canEdit ? "cursor-pointer hover:border-blue-200" : ""}`}
-        onClick={() => canEdit && setEditOpen(true)}
-      >
-        <div className="flex items-start gap-2">
-          <Package className="w-3.5 h-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium text-gray-800 truncate">{order?.product_name || entry.order_id.slice(-8)}</p>
-            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-              {group && <span className="text-xs text-gray-400">{group.user_name || group.user_email}</span>}
-              {order?.weight_g > 0 && <span className="text-xs text-gray-400">{order.weight_g}g</span>}
+      <Draggable draggableId={draggableId} index={index}>
+        {(provided, snapshot) => (
+          <div
+            ref={provided.innerRef}
+            {...provided.draggableProps}
+            className={`border rounded-xl px-3 py-2.5 bg-white transition-all ${snapshot.isDragging ? "shadow-lg border-blue-300 rotate-1" : "border-gray-200 hover:shadow-sm"} ${canEdit ? "cursor-pointer" : ""}`}
+            onClick={() => canEdit && !snapshot.isDragging && setEditOpen(true)}
+          >
+            <div className="flex items-start gap-2">
+              <div
+                {...provided.dragHandleProps}
+                className="flex-shrink-0 mt-0.5 cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500"
+                onClick={e => e.stopPropagation()}
+              >
+                <GripVertical className="w-3.5 h-3.5" />
+              </div>
+              <Package className="w-3.5 h-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-gray-800 truncate">{order?.product_name || entry.order_id.slice(-8)}</p>
+                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                  {group && <span className="text-xs text-gray-400">{group.user_name || group.user_email}</span>}
+                  {order?.weight_g > 0 && <span className="text-xs text-gray-400">{order.weight_g}g</span>}
+                </div>
+                {entry.note && <p className="text-xs text-gray-400 mt-0.5 truncate">{entry.note}</p>}
+              </div>
+              {canEdit && <Edit2 className="w-3 h-3 text-gray-300 hover:text-gray-500 flex-shrink-0 mt-0.5" />}
             </div>
-            {entry.note && <p className="text-xs text-gray-400 mt-0.5 truncate">{entry.note}</p>}
           </div>
-          {canEdit && <Edit2 className="w-3 h-3 text-gray-300 hover:text-gray-500 flex-shrink-0 mt-0.5" />}
-        </div>
-      </div>
-
-      {editOpen && group && (
+        )}
+      </Draggable>
+      {editOpen && group && pool && (
         <OfficialPoolOrderDetailModal
           pool={pool}
           group={group}
@@ -183,7 +97,247 @@ function SingleOrderCard({ entry, order, group, pool, currentUser, isAdmin, ship
   );
 }
 
-function PoolColumn({ pool, allOrders, currentUser, isAdmin, shippingAddons, savedAddresses, onPoolClick, onRefresh }) {
+// ─── Draggable Staging Task Card ──────────────────────────────────────────────
+function DraggableStagingCard({ draggableId, index, order, officialPools, isAdmin, onRemove }) {
+  const pre = order?.pre_shipment;
+  const targetPoolId = pre?.target_pool_id;
+  const targetPool = officialPools.find(p => p.id === targetPoolId);
+  const targetLabel = targetPool ? (targetPool.title || targetPool.pool_code) : "待匹配";
+  const isInWarehouse = order?.order_status === "in_warehouse";
+
+  return (
+    <Draggable draggableId={draggableId} index={index}>
+      {(provided, snapshot) => (
+        <div
+          ref={provided.innerRef}
+          {...provided.draggableProps}
+          className={`border rounded-xl px-3 py-2.5 bg-white transition-all ${snapshot.isDragging ? "shadow-lg border-blue-300 rotate-1" : isInWarehouse ? "border-green-200" : "border-gray-200"}`}
+        >
+          <div className="flex items-start gap-2">
+            <div
+              {...provided.dragHandleProps}
+              className="flex-shrink-0 mt-0.5 cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500"
+            >
+              <GripVertical className="w-3.5 h-3.5" />
+            </div>
+            <Package className={`w-3.5 h-3.5 mt-0.5 flex-shrink-0 ${isInWarehouse ? "text-green-400" : "text-gray-300"}`} />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium text-gray-800 truncate">{order?.product_name || draggableId.slice(-8)}</p>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                {order?.order_number && <span className="text-xs text-gray-400">{order.order_number}</span>}
+                <Badge className={`text-xs px-1 py-0 ${isInWarehouse ? "bg-green-100 text-green-700" : "bg-amber-50 text-amber-600"}`}>
+                  {ORDER_STATUS_LABELS[order?.order_status] || order?.order_status}
+                </Badge>
+              </div>
+              <div className="flex items-center gap-1 mt-1">
+                <ArrowRight className="w-3 h-3 text-gray-300 flex-shrink-0" />
+                <span className="text-xs text-gray-400 truncate">→ {targetLabel}</span>
+              </div>
+            </div>
+            {isAdmin && (
+              <button
+                onClick={() => onRemove?.(order)}
+                className="p-1 rounded hover:bg-red-50 text-gray-300 hover:text-red-400 transition-colors flex-shrink-0"
+                title="从暂存区移除"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </Draggable>
+  );
+}
+
+// ─── Group Card (non-draggable container) ─────────────────────────────────────
+function UserGroupCard({ group, allOrders, pool, currentUser, isAdmin, shippingAddons, savedAddresses, onRefresh }) {
+  const [expanded, setExpanded] = useState(false);
+  const [editGroupOpen, setEditGroupOpen] = useState(false);
+  const [editOrderEntry, setEditOrderEntry] = useState(null);
+
+  const orderEntries = group.order_entries || [];
+  const isSelf = group.user_email === currentUser?.email;
+  const canEdit = isSelf || isAdmin;
+  const resolvedOrders = orderEntries.map(entry => ({
+    entry,
+    order: allOrders.find(o => o.id === entry.order_id) || null,
+  }));
+  const totalWeight = resolvedOrders.reduce((s, { order }) => s + (order?.weight_g || 0), 0);
+
+  return (
+    <div className="border border-gray-200 rounded-xl overflow-hidden bg-white">
+      <div
+        className="flex items-center justify-between px-3 py-2.5 bg-blue-50/60 border-b border-blue-100 cursor-pointer hover:bg-blue-50"
+        onClick={() => setExpanded(v => !v)}
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          {expanded ? <ChevronDown className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />}
+          <Users className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
+          <span className="text-sm font-medium text-gray-800 truncate">{group.group_label || group.user_name || group.user_email}</span>
+          <Badge variant="outline" className="text-xs flex-shrink-0">{orderEntries.length}件</Badge>
+        </div>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <span className="text-xs text-gray-400">{totalWeight}g</span>
+          {canEdit && (
+            <button onClick={e => { e.stopPropagation(); setEditGroupOpen(true); }} className="p-1 rounded hover:bg-blue-100 text-gray-400 hover:text-blue-600 transition-colors">
+              <Edit2 className="w-3 h-3" />
+            </button>
+          )}
+        </div>
+      </div>
+      {group.group_final_address?.recipient_name && (
+        <div className="px-3 py-1.5 flex items-center gap-1.5 text-xs text-gray-400 border-b border-gray-100">
+          <MapPin className="w-3 h-3" />
+          <span className="truncate">{group.group_final_address.recipient_name}{group.group_final_address.state ? ` · ${group.group_final_address.state}` : ""}</span>
+        </div>
+      )}
+      {expanded && (
+        <div className="divide-y divide-gray-50">
+          {resolvedOrders.map(({ entry, order }) => (
+            <div
+              key={entry.order_id}
+              className="flex items-start gap-2.5 px-3 py-2.5 hover:bg-gray-50 cursor-pointer transition-colors"
+              onClick={() => canEdit && setEditOrderEntry({ entry, order })}
+            >
+              <Package className="w-3.5 h-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-gray-700 truncate">{order?.product_name || entry.order_id.slice(-8)}</p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  {order?.order_number && <span className="text-xs text-gray-400">{order.order_number}</span>}
+                  {order?.weight_g > 0 && <span className="text-xs text-gray-400">{order.weight_g}g</span>}
+                  {!entry.use_group_address && <Badge className="text-xs bg-orange-100 text-orange-600 px-1 py-0">独立地址</Badge>}
+                </div>
+                {entry.note && <p className="text-xs text-gray-400 mt-0.5 truncate">{entry.note}</p>}
+              </div>
+              {canEdit && <Edit2 className="w-3 h-3 text-gray-300 hover:text-gray-500 flex-shrink-0 mt-0.5" />}
+            </div>
+          ))}
+        </div>
+      )}
+      {editGroupOpen && (
+        <OfficialPoolUserGroupModal pool={pool} group={group} shippingAddons={shippingAddons} savedAddresses={savedAddresses}
+          onClose={() => setEditGroupOpen(false)} onSuccess={() => { setEditGroupOpen(false); onRefresh?.(); }} />
+      )}
+      {editOrderEntry && (
+        <OfficialPoolOrderDetailModal pool={pool} group={group} orderEntry={editOrderEntry.entry} order={editOrderEntry.order}
+          shippingAddons={shippingAddons} savedAddresses={savedAddresses}
+          onClose={() => setEditOrderEntry(null)} onSuccess={() => { setEditOrderEntry(null); onRefresh?.(); }} />
+      )}
+    </div>
+  );
+}
+
+// ─── Add-to-Staging Modal ─────────────────────────────────────────────────────
+function AddToStagingModal({ allOrders, officialPools, currentUser, stagedOrderIds, onClose, onSuccess }) {
+  const [selectedOrderIds, setSelectedOrderIds] = useState([]);
+  const [selectedPoolId, setSelectedPoolId] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const eligibleOrders = allOrders.filter(o => {
+    if (["shipped", "delivered", "cancelled"].includes(o.order_status)) return false;
+    const alreadyInPool = officialPools.some(p => (p.order_ids || []).includes(o.id));
+    if (alreadyInPool) return false;
+    if (stagedOrderIds.has(o.id)) return false;
+    return true;
+  });
+
+  const handleSubmit = async () => {
+    if (selectedOrderIds.length === 0) return;
+    setSubmitting(true);
+    const targetPool = officialPools.find(p => p.id === selectedPoolId);
+    await Promise.all(selectedOrderIds.map(orderId => {
+      const order = allOrders.find(o => o.id === orderId);
+      if (!order) return Promise.resolve();
+      const newPre = {
+        ...(order.pre_shipment || {}),
+        consType: "official_pool",
+        target_pool_id: selectedPoolId || "",
+        target_pool_code: targetPool?.pool_code || "",
+        target_pool_title: targetPool ? (targetPool.title || targetPool.pool_code) : "",
+        pool_created: false,
+        _manually_staged: true,
+        _staged_by: currentUser?.email,
+        _staged_at: new Date().toISOString(),
+      };
+      return base44.functions.invoke('updateTenantOrder', { order_id: orderId, pre_shipment: newPre });
+    }));
+    setSubmitting(false);
+    onSuccess?.();
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <div>
+            <h2 className="font-semibold text-gray-900 text-sm">添加任务到待发货暂存区</h2>
+            <p className="text-xs text-gray-400 mt-0.5">选择要纳入官方拼邮计划的订单</p>
+          </div>
+          <button onClick={onClose} className="p-1 rounded hover:bg-gray-100 text-gray-400"><X className="w-4 h-4" /></button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+          <div>
+            <p className="text-xs font-medium text-gray-500 mb-2">预计加入的拼邮需求（可选）</p>
+            <div className="space-y-1.5">
+              <label className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${!selectedPoolId ? "border-blue-300 bg-blue-50" : "border-gray-200 hover:bg-gray-50"}`}>
+                <input type="radio" checked={!selectedPoolId} onChange={() => setSelectedPoolId("")} className="accent-blue-600" />
+                <span className="text-sm text-gray-600">未指定（入库后由系统自动匹配）</span>
+              </label>
+              {officialPools.map(pool => (
+                <label key={pool.id} className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${selectedPoolId === pool.id ? "border-blue-300 bg-blue-50" : "border-gray-200 hover:bg-gray-50"}`}>
+                  <input type="radio" checked={selectedPoolId === pool.id} onChange={() => setSelectedPoolId(pool.id)} className="accent-blue-600" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-800 truncate">{pool.title || pool.pool_code}</p>
+                    <p className="text-xs text-gray-400">{pool.pool_code} · {pool.order_ids?.length || 0}单 已参团</p>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className="text-xs font-medium text-gray-500 mb-2">选择订单（{eligibleOrders.length} 个可选）</p>
+            {eligibleOrders.length === 0 ? (
+              <div className="text-center py-8 text-gray-300 text-xs">
+                <Package className="w-6 h-6 mx-auto mb-1 opacity-40" />暂无可添加的订单
+              </div>
+            ) : (
+              <div className="space-y-1.5 max-h-64 overflow-y-auto">
+                {eligibleOrders.map(o => (
+                  <label key={o.id} className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${selectedOrderIds.includes(o.id) ? "border-blue-300 bg-blue-50" : "border-gray-200 hover:bg-gray-50"}`}>
+                    <input type="checkbox" checked={selectedOrderIds.includes(o.id)}
+                      onChange={() => setSelectedOrderIds(prev => prev.includes(o.id) ? prev.filter(x => x !== o.id) : [...prev, o.id])}
+                      className="accent-blue-600" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-gray-800 truncate">{o.product_name}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        {o.order_number && <span className="text-xs text-gray-400">{o.order_number}</span>}
+                        <Badge className={`text-xs px-1 py-0 ${o.order_status === "in_warehouse" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                          {ORDER_STATUS_LABELS[o.order_status] || o.order_status}
+                        </Badge>
+                        {o.weight_g > 0 && <span className="text-xs text-gray-400">{o.weight_g}g</span>}
+                      </div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="px-5 py-3.5 border-t border-gray-100 flex items-center justify-between">
+          <Button variant="outline" size="sm" onClick={onClose}>取消</Button>
+          <Button size="sm" className="bg-blue-600 hover:bg-blue-700"
+            disabled={submitting || selectedOrderIds.length === 0} onClick={handleSubmit}>
+            {submitting ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />处理中...</> : `添加 ${selectedOrderIds.length} 个任务`}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Pool Column (Droppable) ──────────────────────────────────────────────────
+function PoolColumn({ pool, allOrders, currentUser, isAdmin, shippingAddons, savedAddresses, onPoolClick, onRefresh, isDragOver }) {
   const [joinOpen, setJoinOpen] = useState(false);
 
   const perUserGroups = pool.per_user_groups || [];
@@ -192,20 +346,24 @@ function PoolColumn({ pool, allOrders, currentUser, isAdmin, shippingAddons, sav
   const progressPct = minWeight > 0 ? Math.min(100, (totalWeight / minWeight) * 100) : 0;
   const isReady = minWeight > 0 && totalWeight >= minWeight;
 
-  // Current user's orders already in this pool
   const myGroup = perUserGroups.find(g => g.user_email === currentUser?.email);
   const myOrderIds = new Set((myGroup?.order_entries || []).map(e => e.order_id));
   const hasInWarehouse = allOrders.some(o => o.order_status === "in_warehouse" && !myOrderIds.has(o.id));
 
-  // Build display items: group users with ≥2 orders as task group card; 1 order = single card
-  const displayItems = perUserGroups.map(group => {
+  // Build draggable items: each order entry gets its own draggable
+  const draggableItems = [];
+  const multiEntryGroups = [];
+  perUserGroups.forEach(group => {
     const entries = group.order_entries || [];
-    return { group, entries, isGroup: entries.length >= 2 };
+    if (entries.length >= 2) {
+      multiEntryGroups.push(group);
+    } else if (entries.length === 1) {
+      draggableItems.push({ group, entry: entries[0] });
+    }
   });
 
   return (
     <div className="flex-shrink-0 w-72 flex flex-col">
-      {/* Column header */}
       <div
         className="flex items-center justify-between px-3 py-3 bg-white border border-gray-200 rounded-xl cursor-pointer hover:border-gray-300 transition-colors mb-2"
         onClick={() => onPoolClick?.(pool)}
@@ -213,9 +371,7 @@ function PoolColumn({ pool, allOrders, currentUser, isAdmin, shippingAddons, sav
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm font-semibold text-gray-800 truncate">{pool.title || pool.pool_code}</span>
-            {pool.pool_code && pool.title && (
-              <span className="text-xs font-mono text-gray-400">{pool.pool_code}</span>
-            )}
+            {pool.pool_code && pool.title && <span className="text-xs font-mono text-gray-400">{pool.pool_code}</span>}
             <Badge className={`text-xs ${STATUS_COLORS[pool.status] || "bg-gray-100 text-gray-600"}`}>
               {STATUS_LABELS[pool.status] || pool.status}
             </Badge>
@@ -230,7 +386,6 @@ function PoolColumn({ pool, allOrders, currentUser, isAdmin, shippingAddons, sav
         </div>
       </div>
 
-      {/* Progress bar */}
       {minWeight > 0 && (
         <div className="px-1 mb-2">
           <div className="flex justify-between text-xs mb-1">
@@ -243,11 +398,15 @@ function PoolColumn({ pool, allOrders, currentUser, isAdmin, shippingAddons, sav
         </div>
       )}
 
-      {/* User/order cards */}
-      <div className="flex-1 space-y-2 overflow-y-auto min-h-[60px]">
-        {displayItems.map(({ group, entries, isGroup }) => {
-          if (isGroup) {
-            return (
+      <Droppable droppableId={`pool-${pool.id}`}>
+        {(provided, snapshot) => (
+          <div
+            ref={provided.innerRef}
+            {...provided.droppableProps}
+            className={`flex-1 space-y-2 min-h-[60px] rounded-xl transition-colors p-1 ${snapshot.isDraggingOver ? "bg-blue-50 ring-2 ring-blue-200" : ""}`}
+          >
+            {/* Multi-entry groups (not individually draggable as a whole, but shown) */}
+            {multiEntryGroups.map(group => (
               <UserGroupCard
                 key={group.user_email}
                 group={group}
@@ -259,37 +418,39 @@ function PoolColumn({ pool, allOrders, currentUser, isAdmin, shippingAddons, sav
                 savedAddresses={savedAddresses}
                 onRefresh={onRefresh}
               />
-            );
-          }
-          // Single order card
-          const entry = entries[0];
-          if (!entry) return null;
-          const order = allOrders.find(o => o.id === entry.order_id) || null;
-          return (
-            <SingleOrderCard
-              key={entry.order_id}
-              entry={entry}
-              order={order}
-              group={group}
-              pool={pool}
-              currentUser={currentUser}
-              isAdmin={isAdmin}
-              shippingAddons={shippingAddons}
-              savedAddresses={savedAddresses}
-              onRefresh={onRefresh}
-            />
-          );
-        })}
+            ))}
 
-        {displayItems.length === 0 && (
-          <div className="text-center py-6 text-gray-300 text-xs">
-            <Layers className="w-6 h-6 mx-auto mb-1 opacity-30" />
-            暂无参与者
+            {/* Single-entry items (draggable) */}
+            {draggableItems.map(({ group, entry }, idx) => {
+              const order = allOrders.find(o => o.id === entry.order_id) || null;
+              return (
+                <DraggableTaskCard
+                  key={entry.order_id}
+                  draggableId={`pool-${pool.id}-order-${entry.order_id}`}
+                  index={multiEntryGroups.length + idx}
+                  entry={entry}
+                  order={order}
+                  group={group}
+                  pool={pool}
+                  currentUser={currentUser}
+                  isAdmin={isAdmin}
+                  shippingAddons={shippingAddons}
+                  savedAddresses={savedAddresses}
+                  onRefresh={onRefresh}
+                />
+              );
+            })}
+
+            {perUserGroups.length === 0 && !snapshot.isDraggingOver && (
+              <div className="text-center py-6 text-gray-300 text-xs">
+                <Layers className="w-6 h-6 mx-auto mb-1 opacity-30" />暂无参与者
+              </div>
+            )}
+            {provided.placeholder}
           </div>
         )}
-      </div>
+      </Droppable>
 
-      {/* Join button */}
       {hasInWarehouse && (
         <button
           onClick={() => setJoinOpen(true)}
@@ -311,6 +472,130 @@ function PoolColumn({ pool, allOrders, currentUser, isAdmin, shippingAddons, sav
   );
 }
 
+// ─── Staging Column (Droppable) ───────────────────────────────────────────────
+function StagingColumn({ allOrders, officialPools, currentUser, isAdmin, onRefresh }) {
+  const [addModalOpen, setAddModalOpen] = useState(false);
+
+  const allOfficialPoolOrderIds = new Set(officialPools.flatMap(p => p.order_ids || []));
+  const stagedOrders = allOrders.filter(o => {
+    if (allOfficialPoolOrderIds.has(o.id)) return false;
+    const pre = o.pre_shipment;
+    if (!pre || pre.consType !== "official_pool" || pre.pool_created === true) return false;
+    return true;
+  });
+
+  const inWarehouseOrders = stagedOrders.filter(o => o.order_status === "in_warehouse");
+  const pendingOrders = stagedOrders.filter(o => o.order_status !== "in_warehouse");
+  const stagedOrderIds = new Set(stagedOrders.map(o => o.id));
+
+  const handleRemove = async (order) => {
+    const pre = order.pre_shipment || {};
+    await base44.functions.invoke('updateTenantOrder', {
+      order_id: order.id,
+      pre_shipment: { ...pre, consType: "", target_pool_id: "", target_pool_code: "" },
+    });
+    onRefresh?.();
+  };
+
+  return (
+    <div className="flex-shrink-0 w-72 flex flex-col">
+      <div className="flex items-center justify-between px-3 py-3 bg-white border border-dashed border-gray-300 rounded-xl mb-2">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <Inbox className="w-4 h-4 text-gray-400 flex-shrink-0" />
+            <span className="text-sm font-semibold text-gray-700">待发货暂存区</span>
+            <Badge className="text-xs bg-gray-100 text-gray-500">{stagedOrders.length}</Badge>
+          </div>
+          <p className="text-xs text-gray-400 mt-0.5 ml-6">预计加入官方拼邮的订单</p>
+        </div>
+        {isAdmin && (
+          <button onClick={() => setAddModalOpen(true)} className="p-1.5 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-blue-600 transition-colors flex-shrink-0" title="手动添加任务">
+            <Plus className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+
+      <Droppable droppableId="staging">
+        {(provided, snapshot) => (
+          <div
+            ref={provided.innerRef}
+            {...provided.droppableProps}
+            className={`flex-1 min-h-[60px] rounded-xl transition-colors p-1 ${snapshot.isDraggingOver ? "bg-blue-50 ring-2 ring-blue-200" : ""}`}
+          >
+            <div className="space-y-2">
+              {/* In-warehouse group header */}
+              {inWarehouseOrders.length > 0 && (
+                <div className="flex items-center gap-1.5 px-2 py-1">
+                  <Warehouse className="w-3 h-3 text-green-500" />
+                  <span className="text-xs font-medium text-green-700">已入库</span>
+                  <Badge className="text-xs bg-green-100 text-green-700 ml-auto">{inWarehouseOrders.length}</Badge>
+                </div>
+              )}
+              {inWarehouseOrders.map((order, idx) => (
+                <DraggableStagingCard
+                  key={order.id}
+                  draggableId={`staging-${order.id}`}
+                  index={idx}
+                  order={order}
+                  officialPools={officialPools}
+                  isAdmin={isAdmin}
+                  onRemove={handleRemove}
+                />
+              ))}
+
+              {/* Pending group header */}
+              {pendingOrders.length > 0 && (
+                <div className="flex items-center gap-1.5 px-2 py-1 mt-1">
+                  <Clock className="w-3 h-3 text-gray-400" />
+                  <span className="text-xs font-medium text-gray-500">未入库</span>
+                  <Badge className="text-xs bg-gray-100 text-gray-500 ml-auto">{pendingOrders.length}</Badge>
+                </div>
+              )}
+              {pendingOrders.map((order, idx) => (
+                <DraggableStagingCard
+                  key={order.id}
+                  draggableId={`staging-${order.id}`}
+                  index={inWarehouseOrders.length + idx}
+                  order={order}
+                  officialPools={officialPools}
+                  isAdmin={isAdmin}
+                  onRemove={handleRemove}
+                />
+              ))}
+
+              {stagedOrders.length === 0 && !snapshot.isDraggingOver && (
+                <div className="text-center py-6 text-gray-300 text-xs">
+                  <Inbox className="w-6 h-6 mx-auto mb-1 opacity-30" />暂无待发货任务
+                </div>
+              )}
+              {provided.placeholder}
+            </div>
+          </div>
+        )}
+      </Droppable>
+
+      <button
+        onClick={() => setAddModalOpen(true)}
+        className="mt-2 w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border-2 border-dashed border-gray-200 text-xs text-gray-400 hover:border-blue-300 hover:text-blue-500 hover:bg-blue-50 transition-colors"
+      >
+        <Plus className="w-3.5 h-3.5" />添加待发货任务
+      </button>
+
+      {addModalOpen && (
+        <AddToStagingModal
+          allOrders={allOrders}
+          officialPools={officialPools}
+          currentUser={currentUser}
+          stagedOrderIds={stagedOrderIds}
+          onClose={() => setAddModalOpen(false)}
+          onSuccess={() => { setAddModalOpen(false); onRefresh?.(); }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Main Kanban ──────────────────────────────────────────────────────────────
 export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAdmin, showPoolSorter, setShowPoolSorter, onPoolClick, onRefresh }) {
   const [shippingAddons, setShippingAddons] = useState([]);
   const [savedAddresses, setSavedAddresses] = useState([]);
@@ -327,6 +612,188 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
     }).catch(() => {});
   }, [currentUser?.email]);
 
+  // ─── Drag end handler ───────────────────────────────────────────────────────
+  const handleDragEnd = async (result) => {
+    const { source, destination, draggableId } = result;
+    if (!destination) return;
+    if (source.droppableId === destination.droppableId) return; // same column, no-op for now
+
+    const srcId = source.droppableId;
+    const dstId = destination.droppableId;
+
+    // Parse draggableId: "pool-{poolId}-order-{orderId}" or "staging-{orderId}"
+    let orderId = null;
+    let srcPoolId = null;
+
+    if (draggableId.startsWith("staging-")) {
+      orderId = draggableId.slice("staging-".length);
+    } else if (draggableId.startsWith("pool-")) {
+      // "pool-{poolId}-order-{orderId}"
+      const match = draggableId.match(/^pool-(.+)-order-(.+)$/);
+      if (match) { srcPoolId = match[1]; orderId = match[2]; }
+    }
+    if (!orderId) return;
+
+    const order = allOrders.find(o => o.id === orderId);
+    if (!order) return;
+
+    // ── Moving FROM staging TO a pool ──
+    if (srcId === "staging" && dstId.startsWith("pool-")) {
+      const destPoolId = dstId.slice("pool-".length);
+      const destPool = pools.find(p => p.id === destPoolId);
+      if (!destPool) return;
+
+      // Add to pool
+      const existingGroups = destPool.per_user_groups || [];
+      const existingGroupIdx = existingGroups.findIndex(g => g.user_email === order.user_email);
+      const newEntry = {
+        order_id: order.id,
+        note: order.pre_shipment?.user_note || "",
+        image_urls: [],
+        selected_addon_ids: order.pre_shipment?.selected_addon_ids || [],
+        selected_addons: order.pre_shipment?.selected_addons || [],
+        use_group_address: true,
+        override_final_address: null,
+      };
+      let newGroups;
+      if (existingGroupIdx >= 0) {
+        newGroups = existingGroups.map((g, i) => {
+          if (i !== existingGroupIdx) return g;
+          const exists = (g.order_entries || []).some(e => e.order_id === order.id);
+          if (exists) return g;
+          return { ...g, order_entries: [...(g.order_entries || []), newEntry] };
+        });
+      } else {
+        newGroups = [...existingGroups, {
+          user_email: order.user_email,
+          user_name: order.user_name || order.user_email,
+          group_label: order.user_name || order.user_email,
+          note: "", image_urls: [], selected_addon_ids: [], selected_addons: [],
+          group_final_address: null,
+          order_entries: [newEntry],
+        }];
+      }
+      await shippingPoolApi.update(destPoolId, {
+        order_ids: [...new Set([...(destPool.order_ids || []), order.id])],
+        order_names: [...(destPool.order_names || []), order.product_name].filter(Boolean),
+        total_weight_g: (destPool.total_weight_g || 0) + (order.weight_g || 0),
+        per_user_groups: newGroups,
+      });
+      // Mark pre_shipment as joined
+      await base44.functions.invoke('updateTenantOrder', {
+        order_id: order.id,
+        order_status: order.order_status === "in_warehouse" ? "notified_shipment" : order.order_status,
+        consolidation_pool_id: destPoolId,
+        pre_shipment: { ...(order.pre_shipment || {}), pool_created: true, pool_id: destPoolId, consType: "official_pool" },
+      });
+      onRefresh?.();
+      return;
+    }
+
+    // ── Moving FROM a pool TO staging ──
+    if (srcId.startsWith("pool-") && dstId === "staging") {
+      if (!srcPoolId) return;
+      const srcPool = pools.find(p => p.id === srcPoolId);
+      if (!srcPool) return;
+
+      // Remove from pool
+      const newGroups = (srcPool.per_user_groups || []).map(g => ({
+        ...g,
+        order_entries: (g.order_entries || []).filter(e => e.order_id !== orderId),
+      })).filter(g => (g.order_entries || []).length > 0);
+
+      await shippingPoolApi.update(srcPoolId, {
+        order_ids: (srcPool.order_ids || []).filter(id => id !== orderId),
+        total_weight_g: Math.max(0, (srcPool.total_weight_g || 0) - (order.weight_g || 0)),
+        per_user_groups: newGroups,
+      });
+      // Put back to staging
+      await base44.functions.invoke('updateTenantOrder', {
+        order_id: order.id,
+        consolidation_pool_id: "",
+        pre_shipment: {
+          ...(order.pre_shipment || {}),
+          consType: "official_pool",
+          pool_created: false,
+          pool_id: "",
+          target_pool_id: srcPoolId,
+          target_pool_code: srcPool.pool_code || "",
+          target_pool_title: srcPool.title || srcPool.pool_code || "",
+        },
+      });
+      onRefresh?.();
+      return;
+    }
+
+    // ── Moving FROM one pool TO another pool ──
+    if (srcId.startsWith("pool-") && dstId.startsWith("pool-")) {
+      const destPoolId = dstId.slice("pool-".length);
+      if (!srcPoolId || srcPoolId === destPoolId) return;
+      const srcPool = pools.find(p => p.id === srcPoolId);
+      const destPool = pools.find(p => p.id === destPoolId);
+      if (!srcPool || !destPool) return;
+
+      // Remove from source pool
+      let entryToMove = null;
+      const newSrcGroups = (srcPool.per_user_groups || []).map(g => {
+        const entry = (g.order_entries || []).find(e => e.order_id === orderId);
+        if (entry) entryToMove = entry;
+        return { ...g, order_entries: (g.order_entries || []).filter(e => e.order_id !== orderId) };
+      }).filter(g => (g.order_entries || []).length > 0);
+
+      await shippingPoolApi.update(srcPoolId, {
+        order_ids: (srcPool.order_ids || []).filter(id => id !== orderId),
+        total_weight_g: Math.max(0, (srcPool.total_weight_g || 0) - (order.weight_g || 0)),
+        per_user_groups: newSrcGroups,
+      });
+
+      // Add to dest pool
+      const newEntry = entryToMove || {
+        order_id: orderId, note: "", image_urls: [], selected_addon_ids: [], selected_addons: [],
+        use_group_address: true, override_final_address: null,
+      };
+      const existingGroups = destPool.per_user_groups || [];
+      const existingIdx = existingGroups.findIndex(g => g.user_email === order.user_email);
+      let newDestGroups;
+      if (existingIdx >= 0) {
+        newDestGroups = existingGroups.map((g, i) => {
+          if (i !== existingIdx) return g;
+          const exists = (g.order_entries || []).some(e => e.order_id === orderId);
+          if (exists) return g;
+          return { ...g, order_entries: [...(g.order_entries || []), newEntry] };
+        });
+      } else {
+        newDestGroups = [...existingGroups, {
+          user_email: order.user_email,
+          user_name: order.user_name || order.user_email,
+          group_label: order.user_name || order.user_email,
+          note: "", image_urls: [], selected_addon_ids: [], selected_addons: [],
+          group_final_address: null,
+          order_entries: [newEntry],
+        }];
+      }
+      await shippingPoolApi.update(destPoolId, {
+        order_ids: [...new Set([...(destPool.order_ids || []), orderId])],
+        order_names: [...(destPool.order_names || []), order.product_name].filter(Boolean),
+        total_weight_g: (destPool.total_weight_g || 0) + (order.weight_g || 0),
+        per_user_groups: newDestGroups,
+      });
+
+      await base44.functions.invoke('updateTenantOrder', {
+        order_id: orderId,
+        consolidation_pool_id: destPoolId,
+        pre_shipment: {
+          ...(order.pre_shipment || {}),
+          pool_id: destPoolId,
+          target_pool_id: destPoolId,
+          target_pool_code: destPool.pool_code || "",
+          target_pool_title: destPool.title || destPool.pool_code || "",
+        },
+      });
+      onRefresh?.();
+    }
+  };
+
   if (pools.length === 0) {
     return (
       <div className="flex flex-col items-center py-20 text-gray-400">
@@ -338,41 +805,40 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
   }
 
   return (
-    <div className="space-y-3">
-      {/* Sort toggle (admin only) */}
-      {isAdmin && showPoolSorter && (
-        <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-600">
-          <ArrowUpDown className="w-4 h-4 text-gray-400" />
-          <span>拖拽排序功能即将推出</span>
-          <Button variant="ghost" size="sm" className="ml-auto h-6 text-xs" onClick={() => setShowPoolSorter?.(false)}>关闭</Button>
-        </div>
-      )}
+    <DragDropContext onDragEnd={handleDragEnd}>
+      <div className="space-y-3">
+        {isAdmin && showPoolSorter && (
+          <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-600">
+            <ArrowUpDown className="w-4 h-4 text-gray-400" />
+            <span>拖拽任务卡片可在列之间移动</span>
+            <Button variant="ghost" size="sm" className="ml-auto h-6 text-xs" onClick={() => setShowPoolSorter?.(false)}>关闭</Button>
+          </div>
+        )}
 
-      {/* Kanban columns */}
-      <div className="flex gap-4 overflow-x-auto pb-4">
-        {/* Staging column — always first */}
-        <OfficialPoolStagingColumn
-          allOrders={allOrders}
-          officialPools={pools}
-          currentUser={currentUser}
-          isAdmin={isAdmin}
-          onRefresh={onRefresh}
-        />
-
-        {pools.map(pool => (
-          <PoolColumn
-            key={pool.id}
-            pool={pool}
+        <div className="flex gap-4 overflow-x-auto pb-4">
+          <StagingColumn
             allOrders={allOrders}
+            officialPools={pools}
             currentUser={currentUser}
             isAdmin={isAdmin}
-            shippingAddons={shippingAddons}
-            savedAddresses={savedAddresses}
-            onPoolClick={onPoolClick}
             onRefresh={onRefresh}
           />
-        ))}
+
+          {pools.map(pool => (
+            <PoolColumn
+              key={pool.id}
+              pool={pool}
+              allOrders={allOrders}
+              currentUser={currentUser}
+              isAdmin={isAdmin}
+              shippingAddons={shippingAddons}
+              savedAddresses={savedAddresses}
+              onPoolClick={onPoolClick}
+              onRefresh={onRefresh}
+            />
+          ))}
+        </div>
       </div>
-    </div>
+    </DragDropContext>
   );
 }
