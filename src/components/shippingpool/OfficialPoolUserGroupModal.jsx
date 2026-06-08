@@ -1,30 +1,42 @@
 /**
  * OfficialPoolUserGroupModal
  * Edit a user's task group within an official pool:
- * - Group label, note, images
+ * - Group label, notes (array of {text, image_urls, created_at})
  * - Group-level addons
  * - Group-level final address + "sync all" button
  * Todoist-style parent task editing.
  */
-import { useState } from "react";
+import { useState, useCallback, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { shippingPoolApi } from "@/lib/tenantApi";
-import { EMPTY_ADDRESS_FORM, isAddressFormValid, serializeAddressToText } from "@/components/common/AddressForm";
+import { EMPTY_ADDRESS_FORM } from "@/components/common/AddressForm";
 import AddressForm from "@/components/common/AddressForm";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
-import { X, MapPin, Users, Image as ImageIcon, Loader2, CopyCheck, PlusCircle } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { X, MapPin, Users, Loader2, CopyCheck, PlusCircle, MessageSquare, Upload, Send } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+// Migrate legacy note/image_urls to notes array
+function initNotes(group) {
+  if (Array.isArray(group.notes) && group.notes.length > 0) return group.notes;
+  if (group.note || (group.image_urls && group.image_urls.length > 0)) {
+    return [{ text: group.note || "", image_urls: group.image_urls || [], created_at: group.updated_date || new Date().toISOString() }];
+  }
+  return [];
+}
 
 export default function OfficialPoolUserGroupModal({ pool, group, shippingAddons = [], savedAddresses = [], onClose, onSuccess }) {
   const [groupLabel, setGroupLabel] = useState(group.group_label || group.user_name || "");
-  const [note, setNote] = useState(group.note || "");
-  const [imageUrls, setImageUrls] = useState(group.image_urls || []);
+  const [notes, setNotes] = useState(() => initNotes(group));
+  const [draftText, setDraftText] = useState("");
+  const [draftImages, setDraftImages] = useState([]);
   const [selectedAddonIds, setSelectedAddonIds] = useState(group.selected_addon_ids || []);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const [lightboxUrl, setLightboxUrl] = useState(null);
+  const fileInputRef = useRef(null);
 
   // Address state
   const [groupAddress, setGroupAddress] = useState(group.group_final_address || { ...EMPTY_ADDRESS_FORM });
@@ -32,25 +44,47 @@ export default function OfficialPoolUserGroupModal({ pool, group, shippingAddons
   const [selectedSavedId, setSelectedSavedId] = useState("");
   const [syncConfirm, setSyncConfirm] = useState(false);
 
-  const handleImageUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const uploadFile = useCallback(async (file) => {
+    if (!file || !file.type.startsWith("image/")) return;
     setUploadingImage(true);
     const { file_url } = await base44.integrations.Core.UploadFile({ file });
-    setImageUrls(prev => [...prev, file_url]);
+    setDraftImages(prev => [...prev, file_url]);
     setUploadingImage(false);
+  }, []);
+
+  const handleFileInput = async (e) => {
+    const file = e.target.files?.[0];
+    if (file) await uploadFile(file);
+    e.target.value = "";
   };
+
+  const handleSendNote = () => {
+    if (!draftText.trim() && draftImages.length === 0) return;
+    const newNote = { text: draftText.trim(), image_urls: draftImages, created_at: new Date().toISOString() };
+    setNotes(prev => [...prev, newNote]);
+    setDraftText("");
+    setDraftImages([]);
+  };
+
+  const handleDeleteNote = (idx) => {
+    setNotes(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const handleAddressSave = (v) => setGroupAddress(p => ({ ...p, ...v }));
 
   const handleSave = async (syncAddressToAll = false) => {
     setSaving(true);
     const selectedAddons = shippingAddons.filter(a => selectedAddonIds.includes(a.id))
       .map(a => ({ id: a.id, name: a.name, fee: a.fee, fee_currency: a.fee_currency }));
 
+    // Derive legacy note/image_urls from first note for backward compat
+    const firstNote = notes[0];
     const updatedGroup = {
       ...group,
       group_label: groupLabel,
-      note,
-      image_urls: imageUrls,
+      notes,
+      note: firstNote?.text || "",
+      image_urls: firstNote?.image_urls || [],
       selected_addon_ids: selectedAddonIds,
       selected_addons: selectedAddons,
       group_final_address: groupAddress,
@@ -91,6 +125,13 @@ export default function OfficialPoolUserGroupModal({ pool, group, shippingAddons
   };
 
   return (
+    <>
+    {lightboxUrl && (
+      <div className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4 cursor-zoom-out" onClick={() => setLightboxUrl(null)}>
+        <img src={lightboxUrl} alt="" className="max-w-full max-h-full rounded-lg shadow-2xl object-contain" />
+        <button onClick={() => setLightboxUrl(null)} className="absolute top-4 right-4 p-1.5 rounded-full bg-black/50 text-white hover:bg-black/70"><X className="w-5 h-5" /></button>
+      </div>
+    )}
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onMouseDown={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col" onMouseDown={e => e.stopPropagation()}>
         {/* Header */}
@@ -117,7 +158,7 @@ export default function OfficialPoolUserGroupModal({ pool, group, shippingAddons
                 {shippingAddons.map(a => (
                   <label key={a.id} className={`flex items-center justify-between gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${selectedAddonIds.includes(a.id) ? "border-yellow-400 bg-yellow-50" : "border-gray-200 hover:bg-gray-50"}`}>
                     <div className="flex items-center gap-2">
-                      <Checkbox checked={selectedAddonIds.includes(a.id)} onCheckedChange={v => setSelectedAddonIds(prev => v ? [...prev, a.id] : prev.filter(id => id !== a.id))} />
+                      <input type="checkbox" checked={selectedAddonIds.includes(a.id)} onChange={v => setSelectedAddonIds(prev => v.target.checked ? [...prev, a.id] : prev.filter(id => id !== a.id))} className="accent-yellow-500 w-4 h-4" />
                       <span className="text-sm font-medium text-gray-800">{a.name}</span>
                     </div>
                     <span className="text-xs text-yellow-700">+{a.fee_currency || "JPY"} {Number(a.fee || 0).toLocaleString()}</span>
@@ -127,29 +168,113 @@ export default function OfficialPoolUserGroupModal({ pool, group, shippingAddons
             </div>
           )}
 
-          {/* Note */}
+          {/* Notes / Messages */}
           <div>
-            <p className="text-xs font-medium text-gray-500 mb-1.5">任务组备注</p>
-            <Textarea rows={2} className="text-sm" placeholder="整批货物的特殊要求..." value={note} onChange={e => setNote(e.target.value)} />
-          </div>
+            <p className="text-xs font-medium text-gray-500 mb-2 flex items-center gap-1">
+              <MessageSquare className="w-3.5 h-3.5" />任务组备注留言
+            </p>
 
-          {/* Images */}
-          <div>
-            <p className="text-xs font-medium text-gray-500 mb-1.5">图片备注</p>
-            <div className="flex flex-wrap gap-2">
-              {imageUrls.map((url, i) => (
-                <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-gray-200 group">
-                  <img src={url} alt="" className="w-full h-full object-cover" />
-                  <button onClick={() => setImageUrls(prev => prev.filter((_, j) => j !== i))}
-                    className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                    <X className="w-3.5 h-3.5 text-white" />
-                  </button>
+            {/* Existing notes list */}
+            {notes.length > 0 && (
+              <div className="space-y-2 mb-3">
+                {notes.map((n, idx) => (
+                  <div key={idx} className="group bg-gray-50 rounded-xl px-3 py-2.5 relative">
+                    <button
+                      onClick={() => handleDeleteNote(idx)}
+                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-gray-200 text-gray-400 hover:text-red-500"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                    {n.text && <p className="text-sm text-gray-800 whitespace-pre-wrap pr-5">{n.text}</p>}
+                    {n.image_urls?.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {n.image_urls.map((url, i) => (
+                          <img key={i} src={url} alt="" onClick={() => setLightboxUrl(url)} className="w-14 h-14 rounded-lg object-cover border border-gray-200 cursor-zoom-in" />
+                        ))}
+                      </div>
+                    )}
+                    <p className="text-xs text-gray-300 mt-1.5">
+                      {new Date(n.created_at).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Compose area */}
+            <div className="border border-gray-200 rounded-xl overflow-hidden focus-within:border-blue-300 transition-colors">
+              {/* Draft images */}
+              {draftImages.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 px-3 pt-2.5">
+                  {draftImages.map((url, i) => (
+                    <div key={i} className="relative w-14 h-14 rounded-lg overflow-hidden border border-gray-200 group">
+                      <img src={url} alt="" className="w-full h-full object-cover" />
+                      <button onClick={() => setDraftImages(prev => prev.filter((_, j) => j !== i))}
+                        className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                        <X className="w-3 h-3 text-white" />
+                      </button>
+                    </div>
+                  ))}
                 </div>
-              ))}
-              <label className="w-16 h-16 rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors">
-                {uploadingImage ? <Loader2 className="w-4 h-4 animate-spin text-gray-400" /> : <ImageIcon className="w-4 h-4 text-gray-400" />}
-                <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={uploadingImage} />
-              </label>
+              )}
+
+              {/* Textarea with drag/paste */}
+              <div
+                className="relative"
+                onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+                onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget)) setDragOver(false); }}
+                onDrop={async e => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files?.[0]; if (f) await uploadFile(f); }}
+              >
+                <textarea
+                  rows={3}
+                  className={`w-full px-3 pt-2.5 pb-1 text-sm border-0 resize-none outline-none bg-transparent transition-colors placeholder:text-gray-300 ${dragOver ? "bg-blue-50" : ""}`}
+                  placeholder="添加备注…（可粘贴或拖拽图片）"
+                  value={draftText}
+                  onChange={e => setDraftText(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleSendNote(); }}
+                  onPaste={async e => {
+                    const items = e.clipboardData?.items;
+                    if (!items) return;
+                    for (const item of items) {
+                      if (item.type.startsWith("image/")) {
+                        e.preventDefault();
+                        const file = item.getAsFile();
+                        if (file) await uploadFile(file);
+                        return;
+                      }
+                    }
+                  }}
+                />
+                {dragOver && (
+                  <div className="absolute inset-0 rounded flex items-center justify-center pointer-events-none">
+                    <span className="bg-blue-600 text-white text-xs font-medium px-3 py-1 rounded-full shadow">松开以上传图片</span>
+                  </div>
+                )}
+                {uploadingImage && (
+                  <div className="absolute inset-0 bg-white/70 flex items-center justify-center pointer-events-none">
+                    <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                  </div>
+                )}
+              </div>
+
+              {/* Toolbar */}
+              <div className="flex items-center justify-between px-2.5 pb-2 pt-1">
+                <label className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-blue-500 cursor-pointer transition-colors px-1 py-0.5 rounded">
+                  <Upload className="w-3.5 h-3.5" />图片
+                  <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileInput} disabled={uploadingImage} />
+                </label>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-300">⌘↵ 发送</span>
+                  <Button
+                    size="sm"
+                    className="h-7 px-3 text-xs bg-blue-600 hover:bg-blue-700"
+                    onClick={handleSendNote}
+                    disabled={!draftText.trim() && draftImages.length === 0}
+                  >
+                    <Send className="w-3 h-3 mr-1" />发送
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -202,5 +327,6 @@ export default function OfficialPoolUserGroupModal({ pool, group, shippingAddons
         </div>
       </div>
     </div>
+    </>
   );
 }
