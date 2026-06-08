@@ -163,7 +163,7 @@ export default function AddressForm({ value, onChange, className = "" }) {
       <div>
         <FieldLabel jp="連絡先電話番号" zh="联系方式" required />
         <div className="flex items-center gap-2">
-          {phoneCode && (
+          {phoneCode && !value.phone?.startsWith(phoneCode) && (
             <div className="flex-shrink-0 h-8 px-2.5 flex items-center rounded-md border border-input bg-muted text-sm text-gray-600 font-medium select-none">
               {phoneCode}
             </div>
