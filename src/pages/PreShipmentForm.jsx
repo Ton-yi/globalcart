@@ -681,7 +681,9 @@ export default function PreShipmentForm() {
           {consType === "official_pool" &&
           <div className="space-y-2 border border-blue-100 rounded-xl p-3 bg-blue-50/40">
               <Label className="text-xs text-blue-700 font-medium">选择要加入的官方拼邮池</Label>
-              {officialPools.length > 0 ?
+              {(() => {
+                const adminPools = officialPools.filter(p => p.is_admin_created);
+                return adminPools.length > 0 ?
             <div className="space-y-2">
                   <label className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${!selectedPoolId ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
                     <input type="radio" checked={!selectedPoolId} onChange={() => setSelectedPoolId("")} className="mt-0.5 accent-blue-600" />
@@ -690,7 +692,7 @@ export default function PreShipmentForm() {
                       <p className="text-xs text-gray-500">系统将自动匹配最近的同运输方式拼邮池</p>
                     </div>
                   </label>
-                  {officialPools.map((pool) =>
+                  {adminPools.map((pool) =>
               <label key={pool.id} className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${selectedPoolId === pool.id ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
                       <input type="radio" checked={selectedPoolId === pool.id} onChange={() => setSelectedPoolId(pool.id)} className="mt-0.5 accent-blue-600" />
                       <div className="flex-1">
@@ -704,7 +706,7 @@ export default function PreShipmentForm() {
             <div className="text-sm text-gray-500 py-2">
                   暂无可用的官方拼邮池，将默认加入最近的同类型拼邮
                 </div>
-            }
+              })}
             </div>
           }
         </CardContent>
