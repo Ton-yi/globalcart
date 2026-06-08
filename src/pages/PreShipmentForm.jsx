@@ -704,17 +704,9 @@ export default function PreShipmentForm() {
               <div>
                 <Label className="text-xs text-blue-700 font-medium mb-2 block">选择要加入的官方拼邮池</Label>
                 <p className="text-xs text-gray-500 mb-3">管理员创建的拼邮池享受优惠运费，选择一个加入或默认匹配</p>
-                <p className="text-xs text-gray-400">调试：consType={consType}, officialPools={officialPools.length}, adminPools={officialPools.filter(p => p.is_admin_created).length}</p>
               </div>
               {(() => {
-                // Official pools: all admin-created pools (any consolidation type)
-                console.log('[PreShipmentForm] Checking is_admin_created field types:', officialPools.slice(0, 3).map(p => ({ id: p.id, is_admin_created: p.is_admin_created, type: typeof p.is_admin_created })));
-                const adminPools = officialPools.filter(p => {
-                  const isAdminCreated = p.is_admin_created === true || p.is_admin_created === 'true';
-                  console.log('[PreShipmentForm] Pool check:', p.pool_code, 'is_admin_created:', p.is_admin_created, '=>', isAdminCreated);
-                  return isAdminCreated;
-                });
-                console.log('[PreShipmentForm] Rendering official pools - adminPools count:', adminPools.length);
+                const adminPools = officialPools.filter(p => p.is_admin_created === true);
                 return adminPools.length > 0 ?
             <div className="space-y-2">
                   <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${!selectedPoolId ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
