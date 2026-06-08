@@ -700,64 +700,103 @@ export default function PreShipmentForm() {
           
           {/* Official pool selection */}
           {(() => {
-            console.log('[PreShipmentForm OfficialPool] consType:', consType, 'consType === "official_pool":', consType === "official_pool");
-            console.log('[PreShipmentForm OfficialPool] officialPools.length:', officialPools.length);
             if (consType !== "official_pool") return null;
             
-            const adminPools = officialPools.filter(p => {
-              const result = p.is_admin_created === true;
-              console.log('[PreShipmentForm OfficialPool] Pool:', p.pool_code, 'is_admin_created:', p.is_admin_created, '=>', result);
-              return result;
-            });
-            console.log('[PreShipmentForm OfficialPool] adminPools count:', adminPools.length);
+            const adminPools = officialPools.filter(p => p.is_admin_created === true);
             
             return (
-          <div className="space-y-3 border border-blue-100 rounded-xl p-4 bg-blue-50/40">
-              <div>
-                <Label className="text-xs text-blue-700 font-medium mb-2 block">选择要加入的官方拼邮池</Label>
-                <p className="text-xs text-gray-500 mb-3">管理员创建的拼邮池享受优惠运费，选择一个加入或默认匹配</p>
-                <p className="text-xs text-gray-400">调试：{adminPools.length} 个官方池</p>
-              </div>
-              {adminPools.length > 0 ?
-            <div className="space-y-2">
-                  <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${!selectedPoolId ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
-                    <input type="radio" checked={!selectedPoolId} onChange={() => setSelectedPoolId("")} className="mt-0.5 accent-blue-600" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-800">🏷️ 默认拼官方</p>
-                      <p className="text-xs text-gray-500 mt-0.5">系统将自动匹配最近的同运输方式拼邮池</p>
-                    </div>
-                  </label>
-                  {adminPools.map((pool) =>
-              <label key={pool.id} className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${selectedPoolId === pool.id ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
-                      <input type="radio" checked={selectedPoolId === pool.id} onChange={() => setSelectedPoolId(pool.id)} className="mt-0.5 accent-blue-600" />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <p className="text-sm font-semibold text-gray-800">{pool.title || pool.pool_code}</p>
-                          {pool.consolidation_deadline && (
-                            <Badge variant="outline" className="text-[10px] bg-orange-50 text-orange-700 border-orange-200">
-                              截止：{pool.consolidation_deadline}
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-3 text-xs text-gray-500">
-                          <span>👥 {(pool.order_ids?.length || 0)} 单</span>
-                          {pool.consolidation_min_weight_g && (
-                            <span>⚖️ 目标：{(pool.consolidation_min_weight_g / 1000).toFixed(1)}kg</span>
-                          )}
-                          {pool.shipping_method && (
-                            <span>📦 {pool.shipping_method}</span>
-                          )}
-                        </div>
-                      </div>
-                    </label>
-              )}
-                </div> :
-
-            <div className="text-sm text-gray-500 py-3 text-center bg-white rounded-lg border border-dashed">
-                  暂无可用的官方拼邮池，将默认加入最近的同类型拼邮
-                </div>
-              }
+          <div className="border border-blue-100 rounded-xl bg-blue-50/40">
+            <div className="p-3 border-b border-blue-100">
+              <Label className="text-xs text-blue-700 font-medium">选择官方拼邮池</Label>
+              <p className="text-[10px] text-gray-500 mt-0.5">管理员创建 · 优惠运费</p>
             </div>
+            <div className="p-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-between h-9 text-sm"
+                  >
+                    {selectedPoolId ?
+                      <span className="truncate">
+                        {(() => {
+                          const pool = adminPools.find(p => p.id === selectedPoolId);
+                          return pool ? `${pool.pool_code} · ${pool.title || ''}` : '选择拼邮池';
+                        })()}
+                      </span> :
+                      <span className="text-gray-500">🏷️ 默认匹配（自动推荐）</span>
+                    }
+                    <Search className="w-4 h-4 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[320px] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="搜索拼邮池..." className="h-9" />
+                    <CommandList className="max-h-[300px]">
+                      <CommandEmpty>无匹配的拼邮池</CommandEmpty>
+                      <CommandGroup>
+                        <CommandItem
+                          value="default"
+                          onSelect={() => setSelectedPoolId("")}
+                          className="flex items-center gap-2"
+                        >
+                          <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${!selectedPoolId ? 'border-blue-600' : 'border-gray-300'}`}>
+                            {!selectedPoolId && <div className="w-2 h-2 rounded-full bg-blue-600" />}
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium">🏷️ 默认匹配</p>
+                            <p className="text-xs text-gray-500">自动推荐同运输方式拼邮池</p>
+                          </div>
+                        </CommandItem>
+                        {adminPools.map((pool) => (
+                          <CommandItem
+                            key={pool.id}
+                            value={`${pool.pool_code} ${pool.title || ''} ${pool.shipping_method || ''}`}
+                            onSelect={() => setSelectedPoolId(pool.id)}
+                            className="flex items-center gap-2"
+                          >
+                            <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${selectedPoolId === pool.id ? 'border-blue-600' : 'border-gray-300'}`}>
+                              {selectedPoolId === pool.id && <div className="w-2 h-2 rounded-full bg-blue-600" />}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-sm font-semibold truncate">{pool.pool_code}</span>
+                                {pool.consolidation_deadline && (
+                                  <Badge variant="outline" className="text-[10px] bg-orange-50 text-orange-700 border-orange-200 flex-shrink-0">
+                                    {pool.consolidation_deadline}
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 text-xs text-gray-500">
+                                {pool.title && <span className="truncate">{pool.title}</span>}
+                                <div className="flex items-center gap-1.5 flex-shrink-0">
+                                  <span>{(pool.order_ids?.length || 0)}单</span>
+                                  {pool.shipping_method && <span>· {pool.shipping_method}</span>}
+                                  {pool.consolidation_min_weight_g && (
+                                    <span>· {(pool.consolidation_min_weight_g / 1000).toFixed(1)}kg</span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+              {selectedPoolId && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="mt-2 h-7 text-xs text-gray-500 w-full"
+                  onClick={() => setSelectedPoolId("")}
+                >
+                  清除选择，使用默认匹配
+                </Button>
+              )}
+            </div>
+          </div>
             );
           })()}
         </CardContent>
