@@ -143,11 +143,12 @@ export default function PreShipmentForm() {
         // Set all available pools for user to join
         const allPools = poolsRes.data?.pools || [];
         // Filter pools that user can join:
-        // - Admin-created official pools (any status pending/processing)
-        // - User's own pools (direct shipping or transit consolidation)
+        // - All admin-created official pools (any status)
+        // - User's own pools (direct shipping or transit consolidation, pending/processing status)
         const availablePools = allPools.filter((p) =>
-        (p.status === "pending" || p.status === "processing") && (
-        p.is_admin_created || p.creator_email === user.email)
+        p.is_admin_created || (
+          (p.status === "pending" || p.status === "processing") && p.creator_email === user.email
+        )
         );
         setOfficialPools(availablePools);
 
@@ -689,6 +690,7 @@ export default function PreShipmentForm() {
               {(() => {
                 // Official pools: all admin-created pools (any consolidation type)
                 const adminPools = officialPools.filter(p => p.is_admin_created);
+                console.log('[PreShipmentForm] Official pools - total:', officialPools.length, 'admin pools:', adminPools.length, 'pools:', officialPools);
                 return adminPools.length > 0 ?
             <div className="space-y-2">
                   <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${!selectedPoolId ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
