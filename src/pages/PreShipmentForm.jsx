@@ -699,7 +699,6 @@ export default function PreShipmentForm() {
               {(() => {
                 // Official pools: all admin-created pools (any consolidation type)
                 const adminPools = officialPools.filter(p => p.is_admin_created);
-                console.log('[PreShipmentForm] Official pools - total:', officialPools.length, 'admin pools:', adminPools.length, 'pools:', officialPools);
                 return adminPools.length > 0 ?
             <div className="space-y-2">
                   <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${!selectedPoolId ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
