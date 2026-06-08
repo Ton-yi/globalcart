@@ -205,6 +205,10 @@
     "shipping_method": {
       "type": "string"
     },
+    "destination_country": {
+      "type": "string",
+      "description": "\u76ee\u7684\u5730\u56fd\u5bb6\uff08\u4e00\u6b21\u4ed8\u6b3e\u65f6\u4f7f\u7528\uff09"
+    },
     "consolidation_requested": {
       "type": "boolean",
       "default": false
@@ -481,6 +485,10 @@
         "shipping_method_code": {
           "type": "string",
           "description": "\u7528\u6237\u9009\u62e9\u7684\u8fd0\u8f93\u65b9\u5f0f\u4ee3\u7801"
+        },
+        "destination_country": {
+          "type": "string",
+          "description": "\u76ee\u7684\u5730\u56fd\u5bb6"
         },
         "estimated_shipping_fee_jpy": {
           "type": "number",

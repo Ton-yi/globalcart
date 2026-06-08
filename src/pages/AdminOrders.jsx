@@ -1018,12 +1018,24 @@ export default function AdminOrders() {
                   setIsProcessing(true);
                   try {
                     const weight = parseFloat(actualWeight);
-                    await base44.functions.invoke('updateTenantOrder', {
+                    const res = await base44.functions.invoke('handleFullpayOnceSettlement', {
+                      action: 'update_weight_and_calculate',
                       order_id: selectedFullpayOrder.id,
-                      weight_g: weight,
-                      update_fullpay_settlement: true
+                      actual_weight_g: weight,
+                      shipping_method_code: selectedFullpayOrder.fullpay_once_config?.shipping_method_code,
+                      destination_country: selectedFullpayOrder.fullpay_once_config?.destination_country || selectedFullpayOrder.destination_country
                     });
-                    alert('结算完成');
+                    
+                    const calc = res.data?.calculation;
+                    if (calc) {
+                      const msg = calc.settlement_status === 'needs_supplement' 
+                        ? `结算完成！需补款：¥${Math.abs(calc.fee_difference_jpy).toLocaleString()} JPY`
+                        : calc.settlement_status === 'needs_refund'
+                          ? `结算完成！需退款：¥${Math.abs(calc.fee_difference_jpy).toLocaleString()} JPY`
+                          : '结算完成！运费已结清';
+                      alert(msg);
+                    }
+                    
                     setShowFullpaySettlement(false);
                     setSelectedFullpayOrder(null);
                     setActualWeight("");

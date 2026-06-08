@@ -327,9 +327,11 @@ export default function SubmitOrder() {
       // One-time payment config
       user_estimated_weight_g: isFullpayOnce ? parseFloat(userEstimatedWeight) || 0 : undefined,
       shipping_method: isFullpayOnce ? selectedShippingMethod : undefined,
+      destination_country: isFullpayOnce ? destinationCountry : undefined,
       fullpay_once_config: isFullpayOnce ? {
         user_estimated_weight_g: parseFloat(userEstimatedWeight) || 0,
         shipping_method_code: selectedShippingMethod,
+        destination_country: destinationCountry,
         estimated_shipping_fee_jpy: estimatedShippingFee,
         total_paid_jpy: prepaymentAmount,
         settlement_status: "pending"

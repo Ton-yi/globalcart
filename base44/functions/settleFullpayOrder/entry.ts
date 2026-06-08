@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
       if (method) {
         // Recalculate shipping fee with actual weight
         let actualFee = 0;
-        const country = order.shipping_address_country || 'CN'; // Fallback to China
+        const country = config.destination_country || order.destination_country || 'CN';
         
         if (method.rate_mode === 'simple' && method.simple_rates) {
           const rate = method.simple_rates.find(r => r.country === country);
