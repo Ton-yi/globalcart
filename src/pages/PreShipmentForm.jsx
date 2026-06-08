@@ -604,7 +604,7 @@ export default function PreShipmentForm() {
                 <CardContent className="space-y-3">
                   {savedAddresses.length > 0 &&
                     <Select value={useNewAddress ? "__new__" : selectedAddressId || ""} onValueChange={handleAddressSelect}>
-                      <SelectTrigger><SelectValue placeholder="选择地址簿中的地址" /></SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder={selectedAddressId ? "" : "选择地址簿中的地址"} /></SelectTrigger>
                       <SelectContent>
                         {savedAddresses.map((a) => <SelectItem key={a.id} value={a.id}>{a.label}</SelectItem>)}
                         <SelectItem value="__new__">
@@ -898,7 +898,7 @@ export default function PreShipmentForm() {
           <CardContent className="space-y-3">
             {savedAddresses.length > 0 &&
           <Select value={useNewAddress ? "__new__" : selectedAddressId || ""} onValueChange={handleAddressSelect}>
-                <SelectTrigger><SelectValue placeholder="选择地址簿中的地址" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder={selectedAddressId ? "" : "选择地址簿中的地址"} /></SelectTrigger>
                 <SelectContent>
                   {savedAddresses.map((a) => <SelectItem key={a.id} value={a.id}>{a.label}</SelectItem>)}
                   <SelectItem value="__new__">
