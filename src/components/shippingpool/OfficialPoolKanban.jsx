@@ -338,7 +338,7 @@ function AddToStagingModal({ allOrders, officialPools, currentUser, stagedOrderI
 }
 
 // ─── Pool Column (Droppable) ──────────────────────────────────────────────────
-function PoolColumn({ pool, allOrders, currentUser, isAdmin, shippingAddons, savedAddresses, onPoolClick, onRefresh, isDragOver }) {
+function PoolColumn({ pool, allOrders, currentUser, isAdmin, shippingAddons, savedAddresses, onPoolClick, onRefresh, columnDragHandleProps }) {
   const [joinOpen, setJoinOpen] = useState(false);
 
   const perUserGroups = pool.per_user_groups || [];
@@ -368,6 +368,7 @@ function PoolColumn({ pool, allOrders, currentUser, isAdmin, shippingAddons, sav
       <div
         className="flex items-center justify-between px-3 py-3 bg-white border border-gray-200 rounded-xl cursor-pointer hover:border-blue-300 hover:bg-blue-50/30 transition-colors mb-2"
         onClick={() => onPoolClick?.(pool)}
+        {...(columnDragHandleProps || {})}
       >
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
@@ -601,6 +602,17 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
   const [shippingAddons, setShippingAddons] = useState([]);
   const [savedAddresses, setSavedAddresses] = useState([]);
   const [createPoolOpen, setCreatePoolOpen] = useState(false);
+  const [columnOrder, setColumnOrder] = useState(() => pools.map(p => p.id));
+
+  // Keep columnOrder in sync when pools change from outside (new pool added, etc.)
+  useEffect(() => {
+    setColumnOrder(prev => {
+      const poolIds = pools.map(p => p.id);
+      const next = prev.filter(id => poolIds.includes(id));
+      poolIds.forEach(id => { if (!next.includes(id)) next.push(id); });
+      return next;
+    });
+  }, [pools.map(p => p.id).join(",")]);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -614,10 +626,25 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
     }).catch(() => {});
   }, [currentUser?.email]);
 
+  const orderedPools = columnOrder.map(id => pools.find(p => p.id === id)).filter(Boolean);
+
   // ─── Drag end handler ───────────────────────────────────────────────────────
   const handleDragEnd = async (result) => {
-    const { source, destination, draggableId } = result;
+    const { source, destination, draggableId, type } = result;
     if (!destination) return;
+
+    // ── Column reorder (admin only) ──
+    if (type === "COLUMN") {
+      if (source.index === destination.index) return;
+      setColumnOrder(prev => {
+        const next = [...prev];
+        const [moved] = next.splice(source.index, 1);
+        next.splice(destination.index, 0, moved);
+        return next;
+      });
+      return;
+    }
+
     if (source.droppableId === destination.droppableId) return; // same column, no-op for now
 
     const srcId = source.droppableId;
@@ -821,12 +848,13 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
           {isAdmin && showPoolSorter && (
             <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-600">
               <ArrowUpDown className="w-4 h-4 text-gray-400" />
-              <span>拖拽任务卡片可在列之间移动</span>
+              <span>拖拽任务卡片可在列之间移动；管理员可拖拽列头调整顺序</span>
               <Button variant="ghost" size="sm" className="ml-auto h-6 text-xs" onClick={() => setShowPoolSorter?.(false)}>关闭</Button>
             </div>
           )}
 
           <div className="flex gap-4 overflow-x-auto pb-4">
+            {/* Staging column — always fixed at the left, not draggable */}
             <StagingColumn
               allOrders={allOrders}
               officialPools={pools}
@@ -835,38 +863,76 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
               onRefresh={onRefresh}
             />
 
-            {/* Todoist-style "add section" divider button */}
+            {/* Todoist-style "add section" divider — invisible until hover */}
             {isAdmin && (
-              <div className="flex-shrink-0 flex items-stretch">
+              <div className="flex-shrink-0 flex items-stretch group/addbtn">
                 <button
                   onClick={() => setCreatePoolOpen(true)}
                   title="创建新官方拼邮需求"
-                  className="group flex flex-col items-center justify-center w-6 relative"
+                  className="flex flex-col items-center justify-center w-6 relative"
                 >
-                  {/* vertical line */}
-                  <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-px bg-gray-200 group-hover:bg-blue-400 transition-colors duration-200" />
-                  {/* label pill */}
-                  <span className="relative z-10 bg-white border border-gray-200 group-hover:border-blue-400 group-hover:text-blue-500 text-gray-400 transition-colors duration-200 rounded-full px-1.5 py-0.5 whitespace-nowrap"
-                    style={{ writingMode: "vertical-lr", fontSize: "10px", letterSpacing: "0.05em" }}>
+                  {/* vertical line: hidden by default, shown on hover */}
+                  <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-px bg-transparent group-hover/addbtn:bg-blue-400 transition-colors duration-200" />
+                  {/* label pill: hidden by default, shown on hover */}
+                  <span
+                    className="relative z-10 bg-white border border-transparent group-hover/addbtn:border-blue-400 group-hover/addbtn:text-blue-500 text-transparent transition-colors duration-200 rounded-full px-1.5 py-0.5 whitespace-nowrap select-none"
+                    style={{ writingMode: "vertical-lr", fontSize: "10px", letterSpacing: "0.05em" }}
+                  >
                     + 新增列
                   </span>
                 </button>
               </div>
             )}
 
-            {pools.map(pool => (
-              <PoolColumn
-                key={pool.id}
-                pool={pool}
-                allOrders={allOrders}
-                currentUser={currentUser}
-                isAdmin={isAdmin}
-                shippingAddons={shippingAddons}
-                savedAddresses={savedAddresses}
-                onPoolClick={onPoolClick}
-                onRefresh={onRefresh}
-              />
-            ))}
+            {/* Pool columns — draggable by admins */}
+            <Droppable droppableId="column-order" direction="horizontal" type="COLUMN">
+              {(provided) => (
+                <div
+                  ref={provided.innerRef}
+                  {...provided.droppableProps}
+                  className="flex gap-4"
+                >
+                  {orderedPools.map((pool, idx) => (
+                    isAdmin ? (
+                      <Draggable key={pool.id} draggableId={`col-${pool.id}`} index={idx}>
+                        {(colProvided, colSnapshot) => (
+                          <div
+                            ref={colProvided.innerRef}
+                            {...colProvided.draggableProps}
+                            className={colSnapshot.isDragging ? "opacity-80" : ""}
+                          >
+                            <PoolColumn
+                              pool={pool}
+                              allOrders={allOrders}
+                              currentUser={currentUser}
+                              isAdmin={isAdmin}
+                              shippingAddons={shippingAddons}
+                              savedAddresses={savedAddresses}
+                              onPoolClick={onPoolClick}
+                              onRefresh={onRefresh}
+                              columnDragHandleProps={colProvided.dragHandleProps}
+                            />
+                          </div>
+                        )}
+                      </Draggable>
+                    ) : (
+                      <PoolColumn
+                        key={pool.id}
+                        pool={pool}
+                        allOrders={allOrders}
+                        currentUser={currentUser}
+                        isAdmin={isAdmin}
+                        shippingAddons={shippingAddons}
+                        savedAddresses={savedAddresses}
+                        onPoolClick={onPoolClick}
+                        onRefresh={onRefresh}
+                      />
+                    )
+                  ))}
+                  {provided.placeholder}
+                </div>
+              )}
+            </Droppable>
           </div>
         </div>
       </DragDropContext>
