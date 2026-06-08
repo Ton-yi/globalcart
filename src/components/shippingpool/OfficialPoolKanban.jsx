@@ -474,7 +474,8 @@ function PoolColumn({ pool, allOrders, currentUser, isAdmin, shippingAddons, sav
 
   const myGroup = perUserGroups.find(g => g.user_email === currentUser?.email);
   const myOrderIds = new Set((myGroup?.order_entries || []).map(e => e.order_id));
-  const hasInWarehouse = allOrders.some(o => o.order_status === "in_warehouse" && !myOrderIds.has(o.id));
+  // Filter to current user's orders only for the hasInWarehouse check
+  const hasInWarehouse = allOrders.some(o => o.user_email === currentUser?.email && o.order_status === "in_warehouse" && !myOrderIds.has(o.id));
 
   // Build draggable items list (groups with 1+ entries are all draggable; groups with 2+ also expose individual entries when expanded)
   const draggableItems = [];
