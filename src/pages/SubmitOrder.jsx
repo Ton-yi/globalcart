@@ -56,6 +56,7 @@ export default function SubmitOrder() {
   const [paymentMethods, setPaymentMethods] = useState([]);
   const [paymentMode, setPaymentMode] = useState(""); // set after settings load: "prepay" | "deferred" | "credit_weekly" | "credit_monthly"
   const [userCredit, setUserCredit] = useState(null); // user's credit status
+  const [creditDowngradeMsg, setCreditDowngradeMsg] = useState(null); // shown after submit if credit downgraded
 
   useEffect(() => {
     const t = timePage('SubmitOrder');
