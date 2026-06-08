@@ -1081,6 +1081,7 @@ export default function PreShipmentForm() {
       }
 
       {/* One-time payment configuration */}
+      {console.log('[PreShipmentForm] Passing destinationCountry:', address?.country, 'full address:', address)}
       <PreShipmentFormFullPayOnce
         shippingMethods={shippingMethods}
         consType={consType}
