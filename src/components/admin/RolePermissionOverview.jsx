@@ -94,132 +94,102 @@ export default function RolePermissionOverview({ roles = [], isPlatformAdmin = f
   return (
     <Card className="mt-8 border-gray-200">
       <CardHeader className="pb-3">
-        <CardTitle className="text-sm font-semibold flex items-center gap-2">
-          <Shield className="w-4 h-4 text-indigo-500" />角色权限总览（租户自有）
-        </CardTitle>
-        <p className="text-xs text-gray-400 mt-1">共 {allRolesToDisplay.length} 个自定义角色</p>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <Shield className="w-4 h-4 text-indigo-500" />角色权限总览（租户自有）
+          </CardTitle>
+          <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{allRolesToDisplay.length} 个角色</span>
+        </div>
       </CardHeader>
 
-      <CardContent className="overflow-x-auto">
-        <table className="w-full text-xs">
-          <thead>
-            <tr className="border-b border-gray-200">
-              <th className="text-left py-2 px-3 font-medium text-gray-600">角色名称</th>
-              <th className="text-left py-2 px-3 font-medium text-gray-600">权限数量</th>
-              <th className="text-left py-2 px-3 font-medium text-gray-600">详细权限</th>
-              {(isTenantAdmin || isPlatformAdmin) && <th className="text-right py-2 px-3 font-medium text-gray-600">操作</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {allRolesToDisplay.map((role) => {
-              const isExpanded = expandedRole === role.id;
-              const permCount = role.direct_permissions?.length || 0;
-              
-              return (
-                <tbody key={role.id}>
-                  <tr className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-2 px-3">
-                      <div className="flex items-center gap-2">
-                        {role.image_url ? (
-                          <img src={role.image_url} alt={role.name} className="w-6 h-6 rounded object-cover" />
-                        ) : (
-                          <div
-                            className="w-6 h-6 rounded-full"
-                            style={{ backgroundColor: role.color || "#9ca3af" }}
-                          />
-                        )}
-                        <span className="font-medium text-gray-900">{role.name}</span>
-                        {role.is_predefined && (
-                          <span className="text-2xs px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded">预定义</span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="py-2 px-3">
-                      <span className="font-semibold text-gray-800">{permCount}</span>
-                    </td>
-                    <td className="py-2 px-3">
-                      <button
-                        onClick={() => setExpandedRole(isExpanded ? null : role.id)}
-                        className="flex items-center gap-1 text-indigo-600 hover:text-indigo-700 font-medium"
-                      >
-                        {isExpanded ? (
-                          <>
-                            <ChevronUp className="w-3 h-3" />隐藏
-                          </>
-                        ) : (
-                          <>
-                            <ChevronDown className="w-3 h-3" />查看
-                          </>
-                        )}
-                      </button>
-                    </td>
-                    {(isTenantAdmin || isPlatformAdmin) && (
-                     <td className="py-2 px-3 text-right">
-                       <div className="flex items-center justify-end gap-1">
-                         <button
-                           onClick={() => handleEdit(role)}
-                           className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-indigo-600"
-                           title="编辑角色"
-                         >
-                           <Pencil className="w-3.5 h-3.5" />
-                         </button>
-                         {/* 内置预定义角色不允许租户管理员删除 */}
-                         {(!role.is_predefined || isPlatformAdmin) && (
-                           <button
-                             onClick={() => handleDelete(role.id, role.name)}
-                             disabled={deleting[role.id]}
-                             className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-600 disabled:opacity-50"
-                             title="删除角色"
-                           >
-                             <Trash2 className="w-3.5 h-3.5" />
-                           </button>
-                         )}
-                       </div>
-                     </td>
-                    )}
-                  </tr>
-                  
-                  {isExpanded && (
-                    <tr className="bg-indigo-50 border-b border-gray-100">
-                      <td colSpan="4" className="py-3 px-3">
-                        <div className="space-y-3">
-                          {Object.entries(PERMISSION_CATEGORIES).map(([category, perms]) => {
-                            const categoryPerms = role.direct_permissions?.filter(p => perms.includes(p)) || [];
-                            return (
-                              <div key={category}>
-                                <p className="text-xs font-semibold text-gray-700 mb-1.5">{category}</p>
-                                <div className="flex flex-wrap gap-1.5">
-                                  {perms.map(perm => {
-                                    const hasPermission = categoryPerms.includes(perm);
-                                    return (
-                                      <div
-                                        key={perm}
-                                        className={`text-2xs px-2 py-1 rounded border ${
-                                          hasPermission
-                                            ? "bg-indigo-100 border-indigo-300 text-indigo-700 font-medium"
-                                            : "bg-gray-100 border-gray-200 text-gray-400"
-                                        }`}
-                                      >
-                                        {PERMISSION_LABELS[perm]}
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            );
-                          })}
-                          {(!role.direct_permissions || role.direct_permissions.length === 0) && (
-                            <p className="text-gray-400 text-2xs italic">无权限分配</p>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
+      <CardContent>
+        <div className="space-y-2">
+          {allRolesToDisplay.map((role) => {
+            const isExpanded = expandedRole === role.id;
+            const permCount = role.direct_permissions?.length || 0;
+
+            return (
+              <div key={role.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                {/* Role header row */}
+                <div className="flex items-center gap-3 px-4 py-3 bg-white hover:bg-gray-50 transition-colors">
+                  {/* Color dot / image */}
+                  {role.image_url ? (
+                    <img src={role.image_url} alt={role.name} className="w-7 h-7 rounded-full object-cover flex-shrink-0" />
+                  ) : (
+                    <div className="w-7 h-7 rounded-full flex-shrink-0 ring-2 ring-white shadow-sm"
+                      style={{ backgroundColor: role.color || "#9ca3af" }} />
                   )}
-                </tbody>
-              );
-            })}
-          </tbody>
-        </table>
+
+                  {/* Name + badge */}
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <span className="font-medium text-sm text-gray-900 truncate">{role.name}</span>
+                    {role.is_predefined && (
+                      <span className="text-xs px-1.5 py-0.5 bg-blue-50 text-blue-600 border border-blue-200 rounded flex-shrink-0">预定义</span>
+                    )}
+                  </div>
+
+                  {/* Perm count badge */}
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${
+                    permCount > 0 ? "bg-indigo-50 text-indigo-600 border border-indigo-200" : "bg-gray-100 text-gray-400"
+                  }`}>
+                    {permCount} 项权限
+                  </span>
+
+                  {/* Expand button */}
+                  <button
+                    onClick={() => setExpandedRole(isExpanded ? null : role.id)}
+                    className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 font-medium px-2 py-1 rounded hover:bg-indigo-50 transition-colors flex-shrink-0"
+                  >
+                    {isExpanded ? <><ChevronUp className="w-3.5 h-3.5" />收起</> : <><ChevronDown className="w-3.5 h-3.5" />详情</>}
+                  </button>
+
+                  {/* Action buttons */}
+                  {(isTenantAdmin || isPlatformAdmin) && (
+                    <div className="flex items-center gap-0.5 flex-shrink-0">
+                      <button onClick={() => handleEdit(role)}
+                        className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-indigo-600 transition-colors" title="编辑">
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                      {(!role.is_predefined || isPlatformAdmin) && (
+                        <button onClick={() => handleDelete(role.id, role.name)} disabled={deleting[role.id]}
+                          className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-500 disabled:opacity-40 transition-colors" title="删除">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Expanded permissions */}
+                {isExpanded && (
+                  <div className="border-t border-gray-100 bg-gray-50 px-4 py-3 space-y-3">
+                    {permCount === 0 ? (
+                      <p className="text-xs text-gray-400 italic text-center py-2">暂无权限分配</p>
+                    ) : (
+                      Object.entries(PERMISSION_CATEGORIES).map(([category, perms]) => {
+                        const granted = role.direct_permissions?.filter(p => perms.includes(p)) || [];
+                        if (granted.length === 0) return null;
+                        return (
+                          <div key={category}>
+                            <p className="text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">{category}</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {granted.map(perm => (
+                                <span key={perm}
+                                  className="text-xs px-2 py-0.5 rounded-full bg-indigo-100 border border-indigo-200 text-indigo-700 font-medium">
+                                  {PERMISSION_LABELS[perm] || perm}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </CardContent>
 
       {editingRole && (
