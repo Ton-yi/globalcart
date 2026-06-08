@@ -333,8 +333,16 @@ function DraggableGroupCard({ draggableId, index, group, allOrders, pool, curren
                               <GripVertical className="w-3.5 h-3.5" />
                             </div>
                           )}
-                          <Package className="w-3.5 h-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
-                          <PrivacyAwareOrderInfo order={order} entry={entry} canSeeOrderInfo={canSeeOrderInfo} />
+                          <div className="flex-1 min-w-0">
+                            {/* User name label above task */}
+                            <div className="text-xs text-gray-500 font-medium mb-0.5 truncate">
+                              {group?.user_name || group?.user_email?.split('@')[0] || '未知用户'}
+                            </div>
+                            <div className="flex items-start gap-2">
+                              <Package className="w-3.5 h-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
+                              <PrivacyAwareOrderInfo order={order} entry={entry} canSeeOrderInfo={canSeeOrderInfo} />
+                            </div>
+                          </div>
                           {isEntrySelected ? <CheckSquare className="w-3.5 h-3.5 text-blue-500 flex-shrink-0 mt-0.5" /> : canEdit && <Edit2 className="w-3 h-3 text-gray-300 hover:text-gray-500 flex-shrink-0 mt-0.5" />}
                         </div>
                       )}
