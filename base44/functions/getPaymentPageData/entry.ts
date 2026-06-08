@@ -84,8 +84,62 @@ Deno.serve(async (req) => {
       if (jpyUsdIncrement && adjustedRates.USD) adjustedRates.USD = adjustedRates.USD + jpyUsdIncrement;
     }
 
-    console.log('[DIAG][getPaymentPageData] SUCCESS returning order:', order.id);
-    return Response.json({ order, settings, paymentMethods: sortedMethods, rates: adjustedRates });
+    // Calculate one-time payment amount if enabled
+    const fullpayOnceConfig = order.pre_shipment?.fullpay_once_config || order.fullpay_once_config;
+    const isFullPayOnce = !!fullpayOnceConfig;
+    const estimatedShippingFee = fullpayOnceConfig?.estimated_shipping_fee_jpy || 0;
+    
+    // Determine payment amount based on payment status
+    let paymentAmountJpy = order.prepayment_amount || 0;
+    let paymentBreakdown = {
+      product_fee: order.estimated_jpy || 0,
+      service_fee: order.service_fee_amount || 0,
+      shipping_fee: 0,
+      total: order.prepayment_amount || 0
+    };
+    
+    if (isFullPayOnce) {
+      // One-time payment mode
+      if (order.payment_status === "paid" || order.paid_amount >= (order.estimated_jpy || 0) + (order.service_fee_amount || 0)) {
+        // Product fee already paid, only need to pay shipping fee
+        paymentAmountJpy = estimatedShippingFee;
+        paymentBreakdown = {
+          product_fee: 0,
+          service_fee: 0,
+          shipping_fee: estimatedShippingFee,
+          total: estimatedShippingFee
+        };
+      } else {
+        // Product fee not paid, pay total (product + service + shipping)
+        paymentAmountJpy = (order.estimated_jpy || 0) + (order.service_fee_amount || 0) + estimatedShippingFee;
+        paymentBreakdown = {
+          product_fee: order.estimated_jpy || 0,
+          service_fee: order.service_fee_amount || 0,
+          shipping_fee: estimatedShippingFee,
+          total: paymentAmountJpy
+        };
+      }
+    }
+    
+    console.log('[DIAG][getPaymentPageData] One-time payment:', { 
+      isFullPayOnce, 
+      estimatedShippingFee, 
+      paymentAmountJpy, 
+      paymentBreakdown,
+      orderPaymentStatus: order.payment_status,
+      orderPaidAmount: order.paid_amount 
+    });
+
+    return Response.json({ 
+      order, 
+      settings, 
+      paymentMethods: sortedMethods, 
+      rates: adjustedRates,
+      isFullPayOnce,
+      estimatedShippingFee,
+      paymentAmountJpy,
+      paymentBreakdown
+    });
 
   } catch (error) {
     console.error('[DIAG][getPaymentPageData] ERROR:', error.message, error.stack);

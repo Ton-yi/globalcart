@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { ExternalLink, Copy, CheckCircle, AlertCircle, ArrowLeft, Upload, Loader2 } from "lucide-react";
+import { ExternalLink, Copy, CheckCircle, AlertCircle, ArrowLeft, Upload, Loader2, Calculator } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,9 +50,17 @@ export default function Payment() {
 
   const handleGenerateAlipayLink = async () => {
     setGeneratingLink(true);
+    // Calculate payment amount based on one-time payment mode (calculated in render)
+    const isFullPayOnce = order?.fullpay_once_config?.settlement_status === "pending";
+    const hasPaidProductFee = order?.paid_amount && order.paid_amount > 0;
+    const estimatedShippingFee = order?.fullpay_once_config?.estimated_shipping_fee_jpy || 0;
+    const paymentAmount = isFullPayOnce 
+      ? (hasPaidProductFee ? order.paid_amount + estimatedShippingFee : (order.estimated_jpy || 0) + (order.service_fee_amount || 0) + estimatedShippingFee)
+      : (order.prepayment_amount || 0);
+    
     const res = await base44.functions.invoke('generateAlipayPaymentLink', {
       orderId: order.id,
-      amount: order.prepayment_amount,
+      amount: paymentAmount,
       subject: `同一物流代购 - ${order.product_name}`,
     });
     setGeneratingLink(false);
@@ -71,13 +79,23 @@ export default function Payment() {
     const { file_url } = await base44.integrations.Core.UploadFile({ file });
     setProofFile(file_url);
     setUploading(false);
+    // Calculate total paid amount based on one-time payment mode
+    const isFullPayOnce = order?.fullpay_once_config?.settlement_status === "pending";
+    const hasPaidProductFee = order?.paid_amount && order.paid_amount > 0;
+    const estimatedShippingFee = order?.fullpay_once_config?.estimated_shipping_fee_jpy || 0;
+    const shippingOnlyAmount = estimatedShippingFee;
+    const totalAmount = (order.estimated_jpy || 0) + (order.service_fee_amount || 0) + estimatedShippingFee;
+    const totalPaidAmount = isFullPayOnce 
+      ? (hasPaidProductFee ? order.paid_amount + shippingOnlyAmount : totalAmount)
+      : (order.prepayment_amount || 0);
+    
     await base44.functions.invoke('updateTenantOrder', {
       order_id: order.id,
       payment_proof_url: file_url,
       payment_method: method,
       payment_status: "paid",
       order_status: "pending_purchase",
-      paid_amount: order.prepayment_amount,
+      paid_amount: totalPaidAmount,
     });
     setSubmitted(true);
     setTimeout(() => navigate(createPageUrl("MyOrders")), 2000);
@@ -85,7 +103,44 @@ export default function Payment() {
 
   if (loading) return <div className="text-center py-20 text-gray-400">加载中...</div>;
 
-  const amountJpy = order?.prepayment_amount || 0;
+  // Calculate payment amount based on one-time payment mode
+  const isFullPayOnce = order?.fullpay_once_config?.settlement_status === "pending";
+  const hasPaidProductFee = order?.paid_amount && order.paid_amount > 0;
+  
+  let amountJpy = 0;
+  let paymentBreakdown = null;
+  
+  if (isFullPayOnce) {
+    // One-time payment mode
+    const productFee = order?.estimated_jpy || 0;
+    const serviceFee = order?.service_fee_amount || 0;
+    const estimatedShippingFee = order?.fullpay_once_config?.estimated_shipping_fee_jpy || 0;
+    
+    if (hasPaidProductFee) {
+      // Already paid product fee, only need to pay estimated shipping fee
+      amountJpy = estimatedShippingFee;
+      paymentBreakdown = {
+        product_fee: productFee,
+        service_fee: serviceFee,
+        shipping_fee: estimatedShippingFee,
+        paid_product_fee: order.paid_amount,
+        total: estimatedShippingFee
+      };
+    } else {
+      // Haven't paid anything, pay total (product + service + estimated shipping)
+      amountJpy = productFee + serviceFee + estimatedShippingFee;
+      paymentBreakdown = {
+        product_fee: productFee,
+        service_fee: serviceFee,
+        shipping_fee: estimatedShippingFee,
+        total: amountJpy
+      };
+    }
+  } else {
+    // Normal payment mode
+    amountJpy = order?.prepayment_amount || 0;
+  }
+  
   const amountJpyDisplay = Math.round(amountJpy).toLocaleString();
 
   // Find the configured payment method for current selection
@@ -139,6 +194,47 @@ export default function Payment() {
                 <div className={`font-bold text-red-600 ${convertedAmount ? "text-lg" : "text-2xl"}`}>¥{amountJpyDisplay} JPY</div>
               </div>
             </div>
+            
+            {/* One-time payment breakdown */}
+            {isFullPayOnce && paymentBreakdown && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Calculator className="w-4 h-4 text-blue-600" />
+                  <span className="text-sm font-semibold text-blue-800">一次付款明细</span>
+                </div>
+                <div className="space-y-1 text-sm">
+                  {paymentBreakdown.product_fee > 0 && (
+                    <div className="flex justify-between text-blue-700">
+                      <span>货款</span>
+                      <span>¥{paymentBreakdown.product_fee.toLocaleString()}</span>
+                    </div>
+                  )}
+                  {paymentBreakdown.service_fee > 0 && (
+                    <div className="flex justify-between text-blue-700">
+                      <span>服务费</span>
+                      <span>¥{paymentBreakdown.service_fee.toLocaleString()}</span>
+                    </div>
+                  )}
+                  {paymentBreakdown.shipping_fee > 0 && (
+                    <div className="flex justify-between text-blue-700">
+                      <span>预估运费</span>
+                      <span>¥{paymentBreakdown.shipping_fee.toLocaleString()}</span>
+                    </div>
+                  )}
+                  <div className="border-t border-blue-200 pt-2 flex justify-between font-bold text-blue-800">
+                    <span>合计</span>
+                    <span>¥{paymentBreakdown.total.toLocaleString()}</span>
+                  </div>
+                </div>
+                {order.paid_amount > 0 && (
+                  <p className="text-xs text-blue-600">
+                    <CheckCircle className="w-3 h-3 inline mr-1" />
+                    货款 ¥{order.paid_amount.toLocaleString()} 已支付，本次只需支付运费
+                  </p>
+                )}
+              </div>
+            )}
+            
             {convertedAmount && (
               <div className="bg-orange-50 border border-orange-200 rounded-lg px-4 py-3">
                 <div className="flex items-center justify-between">
@@ -241,12 +337,17 @@ export default function Payment() {
             size="sm"
             className="text-xs text-gray-500"
             onClick={async () => {
+              // Calculate total paid amount based on one-time payment mode
+              const totalPaidAmount = isFullPayOnce 
+                ? (hasPaidProductFee ? order.paid_amount + amountJpy : amountJpy)
+                : amountJpy;
+              
               await base44.functions.invoke('updateTenantOrder', {
                 order_id: order.id,
                 payment_method: method,
                 payment_status: "paid",
                 order_status: "pending_purchase",
-                paid_amount: order.prepayment_amount,
+                paid_amount: totalPaidAmount,
               });
               navigate(createPageUrl("MyOrders"));
             }}
