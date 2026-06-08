@@ -562,10 +562,11 @@ export default function PreShipmentForm() {
                               </div>
                             </label>
                           ))}
-                      </div>
-                    );
-                  })()}
-                </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
               </div>
             </>
           )}
