@@ -1093,6 +1093,7 @@ export default function PreShipmentForm() {
         fullPayOnceEnabled={fullPayOnceEnabled}
         setFullPayOnceEnabled={setFullPayOnceEnabled}
         order={order}
+        shippingMethod={shippingMethod}
       />
 
       {/* Note */}

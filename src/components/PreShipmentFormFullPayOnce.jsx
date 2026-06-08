@@ -24,12 +24,10 @@ export default function PreShipmentFormFullPayOnce({
   fullPayOnceEnabled,
   setFullPayOnceEnabled,
   order,
-  selectedShippingMethod,
-  setSelectedShippingMethod
+  shippingMethod
 }) {
   // Reset when consType changes
   useEffect(() => {
-    setSelectedShippingMethod("");
     setUserEstimatedWeight("");
     setEstimatedShippingFee(0);
     setFullPayOnceEnabled(false);
@@ -47,7 +45,7 @@ export default function PreShipmentFormFullPayOnce({
 
   // Calculate shipping fee based on shipping mode
   useEffect(() => {
-    if (!fullPayOnceEnabled || !userEstimatedWeight || !selectedShippingMethod || !shippingMethods.length) {
+    if (!fullPayOnceEnabled || !userEstimatedWeight || !shippingMethod || !shippingMethods.length) {
       setEstimatedShippingFee(0);
       return;
     }
@@ -58,7 +56,7 @@ export default function PreShipmentFormFullPayOnce({
       return;
     }
     
-    const method = shippingMethods.find(m => m.code === selectedShippingMethod);
+    const method = shippingMethods.find(m => m.code === shippingMethod);
     if (!method) {
       setEstimatedShippingFee(0);
       return;
@@ -104,7 +102,7 @@ export default function PreShipmentFormFullPayOnce({
     }
     
     setEstimatedShippingFee(Math.round(fee));
-  }, [fullPayOnceEnabled, userEstimatedWeight, selectedShippingMethod, shippingMethods, consType, order]);
+  }, [fullPayOnceEnabled, userEstimatedWeight, shippingMethod, shippingMethods, consType, order]);
 
   if (!isAllowed()) {
     return (
@@ -167,9 +165,9 @@ export default function PreShipmentFormFullPayOnce({
                 <button
                   key={method.code}
                   type="button"
-                  onClick={() => setSelectedShippingMethod(method.code)}
+                  onClick={() => {}}
                   className={`p-3 rounded-lg border-2 text-sm font-medium transition-all text-left ${
-                    selectedShippingMethod === method.code
+                    shippingMethod === method.code
                       ? "border-blue-500 bg-blue-50 text-blue-700"
                       : "border-gray-200 text-gray-500 hover:border-gray-300"
                   }`}
@@ -184,6 +182,7 @@ export default function PreShipmentFormFullPayOnce({
                 </button>
               ))}
             </div>
+            <p className="text-xs text-gray-400 mt-1">运输方式已在上一步选择</p>
           </div>
 
           {/* Estimated shipping fee display */}
