@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
-import { Search, RefreshCw, Filter, ChevronUp, ChevronDown, ChevronsUpDown, Trash2, AlertCircle, Layers, Send, LayoutList, Archive, ArchiveRestore, Scissors } from "lucide-react";
+import { Search, RefreshCw, Filter, ChevronUp, ChevronDown, ChevronsUpDown, Trash2, AlertCircle, Layers, Send, LayoutList, Archive, ArchiveRestore, Scissors, Calculator, CheckCircle, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -88,7 +88,7 @@ function formatAmount(amount, currency) {
   return `${currency} ${amount.toFixed(2)}`;
 }
 
-function CellValue({ col, order, onQuickOrdered, userAvatars }) {
+function CellValue({ col, order, onQuickOrdered, userAvatars, onOpenFullpaySettlement }) {
   switch (col.key) {
     case "order_number": {
       const isSplitPending = order.has_split_marker && !order.parent_order_id && order.split_index !== -1;
@@ -230,9 +230,26 @@ function CellValue({ col, order, onQuickOrdered, userAvatars }) {
       
       return (
         <div className="flex flex-col gap-1 min-w-[140px]">
-          <Badge className={`text-xs w-fit ${statusColors[settlementStatus]}`}>
-            {statusLabels[settlementStatus] || settlementStatus}
-          </Badge>
+          <div className="flex items-center gap-1">
+            <Badge className={`text-xs w-fit ${statusColors[settlementStatus]}`}>
+              {statusLabels[settlementStatus] || settlementStatus}
+            </Badge>
+            {settlementStatus === 'pending' && actualWeight === 0 && (
+              <button
+                onClick={() => {
+                  onOpenFullpaySettlement?.(order, {
+                    estimatedWeight,
+                    estimatedFee,
+                    weightDiff: 0,
+                    feeDiff: 0
+                  });
+                }}
+                className="text-[10px] text-blue-600 hover:text-blue-800 hover:underline"
+              >
+                结算
+              </button>
+            )}
+          </div>
           <div className="text-[10px] text-gray-600 space-y-0.5">
             <div className="flex justify-between gap-2">
               <span>预估:</span>
@@ -300,6 +317,11 @@ export default function AdminOrders() {
   const [defaultPackingFeeConsolidation, setDefaultPackingFeeConsolidation] = useState(0);
   const [selectedPool, setSelectedPool] = useState(null);
   const [showArchived, setShowArchived] = useState(false);
+  const [showFullpaySettlement, setShowFullpaySettlement] = useState(false);
+  const [selectedFullpayOrder, setSelectedFullpayOrder] = useState(null);
+  const [settlementData, setSettlementData] = useState(null);
+  const [actualWeight, setActualWeight] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
@@ -660,7 +682,17 @@ export default function AdminOrders() {
                     </td>
                     {visibleCols.map(col => (
                       <td key={col.key} className="px-3 py-3 max-w-[220px]">
-                        <CellValue col={{ ...col, _rules: storeTagRules }} order={order} onQuickOrdered={handleQuickOrdered} userAvatars={userProfileMap} />
+                        <CellValue 
+                          col={{ ...col, _rules: storeTagRules }} 
+                          order={order} 
+                          onQuickOrdered={handleQuickOrdered} 
+                          userAvatars={userProfileMap}
+                          onOpenFullpaySettlement={(order, data) => {
+                            setSelectedFullpayOrder(order);
+                            setSettlementData(data);
+                            setShowFullpaySettlement(true);
+                          }}
+                        />
                       </td>
                     ))}
                     <td className="px-3 py-3 whitespace-nowrap" onClick={e => e.stopPropagation()}>
@@ -905,6 +937,111 @@ export default function AdminOrders() {
           onClose={() => setSelectedPool(null)}
           onUpdated={() => { setSelectedPool(null); fetchOrders(); }}
         />
+      )}
+
+      {/* One-time payment settlement modal */}
+      {showFullpaySettlement && selectedFullpayOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4">一次付款结算</h3>
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-500">订单号：</span>
+                <span className="font-mono">{selectedFullpayOrder.order_number}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">用户：</span>
+                <span>{selectedFullpayOrder.user_name}</span>
+              </div>
+              <div className="border-t pt-3 space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-gray-500">预估重量：</span>
+                  <span>{settlementData?.estimatedWeight}g</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">预估运费：</span>
+                  <span>¥{settlementData?.estimatedFee?.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">实际重量：</span>
+                  <Input
+                    type="number"
+                    value={actualWeight}
+                    onChange={(e) => setActualWeight(e.target.value)}
+                    className="w-24 h-7 text-right"
+                    placeholder="输入实际重量"
+                  />
+                </div>
+              </div>
+              {settlementData && actualWeight && (
+                <div className="bg-gray-50 p-3 rounded border">
+                  <div className="flex justify-between mb-1">
+                    <span className="text-gray-500">重量差异：</span>
+                    <span className={settlementData.weightDiff > 0 ? 'text-orange-600 font-medium' : 'text-blue-600 font-medium'}>
+                      {settlementData.weightDiff > 0 ? '+' : ''}{settlementData.weightDiff}g
+                      ({actualWeight}g - {settlementData.estimatedWeight}g)
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">运费差异：</span>
+                    <span className={settlementData.feeDiff > 0 ? 'text-orange-600 font-medium' : 'text-blue-600 font-medium'}>
+                      {settlementData.feeDiff > 0 ? '+' : '¥'}{Math.abs(settlementData.feeDiff).toLocaleString()} JPY
+                    </span>
+                  </div>
+                  <div className="flex justify-between mt-2 pt-2 border-t">
+                    <span className="font-semibold">结算状态：</span>
+                    <span className={settlementData.feeDiff > 0 ? 'text-orange-600 font-bold' : settlementData.feeDiff < 0 ? 'text-blue-600 font-bold' : 'text-green-600 font-bold'}>
+                      {settlementData.feeDiff > 0 ? '需补款' : settlementData.feeDiff < 0 ? '需退款' : '已结清'}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="flex gap-2 mt-6">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowFullpaySettlement(false);
+                  setSelectedFullpayOrder(null);
+                  setActualWeight("");
+                }}
+                className="flex-1"
+              >
+                取消
+              </Button>
+              <Button
+                onClick={async () => {
+                  if (!actualWeight) {
+                    alert('请输入实际重量');
+                    return;
+                  }
+                  setIsProcessing(true);
+                  try {
+                    const weight = parseFloat(actualWeight);
+                    await base44.functions.invoke('updateTenantOrder', {
+                      order_id: selectedFullpayOrder.id,
+                      weight_g: weight,
+                      update_fullpay_settlement: true
+                    });
+                    alert('结算完成');
+                    setShowFullpaySettlement(false);
+                    setSelectedFullpayOrder(null);
+                    setActualWeight("");
+                    fetchOrders();
+                  } catch (error) {
+                    alert('结算失败：' + error.message);
+                  } finally {
+                    setIsProcessing(false);
+                  }
+                }}
+                disabled={isProcessing || !actualWeight}
+                className="flex-1 bg-blue-600 hover:bg-blue-700"
+              >
+                {isProcessing ? '处理中...' : '确认结算'}
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
