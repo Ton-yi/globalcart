@@ -295,6 +295,8 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
         updateOrder(orderId, { order_status: 'notified_shipment', consolidation_pool_id: pool.id }),
       ]);
       setPool(p => ({ ...p, order_ids: updatedIds, total_weight_g: (p.total_weight_g || 0) + w }));
+      // Add the order to the local orders list so it appears in the task list immediately
+      setOrders(prev => [...prev, order]);
     } else {
       await base44.functions.invoke('userMutateShippingPool', {
         action: 'add_order',
