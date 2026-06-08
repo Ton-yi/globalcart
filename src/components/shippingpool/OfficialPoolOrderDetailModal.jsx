@@ -39,9 +39,12 @@ export default function OfficialPoolOrderDetailModal({ pool, group, orderEntry, 
   const [addonCustomFees, setAddonCustomFees] = useState(() => {
     // Initialize custom fees from saved data or default to fee
     const fees = {};
-    (orderEntry.addon_custom_fees || {}).forEach(cf => {
-      fees[cf.addon_id] = cf.custom_fee;
-    });
+    const addonFees = orderEntry.addon_custom_fees;
+    if (Array.isArray(addonFees)) {
+      addonFees.forEach(cf => {
+        fees[cf.addon_id] = cf.custom_fee;
+      });
+    }
     return fees;
   });
   const [useGroupAddress, setUseGroupAddress] = useState(orderEntry.use_group_address !== false);
