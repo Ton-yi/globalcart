@@ -648,9 +648,14 @@ function StagingColumn({ allOrders, officialPools, currentUser, isAdmin, onRefre
 
   const allOfficialPoolOrderIds = new Set(officialPools.flatMap(p => p.order_ids || []));
   const stagedOrders = allOrders.filter(o => {
+    // Skip if already in an official pool
     if (allOfficialPoolOrderIds.has(o.id)) return false;
     const pre = o.pre_shipment;
-    if (!pre || pre.consType !== "official_pool" || pre.pool_created === true) return false;
+    // Must have pre_shipment with official_pool type
+    if (!pre || pre.consType !== "official_pool") return false;
+    // Include orders where pool_created is false OR not set (default match case)
+    // This ensures orders waiting for admin assignment appear in staging
+    if (pre.pool_created === true && pre.target_pool_id) return false;
     return true;
   });
 
