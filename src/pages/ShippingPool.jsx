@@ -101,6 +101,7 @@ export default function ShippingPool() {
   const [strategy, setStrategy] = useState({ deadline: "", min_weight_g: "2000", timeout_action: "ship_individually" });
   const [shippingAddons, setShippingAddons] = useState([]);
   const [selectedAddonIds, setSelectedAddonIds] = useState([]);
+  const [addonCustomFees, setAddonCustomFees] = useState({});
   const [transitShippingMethods, setTransitShippingMethods] = useState([]);
   const [selectedTransitMethodId, setSelectedTransitMethodId] = useState("");
   const [userProfileMap, setUserProfileMap] = useState({});
@@ -167,6 +168,7 @@ export default function ShippingPool() {
     setStrategy({ deadline: "", min_weight_g: "2000", timeout_action: "ship_individually" });
     setShippingAddons([]);
     setSelectedAddonIds([]);
+    setAddonCustomFees({});
     setTransitShippingMethods([]);
     setSelectedTransitMethodId("");
     setFormLoading(true);
@@ -340,7 +342,16 @@ export default function ShippingPool() {
       selected_addon_ids: selectedAddonIds,
       selected_addons: shippingAddons
         .filter(a => selectedAddonIds.includes(a.id))
-        .map(a => ({ id: a.id, name: a.name, fee: a.fee, fee_currency: a.fee_currency })),
+        .map(a => {
+          const customFee = addonCustomFees[a.id];
+          const isCustomizable = a.is_user_customizable;
+          return {
+            id: a.id,
+            name: a.name,
+            fee: isCustomizable && customFee !== undefined ? customFee : a.fee,
+            fee_currency: a.fee_currency
+          };
+        }),
       // Store consolidation strategy on the pool so all participants can see progress
       consolidation_min_weight_g: consType !== "" ? (parseFloat(strategy.min_weight_g) || 2000) : 0,
       consolidation_deadline: consType !== "" ? (strategy.deadline || "") : "",
@@ -834,31 +845,57 @@ export default function ShippingPool() {
                     <div>
                       <Label className="text-xs text-gray-500 font-medium block mb-2">发货增值服务（可选）</Label>
                       <div className="space-y-1.5">
-                        {shippingAddons.map(a => (
-                          <label key={a.id} className={`flex items-center justify-between gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${selectedAddonIds.includes(a.id) ? "border-yellow-400 bg-yellow-50" : "border-gray-200 hover:bg-gray-50"}`}>
-                            <div className="flex items-center gap-2">
-                              <Checkbox
-                                checked={selectedAddonIds.includes(a.id)}
-                                onCheckedChange={v => setSelectedAddonIds(prev => v ? [...prev, a.id] : prev.filter(id => id !== a.id))}
-                              />
-                              <div className="flex flex-col gap-0.5">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="text-sm font-medium text-gray-800">{a.name}</span>
-                                  {a.is_user_customizable && (
-                                    <Badge className="text-[10px] bg-green-100 text-green-700 border-green-200">用户可自定义</Badge>
-                                  )}
-                                  {a.description && <span className="text-xs text-gray-400">{a.description}</span>}
+                        {shippingAddons.map(a => {
+                          const isSelected = selectedAddonIds.includes(a.id);
+                          const isCustomizable = a.is_user_customizable;
+                          return (
+                            <div key={a.id} className={`rounded-lg border p-2.5 transition-colors ${isSelected ? "border-yellow-400 bg-yellow-50" : "border-gray-200 hover:bg-gray-50"}`}>
+                              <label className="flex items-center justify-between gap-3 cursor-pointer">
+                                <div className="flex items-center gap-2 flex-1">
+                                  <Checkbox
+                                    checked={isSelected}
+                                    onCheckedChange={v => setSelectedAddonIds(prev => v ? [...prev, a.id] : prev.filter(id => id !== a.id))}
+                                  />
+                                  <div className="flex flex-col gap-0.5">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="text-sm font-medium text-gray-800">{a.name}</span>
+                                      {isCustomizable && (
+                                        <Badge className="text-[10px] bg-green-100 text-green-700 border-green-200">用户可自定义</Badge>
+                                      )}
+                                      {a.description && <span className="text-xs text-gray-400">{a.description}</span>}
+                                    </div>
+                                    {isCustomizable && (
+                                      <span className="text-[10px] text-gray-500">区间：{a.fee_currency || "JPY"} {a.min_fee} - {a.max_fee} · 默认：{Number(a.fee || 0).toLocaleString()}</span>
+                                    )}
+                                  </div>
                                 </div>
-                                {a.is_user_customizable && (
-                                  <span className="text-[10px] text-gray-500">区间：{a.fee_currency || "JPY"} {a.min_fee} - {a.max_fee} · 默认：{Number(a.fee || 0).toLocaleString()}</span>
+                                {!isCustomizable && (
+                                  <span className="text-xs font-medium text-yellow-700 flex-shrink-0">+{a.fee_currency || "JPY"} {Number(a.fee || 0).toLocaleString()}</span>
                                 )}
-                              </div>
+                              </label>
+                              {isCustomizable && isSelected && (
+                                <div className="mt-2 ml-6 flex items-center gap-2">
+                                  <span className="text-[10px] text-green-600 font-medium">用户可自定义</span>
+                                  <Input
+                                    type="number"
+                                    className="h-7 w-28 text-xs"
+                                    placeholder={`${a.min_fee}-${a.max_fee}`}
+                                    value={addonCustomFees[a.id] ?? a.fee}
+                                    min={a.min_fee}
+                                    max={a.max_fee}
+                                    onChange={(e) => {
+                                      const value = parseFloat(e.target.value) || 0;
+                                      const clamped = Math.max(a.min_fee || 0, Math.min(a.max_fee || 0, value));
+                                      setAddonCustomFees(prev => ({ ...prev, [a.id]: clamped }));
+                                    }}
+                                    onClick={(e) => e.stopPropagation()}
+                                  />
+                                  <span className="text-xs text-yellow-700">{a.fee_currency || "JPY"}</span>
+                                </div>
+                              )}
                             </div>
-                            {!a.is_user_customizable && (
-                              <span className="text-xs font-medium text-yellow-700 flex-shrink-0">+{a.fee_currency || "JPY"} {Number(a.fee || 0).toLocaleString()}</span>
-                            )}
-                          </label>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   )}
