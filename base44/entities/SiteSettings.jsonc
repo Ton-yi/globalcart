@@ -4,7 +4,7 @@
   "properties": {
     "tenant_id": {
       "type": "string",
-      "description": "\u6240\u5c5e\u79df\u6237ID"
+      "description": "\u6240\u5c5e\u79df\u6237 ID"
     },
     "key": {
       "type": "string",

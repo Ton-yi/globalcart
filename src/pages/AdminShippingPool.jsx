@@ -68,6 +68,9 @@ export default function AdminShippingPool() {
   const [defaultPackingFeeSingle, setDefaultPackingFeeSingle] = useState(0);
   const [defaultPackingFeeConsolidation, setDefaultPackingFeeConsolidation] = useState(0);
   const [allowReadyToShipWithoutPayment, setAllowReadyToShipWithoutPayment] = useState(false);
+  const [allowShipWithoutPaymentSingle, setAllowShipWithoutPaymentSingle] = useState(false);
+  const [allowShipWithoutPaymentUserPool, setAllowShipWithoutPaymentUserPool] = useState(false);
+  const [allowShipWithoutPaymentOfficialPool, setAllowShipWithoutPaymentOfficialPool] = useState(false);
   const [allOrders, setAllOrders] = useState([]);
 
   const fetchPageData = async () => {
@@ -85,7 +88,10 @@ export default function AdminShippingPool() {
     setShippingMethods(data.shippingMethods || []);
     setDefaultPackingFeeSingle(data.defaultPackingFeeSingle || 0);
     setDefaultPackingFeeConsolidation(data.defaultPackingFeeConsolidation || 0);
-    setAllowReadyToShipWithoutPayment(data.allowReadyToShipWithoutPayment || false);
+    setAllowReadyToShipWithoutPayment(data.allowShipWithoutPayment || false);
+    setAllowShipWithoutPaymentSingle(data.allowShipWithoutPaymentSingle || false);
+    setAllowShipWithoutPaymentUserPool(data.allowShipWithoutPaymentUserPool || false);
+    setAllowShipWithoutPaymentOfficialPool(data.allowShipWithoutPaymentOfficialPool || false);
     setAllOrders(data.orders || []);
     setLoading(false);
     t.done('data ready');
@@ -621,6 +627,9 @@ export default function AdminShippingPool() {
           defaultPackingFeeSingle={defaultPackingFeeSingle}
           defaultPackingFeeConsolidation={defaultPackingFeeConsolidation}
           allowReadyToShipWithoutPayment={allowReadyToShipWithoutPayment}
+          allowShipWithoutPaymentSingle={allowShipWithoutPaymentSingle}
+          allowShipWithoutPaymentUserPool={allowShipWithoutPaymentUserPool}
+          allowShipWithoutPaymentOfficialPool={allowShipWithoutPaymentOfficialPool}
           transitLocations={locations}
           transitShippingMethods={transitMethods}
           onClose={() => setSelectedPool(null)}

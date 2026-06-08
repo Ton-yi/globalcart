@@ -80,6 +80,10 @@ const DEFAULT_SETTINGS = [
   { key: "default_packing_fee_single", value: "0", description: "默认单独发货捆包作业手续费 (JPY)", category: "fee" },
   { key: "default_packing_fee_consolidation", value: "0", description: "默认拼邮发货捆包手续费 (JPY)", category: "fee" },
   { key: "transit_location_fee_split_enabled", value: "false", description: "中转地手续费是否平分（开启=平分给拼邮客户，关闭=每人单独计算）", category: "fee" },
+  { key: "allow_ship_without_payment", value: "false", description: "允许未付款时进入已发货状态（总开关）", category: "shipping" },
+  { key: "allow_ship_without_payment_single", value: "false", description: "单独发货 - 允许未付款直接发货", category: "shipping" },
+  { key: "allow_ship_without_payment_user_pool", value: "false", description: "用户拼邮发货 - 允许未付款直接发货", category: "shipping" },
+  { key: "allow_ship_without_payment_official_pool", value: "false", description: "官方拼邮发货 - 允许未付款直接发货", category: "shipping" },
   { key: "site_name", value: "同一物流", description: "网站名称", category: "general" },
   { key: "contact_email", value: "", description: "联系邮箱", category: "general" },
   { key: "whatsapp", value: "", description: "WhatsApp", category: "general" },
@@ -574,28 +578,119 @@ export default function AdminSettings() {
                   const s = allSettings.find(s => s.key === 'allow_ship_without_payment');
                   const enabled = s?.value === 'true';
                   return (
-                    <div className="flex items-center justify-between pb-1 border-b border-gray-100">
-                      <div>
-                        <Label className="text-sm">允许未付款时进入已发货状态</Label>
-                        <p className="text-xs text-gray-400 mt-0.5">开启后，管理员可在用户未付款或未全员付款的情况下，直接将发货申请进入已发货状态</p>
+                    <>
+                      <div className="flex items-center justify-between pb-1 border-b border-gray-100">
+                        <div>
+                          <Label className="text-sm">允许未付款时进入已发货状态</Label>
+                          <p className="text-xs text-gray-400 mt-0.5">开启后，管理员可在用户未付款或未全员付款的情况下，直接将发货申请进入已发货状态</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const newVal = enabled ? 'false' : 'true';
+                            if (s) {
+                              updateSetting(s.id, 'value', newVal);
+                              await tenantEntity.update('SiteSettings', s.id, { value: newVal });
+                            } else {
+                              await tenantEntity.create('SiteSettings', { key: 'allow_ship_without_payment', value: newVal, category: 'shipping', description: '允许未付款时进入已发货状态' });
+                              await load();
+                            }
+                          }}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${enabled ? 'bg-blue-600' : 'bg-gray-200'}`}
+                        >
+                          <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          const newVal = enabled ? 'false' : 'true';
-                          if (s) {
-                            updateSetting(s.id, 'value', newVal);
-                            await tenantEntity.update('SiteSettings', s.id, { value: newVal });
-                          } else {
-                            await tenantEntity.create('SiteSettings', { key: 'allow_ship_without_payment', value: newVal, category: 'shipping', description: '允许未付款时进入已发货状态' });
-                            await load();
-                          }
-                        }}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${enabled ? 'bg-blue-600' : 'bg-gray-200'}`}
-                      >
-                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${enabled ? 'translate-x-6' : 'translate-x-1'}`} />
-                      </button>
-                    </div>
+                      {/* Sub-toggles for each shipment type */}
+                      {enabled && (
+                        <div className="pl-4 space-y-2 pb-2 border-b border-gray-100">
+                          {(() => {
+                            const sSingle = allSettings.find(s => s.key === 'allow_ship_without_payment_single');
+                            const enabledSingle = sSingle?.value === 'true';
+                            return (
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <Label className="text-xs text-gray-600">单独发货</Label>
+                                  <p className="text-xs text-gray-400 mt-0.5">允许单独发货未付款直接发货</p>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    const newVal = enabledSingle ? 'false' : 'true';
+                                    if (sSingle) {
+                                      updateSetting(sSingle.id, 'value', newVal);
+                                      await tenantEntity.update('SiteSettings', sSingle.id, { value: newVal });
+                                    } else {
+                                      await tenantEntity.create('SiteSettings', { key: 'allow_ship_without_payment_single', value: newVal, category: 'shipping', description: '单独发货 - 允许未付款直接发货' });
+                                      await load();
+                                    }
+                                  }}
+                                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${enabledSingle ? 'bg-blue-600' : 'bg-gray-200'}`}
+                                >
+                                  <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${enabledSingle ? 'translate-x-4' : 'translate-x-1'}`} />
+                                </button>
+                              </div>
+                            );
+                          })()}
+                          {(() => {
+                            const sUserPool = allSettings.find(s => s.key === 'allow_ship_without_payment_user_pool');
+                            const enabledUserPool = sUserPool?.value === 'true';
+                            return (
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <Label className="text-xs text-gray-600">用户拼邮发货</Label>
+                                  <p className="text-xs text-gray-400 mt-0.5">允许用户拼邮未付款直接发货</p>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    const newVal = enabledUserPool ? 'false' : 'true';
+                                    if (sUserPool) {
+                                      updateSetting(sUserPool.id, 'value', newVal);
+                                      await tenantEntity.update('SiteSettings', sUserPool.id, { value: newVal });
+                                    } else {
+                                      await tenantEntity.create('SiteSettings', { key: 'allow_ship_without_payment_user_pool', value: newVal, category: 'shipping', description: '用户拼邮发货 - 允许未付款直接发货' });
+                                      await load();
+                                    }
+                                  }}
+                                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${enabledUserPool ? 'bg-blue-600' : 'bg-gray-200'}`}
+                                >
+                                  <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${enabledUserPool ? 'translate-x-4' : 'translate-x-1'}`} />
+                                </button>
+                              </div>
+                            );
+                          })()}
+                          {(() => {
+                            const sOfficialPool = allSettings.find(s => s.key === 'allow_ship_without_payment_official_pool');
+                            const enabledOfficialPool = sOfficialPool?.value === 'true';
+                            return (
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <Label className="text-xs text-gray-600">官方拼邮发货</Label>
+                                  <p className="text-xs text-gray-400 mt-0.5">允许官方拼邮未付款直接发货</p>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    const newVal = enabledOfficialPool ? 'false' : 'true';
+                                    if (sOfficialPool) {
+                                      updateSetting(sOfficialPool.id, 'value', newVal);
+                                      await tenantEntity.update('SiteSettings', sOfficialPool.id, { value: newVal });
+                                    } else {
+                                      await tenantEntity.create('SiteSettings', { key: 'allow_ship_without_payment_official_pool', value: newVal, category: 'shipping', description: '官方拼邮发货 - 允许未付款直接发货' });
+                                      await load();
+                                    }
+                                  }}
+                                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${enabledOfficialPool ? 'bg-blue-600' : 'bg-gray-200'}`}
+                                >
+                                  <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${enabledOfficialPool ? 'translate-x-4' : 'translate-x-1'}`} />
+                                </button>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      )}
+                    </>
                   );
                 })()}
 

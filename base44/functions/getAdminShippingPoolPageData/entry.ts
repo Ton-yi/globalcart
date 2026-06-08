@@ -114,12 +114,15 @@ Deno.serve(async (req) => {
         };
       });
 
-    // Extract packing fee defaults from site settings
+    // Extract packing fee defaults and ship-without-payment settings from site settings
     const settingsMap = {};
     (siteSettings || []).forEach(s => { settingsMap[s.key] = s.value; });
     const defaultPackingFeeSingle = parseFloat(settingsMap['default_packing_fee_single'] || '0') || 0;
     const defaultPackingFeeConsolidation = parseFloat(settingsMap['default_packing_fee_consolidation'] || '0') || 0;
     const allowShipWithoutPayment = settingsMap['allow_ship_without_payment'] === 'true';
+    const allowShipWithoutPaymentSingle = settingsMap['allow_ship_without_payment_single'] === 'true';
+    const allowShipWithoutPaymentUserPool = settingsMap['allow_ship_without_payment_user_pool'] === 'true';
+    const allowShipWithoutPaymentOfficialPool = settingsMap['allow_ship_without_payment_official_pool'] === 'true';
 
     // Apply saved official pool order if present
     const officialPoolOrderSetting = (siteSettings || []).find(s => s.key === 'official_pool_order');
@@ -150,6 +153,9 @@ Deno.serve(async (req) => {
       defaultPackingFeeSingle,
       defaultPackingFeeConsolidation,
       allowShipWithoutPayment,
+      allowShipWithoutPaymentSingle,
+      allowShipWithoutPaymentUserPool,
+      allowShipWithoutPaymentOfficialPool,
       orders: orders || [],
     });
 

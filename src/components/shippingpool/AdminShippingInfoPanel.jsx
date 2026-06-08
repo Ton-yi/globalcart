@@ -86,12 +86,27 @@ export default function AdminShippingInfoPanel({
   defaultPackingFeeSingle = 0,
   defaultPackingFeeConsolidation = 0,
   allowShipWithoutPayment = false,
+  allowShipWithoutPaymentSingle = false,
+  allowShipWithoutPaymentUserPool = false,
+  allowShipWithoutPaymentOfficialPool = false,
   transitLocations = [],
   transitShippingMethods = [],
   userProfileMap = {},
   onPoolUpdated,
 }) {
   const isConsolidation = (initialPool.consolidation_type === "transit" || initialPool.consolidation_type === "other");
+  
+  // Determine shipment type
+  const isOfficialPool = initialPool.is_admin_created === true;
+  const isUserPool = !isOfficialPool && isConsolidation;
+  const isSingle = !isOfficialPool && !isConsolidation;
+  
+  // Check if direct ship is allowed based on shipment type
+  const canDirectShipWithoutPayment = allowShipWithoutPayment && (
+    (isSingle && allowShipWithoutPaymentSingle) ||
+    (isUserPool && allowShipWithoutPaymentUserPool) ||
+    (isOfficialPool && allowShipWithoutPaymentOfficialPool)
+  );
 
   // Derive unique users from orders
   const uniqueUsers = [...new Map(
@@ -1194,7 +1209,7 @@ export default function AdminShippingInfoPanel({
                     const allPaid = isMultiUser
                       ? perUserPayments.every(p => p.payment_status === "paid") || pool.payment_status === "paid"
                       : pool.payment_status === "awaiting_confirmation" || pool.payment_status === "paid";
-                    const paymentOk = allowShipWithoutPayment || allPaid;
+                    const paymentOk = canDirectShipWithoutPayment || allPaid;
                     const canShipDirectly = paymentOk && !!trackingNumber;
                     return (
                       <div className="space-y-1.5">
@@ -1211,7 +1226,7 @@ export default function AdminShippingInfoPanel({
                           <Truck className="w-3.5 h-3.5 mr-1.5" />
                           {confirmingSaving ? "确认中..." : canShipDirectly ? "全部确认收款并进入已发货" : `全部确认收款并进入已发货${!trackingNumber ? "（需填写运单号）" : "（需全员付款）"}`}
                         </Button>
-                        {allowShipWithoutPayment && (
+                        {canDirectShipWithoutPayment && (
                           <Button size="sm" className="bg-red-600 hover:bg-red-700 w-full"
                             onClick={async () => {
                               setConfirmingSaving(true);
