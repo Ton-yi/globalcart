@@ -69,7 +69,13 @@ Deno.serve(async (req) => {
       });
 
       console.log(`[autoCreatePreShipmentPool] Joined existing official pool ${targetPool.pool_code} for order ${order.id}`);
-      return Response.json({ success: true, pool_code: targetPool.pool_code, pool_id: pre.target_pool_id, joined_existing: true });
+      return Response.json({ 
+        success: true, 
+        pool_code: targetPool.pool_code, 
+        pool_id: pre.target_pool_id, 
+        joined_existing: true,
+        is_official_pool: targetPool.is_admin_created === true 
+      });
     }
 
     // --- Case 1b: User chose official_pool with "default match" → find matching official pool ---
@@ -110,7 +116,13 @@ Deno.serve(async (req) => {
         });
 
         console.log(`[autoCreatePreShipmentPool] Auto-matched official pool ${matchingPool.pool_code} for order ${order.id}`);
-        return Response.json({ success: true, pool_code: matchingPool.pool_code, pool_id: matchingPool.id, joined_existing: true });
+        return Response.json({ 
+          success: true, 
+          pool_code: matchingPool.pool_code, 
+          pool_id: matchingPool.id, 
+          joined_existing: true,
+          is_official_pool: matchingPool.is_admin_created === true 
+        });
       }
       // If no matching pool found, fall through to create new pool
     }
@@ -175,7 +187,12 @@ Deno.serve(async (req) => {
     });
 
     console.log(`[autoCreatePreShipmentPool] Created pool ${pool_code} for order ${order.id}`);
-    return Response.json({ success: true, pool_code, pool_id: pool.id });
+    return Response.json({ 
+      success: true, 
+      pool_code, 
+      pool_id: pool.id,
+      is_official_pool: pool.is_admin_created === true 
+    });
   } catch (error) {
     console.error('autoCreatePreShipmentPool error:', error);
     return Response.json({ error: error.message }, { status: 500 });

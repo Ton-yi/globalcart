@@ -422,6 +422,15 @@ export default function AdminOrders() {
   const getOrderPool = (order) => shippingPools.find(p => (p.order_ids || []).includes(order.id)) || null;
 
   const handleOpenPool = async (pool) => {
+    // Check if it's an official pool
+    const isOfficialPool = pool.is_admin_created === true;
+    
+    // If official pool, navigate to official pool kanban page
+    if (isOfficialPool) {
+      window.location.href = '/AdminShippingPool?view=official';
+      return;
+    }
+    
     // Always fetch full pool data (shippingPools in state is a trimmed summary)
     const r = await base44.functions.invoke('getTenantShippingPools', {});
     const fullPool = (r.data?.pools || []).find(p => p.id === pool.id);
@@ -662,11 +671,16 @@ export default function AdminOrders() {
                           if (!pool) return null;
                           if (order.order_status === "shipping_fee_pending") return null; // already shown above
                           const isConsolidation = pool.consolidation_type && pool.consolidation_type !== "";
+                          const isOfficialPool = pool.is_admin_created === true;
                           return (
                             <Button size="sm" variant="outline"
-                              className={`h-6 text-xs px-2 ${isConsolidation ? "text-purple-600 border-purple-200 hover:bg-purple-50" : "text-teal-600 border-teal-200 hover:bg-teal-50"}`}
+                              className={`h-6 text-xs px-2 ${isOfficialPool ? "text-blue-600 border-blue-200 hover:bg-blue-50" : isConsolidation ? "text-purple-600 border-purple-200 hover:bg-purple-50" : "text-teal-600 border-teal-200 hover:bg-teal-50"}`}
                               onClick={() => handleOpenPool(pool)}>
-                              {isConsolidation ? <><Layers className="w-3 h-3 mr-1" />查看拼邮</> : <><Send className="w-3 h-3 mr-1" />查看发货申请</>}
+                              {isOfficialPool
+                                ? <><Layers className="w-3 h-3 mr-1" />查看官方拼邮</>
+                                : isConsolidation
+                                ? <><Layers className="w-3 h-3 mr-1" />查看拼邮</>
+                                : <><Send className="w-3 h-3 mr-1" />查看发货申请</>}
                             </Button>
                           );
                         })()}
@@ -799,9 +813,18 @@ export default function AdminOrders() {
           userProfileMap={userProfileMap}
           onClose={() => setSelectedOrder(null)}
           onSaved={() => { setSelectedOrder(null); fetchOrders(); }}
-          onOpenPool={async (poolId) => {
+          onOpenPool={async (poolId, isOfficialPool = false) => {
             setSelectedOrder(null);
             if (!poolId) return;
+            
+            // If official pool, navigate to official pool kanban page
+            if (isOfficialPool) {
+              // Navigate to official pool kanban - the page will load all official pools
+              window.location.href = '/AdminShippingPool?view=official';
+              return;
+            }
+            
+            // For non-official pools, open the detail modal
             // Always fetch full pool data (local shippingPools is a trimmed summary)
             const r = await base44.functions.invoke('getTenantShippingPools', {});
             const pool = (r.data?.pools || []).find(p => p.id === poolId);

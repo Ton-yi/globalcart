@@ -88,7 +88,7 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
   const [trackingNumber, setTrackingNumber] = useState(order.tracking_number || "");
 
   // Post-warehouse state (for pre_shipment pool creation result)
-  const [warehouseDone, setWarehouseDone] = useState(null); // { poolId } or null
+  const [warehouseDone, setWarehouseDone] = useState(null); // { poolId, isOfficialPool } or null
 
   // Split order state
   const [splitting, setSplitting] = useState(false);
@@ -253,13 +253,14 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
     if (order.pre_shipment && !order.pre_shipment.pool_created) {
       const poolRes = await base44.functions.invoke('autoCreatePreShipmentPool', { order_id: order.id });
       const poolId = poolRes?.data?.pool_id || null;
+      const isOfficialPool = poolRes?.data?.is_official_pool || false;
       if (andOpenPool && poolId) {
         onSaved();
-        onOpenPool?.(poolId);
+        onOpenPool?.(poolId, isOfficialPool);
         return;
       }
       if (poolId) {
-        setWarehouseDone({ poolId });
+        setWarehouseDone({ poolId, isOfficialPool });
         setSaving(false);
         return;
       }
@@ -615,7 +616,7 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
                         onChange={e => uploadFile(e.target.files[0], setPurchaseScreenshot, setUploadingScreenshot)} />
                     </label>
                     <div>
-                      <Label className="text-xs text-gray-500">或粘贴截图URL</Label>
+                      <Label className="text-xs text-gray-500">或粘贴截图 URL</Label>
                       <Input
                         type="text"
                         placeholder="https://example.com/screenshot.jpg"
@@ -710,7 +711,7 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
                         onChange={e => uploadFile(e.target.files[0], setArrivalPhoto, setUploadingArrival)} />
                     </label>
                     <div>
-                      <Label className="text-xs text-gray-500">或粘贴图片URL</Label>
+                      <Label className="text-xs text-gray-500">或粘贴图片 URL</Label>
                       <Input
                         type="text"
                         placeholder="https://example.com/photo.jpg"
@@ -729,7 +730,7 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
                     </div>
                   </div>
                   <div>
-                    <Label className="text-xs">货品重量 (g)（默认100g）</Label>
+                    <Label className="text-xs">货品重量 (g)（默认 100g）</Label>
                     <div className="flex items-center gap-1 mt-1">
                       <Input type="number" placeholder="100" value={form.weight_g || ""}
                         onChange={e => f("weight_g", e.target.value)}
@@ -859,7 +860,7 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
                       <div className="flex gap-2">
                         <Button size="sm" variant="outline" className="flex-1 text-xs" onClick={onSaved}>关闭</Button>
                         <Button size="sm" className="flex-1 bg-teal-600 hover:bg-teal-700 text-xs"
-                          onClick={() => { onSaved(); onOpenPool?.(warehouseDone.poolId); }}>
+                          onClick={() => { onSaved(); onOpenPool?.(warehouseDone.poolId, warehouseDone.isOfficialPool); }}>
                           <Send className="w-3 h-3 mr-1" />查看发货申请
                         </Button>
                       </div>
@@ -878,7 +879,7 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
                   ) : (
                     <Button size="sm" className="w-full bg-teal-600 hover:bg-teal-700 text-xs"
                       onClick={() => handleMarkInWarehouse()} disabled={saving || !canWarehouseIn}>
-                      {order.split_index === -1 ? "✓ 父订单确认入库（-00单）" : "✓ 确认入库"}
+                      {order.split_index === -1 ? "✓ 父订单确认入库（-00 单）" : "✓ 确认入库"}
                     </Button>
                   )}
                 </div>
@@ -1131,13 +1132,14 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
                       </div>
                       )}
 
-              {/* notified_shipment → open pool detail modal */}
+              {/* notified_shipment → open pool detail modal or official pool kanban */}
               {status === "notified_shipment" && (() => {
                 // Find pool by order_ids (same logic as table action column)
                 const pool = shippingPools.find(p => (p.order_ids || []).includes(order.id))
                   || (order.consolidation_pool_id ? shippingPools.find(p => p.id === order.consolidation_pool_id) : null);
                 const poolId = pool?.id || order.consolidation_pool_id;
                 const isConsolidation = pool?.consolidation_type && pool.consolidation_type !== "";
+                const isOfficialPool = pool?.is_admin_created === true;
                 return (
                   <div className="space-y-3 border border-cyan-100 rounded-xl p-3 bg-cyan-50">
                     <div className="text-sm font-medium text-cyan-800">已通知出货 — 通过发货池管理发货</div>
@@ -1148,14 +1150,16 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
                     )}
                     {poolId && (
                       <div className="text-xs text-gray-500">
-                        发货申请ID：<span className="font-mono text-cyan-700">{poolId.slice(-6).toUpperCase()}</span>
+                        发货申请 ID：<span className="font-mono text-cyan-700">{poolId.slice(-6).toUpperCase()}</span>
                       </div>
                     )}
                     <Button size="sm" variant="outline"
-                      className={`w-full text-xs ${isConsolidation ? "text-purple-600 border-purple-200 hover:bg-purple-50" : "text-teal-600 border-teal-200 hover:bg-teal-50"}`}
+                      className={`w-full text-xs ${isOfficialPool ? "text-blue-600 border-blue-200 hover:bg-blue-50" : isConsolidation ? "text-purple-600 border-purple-200 hover:bg-purple-50" : "text-teal-600 border-teal-200 hover:bg-teal-50"}`}
                       disabled={!poolId}
-                      onClick={() => { onClose(); onOpenPool?.(poolId); }}>
-                      {isConsolidation
+                      onClick={() => { onClose(); onOpenPool?.(poolId, isOfficialPool); }}>
+                      {isOfficialPool
+                        ? <><Layers className="w-3.5 h-3.5 mr-1.5" />查看官方拼邮</>
+                        : isConsolidation
                         ? <><Layers className="w-3.5 h-3.5 mr-1.5" />查看拼邮详情</>
                         : <><Send className="w-3.5 h-3.5 mr-1.5" />查看发货需求详情</>}
                     </Button>
