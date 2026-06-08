@@ -303,7 +303,9 @@ export default function OfficialPoolOrderDetailModal({ pool, group, orderEntry, 
                 {shippingAddons.map(a => {
                   const isSelected = selectedAddonIds.includes(a.id);
                   const isCustomizable = a.is_user_customizable && a.min_fee !== undefined && a.max_fee !== undefined && a.max_fee > 0;
-                  const customFee = addonCustomFees[a.id] !== undefined ? addonCustomFees[a.id] : a.fee;
+                  // For customizable addons, show the saved custom fee or default to the addon's default fee
+                  // For non-customizable, show the default fee
+                  const customFee = isCustomizable && isSelected ? (addonCustomFees[a.id] ?? a.fee) : a.fee;
                   
                   return (
                     <div key={a.id} className={`rounded-lg border p-2.5 transition-colors ${isSelected ? "border-yellow-400 bg-yellow-50" : "border-gray-200"}`}>
