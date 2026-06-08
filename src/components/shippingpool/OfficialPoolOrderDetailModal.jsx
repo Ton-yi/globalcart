@@ -58,12 +58,34 @@ export default function OfficialPoolOrderDetailModal({ pool, group, orderEntry, 
     e.target.value = "";
   };
 
-  const handleSendNote = () => {
+  const handleSendNote = async () => {
     if (!draftText.trim() && draftImages.length === 0) return;
     const newNote = { text: draftText.trim(), image_urls: draftImages, created_at: new Date().toISOString() };
+    
+    // Optimistically update local state
     setNotes(prev => [...prev, newNote]);
     setDraftText("");
     setDraftImages([]);
+    
+    // Save to database immediately
+    const updatedEntry = {
+      ...orderEntry,
+      notes: [...notes, newNote],
+      note: notes[0]?.text || "", // Keep legacy field from first note
+      image_urls: notes[0]?.image_urls || [],
+    };
+
+    const newGroups = (pool.per_user_groups || []).map(g => {
+      if (g.user_email !== group.user_email) return g;
+      return {
+        ...g,
+        order_entries: (g.order_entries || []).map(e =>
+          e.order_id === orderEntry.order_id ? updatedEntry : e
+        ),
+      };
+    });
+
+    await shippingPoolApi.update(pool.id, { per_user_groups: newGroups });
   };
 
   const handleDeleteNote = (idx) => {

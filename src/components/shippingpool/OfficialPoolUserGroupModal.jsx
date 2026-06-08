@@ -58,12 +58,29 @@ export default function OfficialPoolUserGroupModal({ pool, group, shippingAddons
     e.target.value = "";
   };
 
-  const handleSendNote = () => {
+  const handleSendNote = async () => {
     if (!draftText.trim() && draftImages.length === 0) return;
     const newNote = { text: draftText.trim(), image_urls: draftImages, created_at: new Date().toISOString() };
+    
+    // Optimistically update local state
     setNotes(prev => [...prev, newNote]);
     setDraftText("");
     setDraftImages([]);
+    
+    // Save to database immediately
+    const firstNote = notes[0];
+    const updatedGroup = {
+      ...group,
+      group_label: groupLabel,
+      notes: [...notes, newNote],
+      note: firstNote?.text || "",
+      image_urls: firstNote?.image_urls || [],
+      selected_addon_ids: selectedAddonIds,
+      selected_addons: shippingAddons.filter(a => selectedAddonIds.includes(a.id)).map(a => ({ id: a.id, name: a.name, fee: a.fee, fee_currency: a.fee_currency })),
+      group_final_address: groupAddress,
+    };
+
+    await shippingPoolApi.update(pool.id, { per_user_groups: [updatedGroup] });
   };
 
   const handleDeleteNote = (idx) => {
