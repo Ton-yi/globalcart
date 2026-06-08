@@ -531,7 +531,7 @@ export default function PreShipmentForm() {
           {/* Transit location */}
           {consType === "transit" && (
             <>
-              <div className="space-y-2 border border-blue-100 rounded-xl p-3 bg-blue-50/40">
+              <div className={`space-y-2 border border-blue-100 rounded-xl p-3 bg-blue-50/40 transition-opacity ${joinExistingPool ? "opacity-40 pointer-events-none" : ""}`}>
                 <Label className="text-xs text-blue-700 font-medium">选择中转地 *</Label>
                 {transitLocations.map(l => (
                   <label key={l.id} className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${transitLocationId === l.id ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
