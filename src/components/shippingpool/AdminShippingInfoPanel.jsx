@@ -85,7 +85,7 @@ export default function AdminShippingInfoPanel({
   shippingMethods = [],
   defaultPackingFeeSingle = 0,
   defaultPackingFeeConsolidation = 0,
-  allowReadyToShipWithoutPayment = false,
+  allowShipWithoutPayment = false,
   transitLocations = [],
   transitShippingMethods = [],
   userProfileMap = {},
@@ -348,6 +348,36 @@ export default function AdminShippingInfoPanel({
     await Promise.all(
       (pool.order_ids || []).map(id =>
         updateOrder(id, { order_status: "notified_shipment_fee_paid" })
+      )
+    );
+    setPool(p => ({ ...p, ...payload }));
+    setConfirmingSaving(false);
+    onPoolUpdated?.({ ...pool, ...payload });
+  };
+
+  // Confirm payment and ship directly (for allowShipWithoutPayment setting)
+  const handleConfirmPaymentAndShipDirectly = async () => {
+    setConfirmingSaving(true);
+    const existingPerUserPayments = pool.per_user_payments || [];
+    const updatedPerUserPayments = existingPerUserPayments.map(p => ({
+      ...p,
+      payment_status: "paid",
+      confirmed_at: p.confirmed_at || new Date().toISOString(),
+    }));
+    const payload = {
+      ...buildUpdatePayload(),
+      status: "shipped",
+      shipped_date: new Date().toISOString().split("T")[0],
+      payment_status: "paid",
+      admin_confirmed_payment: true,
+      supplement_amount_per_user: [],
+      per_user_payments: updatedPerUserPayments,
+    };
+    await shippingPoolApi.update(pool.id, payload);
+    // Update all orders in this pool to shipped
+    await Promise.all(
+      (pool.order_ids || []).map(id =>
+        updateOrder(id, { order_status: "shipped" })
       )
     );
     setPool(p => ({ ...p, ...payload }));
@@ -1153,7 +1183,7 @@ export default function AdminShippingInfoPanel({
                       </p>
                     );
                   })()}
-                  {!allowReadyToShipWithoutPayment && (() => {
+                  {!allowShipWithoutPayment && (() => {
                     const perUserPayments = pool.per_user_payments || [];
                     const isMultiUser = perUserPayments.length > 0;
                     const allPaid = isMultiUser
@@ -1162,7 +1192,7 @@ export default function AdminShippingInfoPanel({
                     if (!allPaid) {
                       return (
                         <p className="text-xs text-orange-600 bg-orange-50 border border-orange-100 rounded px-2 py-1.5">
-                          ⚠️ 当前设置要求全员付款后才可进入待发货。如需跳过，请在设置中开启「允许未付款时进入待发货」。
+                          ⚠️ 当前设置要求全员付款后才可进入待发货。如需跳过，请在设置中开启「允许未付款时进入已发货」。
                         </p>
                       );
                     }
@@ -1174,7 +1204,7 @@ export default function AdminShippingInfoPanel({
                     const allPaid = isMultiUser
                       ? perUserPayments.every(p => p.payment_status === "paid") || pool.payment_status === "paid"
                       : pool.payment_status === "awaiting_confirmation" || pool.payment_status === "paid";
-                    const paymentOk = allowReadyToShipWithoutPayment || allPaid;
+                    const paymentOk = allowShipWithoutPayment || allPaid;
                     const canShipDirectly = paymentOk && !!trackingNumber;
                     return (
                       <div className="space-y-1.5">
@@ -1184,13 +1214,31 @@ export default function AdminShippingInfoPanel({
                           <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
                           {confirmingSaving ? "确认中..." : "全部确认收款，进入待发货"}
                         </Button>
-                        <Button size="sm" className="bg-red-600 hover:bg-red-700 w-full"
+                        <Button size="sm" className="bg-blue-600 hover:bg-blue-700 w-full"
                           onClick={handleConfirmPaymentAndShip}
                           disabled={confirmingSaving || !canShipDirectly}
                           title={!trackingNumber ? "需填写运单号" : !paymentOk ? "需全员付款" : ""}>
                           <Truck className="w-3.5 h-3.5 mr-1.5" />
                           {confirmingSaving ? "确认中..." : canShipDirectly ? "全部确认收款并进入已发货" : `全部确认收款并进入已发货${!trackingNumber ? "（需填写运单号）" : "（需全员付款）"}`}
                         </Button>
+                        {allowShipWithoutPayment && !allPaid && (
+                          <Button size="sm" className="bg-red-600 hover:bg-red-700 w-full"
+                            onClick={async () => {
+                              setConfirmingSaving(true);
+                              const payload = { status: "shipped", payment_status: "unpaid", admin_confirmed_payment: false, shipped_date: new Date().toISOString().split("T")[0] };
+                              if (trackingNumber) payload.tracking_number = trackingNumber;
+                              await shippingPoolApi.update(pool.id, payload);
+                              await Promise.all((pool.order_ids || []).map(id => updateOrder(id, { order_status: "shipped" })));
+                              setPool(p => ({ ...p, ...payload }));
+                              setConfirmingSaving(false);
+                              onPoolUpdated?.({ ...pool, ...payload });
+                            }}
+                            disabled={confirmingSaving || !trackingNumber}
+                            title={!trackingNumber ? "需填写运单号" : ""}>
+                            <Truck className="w-3.5 h-3.5 mr-1.5" />
+                            {confirmingSaving ? "处理中..." : trackingNumber ? "跳过付款确认，直接进入已发货" : "跳过付款确认（需填写运单号）"}
+                          </Button>
+                        )}
                       </div>
                     );
                   })()}

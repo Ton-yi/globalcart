@@ -568,16 +568,16 @@ export default function AdminSettings() {
                     </div>
                   );
                 })()}
-                {/* Allow ready_to_ship without payment */}
+                {/* Allow shipped without payment */}
                 {(() => {
                   const allSettings = Object.values(grouped).flat();
-                  const s = allSettings.find(s => s.key === 'allow_ready_to_ship_without_payment');
+                  const s = allSettings.find(s => s.key === 'allow_ship_without_payment');
                   const enabled = s?.value === 'true';
                   return (
                     <div className="flex items-center justify-between pb-1 border-b border-gray-100">
                       <div>
-                        <Label className="text-sm">允许未付款时进入待发货状态</Label>
-                        <p className="text-xs text-gray-400 mt-0.5">开启后，管理员可在用户未付款或未全员付款的情况下，直接将发货申请进入待发货状态</p>
+                        <Label className="text-sm">允许未付款时进入已发货状态</Label>
+                        <p className="text-xs text-gray-400 mt-0.5">开启后，管理员可在用户未付款或未全员付款的情况下，直接将发货申请进入已发货状态</p>
                       </div>
                       <button
                         type="button"
@@ -587,7 +587,7 @@ export default function AdminSettings() {
                             updateSetting(s.id, 'value', newVal);
                             await tenantEntity.update('SiteSettings', s.id, { value: newVal });
                           } else {
-                            await tenantEntity.create('SiteSettings', { key: 'allow_ready_to_ship_without_payment', value: newVal, category: 'shipping', description: '允许未付款时进入待发货状态' });
+                            await tenantEntity.create('SiteSettings', { key: 'allow_ship_without_payment', value: newVal, category: 'shipping', description: '允许未付款时进入已发货状态' });
                             await load();
                           }
                         }}
