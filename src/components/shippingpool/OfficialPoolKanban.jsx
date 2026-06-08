@@ -300,33 +300,45 @@ function DraggableGroupCard({ draggableId, index, group, allOrders, pool, curren
                   const entryDraggableId = `pool-${pool.id}-order-${entry.order_id}`;
                   const isEntrySelected = selectedIds?.has(entryDraggableId);
                   return (
-                    <div
-                      key={entry.order_id}
-                      className={`flex items-start gap-2.5 px-3 py-2.5 cursor-pointer transition-colors
-                        ${isEntrySelected ? "bg-blue-50" : "hover:bg-gray-50"}`}
-                      onClick={(e) => {
-                        if (e.shiftKey) { e.preventDefault(); onSelectEntry?.(entryDraggableId); return; }
-                        canEdit && setEditOrderEntry({ entry, order });
-                      }}
-                    >
-                      <Package className="w-3.5 h-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-gray-700 truncate">{order?.product_name || entry.order_id.slice(-8)}</p>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          {order?.order_number && <span className="text-xs text-gray-400">{order.order_number}</span>}
-                          {order?.weight_g > 0 && <span className="text-xs text-gray-400">{order.weight_g}g</span>}
-                          {!entry.use_group_address && <Badge className="text-xs bg-orange-100 text-orange-600 px-1 py-0">独立地址</Badge>}
-                          {(order?.messages?.length > 0 || entry.note) && (
-                            <Badge className="text-xs bg-amber-100 text-amber-700 border-amber-200 px-1 py-0">
-                              <MessageSquare className="w-2.5 h-2.5 mr-0.5" />
-                              {order.messages?.length || 0}
-                            </Badge>
-                          )}
+                    <Draggable key={entry.order_id} draggableId={entryDraggableId} index={entryIdx}>
+                      {(provided, snapshot) => (
+                        <div
+                          ref={provided.innerRef}
+                          {...provided.draggableProps}
+                          className={`flex items-start gap-2.5 px-3 py-2.5 cursor-pointer transition-colors
+                            ${snapshot.isDragging ? "bg-blue-50 ring-2 ring-blue-300 rounded-lg" : isEntrySelected ? "bg-blue-50" : "hover:bg-gray-50"}`}
+                          onClick={(e) => {
+                            if (e.shiftKey) { e.preventDefault(); onSelectEntry?.(entryDraggableId); return; }
+                            canEdit && setEditOrderEntry({ entry, order });
+                          }}
+                        >
+                          <div
+                            {...provided.dragHandleProps}
+                            className="flex-shrink-0 mt-0.5 cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500"
+                            onClick={e => e.stopPropagation()}
+                          >
+                            <GripVertical className="w-3.5 h-3.5" />
+                          </div>
+                          <Package className="w-3.5 h-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium text-gray-700 truncate">{order?.product_name || entry.order_id.slice(-8)}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              {order?.order_number && <span className="text-xs text-gray-400">{order.order_number}</span>}
+                              {order?.weight_g > 0 && <span className="text-xs text-gray-400">{order.weight_g}g</span>}
+                              {!entry.use_group_address && <Badge className="text-xs bg-orange-100 text-orange-600 px-1 py-0">独立地址</Badge>}
+                              {(order?.messages?.length > 0 || entry.note) && (
+                                <Badge className="text-xs bg-amber-100 text-amber-700 border-amber-200 px-1 py-0">
+                                  <MessageSquare className="w-2.5 h-2.5 mr-0.5" />
+                                  {order.messages?.length || 0}
+                                </Badge>
+                              )}
+                            </div>
+                            {entry.note && <p className="text-xs text-gray-400 mt-0.5 truncate">{entry.note}</p>}
+                          </div>
+                          {isEntrySelected ? <CheckSquare className="w-3.5 h-3.5 text-blue-500 flex-shrink-0 mt-0.5" /> : canEdit && <Edit2 className="w-3 h-3 text-gray-300 hover:text-gray-500 flex-shrink-0 mt-0.5" />}
                         </div>
-                        {entry.note && <p className="text-xs text-gray-400 mt-0.5 truncate">{entry.note}</p>}
-                      </div>
-                      {isEntrySelected ? <CheckSquare className="w-3.5 h-3.5 text-blue-500 flex-shrink-0 mt-0.5" /> : canEdit && <Edit2 className="w-3 h-3 text-gray-300 hover:text-gray-500 flex-shrink-0 mt-0.5" />}
-                    </div>
+                      )}
+                    </Draggable>
                   );
                 })}
               </div>
