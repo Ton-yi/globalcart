@@ -92,6 +92,12 @@ function DraggableTaskCard({ draggableId, index, entry, order, group, pool, curr
                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                   {group && <span className="text-xs text-gray-400">{group.user_name || group.user_email}</span>}
                   {order?.weight_g > 0 && <span className="text-xs text-gray-400">{order.weight_g}g</span>}
+                  {(order?.messages?.length > 0 || entry.note) && (
+                    <Badge className="text-xs bg-amber-100 text-amber-700 border-amber-200 px-1 py-0">
+                      <MessageSquare className="w-2.5 h-2.5 mr-0.5" />
+                      {order.messages?.length || 0}
+                    </Badge>
+                  )}
                 </div>
                 {entry.note && <p className="text-xs text-gray-400 mt-0.5 truncate">{entry.note}</p>}
               </div>
@@ -193,7 +199,7 @@ function DraggableStagingCard({ draggableId, index, order, officialPools, isAdmi
 }
 
 // ─── Draggable Group Card ─────────────────────────────────────────────────────
-function DraggableGroupCard({ draggableId, index, group, allOrders, pool, currentUser, isAdmin, shippingAddons, savedAddresses, onRefresh, selected, onSelect, selectedIds, onSelectEntry, onDropToGroup, autoExpandOnDrop }) {
+function DraggableGroupCard({ draggableId, index, group, allOrders, pool, currentUser, isAdmin, shippingAddons, savedAddresses, onRefresh, selected, onSelect, selectedIds, onSelectEntry, autoExpandOnDrop }) {
   const [expanded, setExpanded] = useState(false);
   const [editGroupOpen, setEditGroupOpen] = useState(false);
   const [editOrderEntry, setEditOrderEntry] = useState(null);
@@ -207,8 +213,8 @@ function DraggableGroupCard({ draggableId, index, group, allOrders, pool, curren
   }));
   const totalWeight = resolvedOrders.reduce((s, { order }) => s + (order?.weight_g || 0), 0);
   
-  // Count entries with notes/messages
-  const entriesWithNotes = orderEntries.filter(e => e.note || (e.order_id && allOrders.find(o => o.id === e.order_id)?.messages?.length > 0)).length;
+  // Count group-level note (not individual entries)
+  const hasGroupNote = !!group.note;
   
   // Auto-expand when a task is dropped to this group
   useEffect(() => {
@@ -219,7 +225,17 @@ function DraggableGroupCard({ draggableId, index, group, allOrders, pool, curren
 
   const handleHeaderClick = (e) => {
     if (e.shiftKey) { e.preventDefault(); onSelect?.(draggableId); return; }
+    // Only toggle expand/collapse when clicking the chevron (handled separately)
+  };
+
+  const handleToggleExpand = (e) => {
+    e.stopPropagation();
     setExpanded(v => !v);
+  };
+
+  const handleCardClick = (e) => {
+    if (e.shiftKey) { e.preventDefault(); onSelect?.(draggableId); return; }
+    canEdit && !editGroupOpen && setEditGroupOpen(true);
   };
 
   return (
@@ -236,7 +252,7 @@ function DraggableGroupCard({ draggableId, index, group, allOrders, pool, curren
             <div
               className={`flex items-center justify-between px-3 py-2.5 border-b cursor-pointer transition-colors
                 ${selected ? "bg-blue-100/70 border-blue-200" : "bg-blue-50/60 border-blue-100 hover:bg-blue-100/60"}`}
-              onClick={handleHeaderClick}
+              onClick={handleCardClick}
             >
               <div className="flex items-center gap-2 min-w-0">
                 <div
@@ -246,17 +262,22 @@ function DraggableGroupCard({ draggableId, index, group, allOrders, pool, curren
                 >
                   <GripVertical className="w-3.5 h-3.5" />
                 </div>
-                {expanded ? <ChevronDown className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />}
+                <button
+                  onClick={handleToggleExpand}
+                  className="p-0.5 rounded hover:bg-blue-100 text-blue-400 hover:text-blue-600 transition-colors"
+                >
+                  {expanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                </button>
                 <Users className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
                 <span className="text-sm font-medium text-gray-800 truncate">{group.group_label || group.user_name || group.user_email}</span>
                 <Badge variant="outline" className="text-xs flex-shrink-0">{orderEntries.length}件</Badge>
                 {selected && <CheckSquare className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />}
               </div>
               <div className="flex items-center gap-1.5 flex-shrink-0">
-                {entriesWithNotes > 0 && (
+                {hasGroupNote && (
                   <Badge className="text-xs bg-amber-100 text-amber-700 border-amber-200 px-1 py-0">
                     <MessageSquare className="w-2.5 h-2.5 mr-0.5" />
-                    {entriesWithNotes}
+                    备注
                   </Badge>
                 )}
                 <span className="text-xs text-gray-400">{totalWeight}g</span>
@@ -295,6 +316,12 @@ function DraggableGroupCard({ draggableId, index, group, allOrders, pool, curren
                           {order?.order_number && <span className="text-xs text-gray-400">{order.order_number}</span>}
                           {order?.weight_g > 0 && <span className="text-xs text-gray-400">{order.weight_g}g</span>}
                           {!entry.use_group_address && <Badge className="text-xs bg-orange-100 text-orange-600 px-1 py-0">独立地址</Badge>}
+                          {(order?.messages?.length > 0 || entry.note) && (
+                            <Badge className="text-xs bg-amber-100 text-amber-700 border-amber-200 px-1 py-0">
+                              <MessageSquare className="w-2.5 h-2.5 mr-0.5" />
+                              {order.messages?.length || 0}
+                            </Badge>
+                          )}
                         </div>
                         {entry.note && <p className="text-xs text-gray-400 mt-0.5 truncate">{entry.note}</p>}
                       </div>
