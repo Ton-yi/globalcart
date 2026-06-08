@@ -1148,7 +1148,12 @@ export default function ShippingPool() {
               onRefresh={() => fetchData(user)}
               onLocalUpdate={(updatedPool) => {
                 setLocalPools(prev => {
-                  const next = prev ? { ...prev } : {};
+                  // Initialize with all current pools if this is the first update
+                  const base = prev || {};
+                  const allPoolsMap = {};
+                  (officialConsPools || []).forEach(p => { allPoolsMap[p.id] = p; });
+                  const next = { ...base, ...allPoolsMap };
+                  // Apply the updated pool
                   next[updatedPool.id] = updatedPool;
                   return next;
                 });
