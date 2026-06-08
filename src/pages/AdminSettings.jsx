@@ -79,6 +79,7 @@ const DEFAULT_SETTINGS = [
   { key: "jpy_cny_increment", value: "0", description: "日元/人民币汇率增量 (基于实时汇率)", category: "fee" },
   { key: "default_packing_fee_single", value: "0", description: "默认单独发货捆包作业手续费 (JPY)", category: "fee" },
   { key: "default_packing_fee_consolidation", value: "0", description: "默认拼邮发货捆包手续费 (JPY)", category: "fee" },
+  { key: "transit_location_fee_split_enabled", value: "false", description: "中转地手续费是否平分（开启=平分给拼邮客户，关闭=每人单独计算）", category: "fee" },
   { key: "site_name", value: "同一物流", description: "网站名称", category: "general" },
   { key: "contact_email", value: "", description: "联系邮箱", category: "general" },
   { key: "whatsapp", value: "", description: "WhatsApp", category: "general" },
@@ -716,6 +717,37 @@ export default function AdminSettings() {
                           }
                         }}
                         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${enabled ? 'bg-teal-500' : 'bg-gray-200'}`}
+                      >
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                      </button>
+                    </div>
+                  );
+                })()}
+
+                {/* Transit location service fee split toggle */}
+                {(() => {
+                  const allSettings = Object.values(grouped).flat();
+                  const s = allSettings.find(s => s.key === 'transit_location_fee_split_enabled');
+                  const enabled = s?.value === 'true';
+                  return (
+                    <div className="flex items-center justify-between pb-1 border-b border-gray-100">
+                      <div>
+                        <Label className="text-sm">中转地手续费平分</Label>
+                        <p className="text-xs text-gray-400 mt-0.5">开启后，中转地的服务费将平分给参与拼邮的所有客户；关闭则每个客户单独计算一次中转地手续费</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const newVal = enabled ? 'false' : 'true';
+                          if (s) {
+                            updateSetting(s.id, 'value', newVal);
+                            await tenantEntity.update('SiteSettings', s.id, { value: newVal });
+                          } else {
+                            await tenantEntity.create('SiteSettings', { key: 'transit_location_fee_split_enabled', value: newVal, category: 'fee', description: '中转地手续费是否平分（开启=平分给拼邮客户，关闭=每人单独计算）' });
+                            await load();
+                          }
+                        }}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${enabled ? 'bg-blue-600' : 'bg-gray-200'}`}
                       >
                         <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${enabled ? 'translate-x-6' : 'translate-x-1'}`} />
                       </button>
