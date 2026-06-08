@@ -72,7 +72,50 @@ Deno.serve(async (req) => {
       return Response.json({ success: true, pool_code: targetPool.pool_code, pool_id: pre.target_pool_id, joined_existing: true });
     }
 
-    // --- Case 2: Create a new pool (direct / transit / official_pool with auto-match) ---
+    // --- Case 1b: User chose official_pool with "default match" → find matching official pool ---
+    if (consType === 'official_pool' && !pre.target_pool_id) {
+      // Find all admin-created official pools with same shipping method
+      const allOfficialPools = await base44.asServiceRole.entities.ShippingPool.filter({ 
+        tenant_id: tenantId,
+        is_admin_created: true 
+      });
+      
+      const matchingPool = (allOfficialPools || []).find(p => 
+        p.shipping_method === pre.shipping_method && 
+        p.status !== 'shipped' && 
+        p.status !== 'delivered'
+      );
+
+      if (matchingPool) {
+        // Join the matching official pool
+        const updatedOrderIds = [...(matchingPool.order_ids || []), order.id];
+        const updatedOrderNames = [...(matchingPool.order_names || []), order.product_name].filter(Boolean);
+        const updatedWeight = (matchingPool.total_weight_g || 0) + (order.weight_g || 0);
+
+        await base44.asServiceRole.entities.ShippingPool.update(matchingPool.id, {
+          order_ids: updatedOrderIds,
+          order_names: updatedOrderNames,
+          total_weight_g: updatedWeight,
+        });
+
+        await base44.asServiceRole.entities.Order.update(order.id, {
+          order_status: 'notified_shipment',
+          consolidation_pool_id: matchingPool.id,
+          pre_shipment: {
+            ...pre,
+            pool_created: true,
+            pool_id: matchingPool.id,
+            target_pool_id: matchingPool.id,
+          },
+        });
+
+        console.log(`[autoCreatePreShipmentPool] Auto-matched official pool ${matchingPool.pool_code} for order ${order.id}`);
+        return Response.json({ success: true, pool_code: matchingPool.pool_code, pool_id: matchingPool.id, joined_existing: true });
+      }
+      // If no matching pool found, fall through to create new pool
+    }
+
+    // --- Case 2: Create a new pool (direct / transit / official_pool with no match) ---
     const transitLoc = pre.transit_location_id
       ? (await base44.asServiceRole.entities.TransitLocation.filter({ id: pre.transit_location_id }))?.[0]
       : null;
