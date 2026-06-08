@@ -108,8 +108,6 @@ export default function OfficialPoolUserGroupModal({ pool, group, shippingAddons
     onSuccess?.();
   };
 
-  const handleAddressSave = (v) => setGroupAddress(p => ({ ...p, ...v }));
-
   const handleSavedAddressSelect = (id) => {
     if (id === "__custom__") {
       setAddressMode("custom");
