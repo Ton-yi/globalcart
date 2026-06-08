@@ -610,11 +610,17 @@ export default function PreShipmentForm() {
                   <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                     <MapPin className="w-4 h-4" />最终收货地址
                   </CardTitle>
-                  <p className="text-xs text-gray-400 mt-1">货品到达中转地后，将发往此地址</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {joinExistingPool && selectedExistingPoolId ? '继承自已选择的拼邮申请' : '货品到达中转地后，将发往此地址'}
+                  </p>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {savedAddresses.length > 0 &&
-                    <Select value={useNewAddress ? "__new__" : selectedAddressId || ""} onValueChange={handleAddressSelect}>
+                    <Select 
+                      value={useNewAddress ? "__new__" : selectedAddressId || ""} 
+                      onValueChange={joinExistingPool && selectedExistingPoolId ? undefined : handleAddressSelect}
+                      disabled={joinExistingPool && selectedExistingPoolId}
+                    >
                       <SelectTrigger><SelectValue placeholder="选择地址簿中的地址" /></SelectTrigger>
                       <SelectContent>
                         {savedAddresses.map((a) => <SelectItem key={a.id} value={a.id}>{a.label}</SelectItem>)}
@@ -636,12 +642,25 @@ export default function PreShipmentForm() {
                     <div className="space-y-3">
                       <div>
                         <Label className="text-xs text-gray-500">地址标签</Label>
-                        <Input className="mt-1 h-8 text-sm" placeholder="如：家、公司"
-                          value={address.label || ""} onChange={(e) => setAddress((p) => ({ ...p, label: e.target.value }))} />
+                        <Input 
+                          className="mt-1 h-8 text-sm" 
+                          placeholder="如：家、公司"
+                          value={address.label || ""} 
+                          onChange={joinExistingPool && selectedExistingPoolId ? undefined : (e) => setAddress((p) => ({ ...p, label: e.target.value }))}
+                          disabled={joinExistingPool && selectedExistingPoolId}
+                        />
                       </div>
-                      <AddressForm value={address} onChange={(v) => setAddress((p) => ({ ...p, ...v }))} />
+                      <AddressForm 
+                        value={address} 
+                        onChange={joinExistingPool && selectedExistingPoolId ? undefined : (v) => setAddress((p) => ({ ...p, ...v }))}
+                        disabled={joinExistingPool && selectedExistingPoolId}
+                      />
                       <label className="flex items-center gap-2 cursor-pointer">
-                        <Checkbox checked={saveAddress} onCheckedChange={(v) => setSaveAddress(!!v)} />
+                        <Checkbox 
+                          checked={saveAddress} 
+                          onCheckedChange={joinExistingPool && selectedExistingPoolId ? undefined : (v) => setSaveAddress(!!v)}
+                          disabled={joinExistingPool && selectedExistingPoolId}
+                        />
                         <span className="text-xs text-gray-600">保存此地址到地址簿</span>
                       </label>
                     </div>
