@@ -1188,21 +1188,6 @@ export default function AdminShippingInfoPanel({
                       </p>
                     );
                   })()}
-                  {!allowShipWithoutPayment && (() => {
-                    const perUserPayments = pool.per_user_payments || [];
-                    const isMultiUser = perUserPayments.length > 0;
-                    const allPaid = isMultiUser
-                      ? perUserPayments.every(p => p.payment_status === "paid") || pool.payment_status === "paid"
-                      : pool.payment_status === "awaiting_confirmation" || pool.payment_status === "paid";
-                    if (!allPaid) {
-                      return (
-                        <p className="text-xs text-orange-600 bg-orange-50 border border-orange-100 rounded px-2 py-1.5">
-                          ⚠️ 当前设置要求全员付款后才可进入待发货。如需跳过，请在设置中开启「允许未付款时进入已发货」。
-                        </p>
-                      );
-                    }
-                    return null;
-                  })()}
                   {(() => {
                     const perUserPayments = pool.per_user_payments || [];
                     const isMultiUser = perUserPayments.length > 0;
@@ -1226,7 +1211,7 @@ export default function AdminShippingInfoPanel({
                           <Truck className="w-3.5 h-3.5 mr-1.5" />
                           {confirmingSaving ? "确认中..." : canShipDirectly ? "全部确认收款并进入已发货" : `全部确认收款并进入已发货${!trackingNumber ? "（需填写运单号）" : "（需全员付款）"}`}
                         </Button>
-                        {allowShipWithoutPayment && !allPaid && (
+                        {allowShipWithoutPayment && (
                           <Button size="sm" className="bg-red-600 hover:bg-red-700 w-full"
                             onClick={async () => {
                               setConfirmingSaving(true);
