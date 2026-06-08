@@ -7,7 +7,7 @@
  *   - Override final address (or use group address)
  *   - Send message
  */
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 import { shippingPoolApi } from "@/lib/tenantApi";
 import { EMPTY_ADDRESS_FORM, serializeAddressToText } from "@/components/common/AddressForm";
@@ -34,13 +34,40 @@ export default function OfficialPoolOrderDetailModal({ pool, group, orderEntry, 
   const [uploadingImage, setUploadingImage] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const handleImageUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const [dragOver, setDragOver] = useState(false);
+
+  const uploadFile = useCallback(async (file) => {
+    if (!file || !file.type.startsWith("image/")) return;
     setUploadingImage(true);
     const { file_url } = await base44.integrations.Core.UploadFile({ file });
     setImageUrls(prev => [...prev, file_url]);
     setUploadingImage(false);
+  }, []);
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (file) await uploadFile(file);
+    e.target.value = "";
+  };
+
+  const handleDrop = async (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) await uploadFile(file);
+  };
+
+  const handlePasteArea = async (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith("image/")) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) await uploadFile(file);
+        return;
+      }
+    }
   };
 
   const handleSave = async () => {
@@ -153,21 +180,52 @@ export default function OfficialPoolOrderDetailModal({ pool, group, orderEntry, 
           {/* Images */}
           <div>
             <p className="text-xs font-medium text-gray-500 mb-1.5">图片备注</p>
-            <div className="flex flex-wrap gap-2">
-              {imageUrls.map((url, i) => (
-                <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-gray-200 group">
-                  <img src={url} alt="" className="w-full h-full object-cover" />
-                  <button onClick={() => setImageUrls(prev => prev.filter((_, j) => j !== i))}
-                    className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                    <X className="w-3.5 h-3.5 text-white" />
-                  </button>
+            {imageUrls.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-2">
+                {imageUrls.map((url, i) => (
+                  <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-gray-200 group">
+                    <img src={url} alt="" className="w-full h-full object-cover" />
+                    <button onClick={() => setImageUrls(prev => prev.filter((_, j) => j !== i))}
+                      className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                      <X className="w-3.5 h-3.5 text-white" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <label
+              className={`relative flex flex-col items-center justify-center w-full rounded-xl border-2 border-dashed transition-colors cursor-pointer ${dragOver ? "border-blue-400 bg-blue-50" : "border-gray-200 hover:border-blue-300 hover:bg-gray-50"}`}
+              style={{ minHeight: 88 }}
+              onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={handleDrop}
+            >
+              {uploadingImage ? (
+                <div className="flex flex-col items-center gap-1.5 py-5">
+                  <Loader2 className="w-5 h-5 animate-spin text-blue-400" />
+                  <span className="text-xs text-gray-400">上传中…</span>
                 </div>
-              ))}
-              <label className="w-16 h-16 rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors">
-                {uploadingImage ? <Loader2 className="w-4 h-4 animate-spin text-gray-400" /> : <ImageIcon className="w-4 h-4 text-gray-400" />}
-                <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={uploadingImage} />
-              </label>
-            </div>
+              ) : (
+                <>
+                  <div className="flex flex-col items-center gap-1 pt-4 pb-2 pointer-events-none select-none">
+                    <ImageIcon className="w-5 h-5 text-gray-300" />
+                    <span className="text-xs text-gray-400">拖拽或点击上传 · 也可在下方粘贴</span>
+                  </div>
+                  <textarea
+                    rows={1}
+                    placeholder="在此处 Ctrl+V 粘贴截图…"
+                    className="w-full px-3 py-2 mx-3 mb-3 text-xs rounded-lg border border-gray-200 bg-white resize-none focus:outline-none focus:border-blue-300 text-gray-500 placeholder:text-gray-300"
+                    style={{ width: "calc(100% - 24px)" }}
+                    onPaste={handlePasteArea}
+                    onClick={e => e.stopPropagation()}
+                    onChange={() => {}}
+                    value=""
+                    readOnly
+                  />
+                </>
+              )}
+              <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={uploadingImage} />
+            </label>
           </div>
 
           {/* Final address */}
