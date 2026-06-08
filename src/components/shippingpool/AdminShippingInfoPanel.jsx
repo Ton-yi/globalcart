@@ -119,9 +119,9 @@ export default function AdminShippingInfoPanel({
       isUserPool,
       isOfficialPool,
       canDirectShipWithoutPayment,
-      poolStatus: pool.status,
+      poolStatus: initialPool.status,
     });
-  }, [allowShipWithoutPayment, allowShipWithoutPaymentSingle, allowShipWithoutPaymentUserPool, allowShipWithoutPaymentOfficialPool, isSingle, isUserPool, isOfficialPool, canDirectShipWithoutPayment, pool.status]);
+  }, [allowShipWithoutPayment, allowShipWithoutPaymentSingle, allowShipWithoutPaymentUserPool, allowShipWithoutPaymentOfficialPool, isSingle, isUserPool, isOfficialPool, canDirectShipWithoutPayment, initialPool.status]);
 
   // Derive unique users from orders
   const uniqueUsers = [...new Map(
