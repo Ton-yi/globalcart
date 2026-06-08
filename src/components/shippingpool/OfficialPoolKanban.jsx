@@ -490,9 +490,21 @@ function PoolColumn({ pool, allOrders, currentUser, isAdmin, shippingAddons, sav
   // Show button if current user has any in_warehouse orders (modal will filter out ones already in pool)
   const hasInWarehouse = allOrders.some(o => o.order_status === "in_warehouse");
 
+  // Enhance per_user_groups with user_name from orders/users if missing
+  const enhancedGroups = (perUserGroups || []).map(group => {
+    if (group.user_name) return group;
+    // Try to get user_name from first order in the group
+    const firstOrderId = (group.order_entries || [])[0]?.order_id;
+    const firstOrder = firstOrderId ? allOrders.find(o => o.id === firstOrderId) : null;
+    return {
+      ...group,
+      user_name: group.user_name || firstOrder?.user_name || group.user_email?.split('@')[0] || '未知用户',
+    };
+  });
+
   // Build draggable items list (groups with 1+ entries are all draggable; groups with 2+ also expose individual entries when expanded)
   const draggableItems = [];
-  perUserGroups.forEach(group => {
+  enhancedGroups.forEach(group => {
     const entries = group.order_entries || [];
     if (entries.length >= 2) {
       draggableItems.push({ type: "group", group });
@@ -595,7 +607,7 @@ function PoolColumn({ pool, allOrders, currentUser, isAdmin, shippingAddons, sav
               }
             })}
 
-            {perUserGroups.length === 0 && !snapshot.isDraggingOver && (
+            {draggableItems.length === 0 && !snapshot.isDraggingOver && (
               <div className="text-center py-6 text-gray-300 text-xs">
                 <Layers className="w-6 h-6 mx-auto mb-1 opacity-30" />暂无参与者
               </div>
