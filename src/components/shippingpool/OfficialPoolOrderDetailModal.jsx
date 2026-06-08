@@ -122,7 +122,7 @@ export default function OfficialPoolOrderDetailModal({ pool, group, orderEntry, 
     <>
     {lightboxUrl && (
       <div className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4 cursor-zoom-out" onClick={() => setLightboxUrl(null)}>
-        <img src={lightboxUrl} alt="" className="max-w-full max-h-full rounded-lg shadow-2xl object-contain" onClick={e => e.stopPropagation()} />
+        <img src={lightboxUrl} alt="" className="max-w-full max-h-full rounded-lg shadow-2xl object-contain" />
         <button onClick={() => setLightboxUrl(null)} className="absolute top-4 right-4 p-1.5 rounded-full bg-black/50 text-white hover:bg-black/70"><X className="w-5 h-5" /></button>
       </div>
     )}
