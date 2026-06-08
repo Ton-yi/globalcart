@@ -143,6 +143,15 @@ export default function PreShipmentForm() {
         // Set all available pools for user to join
         const allPools = poolsRes.data?.pools || [];
         console.log('[PreShipmentForm] ALL pools loaded:', allPools.length);
+        console.log('[PreShipmentForm] Sample pool data:', allPools.slice(0, 3).map(p => ({ 
+          id: p.id, 
+          pool_code: p.pool_code, 
+          title: p.title, 
+          status: p.status,
+          is_admin_created: p.is_admin_created,
+          creator_email: p.creator_email,
+          creator_name: p.creator_name
+        })));
         console.log('[PreShipmentForm] Admin-created pools:', allPools.filter(p => p.is_admin_created).map(p => ({ 
           id: p.id, 
           pool_code: p.pool_code, 
