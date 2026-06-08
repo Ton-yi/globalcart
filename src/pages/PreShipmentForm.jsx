@@ -580,7 +580,7 @@ export default function PreShipmentForm() {
           {/* Transit location */}
           {consType === "transit" &&
           <>
-              <div className={`space-y-2 border border-blue-100 rounded-xl p-3 bg-blue-50/40 transition-opacity ${joinExistingPool ? "opacity-40 pointer-events-none" : ""}`}>
+              <div className={`space-y-2 border border-blue-100 rounded-xl p-3 bg-blue-50/40 transition-opacity ${joinExistingPool && selectedExistingPoolId ? "opacity-40 pointer-events-none" : ""}`}>
                 <Label className="text-xs text-blue-700 font-medium">选择中转地 *</Label>
                 {transitLocations.map((l) =>
               <label key={l.id} className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${transitLocationId === l.id ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
@@ -593,6 +593,51 @@ export default function PreShipmentForm() {
               )}
               </div>
               
+              {/* Final destination address for transit */}
+              <Card className={`border-gray-200 transition-opacity ${joinExistingPool && selectedExistingPoolId ? "opacity-40 pointer-events-none" : ""}`}>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                    <MapPin className="w-4 h-4" />最终收货地址
+                  </CardTitle>
+                  <p className="text-xs text-gray-400 mt-1">货品到达中转地后，将发往此地址</p>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {savedAddresses.length > 0 &&
+                    <Select value={useNewAddress ? "__new__" : selectedAddressId || ""} onValueChange={handleAddressSelect}>
+                      <SelectTrigger><SelectValue placeholder="选择地址簿中的地址" /></SelectTrigger>
+                      <SelectContent>
+                        {savedAddresses.map((a) => <SelectItem key={a.id} value={a.id}>{a.label}</SelectItem>)}
+                        <SelectItem value="__new__">
+                          <span className="flex items-center gap-1.5 text-blue-600"><PlusCircle className="w-3.5 h-3.5" />输入新地址</span>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  }
+                  {!useNewAddress && selectedAddressId && (() => {
+                    const addr = savedAddresses.find((a) => a.id === selectedAddressId);
+                    return addr ?
+                      <div className="bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 text-xs text-gray-600 whitespace-pre-wrap">
+                        {addr.full_text || serializeAddressToText(addr)}
+                      </div> :
+                      null;
+                  })()}
+                  {(useNewAddress || savedAddresses.length === 0) &&
+                    <div className="space-y-3">
+                      <div>
+                        <Label className="text-xs text-gray-500">地址标签</Label>
+                        <Input className="mt-1 h-8 text-sm" placeholder="如：家、公司"
+                          value={address.label || ""} onChange={(e) => setAddress((p) => ({ ...p, label: e.target.value }))} />
+                      </div>
+                      <AddressForm value={address} onChange={(v) => setAddress((p) => ({ ...p, ...v }))} />
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <Checkbox checked={saveAddress} onCheckedChange={(v) => setSaveAddress(!!v)} />
+                        <span className="text-xs text-gray-600">保存此地址到地址簿</span>
+                      </label>
+                    </div>
+                  }
+                </CardContent>
+              </Card>
+
               {/* Option to join existing transit pool */}
               <div className="space-y-2 border border-blue-100 rounded-xl p-3 bg-blue-50/40">
                 <Label className="text-xs text-blue-700 font-medium">加入已有的中转拼邮申请（可选）</Label>
