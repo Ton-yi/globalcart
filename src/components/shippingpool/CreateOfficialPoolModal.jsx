@@ -33,6 +33,8 @@ export default function CreateOfficialPoolModal({ onClose, onSuccess }) {
     destination_country: "",
     shipping_method: "",
     scheduled_ship_date: "",
+    consolidation_deadline: "",
+    consolidation_min_weight_g: 0,
     transit_location_id: "",
     user_note: "",
     title: "",
@@ -183,6 +185,22 @@ export default function CreateOfficialPoolModal({ onClose, onSuccess }) {
           <div>
             <Label className="text-xs text-gray-500">计划发货日期</Label>
             <Input type="date" className="mt-1 h-8 text-sm" value={form.scheduled_ship_date} onChange={e => f("scheduled_ship_date", e.target.value)} />
+          </div>
+
+          {/* Consolidation strategy */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs text-gray-500">凑满目标重量 (g)</Label>
+              <Input type="number" min="0" step="100" className="mt-1 h-8 text-sm" placeholder="如：5000"
+                value={form.consolidation_min_weight_g || ""}
+                onChange={e => f("consolidation_min_weight_g", parseFloat(e.target.value) || 0)} />
+            </div>
+            <div>
+              <Label className="text-xs text-gray-500">凑单截止日期</Label>
+              <Input type="date" className="mt-1 h-8 text-sm"
+                value={form.consolidation_deadline}
+                onChange={e => f("consolidation_deadline", e.target.value)} />
+            </div>
           </div>
 
           {/* Note */}
