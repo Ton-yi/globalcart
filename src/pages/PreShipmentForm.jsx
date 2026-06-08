@@ -45,6 +45,8 @@ export default function PreShipmentForm() {
   const [consType, setConsType] = useState(""); // "" = direct, "transit" = transit
   const [joinOfficialPool, setJoinOfficialPool] = useState(false); // Join official shipping pool
   const [selectedPoolId, setSelectedPoolId] = useState(""); // Specific pool selection
+  const [joinExistingPool, setJoinExistingPool] = useState(false); // Join existing pool (direct or transit)
+  const [selectedExistingPoolId, setSelectedExistingPoolId] = useState(""); // Selected existing pool
   const [shippingMethod, setShippingMethod] = useState("");
   const [scheduledDate, setScheduledDate] = useState("");
   const [userNote, setUserNote] = useState("");
@@ -252,6 +254,10 @@ export default function PreShipmentForm() {
     // Handle official pool selection
     const selectedPool = officialPools.find(p => p.id === selectedPoolId);
     const poolCode = selectedPool?.pool_code || "";
+    
+    // Handle existing pool selection (direct or transit)
+    const existingPool = officialPools.find(p => p.id === selectedExistingPoolId);
+    const existingPoolCode = existingPool?.pool_code || "";
 
     const preShipment = {
       shipping_method: shippingMethod,
@@ -272,10 +278,11 @@ export default function PreShipmentForm() {
           fee_currency: a.fee_currency
         };
       }),
-      pool_created: consType === "official_pool",
-      target_pool_id: consType === "official_pool" ? selectedPoolId : "",
-      target_pool_code: consType === "official_pool" ? poolCode : "",
-      target_pool_title: consType === "official_pool" && selectedPool ? (selectedPool.title || selectedPool.pool_code) : "",
+      pool_created: consType === "official_pool" || (joinExistingPool && !!selectedExistingPoolId),
+      target_pool_id: consType === "official_pool" ? selectedPoolId : (joinExistingPool ? selectedExistingPoolId : ""),
+      target_pool_code: consType === "official_pool" ? poolCode : (joinExistingPool ? existingPoolCode : ""),
+      target_pool_title: consType === "official_pool" && selectedPool ? (selectedPool.title || selectedPool.pool_code) : (joinExistingPool && existingPool ? (existingPool.title || existingPool.pool_code) : ""),
+      join_existing_pool: joinExistingPool,
     };
 
     const res = await base44.functions.invoke('updateTenantOrder', {
@@ -414,6 +421,8 @@ export default function PreShipmentForm() {
               <label key={opt.key} className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${consType === opt.key ? "border-red-300 bg-red-50" : "border-gray-200 hover:bg-gray-50"}`}>
                 <input type="radio" checked={consType === opt.key} onChange={() => {
                   setConsType(opt.key);
+                  setJoinExistingPool(false);
+                  setSelectedExistingPoolId("");
                   if (opt.key === "official_pool") {
                     setJoinOfficialPool(true);
                     setUseNewAddress(false);
@@ -427,20 +436,125 @@ export default function PreShipmentForm() {
             ))}
           </div>
 
-          {/* Transit location */}
-          {consType === "transit" && (
+          {/* Direct shipping - option to join existing pool */}
+          {consType === "" && (
             <div className="space-y-2 border border-blue-100 rounded-xl p-3 bg-blue-50/40">
-              <Label className="text-xs text-blue-700 font-medium">选择中转地 *</Label>
-              {transitLocations.map(l => (
-                <label key={l.id} className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${transitLocationId === l.id ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
-                  <input type="radio" checked={transitLocationId === l.id} onChange={() => setTransitLocationId(l.id)} className="mt-0.5 accent-blue-600" />
+              <Label className="text-xs text-blue-700 font-medium">是否加入已有的直接发货申请？</Label>
+              <div className="space-y-1.5">
+                <label className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${!joinExistingPool ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
+                  <input type="radio" checked={!joinExistingPool} onChange={() => setJoinExistingPool(false)} className="mt-0.5 accent-blue-600" />
                   <div>
-                    <p className="text-sm font-medium text-gray-800">{l.name}</p>
-                    {l.manager_contact && <p className="text-xs text-gray-400">联系：{l.manager_contact}</p>}
+                    <p className="text-sm font-medium text-gray-800">创建新的直接发货申请</p>
+                    <p className="text-xs text-gray-500">单独发货到您填写的地址</p>
                   </div>
                 </label>
-              ))}
+                <label className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${joinExistingPool ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
+                  <input type="radio" checked={joinExistingPool} onChange={() => setJoinExistingPool(true)} className="mt-0.5 accent-blue-600" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-800">加入已有的直接发货申请</p>
+                    <p className="text-xs text-gray-500">与其他订单合并发货（如有）</p>
+                  </div>
+                </label>
+              </div>
+              
+              {joinExistingPool && (
+                <div className="mt-2 space-y-2">
+                  <Label className="text-xs text-blue-700">选择要加入的发货申请</Label>
+                  {/* Fetch and display user's existing direct shipping pools */}
+                  {(() => {
+                    const myDirectPools = officialPools.filter(p => !p.is_admin_created && !p.consolidation_type && p.creator_email === user.email);
+                    if (myDirectPools.length === 0) {
+                      return (
+                        <div className="text-sm text-gray-500 py-2">
+                          暂无可用的直接发货申请，将创建新的发货申请
+                        </div>
+                      );
+                    }
+                    return (
+                      <div className="space-y-1.5">
+                        {myDirectPools.map(pool => (
+                          <label key={pool.id} className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${selectedExistingPoolId === pool.id ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
+                            <input type="radio" checked={selectedExistingPoolId === pool.id} onChange={() => setSelectedExistingPoolId(pool.id)} className="mt-0.5 accent-blue-600" />
+                            <div className="flex-1">
+                              <p className="text-sm font-medium text-gray-800">{pool.pool_code}</p>
+                              <p className="text-xs text-gray-500">已参团：{pool.order_ids?.length || 0} 单 · 运输方式：{pool.shipping_method || '未设置'}</p>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
             </div>
+          )}
+
+          {/* Transit location */}
+          {consType === "transit" && (
+            <>
+              <div className="space-y-2 border border-blue-100 rounded-xl p-3 bg-blue-50/40">
+                <Label className="text-xs text-blue-700 font-medium">选择中转地 *</Label>
+                {transitLocations.map(l => (
+                  <label key={l.id} className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${transitLocationId === l.id ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
+                    <input type="radio" checked={transitLocationId === l.id} onChange={() => setTransitLocationId(l.id)} className="mt-0.5 accent-blue-600" />
+                    <div>
+                      <p className="text-sm font-medium text-gray-800">{l.name}</p>
+                      {l.manager_contact && <p className="text-xs text-gray-400">联系：{l.manager_contact}</p>}
+                    </div>
+                  </label>
+                ))}
+              </div>
+              
+              {/* Option to join existing transit pool */}
+              <div className="space-y-2 border border-blue-100 rounded-xl p-3 bg-blue-50/40">
+                <Label className="text-xs text-blue-700 font-medium">是否加入已有的中转拼邮申请？</Label>
+                <div className="space-y-1.5">
+                  <label className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${!joinExistingPool ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
+                    <input type="radio" checked={!joinExistingPool} onChange={() => setJoinExistingPool(false)} className="mt-0.5 accent-blue-600" />
+                    <div>
+                      <p className="text-sm font-medium text-gray-800">创建新的中转拼邮申请</p>
+                      <p className="text-xs text-gray-500">单独发货到选中转地</p>
+                    </div>
+                  </label>
+                  <label className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${joinExistingPool ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
+                    <input type="radio" checked={joinExistingPool} onChange={() => setJoinExistingPool(true)} className="mt-0.5 accent-blue-600" />
+                    <div>
+                      <p className="text-sm font-medium text-gray-800">加入已有的中转拼邮申请</p>
+                      <p className="text-xs text-gray-500">与其他订单合并拼邮（如有）</p>
+                    </div>
+                  </label>
+                </div>
+                
+                {joinExistingPool && (
+                  <div className="mt-2 space-y-2">
+                    <Label className="text-xs text-blue-700">选择要加入的拼邮申请</Label>
+                    {(() => {
+                      const myTransitPools = officialPools.filter(p => p.consolidation_type === 'transit' && p.creator_email === user.email);
+                      if (myTransitPools.length === 0) {
+                        return (
+                          <div className="text-sm text-gray-500 py-2">
+                            暂无可用的中转拼邮申请，将创建新的拼邮申请
+                          </div>
+                        );
+                      }
+                      return (
+                        <div className="space-y-1.5">
+                          {myTransitPools.map(pool => (
+                            <label key={pool.id} className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${selectedExistingPoolId === pool.id ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
+                              <input type="radio" checked={selectedExistingPoolId === pool.id} onChange={() => setSelectedExistingPoolId(pool.id)} className="mt-0.5 accent-blue-600" />
+                              <div className="flex-1">
+                                <p className="text-sm font-medium text-gray-800">{pool.pool_code}</p>
+                                <p className="text-xs text-gray-500">已参团：{pool.order_ids?.length || 0} 单 · 中转地：{pool.transit_location_name || '未设置'}</p>
+                              </div>
+                            </label>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+              </div>
+            </>
           )}
           
           {/* Official pool selection */}
