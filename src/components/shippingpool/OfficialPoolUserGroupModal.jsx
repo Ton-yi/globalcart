@@ -166,7 +166,46 @@ export default function OfficialPoolUserGroupModal({ pool, group, shippingAddons
             </div>
           )}
 
-          {/* Notes / Messages */}
+          {/* Final address */}
+          <div className="border border-gray-200 rounded-xl p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-medium text-gray-600 flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-gray-400" />任务组最终收货地址
+              </p>
+              {(group.order_entries || []).length > 1 && (
+                <button
+                  onClick={() => setSyncConfirm(true)}
+                  className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium px-2 py-1 rounded hover:bg-blue-50 transition-colors">
+                  <CopyCheck className="w-3.5 h-3.5" />统一任务组下的最终收货地址
+                </button>
+              )}
+            </div>
+
+            {syncConfirm && (
+              <div className="bg-orange-50 border border-orange-200 rounded-lg px-3 py-2.5 text-xs">
+                <p className="text-orange-700 font-medium mb-2">确认将此地址同步到该任务组下所有订单？</p>
+                <p className="text-orange-600 mb-2">所有子任务将使用此任务组地址，单独设置的地址将被覆盖。</p>
+                <div className="flex gap-2">
+                  <Button size="sm" className="h-6 text-xs bg-orange-600 hover:bg-orange-700" onClick={() => { setSyncConfirm(false); handleSave(true); }}>确认同步</Button>
+                  <Button size="sm" variant="outline" className="h-6 text-xs" onClick={() => setSyncConfirm(false)}>取消</Button>
+                </div>
+              </div>
+            )}
+
+            {savedAddresses.length > 0 && (
+              <Select value={addressMode === "saved" ? (selectedSavedId || "") : "__custom__"} onValueChange={handleSavedAddressSelect}>
+                <SelectTrigger className="h-8 text-sm bg-white"><SelectValue placeholder="从地址簿选择" /></SelectTrigger>
+                <SelectContent>
+                  {savedAddresses.map(a => <SelectItem key={a.id} value={a.id}>{a.label}</SelectItem>)}
+                  <SelectItem value="__custom__"><span className="flex items-center gap-1.5 text-blue-600"><PlusCircle className="w-3.5 h-3.5" />手动填写</span></SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+
+            <AddressForm value={groupAddress} onChange={handleAddressSave} />
+          </div>
+
+          {/* Notes / Messages - Moved to bottom */}
           <div>
             <p className="text-xs font-medium text-gray-500 mb-2 flex items-center gap-1">
               <MessageSquare className="w-3.5 h-3.5" />任务组备注留言
@@ -274,45 +313,6 @@ export default function OfficialPoolUserGroupModal({ pool, group, shippingAddons
                 </div>
               </div>
             </div>
-          </div>
-
-          {/* Final address */}
-          <div className="border border-gray-200 rounded-xl p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-medium text-gray-600 flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-gray-400" />任务组最终收货地址
-              </p>
-              {(group.order_entries || []).length > 1 && (
-                <button
-                  onClick={() => setSyncConfirm(true)}
-                  className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium px-2 py-1 rounded hover:bg-blue-50 transition-colors">
-                  <CopyCheck className="w-3.5 h-3.5" />统一任务组下的最终收货地址
-                </button>
-              )}
-            </div>
-
-            {syncConfirm && (
-              <div className="bg-orange-50 border border-orange-200 rounded-lg px-3 py-2.5 text-xs">
-                <p className="text-orange-700 font-medium mb-2">确认将此地址同步到该任务组下所有订单？</p>
-                <p className="text-orange-600 mb-2">所有子任务将使用此任务组地址，单独设置的地址将被覆盖。</p>
-                <div className="flex gap-2">
-                  <Button size="sm" className="h-6 text-xs bg-orange-600 hover:bg-orange-700" onClick={() => { setSyncConfirm(false); handleSave(true); }}>确认同步</Button>
-                  <Button size="sm" variant="outline" className="h-6 text-xs" onClick={() => setSyncConfirm(false)}>取消</Button>
-                </div>
-              </div>
-            )}
-
-            {savedAddresses.length > 0 && (
-              <Select value={addressMode === "saved" ? (selectedSavedId || "") : "__custom__"} onValueChange={handleSavedAddressSelect}>
-                <SelectTrigger className="h-8 text-sm bg-white"><SelectValue placeholder="从地址簿选择" /></SelectTrigger>
-                <SelectContent>
-                  {savedAddresses.map(a => <SelectItem key={a.id} value={a.id}>{a.label}</SelectItem>)}
-                  <SelectItem value="__custom__"><span className="flex items-center gap-1.5 text-blue-600"><PlusCircle className="w-3.5 h-3.5" />手动填写</span></SelectItem>
-                </SelectContent>
-              </Select>
-            )}
-
-            <AddressForm value={groupAddress} onChange={handleAddressSave} />
           </div>
         </div>
 
