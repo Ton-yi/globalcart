@@ -595,7 +595,9 @@ export default function PreShipmentForm() {
                           p.creator_email === user.email &&
                           p.id === selectedExistingPoolId
                           );
-                          return pool ? `${pool.pool_code} · ${(pool.order_ids || []).length} 单 · ${pool.transit_location_name || '中转地'}` : "选择拼邮申请";
+                          const weightInfo = pool?.total_weight_g ? ` · ${(pool.total_weight_g / 1000).toFixed(1)}kg` : '';
+                          const shippingInfo = pool?.transit_shipping_method_name ? ` · ${pool.transit_shipping_method_name}` : '';
+                          return pool ? `${pool.pool_code} · ${(pool.order_ids || []).length} 单${shippingInfo}${weightInfo}` : "选择拼邮申请";
                         })()}
                           </span> :
 
@@ -633,7 +635,15 @@ export default function PreShipmentForm() {
                                     <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200">
                                       {pool.transit_location_name || '中转地未设置'}
                                     </Badge>
+                                    {pool.transit_shipping_method_name && (
+                                      <Badge variant="outline" className="text-[10px] bg-purple-50 text-purple-700 border-purple-200">
+                                        {pool.transit_shipping_method_name}
+                                      </Badge>
+                                    )}
                                     <span className="text-xs text-gray-500">{(pool.order_ids || []).length} 单</span>
+                                    {pool.total_weight_g && (
+                                      <span className="text-xs text-gray-500">· {(pool.total_weight_g / 1000).toFixed(1)}kg</span>
+                                    )}
                                     {pool.consolidation_deadline &&
                                 <span className="text-xs text-gray-500">· 截止：{pool.consolidation_deadline}</span>
                                 }
