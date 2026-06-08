@@ -1,22 +1,19 @@
 /**
  * OfficialPoolOrderDetailModal
  * Todoist-style sub-task detail for a single order within an official pool.
- * Shows order info, lets user:
- *   - Edit note + images
- *   - Change addons
- *   - Override final address (or use group address)
- *   - Send message
+ * Notes are stored as an array of message objects: { text, image_urls, created_at }
+ * Legacy single `note` + `image_urls` fields are migrated on first open.
  */
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { shippingPoolApi } from "@/lib/tenantApi";
-import { EMPTY_ADDRESS_FORM, serializeAddressToText } from "@/components/common/AddressForm";
+import { EMPTY_ADDRESS_FORM } from "@/components/common/AddressForm";
 import AddressForm from "@/components/common/AddressForm";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { X, Package, MapPin, Image as ImageIcon, Loader2, Link as LinkIcon, PlusCircle, Upload } from "lucide-react";
+import { X, Package, MapPin, Loader2, Link as LinkIcon, PlusCircle, Upload, Send, MessageSquare } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const ORDER_STATUS_LABELS = {
@@ -24,50 +21,52 @@ const ORDER_STATUS_LABELS = {
   shipped: "已发货", delivered: "已签收",
 };
 
+// Migrate legacy note/image_urls to notes array
+function initNotes(entry) {
+  if (Array.isArray(entry.notes) && entry.notes.length > 0) return entry.notes;
+  if (entry.note || (entry.image_urls && entry.image_urls.length > 0)) {
+    return [{ text: entry.note || "", image_urls: entry.image_urls || [], created_at: entry.updated_date || new Date().toISOString() }];
+  }
+  return [];
+}
+
 export default function OfficialPoolOrderDetailModal({ pool, group, orderEntry, order, shippingAddons = [], savedAddresses = [], onClose, onSuccess }) {
-  const [note, setNote] = useState(orderEntry.note || "");
-  const [imageUrls, setImageUrls] = useState(orderEntry.image_urls || []);
+  const [notes, setNotes] = useState(() => initNotes(orderEntry));
+  const [draftText, setDraftText] = useState("");
+  const [draftImages, setDraftImages] = useState([]);
   const [selectedAddonIds, setSelectedAddonIds] = useState(orderEntry.selected_addon_ids || []);
   const [useGroupAddress, setUseGroupAddress] = useState(orderEntry.use_group_address !== false);
   const [overrideAddress, setOverrideAddress] = useState(orderEntry.override_final_address || { ...EMPTY_ADDRESS_FORM });
   const [selectedSavedId, setSelectedSavedId] = useState("");
   const [uploadingImage, setUploadingImage] = useState(false);
   const [saving, setSaving] = useState(false);
-
   const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef(null);
 
   const uploadFile = useCallback(async (file) => {
     if (!file || !file.type.startsWith("image/")) return;
     setUploadingImage(true);
     const { file_url } = await base44.integrations.Core.UploadFile({ file });
-    setImageUrls(prev => [...prev, file_url]);
+    setDraftImages(prev => [...prev, file_url]);
     setUploadingImage(false);
   }, []);
 
-  const handleImageUpload = async (e) => {
+  const handleFileInput = async (e) => {
     const file = e.target.files?.[0];
     if (file) await uploadFile(file);
     e.target.value = "";
   };
 
-  const handleDrop = async (e) => {
-    e.preventDefault();
-    setDragOver(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file) await uploadFile(file);
+  const handleSendNote = () => {
+    if (!draftText.trim() && draftImages.length === 0) return;
+    const newNote = { text: draftText.trim(), image_urls: draftImages, created_at: new Date().toISOString() };
+    setNotes(prev => [...prev, newNote]);
+    setDraftText("");
+    setDraftImages([]);
   };
 
-  const handlePasteArea = async (e) => {
-    const items = e.clipboardData?.items;
-    if (!items) return;
-    for (const item of items) {
-      if (item.type.startsWith("image/")) {
-        e.preventDefault();
-        const file = item.getAsFile();
-        if (file) await uploadFile(file);
-        return;
-      }
-    }
+  const handleDeleteNote = (idx) => {
+    setNotes(prev => prev.filter((_, i) => i !== idx));
   };
 
   const handleSave = async () => {
@@ -75,10 +74,13 @@ export default function OfficialPoolOrderDetailModal({ pool, group, orderEntry, 
     const selectedAddons = shippingAddons.filter(a => selectedAddonIds.includes(a.id))
       .map(a => ({ id: a.id, name: a.name, fee: a.fee, fee_currency: a.fee_currency }));
 
+    // Derive legacy note/image_urls from first note for backward compat
+    const firstNote = notes[0];
     const updatedEntry = {
       ...orderEntry,
-      note,
-      image_urls: imageUrls,
+      notes,
+      note: firstNote?.text || "",
+      image_urls: firstNote?.image_urls || [],
       selected_addon_ids: selectedAddonIds,
       selected_addons: selectedAddons,
       use_group_address: useGroupAddress,
@@ -171,68 +173,114 @@ export default function OfficialPoolOrderDetailModal({ pool, group, orderEntry, 
             </div>
           )}
 
-          {/* Note + Images (merged) */}
+          {/* Notes / Messages */}
           <div>
-            <p className="text-xs font-medium text-gray-500 mb-1.5">备注</p>
-            {/* Textarea: accepts paste & drag-over */}
-            <div
-              className="relative"
-              onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-              onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget)) setDragOver(false); }}
-              onDrop={async e => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files?.[0]; if (f) await uploadFile(f); }}
-            >
-              <Textarea
-                rows={3}
-                className={`text-sm transition-colors ${dragOver ? "border-blue-400 bg-blue-50 ring-1 ring-blue-300" : ""}`}
-                placeholder="此订单的特殊要求..."
-                value={note}
-                onChange={e => setNote(e.target.value)}
-                onPaste={async e => {
-                  const items = e.clipboardData?.items;
-                  if (!items) return;
-                  for (const item of items) {
-                    if (item.type.startsWith("image/")) {
-                      e.preventDefault();
-                      const file = item.getAsFile();
-                      if (file) await uploadFile(file);
-                      return;
-                    }
-                  }
-                }}
-              />
-              {dragOver && (
-                <div className="absolute inset-0 rounded-md flex items-center justify-center pointer-events-none">
-                  <span className="bg-blue-600 text-white text-xs font-medium px-3 py-1 rounded-full shadow">松开以上传图片</span>
-                </div>
-              )}
-              {uploadingImage && (
-                <div className="absolute inset-0 rounded-md bg-white/70 flex items-center justify-center pointer-events-none">
-                  <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
-                </div>
-              )}
-            </div>
+            <p className="text-xs font-medium text-gray-500 mb-2 flex items-center gap-1">
+              <MessageSquare className="w-3.5 h-3.5" />备注留言
+            </p>
 
-            {/* Uploaded image thumbnails */}
-            {imageUrls.length > 0 && (
-              <div className="flex flex-wrap gap-2 mt-2">
-                {imageUrls.map((url, i) => (
-                  <div key={i} className="relative w-14 h-14 rounded-lg overflow-hidden border border-gray-200 group">
-                    <img src={url} alt="" className="w-full h-full object-cover" />
-                    <button onClick={() => setImageUrls(prev => prev.filter((_, j) => j !== i))}
-                      className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                      <X className="w-3 h-3 text-white" />
+            {/* Existing notes list */}
+            {notes.length > 0 && (
+              <div className="space-y-2 mb-3">
+                {notes.map((n, idx) => (
+                  <div key={idx} className="group bg-gray-50 rounded-xl px-3 py-2.5 relative">
+                    <button
+                      onClick={() => handleDeleteNote(idx)}
+                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-gray-200 text-gray-400 hover:text-red-500"
+                    >
+                      <X className="w-3 h-3" />
                     </button>
+                    {n.text && <p className="text-sm text-gray-800 whitespace-pre-wrap pr-5">{n.text}</p>}
+                    {n.image_urls?.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {n.image_urls.map((url, i) => (
+                          <img key={i} src={url} alt="" className="w-14 h-14 rounded-lg object-cover border border-gray-200" />
+                        ))}
+                      </div>
+                    )}
+                    <p className="text-xs text-gray-300 mt-1.5">
+                      {new Date(n.created_at).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                    </p>
                   </div>
                 ))}
               </div>
             )}
 
-            {/* Upload button */}
-            <label className="mt-2 inline-flex items-center gap-1.5 text-xs text-gray-400 hover:text-blue-500 cursor-pointer transition-colors">
-              <Upload className="w-3.5 h-3.5" />
-              上传图片
-              <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={uploadingImage} />
-            </label>
+            {/* Compose area */}
+            <div className="border border-gray-200 rounded-xl overflow-hidden focus-within:border-blue-300 transition-colors">
+              {/* Draft images */}
+              {draftImages.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 px-3 pt-2.5">
+                  {draftImages.map((url, i) => (
+                    <div key={i} className="relative w-14 h-14 rounded-lg overflow-hidden border border-gray-200 group">
+                      <img src={url} alt="" className="w-full h-full object-cover" />
+                      <button onClick={() => setDraftImages(prev => prev.filter((_, j) => j !== i))}
+                        className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                        <X className="w-3 h-3 text-white" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Textarea with drag/paste */}
+              <div
+                className="relative"
+                onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+                onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget)) setDragOver(false); }}
+                onDrop={async e => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files?.[0]; if (f) await uploadFile(f); }}
+              >
+                <textarea
+                  rows={3}
+                  className={`w-full px-3 pt-2.5 pb-1 text-sm border-0 resize-none outline-none bg-transparent transition-colors placeholder:text-gray-300 ${dragOver ? "bg-blue-50" : ""}`}
+                  placeholder="添加备注…（可粘贴或拖拽图片）"
+                  value={draftText}
+                  onChange={e => setDraftText(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleSendNote(); }}
+                  onPaste={async e => {
+                    const items = e.clipboardData?.items;
+                    if (!items) return;
+                    for (const item of items) {
+                      if (item.type.startsWith("image/")) {
+                        e.preventDefault();
+                        const file = item.getAsFile();
+                        if (file) await uploadFile(file);
+                        return;
+                      }
+                    }
+                  }}
+                />
+                {dragOver && (
+                  <div className="absolute inset-0 rounded flex items-center justify-center pointer-events-none">
+                    <span className="bg-blue-600 text-white text-xs font-medium px-3 py-1 rounded-full shadow">松开以上传图片</span>
+                  </div>
+                )}
+                {uploadingImage && (
+                  <div className="absolute inset-0 bg-white/70 flex items-center justify-center pointer-events-none">
+                    <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                  </div>
+                )}
+              </div>
+
+              {/* Toolbar */}
+              <div className="flex items-center justify-between px-2.5 pb-2 pt-1">
+                <label className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-blue-500 cursor-pointer transition-colors px-1 py-0.5 rounded">
+                  <Upload className="w-3.5 h-3.5" />图片
+                  <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileInput} disabled={uploadingImage} />
+                </label>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-300">⌘↵ 发送</span>
+                  <Button
+                    size="sm"
+                    className="h-7 px-3 text-xs bg-blue-600 hover:bg-blue-700"
+                    onClick={handleSendNote}
+                    disabled={!draftText.trim() && draftImages.length === 0}
+                  >
+                    <Send className="w-3 h-3 mr-1" />发送
+                  </Button>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Final address */}
@@ -241,7 +289,6 @@ export default function OfficialPoolOrderDetailModal({ pool, group, orderEntry, 
               <MapPin className="w-3.5 h-3.5 text-gray-400" />最终收货地址
             </p>
 
-            {/* Toggle: use group address */}
             <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${useGroupAddress ? "border-blue-300 bg-blue-50" : "border-gray-200 hover:bg-gray-50"}`}>
               <input type="radio" checked={useGroupAddress} onChange={() => setUseGroupAddress(true)} className="mt-0.5 accent-blue-600" />
               <div>
