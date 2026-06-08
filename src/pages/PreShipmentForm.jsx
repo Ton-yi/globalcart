@@ -844,7 +844,7 @@ export default function PreShipmentForm() {
 
       {/* Address (only for direct shipment) */}
       {consType === "" &&
-      <Card className="border-gray-200">
+      <Card className={`border-gray-200 transition-opacity ${joinExistingPool && selectedExistingPoolId ? "opacity-40 pointer-events-none" : ""}`}>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
               <MapPin className="w-4 h-4" />收货地址
