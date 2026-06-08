@@ -138,10 +138,16 @@ export default function PreShipmentForm() {
           return prevIds === newIds ? prev : (methods || []);
         });
         
-        // Set official pools (admin-created pools)
+        // Set all available pools for user to join
         const allPools = poolsRes.data?.pools || [];
-        const adminPools = allPools.filter(p => p.is_admin_created === true);
-        setOfficialPools(adminPools);
+        // Filter pools that user can join:
+        // - Admin-created official pools (any status pending/processing)
+        // - User's own pools (direct shipping or transit consolidation)
+        const availablePools = allPools.filter(p => 
+          (p.status === "pending" || p.status === "processing") &&
+          (p.is_admin_created || p.creator_email === user.email)
+        );
+        setOfficialPools(availablePools);
 
         const pref = prefs[0];
         const addrs = (pref?.saved_addresses || []).map(a => ({ ...EMPTY_ADDRESS_FORM, ...a }));
@@ -436,7 +442,7 @@ export default function PreShipmentForm() {
             ))}
           </div>
 
-          {/* Direct shipping - option to join existing pool */}
+          {/* Direct shipping - option to join existing direct pool */}
           {consType === "" && (
             <div className="space-y-2 border border-blue-100 rounded-xl p-3 bg-blue-50/40">
               <Label className="text-xs text-blue-700 font-medium">是否加入已有的直接发货申请？</Label>
@@ -460,10 +466,14 @@ export default function PreShipmentForm() {
               {joinExistingPool && (
                 <div className="mt-2 space-y-2">
                   <Label className="text-xs text-blue-700">选择要加入的发货申请</Label>
-                  {/* Fetch and display user's existing direct shipping pools */}
                   {(() => {
-                    const myDirectPools = officialPools.filter(p => !p.is_admin_created && !p.consolidation_type && p.creator_email === user.email);
-                    if (myDirectPools.length === 0) {
+                    // Filter direct shipping pools (not admin-created, no consolidation_type, user's own)
+                    const directPools = officialPools.filter(p => 
+                      !p.is_admin_created && 
+                      (!p.consolidation_type || p.consolidation_type === "") &&
+                      p.creator_email === user.email
+                    );
+                    if (directPools.length === 0) {
                       return (
                         <div className="text-sm text-gray-500 py-2">
                           暂无可用的直接发货申请，将创建新的发货申请
@@ -472,12 +482,12 @@ export default function PreShipmentForm() {
                     }
                     return (
                       <div className="space-y-1.5">
-                        {myDirectPools.map(pool => (
+                        {directPools.map(pool => (
                           <label key={pool.id} className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${selectedExistingPoolId === pool.id ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
                             <input type="radio" checked={selectedExistingPoolId === pool.id} onChange={() => setSelectedExistingPoolId(pool.id)} className="mt-0.5 accent-blue-600" />
                             <div className="flex-1">
                               <p className="text-sm font-medium text-gray-800">{pool.pool_code}</p>
-                              <p className="text-xs text-gray-500">已参团：{pool.order_ids?.length || 0} 单 · 运输方式：{pool.shipping_method || '未设置'}</p>
+                              <p className="text-xs text-gray-500">直接发货 · {(pool.order_ids || []).length} 单 · {pool.shipping_method || '方式未定'}</p>
                             </div>
                           </label>
                         ))}
@@ -529,8 +539,12 @@ export default function PreShipmentForm() {
                   <div className="mt-2 space-y-2">
                     <Label className="text-xs text-blue-700">选择要加入的拼邮申请</Label>
                     {(() => {
-                      const myTransitPools = officialPools.filter(p => p.consolidation_type === 'transit' && p.creator_email === user.email);
-                      if (myTransitPools.length === 0) {
+                      // Filter transit consolidation pools (user's own, consolidation_type='transit')
+                      const transitPools = officialPools.filter(p => 
+                        p.consolidation_type === 'transit' && 
+                        p.creator_email === user.email
+                      );
+                      if (transitPools.length === 0) {
                         return (
                           <div className="text-sm text-gray-500 py-2">
                             暂无可用的中转拼邮申请，将创建新的拼邮申请
@@ -539,20 +553,19 @@ export default function PreShipmentForm() {
                       }
                       return (
                         <div className="space-y-1.5">
-                          {myTransitPools.map(pool => (
+                          {transitPools.map(pool => (
                             <label key={pool.id} className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${selectedExistingPoolId === pool.id ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
                               <input type="radio" checked={selectedExistingPoolId === pool.id} onChange={() => setSelectedExistingPoolId(pool.id)} className="mt-0.5 accent-blue-600" />
                               <div className="flex-1">
                                 <p className="text-sm font-medium text-gray-800">{pool.pool_code}</p>
-                                <p className="text-xs text-gray-500">已参团：{pool.order_ids?.length || 0} 单 · 中转地：{pool.transit_location_name || '未设置'}</p>
+                                <p className="text-xs text-gray-500">中转拼邮 · {(pool.order_ids || []).length} 单 · {pool.transit_location_name || '中转地未设置'}</p>
                               </div>
                             </label>
                           ))}
-                        </div>
-                      );
-                    })()}
-                  </div>
-                )}
+                      </div>
+                    );
+                  })()}
+                </div>
               </div>
             </>
           )}
