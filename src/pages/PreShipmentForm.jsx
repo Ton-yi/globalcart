@@ -613,9 +613,11 @@ export default function PreShipmentForm() {
                           <CommandEmpty>暂无可用的拼邮申请</CommandEmpty>
                           <CommandGroup heading="我的中转拼邮申请">
                             {(() => {
+                            // User's own transit pools (exclude admin-created official pools)
                             const transitPools = officialPools.filter((p) =>
                             p.consolidation_type === 'transit' &&
-                            p.creator_email === user.email
+                            p.creator_email === user.email &&
+                            !p.is_admin_created
                             );
                             return transitPools.map((pool) =>
                             <CommandItem
@@ -682,7 +684,8 @@ export default function PreShipmentForm() {
           <div className="space-y-2 border border-blue-100 rounded-xl p-3 bg-blue-50/40">
               <Label className="text-xs text-blue-700 font-medium">选择要加入的官方拼邮池</Label>
               {(() => {
-                const adminPools = officialPools.filter(p => p.is_admin_created);
+                // Official pools: admin-created pools with consolidation_type="transit"
+                const adminPools = officialPools.filter(p => p.is_admin_created && p.consolidation_type === "transit");
                 return adminPools.length > 0 ?
             <div className="space-y-2">
                   <label className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${!selectedPoolId ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
