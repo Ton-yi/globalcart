@@ -493,6 +493,22 @@ export default function SubmitOrder() {
                                 });
                               }
                             }}
+                            onBlur={(e) => {
+                              const val = e.target.value.trim();
+                              const value = val === '' ? opt.fee : parseFloat(val) || opt.fee;
+                              // Clamp to valid range
+                              const clamped = Math.max(opt.min_fee, Math.min(opt.max_fee, value));
+                              setAddonCustomFees((prev) => ({ ...prev, [opt.id]: clamped }));
+                              if (clamped < opt.min_fee || clamped > opt.max_fee) {
+                                setAddonFeeErrors((prev) => ({ ...prev, [opt.id]: `已自动调整为${opt.min_fee}-${opt.max_fee}之间的金额` }));
+                              } else {
+                                setAddonFeeErrors((prev) => {
+                                  const newErrors = { ...prev };
+                                  delete newErrors[opt.id];
+                                  return newErrors;
+                                });
+                              }
+                            }}
                             onClick={(e) => e.stopPropagation()} />
                           
                               <span className="text-xs text-yellow-700">{opt.fee_currency || "JPY"}</span>
