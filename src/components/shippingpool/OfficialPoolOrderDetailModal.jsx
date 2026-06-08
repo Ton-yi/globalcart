@@ -47,13 +47,13 @@ export default function OfficialPoolOrderDetailModal({ pool, group, orderEntry, 
     }
     return fees;
   });
+  const [addonFeeErrors, setAddonFeeErrors] = useState({});
   const [useGroupAddress, setUseGroupAddress] = useState(orderEntry.use_group_address !== false);
   const [overrideAddress, setOverrideAddress] = useState(orderEntry.override_final_address || { ...EMPTY_ADDRESS_FORM });
   const [selectedSavedId, setSelectedSavedId] = useState("");
   const [uploadingImage, setUploadingImage] = useState(false);
   const [saving, setSaving] = useState(false);
   const [sendingNote, setSendingNote] = useState(false);
-  const [addonFeeErrors, setAddonFeeErrors] = useState({});
   const [dragOver, setDragOver] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState(null);
   const fileInputRef = useRef(null);
@@ -339,14 +339,20 @@ export default function OfficialPoolOrderDetailModal({ pool, group, orderEntry, 
                                       const value = val === '' ? '' : parseFloat(val) || 0;
                                       setAddonCustomFees(prev => ({ ...prev, [a.id]: value }));
                                       // Validate in real-time
-                                      if (value === '' || (value >= a.min_fee && value <= a.max_fee)) {
+                                      if (value === '' || value === undefined) {
                                         setAddonFeeErrors(prev => {
                                           const newErrors = { ...prev };
                                           delete newErrors[a.id];
                                           return newErrors;
                                         });
+                                      } else if (value < a.min_fee || value > a.max_fee) {
+                                        setAddonFeeErrors(prev => ({ ...prev, [a.id]: `必须在${a.min_fee}-${a.max_fee} ${a.fee_currency || 'JPY'}之间` }));
                                       } else {
-                                        setAddonFeeErrors(prev => ({ ...prev, [a.id]: `必须在${a.min_fee}-${a.max_fee}之间` }));
+                                        setAddonFeeErrors(prev => {
+                                          const newErrors = { ...prev };
+                                          delete newErrors[a.id];
+                                          return newErrors;
+                                        });
                                       }
                                     }}
                                     onClick={(e) => e.stopPropagation()}
