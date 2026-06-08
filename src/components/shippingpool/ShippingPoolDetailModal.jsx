@@ -631,8 +631,8 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
   const status = STATUS_CONFIG[pool.status] || STATUS_CONFIG.pending;
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={(e) => {if (e.target === e.currentTarget) onClose();}}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onMouseDown={onClose}>
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onMouseDown={e => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-start justify-between px-6 py-4 border-b sticky top-0 bg-white z-10">
           <div>
@@ -1820,8 +1820,8 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
         </div>
 
         {showBulkRewarehouse && (
-          <div className="fixed inset-0 bg-black/40 z-[70] flex items-center justify-center p-4" onClick={e=>{if(e.target===e.currentTarget)setShowBulkRewarehouse(false);}}>
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 space-y-4">
+          <div className="fixed inset-0 bg-black/40 z-[70] flex items-center justify-center p-4" onMouseDown={()=>setShowBulkRewarehouse(false)}>
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 space-y-4" onMouseDown={e=>e.stopPropagation()}>
               <div><h3 className="font-semibold text-gray-900">申请再入库</h3><p className="text-sm text-gray-500 mt-1">已选 {rewarehouseSelectedIds.length} 件包裹申请取消发货并重新入库。</p></div>
               <div className="bg-orange-50 border border-orange-100 rounded-lg px-3 py-2 text-xs text-orange-700 space-y-1"><p>⚠️ 管理员审批后，订单将恢复为「已入库」状态。</p><p>管理员可能会收取再处理费用，将在下次提交发货时自动计入。</p></div>
               <div><label className="text-xs text-gray-500 block mb-1">申请原因（可选）</label><Textarea rows={2} placeholder="说明申请原因..." className="text-sm" value={rewarehouseNote} onChange={e=>setRewarehouseNote(e.target.value)} /></div>
@@ -1847,9 +1847,8 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
         }
 
         {editingPool && editingPoolData &&
-        <div className="fixed inset-0 bg-black/40 z-[70] flex items-center justify-center p-4"
-        onClick={(e) => {if (e.target === e.currentTarget) setEditingPool(false);}}>
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/40 z-[70] flex items-center justify-center p-4" onMouseDown={() => setEditingPool(false)}>
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto" onMouseDown={e => e.stopPropagation()}>
               <div className="flex items-center justify-between px-5 py-4 border-b">
                 <h3 className="font-semibold text-gray-900">编辑发货申请</h3>
                 <button onClick={() => setEditingPool(false)}><X className="w-4 h-4 text-gray-500" /></button>
@@ -1890,8 +1889,8 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
         }
 
         {confirmDelete &&
-        <div className="fixed inset-0 bg-black/40 z-[70] flex items-center justify-center p-4">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 space-y-4">
+        <div className="fixed inset-0 bg-black/40 z-[70] flex items-center justify-center p-4" onMouseDown={() => setConfirmDelete(false)}>
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 space-y-4" onMouseDown={e => e.stopPropagation()}>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
                   <Trash2 className="w-5 h-5 text-red-600" />
