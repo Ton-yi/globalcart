@@ -529,15 +529,13 @@ export default function AdminShippingPool() {
           ) : (
             <div className="space-y-2">
               {/* Sort: locations without manager first */}
-              {(() => {
-                const sortedLocations = [...locations].sort((a, b) => {
-                  const aHasManager = !!a.manager_email;
-                  const bHasManager = !!b.manager_email;
-                  if (aHasManager === bHasManager) return 0;
-                  return aHasManager ? 1 : -1; // No manager first
-                });
-                return sortedLocations.map(loc => {
-                <div key={loc.id} className="flex items-start gap-3 border border-gray-200 rounded-xl p-4 bg-white">
+              {[...locations].sort((a, b) => {
+                const aHasManager = !!a.manager_email;
+                const bHasManager = !!b.manager_email;
+                if (aHasManager === bHasManager) return 0;
+                return aHasManager ? 1 : -1;
+              }).map(loc => (
+                  <div key={loc.id} className="flex items-start gap-3 border border-gray-200 rounded-xl p-4 bg-white">
                   <MapPin className={`w-4 h-4 mt-0.5 flex-shrink-0 ${loc.is_active ? "text-red-500" : "text-gray-300"}`} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -624,8 +622,7 @@ export default function AdminShippingPool() {
                     )}
                   </div>
                 </div>
-              );
-            })}
+              ))}
             </div>
           )}
         </div>
