@@ -135,7 +135,7 @@ export default function UserPreferences() {
   const handleSave = async () => {
     setSaving(true);
     await base44.auth.updateMe({ display_name: displayName, avatar_url: avatarUrl });
-    const data = { ...form, contact_public: form.contact_public !== false, user_email: user.email, saved_addresses: addresses };
+    const data = { ...form, contact_public: form.contact_public !== false, order_info_public: form.order_info_public === true, user_email: user.email, saved_addresses: addresses };
     if (pref) {
       await userPrefApi.update(pref.id, data);
       // Clean up any duplicate UserPreference records (merge into primary)
@@ -369,6 +369,14 @@ export default function UserPreferences() {
               <p className="text-xs text-gray-400 mt-0.5">订单状态变更时通知您</p>
             </div>
             <Switch checked={form.notification_email} onCheckedChange={v => f("notification_email", v)} />
+          </div>
+
+          <div className="flex items-center justify-between py-1 border-t border-gray-100 pt-3 mt-1">
+            <div>
+              <Label className="text-sm">公开显示我的订单信息</Label>
+              <p className="text-xs text-gray-400 mt-0.5">开启后其他用户可以看到您的商品名称等订单详情</p>
+            </div>
+            <Switch checked={form.order_info_public} onCheckedChange={v => f("order_info_public", v)} />
           </div>
 
         </CardContent>
