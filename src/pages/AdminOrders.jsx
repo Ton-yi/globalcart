@@ -38,6 +38,7 @@ const ALL_COLUMNS = [
   { key: "admin_note", label: "管理员备注", defaultVisible: false, sortable: true },
   { key: "user_note", label: "用户订单备注", defaultVisible: false, sortable: true },
   { key: "payment_due_date", label: "付款截止日期", defaultVisible: false, sortable: true },
+  { key: "fullpay_once", label: "一次付款", defaultVisible: false, sortable: false, isFullPayOnce: true },
 ];
 
 const DEFAULT_COLUMNS = ALL_COLUMNS.map(c => ({ ...c, visible: c.defaultVisible }));
@@ -197,6 +198,62 @@ function CellValue({ col, order, onQuickOrdered, userAvatars }) {
       return <span className="text-xs text-gray-700">{order.in_warehouse_date ? new Date(order.in_warehouse_date).toLocaleDateString("zh-CN") : "-"}</span>;
     case "shipped_date":
       return <span className="text-xs text-gray-700">{order.shipped_date ? new Date(order.shipped_date).toLocaleDateString("zh-CN") : "-"}</span>;
+    case "fullpay_once": {
+      // One-time payment order display
+      const isFullpayOnce = order.payment_mode === "fullpay_once";
+      const config = order.fullpay_once_config;
+      
+      if (!isFullpayOnce || !config) {
+        return <span className="text-xs text-gray-400">-</span>;
+      }
+      
+      const estimatedWeight = config.user_estimated_weight_g || 0;
+      const actualWeight = order.weight_g || 0;
+      const estimatedFee = config.estimated_shipping_fee_jpy || 0;
+      const weightDiff = actualWeight - estimatedWeight;
+      const settlementStatus = config.settlement_status || "pending";
+      
+      // Color coding based on settlement status
+      const statusColors = {
+        pending: "bg-gray-100 text-gray-600",
+        needs_supplement: "bg-orange-100 text-orange-700",
+        needs_refund: "bg-blue-100 text-blue-700",
+        settled: "bg-green-100 text-green-700"
+      };
+      
+      const statusLabels = {
+        pending: "待结算",
+        needs_supplement: "待补款",
+        needs_refund: "待退款",
+        settled: "已结算"
+      };
+      
+      return (
+        <div className="flex flex-col gap-1 min-w-[140px]">
+          <Badge className={`text-xs w-fit ${statusColors[settlementStatus]}`}>
+            {statusLabels[settlementStatus] || settlementStatus}
+          </Badge>
+          <div className="text-[10px] text-gray-600 space-y-0.5">
+            <div className="flex justify-between gap-2">
+              <span>预估:</span>
+              <span>{estimatedWeight}g / ¥{estimatedFee.toLocaleString()}</span>
+            </div>
+            {actualWeight > 0 && (
+              <div className="flex justify-between gap-2">
+                <span>实际:</span>
+                <span>{actualWeight}g</span>
+              </div>
+            )}
+            {weightDiff !== 0 && actualWeight > 0 && (
+              <div className={`flex justify-between gap-2 ${weightDiff > 0 ? 'text-orange-600 font-medium' : 'text-blue-600 font-medium'}`}>
+                <span>差异:</span>
+                <span>{weightDiff > 0 ? '+' : ''}{weightDiff}g</span>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
     case "online_store_tag": {
       const tagRules = col._rules || [];
       const firstUrl = (order.product_url || "").split("\n").map(s => s.trim()).filter(Boolean)[0] || "";
