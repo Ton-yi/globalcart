@@ -41,6 +41,7 @@ export default function OfficialPoolOrderDetailModal({ pool, group, orderEntry, 
   const [uploadingImage, setUploadingImage] = useState(false);
   const [saving, setSaving] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [lightboxUrl, setLightboxUrl] = useState(null);
   const fileInputRef = useRef(null);
 
   const uploadFile = useCallback(async (file) => {
@@ -118,6 +119,13 @@ export default function OfficialPoolOrderDetailModal({ pool, group, orderEntry, 
   const groupAddress = group.group_final_address;
 
   return (
+    <>
+    {lightboxUrl && (
+      <div className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4 cursor-zoom-out" onClick={() => setLightboxUrl(null)}>
+        <img src={lightboxUrl} alt="" className="max-w-full max-h-full rounded-lg shadow-2xl object-contain" onClick={e => e.stopPropagation()} />
+        <button onClick={() => setLightboxUrl(null)} className="absolute top-4 right-4 p-1.5 rounded-full bg-black/50 text-white hover:bg-black/70"><X className="w-5 h-5" /></button>
+      </div>
+    )}
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onMouseDown={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col" onMouseDown={e => e.stopPropagation()}>
         {/* Header */}
@@ -137,7 +145,7 @@ export default function OfficialPoolOrderDetailModal({ pool, group, orderEntry, 
           {order && (
             <div className="bg-gray-50 rounded-xl p-3 space-y-1.5 text-xs">
               {order.product_image_url && (
-                <img src={order.product_image_url} alt={order.product_name} className="w-full h-32 object-contain rounded-lg border border-gray-200 bg-white mb-2" />
+                <img src={order.product_image_url} alt={order.product_name} onClick={() => setLightboxUrl(order.product_image_url)} className="w-full h-32 object-contain rounded-lg border border-gray-200 bg-white mb-2 cursor-zoom-in" />
               )}
               <div className="flex items-center justify-between">
                 <span className="text-gray-500">状态</span>
@@ -152,7 +160,7 @@ export default function OfficialPoolOrderDetailModal({ pool, group, orderEntry, 
               {order.arrival_photo_url && (
                 <div>
                   <p className="text-gray-500 mb-1">入库图片</p>
-                  <img src={order.arrival_photo_url} alt="入库图片" className="w-full h-28 object-contain rounded-lg border border-gray-200 bg-white" />
+                  <img src={order.arrival_photo_url} alt="入库图片" onClick={() => setLightboxUrl(order.arrival_photo_url)} className="w-full h-28 object-contain rounded-lg border border-gray-200 bg-white cursor-zoom-in" />
                 </div>
               )}
               {order.product_url && (
@@ -242,7 +250,7 @@ export default function OfficialPoolOrderDetailModal({ pool, group, orderEntry, 
                     {n.image_urls?.length > 0 && (
                       <div className="flex flex-wrap gap-1.5 mt-2">
                         {n.image_urls.map((url, i) => (
-                          <img key={i} src={url} alt="" className="w-14 h-14 rounded-lg object-cover border border-gray-200" />
+                          <img key={i} src={url} alt="" onClick={() => setLightboxUrl(url)} className="w-14 h-14 rounded-lg object-cover border border-gray-200 cursor-zoom-in" />
                         ))}
                       </div>
                     )}
@@ -341,5 +349,6 @@ export default function OfficialPoolOrderDetailModal({ pool, group, orderEntry, 
         </div>
       </div>
     </div>
+    </>
   );
 }
