@@ -311,14 +311,11 @@ export default function OfficialPoolOrderDetailModal({ pool, group, orderEntry, 
                                   type="number" 
                                   className="h-6 w-24 text-xs text-right"
                                   value={customFee}
-                                  min={a.min_fee}
-                                  max={a.max_fee}
                                   placeholder={`${a.min_fee}-${a.max_fee}`}
                                   onChange={(e) => {
                                     const val = e.target.value;
                                     const value = val === '' ? '' : parseFloat(val) || 0;
-                                    const clamped = val === '' ? '' : Math.max(a.min_fee || 0, Math.min(a.max_fee || 0, value));
-                                    setAddonCustomFees(prev => ({ ...prev, [a.id]: clamped }));
+                                    setAddonCustomFees(prev => ({ ...prev, [a.id]: value }));
                                   }}
                                   onClick={(e) => e.stopPropagation()}
                                 />

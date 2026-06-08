@@ -804,18 +804,35 @@ export default function SubmitOrder() {
             disabled={submitting || !form.product_name}
             onClick={async () => {
               setSubmitting(true);
+              // Validate custom fees are within range
+              const validationErrors = [];
               const selectedAddonObjects = selectedAddons.map((id) => {
                 const addon = addonOptions.find((a) => a.id === id);
                 if (!addon) return null;
                 const customFee = addonCustomFees[id];
                 const isCustomizable = addon.is_user_customizable;
+                const finalFee = isCustomizable && customFee !== undefined ? customFee : parseFloat(addon.fee) || 0;
+                // Validate custom fee range
+                if (isCustomizable && customFee !== undefined && customFee !== '') {
+                  if (addon.min_fee !== undefined && addon.max_fee !== undefined) {
+                    if (customFee < addon.min_fee || customFee > addon.max_fee) {
+                      validationErrors.push(`${addon.name}: 费用必须在 ${addon.min_fee}-${addon.max_fee} ${addon.fee_currency || "JPY"} 之间`);
+                    }
+                  }
+                }
                 return {
                   id: addon.id,
                   name: addon.name,
-                  fee: isCustomizable && customFee !== undefined ? customFee : parseFloat(addon.fee) || 0,
+                  fee: finalFee,
                   fee_currency: addon.fee_currency || "JPY"
                 };
               }).filter(Boolean);
+              
+              if (validationErrors.length > 0) {
+                setSubmitting(false);
+                alert(validationErrors.join('\n'));
+                return;
+              }
               const urlsText = urlMode === "textarea" ?
               (productUrls[0] || "").split("\n").map((s) => s.trim()).filter(Boolean).join("\n") :
               productUrls.filter((u) => u.trim()).join("\n");
