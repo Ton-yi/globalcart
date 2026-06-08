@@ -183,7 +183,7 @@ function TransitAddonSection({ consType, selectedTransitId, transitLocations, sh
                     <span className="text-[10px] text-green-600 font-medium">用户可自定义</span>
                     <Input
                       type="number"
-                      className="h-7 w-28 text-xs [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      className="h-7 w-28 text-xs"
                       placeholder={`${a.min_fee}-${a.max_fee}`}
                       value={addonCustomFees[a.id] ?? a.fee}
                       onChange={(e) => {

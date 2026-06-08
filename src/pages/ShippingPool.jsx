@@ -894,7 +894,7 @@ export default function ShippingPool() {
                                   <div className="flex flex-col gap-1 w-full">
                                     <Input
                             type="number"
-                            className="h-7 w-28 text-xs [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            className="h-7 w-28 text-xs"
                             placeholder={`${a.min_fee}-${a.max_fee}`}
                             value={addonCustomFees[a.id] ?? a.fee}
                             onChange={(e) => {
