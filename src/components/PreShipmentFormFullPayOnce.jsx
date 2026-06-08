@@ -151,40 +151,6 @@ export default function PreShipmentFormFullPayOnce({
             <p className="text-xs text-gray-400 mt-1">请输入商品预估重量（克），用于计算运费</p>
           </div>
 
-          {/* Shipping method selection */}
-          <div>
-            <Label className="text-sm">运输方式 *</Label>
-            <div className="grid grid-cols-2 gap-2 mt-1">
-              {shippingMethods
-                .filter(m => {
-                  if (consType === "") return m.enabled_for_direct_ship !== false;
-                  if (consType === "official_pool") return m.enabled_for_official_pool !== false;
-                  return false;
-                })
-                .map((method) => (
-                <button
-                  key={method.code}
-                  type="button"
-                  onClick={() => {}}
-                  className={`p-3 rounded-lg border-2 text-sm font-medium transition-all text-left ${
-                    shippingMethod === method.code
-                      ? "border-blue-500 bg-blue-50 text-blue-700"
-                      : "border-gray-200 text-gray-500 hover:border-gray-300"
-                  }`}
-                >
-                  <div className="font-semibold flex items-center gap-1.5">
-                    {method.icon && <span className="text-base">{method.icon}</span>}
-                    {method.name}
-                  </div>
-                  {method.transit_days && (
-                    <div className="text-xs mt-0.5 opacity-70">{method.transit_days}</div>
-                  )}
-                </button>
-              ))}
-            </div>
-            <p className="text-xs text-gray-400 mt-1">运输方式已在上一步选择</p>
-          </div>
-
           {/* Estimated shipping fee display */}
           {estimatedShippingFee > 0 && (
             <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3">
