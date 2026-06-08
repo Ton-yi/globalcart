@@ -136,6 +136,9 @@ export default function OfficialPoolOrderDetailModal({ pool, group, orderEntry, 
           {/* Order info */}
           {order && (
             <div className="bg-gray-50 rounded-xl p-3 space-y-1.5 text-xs">
+              {order.product_image_url && (
+                <img src={order.product_image_url} alt={order.product_name} className="w-full h-32 object-contain rounded-lg border border-gray-200 bg-white mb-2" />
+              )}
               <div className="flex items-center justify-between">
                 <span className="text-gray-500">状态</span>
                 <Badge className="bg-blue-100 text-blue-700 text-xs">{ORDER_STATUS_LABELS[order.order_status] || order.order_status}</Badge>
@@ -145,6 +148,12 @@ export default function OfficialPoolOrderDetailModal({ pool, group, orderEntry, 
               )}
               {order.estimated_jpy > 0 && (
                 <div className="flex items-center justify-between"><span className="text-gray-500">估价</span><span className="font-medium">¥{order.estimated_jpy?.toLocaleString()}</span></div>
+              )}
+              {order.arrival_photo_url && (
+                <div>
+                  <p className="text-gray-500 mb-1">入库图片</p>
+                  <img src={order.arrival_photo_url} alt="入库图片" className="w-full h-28 object-contain rounded-lg border border-gray-200 bg-white" />
+                </div>
               )}
               {order.product_url && (
                 <a href={order.product_url.split("\n")[0]} target="_blank" rel="noopener noreferrer"
