@@ -1108,8 +1108,29 @@ export default function ShippingPool() {
               <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-4 py-2.5 text-sm text-green-700 ml-auto">
                 <CheckCircle2 className="w-4 h-4" />
                 <span>有未保存的更改</span>
-                <Button size="sm" className="bg-green-600 hover:bg-green-700 h-7 text-xs" onClick={() => fetchData(user)}>
-                  刷新
+                <Button size="sm" className="bg-green-600 hover:bg-green-700 h-7 text-xs" onClick={async () => {
+                  setSubmitting(true);
+                  try {
+                    // Commit all local pool changes to backend
+                    const promises = Object.values(localPools || {}).map(localPool => {
+                      const original = pools.find(p => p.id === localPool.id);
+                      const patch = {};
+                      if (JSON.stringify(localPool.order_ids) !== JSON.stringify(original?.order_ids)) patch.order_ids = localPool.order_ids;
+                      if (localPool.total_weight_g !== original?.total_weight_g) patch.total_weight_g = localPool.total_weight_g;
+                      if (JSON.stringify(localPool.per_user_groups) !== JSON.stringify(original?.per_user_groups)) patch.per_user_groups = localPool.per_user_groups;
+                      return shippingPoolApi.update(localPool.id, patch);
+                    });
+                    await Promise.all(promises);
+                    setLocalPools(null);
+                    setHasUnsavedChanges(false);
+                    fetchData(user);
+                  } catch (e) {
+                    console.error('Save failed:', e);
+                  } finally {
+                    setSubmitting(false);
+                  }
+                }}>
+                  {submitting ? "保存中..." : "保存更改"}
                 </Button>
                 <Button variant="ghost" size="sm" className="h-7 text-xs text-green-600 hover:text-green-700" onClick={() => { setLocalPools(null); setHasUnsavedChanges(false); }}>放弃</Button>
               </div>

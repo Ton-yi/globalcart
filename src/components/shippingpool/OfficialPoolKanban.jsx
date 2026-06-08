@@ -929,7 +929,7 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
     }
 
     setSelectedIds(new Set());
-    onRefresh?.();
+    // Do NOT call onRefresh - let user manually save/refresh
   };
 
   if (pools.length === 0) {
