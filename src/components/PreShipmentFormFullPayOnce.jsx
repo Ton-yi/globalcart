@@ -152,19 +152,24 @@ export default function PreShipmentFormFullPayOnce({
           </div>
 
           {/* Real-time shipping fee display */}
-          {estimatedShippingFee > 0 && (
+          {fullPayOnceEnabled && userEstimatedWeight && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-blue-800 font-medium flex items-center gap-1.5">
                   <Calculator className="w-4 h-4" />
                   预估运费
                 </span>
-                <span className="text-lg font-bold text-blue-700">¥{estimatedShippingFee.toLocaleString()}</span>
+                <span className="text-lg font-bold text-blue-700">¥{estimatedShippingFee > 0 ? estimatedShippingFee.toLocaleString() : '0'}</span>
               </div>
               <p className="text-xs text-blue-600 mt-1.5">
-                基于 {userEstimatedWeight}g · 运输方式：{shippingMethods.find(m => m.code === shippingMethod)?.name || '-'}
+                基于 {userEstimatedWeight}g · 运输方式：{shippingMethods.find(m => m.code === shippingMethod)?.name || '未选择'}
               </p>
-              {consType === "official_pool" && (
+              {estimatedShippingFee === 0 && (
+                <p className="text-xs text-blue-600 mt-1 text-orange-600">
+                  无法计算运费，请检查：1) 是否选择了运输方式 2) 该运输方式是否配置了运费模板
+                </p>
+              )}
+              {consType === "official_pool" && estimatedShippingFee > 0 && (
                 <p className="text-xs text-blue-600 mt-1">
                   <Calculator className="w-3 h-3 inline mr-1" />
                   简易估算：每 100g 按 150 JPY 计算
