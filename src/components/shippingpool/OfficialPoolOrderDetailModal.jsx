@@ -149,6 +149,26 @@ export default function OfficialPoolOrderDetailModal({ pool, group, orderEntry, 
   };
 
   const handleSave = async () => {
+    // Validate custom fees are within range before saving
+    const validationErrors = [];
+    shippingAddons.filter(a => selectedAddonIds.includes(a.id)).forEach(a => {
+      if (a.is_user_customizable) {
+        const customFee = addonCustomFees[a.id];
+        if (customFee !== undefined && customFee !== '') {
+          if (a.min_fee !== undefined && a.max_fee !== undefined) {
+            if (customFee < a.min_fee || customFee > a.max_fee) {
+              validationErrors.push(`${a.name}: 费用必须在 ${a.min_fee}-${a.max_fee} ${a.fee_currency || "JPY"} 之间`);
+            }
+          }
+        }
+      }
+    });
+    
+    if (validationErrors.length > 0) {
+      alert(validationErrors.join('\n'));
+      return;
+    }
+    
     setSaving(true);
     // Build selected addons with custom fees if applicable
     const selectedAddons = shippingAddons.filter(a => selectedAddonIds.includes(a.id))
