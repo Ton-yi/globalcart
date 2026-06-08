@@ -681,32 +681,50 @@ export default function PreShipmentForm() {
           
           {/* Official pool selection */}
           {consType === "official_pool" &&
-          <div className="space-y-2 border border-blue-100 rounded-xl p-3 bg-blue-50/40">
-              <Label className="text-xs text-blue-700 font-medium">选择要加入的官方拼邮池</Label>
+          <div className="space-y-3 border border-blue-100 rounded-xl p-4 bg-blue-50/40">
+              <div>
+                <Label className="text-xs text-blue-700 font-medium mb-2 block">选择要加入的官方拼邮池</Label>
+                <p className="text-xs text-gray-500 mb-3">管理员创建的拼邮池享受优惠运费，选择一个加入或默认匹配</p>
+              </div>
               {(() => {
                 // Official pools: admin-created pools with consolidation_type="transit"
                 const adminPools = officialPools.filter(p => p.is_admin_created && p.consolidation_type === "transit");
                 return adminPools.length > 0 ?
             <div className="space-y-2">
-                  <label className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${!selectedPoolId ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
+                  <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${!selectedPoolId ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
                     <input type="radio" checked={!selectedPoolId} onChange={() => setSelectedPoolId("")} className="mt-0.5 accent-blue-600" />
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-800">默认拼官方</p>
-                      <p className="text-xs text-gray-500">系统将自动匹配最近的同运输方式拼邮池</p>
+                      <p className="text-sm font-medium text-gray-800">🏷️ 默认拼官方</p>
+                      <p className="text-xs text-gray-500 mt-0.5">系统将自动匹配最近的同运输方式拼邮池</p>
                     </div>
                   </label>
                   {adminPools.map((pool) =>
-              <label key={pool.id} className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${selectedPoolId === pool.id ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
+              <label key={pool.id} className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${selectedPoolId === pool.id ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
                       <input type="radio" checked={selectedPoolId === pool.id} onChange={() => setSelectedPoolId(pool.id)} className="mt-0.5 accent-blue-600" />
                       <div className="flex-1">
-                        <p className="text-sm font-medium text-gray-800">{pool.title || pool.pool_code}</p>
-                        <p className="text-xs text-gray-500">已参团：{pool.order_ids?.length || 0} 单 · 截止：{pool.consolidation_deadline || '未设置'}</p>
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="text-sm font-semibold text-gray-800">{pool.title || pool.pool_code}</p>
+                          {pool.consolidation_deadline && (
+                            <Badge variant="outline" className="text-[10px] bg-orange-50 text-orange-700 border-orange-200">
+                              截止：{pool.consolidation_deadline}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-gray-500">
+                          <span>👥 {(pool.order_ids?.length || 0)} 单</span>
+                          {pool.consolidation_min_weight_g && (
+                            <span>⚖️ 目标：{(pool.consolidation_min_weight_g / 1000).toFixed(1)}kg</span>
+                          )}
+                          {pool.shipping_method && (
+                            <span>📦 {pool.shipping_method}</span>
+                          )}
+                        </div>
                       </div>
                     </label>
               )}
                 </div> :
 
-            <div className="text-sm text-gray-500 py-2">
+            <div className="text-sm text-gray-500 py-3 text-center bg-white rounded-lg border border-dashed">
                   暂无可用的官方拼邮池，将默认加入最近的同类型拼邮
                 </div>
               })}
