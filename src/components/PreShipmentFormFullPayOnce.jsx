@@ -46,32 +46,44 @@ export default function PreShipmentFormFullPayOnce({
   // Calculate shipping fee based on shipping mode
   useEffect(() => {
     if (!fullPayOnceEnabled || !userEstimatedWeight || !shippingMethod || !shippingMethods.length) {
+      console.log('[FullPay] Skip: missing data', { fullPayOnceEnabled, userEstimatedWeight, shippingMethod, shippingMethodsLength: shippingMethods.length });
       setEstimatedShippingFee(0);
       return;
     }
     
     const weight = parseFloat(userEstimatedWeight) || 0;
     if (weight <= 0) {
+      console.log('[FullPay] Skip: invalid weight', weight);
       setEstimatedShippingFee(0);
       return;
     }
     
     const method = shippingMethods.find(m => m.code === shippingMethod);
     if (!method) {
+      console.log('[FullPay] Skip: method not found', shippingMethod);
       setEstimatedShippingFee(0);
       return;
     }
     
-    let fee = 0;
-    
     // Get destination country from order's pre_shipment address or user preference
     const destinationCountry = order?.pre_shipment?.address?.country || "CN";
+    console.log('[FullPay] Computing fee:', { 
+      method: method.name, 
+      rate_mode: method.rate_mode, 
+      destinationCountry,
+      weight,
+      consType,
+      simple_rates_count: method.simple_rates?.length || 0,
+      detailed_rates_count: method.detailed_rates?.length || 0
+    });
+    
+    let fee = 0;
     
     if (consType === "official_pool") {
       // Simple estimation for official pool: 150 JPY per 100g
-      // This can be configured in shipping method settings later
       const simpleRatePer100g = 150;
       fee = Math.ceil(weight / 100) * simpleRatePer100g;
+      console.log('[FullPay] Official pool fee:', fee);
     } else if (consType === "") {
       // Direct shipping - use detailed rate table
       if (method.rate_mode === "simple" && method.simple_rates) {
@@ -88,6 +100,9 @@ export default function PreShipmentFormFullPayOnce({
             const additionalUnits = Math.ceil((weight - firstWeight) / additionalUnit);
             fee = firstFee + (additionalUnits * additionalFee);
           }
+          console.log('[FullPay] Simple rate found:', { rate, fee });
+        } else {
+          console.log('[FullPay] Simple rate NOT found for country:', destinationCountry, 'available countries:', method.simple_rates.map(r => r.country));
         }
       } else if (method.rate_mode === "detailed" && method.detailed_rates) {
         const rate = method.detailed_rates.find(r => 
@@ -97,7 +112,12 @@ export default function PreShipmentFormFullPayOnce({
         );
         if (rate) {
           fee = rate.fee || 0;
+          console.log('[FullPay] Detailed rate found:', rate);
+        } else {
+          console.log('[FullPay] Detailed rate NOT found for country:', destinationCountry, 'weight:', weight);
         }
+      } else {
+        console.log('[FullPay] No valid rate mode:', method.rate_mode);
       }
     }
     
