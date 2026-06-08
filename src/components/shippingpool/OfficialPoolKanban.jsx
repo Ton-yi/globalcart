@@ -474,8 +474,8 @@ function PoolColumn({ pool, allOrders, currentUser, isAdmin, shippingAddons, sav
 
   const myGroup = perUserGroups.find(g => g.user_email === currentUser?.email);
   const myOrderIds = new Set((myGroup?.order_entries || []).map(e => e.order_id));
-  // Filter to current user's orders only for the hasInWarehouse check
-  const hasInWarehouse = allOrders.some(o => o.user_email === currentUser?.email && o.order_status === "in_warehouse" && !myOrderIds.has(o.id));
+  // Show button if current user has any in_warehouse orders (modal will filter out ones already in pool)
+  const hasInWarehouse = allOrders.some(o => o.order_status === "in_warehouse");
 
   // Build draggable items list (groups with 1+ entries are all draggable; groups with 2+ also expose individual entries when expanded)
   const draggableItems = [];
@@ -592,7 +592,8 @@ function PoolColumn({ pool, allOrders, currentUser, isAdmin, shippingAddons, sav
         )}
       </Droppable>
 
-      {hasInWarehouse && (
+      {/* Show join button for non-admin users, or admin users who have in_warehouse orders */}
+      {(!isAdmin || hasInWarehouse) && (
         <button
           onClick={() => setJoinOpen(true)}
           className="mt-2 w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border-2 border-dashed border-gray-200 text-xs text-gray-400 hover:border-blue-300 hover:text-blue-500 hover:bg-blue-50 transition-colors"
