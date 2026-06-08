@@ -187,10 +187,11 @@ function TransitAddonSection({ consType, selectedTransitId, transitLocations, sh
                       placeholder={`${a.min_fee}-${a.max_fee}`}
                       value={addonCustomFees[a.id] ?? a.fee}
                       onChange={(e) => {
-                        const value = parseFloat(e.target.value) || 0;
+                        const val = e.target.value;
+                        const value = val === '' ? '' : parseFloat(val) || 0;
                         setAddonCustomFees(prev => ({ ...prev, [a.id]: value }));
-                        if (value < a.min_fee || value > a.max_fee) {
-                          setAddonFeeErrors(prev => ({ ...prev, [a.id]: `请输入${a.min_fee}-${a.max_fee}之间的金额` }));
+                        if (value === '' || value < a.min_fee || value > a.max_fee) {
+                          setAddonFeeErrors(prev => ({ ...prev, [a.id]: value === '' ? '请输入金额' : `请输入${a.min_fee}-${a.max_fee}之间的金额` }));
                         } else {
                           setAddonFeeErrors(prev => {
                             const newErrors = { ...prev };
