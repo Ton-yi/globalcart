@@ -193,6 +193,13 @@ export default function JoinOfficialPoolModal({ pool, currentUser, onClose, onSu
                     {availableOrders.map(o => (
                       <label key={o.id} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${selectedOrderIds.includes(o.id) ? "border-blue-300 bg-blue-50" : "border-gray-200 hover:bg-gray-50"}`}>
                         <Checkbox checked={selectedOrderIds.includes(o.id)} onCheckedChange={() => setSelectedOrderIds(prev => prev.includes(o.id) ? prev.filter(x => x !== o.id) : [...prev, o.id])} />
+                        {(o.arrival_photo_url || o.product_image_url) && (
+                          <img
+                            src={o.arrival_photo_url || o.product_image_url}
+                            alt=""
+                            className="w-12 h-12 rounded-lg object-cover flex-shrink-0 border border-gray-200"
+                          />
+                        )}
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-gray-800 truncate">{o.product_name}</p>
                           <p className="text-xs text-gray-400 mt-0.5">{o.order_number || o.id.slice(0, 8)} · {o.weight_g || 0}g</p>
