@@ -1223,10 +1223,10 @@ export default function AdminShippingInfoPanel({
                               setConfirmingSaving(false);
                               onPoolUpdated?.({ ...pool, ...payload });
                             }}
-                            disabled={confirmingSaving || !trackingNumber}
-                            title={!trackingNumber ? "需填写运单号" : ""}>
+                            disabled={confirmingSaving || !trackingNumber.trim()}
+                            title={!trackingNumber.trim() ? "需填写运单号" : ""}>
                             <Truck className="w-3.5 h-3.5 mr-1.5" />
-                            {confirmingSaving ? "处理中..." : trackingNumber ? "跳过付款确认，直接进入已发货" : "跳过付款确认（需填写运单号）"}
+                            {confirmingSaving ? "处理中..." : trackingNumber.trim() ? "跳过付款确认，直接进入已发货" : "跳过付款确认（需填写运单号）"}
                           </Button>
                         )}
                       </div>
