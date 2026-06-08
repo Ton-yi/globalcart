@@ -699,15 +699,26 @@ export default function PreShipmentForm() {
           }
           
           {/* Official pool selection */}
-          {consType === "official_pool" &&
+          {(() => {
+            console.log('[PreShipmentForm OfficialPool] consType:', consType, 'consType === "official_pool":', consType === "official_pool");
+            console.log('[PreShipmentForm OfficialPool] officialPools.length:', officialPools.length);
+            if (consType !== "official_pool") return null;
+            
+            const adminPools = officialPools.filter(p => {
+              const result = p.is_admin_created === true;
+              console.log('[PreShipmentForm OfficialPool] Pool:', p.pool_code, 'is_admin_created:', p.is_admin_created, '=>', result);
+              return result;
+            });
+            console.log('[PreShipmentForm OfficialPool] adminPools count:', adminPools.length);
+            
+            return (
           <div className="space-y-3 border border-blue-100 rounded-xl p-4 bg-blue-50/40">
               <div>
                 <Label className="text-xs text-blue-700 font-medium mb-2 block">选择要加入的官方拼邮池</Label>
                 <p className="text-xs text-gray-500 mb-3">管理员创建的拼邮池享受优惠运费，选择一个加入或默认匹配</p>
+                <p className="text-xs text-gray-400">调试：{adminPools.length} 个官方池</p>
               </div>
-              {(() => {
-                const adminPools = officialPools.filter(p => p.is_admin_created === true);
-                return adminPools.length > 0 ?
+              {adminPools.length > 0 ?
             <div className="space-y-2">
                   <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${!selectedPoolId ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
                     <input type="radio" checked={!selectedPoolId} onChange={() => setSelectedPoolId("")} className="mt-0.5 accent-blue-600" />
@@ -745,9 +756,10 @@ export default function PreShipmentForm() {
             <div className="text-sm text-gray-500 py-3 text-center bg-white rounded-lg border border-dashed">
                   暂无可用的官方拼邮池，将默认加入最近的同类型拼邮
                 </div>
-              })}
+              }
             </div>
-          }
+            );
+          })()}
         </CardContent>
       </Card>
 
