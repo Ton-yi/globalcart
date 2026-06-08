@@ -1,4 +1,4 @@
-import { X, ExternalLink } from "lucide-react";
+import { X, ExternalLink, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -66,6 +66,31 @@ export default function OrderDetailModal({ order, onClose, onRefresh }) {
             <div className="mt-3">
               <p className="text-xs text-gray-500 mb-1">付款凭证</p>
               <img src={order.payment_proof_url} alt="付款凭证" className="max-h-40 rounded border" />
+            </div>
+          )}
+
+            {order.group_buy_request_id && (
+            <div className="mt-3 p-3 bg-indigo-50 border border-indigo-200 rounded text-sm text-indigo-800">
+              <div className="flex items-center gap-1.5 font-medium mb-1.5">
+                <Users className="w-3.5 h-3.5" />
+                拼单来源
+              </div>
+              <div className="space-y-0.5 text-indigo-700">
+                {order.group_buy_request_title && (
+                  <div>拼单标题：{order.group_buy_request_title}</div>
+                )}
+                <div>
+                  分摊运费：
+                  <span className="font-semibold">
+                    {order.group_buy_allocated_shipping_fee_jpy != null
+                      ? `¥ ${Number(order.group_buy_allocated_shipping_fee_jpy).toLocaleString()}`
+                      : '-'}
+                  </span>
+                  {order.group_buy_allocated_shipping_fee_jpy > 0 && (
+                    <span className="text-indigo-500 text-xs ml-1">（已含入预付款）</span>
+                  )}
+                </div>
+              </div>
             </div>
           )}
 

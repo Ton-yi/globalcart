@@ -383,6 +383,8 @@ Deno.serve(async (req) => {
           quantity: 1,
           group_buy_request_id: request_id,
           group_buy_entry_id: entry.id,
+          group_buy_request_title: reqRecord.title || '',
+          group_buy_allocated_shipping_fee_jpy: allocatedFee,
         });
 
         // Update entry with order reference and allocated fee

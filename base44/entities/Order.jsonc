@@ -448,6 +448,22 @@
           "type": "string"
         }
       }
+    },
+    "group_buy_request_id": {
+      "type": "string",
+      "description": "\u6765\u6e90\u62fc\u5355\u7533\u8bf7ID\uff08\u62fc\u5355\u751f\u6210\u7684\u8ba2\u5355\uff09"
+    },
+    "group_buy_entry_id": {
+      "type": "string",
+      "description": "\u6765\u6e90\u62fc\u5355\u6761\u76eeID"
+    },
+    "group_buy_request_title": {
+      "type": "string",
+      "description": "\u6765\u6e90\u62fc\u5355\u6807\u9898\uff08\u5feb\u7167\uff09"
+    },
+    "group_buy_allocated_shipping_fee_jpy": {
+      "type": "number",
+      "description": "\u62fc\u5355\u5206\u644a\u7684\u8fd0\u8d39\uff08JPY\uff09\uff0c\u62fc\u5355\u5b8c\u6210\u65f6\u5199\u5165"
     }
   },
   "required": [
