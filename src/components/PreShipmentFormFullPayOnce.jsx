@@ -65,8 +65,8 @@ export default function PreShipmentFormFullPayOnce({
       return;
     }
     
-    // Get destination country from order's pre_shipment address or user preference
-    const destinationCountry = order?.pre_shipment?.address?.country || "CN";
+    // Get destination country from order's pre_shipment address
+    const destinationCountry = order?.pre_shipment?.address?.country || "";
     console.log('[FullPay] Computing fee:', { 
       method: method.name, 
       rate_mode: method.rate_mode, 
@@ -74,7 +74,8 @@ export default function PreShipmentFormFullPayOnce({
       weight,
       consType,
       simple_rates_count: method.simple_rates?.length || 0,
-      detailed_rates_count: method.detailed_rates?.length || 0
+      detailed_rates_count: method.detailed_rates?.length || 0,
+      order_address: order?.pre_shipment?.address
     });
     
     let fee = 0;
@@ -122,7 +123,7 @@ export default function PreShipmentFormFullPayOnce({
     }
     
     setEstimatedShippingFee(Math.round(fee));
-  }, [fullPayOnceEnabled, userEstimatedWeight, shippingMethod, shippingMethods, consType, order]);
+  }, [fullPayOnceEnabled, userEstimatedWeight, shippingMethod, shippingMethods, consType, order?.pre_shipment?.address?.country]);
 
   if (!isAllowed()) {
     return (
