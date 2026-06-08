@@ -746,79 +746,6 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
     return null;
   };
 
-  // Move a single order entry from srcPool to destPool
-  const moveOrderToPool = async (orderId, srcPool, destPool) => {
-    const order = allOrders.find(o => o.id === orderId);
-    if (!order) return;
-
-    let entryToMove = null;
-    const newSrcGroups = srcPool ? (srcPool.per_user_groups || []).map(g => {
-      const entry = (g.order_entries || []).find(e => e.order_id === orderId);
-      if (entry) entryToMove = entry;
-      return { ...g, order_entries: (g.order_entries || []).filter(e => e.order_id !== orderId) };
-    }).filter(g => (g.order_entries || []).length > 0) : null;
-
-    if (srcPool) {
-      await shippingPoolApi.update(srcPool.id, {
-        order_ids: (srcPool.order_ids || []).filter(id => id !== orderId),
-        total_weight_g: Math.max(0, (srcPool.total_weight_g || 0) - (order.weight_g || 0)),
-        per_user_groups: newSrcGroups,
-      });
-    }
-
-    if (destPool) {
-      const newEntry = entryToMove || {
-        order_id: orderId, note: order.pre_shipment?.user_note || "", image_urls: [],
-        selected_addon_ids: order.pre_shipment?.selected_addon_ids || [],
-        selected_addons: order.pre_shipment?.selected_addons || [],
-        use_group_address: true, override_final_address: null,
-      };
-      const existingGroups = destPool.per_user_groups || [];
-      const existingIdx = existingGroups.findIndex(g => g.user_email === order.user_email);
-      let newDestGroups;
-      if (existingIdx >= 0) {
-        newDestGroups = existingGroups.map((g, i) => {
-          if (i !== existingIdx) return g;
-          const exists = (g.order_entries || []).some(e => e.order_id === orderId);
-          if (exists) return g;
-          return { ...g, order_entries: [...(g.order_entries || []), newEntry] };
-        });
-      } else {
-        newDestGroups = [...existingGroups, {
-          user_email: order.user_email, user_name: order.user_name || order.user_email,
-          group_label: order.user_name || order.user_email,
-          note: "", image_urls: [], selected_addon_ids: [], selected_addons: [],
-          group_final_address: null, order_entries: [newEntry],
-        }];
-      }
-      await shippingPoolApi.update(destPool.id, {
-        order_ids: [...new Set([...(destPool.order_ids || []), orderId])],
-        order_names: [...(destPool.order_names || []), order.product_name].filter(Boolean),
-        total_weight_g: (destPool.total_weight_g || 0) + (order.weight_g || 0),
-        per_user_groups: newDestGroups,
-      });
-      await base44.functions.invoke('updateTenantOrder', {
-        order_id: orderId,
-        order_status: (!srcPool && order.order_status === "in_warehouse") ? "notified_shipment" : order.order_status,
-        consolidation_pool_id: destPool.id,
-        pre_shipment: { ...(order.pre_shipment || {}), pool_created: true, pool_id: destPool.id, consType: "official_pool", target_pool_id: destPool.id },
-      });
-    } else {
-      // Moving to staging
-      const sPool = srcPool || pools.find(p => (p.order_ids || []).includes(orderId));
-      await base44.functions.invoke('updateTenantOrder', {
-        order_id: orderId,
-        consolidation_pool_id: "",
-        pre_shipment: {
-          ...(order.pre_shipment || {}),
-          consType: "official_pool", pool_created: false, pool_id: "",
-          target_pool_id: sPool?.id || "", target_pool_code: sPool?.pool_code || "",
-          target_pool_title: sPool?.title || sPool?.pool_code || "",
-        },
-      });
-    }
-  };
-
   // ─── Drag end handler ───────────────────────────────────────────────────────
   const handleDragEnd = async (result) => {
     const { source, destination, draggableId, type } = result;
@@ -838,49 +765,158 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
 
     if (source.droppableId === destination.droppableId) return;
 
-    const srcId = source.droppableId;
     const dstId = destination.droppableId;
     const destPool = dstId.startsWith("pool-") ? pools.find(p => p.id === dstId.slice("pool-".length)) : null;
+    const toStaging = dstId === "staging";
 
-    // Collect all draggableIds to move (the dragged one + any other selected ones)
-    const idsToMove = selectedIds.has(draggableId)
-      ? [...selectedIds]
-      : [draggableId];
+    // Collect all draggableIds to move
+    const idsToMove = selectedIds.has(draggableId) ? [...selectedIds] : [draggableId];
 
-    // Process each draggableId
-    for (const did of idsToMove) {
-      const parsed = parseDraggableId(did);
-      if (!parsed) continue;
-
-      if (parsed.type === "staging") {
-        // staging → pool
-        if (destPool) {
-          await moveOrderToPool(parsed.orderId, null, destPool);
-        }
-      } else if (parsed.type === "pool-order") {
-        const srcPool = pools.find(p => p.id === parsed.srcPoolId);
-        if (dstId === "staging") {
-          await moveOrderToPool(parsed.orderId, srcPool, null);
-        } else if (destPool && parsed.srcPoolId !== destPool.id) {
-          await moveOrderToPool(parsed.orderId, srcPool, destPool);
-        }
-      } else if (parsed.type === "pool-group") {
-        // Move all entries of the group
-        const srcPool = pools.find(p => p.id === parsed.srcPoolId);
-        const group = srcPool?.per_user_groups?.find(g => g.user_email === parsed.userEmail);
-        if (!group) continue;
-        const orderIds = (group.order_entries || []).map(e => e.order_id);
-        for (const oid of orderIds) {
-          // Need up-to-date srcPool after each move; re-fetch from current pools state is tricky,
-          // so do sequential moves. Refresh once at end.
-          if (dstId === "staging") {
-            await moveOrderToPool(oid, srcPool, null);
-          } else if (destPool && parsed.srcPoolId !== destPool.id) {
-            await moveOrderToPool(oid, srcPool, destPool);
+    // Expand group draggableIds into individual order records
+    // Returns array of { orderId, srcPool, originalEntry }
+    const collectOrders = () => {
+      const items = [];
+      for (const did of idsToMove) {
+        const parsed = parseDraggableId(did);
+        if (!parsed) continue;
+        if (parsed.type === "staging") {
+          items.push({ orderId: parsed.orderId, srcPool: null, originalEntry: null });
+        } else if (parsed.type === "pool-order") {
+          const srcPool = pools.find(p => p.id === parsed.srcPoolId);
+          if (!srcPool) continue;
+          // Skip if same pool
+          if (destPool && parsed.srcPoolId === destPool.id) continue;
+          const entry = srcPool.per_user_groups?.flatMap(g => g.order_entries || []).find(e => e.order_id === parsed.orderId) || null;
+          items.push({ orderId: parsed.orderId, srcPool, originalEntry: entry });
+        } else if (parsed.type === "pool-group") {
+          const srcPool = pools.find(p => p.id === parsed.srcPoolId);
+          if (!srcPool) continue;
+          // Skip if same pool
+          if (destPool && parsed.srcPoolId === destPool.id) continue;
+          const group = srcPool.per_user_groups?.find(g => g.user_email === parsed.userEmail);
+          if (!group) continue;
+          for (const entry of (group.order_entries || [])) {
+            items.push({ orderId: entry.order_id, srcPool, originalEntry: entry });
           }
         }
       }
+      // Deduplicate by orderId
+      const seen = new Set();
+      return items.filter(item => { if (seen.has(item.orderId)) return false; seen.add(item.orderId); return true; });
+    };
+
+    const orderItems = collectOrders();
+    if (orderItems.length === 0) return;
+
+    // Group items by srcPool (null = from staging)
+    const bySrcPool = new Map(); // srcPoolId|"staging" → [items]
+    for (const item of orderItems) {
+      const key = item.srcPool?.id || "staging";
+      if (!bySrcPool.has(key)) bySrcPool.set(key, []);
+      bySrcPool.get(key).push(item);
     }
+
+    // Build mutable working copies of pool state to apply all changes at once
+    // poolPatches: Map<poolId, { order_ids, total_weight_g, per_user_groups }>
+    const poolPatches = new Map();
+    const getPoolPatch = (pool) => {
+      if (!pool) return null;
+      if (!poolPatches.has(pool.id)) {
+        poolPatches.set(pool.id, {
+          order_ids: [...(pool.order_ids || [])],
+          total_weight_g: pool.total_weight_g || 0,
+          per_user_groups: JSON.parse(JSON.stringify(pool.per_user_groups || [])),
+        });
+      }
+      return poolPatches.get(pool.id);
+    };
+
+    // Helper: add entry to destPool patch (merges into existing user group if present)
+    const addEntryToDestPatch = (destPatch, order, entry) => {
+      if (!destPatch) return;
+      const newEntry = entry ? { ...entry } : {
+        order_id: order.id, note: order.pre_shipment?.user_note || "", image_urls: [],
+        selected_addon_ids: order.pre_shipment?.selected_addon_ids || [],
+        selected_addons: order.pre_shipment?.selected_addons || [],
+        use_group_address: true, override_final_address: null,
+      };
+      const existingGroupIdx = destPatch.per_user_groups.findIndex(g => g.user_email === order.user_email);
+      if (existingGroupIdx >= 0) {
+        const g = destPatch.per_user_groups[existingGroupIdx];
+        if (!(g.order_entries || []).some(e => e.order_id === order.id)) {
+          g.order_entries = [...(g.order_entries || []), newEntry];
+        }
+      } else {
+        destPatch.per_user_groups.push({
+          user_email: order.user_email, user_name: order.user_name || order.user_email,
+          group_label: order.user_name || order.user_email,
+          note: "", image_urls: [], selected_addon_ids: [], selected_addons: [],
+          group_final_address: null, order_entries: [newEntry],
+        });
+      }
+      if (!destPatch.order_ids.includes(order.id)) {
+        destPatch.order_ids.push(order.id);
+        destPatch.total_weight_g += (order.weight_g || 0);
+      }
+    };
+
+    // Apply all moves to patches
+    const destPatch = destPool ? getPoolPatch(destPool) : null;
+
+    for (const { orderId, srcPool, originalEntry } of orderItems) {
+      const order = allOrders.find(o => o.id === orderId);
+      if (!order) continue;
+
+      // Remove from srcPool patch
+      if (srcPool) {
+        const srcPatch = getPoolPatch(srcPool);
+        srcPatch.order_ids = srcPatch.order_ids.filter(id => id !== orderId);
+        srcPatch.total_weight_g = Math.max(0, srcPatch.total_weight_g - (order.weight_g || 0));
+        srcPatch.per_user_groups = srcPatch.per_user_groups
+          .map(g => ({ ...g, order_entries: (g.order_entries || []).filter(e => e.order_id !== orderId) }))
+          .filter(g => (g.order_entries || []).length > 0);
+      }
+
+      // Add to destPool patch
+      if (destPool) {
+        addEntryToDestPatch(destPatch, order, originalEntry);
+      }
+    }
+
+    // Commit pool patches to backend
+    const poolUpdatePromises = [];
+    for (const [poolId, patch] of poolPatches.entries()) {
+      poolUpdatePromises.push(shippingPoolApi.update(poolId, patch));
+    }
+    await Promise.all(poolUpdatePromises);
+
+    // Update order records
+    const orderUpdatePromises = orderItems.map(({ orderId, srcPool }) => {
+      const order = allOrders.find(o => o.id === orderId);
+      if (!order) return Promise.resolve();
+      if (destPool) {
+        return base44.functions.invoke('updateTenantOrder', {
+          order_id: orderId,
+          order_status: (!srcPool && order.order_status === "in_warehouse") ? "notified_shipment" : order.order_status,
+          consolidation_pool_id: destPool.id,
+          pre_shipment: { ...(order.pre_shipment || {}), pool_created: true, pool_id: destPool.id, consType: "official_pool", target_pool_id: destPool.id },
+        });
+      } else if (toStaging) {
+        const sPool = srcPool || pools.find(p => (p.order_ids || []).includes(orderId));
+        return base44.functions.invoke('updateTenantOrder', {
+          order_id: orderId,
+          consolidation_pool_id: "",
+          pre_shipment: {
+            ...(order.pre_shipment || {}),
+            consType: "official_pool", pool_created: false, pool_id: "",
+            target_pool_id: sPool?.id || "", target_pool_code: sPool?.pool_code || "",
+            target_pool_title: sPool?.title || sPool?.pool_code || "",
+          },
+        });
+      }
+      return Promise.resolve();
+    });
+    await Promise.all(orderUpdatePromises);
 
     setSelectedIds(new Set());
     onRefresh?.();
