@@ -425,13 +425,15 @@ export default function SubmitOrder() {
                 onBlur={(e) => {
                   const raw = e.target.value.trim();
                   const result = parseNaturalPrice(raw);
-                  if (result !== null) {
+                  if (result !== null && result !== parseFloat(form.estimated_jpy)) {
                     setForm((f) => ({ ...f, estimated_jpy: String(result) }));
+                    // Trigger immediate recalculation after parsing
+                    setTimeout(() => calculate(), 0);
                   }
                 }}
                 className="mt-1" />
-              
-                 <p className="text-xs text-gray-400 mt-1">支持四则运算及自然语言，如 500+500、一百加五百、one hundred plus twenty</p>
+
+                 <p className="text-xs text-gray-400 mt-1">支持四则运算及自然语言，如 500+500、一百加五百、one hundred plus twenty · 失焦时自动计算</p>
              </div>
 
             {/* Addon options — only shown if user has permission */}
@@ -508,6 +510,8 @@ export default function SubmitOrder() {
                                   return newErrors;
                                 });
                               }
+                              // Trigger immediate recalculation after blur
+                              setTimeout(() => calculate(), 0);
                             }}
                             onClick={(e) => e.stopPropagation()} />
                           
