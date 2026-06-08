@@ -20,8 +20,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Truck, Package, MapPin, Check, ChevronLeft, PlusCircle, Zap } from "lucide-react";
+import { Truck, Package, MapPin, Check, ChevronLeft, PlusCircle, Zap, Search } from "lucide-react";
 import PaymentMethodSelector from "@/components/common/PaymentMethodSelector";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 export default function PreShipmentForm() {
   const navigate = useNavigate();
@@ -445,57 +447,84 @@ export default function PreShipmentForm() {
           {/* Direct shipping - option to join existing direct pool */}
           {consType === "" && (
             <div className="space-y-2 border border-blue-100 rounded-xl p-3 bg-blue-50/40">
-              <Label className="text-xs text-blue-700 font-medium">是否加入已有的直接发货申请？</Label>
-              <div className="space-y-1.5">
-                <label className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${!joinExistingPool ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
-                  <input type="radio" checked={!joinExistingPool} onChange={() => setJoinExistingPool(false)} className="mt-0.5 accent-blue-600" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-800">创建新的直接发货申请</p>
-                    <p className="text-xs text-gray-500">单独发货到您填写的地址</p>
-                  </div>
-                </label>
-                <label className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${joinExistingPool ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
-                  <input type="radio" checked={joinExistingPool} onChange={() => setJoinExistingPool(true)} className="mt-0.5 accent-blue-600" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-800">加入已有的直接发货申请</p>
-                    <p className="text-xs text-gray-500">与其他订单合并发货（如有）</p>
-                  </div>
-                </label>
+              <Label className="text-xs text-blue-700 font-medium">加入已有的直接发货申请（可选）</Label>
+              <div className="mt-2">
+                <Popover open={joinExistingPool && selectedExistingPoolId === ""} onOpenChange={(open) => {
+                  if (!open) setJoinExistingPool(false);
+                }}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={`w-full justify-between h-10 ${joinExistingPool ? "border-blue-400 bg-blue-50" : ""}`}
+                      onClick={() => setJoinExistingPool(!joinExistingPool)}
+                    >
+                      {joinExistingPool && selectedExistingPoolId ? (
+                        <span className="text-sm">
+                          {(() => {
+                            const pool = officialPools.find(p => 
+                              !p.is_admin_created && 
+                              (!p.consolidation_type || p.consolidation_type === "") &&
+                              p.creator_email === user.email &&
+                              p.id === selectedExistingPoolId
+                            );
+                            return pool ? `${pool.pool_code} · ${(pool.order_ids || []).length} 单` : "选择发货申请";
+                          })()}
+                        </span>
+                      ) : (
+                        <span className="text-sm text-gray-500">选择要加入的发货申请</span>
+                      )}
+                      <Search className="w-4 h-4 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="搜索发货申请..." />
+                      <CommandList>
+                        <CommandEmpty>暂无可用的发货申请</CommandEmpty>
+                        <CommandGroup>
+                          {(() => {
+                            const directPools = officialPools.filter(p => 
+                              !p.is_admin_created && 
+                              (!p.consolidation_type || p.consolidation_type === "") &&
+                              p.creator_email === user.email
+                            );
+                            return directPools.map(pool => (
+                              <CommandItem
+                                key={pool.id}
+                                value={pool.pool_code}
+                                onSelect={() => {
+                                  setSelectedExistingPoolId(pool.id);
+                                  setJoinExistingPool(true);
+                                }}
+                                className="flex items-center justify-between"
+                              >
+                                <div className="flex flex-col gap-0.5">
+                                  <span className="text-sm font-medium">{pool.pool_code}</span>
+                                  <span className="text-xs text-gray-500">直接发货 · {(pool.order_ids || []).length} 单 · {pool.shipping_method || '方式未定'}</span>
+                                </div>
+                                {selectedExistingPoolId === pool.id && <Check className="w-4 h-4 text-blue-600" />}
+                              </CommandItem>
+                            ));
+                          })()}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                {joinExistingPool && selectedExistingPoolId && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="mt-2 h-7 text-xs text-gray-500"
+                    onClick={() => {
+                      setJoinExistingPool(false);
+                      setSelectedExistingPoolId("");
+                    }}
+                  >
+                    清除选择
+                  </Button>
+                )}
               </div>
-              
-              {joinExistingPool && (
-                <div className="mt-2 space-y-2">
-                  <Label className="text-xs text-blue-700">选择要加入的发货申请</Label>
-                  {(() => {
-                    // Filter direct shipping pools (not admin-created, no consolidation_type, user's own)
-                    const directPools = officialPools.filter(p => 
-                      !p.is_admin_created && 
-                      (!p.consolidation_type || p.consolidation_type === "") &&
-                      p.creator_email === user.email
-                    );
-                    if (directPools.length === 0) {
-                      return (
-                        <div className="text-sm text-gray-500 py-2">
-                          暂无可用的直接发货申请，将创建新的发货申请
-                        </div>
-                      );
-                    }
-                    return (
-                      <div className="space-y-1.5">
-                        {directPools.map(pool => (
-                          <label key={pool.id} className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${selectedExistingPoolId === pool.id ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
-                            <input type="radio" checked={selectedExistingPoolId === pool.id} onChange={() => setSelectedExistingPoolId(pool.id)} className="mt-0.5 accent-blue-600" />
-                            <div className="flex-1">
-                              <p className="text-sm font-medium text-gray-800">{pool.pool_code}</p>
-                              <p className="text-xs text-gray-500">直接发货 · {(pool.order_ids || []).length} 单 · {pool.shipping_method || '方式未定'}</p>
-                            </div>
-                          </label>
-                        ))}
-                      </div>
-                    );
-                  })()}
-                </div>
-              )}
             </div>
           )}
 
@@ -517,56 +546,82 @@ export default function PreShipmentForm() {
               
               {/* Option to join existing transit pool */}
               <div className="space-y-2 border border-blue-100 rounded-xl p-3 bg-blue-50/40">
-                <Label className="text-xs text-blue-700 font-medium">是否加入已有的中转拼邮申请？</Label>
-                <div className="space-y-1.5">
-                  <label className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${!joinExistingPool ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
-                    <input type="radio" checked={!joinExistingPool} onChange={() => setJoinExistingPool(false)} className="mt-0.5 accent-blue-600" />
-                    <div>
-                      <p className="text-sm font-medium text-gray-800">创建新的中转拼邮申请</p>
-                      <p className="text-xs text-gray-500">单独发货到选中转地</p>
-                    </div>
-                  </label>
-                  <label className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${joinExistingPool ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
-                    <input type="radio" checked={joinExistingPool} onChange={() => setJoinExistingPool(true)} className="mt-0.5 accent-blue-600" />
-                    <div>
-                      <p className="text-sm font-medium text-gray-800">加入已有的中转拼邮申请</p>
-                      <p className="text-xs text-gray-500">与其他订单合并拼邮（如有）</p>
-                    </div>
-                  </label>
+                <Label className="text-xs text-blue-700 font-medium">加入已有的中转拼邮申请（可选）</Label>
+                <div className="mt-2">
+                  <Popover open={joinExistingPool && selectedExistingPoolId === ""} onOpenChange={(open) => {
+                    if (!open) setJoinExistingPool(false);
+                  }}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={`w-full justify-between h-10 ${joinExistingPool ? "border-blue-400 bg-blue-50" : ""}`}
+                        onClick={() => setJoinExistingPool(!joinExistingPool)}
+                      >
+                        {joinExistingPool && selectedExistingPoolId ? (
+                          <span className="text-sm">
+                            {(() => {
+                              const pool = officialPools.find(p => 
+                                p.consolidation_type === 'transit' && 
+                                p.creator_email === user.email &&
+                                p.id === selectedExistingPoolId
+                              );
+                              return pool ? `${pool.pool_code} · ${(pool.order_ids || []).length} 单 · ${pool.transit_location_name || '中转地'}` : "选择拼邮申请";
+                            })()}
+                          </span>
+                        ) : (
+                          <span className="text-sm text-gray-500">选择要加入的拼邮申请</span>
+                        )}
+                        <Search className="w-4 h-4 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-full p-0" align="start">
+                      <Command>
+                        <CommandInput placeholder="搜索拼邮申请..." />
+                        <CommandList>
+                          <CommandEmpty>暂无可用的拼邮申请</CommandEmpty>
+                          <CommandGroup>
+                            {(() => {
+                              const transitPools = officialPools.filter(p => 
+                                p.consolidation_type === 'transit' && 
+                                p.creator_email === user.email
+                              );
+                              return transitPools.map(pool => (
+                                <CommandItem
+                                  key={pool.id}
+                                  value={pool.pool_code}
+                                  onSelect={() => {
+                                    setSelectedExistingPoolId(pool.id);
+                                    setJoinExistingPool(true);
+                                  }}
+                                  className="flex items-center justify-between"
+                                >
+                                  <div className="flex flex-col gap-0.5">
+                                    <span className="text-sm font-medium">{pool.pool_code}</span>
+                                    <span className="text-xs text-gray-500">中转拼邮 · {(pool.order_ids || []).length} 单 · {pool.transit_location_name || '中转地未设置'}</span>
+                                  </div>
+                                  {selectedExistingPoolId === pool.id && <Check className="w-4 h-4 text-blue-600" />}
+                                </CommandItem>
+                              ));
+                            })()}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                  {joinExistingPool && selectedExistingPoolId && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="mt-2 h-7 text-xs text-gray-500"
+                      onClick={() => {
+                        setJoinExistingPool(false);
+                        setSelectedExistingPoolId("");
+                      }}
+                    >
+                      清除选择
+                    </Button>
+                  )}
                 </div>
-                
-                {joinExistingPool && (
-                  <div className="mt-2 space-y-2">
-                    <Label className="text-xs text-blue-700">选择要加入的拼邮申请</Label>
-                    {(() => {
-                      // Filter transit consolidation pools (user's own, consolidation_type='transit')
-                      const transitPools = officialPools.filter(p => 
-                        p.consolidation_type === 'transit' && 
-                        p.creator_email === user.email
-                      );
-                      if (transitPools.length === 0) {
-                        return (
-                          <div className="text-sm text-gray-500 py-2">
-                            暂无可用的中转拼邮申请，将创建新的拼邮申请
-                          </div>
-                        );
-                      }
-                      return (
-                        <div className="space-y-1.5">
-                          {transitPools.map(pool => (
-                            <label key={pool.id} className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${selectedExistingPoolId === pool.id ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
-                              <input type="radio" checked={selectedExistingPoolId === pool.id} onChange={() => setSelectedExistingPoolId(pool.id)} className="mt-0.5 accent-blue-600" />
-                              <div className="flex-1">
-                                <p className="text-sm font-medium text-gray-800">{pool.pool_code}</p>
-                                <p className="text-xs text-gray-500">中转拼邮 · {(pool.order_ids || []).length} 单 · {pool.transit_location_name || '中转地未设置'}</p>
-                              </div>
-                            </label>
-                          ))}
-                        </div>
-                      );
-                    })()}
-                  </div>
-                )}
               </div>
             </>
           )}
