@@ -18,6 +18,7 @@ import {
 import JoinOfficialPoolModal from "@/components/shippingpool/JoinOfficialPoolModal";
 import OfficialPoolUserGroupModal from "@/components/shippingpool/OfficialPoolUserGroupModal";
 import OfficialPoolOrderDetailModal from "@/components/shippingpool/OfficialPoolOrderDetailModal";
+import CreateOfficialPoolModal from "@/components/shippingpool/CreateOfficialPoolModal";
 
 const STATUS_COLORS = {
   pending: "bg-gray-100 text-gray-600",
@@ -56,7 +57,7 @@ function DraggableTaskCard({ draggableId, index, entry, order, group, pool, curr
           <div
             ref={provided.innerRef}
             {...provided.draggableProps}
-            className={`border rounded-xl px-3 py-2.5 bg-white transition-all ${snapshot.isDragging ? "shadow-lg border-blue-300 rotate-1" : "border-gray-200 hover:shadow-sm"} ${canEdit ? "cursor-pointer" : ""}`}
+            className={`border rounded-xl px-3 py-2.5 bg-white transition-all ${snapshot.isDragging ? "shadow-lg border-blue-300 rotate-1" : canEdit ? "border-gray-200 hover:border-blue-300 hover:bg-blue-50/40 hover:shadow-sm" : "border-gray-200"} ${canEdit ? "cursor-pointer" : ""}`}
             onClick={() => canEdit && !snapshot.isDragging && setEditOpen(true)}
           >
             <div className="flex items-start gap-2">
@@ -111,7 +112,7 @@ function DraggableStagingCard({ draggableId, index, order, officialPools, isAdmi
         <div
           ref={provided.innerRef}
           {...provided.draggableProps}
-          className={`border rounded-xl px-3 py-2.5 bg-white transition-all ${snapshot.isDragging ? "shadow-lg border-blue-300 rotate-1" : isInWarehouse ? "border-green-200" : "border-gray-200"}`}
+          className={`border rounded-xl px-3 py-2.5 bg-white transition-all ${snapshot.isDragging ? "shadow-lg border-blue-300 rotate-1" : isInWarehouse ? "border-green-200 hover:border-green-300 hover:bg-green-50/40" : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"} cursor-grab active:cursor-grabbing`}
         >
           <div className="flex items-start gap-2">
             <div
@@ -166,9 +167,9 @@ function UserGroupCard({ group, allOrders, pool, currentUser, isAdmin, shippingA
   const totalWeight = resolvedOrders.reduce((s, { order }) => s + (order?.weight_g || 0), 0);
 
   return (
-    <div className="border border-gray-200 rounded-xl overflow-hidden bg-white">
+    <div className="border border-gray-200 rounded-xl overflow-hidden bg-white hover:border-blue-200 transition-colors">
       <div
-        className="flex items-center justify-between px-3 py-2.5 bg-blue-50/60 border-b border-blue-100 cursor-pointer hover:bg-blue-50"
+        className="flex items-center justify-between px-3 py-2.5 bg-blue-50/60 border-b border-blue-100 cursor-pointer hover:bg-blue-100/60 transition-colors"
         onClick={() => setExpanded(v => !v)}
       >
         <div className="flex items-center gap-2 min-w-0">
@@ -365,7 +366,7 @@ function PoolColumn({ pool, allOrders, currentUser, isAdmin, shippingAddons, sav
   return (
     <div className="flex-shrink-0 w-72 flex flex-col">
       <div
-        className="flex items-center justify-between px-3 py-3 bg-white border border-gray-200 rounded-xl cursor-pointer hover:border-gray-300 transition-colors mb-2"
+        className="flex items-center justify-between px-3 py-3 bg-white border border-gray-200 rounded-xl cursor-pointer hover:border-blue-300 hover:bg-blue-50/30 transition-colors mb-2"
         onClick={() => onPoolClick?.(pool)}
       >
         <div className="min-w-0 flex-1">
@@ -599,6 +600,7 @@ function StagingColumn({ allOrders, officialPools, currentUser, isAdmin, onRefre
 export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAdmin, showPoolSorter, setShowPoolSorter, onPoolClick, onRefresh }) {
   const [shippingAddons, setShippingAddons] = useState([]);
   const [savedAddresses, setSavedAddresses] = useState([]);
+  const [createPoolOpen, setCreatePoolOpen] = useState(false);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -796,49 +798,80 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
 
   if (pools.length === 0) {
     return (
-      <div className="flex flex-col items-center py-20 text-gray-400">
-        <Layers className="w-12 h-12 mb-3 opacity-20" />
-        <p className="text-sm">暂无官方拼邮需求</p>
-        {isAdmin && <p className="text-xs mt-1">点击"创建发货申请"并选择拼邮类型即可创建</p>}
-      </div>
+      <>
+        <div className="flex flex-col items-center py-20 text-gray-400">
+          <Layers className="w-12 h-12 mb-3 opacity-20" />
+          <p className="text-sm">暂无官方拼邮需求</p>
+          {isAdmin && <p className="text-xs mt-1">点击"创建发货申请"并选择拼邮类型即可创建</p>}
+        </div>
+        {createPoolOpen && (
+          <CreateOfficialPoolModal
+            onClose={() => setCreatePoolOpen(false)}
+            onSuccess={() => { setCreatePoolOpen(false); onRefresh?.(); }}
+          />
+        )}
+      </>
     );
   }
 
   return (
-    <DragDropContext onDragEnd={handleDragEnd}>
-      <div className="space-y-3">
-        {isAdmin && showPoolSorter && (
-          <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-600">
-            <ArrowUpDown className="w-4 h-4 text-gray-400" />
-            <span>拖拽任务卡片可在列之间移动</span>
-            <Button variant="ghost" size="sm" className="ml-auto h-6 text-xs" onClick={() => setShowPoolSorter?.(false)}>关闭</Button>
-          </div>
-        )}
+    <>
+      <DragDropContext onDragEnd={handleDragEnd}>
+        <div className="space-y-3">
+          {isAdmin && showPoolSorter && (
+            <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-600">
+              <ArrowUpDown className="w-4 h-4 text-gray-400" />
+              <span>拖拽任务卡片可在列之间移动</span>
+              <Button variant="ghost" size="sm" className="ml-auto h-6 text-xs" onClick={() => setShowPoolSorter?.(false)}>关闭</Button>
+            </div>
+          )}
 
-        <div className="flex gap-4 overflow-x-auto pb-4">
-          <StagingColumn
-            allOrders={allOrders}
-            officialPools={pools}
-            currentUser={currentUser}
-            isAdmin={isAdmin}
-            onRefresh={onRefresh}
-          />
-
-          {pools.map(pool => (
-            <PoolColumn
-              key={pool.id}
-              pool={pool}
+          <div className="flex gap-4 overflow-x-auto pb-4">
+            <StagingColumn
               allOrders={allOrders}
+              officialPools={pools}
               currentUser={currentUser}
               isAdmin={isAdmin}
-              shippingAddons={shippingAddons}
-              savedAddresses={savedAddresses}
-              onPoolClick={onPoolClick}
               onRefresh={onRefresh}
             />
-          ))}
+
+            {/* Thin vertical button to create a new official pool column */}
+            {isAdmin && (
+              <div className="flex-shrink-0 flex items-stretch">
+                <button
+                  onClick={() => setCreatePoolOpen(true)}
+                  title="创建新官方拼邮需求"
+                  className="w-8 flex flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-gray-200 text-gray-300 hover:border-blue-400 hover:text-blue-500 hover:bg-blue-50/60 transition-all duration-200 group"
+                >
+                  <Plus className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                  <span style={{ writingMode: "vertical-lr", letterSpacing: "0.05em", fontSize: "10px" }} className="font-medium">新增拼邮列</span>
+                </button>
+              </div>
+            )}
+
+            {pools.map(pool => (
+              <PoolColumn
+                key={pool.id}
+                pool={pool}
+                allOrders={allOrders}
+                currentUser={currentUser}
+                isAdmin={isAdmin}
+                shippingAddons={shippingAddons}
+                savedAddresses={savedAddresses}
+                onPoolClick={onPoolClick}
+                onRefresh={onRefresh}
+              />
+            ))}
+          </div>
         </div>
-      </div>
-    </DragDropContext>
+      </DragDropContext>
+
+      {createPoolOpen && (
+        <CreateOfficialPoolModal
+          onClose={() => setCreatePoolOpen(false)}
+          onSuccess={() => { setCreatePoolOpen(false); onRefresh?.(); }}
+        />
+      )}
+    </>
   );
 }
