@@ -759,9 +759,8 @@ export default function MyOrders() {
 
       {/* Rewarehouse confirm dialog */}
       {rewarehouseOrder && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
-          onClick={e => { if (e.target === e.currentTarget) setRewarehouseOrder(null); }}>
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 space-y-4">
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onMouseDown={() => setRewarehouseOrder(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 space-y-4" onMouseDown={e => e.stopPropagation()}>
             <div>
               <h3 className="font-semibold text-gray-900">申请再入库</h3>
               <p className="text-sm text-gray-500 mt-1">

@@ -172,10 +172,10 @@ export default function UserPermissionManager({ user, allRoles: allRolesProp, on
 
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onMouseDown={onClose}>
       <div
         className="bg-white rounded-xl shadow-xl w-full max-w-2xl p-5 max-h-[92vh] overflow-y-auto"
-        onClick={e => e.stopPropagation()}
+        onMouseDown={e => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-4">

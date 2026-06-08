@@ -104,8 +104,8 @@ export default function ShippingEditModal({ order, currentPool, currentUser, onC
 
   if (done) {
     return (
-      <div className="fixed inset-0 bg-black/40 z-[60] flex items-center justify-center p-4" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-        <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-8 text-center space-y-3" onClick={e => e.stopPropagation()}>
+      <div className="fixed inset-0 bg-black/40 z-[60] flex items-center justify-center p-4" onMouseDown={onClose}>
+        <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-8 text-center space-y-3" onMouseDown={e => e.stopPropagation()}>
           <CheckCircle className="w-12 h-12 text-green-500 mx-auto" />
           <p className="font-semibold text-gray-800">
             {isInstant ? "已即刻生效" : "申请已提交，等待管理员审批"}
@@ -117,9 +117,8 @@ export default function ShippingEditModal({ order, currentPool, currentUser, onC
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-[60] flex items-center justify-center p-4"
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/40 z-[60] flex items-center justify-center p-4" onMouseDown={onClose}>
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto" onMouseDown={e => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b">
           <div>

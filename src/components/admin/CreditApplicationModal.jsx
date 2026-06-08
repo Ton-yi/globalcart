@@ -72,8 +72,8 @@ export default function CreditApplicationModal({ user, onClose }) {
   const pendingApps = applications.filter(a => a.status === 'pending');
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onMouseDown={onClose}>
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onMouseDown={(e) => e.stopPropagation()}>
         <div className="sticky top-0 bg-white border-b flex items-center justify-between p-4">
           <h3 className="font-semibold text-gray-900">记账申请记录</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
