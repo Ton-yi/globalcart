@@ -16,7 +16,7 @@ import {
   Inbox, GripVertical, Clock, Warehouse, ArrowRight, X, CheckCircle2, Loader2
 } from "lucide-react";
 import JoinOfficialPoolModal from "@/components/shippingpool/JoinOfficialPoolModal";
-import OrderDetailModal from "@/components/orders/OrderDetailModal";
+import OrderDetailDrawer from "@/components/orders/OrderDetailDrawer";
 import OfficialPoolUserGroupModal from "@/components/shippingpool/OfficialPoolUserGroupModal";
 import OfficialPoolOrderDetailModal from "@/components/shippingpool/OfficialPoolOrderDetailModal";
 import CreateOfficialPoolModal from "@/components/shippingpool/CreateOfficialPoolModal";
@@ -100,7 +100,7 @@ function DraggableTaskCard({ draggableId, index, entry, order, group, pool, curr
 }
 
 // ─── Draggable Staging Task Card ──────────────────────────────────────────────
-function DraggableStagingCard({ draggableId, index, order, officialPools, isAdmin, onRemove }) {
+function DraggableStagingCard({ draggableId, index, order, officialPools, isAdmin, currentUser, onRemove }) {
   const [detailOpen, setDetailOpen] = useState(false);
   const pre = order?.pre_shipment;
   const targetPoolId = pre?.target_pool_id;
@@ -153,8 +153,14 @@ function DraggableStagingCard({ draggableId, index, order, officialPools, isAdmi
           </div>
         )}
       </Draggable>
-      {detailOpen && order && (
-        <OrderDetailModal order={order} onClose={() => setDetailOpen(false)} />
+      {detailOpen && order && currentUser && (
+        <OrderDetailDrawer
+          order={order}
+          currentUser={currentUser}
+          onClose={() => setDetailOpen(false)}
+          onAction={() => {}}
+          onUpdated={() => setDetailOpen(false)}
+        />
       )}
     </>
   );
@@ -550,6 +556,7 @@ function StagingColumn({ allOrders, officialPools, currentUser, isAdmin, onRefre
                   order={order}
                   officialPools={officialPools}
                   isAdmin={isAdmin}
+                  currentUser={currentUser}
                   onRemove={handleRemove}
                 />
               ))}
@@ -570,6 +577,7 @@ function StagingColumn({ allOrders, officialPools, currentUser, isAdmin, onRefre
                   order={order}
                   officialPools={officialPools}
                   isAdmin={isAdmin}
+                  currentUser={currentUser}
                   onRemove={handleRemove}
                 />
               ))}
