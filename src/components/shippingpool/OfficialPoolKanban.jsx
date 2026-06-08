@@ -75,6 +75,10 @@ function DraggableTaskCard({ draggableId, index, entry, order, group, pool, curr
 
   return (
     <>
+      {/* User name label above task card */}
+      <div className="text-xs text-gray-500 font-medium mb-1 ml-1">
+        {group?.user_name || order?.user_name || group?.user_email?.split('@')[0] || order?.user_email?.split('@')[0] || '未知用户'}
+      </div>
       <Draggable draggableId={draggableId} index={index}>
         {(provided, snapshot) => (
           <div
