@@ -104,7 +104,16 @@ export default function PreShipmentForm() {
         }
 
         // Deduplicate shipping methods by id - ensure unique
-        const allMethods = (cfg.shippingMethods || []).filter((m) => m.is_active !== false);
+        // Filter based on shipping mode settings (enabled_for_direct_ship, enabled_for_user_pool, enabled_for_official_pool)
+        const allMethods = (cfg.shippingMethods || []).filter((m) => {
+          if (m.is_active === false) return false;
+          // For direct shipping (consType === ""), check enabled_for_direct_ship
+          // For transit (consType === "transit"), check enabled_for_user_pool
+          // For official pool (consType === "official_pool"), check enabled_for_official_pool
+          // Since we're loading all methods upfront, we keep all active methods for now
+          // The actual filtering will happen in the UI based on selected consType
+          return true;
+        });
         const uniqueMap = new Map();
         allMethods.forEach((m) => {
           if (!uniqueMap.has(m.id)) {
@@ -868,19 +877,55 @@ export default function PreShipmentForm() {
         <CardContent className="space-y-3">
           <div>
             <Label className="text-xs text-gray-500">运输方式 *</Label>
-            {shippingMethods.length > 0 ?
-            <Select value={shippingMethod} onValueChange={setShippingMethod}>
-                <SelectTrigger className="mt-1 h-9 text-sm">
-                  <SelectValue placeholder="选择运输方式..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {shippingMethods.map((m) => <SelectItem key={`${m.id}-${m.code}`} value={m.code}>{m.name}</SelectItem>)}
-                </SelectContent>
-              </Select> :
-
-            <Input className="mt-1 h-9 text-sm" placeholder="如：EMS、海运..." value={shippingMethod} onChange={(e) => setShippingMethod(e.target.value)} />
-            }
-          </div>
+            {(() => {
+              // Filter shipping methods based on consType and their enabled settings
+              let filteredMethods = shippingMethods;
+              if (consType === "") {
+                // Direct shipping - only show methods with enabled_for_direct_ship !== false
+                filteredMethods = shippingMethods.filter(m => m.enabled_for_direct_ship !== false);
+              } else if (consType === "transit") {
+                // Transit consolidation - only show methods with enabled_for_user_pool !== false
+                filteredMethods = shippingMethods.filter(m => m.enabled_for_user_pool !== false);
+              } else if (consType === "official_pool") {
+                // Official pool - only show methods with enabled_for_official_pool !== false
+                filteredMethods = shippingMethods.filter(m => m.enabled_for_official_pool !== false);
+              }
+              
+              return filteredMethods.length > 0 ?
+              <Select value={shippingMethod} onValueChange={setShippingMethod}>
+                  <SelectTrigger className="mt-1 h-9 text-sm">
+                    <SelectValue placeholder={filteredMethods.length > 0 ? "选择运输方式..." : "此发货方式暂无可用运输方式"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filteredMethods.length > 0 ? (
+                      filteredMethods.map((m) => <SelectItem key={`${m.id}-${m.code}`} value={m.code}>{m.name}</SelectItem>)
+                    ) : (
+                      <div className="p-3 text-xs text-gray-400 text-center">暂无可用运输方式</div>
+                    )}
+                  </SelectContent>
+                </Select> :
+                <Input className="mt-1 h-9 text-sm" placeholder="如：EMS、海运..." value={shippingMethod} onChange={(e) => setShippingMethod(e.target.value)} />
+              }
+            </div>
+            {(() => {
+              // Show warning if no methods available for selected consType
+              let filteredMethods = shippingMethods;
+              if (consType === "") {
+                filteredMethods = shippingMethods.filter(m => m.enabled_for_direct_ship !== false);
+              } else if (consType === "transit") {
+                filteredMethods = shippingMethods.filter(m => m.enabled_for_user_pool !== false);
+              } else if (consType === "official_pool") {
+                filteredMethods = shippingMethods.filter(m => m.enabled_for_official_pool !== false);
+              }
+              if (filteredMethods.length === 0 && consType) {
+                return (
+                  <p className="text-xs text-orange-600 mt-1">
+                    ⚠️ 当前发货方式下暂无可用的运输方式，请联系管理员
+                  </p>
+                );
+              }
+              return null;
+            })()}
 
           <div>
             <Label className="text-xs text-gray-500">期望发货日期（可选）</Label>

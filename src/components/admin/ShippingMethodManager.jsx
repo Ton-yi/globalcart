@@ -332,23 +332,53 @@ function MethodCard({ method, onSave, onDelete, itemSizeTemplates = [] }) {
 
               {/* Shipping mode toggles */}
               <div>
-                <Label className="text-xs text-gray-500 font-medium">发货方式设置</Label>
-                <div className="grid grid-cols-3 gap-2 mt-2">
-                  <label className={`flex flex-col items-center gap-1.5 px-3 py-2.5 rounded-lg border cursor-pointer text-xs ${form.enabled_for_direct_ship !== false ? "border-green-300 bg-green-50 text-green-700" : "border-gray-200 text-gray-500"}`}>
-                    <input type="checkbox" className="hidden" checked={form.enabled_for_direct_ship !== false} onChange={() => f("enabled_for_direct_ship", !(form.enabled_for_direct_ship === false))} />
-                    <span className="font-medium">单独发货</span>
-                    <span className="text-[10px]">直接发货</span>
-                  </label>
-                  <label className={`flex flex-col items-center gap-1.5 px-3 py-2.5 rounded-lg border cursor-pointer text-xs ${form.enabled_for_user_pool !== false ? "border-blue-300 bg-blue-50 text-blue-700" : "border-gray-200 text-gray-500"}`}>
-                    <input type="checkbox" className="hidden" checked={form.enabled_for_user_pool !== false} onChange={() => f("enabled_for_user_pool", !(form.enabled_for_user_pool === false))} />
-                    <span className="font-medium">拼邮发货</span>
-                    <span className="text-[10px]">用户拼邮</span>
-                  </label>
-                  <label className={`flex flex-col items-center gap-1.5 px-3 py-2.5 rounded-lg border cursor-pointer text-xs ${form.enabled_for_official_pool !== false ? "border-purple-300 bg-purple-50 text-purple-700" : "border-gray-200 text-gray-500"}`}>
-                    <input type="checkbox" className="hidden" checked={form.enabled_for_official_pool !== false} onChange={() => f("enabled_for_official_pool", !(form.enabled_for_official_pool === false))} />
-                    <span className="font-medium">官方拼邮</span>
-                    <span className="text-[10px]">官方拼邮</span>
-                  </label>
+                <Label className="text-xs text-gray-500 font-medium mb-2 block">发货方式设置</Label>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between p-2.5 rounded-lg border border-gray-200 bg-white">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded flex items-center justify-center bg-green-100 text-green-700">
+                        <span className="text-xs font-bold">直</span>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-700">单独发货</p>
+                        <p className="text-xs text-gray-400">直接发货模式</p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={form.enabled_for_direct_ship !== false}
+                      onCheckedChange={(v) => f("enabled_for_direct_ship", v)}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between p-2.5 rounded-lg border border-gray-200 bg-white">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded flex items-center justify-center bg-blue-100 text-blue-700">
+                        <span className="text-xs font-bold">拼</span>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-700">拼邮发货</p>
+                        <p className="text-xs text-gray-400">用户拼邮模式</p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={form.enabled_for_user_pool !== false}
+                      onCheckedChange={(v) => f("enabled_for_user_pool", v)}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between p-2.5 rounded-lg border border-gray-200 bg-white">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded flex items-center justify-center bg-purple-100 text-purple-700">
+                        <span className="text-xs font-bold">官</span>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-700">官方拼邮</p>
+                        <p className="text-xs text-gray-400">官方拼邮模式</p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={form.enabled_for_official_pool !== false}
+                      onCheckedChange={(v) => f("enabled_for_official_pool", v)}
+                    />
+                  </div>
                 </div>
               </div>
 

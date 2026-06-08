@@ -8,7 +8,7 @@ import { X, Package, MapPin, ChevronRight, ChevronLeft, Plus, Check } from "luci
 import CountrySelect from "@/components/common/CountrySelect";
 import { getCountry } from "@/lib/countries";
 import { base44 } from "@/api/base44Client";
-import { updateOrder, shippingPoolApi, tenantEntity, userPrefApi, fetchShippingPools } from "@/lib/tenantApi";
+import { updateOrder, shippingPoolApi, tenantEntity, userPrefApi, fetchShippingPools, fetchTenantConfig } from "@/lib/tenantApi";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,8 +16,6 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-// Shared with UserNotifyShipmentModal — edit shippingFormConstants.js to sync both
-import { SHIPPING_METHODS } from "@/components/shippingpool/shippingFormConstants";
 
 export default function CreateShippingPoolModal({ isAdmin, onClose, onSuccess }) {
   const [step, setStep] = useState(1);
@@ -49,6 +47,8 @@ export default function CreateShippingPoolModal({ isAdmin, onClose, onSuccess })
     transit_location_id: "",
     user_note: "",
   });
+  
+  const [shippingMethods, setShippingMethods] = useState([]);
 
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
@@ -58,14 +58,19 @@ export default function CreateShippingPoolModal({ isAdmin, onClose, onSuccess })
       const u = await base44.auth.me();
       setUser(u);
 
-      const [ordersRes, locs, prefs] = await Promise.all([
+      const [ordersRes, locs, prefs, cfg] = await Promise.all([
         base44.functions.invoke('getTenantOrders', {}).then(r => r.data?.orders || []),
         tenantEntity.list('TransitLocation', { is_active: true }),
         userPrefApi.list({ user_email: u.email }),
+        fetchTenantConfig(),
       ]);
       const warehouseOrders = ordersRes.filter(o => o.order_status === "in_warehouse");
       setAvailableOrders(warehouseOrders);
       setTransitLocations(locs);
+      
+      // Load shipping methods filtered by enabled_for_user_pool (since this is for creating a pool)
+      const methods = (cfg.shippingMethods || []).filter(m => m.is_active !== false && m.enabled_for_user_pool !== false);
+      setShippingMethods(methods);
 
       if (prefs.length > 0 && prefs[0].saved_addresses?.length > 0) {
         setSavedAddresses(prefs[0].saved_addresses);
@@ -341,9 +346,13 @@ export default function CreateShippingPoolModal({ isAdmin, onClose, onSuccess })
                 <div>
                   <Label className="text-xs text-gray-500">运输方式</Label>
                   <Select value={form.shipping_method} onValueChange={v => f("shipping_method", v)}>
-                    <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue placeholder="选择..." /></SelectTrigger>
+                    <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue placeholder={shippingMethods.length > 0 ? "选择..." : "暂无可用运输方式"} /></SelectTrigger>
                     <SelectContent>
-                      {SHIPPING_METHODS.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
+                      {shippingMethods.length > 0 ? (
+                        shippingMethods.map(m => <SelectItem key={m.id} value={m.code}>{m.name}</SelectItem>)
+                      ) : (
+                        <div className="p-3 text-xs text-gray-400 text-center">暂无可用运输方式</div>
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -385,7 +394,10 @@ export default function CreateShippingPoolModal({ isAdmin, onClose, onSuccess })
                 <p className="font-medium text-gray-700">发货摘要</p>
                 <p>{selectedOrders.length} 件包裹 · 总重量 {totalWeight}g</p>
                 {form.destination_country && <p>目的地：{getCountry(form.destination_country)?.name || form.destination_country}</p>}
-                {form.shipping_method && <p>运输方式：{SHIPPING_METHODS.find(m => m.value === form.shipping_method)?.label || form.shipping_method}</p>}
+                {form.shipping_method && (() => {
+                  const m = shippingMethods.find(sm => sm.code === form.shipping_method);
+                  return <p>运输方式：{m?.name || form.shipping_method}</p>;
+                })()}
               </div>
             </div>
           )}
