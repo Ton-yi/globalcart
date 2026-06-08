@@ -75,11 +75,6 @@ function DraggableTaskCard({ draggableId, index, entry, order, group, pool, curr
 
   return (
     <>
-      {/* User name label above task card */}
-      <div className="text-xs text-gray-600 font-semibold mb-1 ml-0.5 flex items-center gap-1">
-        <User className="w-3 h-3 text-gray-400" />
-        {group?.user_name || order?.user_name || group?.user_email?.split('@')[0] || order?.user_email?.split('@')[0] || '未知用户'}
-      </div>
       <Draggable draggableId={draggableId} index={index}>
         {(provided, snapshot) => (
           <div
@@ -103,7 +98,14 @@ function DraggableTaskCard({ draggableId, index, entry, order, group, pool, curr
                 </div>
               )}
               <Package className="w-3.5 h-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
-              <PrivacyAwareOrderInfo order={order} entry={entry} canSeeOrderInfo={canSeeOrderInfo} />
+              <div className="flex-1 min-w-0">
+                {/* User name inside card */}
+                <div className="text-xs text-gray-500 font-medium mb-0.5 flex items-center gap-1">
+                  <User className="w-2.5 h-2.5 text-gray-400" />
+                  {group?.user_name || order?.user_name || group?.user_email?.split('@')[0] || order?.user_email?.split('@')[0] || '未知用户'}
+                </div>
+                <PrivacyAwareOrderInfo order={order} entry={entry} canSeeOrderInfo={canSeeOrderInfo} />
+              </div>
               {canEdit && !selected && <Edit2 className="w-3 h-3 text-gray-300 hover:text-gray-500 flex-shrink-0 mt-0.5" />}
             </div>
           </div>
@@ -163,12 +165,12 @@ function DraggableStagingCard({ draggableId, index, order, officialPools, isAdmi
               </div>
               <Package className={`w-3.5 h-3.5 mt-0.5 flex-shrink-0 ${isInWarehouse ? "text-green-400" : "text-gray-300"}`} />
               <div className="flex-1 min-w-0">
-                {/* User name label */}
-                <div className="text-xs text-gray-600 font-semibold mb-0.5 flex items-center gap-1">
-                  <User className="w-3 h-3 text-gray-400" />
-                  {order?.user_name || order?.user_email?.split('@')[0] || '未知用户'}
-                </div>
-                <p className="text-xs font-medium text-gray-800 truncate">{order?.product_name || draggableId.slice(-8)}</p>
+              {/* User name inside card */}
+              <div className="text-xs text-gray-500 font-medium mb-0.5 flex items-center gap-1">
+                <User className="w-2.5 h-2.5 text-gray-400" />
+                {order?.user_name || order?.user_email?.split('@')[0] || '未知用户'}
+              </div>
+              <p className="text-xs font-medium text-gray-800 truncate">{order?.product_name || draggableId.slice(-8)}</p>
                 <div className="flex items-center gap-1.5 mt-0.5">
                   {order?.order_number && <span className="text-xs text-gray-400">{order.order_number}</span>}
                   <Badge className={`text-xs px-1 py-0 ${isInWarehouse ? "bg-green-100 text-green-700" : "bg-amber-50 text-amber-600"}`}>
@@ -339,10 +341,6 @@ function DraggableGroupCard({ draggableId, index, group, allOrders, pool, curren
                             </div>
                           )}
                           <div className="flex-1 min-w-0">
-                            {/* User name label above task */}
-                            <div className="text-xs text-gray-500 font-medium mb-0.5 truncate">
-                              {group?.user_name || group?.user_email?.split('@')[0] || '未知用户'}
-                            </div>
                             <div className="flex items-start gap-2">
                               <Package className="w-3.5 h-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
                               <PrivacyAwareOrderInfo order={order} entry={entry} canSeeOrderInfo={canSeeOrderInfo} />
