@@ -17,6 +17,7 @@ import {
 import JoinOfficialPoolModal from "@/components/shippingpool/JoinOfficialPoolModal";
 import OfficialPoolUserGroupModal from "@/components/shippingpool/OfficialPoolUserGroupModal";
 import OfficialPoolOrderDetailModal from "@/components/shippingpool/OfficialPoolOrderDetailModal";
+import OfficialPoolStagingColumn from "@/components/shippingpool/OfficialPoolStagingColumn";
 
 const STATUS_COLORS = {
   pending: "bg-gray-100 text-gray-600",
@@ -349,6 +350,15 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
 
       {/* Kanban columns */}
       <div className="flex gap-4 overflow-x-auto pb-4">
+        {/* Staging column — always first */}
+        <OfficialPoolStagingColumn
+          allOrders={allOrders}
+          officialPools={pools}
+          currentUser={currentUser}
+          isAdmin={isAdmin}
+          onRefresh={onRefresh}
+        />
+
         {pools.map(pool => (
           <PoolColumn
             key={pool.id}
