@@ -216,6 +216,13 @@ export default function PreShipmentForm() {
   const specificPoolSelected = consType === "official_pool" && !!selectedPoolId;
 
   const canSubmit = () => {
+    // If joining existing pool, shipping method is inherited - no need to select
+    if (joinExistingPool && selectedExistingPoolId) {
+      if (consType === "transit") return !!transitLocationId;
+      if (consType === "official_pool") return true;
+      return isAddressFormValid(address);
+    }
+    // Otherwise, shipping method is required unless specific pool selected
     if (!specificPoolSelected && !shippingMethod) return false;
     if (consType === "transit") return !!transitLocationId;
     if (consType === "official_pool") return true;
@@ -446,42 +453,48 @@ export default function PreShipmentForm() {
 
           {/* Direct shipping - option to join existing direct pool */}
           {consType === "" && (
-            <div className="space-y-2 border border-blue-100 rounded-xl p-3 bg-blue-50/40">
-              <Label className="text-xs text-blue-700 font-medium">加入已有的直接发货申请（可选）</Label>
-              <div className="mt-2">
-                <Popover open={joinExistingPool && selectedExistingPoolId === ""} onOpenChange={(open) => {
-                  if (!open) setJoinExistingPool(false);
-                }}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={`w-full justify-between h-10 ${joinExistingPool ? "border-blue-400 bg-blue-50" : ""}`}
-                      onClick={() => setJoinExistingPool(!joinExistingPool)}
-                    >
-                      {joinExistingPool && selectedExistingPoolId ? (
-                        <span className="text-sm">
-                          {(() => {
-                            const pool = officialPools.find(p => 
-                              !p.is_admin_created && 
-                              (!p.consolidation_type || p.consolidation_type === "") &&
-                              p.creator_email === user.email &&
-                              p.id === selectedExistingPoolId
-                            );
-                            return pool ? `${pool.pool_code} · ${(pool.order_ids || []).length} 单` : "选择发货申请";
-                          })()}
-                        </span>
-                      ) : (
-                        <span className="text-sm text-gray-500">选择要加入的发货申请</span>
-                      )}
-                      <Search className="w-4 h-4 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
+            <>
+              <div className={`space-y-2 border border-blue-100 rounded-xl p-3 bg-blue-50/40 transition-opacity ${joinExistingPool && selectedExistingPoolId ? "opacity-40 pointer-events-none" : ""}`}>
+                <Label className="text-xs text-blue-700 font-medium">发货方式（创建新申请）</Label>
+                <div className="text-xs text-gray-500 mt-1">如选择加入已有申请，下方信息将自动继承</div>
+              </div>
+
+              <div className="space-y-2 border border-blue-100 rounded-xl p-3 bg-blue-50/40">
+                <Label className="text-xs text-blue-700 font-medium">加入已有的直接发货申请（可选）</Label>
+                <div className="mt-2">
+                  <Popover open={joinExistingPool && selectedExistingPoolId === ""} onOpenChange={(open) => {
+                    if (!open) setJoinExistingPool(false);
+                  }}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={`w-full justify-between h-10 ${joinExistingPool ? "border-blue-400 bg-blue-50" : ""}`}
+                        onClick={() => setJoinExistingPool(!joinExistingPool)}
+                      >
+                        {joinExistingPool && selectedExistingPoolId ? (
+                          <span className="text-sm">
+                            {(() => {
+                              const pool = officialPools.find(p => 
+                                !p.is_admin_created && 
+                                (!p.consolidation_type || p.consolidation_type === "") &&
+                                p.creator_email === user.email &&
+                                p.id === selectedExistingPoolId
+                              );
+                              return pool ? `${pool.pool_code} · ${(pool.order_ids || []).length} 单 · ${pool.shipping_method || '方式未定'}` : "选择发货申请";
+                            })()}
+                          </span>
+                        ) : (
+                          <span className="text-sm text-gray-500">选择要加入的发货申请</span>
+                        )}
+                        <Search className="w-4 h-4 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
                   <PopoverContent className="w-full p-0" align="start">
                     <Command>
                       <CommandInput placeholder="搜索发货申请..." />
                       <CommandList>
                         <CommandEmpty>暂无可用的发货申请</CommandEmpty>
-                        <CommandGroup>
+                        <CommandGroup heading="我的直接发货申请">
                           {(() => {
                             const directPools = officialPools.filter(p => 
                               !p.is_admin_created && 
@@ -496,13 +509,29 @@ export default function PreShipmentForm() {
                                   setSelectedExistingPoolId(pool.id);
                                   setJoinExistingPool(true);
                                 }}
-                                className="flex items-center justify-between"
+                                className="flex flex-col items-start gap-1.5 p-3 h-auto"
                               >
-                                <div className="flex flex-col gap-0.5">
-                                  <span className="text-sm font-medium">{pool.pool_code}</span>
-                                  <span className="text-xs text-gray-500">直接发货 · {(pool.order_ids || []).length} 单 · {pool.shipping_method || '方式未定'}</span>
+                                <div className="flex items-center justify-between w-full mb-1">
+                                  <span className="text-sm font-semibold text-gray-800">{pool.pool_code}</span>
+                                  {selectedExistingPoolId === pool.id && <Check className="w-4 h-4 text-blue-600 flex-shrink-0" />}
                                 </div>
-                                {selectedExistingPoolId === pool.id && <Check className="w-4 h-4 text-blue-600" />}
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <Badge variant="outline" className="text-[10px] bg-green-50 text-green-700 border-green-200">
+                                    直接发货
+                                  </Badge>
+                                  {pool.shipping_method && (
+                                    <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200">
+                                      {pool.shipping_method}
+                                    </Badge>
+                                  )}
+                                  <span className="text-xs text-gray-500">{(pool.order_ids || []).length} 单</span>
+                                  {pool.total_weight_g && (
+                                    <span className="text-xs text-gray-500">· {(pool.total_weight_g / 1000).toFixed(1)}kg</span>
+                                  )}
+                                </div>
+                                {pool.title && (
+                                  <span className="text-xs text-gray-600 line-clamp-1 mt-1">{pool.title}</span>
+                                )}
                               </CommandItem>
                             ));
                           })()}
@@ -524,9 +553,10 @@ export default function PreShipmentForm() {
                     清除选择
                   </Button>
                 )}
-              </div>
-            </div>
-          )}
+                </div>
+                </div>
+                </>
+                )}
 
           {/* Transit location */}
           {consType === "transit" && (
@@ -670,8 +700,8 @@ export default function PreShipmentForm() {
         </CardContent>
       </Card>
 
-      {/* Shipping method & date — greyed out when a specific official pool is selected or joining existing transit pool */}
-      <Card className={`border-gray-200 transition-opacity ${specificPoolSelected || (consType === "transit" && joinExistingPool) ? "opacity-40 pointer-events-none" : ""}`}>
+      {/* Shipping method & date — greyed out when a specific official pool is selected or joining existing pool */}
+      <Card className={`border-gray-200 transition-opacity ${specificPoolSelected || (joinExistingPool && selectedExistingPoolId) ? "opacity-40 pointer-events-none" : ""}`}>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
             <Package className="w-4 h-4" />运输方式
