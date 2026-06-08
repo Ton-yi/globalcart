@@ -62,17 +62,45 @@ export default function OfficialPoolOrderDetailModal({ pool, group, orderEntry, 
     if (!draftText.trim() && draftImages.length === 0) return;
     const newNote = { text: draftText.trim(), image_urls: draftImages, created_at: new Date().toISOString() };
     
+    // Save to database immediately with the new note included
+    const updatedNotes = [...notes, newNote];
+    const updatedEntry = {
+      ...orderEntry,
+      notes: updatedNotes,
+      note: updatedNotes[0]?.text || "", // Keep legacy field from first note
+      image_urls: updatedNotes[0]?.image_urls || [],
+    };
+
+    const newGroups = (pool.per_user_groups || []).map(g => {
+      if (g.user_email !== group.user_email) return g;
+      return {
+        ...g,
+        order_entries: (g.order_entries || []).map(e =>
+          e.order_id === orderEntry.order_id ? updatedEntry : e
+        ),
+      };
+    });
+
     // Optimistically update local state
-    setNotes(prev => [...prev, newNote]);
+    setNotes(updatedNotes);
     setDraftText("");
     setDraftImages([]);
+
+    await shippingPoolApi.update(pool.id, { per_user_groups: newGroups });
+  };
+
+  const handleDeleteNote = async (idx) => {
+    const updatedNotes = notes.filter((_, i) => i !== idx);
+    
+    // Optimistically update local state
+    setNotes(updatedNotes);
     
     // Save to database immediately
     const updatedEntry = {
       ...orderEntry,
-      notes: [...notes, newNote],
-      note: notes[0]?.text || "", // Keep legacy field from first note
-      image_urls: notes[0]?.image_urls || [],
+      notes: updatedNotes,
+      note: updatedNotes[0]?.text || "",
+      image_urls: updatedNotes[0]?.image_urls || [],
     };
 
     const newGroups = (pool.per_user_groups || []).map(g => {
@@ -86,10 +114,6 @@ export default function OfficialPoolOrderDetailModal({ pool, group, orderEntry, 
     });
 
     await shippingPoolApi.update(pool.id, { per_user_groups: newGroups });
-  };
-
-  const handleDeleteNote = (idx) => {
-    setNotes(prev => prev.filter((_, i) => i !== idx));
   };
 
   const handleSave = async () => {
