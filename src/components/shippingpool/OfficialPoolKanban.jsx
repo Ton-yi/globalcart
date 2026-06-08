@@ -835,16 +835,21 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
               onRefresh={onRefresh}
             />
 
-            {/* Thin vertical button to create a new official pool column */}
+            {/* Todoist-style "add section" divider button */}
             {isAdmin && (
               <div className="flex-shrink-0 flex items-stretch">
                 <button
                   onClick={() => setCreatePoolOpen(true)}
                   title="创建新官方拼邮需求"
-                  className="w-8 flex flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-gray-200 text-gray-300 hover:border-blue-400 hover:text-blue-500 hover:bg-blue-50/60 transition-all duration-200 group"
+                  className="group flex flex-col items-center justify-center w-6 relative"
                 >
-                  <Plus className="w-4 h-4 group-hover:scale-110 transition-transform" />
-                  <span style={{ writingMode: "vertical-lr", letterSpacing: "0.05em", fontSize: "10px" }} className="font-medium">新增拼邮列</span>
+                  {/* vertical line */}
+                  <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-px bg-gray-200 group-hover:bg-blue-400 transition-colors duration-200" />
+                  {/* label pill */}
+                  <span className="relative z-10 bg-white border border-gray-200 group-hover:border-blue-400 group-hover:text-blue-500 text-gray-400 transition-colors duration-200 rounded-full px-1.5 py-0.5 whitespace-nowrap"
+                    style={{ writingMode: "vertical-lr", fontSize: "10px", letterSpacing: "0.05em" }}>
+                    + 新增列
+                  </span>
                 </button>
               </div>
             )}
