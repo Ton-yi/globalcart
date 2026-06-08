@@ -26,6 +26,9 @@ import PoolDetailHeader from "@/components/transit/PoolDetailHeader";
 import UserGroupCard from "@/components/transit/UserGroupCard";
 import ShippingRequestPanel from "@/components/transit/ShippingRequestPanel";
 import TransitShippingForm from "@/components/transit/TransitShippingForm";
+import AddressChangeCard from "@/components/transit/AddressChangeCard";
+import PickupScheduler from "@/components/transit/PickupScheduler";
+import StorageManagementCard from "@/components/transit/StorageManagementCard";
 
 export default function TransitPoolWork() {
   const { pool_id } = useParams();
@@ -274,8 +277,9 @@ export default function TransitPoolWork() {
           </Card>
         </div>
 
-        {/* Right: Shipping Form */}
+        {/* Right: Management Cards */}
         <div className="space-y-4">
+          {/* Transit Shipping Form */}
           <TransitShippingForm
             pool={pool}
             shippingMethods={shippingMethods}
@@ -289,6 +293,37 @@ export default function TransitPoolWork() {
             }}
             loading={saving}
           />
+
+          {/* Address Change */}
+          <AddressChangeCard
+            pool={pool}
+            onUpdate={() => {
+              // Refresh data
+              window.location.reload();
+            }}
+          />
+
+          {/* Pickup Scheduling */}
+          {location?.allow_pickup && (
+            <PickupScheduler
+              pool={pool}
+              isAdmin={user.role === 'admin' || user.role === 'platform_admin' || user.email === location.manager_email}
+              onUpdate={() => {
+                window.location.reload();
+              }}
+            />
+          )}
+
+          {/* Storage Management */}
+          {location?.allow_storage && (
+            <StorageManagementCard
+              pool={pool}
+              isAdmin={user.role === 'admin' || user.role === 'platform_admin' || user.email === location.manager_email}
+              onUpdate={() => {
+                window.location.reload();
+              }}
+            />
+          )}
         </div>
       </div>
 

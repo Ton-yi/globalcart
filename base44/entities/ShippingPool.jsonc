@@ -344,6 +344,79 @@
       "type": "string",
       "description": "\u4e2d\u8f6c\u5730\u6536\u8d27\u786e\u8ba4\u65f6\u95f4\uff08ISO \u65f6\u95f4\u6233\uff09"
     },
+    "transit_shipped_date": {
+      "type": "string",
+      "description": "\u4e2d\u8f6c\u5730\u53d1\u8d27\u65f6\u95f4\uff08ISO \u65f6\u95f4\u6233\uff09"
+    },
+    "transit_shipped_by": {
+      "type": "string",
+      "description": "\u4e2d\u8f6c\u5730\u53d1\u8d27\u64cd\u4f5c\u4eba\u90ae\u7bb1"
+    },
+    "transit_tracking_number": {
+      "type": "string",
+      "description": "\u4e2d\u8f6c\u5730\u8fd0\u8f93\u5355\u53f7"
+    },
+    "transit_fee_jpy": {
+      "type": "number",
+      "description": "\u4e2d\u8f6c\u5730\u8fd0\u8d39 (JPY)",
+      "default": 0
+    },
+    "transit_note": {
+      "type": "string",
+      "description": "\u4e2d\u8f6c\u4eba\u5907\u6ce8"
+    },
+    "transit_shipping_method": {
+      "type": "string",
+      "description": "\u4e2d\u8f6c\u8fd0\u8f93\u65b9\u5f0f\uff08\u53ef\u81ea\u5b9a\u4e49\u586b\u5199\uff09"
+    },
+    "transit_pickup_enabled": {
+      "type": "boolean",
+      "default": false,
+      "description": "\u662f\u5426\u542f\u7528\u81ea\u53d6\u6a21\u5f0f"
+    },
+    "transit_pickup_time_slot": {
+      "type": "string",
+      "description": "\u81ea\u53d6\u65f6\u95f4\u6bb5\uff08\u5982\uff1a2026-06-10 14:00-16:00\uff09"
+    },
+    "transit_pickup_user_confirmed": {
+      "type": "boolean",
+      "default": false,
+      "description": "\u7528\u6237\u662f\u5426\u5df2\u786e\u8ba4\u81ea\u53d6\u65f6\u95f4"
+    },
+    "transit_pickup_admin_confirmed": {
+      "type": "boolean",
+      "default": false,
+      "description": "\u7ba1\u7406\u5458\u662f\u5426\u5df2\u786e\u8ba4\u81ea\u53d6\u65f6\u95f4"
+    },
+    "transit_pickup_completed": {
+      "type": "boolean",
+      "default": false,
+      "description": "\u662f\u5426\u5df2\u5b8c\u6210\u81ea\u53d6\uff08\u7ba1\u7406\u5458\u6807\u8bb0\uff09"
+    },
+    "transit_storage_enabled": {
+      "type": "boolean",
+      "default": false,
+      "description": "\u662f\u5426\u542f\u7528\u6682\u5b58\u6a21\u5f0f"
+    },
+    "transit_storage_until": {
+      "type": "string",
+      "format": "date",
+      "description": "\u6682\u5b58\u622a\u6b62\u65e5\u671f"
+    },
+    "transit_storage_released_to_pool_id": {
+      "type": "string",
+      "description": "\u6682\u5b58\u540e\u5408\u5e76\u5230\u7684\u65b0\u62fc\u90ae ID"
+    },
+    "address_change_count": {
+      "type": "number",
+      "default": 0,
+      "description": "\u5730\u5740\u5df2\u66f4\u6539\u6b21\u6570"
+    },
+    "max_address_changes": {
+      "type": "number",
+      "default": 1,
+      "description": "\u5141\u8bb8\u7684\u6700\u5927\u5730\u5740\u66f4\u6539\u6b21\u6570\uff08\u9ed8\u8ba4 1 \u6b21\uff09"
+    },
     "messages": {
       "type": "array",
       "items": {
