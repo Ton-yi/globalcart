@@ -142,14 +142,12 @@ export default function PreShipmentForm() {
 
         // Set all available pools for user to join
         const allPools = poolsRes.data?.pools || [];
-        console.log('[PreShipmentForm] ALL pools loaded:', allPools.length, 'pools:', allPools.map(p => ({ 
+        console.log('[PreShipmentForm] ALL pools loaded:', allPools.length);
+        console.log('[PreShipmentForm] Admin-created pools:', allPools.filter(p => p.is_admin_created).map(p => ({ 
           id: p.id, 
           pool_code: p.pool_code, 
           title: p.title, 
-          is_admin_created: p.is_admin_created, 
-          creator_email: p.creator_email, 
-          status: p.status,
-          consolidation_type: p.consolidation_type 
+          status: p.status 
         })));
         
         // Filter pools that user can join:
@@ -160,12 +158,7 @@ export default function PreShipmentForm() {
           (p.status === "pending" || p.status === "processing") && p.creator_email === user.email
         )
         );
-        console.log('[PreShipmentForm] Available pools after filter:', availablePools.length, 'pools:', availablePools.map(p => ({ 
-          id: p.id, 
-          pool_code: p.pool_code, 
-          title: p.title,
-          is_admin_created: p.is_admin_created 
-        })));
+        console.log('[PreShipmentForm] Available pools after filter:', availablePools.length);
         setOfficialPools(availablePools);
 
         const pref = prefs[0];
