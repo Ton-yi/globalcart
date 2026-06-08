@@ -21,7 +21,7 @@ import CountrySelect from "@/components/common/CountrySelect";
 import ShippingPoolCard from "@/components/shippingpool/ShippingPoolCard";
 import ShippingPoolDetailModal from "@/components/shippingpool/ShippingPoolDetailModal";
 import CreateShippingPoolModal from "@/components/shippingpool/CreateShippingPoolModal";
-import OfficialPoolKanban from "@/components/shippingpool/OfficialPoolKanban";
+import OfficialPoolKanban from "@/components/shippingpool/OfficialPoolKanban.jsx";
 
 const STATUS_FILTERS = [
   { v: "all",              l: "全部状态" },

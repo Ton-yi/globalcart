@@ -20,7 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import ShippingPoolCard from "@/components/shippingpool/ShippingPoolCard";
 import ShippingPoolDetailModal from "@/components/shippingpool/ShippingPoolDetailModal";
-import OfficialPoolKanban from "@/components/shippingpool/OfficialPoolKanban";
+import OfficialPoolKanban from "@/components/shippingpool/OfficialPoolKanban.jsx";
 
 const SHIPPING_METHODS = [
   { value: "EMS", label: "EMS空运" },
