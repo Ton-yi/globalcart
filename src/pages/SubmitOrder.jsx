@@ -11,6 +11,7 @@ import { ShoppingBag, Calculator, Info, Upload, Plus, X, ChevronsUpDown, HelpCir
 import ReactMarkdown from "react-markdown";
 import { usePermissions } from "@/hooks/usePermissions";
 import PaymentMethodSelector from "@/components/common/PaymentMethodSelector";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -41,6 +42,8 @@ export default function SubmitOrder() {
   const [urlMode, setUrlMode] = useState("multi"); // "textarea" | "multi"
   const [addonOptions, setAddonOptions] = useState([]);
   const [selectedAddons, setSelectedAddons] = useState([]);
+  const [addonCustomFees, setAddonCustomFees] = useState({});
+  const [addonFeeErrors, setAddonFeeErrors] = useState({});
   const [form, setForm] = useState({
     product_name: "", product_description: "",
     estimated_jpy: "", prepayment_currency: "JPY",
@@ -95,7 +98,16 @@ export default function SubmitOrder() {
 
   const getAddonTotal = () => selectedAddons.reduce((sum, id) => {
     const opt = addonOptions.find(a => a.id === id);
-    return sum + convertAddonFee(opt);
+    if (!opt) return sum;
+    // Use custom fee if user customizable and value is provided
+    const customFee = addonCustomFees[id];
+    const isCustomizable = opt.is_user_customizable;
+    const effectiveFee = isCustomizable && customFee !== undefined ? customFee : parseFloat(opt.fee) || 0;
+    const feeCur = opt.fee_currency || "JPY";
+    if (feeCur === "JPY") return sum + effectiveFee;
+    const rateKey = `jpy_${feeCur.toLowerCase()}`;
+    const rate = rates?.[rateKey] || 1;
+    return sum + (effectiveFee / rate);
   }, 0);
 
   const calculate = async () => {
@@ -179,8 +191,32 @@ export default function SubmitOrder() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validate addon custom fees are within range
+    const hasFeeErrors = Object.entries(addonCustomFees).some(([addonId, fee]) => {
+      const addon = addonOptions.find(a => a.id === addonId);
+      return addon && addon.is_user_customizable && selectedAddons.includes(addonId) && 
+             (fee < addon.min_fee || fee > addon.max_fee);
+    });
+    
+    if (hasFeeErrors) {
+      alert('请确保所有自定义增值服务的金额都在指定区间内');
+      return;
+    }
+    
     setSubmitting(true);
-    const selectedAddonObjects = selectedAddons.map(id => addonOptions.find(a => a.id === id)).filter(Boolean);
+    const selectedAddonObjects = selectedAddons.map(id => {
+      const addon = addonOptions.find(a => a.id === id);
+      if (!addon) return null;
+      const customFee = addonCustomFees[id];
+      const isCustomizable = addon.is_user_customizable;
+      return {
+        id: addon.id,
+        name: addon.name,
+        fee: isCustomizable && customFee !== undefined ? customFee : parseFloat(addon.fee) || 0,
+        fee_currency: addon.fee_currency || "JPY"
+      };
+    }).filter(Boolean);
     const urlsText = urlMode === "textarea"
       ? (productUrls[0] || "").split("\n").map(s => s.trim()).filter(Boolean).join("\n")
       : productUrls.filter(u => u.trim()).join("\n");
@@ -443,22 +479,71 @@ export default function SubmitOrder() {
               <div>
                 <Label className="text-sm mb-2 block">增值服务（可选）</Label>
                 <div className="space-y-2">
-                  {addonOptions.map(opt => (
-                    <label key={opt.id} className="flex items-start gap-3 cursor-pointer p-2 rounded-lg border border-gray-100 hover:bg-gray-50">
-                      <Checkbox
-                        checked={selectedAddons.includes(opt.id)}
-                        onCheckedChange={() => toggleAddon(opt.id)}
-                        className="mt-0.5"
-                      />
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium text-gray-800">{opt.name}</span>
-                          <span className="text-sm text-red-600 font-medium">+{opt.fee_currency || "JPY"} {opt.fee_currency === "JPY" ? Math.round(parseFloat(opt.fee)) : parseFloat(opt.fee)}</span>
-                        </div>
-                        {opt.description && <p className="text-xs text-gray-400 mt-0.5">{opt.description}</p>}
+                  {addonOptions.map(opt => {
+                    const isSelected = selectedAddons.includes(opt.id);
+                    const isCustomizable = opt.is_user_customizable;
+                    return (
+                      <div key={opt.id} className={`rounded-lg border p-2.5 transition-colors ${isSelected ? "border-yellow-400 bg-yellow-50" : "border-gray-100 hover:bg-gray-50"}`}>
+                        <label className="flex items-start gap-3 cursor-pointer">
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={() => toggleAddon(opt.id)}
+                            className="mt-0.5"
+                          />
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-sm font-medium text-gray-800">{opt.name}</span>
+                                {isCustomizable && (
+                                  <Badge className="text-[10px] bg-green-100 text-green-700 border-green-200">用户可自定义</Badge>
+                                )}
+                              </div>
+                              {!isCustomizable && (
+                                <span className="text-sm text-red-600 font-medium flex-shrink-0">+{opt.fee_currency || "JPY"} {opt.fee_currency === "JPY" ? Math.round(parseFloat(opt.fee)) : parseFloat(opt.fee)}</span>
+                              )}
+                            </div>
+                            {opt.description && <p className="text-xs text-gray-400 mt-0.5">{opt.description}</p>}
+                            {isCustomizable && (
+                              <div className="mt-1">
+                                <span className="text-[10px] text-gray-500">区间：{opt.fee_currency || "JPY"} {opt.min_fee} - {opt.max_fee} · 默认：{opt.fee_currency === "JPY" ? Math.round(parseFloat(opt.fee)) : parseFloat(opt.fee)}</span>
+                              </div>
+                            )}
+                          </div>
+                        </label>
+                        {isCustomizable && isSelected && (
+                          <div className="mt-2 ml-6 flex flex-col gap-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] text-green-600 font-medium">用户可自定义</span>
+                              <Input
+                                type="number"
+                                className="h-7 w-28 text-xs [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                placeholder={`${opt.min_fee}-${opt.max_fee}`}
+                                value={addonCustomFees[opt.id] ?? opt.fee}
+                                onChange={(e) => {
+                                  const value = parseFloat(e.target.value) || 0;
+                                  setAddonCustomFees(prev => ({ ...prev, [opt.id]: value }));
+                                  if (value < opt.min_fee || value > opt.max_fee) {
+                                    setAddonFeeErrors(prev => ({ ...prev, [opt.id]: `请输入${opt.min_fee}-${opt.max_fee}之间的金额` }));
+                                  } else {
+                                    setAddonFeeErrors(prev => {
+                                      const newErrors = { ...prev };
+                                      delete newErrors[opt.id];
+                                      return newErrors;
+                                    });
+                                  }
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                              <span className="text-xs text-yellow-700">{opt.fee_currency || "JPY"}</span>
+                            </div>
+                            {addonFeeErrors[opt.id] && (
+                              <span className="text-[10px] text-red-600">{addonFeeErrors[opt.id]}</span>
+                            )}
+                          </div>
+                        )}
                       </div>
-                    </label>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -718,7 +803,18 @@ export default function SubmitOrder() {
               disabled={submitting || !form.product_name}
               onClick={async () => {
                 setSubmitting(true);
-                const selectedAddonObjects = selectedAddons.map(id => addonOptions.find(a => a.id === id)).filter(Boolean);
+                const selectedAddonObjects = selectedAddons.map(id => {
+                  const addon = addonOptions.find(a => a.id === id);
+                  if (!addon) return null;
+                  const customFee = addonCustomFees[id];
+                  const isCustomizable = addon.is_user_customizable;
+                  return {
+                    id: addon.id,
+                    name: addon.name,
+                    fee: isCustomizable && customFee !== undefined ? customFee : parseFloat(addon.fee) || 0,
+                    fee_currency: addon.fee_currency || "JPY"
+                  };
+                }).filter(Boolean);
                 const urlsText = urlMode === "textarea"
                   ? (productUrls[0] || "").split("\n").map(s => s.trim()).filter(Boolean).join("\n")
                   : productUrls.filter(u => u.trim()).join("\n");
@@ -744,7 +840,7 @@ export default function SubmitOrder() {
                   payment_status: (isDeferred || isCredit) ? "paid" : "awaiting_payment",
                   user_note: form.user_note || "",
                   selected_addon_ids: selectedAddons,
-                  selected_addons: selectedAddonObjects.map(a => ({ id: a.id, name: a.name, fee: parseFloat(a.fee) || 0, fee_currency: a.fee_currency || "JPY" })),
+                  selected_addons: selectedAddonObjects.map(a => ({ id: a.id, name: a.name, fee: a.fee, fee_currency: a.fee_currency })),
                 });
                 setSubmitting(false);
                 if (res.data?.order) {
