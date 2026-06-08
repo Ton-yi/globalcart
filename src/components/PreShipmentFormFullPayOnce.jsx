@@ -67,15 +67,46 @@ export default function PreShipmentFormFullPayOnce({
     
     // Get destination country from order's pre_shipment address
     const destinationCountry = order?.pre_shipment?.address?.country || "";
+    
+    // Map country code to zone (for shipping methods that use zone-based pricing)
+    // This mapping should ideally come from SiteSettings or a config entity
+    const countryToZone = {
+      'CN': 'zone1',
+      'US': 'zone2',
+      'CA': 'zone2',
+      'GB': 'zone2',
+      'DE': 'zone2',
+      'FR': 'zone2',
+      'AU': 'zone2',
+      'NZ': 'zone2',
+      'KR': 'zone3',
+      'TH': 'zone3',
+      'SG': 'zone3',
+      'MY': 'zone3',
+      'PH': 'zone3',
+      'VN': 'zone3',
+      'ID': 'zone3',
+      'IN': 'zone3',
+      'BR': 'zone4',
+      'MX': 'zone4',
+      'AR': 'zone4',
+      'CL': 'zone4',
+      'ZA': 'zone4',
+      'EG': 'zone4',
+      'RU': 'zone5',
+      'UA': 'zone5'
+    };
+    const zoneOrCountry = countryToZone[destinationCountry] || destinationCountry;
+    
     console.log('[FullPay] Computing fee:', { 
       method: method.name, 
       rate_mode: method.rate_mode, 
       destinationCountry,
+      zoneOrCountry,
       weight,
       consType,
       simple_rates_count: method.simple_rates?.length || 0,
-      detailed_rates_count: method.detailed_rates?.length || 0,
-      order_address: order?.pre_shipment?.address
+      detailed_rates_count: method.detailed_rates?.length || 0
     });
     
     let fee = 0;
@@ -88,7 +119,7 @@ export default function PreShipmentFormFullPayOnce({
     } else if (consType === "") {
       // Direct shipping - use detailed rate table
       if (method.rate_mode === "simple" && method.simple_rates) {
-        const rate = method.simple_rates.find(r => r.country === destinationCountry);
+        const rate = method.simple_rates.find(r => r.country === zoneOrCountry);
         if (rate) {
           const firstWeight = rate.first_weight_g || 500;
           const firstFee = rate.first_weight_fee || 0;
@@ -103,19 +134,19 @@ export default function PreShipmentFormFullPayOnce({
           }
           console.log('[FullPay] Simple rate found:', { rate, fee });
         } else {
-          console.log('[FullPay] Simple rate NOT found for country:', destinationCountry, 'available countries:', method.simple_rates.map(r => r.country));
+          console.log('[FullPay] Simple rate NOT found for zone/country:', zoneOrCountry, 'available zones:', method.simple_rates.map(r => r.country));
         }
       } else if (method.rate_mode === "detailed" && method.detailed_rates) {
         const rate = method.detailed_rates.find(r => 
-          r.country === destinationCountry && 
+          r.country === zoneOrCountry && 
           weight >= r.weight_from_g && 
           weight <= r.weight_to_g
         );
         if (rate) {
           fee = rate.fee || 0;
-          console.log('[FullPay] Detailed rate found:', rate);
+          console.log('[FullPay] Detailed rate found:', { rate, fee });
         } else {
-          console.log('[FullPay] Detailed rate NOT found for country:', destinationCountry, 'weight:', weight);
+          console.log('[FullPay] Detailed rate NOT found for zone:', zoneOrCountry, 'weight:', weight, 'available zones:', [...new Set(method.detailed_rates.map(r => r.country))]);
         }
       } else {
         console.log('[FullPay] No valid rate mode:', method.rate_mode);
