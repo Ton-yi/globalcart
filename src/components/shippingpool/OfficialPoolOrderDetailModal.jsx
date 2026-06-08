@@ -173,6 +173,45 @@ export default function OfficialPoolOrderDetailModal({ pool, group, orderEntry, 
             </div>
           )}
 
+          {/* Final address */}
+          <div className="border border-gray-200 rounded-xl p-4 space-y-3">
+            <p className="text-xs font-medium text-gray-600 flex items-center gap-1.5">
+              <MapPin className="w-3.5 h-3.5 text-gray-400" />最终收货地址
+            </p>
+
+            <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${useGroupAddress ? "border-blue-300 bg-blue-50" : "border-gray-200 hover:bg-gray-50"}`}>
+              <input type="radio" checked={useGroupAddress} onChange={() => setUseGroupAddress(true)} className="mt-0.5 accent-blue-600" />
+              <div>
+                <p className="text-sm font-medium text-gray-800">使用任务组地址</p>
+                {groupAddress && (
+                  <p className="text-xs text-gray-400 mt-0.5 truncate max-w-xs">
+                    {groupAddress.recipient_name}{groupAddress.state ? ` · ${groupAddress.state}` : ""}
+                  </p>
+                )}
+              </div>
+            </label>
+
+            <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${!useGroupAddress ? "border-blue-300 bg-blue-50" : "border-gray-200 hover:bg-gray-50"}`}>
+              <input type="radio" checked={!useGroupAddress} onChange={() => setUseGroupAddress(false)} className="mt-0.5 accent-blue-600" />
+              <span className="text-sm font-medium text-gray-800">为此订单指定独立地址</span>
+            </label>
+
+            {!useGroupAddress && (
+              <div className="space-y-3 ml-2">
+                {savedAddresses.length > 0 && (
+                  <Select value={selectedSavedId || "__new__"} onValueChange={handleSavedAddressSelect}>
+                    <SelectTrigger className="h-8 text-sm bg-white"><SelectValue placeholder="从地址簿选择" /></SelectTrigger>
+                    <SelectContent>
+                      {savedAddresses.map(a => <SelectItem key={a.id} value={a.id}>{a.label}</SelectItem>)}
+                      <SelectItem value="__new__"><span className="flex items-center gap-1.5 text-blue-600"><PlusCircle className="w-3.5 h-3.5" />手动填写</span></SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+                <AddressForm value={overrideAddress} onChange={v => setOverrideAddress(p => ({ ...p, ...v }))} />
+              </div>
+            )}
+          </div>
+
           {/* Notes / Messages */}
           <div>
             <p className="text-xs font-medium text-gray-500 mb-2 flex items-center gap-1">
@@ -281,45 +320,6 @@ export default function OfficialPoolOrderDetailModal({ pool, group, orderEntry, 
                 </div>
               </div>
             </div>
-          </div>
-
-          {/* Final address */}
-          <div className="border border-gray-200 rounded-xl p-4 space-y-3">
-            <p className="text-xs font-medium text-gray-600 flex items-center gap-1.5">
-              <MapPin className="w-3.5 h-3.5 text-gray-400" />最终收货地址
-            </p>
-
-            <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${useGroupAddress ? "border-blue-300 bg-blue-50" : "border-gray-200 hover:bg-gray-50"}`}>
-              <input type="radio" checked={useGroupAddress} onChange={() => setUseGroupAddress(true)} className="mt-0.5 accent-blue-600" />
-              <div>
-                <p className="text-sm font-medium text-gray-800">使用任务组地址</p>
-                {groupAddress && (
-                  <p className="text-xs text-gray-400 mt-0.5 truncate max-w-xs">
-                    {groupAddress.recipient_name}{groupAddress.state ? ` · ${groupAddress.state}` : ""}
-                  </p>
-                )}
-              </div>
-            </label>
-
-            <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${!useGroupAddress ? "border-blue-300 bg-blue-50" : "border-gray-200 hover:bg-gray-50"}`}>
-              <input type="radio" checked={!useGroupAddress} onChange={() => setUseGroupAddress(false)} className="mt-0.5 accent-blue-600" />
-              <span className="text-sm font-medium text-gray-800">为此订单指定独立地址</span>
-            </label>
-
-            {!useGroupAddress && (
-              <div className="space-y-3 ml-2">
-                {savedAddresses.length > 0 && (
-                  <Select value={selectedSavedId || "__new__"} onValueChange={handleSavedAddressSelect}>
-                    <SelectTrigger className="h-8 text-sm bg-white"><SelectValue placeholder="从地址簿选择" /></SelectTrigger>
-                    <SelectContent>
-                      {savedAddresses.map(a => <SelectItem key={a.id} value={a.id}>{a.label}</SelectItem>)}
-                      <SelectItem value="__new__"><span className="flex items-center gap-1.5 text-blue-600"><PlusCircle className="w-3.5 h-3.5" />手动填写</span></SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
-                <AddressForm value={overrideAddress} onChange={v => setOverrideAddress(p => ({ ...p, ...v }))} />
-              </div>
-            )}
           </div>
         </div>
 
