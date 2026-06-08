@@ -60,7 +60,7 @@ export default function PreShipmentForm() {
   const [selectedAddressId, setSelectedAddressId] = useState("");
   const [useNewAddress, setUseNewAddress] = useState(false);
   const [saveAddress, setSaveAddress] = useState(false);
-  
+
   // Official pools for selection
   const [officialPools, setOfficialPools] = useState([]);
 
@@ -69,21 +69,21 @@ export default function PreShipmentForm() {
 
   useEffect(() => {
     if (!orderId || !user) return;
-    
+
     let isMounted = true;
-    
+
     const loadData = async () => {
       try {
         const [ord, cfg, prefs, methods, poolsRes] = await Promise.all([
-          base44.functions.invoke('getTenantOrders', {}).then(r => (r.data?.orders || []).find(o => o.id === orderId)),
-          fetchTenantConfig(),
-          tenantEntity.list('UserPreference', { user_email: user.email }).catch(() => []),
-          base44.functions.invoke('managePaymentMethod', { action: 'list' }).then(r => r.data?.methods || []).catch(() => []),
-          base44.functions.invoke('getTenantShippingPools', { status: 'pending' }).catch(() => ({ data: { pools: [] } })),
-        ]);
-        
+        base44.functions.invoke('getTenantOrders', {}).then((r) => (r.data?.orders || []).find((o) => o.id === orderId)),
+        fetchTenantConfig(),
+        tenantEntity.list('UserPreference', { user_email: user.email }).catch(() => []),
+        base44.functions.invoke('managePaymentMethod', { action: 'list' }).then((r) => r.data?.methods || []).catch(() => []),
+        base44.functions.invoke('getTenantShippingPools', { status: 'pending' }).catch(() => ({ data: { pools: [] } }))]
+        );
+
         if (!isMounted) return;
-        
+
         setOrder(ord || null);
 
         // Pre-fill form if order already has pre_shipment data (edit mode)
@@ -102,57 +102,57 @@ export default function PreShipmentForm() {
             setSelectedPoolId(ps.target_pool_id || "");
           }
         }
-        
+
         // Deduplicate shipping methods by id - ensure unique
-        const allMethods = (cfg.shippingMethods || []).filter(m => m.is_active !== false);
+        const allMethods = (cfg.shippingMethods || []).filter((m) => m.is_active !== false);
         const uniqueMap = new Map();
-        allMethods.forEach(m => {
+        allMethods.forEach((m) => {
           if (!uniqueMap.has(m.id)) {
             uniqueMap.set(m.id, m);
           }
         });
         const deduped = Array.from(uniqueMap.values());
-        
+
         // Only update if data actually changed (prevent unnecessary re-renders)
-        setShippingMethods(prev => {
-          const prevIds = prev.map(m => m.id).join(',');
-          const newIds = deduped.map(m => m.id).join(',');
+        setShippingMethods((prev) => {
+          const prevIds = prev.map((m) => m.id).join(',');
+          const newIds = deduped.map((m) => m.id).join(',');
           return prevIds === newIds ? prev : deduped;
         });
-        
-        setTransitLocations(prev => {
-          const filtered = (cfg.transitLocations || []).filter(l => l.is_active !== false);
-          const prevIds = prev.map(l => l.id).join(',');
-          const newIds = filtered.map(l => l.id).join(',');
+
+        setTransitLocations((prev) => {
+          const filtered = (cfg.transitLocations || []).filter((l) => l.is_active !== false);
+          const prevIds = prev.map((l) => l.id).join(',');
+          const newIds = filtered.map((l) => l.id).join(',');
           return prevIds === newIds ? prev : filtered;
         });
-        
-        setShippingAddons(prev => {
-          const filtered = (cfg.addons || []).filter(a => a.addon_type === 'shipping' && a.is_active !== false);
-          const prevIds = prev.map(a => a.id).join(',');
-          const newIds = filtered.map(a => a.id).join(',');
+
+        setShippingAddons((prev) => {
+          const filtered = (cfg.addons || []).filter((a) => a.addon_type === 'shipping' && a.is_active !== false);
+          const prevIds = prev.map((a) => a.id).join(',');
+          const newIds = filtered.map((a) => a.id).join(',');
           return prevIds === newIds ? prev : filtered;
         });
-        
-        setPaymentMethods(prev => {
-          const prevIds = prev.map(m => m.id || m.name).join(',');
-          const newIds = (methods || []).map(m => m.id || m.name).join(',');
-          return prevIds === newIds ? prev : (methods || []);
+
+        setPaymentMethods((prev) => {
+          const prevIds = prev.map((m) => m.id || m.name).join(',');
+          const newIds = (methods || []).map((m) => m.id || m.name).join(',');
+          return prevIds === newIds ? prev : methods || [];
         });
-        
+
         // Set all available pools for user to join
         const allPools = poolsRes.data?.pools || [];
         // Filter pools that user can join:
         // - Admin-created official pools (any status pending/processing)
         // - User's own pools (direct shipping or transit consolidation)
-        const availablePools = allPools.filter(p => 
-          (p.status === "pending" || p.status === "processing") &&
-          (p.is_admin_created || p.creator_email === user.email)
+        const availablePools = allPools.filter((p) =>
+        (p.status === "pending" || p.status === "processing") && (
+        p.is_admin_created || p.creator_email === user.email)
         );
         setOfficialPools(availablePools);
 
         const pref = prefs[0];
-        const addrs = (pref?.saved_addresses || []).map(a => ({ ...EMPTY_ADDRESS_FORM, ...a }));
+        const addrs = (pref?.saved_addresses || []).map((a) => ({ ...EMPTY_ADDRESS_FORM, ...a }));
         setSavedAddresses(addrs);
 
         // If editing and order has a saved address, restore it
@@ -163,7 +163,7 @@ export default function PreShipmentForm() {
           setSelectedAddressId("");
         } else {
           const defaultId = pref?.default_address_id || "";
-          const defaultAddr = addrs.find(a => a.id === defaultId) || addrs[0];
+          const defaultAddr = addrs.find((a) => a.id === defaultId) || addrs[0];
           if (defaultAddr) {
             setSelectedAddressId(defaultAddr.id);
             setAddress({ label: defaultAddr.label || "", ...defaultAddr });
@@ -178,9 +178,9 @@ export default function PreShipmentForm() {
         if (isMounted) setLoading(false);
       }
     };
-    
+
     loadData();
-    
+
     return () => {
       isMounted = false;
     };
@@ -195,22 +195,22 @@ export default function PreShipmentForm() {
     } else {
       setSelectedAddressId(id);
       setUseNewAddress(false);
-      const addr = savedAddresses.find(a => a.id === id);
+      const addr = savedAddresses.find((a) => a.id === id);
       if (addr) setAddress({ label: addr.label || "", ...addr });
       setSaveAddress(false);
     }
   };
 
   // Filter addons based on selected transit location's disabled_addon_ids
-  const selectedTransitLocation = transitLocations.find(l => l.id === transitLocationId);
-  const disabledAddonIds = (consType === "transit" && selectedTransitLocation?.disabled_addon_ids) 
-    ? selectedTransitLocation.disabled_addon_ids 
-    : [];
-  const availableAddons = shippingAddons.filter(a => !disabledAddonIds.includes(a.id));
+  const selectedTransitLocation = transitLocations.find((l) => l.id === transitLocationId);
+  const disabledAddonIds = consType === "transit" && selectedTransitLocation?.disabled_addon_ids ?
+  selectedTransitLocation.disabled_addon_ids :
+  [];
+  const availableAddons = shippingAddons.filter((a) => !disabledAddonIds.includes(a.id));
 
   // Remove any selected addons that are now disabled when transit location changes
-  const effectiveSelectedAddonIds = selectedAddonIds.filter(id => !disabledAddonIds.includes(id));
-  const selectedAddons = availableAddons.filter(a => effectiveSelectedAddonIds.includes(a.id));
+  const effectiveSelectedAddonIds = selectedAddonIds.filter((id) => !disabledAddonIds.includes(id));
+  const selectedAddons = availableAddons.filter((a) => effectiveSelectedAddonIds.includes(a.id));
 
   // When user picks a specific official pool (not "default"), shipping method is not required
   const specificPoolSelected = consType === "official_pool" && !!selectedPoolId;
@@ -231,19 +231,19 @@ export default function PreShipmentForm() {
 
   const handleSubmit = async () => {
     if (!canSubmit() || submitting) return;
-    
+
     // Validate addon custom fees are within range
     const hasFeeErrors = Object.entries(addonCustomFees).some(([addonId, fee]) => {
-      const addon = shippingAddons.find(a => a.id === addonId);
-      return addon && addon.is_user_customizable && effectiveSelectedAddonIds.includes(addonId) && 
-             (fee < addon.min_fee || fee > addon.max_fee);
+      const addon = shippingAddons.find((a) => a.id === addonId);
+      return addon && addon.is_user_customizable && effectiveSelectedAddonIds.includes(addonId) && (
+      fee < addon.min_fee || fee > addon.max_fee);
     });
-    
+
     if (hasFeeErrors) {
       alert('请确保所有自定义增值服务的金额都在指定区间内');
       return;
     }
-    
+
     setSubmitting(true);
 
     // Save new address if requested
@@ -254,7 +254,7 @@ export default function PreShipmentForm() {
         id: Date.now().toString(),
         label: address.label.trim(),
         full_text: serializeAddressToText(address),
-        ...address,
+        ...address
       };
       if (existingPrefs.length > 0) {
         await tenantEntity.update('UserPreference', existingPrefs[0].id, { saved_addresses: [...existingAddrs, newEntry] });
@@ -263,15 +263,15 @@ export default function PreShipmentForm() {
       }
     }
 
-    const effectiveAddress = useNewAddress ? address : (savedAddresses.find(a => a.id === selectedAddressId) || address);
-    const transitLoc = transitLocations.find(l => l.id === transitLocationId);
-    
+    const effectiveAddress = useNewAddress ? address : savedAddresses.find((a) => a.id === selectedAddressId) || address;
+    const transitLoc = transitLocations.find((l) => l.id === transitLocationId);
+
     // Handle official pool selection
-    const selectedPool = officialPools.find(p => p.id === selectedPoolId);
+    const selectedPool = officialPools.find((p) => p.id === selectedPoolId);
     const poolCode = selectedPool?.pool_code || "";
-    
+
     // Handle existing pool selection (direct or transit)
-    const existingPool = officialPools.find(p => p.id === selectedExistingPoolId);
+    const existingPool = officialPools.find((p) => p.id === selectedExistingPoolId);
     const existingPoolCode = existingPool?.pool_code || "";
 
     const preShipment = {
@@ -280,10 +280,10 @@ export default function PreShipmentForm() {
       user_note: userNote,
       consType,
       transit_location_id: consType === "transit" ? transitLocationId : "",
-      transit_location_name: consType === "transit" ? (transitLoc?.name || "") : "",
+      transit_location_name: consType === "transit" ? transitLoc?.name || "" : "",
       address: consType === "transit" || consType === "official_pool" ? {} : { ...effectiveAddress },
       selected_addon_ids: effectiveSelectedAddonIds,
-      selected_addons: selectedAddons.map(a => {
+      selected_addons: selectedAddons.map((a) => {
         const customFee = addonCustomFees[a.id];
         const isCustomizable = a.is_user_customizable;
         return {
@@ -293,23 +293,23 @@ export default function PreShipmentForm() {
           fee_currency: a.fee_currency
         };
       }),
-      pool_created: consType === "official_pool" || (joinExistingPool && !!selectedExistingPoolId),
-      target_pool_id: consType === "official_pool" ? selectedPoolId : (joinExistingPool ? selectedExistingPoolId : ""),
-      target_pool_code: consType === "official_pool" ? poolCode : (joinExistingPool ? existingPoolCode : ""),
-      target_pool_title: consType === "official_pool" && selectedPool ? (selectedPool.title || selectedPool.pool_code) : (joinExistingPool && existingPool ? (existingPool.title || existingPool.pool_code) : ""),
-      join_existing_pool: joinExistingPool,
+      pool_created: consType === "official_pool" || joinExistingPool && !!selectedExistingPoolId,
+      target_pool_id: consType === "official_pool" ? selectedPoolId : joinExistingPool ? selectedExistingPoolId : "",
+      target_pool_code: consType === "official_pool" ? poolCode : joinExistingPool ? existingPoolCode : "",
+      target_pool_title: consType === "official_pool" && selectedPool ? selectedPool.title || selectedPool.pool_code : joinExistingPool && existingPool ? existingPool.title || existingPool.pool_code : "",
+      join_existing_pool: joinExistingPool
     };
 
     const res = await base44.functions.invoke('updateTenantOrder', {
       order_id: orderId,
-      pre_shipment: preShipment,
+      pre_shipment: preShipment
     });
 
     // Update local order state so subsequent edits in the same session see fresh data
     if (res?.data?.order) {
       setOrder(res.data.order);
     } else {
-      setOrder(prev => ({ ...prev, pre_shipment: preShipment }));
+      setOrder((prev) => ({ ...prev, pre_shipment: preShipment }));
     }
 
     setSubmitting(false);
@@ -317,7 +317,7 @@ export default function PreShipmentForm() {
     // If order needs payment, redirect directly to payment page
     const needsPayment = order.payment_status === "awaiting_payment" || order.order_status === "payment_pending";
     if (needsPayment) {
-      const m = paymentMethods.find(pm => (pm.provider_key || pm.name) === paymentMethod || pm.value === paymentMethod);
+      const m = paymentMethods.find((pm) => (pm.provider_key || pm.name) === paymentMethod || pm.value === paymentMethod);
       const cur = m?.payment_currency || "JPY";
       const method = paymentMethod || "other";
       navigate(`/Payment?order_id=${orderId}&method=${method}&pay_currency=${cur}`);
@@ -336,8 +336,8 @@ export default function PreShipmentForm() {
       <div className="max-w-2xl mx-auto py-12 text-center text-gray-400">
         <p className="text-sm">订单不存在或无法访问</p>
         <Button variant="outline" size="sm" className="mt-4" onClick={() => navigate(createPageUrl("MyOrders"))}>返回我的订单</Button>
-      </div>
-    );
+      </div>);
+
   }
 
   if (submitted) {
@@ -370,19 +370,19 @@ export default function PreShipmentForm() {
           <Button variant="outline" className="flex-1" onClick={() => navigate(createPageUrl("MyOrders"))}>
             查看我的订单
           </Button>
-          {(order.payment_status === "awaiting_payment" || order.order_status === "payment_pending") && (
-            <Button className="flex-1 bg-red-600 hover:bg-red-700"
-              onClick={() => {
-                const m = paymentMethods.find(pm => (pm.provider_key || pm.name) === paymentMethod);
-                const cur = m?.payment_currency || "JPY";
-                navigate(`/Payment?order_id=${orderId}&method=${paymentMethod || "other"}&pay_currency=${cur}`);
-              }}>
+          {(order.payment_status === "awaiting_payment" || order.order_status === "payment_pending") &&
+          <Button className="flex-1 bg-red-600 hover:bg-red-700"
+          onClick={() => {
+            const m = paymentMethods.find((pm) => (pm.provider_key || pm.name) === paymentMethod);
+            const cur = m?.payment_currency || "JPY";
+            navigate(`/Payment?order_id=${orderId}&method=${paymentMethod || "other"}&pay_currency=${cur}`);
+          }}>
               前往付款
             </Button>
-          )}
+          }
         </div>
-      </div>
-    );
+      </div>);
+
   }
 
   return (
@@ -429,31 +429,31 @@ export default function PreShipmentForm() {
           {/* Direct vs transit vs official pool */}
           <div className="space-y-2">
             {[
-              { key: "", label: "直接发货", desc: "货品直接从日本发往收货地址" },
-              ...(transitLocations.length > 0 ? [{ key: "transit", label: "发往中转地", desc: "货品先发往中转地，再自行安排" }] : []),
-              { key: "official_pool", label: "加入官方拼邮", desc: "加入管理员创建的拼邮池，享受优惠运费" },
-            ].map(opt => (
-              <label key={opt.key} className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${consType === opt.key ? "border-red-300 bg-red-50" : "border-gray-200 hover:bg-gray-50"}`}>
+            { key: "", label: "直接发货", desc: "货品直接从日本发往收货地址" },
+            ...(transitLocations.length > 0 ? [{ key: "transit", label: "发往中转地", desc: "货品先发往中转地，再自行安排" }] : []),
+            { key: "official_pool", label: "加入官方拼邮", desc: "加入管理员创建的拼邮池，享受优惠运费" }].
+            map((opt) =>
+            <label key={opt.key} className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${consType === opt.key ? "border-red-300 bg-red-50" : "border-gray-200 hover:bg-gray-50"}`}>
                 <input type="radio" checked={consType === opt.key} onChange={() => {
-                  setConsType(opt.key);
-                  setJoinExistingPool(false);
-                  setSelectedExistingPoolId("");
-                  if (opt.key === "official_pool") {
-                    setJoinOfficialPool(true);
-                    setUseNewAddress(false);
-                  }
-                }} className="mt-0.5 accent-red-600" />
+                setConsType(opt.key);
+                setJoinExistingPool(false);
+                setSelectedExistingPoolId("");
+                if (opt.key === "official_pool") {
+                  setJoinOfficialPool(true);
+                  setUseNewAddress(false);
+                }
+              }} className="mt-0.5 accent-red-600" />
                 <div>
                   <span className="text-sm font-medium text-gray-800">{opt.label}</span>
                   <p className="text-xs text-gray-400 mt-0.5">{opt.desc}</p>
                 </div>
               </label>
-            ))}
+            )}
           </div>
 
           {/* Direct shipping - option to join existing direct pool */}
-          {consType === "" && (
-            <>
+          {consType === "" &&
+          <>
               <div className={`space-y-2 border border-blue-100 rounded-xl p-3 bg-blue-50/40 transition-opacity ${joinExistingPool && selectedExistingPoolId ? "opacity-40 pointer-events-none" : ""}`}>
                 <Label className="text-xs text-blue-700 font-medium">发货方式（创建新申请）</Label>
                 <div className="text-xs text-gray-500 mt-1">如选择加入已有申请，下方信息将自动继承</div>
@@ -463,29 +463,29 @@ export default function PreShipmentForm() {
                 <Label className="text-xs text-blue-700 font-medium">加入已有的直接发货申请（可选）</Label>
                 <div className="mt-2">
                   <Popover open={joinExistingPool && selectedExistingPoolId === ""} onOpenChange={(open) => {
-                    if (!open) setJoinExistingPool(false);
-                  }}>
+                  if (!open) setJoinExistingPool(false);
+                }}>
                     <PopoverTrigger asChild>
                       <Button
-                        variant="outline"
-                        className={`w-full justify-between h-10 ${joinExistingPool ? "border-blue-400 bg-blue-50" : ""}`}
-                        onClick={() => setJoinExistingPool(!joinExistingPool)}
-                      >
-                        {joinExistingPool && selectedExistingPoolId ? (
-                          <span className="text-sm">
+                      variant="outline"
+                      className={`w-full justify-between h-10 ${joinExistingPool ? "border-blue-400 bg-blue-50" : ""}`}
+                      onClick={() => setJoinExistingPool(!joinExistingPool)}>
+                      
+                        {joinExistingPool && selectedExistingPoolId ?
+                      <span className="text-sm">
                             {(() => {
-                              const pool = officialPools.find(p => 
-                                !p.is_admin_created && 
-                                (!p.consolidation_type || p.consolidation_type === "") &&
-                                p.creator_email === user.email &&
-                                p.id === selectedExistingPoolId
-                              );
-                              return pool ? `${pool.pool_code} · ${(pool.order_ids || []).length} 单 · ${pool.shipping_method || '方式未定'}` : "选择发货申请";
-                            })()}
-                          </span>
-                        ) : (
-                          <span className="text-sm text-gray-500">选择要加入的发货申请</span>
-                        )}
+                          const pool = officialPools.find((p) =>
+                          !p.is_admin_created && (
+                          !p.consolidation_type || p.consolidation_type === "") &&
+                          p.creator_email === user.email &&
+                          p.id === selectedExistingPoolId
+                          );
+                          return pool ? `${pool.pool_code} · ${(pool.order_ids || []).length} 单 · ${pool.shipping_method || '方式未定'}` : "选择发货申请";
+                        })()}
+                          </span> :
+
+                      <span className="text-sm text-gray-500">选择要加入的发货申请</span>
+                      }
                         <Search className="w-4 h-4 opacity-50" />
                       </Button>
                     </PopoverTrigger>
@@ -496,21 +496,21 @@ export default function PreShipmentForm() {
                         <CommandEmpty>暂无可用的发货申请</CommandEmpty>
                         <CommandGroup heading="我的直接发货申请">
                           {(() => {
-                            const directPools = officialPools.filter(p => 
-                              !p.is_admin_created && 
-                              (!p.consolidation_type || p.consolidation_type === "") &&
-                              p.creator_email === user.email
+                            const directPools = officialPools.filter((p) =>
+                            !p.is_admin_created && (
+                            !p.consolidation_type || p.consolidation_type === "") &&
+                            p.creator_email === user.email
                             );
-                            return directPools.map(pool => (
-                              <CommandItem
-                                key={pool.id}
-                                value={pool.pool_code}
-                                onSelect={() => {
-                                  setSelectedExistingPoolId(pool.id);
-                                  setJoinExistingPool(true);
-                                }}
-                                className="flex flex-col items-start gap-1.5 p-3 h-auto"
-                              >
+                            return directPools.map((pool) =>
+                            <CommandItem
+                              key={pool.id}
+                              value={pool.pool_code}
+                              onSelect={() => {
+                                setSelectedExistingPoolId(pool.id);
+                                setJoinExistingPool(true);
+                              }}
+                              className="flex flex-col items-start gap-1.5 h-auto py-3 px-16">
+                              
                                 <div className="flex items-center justify-between w-full mb-1">
                                   <span className="text-sm font-semibold text-gray-800">{pool.pool_code}</span>
                                   {selectedExistingPoolId === pool.id && <Check className="w-4 h-4 text-blue-600 flex-shrink-0" />}
@@ -519,59 +519,59 @@ export default function PreShipmentForm() {
                                   <Badge variant="outline" className="text-[10px] bg-green-50 text-green-700 border-green-200">
                                     直接发货
                                   </Badge>
-                                  {pool.shipping_method && (
-                                    <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200">
+                                  {pool.shipping_method &&
+                                <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200">
                                       {pool.shipping_method}
                                     </Badge>
-                                  )}
+                                }
                                   <span className="text-xs text-gray-500">{(pool.order_ids || []).length} 单</span>
-                                  {pool.total_weight_g && (
-                                    <span className="text-xs text-gray-500">· {(pool.total_weight_g / 1000).toFixed(1)}kg</span>
-                                  )}
+                                  {pool.total_weight_g &&
+                                <span className="text-xs text-gray-500">· {(pool.total_weight_g / 1000).toFixed(1)}kg</span>
+                                }
                                 </div>
-                                {pool.title && (
-                                  <span className="text-xs text-gray-600 line-clamp-1 mt-1">{pool.title}</span>
-                                )}
+                                {pool.title &&
+                              <span className="text-xs text-gray-600 line-clamp-1 mt-1">{pool.title}</span>
+                              }
                               </CommandItem>
-                            ));
+                            );
                           })()}
                         </CommandGroup>
                       </CommandList>
                     </Command>
                   </PopoverContent>
                 </Popover>
-                {joinExistingPool && selectedExistingPoolId && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="mt-2 h-7 text-xs text-gray-500"
-                    onClick={() => {
-                      setJoinExistingPool(false);
-                      setSelectedExistingPoolId("");
-                    }}
-                  >
+                {joinExistingPool && selectedExistingPoolId &&
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="mt-2 h-7 text-xs text-gray-500"
+                  onClick={() => {
+                    setJoinExistingPool(false);
+                    setSelectedExistingPoolId("");
+                  }}>
+                  
                     清除选择
                   </Button>
-                )}
+                }
                 </div>
                 </div>
                 </>
-                )}
+          }
 
           {/* Transit location */}
-          {consType === "transit" && (
-            <>
+          {consType === "transit" &&
+          <>
               <div className={`space-y-2 border border-blue-100 rounded-xl p-3 bg-blue-50/40 transition-opacity ${joinExistingPool ? "opacity-40 pointer-events-none" : ""}`}>
                 <Label className="text-xs text-blue-700 font-medium">选择中转地 *</Label>
-                {transitLocations.map(l => (
-                  <label key={l.id} className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${transitLocationId === l.id ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
+                {transitLocations.map((l) =>
+              <label key={l.id} className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${transitLocationId === l.id ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
                     <input type="radio" checked={transitLocationId === l.id} onChange={() => setTransitLocationId(l.id)} className="mt-0.5 accent-blue-600" />
                     <div>
                       <p className="text-sm font-medium text-gray-800">{l.name}</p>
                       {l.manager_contact && <p className="text-xs text-gray-400">联系：{l.manager_contact}</p>}
                     </div>
                   </label>
-                ))}
+              )}
               </div>
               
               {/* Option to join existing transit pool */}
@@ -579,28 +579,28 @@ export default function PreShipmentForm() {
                 <Label className="text-xs text-blue-700 font-medium">加入已有的中转拼邮申请（可选）</Label>
                 <div className="mt-2">
                   <Popover open={joinExistingPool && selectedExistingPoolId === ""} onOpenChange={(open) => {
-                    if (!open) setJoinExistingPool(false);
-                  }}>
+                  if (!open) setJoinExistingPool(false);
+                }}>
                     <PopoverTrigger asChild>
                       <Button
-                        variant="outline"
-                        className={`w-full justify-between h-10 ${joinExistingPool ? "border-blue-400 bg-blue-50" : ""}`}
-                        onClick={() => setJoinExistingPool(!joinExistingPool)}
-                      >
-                        {joinExistingPool && selectedExistingPoolId ? (
-                          <span className="text-sm">
+                      variant="outline"
+                      className={`w-full justify-between h-10 ${joinExistingPool ? "border-blue-400 bg-blue-50" : ""}`}
+                      onClick={() => setJoinExistingPool(!joinExistingPool)}>
+                      
+                        {joinExistingPool && selectedExistingPoolId ?
+                      <span className="text-sm">
                             {(() => {
-                              const pool = officialPools.find(p => 
-                                p.consolidation_type === 'transit' && 
-                                p.creator_email === user.email &&
-                                p.id === selectedExistingPoolId
-                              );
-                              return pool ? `${pool.pool_code} · ${(pool.order_ids || []).length} 单 · ${pool.transit_location_name || '中转地'}` : "选择拼邮申请";
-                            })()}
-                          </span>
-                        ) : (
-                          <span className="text-sm text-gray-500">选择要加入的拼邮申请</span>
-                        )}
+                          const pool = officialPools.find((p) =>
+                          p.consolidation_type === 'transit' &&
+                          p.creator_email === user.email &&
+                          p.id === selectedExistingPoolId
+                          );
+                          return pool ? `${pool.pool_code} · ${(pool.order_ids || []).length} 单 · ${pool.transit_location_name || '中转地'}` : "选择拼邮申请";
+                        })()}
+                          </span> :
+
+                      <span className="text-sm text-gray-500">选择要加入的拼邮申请</span>
+                      }
                         <Search className="w-4 h-4 opacity-50" />
                       </Button>
                     </PopoverTrigger>
@@ -611,20 +611,20 @@ export default function PreShipmentForm() {
                           <CommandEmpty>暂无可用的拼邮申请</CommandEmpty>
                           <CommandGroup heading="我的中转拼邮申请">
                             {(() => {
-                              const transitPools = officialPools.filter(p => 
-                                p.consolidation_type === 'transit' && 
-                                p.creator_email === user.email
-                              );
-                              return transitPools.map(pool => (
-                                <CommandItem
-                                  key={pool.id}
-                                  value={pool.pool_code}
-                                  onSelect={() => {
-                                    setSelectedExistingPoolId(pool.id);
-                                    setJoinExistingPool(true);
-                                  }}
-                                  className="flex flex-col items-start gap-1.5 p-3 h-auto"
-                                >
+                            const transitPools = officialPools.filter((p) =>
+                            p.consolidation_type === 'transit' &&
+                            p.creator_email === user.email
+                            );
+                            return transitPools.map((pool) =>
+                            <CommandItem
+                              key={pool.id}
+                              value={pool.pool_code}
+                              onSelect={() => {
+                                setSelectedExistingPoolId(pool.id);
+                                setJoinExistingPool(true);
+                              }}
+                              className="flex flex-col items-start gap-1.5 p-3 h-auto">
+                              
                                   <div className="flex items-center justify-between w-full mb-1">
                                     <span className="text-sm font-semibold text-gray-800">{pool.pool_code}</span>
                                     {selectedExistingPoolId === pool.id && <Check className="w-4 h-4 text-blue-600 flex-shrink-0" />}
@@ -634,45 +634,45 @@ export default function PreShipmentForm() {
                                       {pool.transit_location_name || '中转地未设置'}
                                     </Badge>
                                     <span className="text-xs text-gray-500">{(pool.order_ids || []).length} 单</span>
-                                    {pool.consolidation_deadline && (
-                                      <span className="text-xs text-gray-500">· 截止：{pool.consolidation_deadline}</span>
-                                    )}
+                                    {pool.consolidation_deadline &&
+                                <span className="text-xs text-gray-500">· 截止：{pool.consolidation_deadline}</span>
+                                }
                                   </div>
-                                  {pool.title && (
-                                    <span className="text-xs text-gray-600 line-clamp-1 mt-1">{pool.title}</span>
-                                  )}
+                                  {pool.title &&
+                              <span className="text-xs text-gray-600 line-clamp-1 mt-1">{pool.title}</span>
+                              }
                                 </CommandItem>
-                              ));
-                            })()}
+                            );
+                          })()}
                           </CommandGroup>
                         </CommandList>
                       </Command>
                     </PopoverContent>
                   </Popover>
-                  {joinExistingPool && selectedExistingPoolId && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="mt-2 h-7 text-xs text-gray-500"
-                      onClick={() => {
-                        setJoinExistingPool(false);
-                        setSelectedExistingPoolId("");
-                      }}
-                    >
+                  {joinExistingPool && selectedExistingPoolId &&
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="mt-2 h-7 text-xs text-gray-500"
+                  onClick={() => {
+                    setJoinExistingPool(false);
+                    setSelectedExistingPoolId("");
+                  }}>
+                  
                       清除选择
                     </Button>
-                  )}
+                }
                 </div>
               </div>
             </>
-          )}
+          }
           
           {/* Official pool selection */}
-          {consType === "official_pool" && (
-            <div className="space-y-2 border border-blue-100 rounded-xl p-3 bg-blue-50/40">
+          {consType === "official_pool" &&
+          <div className="space-y-2 border border-blue-100 rounded-xl p-3 bg-blue-50/40">
               <Label className="text-xs text-blue-700 font-medium">选择要加入的官方拼邮池</Label>
-              {officialPools.length > 0 ? (
-                <div className="space-y-2">
+              {officialPools.length > 0 ?
+            <div className="space-y-2">
                   <label className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${!selectedPoolId ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
                     <input type="radio" checked={!selectedPoolId} onChange={() => setSelectedPoolId("")} className="mt-0.5 accent-blue-600" />
                     <div className="flex-1">
@@ -680,28 +680,28 @@ export default function PreShipmentForm() {
                       <p className="text-xs text-gray-500">系统将自动匹配最近的同运输方式拼邮池</p>
                     </div>
                   </label>
-                  {officialPools.map(pool => (
-                    <label key={pool.id} className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${selectedPoolId === pool.id ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
+                  {officialPools.map((pool) =>
+              <label key={pool.id} className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${selectedPoolId === pool.id ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
                       <input type="radio" checked={selectedPoolId === pool.id} onChange={() => setSelectedPoolId(pool.id)} className="mt-0.5 accent-blue-600" />
                       <div className="flex-1">
                         <p className="text-sm font-medium text-gray-800">{pool.title || pool.pool_code}</p>
                         <p className="text-xs text-gray-500">已参团：{pool.order_ids?.length || 0} 单 · 截止：{pool.consolidation_deadline || '未设置'}</p>
                       </div>
                     </label>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-sm text-gray-500 py-2">
+              )}
+                </div> :
+
+            <div className="text-sm text-gray-500 py-2">
                   暂无可用的官方拼邮池，将默认加入最近的同类型拼邮
                 </div>
-              )}
+            }
             </div>
-          )}
+          }
         </CardContent>
       </Card>
 
       {/* Shipping method & date — greyed out when a specific official pool is selected or joining existing pool */}
-      <Card className={`border-gray-200 transition-opacity ${specificPoolSelected || (joinExistingPool && selectedExistingPoolId) ? "opacity-40 pointer-events-none" : ""}`}>
+      <Card className={`border-gray-200 transition-opacity ${specificPoolSelected || joinExistingPool && selectedExistingPoolId ? "opacity-40 pointer-events-none" : ""}`}>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
             <Package className="w-4 h-4" />运输方式
@@ -710,153 +710,153 @@ export default function PreShipmentForm() {
         <CardContent className="space-y-3">
           <div>
             <Label className="text-xs text-gray-500">运输方式 *</Label>
-            {shippingMethods.length > 0 ? (
-              <Select value={shippingMethod} onValueChange={setShippingMethod}>
+            {shippingMethods.length > 0 ?
+            <Select value={shippingMethod} onValueChange={setShippingMethod}>
                 <SelectTrigger className="mt-1 h-9 text-sm">
                   <SelectValue placeholder="选择运输方式..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {shippingMethods.map(m => <SelectItem key={`${m.id}-${m.code}`} value={m.code}>{m.name}</SelectItem>)}
+                  {shippingMethods.map((m) => <SelectItem key={`${m.id}-${m.code}`} value={m.code}>{m.name}</SelectItem>)}
                 </SelectContent>
-              </Select>
-            ) : (
-              <Input className="mt-1 h-9 text-sm" placeholder="如：EMS、海运..." value={shippingMethod} onChange={e => setShippingMethod(e.target.value)} />
-            )}
+              </Select> :
+
+            <Input className="mt-1 h-9 text-sm" placeholder="如：EMS、海运..." value={shippingMethod} onChange={(e) => setShippingMethod(e.target.value)} />
+            }
           </div>
 
           <div>
             <Label className="text-xs text-gray-500">期望发货日期（可选）</Label>
             <div className="flex gap-2 mt-1">
               <button type="button"
-                onClick={() => setScheduledDate(scheduledDate === "__asap__" ? "" : "__asap__")}
-                className={`flex items-center gap-1.5 px-3 h-9 rounded-md border text-sm transition-colors ${scheduledDate === "__asap__" ? "border-orange-400 bg-orange-50 text-orange-600 font-medium" : "border-gray-200 text-gray-500 hover:bg-gray-50"}`}>
+              onClick={() => setScheduledDate(scheduledDate === "__asap__" ? "" : "__asap__")}
+              className={`flex items-center gap-1.5 px-3 h-9 rounded-md border text-sm transition-colors ${scheduledDate === "__asap__" ? "border-orange-400 bg-orange-50 text-orange-600 font-medium" : "border-gray-200 text-gray-500 hover:bg-gray-50"}`}>
                 ⚡ 尽快
               </button>
               <Input type="date" className="h-9 text-sm flex-1"
-                value={scheduledDate === "__asap__" ? "" : scheduledDate}
-                onChange={e => setScheduledDate(e.target.value)} />
+              value={scheduledDate === "__asap__" ? "" : scheduledDate}
+              onChange={(e) => setScheduledDate(e.target.value)} />
             </div>
           </div>
         </CardContent>
       </Card>
 
       {/* Address (only for direct shipment) */}
-      {consType === "" && (
-        <Card className="border-gray-200">
+      {consType === "" &&
+      <Card className="border-gray-200">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
               <MapPin className="w-4 h-4" />收货地址
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {savedAddresses.length > 0 && (
-              <Select value={useNewAddress ? "__new__" : (selectedAddressId || "")} onValueChange={handleAddressSelect}>
+            {savedAddresses.length > 0 &&
+          <Select value={useNewAddress ? "__new__" : selectedAddressId || ""} onValueChange={handleAddressSelect}>
                 <SelectTrigger><SelectValue placeholder="选择地址簿中的地址" /></SelectTrigger>
                 <SelectContent>
-                  {savedAddresses.map(a => <SelectItem key={a.id} value={a.id}>{a.label}</SelectItem>)}
+                  {savedAddresses.map((a) => <SelectItem key={a.id} value={a.id}>{a.label}</SelectItem>)}
                   <SelectItem value="__new__">
                     <span className="flex items-center gap-1.5 text-blue-600"><PlusCircle className="w-3.5 h-3.5" />输入新地址</span>
                   </SelectItem>
                 </SelectContent>
               </Select>
-            )}
+          }
             {!useNewAddress && selectedAddressId && (() => {
-              const addr = savedAddresses.find(a => a.id === selectedAddressId);
-              return addr ? (
-                <div className="bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 text-xs text-gray-600 whitespace-pre-wrap">
+            const addr = savedAddresses.find((a) => a.id === selectedAddressId);
+            return addr ?
+            <div className="bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 text-xs text-gray-600 whitespace-pre-wrap">
                   {addr.full_text || serializeAddressToText(addr)}
-                </div>
-              ) : null;
-            })()}
-            {(useNewAddress || savedAddresses.length === 0) && (
-              <div className="space-y-3">
+                </div> :
+            null;
+          })()}
+            {(useNewAddress || savedAddresses.length === 0) &&
+          <div className="space-y-3">
                 <div>
                   <Label className="text-xs text-gray-500">地址标签</Label>
                   <Input className="mt-1 h-8 text-sm" placeholder="如：家、公司"
-                    value={address.label || ""} onChange={e => setAddress(p => ({ ...p, label: e.target.value }))} />
+              value={address.label || ""} onChange={(e) => setAddress((p) => ({ ...p, label: e.target.value }))} />
                 </div>
-                <AddressForm value={address} onChange={v => setAddress(p => ({ ...p, ...v }))} />
+                <AddressForm value={address} onChange={(v) => setAddress((p) => ({ ...p, ...v }))} />
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <Checkbox checked={saveAddress} onCheckedChange={v => setSaveAddress(!!v)} />
+                  <Checkbox checked={saveAddress} onCheckedChange={(v) => setSaveAddress(!!v)} />
                   <span className="text-xs text-gray-600">保存此地址到地址簿</span>
                 </label>
               </div>
-            )}
+          }
           </CardContent>
         </Card>
-      )}
+      }
 
       {/* Addons */}
-      {availableAddons.length > 0 && (
-        <Card className="border-gray-200">
+      {availableAddons.length > 0 &&
+      <Card className="border-gray-200">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold text-gray-700">发货增值服务（可选）</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            {availableAddons.map(a => {
-              const isSelected = effectiveSelectedAddonIds.includes(a.id);
-              const isCustomizable = a.is_user_customizable;
-              return (
-                <div key={a.id} className={`rounded-lg border p-2.5 transition-colors ${isSelected ? "border-yellow-400 bg-yellow-50" : "border-gray-200 hover:bg-gray-50"}`}>
+            {availableAddons.map((a) => {
+            const isSelected = effectiveSelectedAddonIds.includes(a.id);
+            const isCustomizable = a.is_user_customizable;
+            return (
+              <div key={a.id} className={`rounded-lg border p-2.5 transition-colors ${isSelected ? "border-yellow-400 bg-yellow-50" : "border-gray-200 hover:bg-gray-50"}`}>
                   <label className="flex items-center justify-between gap-3 cursor-pointer">
                     <div className="flex items-center gap-2 flex-1">
                       <Checkbox checked={isSelected}
-                        onCheckedChange={v => setSelectedAddonIds(prev => v ? [...prev, a.id] : prev.filter(id => id !== a.id))} />
+                    onCheckedChange={(v) => setSelectedAddonIds((prev) => v ? [...prev, a.id] : prev.filter((id) => id !== a.id))} />
                       <div className="flex flex-col gap-0.5">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-sm font-medium text-gray-800">{a.name}</span>
-                          {isCustomizable && (
-                            <Badge className="text-[10px] bg-green-100 text-green-700 border-green-200">用户可自定义</Badge>
-                          )}
+                          {isCustomizable &&
+                        <Badge className="text-[10px] bg-green-100 text-green-700 border-green-200">用户可自定义</Badge>
+                        }
                           {a.description && <span className="text-xs text-gray-400">{a.description}</span>}
                         </div>
-                        {isCustomizable && (
-                          <span className="text-[10px] text-gray-500">区间：{a.fee_currency || "JPY"} {a.min_fee} - {a.max_fee} · 默认：{Number(a.fee || 0).toLocaleString()}</span>
-                        )}
+                        {isCustomizable &&
+                      <span className="text-[10px] text-gray-500">区间：{a.fee_currency || "JPY"} {a.min_fee} - {a.max_fee} · 默认：{Number(a.fee || 0).toLocaleString()}</span>
+                      }
                       </div>
                     </div>
-                    {!isCustomizable && (
-                      <span className="text-xs font-medium text-yellow-700 flex-shrink-0">+{a.fee_currency || "JPY"} {Number(a.fee || 0).toLocaleString()}</span>
-                    )}
+                    {!isCustomizable &&
+                  <span className="text-xs font-medium text-yellow-700 flex-shrink-0">+{a.fee_currency || "JPY"} {Number(a.fee || 0).toLocaleString()}</span>
+                  }
                   </label>
-                  {isCustomizable && isSelected && (
-                    <div className="mt-2 ml-6 flex flex-col gap-1">
+                  {isCustomizable && isSelected &&
+                <div className="mt-2 ml-6 flex flex-col gap-1">
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] text-green-600 font-medium">用户可自定义</span>
                         <Input
-                          type="number"
-                          className="h-7 w-28 text-xs"
-                          placeholder={`${a.min_fee}-${a.max_fee}`}
-                          value={addonCustomFees[a.id] ?? a.fee}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            const value = val === '' ? '' : parseFloat(val) || 0;
-                            setAddonCustomFees(prev => ({ ...prev, [a.id]: value }));
-                            if (value === '' || value < a.min_fee || value > a.max_fee) {
-                              setAddonFeeErrors(prev => ({ ...prev, [a.id]: value === '' ? '请输入金额' : `请输入${a.min_fee}-${a.max_fee}之间的金额` }));
-                            } else {
-                              setAddonFeeErrors(prev => {
-                                const newErrors = { ...prev };
-                                delete newErrors[a.id];
-                                return newErrors;
-                              });
-                            }
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                        />
+                      type="number"
+                      className="h-7 w-28 text-xs"
+                      placeholder={`${a.min_fee}-${a.max_fee}`}
+                      value={addonCustomFees[a.id] ?? a.fee}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const value = val === '' ? '' : parseFloat(val) || 0;
+                        setAddonCustomFees((prev) => ({ ...prev, [a.id]: value }));
+                        if (value === '' || value < a.min_fee || value > a.max_fee) {
+                          setAddonFeeErrors((prev) => ({ ...prev, [a.id]: value === '' ? '请输入金额' : `请输入${a.min_fee}-${a.max_fee}之间的金额` }));
+                        } else {
+                          setAddonFeeErrors((prev) => {
+                            const newErrors = { ...prev };
+                            delete newErrors[a.id];
+                            return newErrors;
+                          });
+                        }
+                      }}
+                      onClick={(e) => e.stopPropagation()} />
+                    
                         <span className="text-xs text-yellow-700">{a.fee_currency || "JPY"}</span>
                       </div>
-                      {addonFeeErrors[a.id] && (
-                        <span className="text-[10px] text-red-600">{addonFeeErrors[a.id]}</span>
-                      )}
+                      {addonFeeErrors[a.id] &&
+                  <span className="text-[10px] text-red-600">{addonFeeErrors[a.id]}</span>
+                  }
                     </div>
-                  )}
-                </div>
-              );
-            })}
+                }
+                </div>);
+
+          })}
           </CardContent>
         </Card>
-      )}
+      }
 
       {/* Note */}
       <Card className="border-gray-200">
@@ -865,26 +865,26 @@ export default function PreShipmentForm() {
         </CardHeader>
         <CardContent>
           <Textarea rows={2} className="text-sm" placeholder="特殊要求、包装说明..."
-            value={userNote} onChange={e => setUserNote(e.target.value)} />
+          value={userNote} onChange={(e) => setUserNote(e.target.value)} />
         </CardContent>
       </Card>
 
       {/* Payment section (if order needs payment) */}
-      {(order.payment_status === "awaiting_payment" || order.order_status === "payment_pending") && (
-        <Card className="border-gray-200">
+      {(order.payment_status === "awaiting_payment" || order.order_status === "payment_pending") &&
+      <Card className="border-gray-200">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold text-gray-700">付款方式</CardTitle>
           </CardHeader>
           <CardContent>
             <PaymentMethodSelector
-              value={paymentMethod}
-              onChange={m => setPaymentMethod(m.value)}
-              prefetched={paymentMethods.length > 0 ? paymentMethods : null}
-              activeColor="border-red-500 bg-red-50 text-red-700"
-            />
+            value={paymentMethod}
+            onChange={(m) => setPaymentMethod(m.value)}
+            prefetched={paymentMethods.length > 0 ? paymentMethods : null}
+            activeColor="border-red-500 bg-red-50 text-red-700" />
+          
           </CardContent>
         </Card>
-      )}
+      }
 
       {/* Actions */}
       <div className="flex gap-3 pb-4">
@@ -894,11 +894,11 @@ export default function PreShipmentForm() {
         <Button
           className="flex-1 bg-red-600 hover:bg-red-700"
           disabled={!canSubmit() || submitting}
-          onClick={handleSubmit}
-        >
+          onClick={handleSubmit}>
+          
           {submitting ? "保存中..." : "保存预出货信息"}
         </Button>
       </div>
-    </div>
-  );
+    </div>);
+
 }
