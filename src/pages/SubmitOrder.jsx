@@ -232,13 +232,10 @@ export default function SubmitOrder() {
     productUrls.filter((u) => u.trim()).join("\n");
     const isCredit = paymentMode === "credit_weekly" || paymentMode === "credit_monthly";
     const isDeferred = paymentMode === "deferred";
-    const isFullpay = paymentMode === "fullpay";
     const tagResult = await detectPrimaryStoreTagResult(urlsText);
     
-    // Calculate payment amount (no one-time payment at submit stage - will be configured in pre-shipment)
-    const prepaymentAmount = isFullpay 
-      ? (calculated ? parseFloat(calculated.totalJpy) : 0)
-      : (calculated ? parseFloat(calculated.prepayJpy) : 0);
+    // Calculate payment amount (prepayment at submit stage)
+    const prepaymentAmount = calculated ? parseFloat(calculated.prepayJpy) : 0;
     
     // createTenantOrder auto-assigns tenant_id from session
     const res = await base44.functions.invoke('createTenantOrder', {
@@ -253,7 +250,7 @@ export default function SubmitOrder() {
       prepayment_currency: "JPY",
       online_store_tag: tagResult.tag_label,
       online_store_tag_color: tagResult.tag_color,
-      payment_mode: isFullpayOnce ? "fullpay_once" : isCredit ? "credit" : isDeferred ? "deferred" : "prepay",
+      payment_mode: isCredit ? "credit" : isDeferred ? "deferred" : "prepay",
       credit_cycle: isCredit ? (paymentMode === "credit_weekly" ? "weekly" : "monthly") : null,
       order_status: isDeferred || isCredit ? "paid" : "payment_pending",
       payment_status: isDeferred || isCredit ? "paid" : "awaiting_payment",
