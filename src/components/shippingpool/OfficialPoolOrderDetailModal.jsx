@@ -301,22 +301,25 @@ export default function OfficialPoolOrderDetailModal({ pool, group, orderEntry, 
                         </div>
                         <div className="text-right">
                           {isCustomizable && isSelected ? (
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-xs text-gray-500">自定义费用:</span>
-                              <Input 
-                                type="number" 
-                                className="h-6 w-20 text-xs text-right"
-                                value={customFee}
-                                min={a.min_fee}
-                                max={a.max_fee}
-                                onChange={(e) => {
-                                  const value = parseFloat(e.target.value) || 0;
-                                  const clamped = Math.max(a.min_fee || 0, Math.min(a.max_fee || 0, value));
-                                  setAddonCustomFees(prev => ({ ...prev, [a.id]: clamped }));
-                                }}
-                                onClick={(e) => e.stopPropagation()}
-                              />
-                              <span className="text-xs text-yellow-700">{a.fee_currency || "JPY"}</span>
+                            <div className="flex flex-col items-end gap-1">
+                              <span className="text-[10px] text-green-600 font-medium">用户可自定义</span>
+                              <div className="flex items-center gap-1.5">
+                                <Input 
+                                  type="number" 
+                                  className="h-6 w-24 text-xs text-right"
+                                  value={customFee}
+                                  min={a.min_fee}
+                                  max={a.max_fee}
+                                  placeholder={`${a.min_fee}-${a.max_fee}`}
+                                  onChange={(e) => {
+                                    const value = parseFloat(e.target.value) || 0;
+                                    const clamped = Math.max(a.min_fee || 0, Math.min(a.max_fee || 0, value));
+                                    setAddonCustomFees(prev => ({ ...prev, [a.id]: clamped }));
+                                  }}
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                                <span className="text-xs text-yellow-700">{a.fee_currency || "JPY"}</span>
+                              </div>
                             </div>
                           ) : (
                             <span className="text-xs text-yellow-700">+{a.fee_currency || "JPY"} {Number(a.fee || 0).toLocaleString()}</span>
