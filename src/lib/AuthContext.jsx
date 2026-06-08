@@ -14,6 +14,7 @@ export const AuthProvider = ({ children }) => {
   const [appPublicSettings, setAppPublicSettings] = useState(null);
   const [tenantBranding, setTenantBranding] = useState(null); // { tenant: {...} | null }
   const [permissions, setPermissions] = useState([]); // effective granular permissions for current user
+  const [assignedRoles, setAssignedRoles] = useState([]); // custom role labels assigned to user
 
   useEffect(() => {
     // Resolve tenant branding from subdomain in parallel with app state check
@@ -109,6 +110,9 @@ export const AuthProvider = ({ children }) => {
         if (Array.isArray(r?.data?.permissions)) {
           setPermissions(r.data.permissions);
         }
+        if (Array.isArray(r?.data?.assigned_roles)) {
+          setAssignedRoles(r.data.assigned_roles);
+        }
       }).catch(() => {});
     } catch (error) {
       console.error('User auth check failed:', error);
@@ -155,6 +159,7 @@ export const AuthProvider = ({ children }) => {
       tenantBranding,
       permissions,
       setPermissions,
+      assignedRoles,
       logout,
       navigateToLogin,
       checkAppState

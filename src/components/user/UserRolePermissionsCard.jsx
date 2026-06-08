@@ -6,7 +6,7 @@ import { Shield, ChevronDown, ChevronUp } from "lucide-react";
 import { useState } from "react";
 
 export default function UserRolePermissionsCard() {
-  const { user, permissions } = useAuth();
+  const { user, permissions, assignedRoles = [] } = useAuth();
   const [expanded, setExpanded] = useState(false);
 
   const isAdmin = user?.role === 'platform_admin' || user?.role === 'admin' || user?.role === 'tenant_admin';
@@ -53,6 +53,21 @@ export default function UserRolePermissionsCard() {
             <Badge className="text-xs bg-gray-100 text-gray-600">普通用户</Badge>
           )}
         </div>
+
+        {/* Custom role tags */}
+        {!isAdmin && assignedRoles.length > 0 && (
+          <div className="flex items-start justify-between gap-3">
+            <span className="text-sm text-gray-500 shrink-0">角色标签</span>
+            <div className="flex flex-wrap gap-1 justify-end">
+              {assignedRoles.map(r => (
+                <Badge key={r.id} className="text-xs"
+                  style={{ backgroundColor: r.color + '22', color: r.color, borderColor: r.color + '55', border: '1px solid' }}>
+                  {r.name}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Permissions Summary */}
         <div className="border-t border-gray-100 pt-3">

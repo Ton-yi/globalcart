@@ -47,15 +47,24 @@ Deno.serve(async (req) => {
     const hasGranularPerms = (userRecord.assigned_role_ids?.length > 0) ||
       (Object.keys(userRecord.permission_overrides || {}).length > 0);
 
-    if (hasGranularPerms && userRecord.tenant_id) {
+    let assignedRoles = [];
+    if (userRecord.tenant_id) {
       const allRoles = await base44.asServiceRole.entities.Role.filter({
         tenant_id: userRecord.tenant_id,
         is_archived: false,
       });
-      permissions = computeEffectivePermissions(userRecord, allRoles || []);
+      const rolesArr = allRoles || [];
+      if (hasGranularPerms) {
+        permissions = computeEffectivePermissions(userRecord, rolesArr);
+      }
+      // Return assigned role labels (non-predefined custom roles only)
+      assignedRoles = (userRecord.assigned_role_ids || [])
+        .map(id => rolesArr.find(r => r.id === id))
+        .filter(r => r && !r.is_predefined)
+        .map(r => ({ id: r.id, name: r.name, color: r.color || '#9ca3af' }));
     }
 
-    return Response.json({ is_active: isActive, permissions });
+    return Response.json({ is_active: isActive, permissions, assigned_roles: assignedRoles });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }
