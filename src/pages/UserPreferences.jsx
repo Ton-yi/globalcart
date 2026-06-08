@@ -195,7 +195,17 @@ export default function UserPreferences() {
     if (form.default_address_id === id) setForm(p => ({ ...p, default_address_id: "" }));
   };
 
-  const setDefaultAddr = (id) => setForm(p => ({ ...p, default_address_id: id }));
+  const setDefaultAddr = async (id) => {
+    setForm(p => ({ ...p, default_address_id: id }));
+    // Immediately save to database
+    const data = { ...form, default_address_id: id, contact_public: form.contact_public !== false, order_info_public: form.order_info_public === true, user_email: user.email, saved_addresses: addresses };
+    if (pref) {
+      await userPrefApi.update(pref.id, data);
+    } else {
+      const created = await userPrefApi.create(data);
+      setPref(created);
+    }
+  };
 
   const isEditing = editingAddr !== null;
 
