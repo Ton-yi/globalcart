@@ -624,6 +624,11 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
     onUpdated?.();
   };
 
+  // Handle admin pool update callback
+  const handleAdminPoolUpdated = () => {
+    onUpdated?.();
+  };
+
   // Get unique users from orders — prefer display_name from UserPreference, fall back to order's user_name
   const participantUsers = [...new Map(orders.map((o) => [o.user_email || o.user_name, {
     email: o.user_email,
@@ -1369,6 +1374,9 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
             defaultPackingFeeSingle={defaultPackingFeeSingle}
             defaultPackingFeeConsolidation={defaultPackingFeeConsolidation}
             allowReadyToShipWithoutPayment={allowReadyToShipWithoutPayment}
+            allowShipWithoutPaymentSingle={allowShipWithoutPaymentSingle}
+            allowShipWithoutPaymentUserPool={allowShipWithoutPaymentUserPool}
+            allowShipWithoutPaymentOfficialPool={allowShipWithoutPaymentOfficialPool}
             transitLocations={transitLocations}
             transitShippingMethods={transitShippingMethods}
             userProfileMap={tenantUserMap}
