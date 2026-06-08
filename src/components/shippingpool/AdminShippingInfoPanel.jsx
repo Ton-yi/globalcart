@@ -107,6 +107,21 @@ export default function AdminShippingInfoPanel({
     (isUserPool && allowShipWithoutPaymentUserPool) ||
     (isOfficialPool && allowShipWithoutPaymentOfficialPool)
   );
+  
+  // Debug logging
+  useEffect(() => {
+    console.log('[AdminShippingInfoPanel] Settings:', {
+      allowShipWithoutPayment,
+      allowShipWithoutPaymentSingle,
+      allowShipWithoutPaymentUserPool,
+      allowShipWithoutPaymentOfficialPool,
+      isSingle,
+      isUserPool,
+      isOfficialPool,
+      canDirectShipWithoutPayment,
+      poolStatus: pool.status,
+    });
+  }, [allowShipWithoutPayment, allowShipWithoutPaymentSingle, allowShipWithoutPaymentUserPool, allowShipWithoutPaymentOfficialPool, isSingle, isUserPool, isOfficialPool, canDirectShipWithoutPayment, pool.status]);
 
   // Derive unique users from orders
   const uniqueUsers = [...new Map(
