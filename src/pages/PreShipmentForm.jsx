@@ -579,7 +579,7 @@ export default function PreShipmentForm() {
                         <CommandInput placeholder="搜索拼邮申请..." />
                         <CommandList>
                           <CommandEmpty>暂无可用的拼邮申请</CommandEmpty>
-                          <CommandGroup>
+                          <CommandGroup heading="我的中转拼邮申请">
                             {(() => {
                               const transitPools = officialPools.filter(p => 
                                 p.consolidation_type === 'transit' && 
@@ -593,13 +593,24 @@ export default function PreShipmentForm() {
                                     setSelectedExistingPoolId(pool.id);
                                     setJoinExistingPool(true);
                                   }}
-                                  className="flex items-center justify-between"
+                                  className="flex flex-col items-start gap-1.5 p-3 h-auto"
                                 >
-                                  <div className="flex flex-col gap-0.5">
-                                    <span className="text-sm font-medium">{pool.pool_code}</span>
-                                    <span className="text-xs text-gray-500">中转拼邮 · {(pool.order_ids || []).length} 单 · {pool.transit_location_name || '中转地未设置'}</span>
+                                  <div className="flex items-center justify-between w-full mb-1">
+                                    <span className="text-sm font-semibold text-gray-800">{pool.pool_code}</span>
+                                    {selectedExistingPoolId === pool.id && <Check className="w-4 h-4 text-blue-600 flex-shrink-0" />}
                                   </div>
-                                  {selectedExistingPoolId === pool.id && <Check className="w-4 h-4 text-blue-600" />}
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200">
+                                      {pool.transit_location_name || '中转地未设置'}
+                                    </Badge>
+                                    <span className="text-xs text-gray-500">{(pool.order_ids || []).length} 单</span>
+                                    {pool.consolidation_deadline && (
+                                      <span className="text-xs text-gray-500">· 截止：{pool.consolidation_deadline}</span>
+                                    )}
+                                  </div>
+                                  {pool.title && (
+                                    <span className="text-xs text-gray-600 line-clamp-1 mt-1">{pool.title}</span>
+                                  )}
                                 </CommandItem>
                               ));
                             })()}
