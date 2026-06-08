@@ -1213,36 +1213,55 @@ export default function AdminShippingInfoPanel({
                     const canShipDirectly = paymentOk && !!trackingNumber;
                     return (
                       <div className="space-y-1.5">
-                        <Button size="sm" className="bg-green-600 hover:bg-green-700 w-full"
-                          onClick={handleConfirmPayment}
-                          disabled={confirmingSaving || !paymentOk}>
-                          <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
-                          {confirmingSaving ? "确认中..." : "全部确认收款，进入待发货"}
-                        </Button>
-                        <Button size="sm" className="bg-blue-600 hover:bg-blue-700 w-full"
-                          onClick={handleConfirmPaymentAndShip}
-                          disabled={confirmingSaving || !canShipDirectly}
-                          title={!trackingNumber ? "需填写运单号" : !paymentOk ? "需全员付款" : ""}>
-                          <Truck className="w-3.5 h-3.5 mr-1.5" />
-                          {confirmingSaving ? "确认中..." : canShipDirectly ? "全部确认收款并进入已发货" : `全部确认收款并进入已发货${!trackingNumber ? "（需填写运单号）" : "（需全员付款）"}`}
-                        </Button>
-                        {canDirectShipWithoutPayment && (
-                          <Button size="sm" className="bg-red-600 hover:bg-red-700 w-full"
-                            onClick={async () => {
-                              setConfirmingSaving(true);
-                              const payload = { status: "shipped", payment_status: "unpaid", admin_confirmed_payment: false, shipped_date: new Date().toISOString().split("T")[0] };
-                              if (trackingNumber) payload.tracking_number = trackingNumber;
-                              await shippingPoolApi.update(pool.id, payload);
-                              await Promise.all((pool.order_ids || []).map(id => updateOrder(id, { order_status: "shipped" })));
-                              setPool(p => ({ ...p, ...payload }));
-                              setConfirmingSaving(false);
-                              onPoolUpdated?.({ ...pool, ...payload });
-                            }}
-                            disabled={confirmingSaving || !trackingNumber.trim()}
-                            title={!trackingNumber.trim() ? "需填写运单号" : ""}>
-                            <Truck className="w-3.5 h-3.5 mr-1.5" />
-                            {confirmingSaving ? "处理中..." : trackingNumber.trim() ? "跳过付款确认，直接进入已发货" : "跳过付款确认（需填写运单号）"}
-                          </Button>
+                        {canDirectShipWithoutPayment ? (
+                          <>
+                            <Button size="sm" className="bg-lime-600 hover:bg-lime-700 w-full"
+                              onClick={async () => {
+                                setConfirmingSaving(true);
+                                const payload = { status: "ready_to_ship", payment_status: "unpaid", admin_confirmed_payment: false };
+                                await shippingPoolApi.update(pool.id, payload);
+                                await Promise.all((pool.order_ids || []).map(id => updateOrder(id, { order_status: "ready_to_ship" })));
+                                setPool(p => ({ ...p, ...payload }));
+                                setConfirmingSaving(false);
+                                onPoolUpdated?.({ ...pool, ...payload });
+                              }}
+                              disabled={confirmingSaving}>
+                              <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
+                              {confirmingSaving ? "处理中..." : "跳过付款确认，直接进入待发货"}
+                            </Button>
+                            <Button size="sm" className="bg-red-600 hover:bg-red-700 w-full"
+                              onClick={async () => {
+                                setConfirmingSaving(true);
+                                const payload = { status: "shipped", payment_status: "unpaid", admin_confirmed_payment: false, shipped_date: new Date().toISOString().split("T")[0] };
+                                if (trackingNumber) payload.tracking_number = trackingNumber;
+                                await shippingPoolApi.update(pool.id, payload);
+                                await Promise.all((pool.order_ids || []).map(id => updateOrder(id, { order_status: "shipped" })));
+                                setPool(p => ({ ...p, ...payload }));
+                                setConfirmingSaving(false);
+                                onPoolUpdated?.({ ...pool, ...payload });
+                              }}
+                              disabled={confirmingSaving || !trackingNumber.trim()}
+                              title={!trackingNumber.trim() ? "需填写运单号" : ""}>
+                              <Truck className="w-3.5 h-3.5 mr-1.5" />
+                              {confirmingSaving ? "处理中..." : trackingNumber.trim() ? "跳过付款确认，直接进入已发货" : "跳过付款确认（需填写运单号）"}
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <Button size="sm" className="bg-green-600 hover:bg-green-700 w-full"
+                              onClick={handleConfirmPayment}
+                              disabled={confirmingSaving || !paymentOk}>
+                              <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
+                              {confirmingSaving ? "确认中..." : "全部确认收款，进入待发货"}
+                            </Button>
+                            <Button size="sm" className="bg-blue-600 hover:bg-blue-700 w-full"
+                              onClick={handleConfirmPaymentAndShip}
+                              disabled={confirmingSaving || !canShipDirectly}
+                              title={!trackingNumber ? "需填写运单号" : !paymentOk ? "需全员付款" : ""}>
+                              <Truck className="w-3.5 h-3.5 mr-1.5" />
+                              {confirmingSaving ? "确认中..." : canShipDirectly ? "全部确认收款并进入已发货" : `全部确认收款并进入已发货${!trackingNumber ? "（需填写运单号）" : "（需全员付款）"}`}
+                            </Button>
+                          </>
                         )}
                       </div>
                     );
