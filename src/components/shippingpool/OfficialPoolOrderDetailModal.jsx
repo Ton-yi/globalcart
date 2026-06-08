@@ -53,6 +53,7 @@ export default function OfficialPoolOrderDetailModal({ pool, group, orderEntry, 
   const [uploadingImage, setUploadingImage] = useState(false);
   const [saving, setSaving] = useState(false);
   const [sendingNote, setSendingNote] = useState(false);
+  const [addonFeeErrors, setAddonFeeErrors] = useState({});
   const [dragOver, setDragOver] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState(null);
   const fileInputRef = useRef(null);
@@ -326,20 +327,35 @@ export default function OfficialPoolOrderDetailModal({ pool, group, orderEntry, 
                           {isCustomizable && isSelected ? (
                             <div className="flex flex-col items-end gap-1">
                               <span className="text-[10px] text-green-600 font-medium">用户可自定义</span>
-                              <div className="flex items-center gap-1.5">
-                                <Input 
-                                  type="number" 
-                                  className="h-6 w-24 text-xs text-right"
-                                  value={customFee}
-                                  placeholder={`${a.min_fee}-${a.max_fee}`}
-                                  onChange={(e) => {
-                                    const val = e.target.value;
-                                    const value = val === '' ? '' : parseFloat(val) || 0;
-                                    setAddonCustomFees(prev => ({ ...prev, [a.id]: value }));
-                                  }}
-                                  onClick={(e) => e.stopPropagation()}
-                                />
-                                <span className="text-xs text-yellow-700">{a.fee_currency || "JPY"}</span>
+                              <div className="flex flex-col items-end gap-1">
+                                <div className="flex items-center gap-1.5">
+                                  <Input 
+                                    type="number" 
+                                    className={`h-6 w-24 text-xs text-right ${addonFeeErrors[a.id] ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
+                                    value={customFee}
+                                    placeholder={`${a.min_fee}-${a.max_fee}`}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      const value = val === '' ? '' : parseFloat(val) || 0;
+                                      setAddonCustomFees(prev => ({ ...prev, [a.id]: value }));
+                                      // Validate in real-time
+                                      if (value === '' || (value >= a.min_fee && value <= a.max_fee)) {
+                                        setAddonFeeErrors(prev => {
+                                          const newErrors = { ...prev };
+                                          delete newErrors[a.id];
+                                          return newErrors;
+                                        });
+                                      } else {
+                                        setAddonFeeErrors(prev => ({ ...prev, [a.id]: `必须在${a.min_fee}-${a.max_fee}之间` }));
+                                      }
+                                    }}
+                                    onClick={(e) => e.stopPropagation()}
+                                  />
+                                  <span className="text-xs text-yellow-700">{a.fee_currency || "JPY"}</span>
+                                </div>
+                                {addonFeeErrors[a.id] && (
+                                  <span className="text-[10px] text-red-600">{addonFeeErrors[a.id]}</span>
+                                )}
                               </div>
                             </div>
                           ) : (
