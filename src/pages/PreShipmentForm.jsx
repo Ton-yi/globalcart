@@ -891,53 +891,40 @@ export default function PreShipmentForm() {
                 filteredMethods = shippingMethods.filter(m => m.enabled_for_official_pool !== false);
               }
               
-              return filteredMethods.length > 0 ?
-              <Select value={shippingMethod} onValueChange={setShippingMethod}>
-                  <SelectTrigger className="mt-1 h-9 text-sm">
-                    <SelectValue placeholder={filteredMethods.length > 0 ? "选择运输方式..." : "此发货方式暂无可用运输方式"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {filteredMethods.length > 0 ? (
-                      filteredMethods.map((m) => <SelectItem key={`${m.id}-${m.code}`} value={m.code}>{m.name}</SelectItem>)
-                    ) : (
-                      <div className="p-3 text-xs text-gray-400 text-center">暂无可用运输方式</div>
-                    )}
-                  </SelectContent>
-                </Select> :
-                <Input className="mt-1 h-9 text-sm" placeholder="如：EMS、海运..." value={shippingMethod} onChange={(e) => setShippingMethod(e.target.value)} />
-              }
-            </div>
-            {(() => {
-              // Show warning if no methods available for selected consType
-              let filteredMethods = shippingMethods;
-              if (consType === "") {
-                filteredMethods = shippingMethods.filter(m => m.enabled_for_direct_ship !== false);
-              } else if (consType === "transit") {
-                filteredMethods = shippingMethods.filter(m => m.enabled_for_user_pool !== false);
-              } else if (consType === "official_pool") {
-                filteredMethods = shippingMethods.filter(m => m.enabled_for_official_pool !== false);
-              }
-              if (filteredMethods.length === 0 && consType) {
-                return (
-                  <p className="text-xs text-orange-600 mt-1">
-                    ⚠️ 当前发货方式下暂无可用的运输方式，请联系管理员
-                  </p>
-                );
-              }
-              return null;
+              return (
+                <div>
+                  {filteredMethods.length > 0 ? (
+                    <Select value={shippingMethod} onValueChange={setShippingMethod}>
+                      <SelectTrigger className="mt-1 h-9 text-sm">
+                        <SelectValue placeholder="选择运输方式..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {filteredMethods.map((m) => <SelectItem key={`${m.id}-${m.code}`} value={m.code}>{m.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Select value={shippingMethod} onValueChange={setShippingMethod} disabled>
+                      <SelectTrigger className="mt-1 h-9 text-sm">
+                        <SelectValue placeholder="此发货方式暂无可用运输方式" />
+                      </SelectTrigger>
+                    </Select>
+                  )}
+                </div>
+              );
             })()}
 
-          <div>
-            <Label className="text-xs text-gray-500">期望发货日期（可选）</Label>
-            <div className="flex gap-2 mt-1">
-              <button type="button"
-              onClick={() => setScheduledDate(scheduledDate === "__asap__" ? "" : "__asap__")}
-              className={`flex items-center gap-1.5 px-3 h-9 rounded-md border text-sm transition-colors ${scheduledDate === "__asap__" ? "border-orange-400 bg-orange-50 text-orange-600 font-medium" : "border-gray-200 text-gray-500 hover:bg-gray-50"}`}>
-                ⚡ 尽快
-              </button>
-              <Input type="date" className="h-9 text-sm flex-1"
-              value={scheduledDate === "__asap__" ? "" : scheduledDate}
-              onChange={(e) => setScheduledDate(e.target.value)} />
+            <div className="mt-3">
+              <Label className="text-xs text-gray-500">期望发货日期（可选）</Label>
+              <div className="flex gap-2 mt-1">
+                <button type="button"
+                  onClick={() => setScheduledDate(scheduledDate === "__asap__" ? "" : "__asap__")}
+                  className={`flex items-center gap-1.5 px-3 h-9 rounded-md border text-sm transition-colors ${scheduledDate === "__asap__" ? "border-orange-400 bg-orange-50 text-orange-600 font-medium" : "border-gray-200 text-gray-500 hover:bg-gray-50"}`}>
+                  ⚡ 尽快
+                </button>
+                <Input type="date" className="h-9 text-sm flex-1"
+                  value={scheduledDate === "__asap__" ? "" : scheduledDate}
+                  onChange={(e) => setScheduledDate(e.target.value)} />
+              </div>
             </div>
           </div>
         </CardContent>
