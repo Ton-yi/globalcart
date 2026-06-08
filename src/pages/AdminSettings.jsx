@@ -120,7 +120,7 @@ export default function AdminSettings() {
   const [loading, setLoading] = useState(true);
   const [showPayment, setShowPayment] = useState(false);
   const [liveRates, setLiveRates] = useState(null);
-  const [newAddon, setNewAddon] = useState({ name: "", description: "", fee: "", fee_currency: "JPY", addon_type: "order" });
+  const [newAddon, setNewAddon] = useState({ name: "", description: "", fee: "", fee_currency: "JPY", addon_type: "order", is_user_customizable: false, min_fee: 0, max_fee: 0 });
   const [editingAddon, setEditingAddon] = useState(null); // id of addon being edited
   const [editAddonFields, setEditAddonFields] = useState({});
   const [saving, setSaving] = useState(false);
@@ -244,8 +244,15 @@ export default function AdminSettings() {
 
   const handleAddAddon = async () => {
     if (!newAddon.name || newAddon.fee === "") return;
-    await tenantEntity.create('AddonOption', { ...newAddon, fee: parseFloat(newAddon.fee) || 0, is_active: true });
-    setNewAddon({ name: "", description: "", fee: "", fee_currency: "JPY", addon_type: "order" });
+    await tenantEntity.create('AddonOption', { 
+      ...newAddon, 
+      fee: parseFloat(newAddon.fee) || 0, 
+      min_fee: parseFloat(newAddon.min_fee) || 0,
+      max_fee: parseFloat(newAddon.max_fee) || 0,
+      is_user_customizable: newAddon.is_user_customizable || false,
+      is_active: true 
+    });
+    setNewAddon({ name: "", description: "", fee: "", fee_currency: "JPY", addon_type: "order", is_user_customizable: false, min_fee: 0, max_fee: 0 });
     await load();
   };
 
@@ -256,11 +263,25 @@ export default function AdminSettings() {
 
   const handleEditAddon = (a) => {
     setEditingAddon(a.id);
-    setEditAddonFields({ name: a.name, description: a.description || "", fee: String(a.fee), fee_currency: a.fee_currency || "JPY", addon_type: a.addon_type || "order" });
+    setEditAddonFields({ 
+      name: a.name, 
+      description: a.description || "", 
+      fee: String(a.fee), 
+      fee_currency: a.fee_currency || "JPY", 
+      addon_type: a.addon_type || "order",
+      is_user_customizable: a.is_user_customizable || false,
+      min_fee: a.min_fee || 0,
+      max_fee: a.max_fee || 0
+    });
   };
 
   const handleSaveAddon = async (id) => {
-    await tenantEntity.update('AddonOption', id, { ...editAddonFields, fee: parseFloat(editAddonFields.fee) || 0 });
+    await tenantEntity.update('AddonOption', id, { 
+      ...editAddonFields, 
+      fee: parseFloat(editAddonFields.fee) || 0,
+      min_fee: parseFloat(editAddonFields.min_fee) || 0,
+      max_fee: parseFloat(editAddonFields.max_fee) || 0
+    });
     setEditingAddon(null);
     await load();
   };

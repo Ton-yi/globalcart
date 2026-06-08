@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Plus, Trash2 } from "lucide-react";
 
 const CURRENCIES = ["JPY", "CNY", "USD", "TWD", "HKD", "EUR", "SGD"];
@@ -51,8 +52,15 @@ function AddonRow({ a, editingId, editFields, onEdit, onCancel, onSave, onToggle
               <Input className="mt-0.5 h-7 text-sm" value={editFields.description}
                 onChange={e => setEditFields(p => ({ ...p, description: e.target.value }))} />
             </div>
+            <div className="col-span-2">
+              <div className="flex items-center gap-2 mb-2">
+                <Switch checked={!!editFields.is_user_customizable}
+                  onCheckedChange={v => setEditFields(p => ({ ...p, is_user_customizable: v, min_fee: v ? p.min_fee || 0 : 0, max_fee: v ? p.max_fee || 0 : 0 }))} />
+                <Label className="text-xs text-gray-600 cursor-pointer">用户可自定义费用</Label>
+              </div>
+            </div>
             <div>
-              <Label className="text-xs text-gray-500">费用</Label>
+              <Label className="text-xs text-gray-500">默认费用</Label>
               <Input type="number" className="mt-0.5 h-7 text-sm" value={editFields.fee}
                 onChange={e => setEditFields(p => ({ ...p, fee: e.target.value }))} />
             </div>
@@ -63,6 +71,20 @@ function AddonRow({ a, editingId, editFields, onEdit, onCancel, onSave, onToggle
                 <SelectContent>{CURRENCIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
               </Select>
             </div>
+            {editFields.is_user_customizable && (
+              <>
+                <div>
+                  <Label className="text-xs text-gray-500">最小费用</Label>
+                  <Input type="number" className="mt-0.5 h-7 text-sm" value={editFields.min_fee || 0}
+                    onChange={e => setEditFields(p => ({ ...p, min_fee: e.target.value }))} />
+                </div>
+                <div>
+                  <Label className="text-xs text-gray-500">最大费用</Label>
+                  <Input type="number" className="mt-0.5 h-7 text-sm" value={editFields.max_fee || 0}
+                    onChange={e => setEditFields(p => ({ ...p, max_fee: e.target.value }))} />
+                </div>
+              </>
+            )}
             <div className="col-span-2">
               <Label className="text-xs text-gray-500">增值类型</Label>
               <div className="flex gap-3 mt-1">
@@ -153,8 +175,15 @@ export default function AddonManager({ addons, editingAddon, editAddonFields, ne
             <Input className="mt-0.5 h-8 text-sm" placeholder="可选"
               value={newAddon.description} onChange={e => setNewAddon(p => ({ ...p, description: e.target.value }))} />
           </div>
+          <div className="col-span-2">
+            <div className="flex items-center gap-2 mb-2">
+              <Switch checked={!!newAddon.is_user_customizable}
+                onCheckedChange={v => setNewAddon(p => ({ ...p, is_user_customizable: v, min_fee: v ? p.min_fee || 0 : 0, max_fee: v ? p.max_fee || 0 : 0 }))} />
+              <Label className="text-xs text-gray-600 cursor-pointer">用户可自定义费用</Label>
+            </div>
+          </div>
           <div>
-            <Label className="text-xs text-gray-400">费用 *</Label>
+            <Label className="text-xs text-gray-400">默认费用 *</Label>
             <Input type="number" step="1" className="mt-0.5 h-8 text-sm" placeholder="500"
               value={newAddon.fee} onChange={e => setNewAddon(p => ({ ...p, fee: e.target.value }))} />
           </div>
@@ -165,6 +194,20 @@ export default function AddonManager({ addons, editingAddon, editAddonFields, ne
               <SelectContent>{CURRENCIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
             </Select>
           </div>
+          {newAddon.is_user_customizable && (
+            <>
+              <div>
+                <Label className="text-xs text-gray-400">最小费用</Label>
+                <Input type="number" step="1" className="mt-0.5 h-8 text-sm" placeholder="0"
+                  value={newAddon.min_fee || 0} onChange={e => setNewAddon(p => ({ ...p, min_fee: e.target.value }))} />
+              </div>
+              <div>
+                <Label className="text-xs text-gray-400">最大费用</Label>
+                <Input type="number" step="1" className="mt-0.5 h-8 text-sm" placeholder="0"
+                  value={newAddon.max_fee || 0} onChange={e => setNewAddon(p => ({ ...p, max_fee: e.target.value }))} />
+              </div>
+            </>
+          )}
           <div className="col-span-2">
             <Label className="text-xs text-gray-400">增值类型</Label>
             <div className="flex gap-3 mt-1">

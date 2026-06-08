@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { X, Package, MapPin, Loader2, Link as LinkIcon, PlusCircle, Upload, Send, MessageSquare, User } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -35,6 +36,14 @@ export default function OfficialPoolOrderDetailModal({ pool, group, orderEntry, 
   const [draftText, setDraftText] = useState("");
   const [draftImages, setDraftImages] = useState([]);
   const [selectedAddonIds, setSelectedAddonIds] = useState(orderEntry.selected_addon_ids || []);
+  const [addonCustomFees, setAddonCustomFees] = useState(() => {
+    // Initialize custom fees from saved data or default to fee
+    const fees = {};
+    (orderEntry.addon_custom_fees || {}).forEach(cf => {
+      fees[cf.addon_id] = cf.custom_fee;
+    });
+    return fees;
+  });
   const [useGroupAddress, setUseGroupAddress] = useState(orderEntry.use_group_address !== false);
   const [overrideAddress, setOverrideAddress] = useState(orderEntry.override_final_address || { ...EMPTY_ADDRESS_FORM });
   const [selectedSavedId, setSelectedSavedId] = useState("");
@@ -138,8 +147,26 @@ export default function OfficialPoolOrderDetailModal({ pool, group, orderEntry, 
 
   const handleSave = async () => {
     setSaving(true);
+    // Build selected addons with custom fees if applicable
     const selectedAddons = shippingAddons.filter(a => selectedAddonIds.includes(a.id))
-      .map(a => ({ id: a.id, name: a.name, fee: a.fee, fee_currency: a.fee_currency }));
+      .map(a => {
+        const customFee = addonCustomFees[a.id];
+        const finalFee = (a.is_user_customizable && customFee !== undefined) ? customFee : a.fee;
+        return { 
+          id: a.id, 
+          name: a.name, 
+          fee: finalFee, 
+          fee_currency: a.fee_currency,
+          is_user_customizable: a.is_user_customizable,
+          custom_fee: customFee
+        };
+      });
+
+    // Build addon_custom_fees array for persistence
+    const addonCustomFeesArray = Object.entries(addonCustomFees).map(([addon_id, custom_fee]) => ({
+      addon_id,
+      custom_fee
+    }));
 
     // Derive legacy note/image_urls from first note for backward compat
     const firstNote = notes[0];
@@ -150,6 +177,7 @@ export default function OfficialPoolOrderDetailModal({ pool, group, orderEntry, 
       image_urls: firstNote?.image_urls || [],
       selected_addon_ids: selectedAddonIds,
       selected_addons: selectedAddons,
+      addon_custom_fees: addonCustomFeesArray,
       use_group_address: useGroupAddress,
       override_final_address: useGroupAddress ? null : overrideAddress,
     };
@@ -247,16 +275,57 @@ export default function OfficialPoolOrderDetailModal({ pool, group, orderEntry, 
           {shippingAddons.length > 0 && (
             <div>
               <p className="text-xs font-medium text-gray-500 mb-2">此订单的增值服务</p>
-              <div className="space-y-1.5">
-                {shippingAddons.map(a => (
-                  <label key={a.id} className={`flex items-center justify-between gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${selectedAddonIds.includes(a.id) ? "border-yellow-400 bg-yellow-50" : "border-gray-200 hover:bg-gray-50"}`}>
-                    <div className="flex items-center gap-2">
-                      <Checkbox checked={selectedAddonIds.includes(a.id)} onCheckedChange={v => setSelectedAddonIds(prev => v ? [...prev, a.id] : prev.filter(id => id !== a.id))} />
-                      <span className="text-sm font-medium text-gray-800">{a.name}</span>
+              <div className="space-y-2">
+                {shippingAddons.map(a => {
+                  const isSelected = selectedAddonIds.includes(a.id);
+                  const isCustomizable = a.is_user_customizable && a.min_fee !== undefined && a.max_fee !== undefined && a.max_fee > 0;
+                  const customFee = addonCustomFees[a.id] !== undefined ? addonCustomFees[a.id] : a.fee;
+                  
+                  return (
+                    <div key={a.id} className={`rounded-lg border p-2.5 transition-colors ${isSelected ? "border-yellow-400 bg-yellow-50" : "border-gray-200"}`}>
+                      <label className="flex items-center justify-between gap-3 cursor-pointer">
+                        <div className="flex items-center gap-2 flex-1">
+                          <Checkbox checked={isSelected} onCheckedChange={v => {
+                            if (v) {
+                              setSelectedAddonIds(prev => [...prev, a.id]);
+                            } else {
+                              setSelectedAddonIds(prev => prev.filter(id => id !== a.id));
+                            }
+                          }} />
+                          <div>
+                            <span className="text-sm font-medium text-gray-800">{a.name}</span>
+                            {isCustomizable && isSelected && (
+                              <p className="text-xs text-gray-500 mt-0.5">费用范围：{a.fee_currency || "JPY"} {a.min_fee} - {a.max_fee}</p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          {isCustomizable && isSelected ? (
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs text-gray-500">自定义费用:</span>
+                              <Input 
+                                type="number" 
+                                className="h-6 w-20 text-xs text-right"
+                                value={customFee}
+                                min={a.min_fee}
+                                max={a.max_fee}
+                                onChange={(e) => {
+                                  const value = parseFloat(e.target.value) || 0;
+                                  const clamped = Math.max(a.min_fee || 0, Math.min(a.max_fee || 0, value));
+                                  setAddonCustomFees(prev => ({ ...prev, [a.id]: clamped }));
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                              <span className="text-xs text-yellow-700">{a.fee_currency || "JPY"}</span>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-yellow-700">+{a.fee_currency || "JPY"} {Number(a.fee || 0).toLocaleString()}</span>
+                          )}
+                        </div>
+                      </label>
                     </div>
-                    <span className="text-xs text-yellow-700">+{a.fee_currency || "JPY"} {Number(a.fee || 0).toLocaleString()}</span>
-                  </label>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
