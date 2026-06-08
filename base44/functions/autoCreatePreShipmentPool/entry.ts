@@ -1,158 +1,137 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
 /**
- * Triggered by entity automation when an Order is updated to order_status=in_warehouse
- * and has a pre_shipment object set.
- * Automatically creates a ShippingPool from the pre-filled shipment info.
+ * Auto-create ShippingPool from order.pre_shipment when order status → in_warehouse
+ * 
+ * Flow:
+ * 1. Direct shipping to existing pool → join if not shipped, else cancel pre_shipment
+ * 2. Transit to existing pool → join if not shipped, else cancel pre_shipment  
+ * 3. Official pool (specific) → join if not shipped, else reset to default match
+ * 4. Official pool (default) → keep in staging for admin assignment
+ * 5. New pool (direct/transit) → create new pool
  */
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     const body = await req.json();
-
-    const { event, data: automationOrder, order_id } = body;
-
-    // Support both: automation webhook payload ({ event, data: order })
-    // and direct invocation ({ order_id })
-    let order = automationOrder;
+    const { order_id } = body;
+    
+    // Fetch order
+    let order = body.data;
     if (!order && order_id) {
       const results = await base44.asServiceRole.entities.Order.filter({ id: order_id });
       order = (results || [])[0];
     }
-
-    if (!order || !order.id) {
-      return Response.json({ error: 'No order data in payload' }, { status: 400 });
+    
+    if (!order?.id || !order.pre_shipment || order.pre_shipment.pool_created) {
+      return Response.json({ skipped: true, reason: 'no_pre_shipment_or_already_created' });
     }
 
-    // Only proceed if pre_shipment is set and pool hasn't been created yet
     const pre = order.pre_shipment;
-    if (!pre || pre.pool_created) {
-      return Response.json({ skipped: true, reason: 'no pre_shipment or already created' });
-    }
-
+    const { consType, target_pool_id } = pre;
     const tenantId = order.tenant_id;
-    if (!tenantId) {
-      return Response.json({ error: 'Order has no tenant_id' }, { status: 400 });
-    }
 
-    const consType = pre.consType || '';
+    // Helper: check if pool exists and is shipped
+    const checkPool = async (poolId) => {
+      if (!poolId) return { exists: false };
+      const pools = await base44.asServiceRole.entities.ShippingPool.filter({ id: poolId });
+      const pool = pools?.[0];
+      if (!pool) return { exists: false };
+      return { exists: true, pool, isShipped: pool.status === 'shipped' || pool.status === 'delivered' };
+    };
 
-    // --- Case 1: User selected a specific official pool → join it directly ---
-    if (consType === 'official_pool' && pre.target_pool_id) {
-      const targetPoolResults = await base44.asServiceRole.entities.ShippingPool.filter({ id: pre.target_pool_id });
-      const targetPool = (targetPoolResults || [])[0];
-
-      if (!targetPool) {
-        return Response.json({ error: `Target pool ${pre.target_pool_id} not found` }, { status: 404 });
+    // Case 1: Join existing direct/transit pool
+    if (consType !== 'official_pool' && target_pool_id) {
+      const { exists, pool, isShipped } = await checkPool(target_pool_id);
+      if (!exists) return Response.json({ error: 'Pool not found' }, { status: 404 });
+      
+      if (isShipped) {
+        await base44.asServiceRole.entities.Order.update(order.id, {
+          pre_shipment: null,
+          messages: [...(order.messages || []), {
+            id: `shipped_${Date.now()}`, from: '系统通知', from_email: '__system__', role: 'admin',
+            content: `您选择的发货申请 ${pool.pool_code} 已发出，预出货设置已取消。`,
+            timestamp: new Date().toISOString(),
+          }],
+          unread_roles: [...new Set([...(order.unread_roles || []), 'user'])],
+        });
+        return Response.json({ skipped: true, reason: 'pool_shipped' });
       }
-
-      // Add order to the existing pool
-      const updatedOrderIds = [...(targetPool.order_ids || []), order.id];
-      const updatedOrderNames = [...(targetPool.order_names || []), order.product_name].filter(Boolean);
-      const updatedWeight = (targetPool.total_weight_g || 0) + (order.weight_g || 0);
-
-      await base44.asServiceRole.entities.ShippingPool.update(pre.target_pool_id, {
-        order_ids: updatedOrderIds,
-        order_names: updatedOrderNames,
-        total_weight_g: updatedWeight,
+      
+      // Join pool
+      await base44.asServiceRole.entities.ShippingPool.update(pool.id, {
+        order_ids: [...(pool.order_ids || []), order.id],
+        order_names: [...(pool.order_names || []), order.product_name].filter(Boolean),
+        total_weight_g: (pool.total_weight_g || 0) + (order.weight_g || 0),
       });
-
-      // Update order: link to this pool, mark as notified_shipment
       await base44.asServiceRole.entities.Order.update(order.id, {
         order_status: 'notified_shipment',
-        consolidation_pool_id: pre.target_pool_id,
-        pre_shipment: {
-          ...pre,
-          pool_created: true,
-          pool_id: pre.target_pool_id,
-        },
+        consolidation_pool_id: pool.id,
+        pre_shipment: { ...pre, pool_created: true, pool_id: pool.id },
       });
-
-      console.log(`[autoCreatePreShipmentPool] Joined existing official pool ${targetPool.pool_code} for order ${order.id}`);
-      return Response.json({ 
-        success: true, 
-        pool_code: targetPool.pool_code, 
-        pool_id: pre.target_pool_id, 
-        joined_existing: true,
-        is_official_pool: targetPool.is_admin_created === true 
-      });
+      return Response.json({ success: true, pool_id: pool.id, pool_code: pool.pool_code, joined_existing: true });
     }
 
-    // --- Case 1b: User chose official_pool with "default match" → find matching official pool ---
-    if (consType === 'official_pool' && !pre.target_pool_id) {
-      // Find all admin-created official pools with same shipping method
-      const allOfficialPools = await base44.asServiceRole.entities.ShippingPool.filter({ 
-        tenant_id: tenantId,
-        is_admin_created: true 
-      });
+    // Case 2: Official pool - specific selection
+    if (consType === 'official_pool' && target_pool_id) {
+      const { exists, pool, isShipped } = await checkPool(target_pool_id);
+      if (!exists) return Response.json({ error: 'Official pool not found' }, { status: 404 });
       
-      const matchingPool = (allOfficialPools || []).find(p => 
-        p.shipping_method === pre.shipping_method && 
-        p.status !== 'shipped' && 
-        p.status !== 'delivered'
-      );
-
-      if (matchingPool) {
-        // Join the matching official pool
-        const updatedOrderIds = [...(matchingPool.order_ids || []), order.id];
-        const updatedOrderNames = [...(matchingPool.order_names || []), order.product_name].filter(Boolean);
-        const updatedWeight = (matchingPool.total_weight_g || 0) + (order.weight_g || 0);
-
-        await base44.asServiceRole.entities.ShippingPool.update(matchingPool.id, {
-          order_ids: updatedOrderIds,
-          order_names: updatedOrderNames,
-          total_weight_g: updatedWeight,
-        });
-
+      if (isShipped) {
         await base44.asServiceRole.entities.Order.update(order.id, {
-          order_status: 'notified_shipment',
-          consolidation_pool_id: matchingPool.id,
-          pre_shipment: {
-            ...pre,
-            pool_created: true,
-            pool_id: matchingPool.id,
-            target_pool_id: matchingPool.id,
-          },
+          pre_shipment: { ...pre, target_pool_id: '', target_pool_code: '', target_pool_title: '' },
+          messages: [...(order.messages || []), {
+            id: `official_shipped_${Date.now()}`, from: '系统通知', from_email: '__system__', role: 'admin',
+            content: `您选择的官方拼邮池 ${pool.pool_code} 已发出，已改为默认匹配。`,
+            timestamp: new Date().toISOString(),
+          }],
+          unread_roles: [...new Set([...(order.unread_roles || []), 'user'])],
         });
-
-        console.log(`[autoCreatePreShipmentPool] Auto-matched official pool ${matchingPool.pool_code} for order ${order.id}`);
-        return Response.json({ 
-          success: true, 
-          pool_code: matchingPool.pool_code, 
-          pool_id: matchingPool.id, 
-          joined_existing: true,
-          is_official_pool: matchingPool.is_admin_created === true 
-        });
+        return Response.json({ skipped: true, reason: 'official_pool_shipped', reset_to_default: true });
       }
-      // If no matching pool found, fall through to create new pool
+      
+      // Join official pool
+      await base44.asServiceRole.entities.ShippingPool.update(pool.id, {
+        order_ids: [...(pool.order_ids || []), order.id],
+        order_names: [...(pool.order_names || []), order.product_name].filter(Boolean),
+        total_weight_g: (pool.total_weight_g || 0) + (order.weight_g || 0),
+      });
+      await base44.asServiceRole.entities.Order.update(order.id, {
+        order_status: 'notified_shipment',
+        consolidation_pool_id: pool.id,
+        pre_shipment: { ...pre, pool_created: true, pool_id: pool.id },
+      });
+      return Response.json({ success: true, pool_id: pool.id, pool_code: pool.pool_code, is_official_pool: true });
     }
 
-    // --- Case 2: Create a new pool (direct / transit / official_pool with no match) ---
+    // Case 3: Official pool - default match (keep in staging)
+    if (consType === 'official_pool' && !target_pool_id) {
+      await base44.asServiceRole.entities.Order.update(order.id, {
+        order_status: 'notified_shipment',
+        pre_shipment: { ...pre, pool_created: true },
+      });
+      return Response.json({ success: true, is_staging: true, is_official_pool: true });
+    }
+
+    // Case 4: Create new pool (direct/transit without existing pool)
     const transitLoc = pre.transit_location_id
       ? (await base44.asServiceRole.entities.TransitLocation.filter({ id: pre.transit_location_id }))?.[0]
       : null;
-    const prefix = consType === 'transit' && transitLoc?.code_prefix
-      ? transitLoc.code_prefix.toUpperCase()
-      : 'AAA';
-
+    const prefix = consType === 'transit' && transitLoc?.code_prefix ? transitLoc.code_prefix.toUpperCase() : 'AAA';
     const allPools = await base44.asServiceRole.entities.ShippingPool.filter({ tenant_id: tenantId });
-    const prefixPools = (allPools || []).filter(p => p.pool_code && p.pool_code.startsWith(prefix));
+    const prefixPools = (allPools || []).filter(p => p.pool_code?.startsWith(prefix));
     const maxSeq = prefixPools.reduce((max, p) => {
       const seq = parseInt(p.pool_code.slice(prefix.length), 10);
       return isNaN(seq) ? max : Math.max(max, seq);
     }, 0);
     const pool_code = `${prefix}${String(maxSeq + 1).padStart(5, '0')}`;
-
+    
     const addr = pre.address || {};
-    const isAsap = pre.scheduled_ship_date === '__asap__';
-    const destinationCountry = addr.country || '';
-
     const pool = await base44.asServiceRole.entities.ShippingPool.create({
       tenant_id: tenantId,
       pool_code,
       shipping_method: pre.shipping_method || '',
-      scheduled_ship_date: isAsap ? '' : (pre.scheduled_ship_date || ''),
-      asap: isAsap,
+      scheduled_ship_date: pre.scheduled_ship_date === '__asap__' ? '' : (pre.scheduled_ship_date || ''),
       transit_location_id: pre.transit_location_id || '',
       transit_location_name: transitLoc?.name || '',
       user_note: pre.user_note || '',
@@ -164,35 +143,21 @@ Deno.serve(async (req) => {
       is_admin_created: false,
       total_weight_g: order.weight_g || 0,
       status: 'pending',
-      destination_country: destinationCountry,
+      destination_country: addr.country || '',
       recipient_name: addr.recipient_name || '',
       address_line1: addr.addr1 || '',
       address_line2: addr.addr2 || '',
-      city: addr.addr3 || '',
-      state: addr.state || '',
-      messages: [],
       selected_addon_ids: pre.selected_addon_ids || [],
       selected_addons: pre.selected_addons || [],
     });
 
-    // Update order: status → notified_shipment, mark pool as created, link pool id
     await base44.asServiceRole.entities.Order.update(order.id, {
       order_status: 'notified_shipment',
       consolidation_pool_id: pool.id,
-      pre_shipment: {
-        ...pre,
-        pool_created: true,
-        pool_id: pool.id,
-      },
+      pre_shipment: { ...pre, pool_created: true, pool_id: pool.id },
     });
 
-    console.log(`[autoCreatePreShipmentPool] Created pool ${pool_code} for order ${order.id}`);
-    return Response.json({ 
-      success: true, 
-      pool_code, 
-      pool_id: pool.id,
-      is_official_pool: pool.is_admin_created === true 
-    });
+    return Response.json({ success: true, pool_id: pool.id, pool_code });
   } catch (error) {
     console.error('autoCreatePreShipmentPool error:', error);
     return Response.json({ error: error.message }, { status: 500 });
