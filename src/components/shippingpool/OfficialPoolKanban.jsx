@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import {
   Users, Package, Scale, Plus, ChevronDown, ChevronRight,
   Settings2, Edit2, MapPin, Layers, Calendar, ArrowUpDown,
-  Inbox, GripVertical, Clock, Warehouse, ArrowRight, X, CheckCircle2, Loader2, CheckSquare
+  Inbox, GripVertical, Clock, Warehouse, ArrowRight, X, CheckCircle2, Loader2, CheckSquare, MessageSquare
 } from "lucide-react";
 import JoinOfficialPoolModal from "@/components/shippingpool/JoinOfficialPoolModal";
 import OrderDetailDrawer from "@/components/orders/OrderDetailDrawer";
@@ -193,7 +193,7 @@ function DraggableStagingCard({ draggableId, index, order, officialPools, isAdmi
 }
 
 // ─── Draggable Group Card ─────────────────────────────────────────────────────
-function DraggableGroupCard({ draggableId, index, group, allOrders, pool, currentUser, isAdmin, shippingAddons, savedAddresses, onRefresh, selected, onSelect, selectedIds, onSelectEntry }) {
+function DraggableGroupCard({ draggableId, index, group, allOrders, pool, currentUser, isAdmin, shippingAddons, savedAddresses, onRefresh, selected, onSelect, selectedIds, onSelectEntry, onDropToGroup, autoExpandOnDrop }) {
   const [expanded, setExpanded] = useState(false);
   const [editGroupOpen, setEditGroupOpen] = useState(false);
   const [editOrderEntry, setEditOrderEntry] = useState(null);
@@ -206,6 +206,16 @@ function DraggableGroupCard({ draggableId, index, group, allOrders, pool, curren
     order: allOrders.find(o => o.id === entry.order_id) || null,
   }));
   const totalWeight = resolvedOrders.reduce((s, { order }) => s + (order?.weight_g || 0), 0);
+  
+  // Count entries with notes/messages
+  const entriesWithNotes = orderEntries.filter(e => e.note || (e.order_id && allOrders.find(o => o.id === e.order_id)?.messages?.length > 0)).length;
+  
+  // Auto-expand when a task is dropped to this group
+  useEffect(() => {
+    if (autoExpandOnDrop) {
+      setExpanded(true);
+    }
+  }, [autoExpandOnDrop]);
 
   const handleHeaderClick = (e) => {
     if (e.shiftKey) { e.preventDefault(); onSelect?.(draggableId); return; }
@@ -243,6 +253,12 @@ function DraggableGroupCard({ draggableId, index, group, allOrders, pool, curren
                 {selected && <CheckSquare className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />}
               </div>
               <div className="flex items-center gap-1.5 flex-shrink-0">
+                {entriesWithNotes > 0 && (
+                  <Badge className="text-xs bg-amber-100 text-amber-700 border-amber-200 px-1 py-0">
+                    <MessageSquare className="w-2.5 h-2.5 mr-0.5" />
+                    {entriesWithNotes}
+                  </Badge>
+                )}
                 <span className="text-xs text-gray-400">{totalWeight}g</span>
                 {canEdit && (
                   <button onClick={e => { e.stopPropagation(); setEditGroupOpen(true); }} className="p-1 rounded hover:bg-blue-100 text-gray-400 hover:text-blue-600 transition-colors">
@@ -413,7 +429,7 @@ function AddToStagingModal({ allOrders, officialPools, currentUser, stagedOrderI
 }
 
 // ─── Pool Column (Droppable) ──────────────────────────────────────────────────
-function PoolColumn({ pool, allOrders, currentUser, isAdmin, shippingAddons, savedAddresses, onPoolClick, onRefresh, columnDragHandleProps, selectedIds, onSelectItem }) {
+function PoolColumn({ pool, allOrders, currentUser, isAdmin, shippingAddons, savedAddresses, onPoolClick, onRefresh, columnDragHandleProps, selectedIds, onSelectItem, lastDropTarget }) {
   const [joinOpen, setJoinOpen] = useState(false);
 
   const perUserGroups = pool.per_user_groups || [];
@@ -484,6 +500,7 @@ function PoolColumn({ pool, allOrders, currentUser, isAdmin, shippingAddons, sav
             {draggableItems.map(({ type, group, entry }, idx) => {
               if (type === "group") {
                 const groupDraggableId = `pool-${pool.id}-group-${group.user_email}`;
+                const shouldExpand = lastDropTarget?.userEmail === group.user_email;
                 return (
                   <DraggableGroupCard
                     key={group.user_email}
@@ -501,6 +518,7 @@ function PoolColumn({ pool, allOrders, currentUser, isAdmin, shippingAddons, sav
                     onSelect={onSelectItem}
                     selectedIds={selectedIds}
                     onSelectEntry={onSelectItem}
+                    autoExpandOnDrop={shouldExpand}
                   />
                 );
               } else {
@@ -693,6 +711,8 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
   const [columnOrder, setColumnOrder] = useState(() => pools.map(p => p.id));
   // Multi-select: Set of draggableIds
   const [selectedIds, setSelectedIds] = useState(new Set());
+  // Track last drop target for auto-expand
+  const [lastDropTarget, setLastDropTarget] = useState(null);
 
   // Keep columnOrder in sync when pools change from outside
   useEffect(() => {
@@ -722,6 +742,14 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
     window.addEventListener("click", handler);
     return () => window.removeEventListener("click", handler);
   }, []);
+
+  // Clear lastDropTarget after 2 seconds
+  useEffect(() => {
+    if (lastDropTarget) {
+      const timer = setTimeout(() => setLastDropTarget(null), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [lastDropTarget]);
 
   const handleSelectItem = useCallback((draggableId) => {
     setSelectedIds(prev => {
@@ -892,6 +920,15 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
         }
       }
     }
+    
+    // Track drop target for auto-expand (if dropped to a user group)
+    if (destPool && orderItems.length > 0) {
+      const firstOrder = allOrders.find(o => o.id === orderItems[0].orderId);
+      if (firstOrder) {
+        setLastDropTarget({ poolId: destPool.id, userEmail: firstOrder.user_email, timestamp: Date.now() });
+      }
+    }
+    
     setSelectedIds(new Set());
 
     // Commit pool patches to backend in background (non-blocking)
@@ -1033,6 +1070,7 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
                               columnDragHandleProps={colProvided.dragHandleProps}
                               selectedIds={selectedIds}
                               onSelectItem={handleSelectItem}
+                              lastDropTarget={lastDropTarget}
                             />
                           </div>
                         )}
@@ -1050,6 +1088,7 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
                         onRefresh={onRefresh}
                         selectedIds={selectedIds}
                         onSelectItem={handleSelectItem}
+                        lastDropTarget={lastDropTarget}
                       />
                     )
                   ))}
