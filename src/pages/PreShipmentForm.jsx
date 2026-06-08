@@ -1094,6 +1094,7 @@ export default function PreShipmentForm() {
         setFullPayOnceEnabled={setFullPayOnceEnabled}
         order={order}
         shippingMethod={shippingMethod}
+        destinationCountry={address?.country || ""}
       />
 
       {/* Note */}

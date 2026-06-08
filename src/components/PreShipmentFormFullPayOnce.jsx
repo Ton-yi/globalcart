@@ -24,7 +24,8 @@ export default function PreShipmentFormFullPayOnce({
   fullPayOnceEnabled,
   setFullPayOnceEnabled,
   order,
-  shippingMethod
+  shippingMethod,
+  destinationCountry
 }) {
   // Reset when consType changes
   useEffect(() => {
@@ -64,9 +65,6 @@ export default function PreShipmentFormFullPayOnce({
       setEstimatedShippingFee(0);
       return;
     }
-    
-    // Get destination country from order's pre_shipment address
-    const destinationCountry = order?.pre_shipment?.address?.country || "";
     
     // Map country code to zone (for shipping methods that use zone-based pricing)
     // This mapping should ideally come from SiteSettings or a config entity
@@ -154,7 +152,7 @@ export default function PreShipmentFormFullPayOnce({
     }
     
     setEstimatedShippingFee(Math.round(fee));
-  }, [fullPayOnceEnabled, userEstimatedWeight, shippingMethod, shippingMethods, consType, order?.pre_shipment?.address?.country]);
+  }, [fullPayOnceEnabled, userEstimatedWeight, shippingMethod, shippingMethods, consType, destinationCountry]);
 
   if (!isAllowed()) {
     return (
