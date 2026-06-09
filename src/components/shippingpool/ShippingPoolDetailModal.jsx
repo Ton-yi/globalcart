@@ -4,7 +4,7 @@
  * Admin can edit tracking number, actual fee.
  */
 import { useState, useEffect, useRef } from "react";
-import { X, Package, Send, Image, Edit2, Save, MoreVertical, ArrowRight, RotateCcw, Loader2, Search, Trash2, AlertCircle, CheckCircle, XCircle, CreditCard, ExternalLink, Upload, Truck, MapPin, PlusCircle, MoveRight, Star } from "lucide-react";
+import { X, Package, Send, Image, Edit2, Save, MoreVertical, ArrowRight, RotateCcw, Loader2, Search, Trash2, AlertCircle, CheckCircle, XCircle, CreditCard, ExternalLink, Upload, Truck, MapPin, PlusCircle, MoveRight, Star, ChevronDown, ChevronUp, Layers, Tag } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { usePermissions } from "@/hooks/usePermissions";
 import { updateOrder, tenantEntity, shippingPoolApi, userPrefApi, fetchTenantConfig } from "@/lib/tenantApi";
@@ -92,6 +92,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
   const [userActionNote, setUserActionNote] = useState("");
   const [userActionPools, setUserActionPools] = useState([]); // other pools available to move to
   const [submittingUserAction, setSubmittingUserAction] = useState(false);
+  const [expandedOrderDetails, setExpandedOrderDetails] = useState(null); // order id
   const [showAddOrder, setShowAddOrder] = useState(false);
   const [addableOrders, setAddableOrders] = useState([]); // in_warehouse orders
   const [loadingAddable, setLoadingAddable] = useState(false);
