@@ -218,7 +218,7 @@ export default function PreShipmentFormFullPayOnce({
     }
     
     setEstimatedShippingFee(Math.round(fee));
-  }, [fullPayOnceEnabled, userEstimatedWeight, shippingMethod, shippingMethods, consType, destinationCountry]);
+  }, [fullPayOnceEnabled, userEstimatedWeight, shippingMethod, shippingMethods, consType, destinationCountry, globalEstimateRatePer100g, globalEstimateUnitG, globalEstimateRates]);
 
   if (!isAllowed()) {
     return (
