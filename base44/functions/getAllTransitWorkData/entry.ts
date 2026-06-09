@@ -32,6 +32,12 @@ Deno.serve(async (req) => {
 
     const locationFilter = tenantId ? { tenant_id: tenantId } : {};
     const locations = await base44.asServiceRole.entities.TransitLocation.filter(locationFilter);
+    
+    console.log('[getAllTransitWorkData] Resolved tenantId:', tenantId);
+    console.log('[getAllTransitWorkData] Locations found:', locations?.length || 0);
+    if (locations && locations.length > 0) {
+      console.log('[getAllTransitWorkData] Location IDs:', locations.map(l => l.id));
+    }
 
     if (!locations || locations.length === 0) {
       return Response.json({ locations: [], poolsByLocation: {} });
@@ -70,9 +76,16 @@ Deno.serve(async (req) => {
     // Group requests by transit_location_id
     const requestsByLocation = {};
     for (const loc of locations) {
-      requestsByLocation[loc.id] = transitRequests.filter(r => r.transit_location_id === loc.id);
+      const reqsForLoc = transitRequests.filter(r => r.transit_location_id === loc.id);
+      requestsByLocation[loc.id] = reqsForLoc;
+      console.log(`[getAllTransitWorkData] Location ${loc.name} (${loc.id}): ${reqsForLoc.length} requests`);
     }
 
+    console.log('[getAllTransitWorkData] transitRequests array:', transitRequests.length);
+    if (transitRequests.length > 0) {
+      console.log('[getAllTransitWorkData] First request sample:', transitRequests[0]);
+    }
+    
     // Fetch entries for all requests
     const requestIds = transitRequests.map(r => r.id);
     let allEntries = [];
