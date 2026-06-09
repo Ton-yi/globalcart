@@ -243,6 +243,14 @@ export default function OrderDetailDrawer({ order, currentUser, initialUserPrefe
             <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5">
               <div className="text-xs text-gray-500 font-medium mb-0.5">我的备注</div>
               <p className="text-sm text-gray-700 whitespace-pre-wrap">{order.user_note}</p>
+              {order.note_image_url && (
+                <div className="mt-2">
+                  <ImageWithViewer src={order.note_image_url} alt="备注图片">
+                    <img src={order.note_image_url} alt="备注图片" className="h-20 w-20 rounded-lg border object-cover cursor-pointer hover:opacity-80 transition-opacity" />
+                  </ImageWithViewer>
+                  <span className="text-[10px] text-gray-400 ml-1">备注图片</span>
+                </div>
+              )}
             </div>
           )}
 
