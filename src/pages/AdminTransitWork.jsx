@@ -50,30 +50,31 @@ export default function AdminTransitWork() {
   // Collapsed state for each location (default: all collapsed)
   const [collapsedLocations, setCollapsedLocations] = useState({});
 
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const r = await base44.functions.invoke('getAllTransitWorkData', {});
+      const data = r.data || {};
+      console.log('[AdminTransitWork] Received data:', {
+        locations: data.locations?.length,
+        pools: data.pools?.length,
+        poolsByLocation: Object.keys(data.poolsByLocation || {}).length,
+      });
+      console.log('[AdminTransitWork] Pools by location:', data.poolsByLocation);
+      setLocations(data.locations || []);
+      setPoolsByLocation(data.poolsByLocation || {});
+      setAllUsers(data.users || []);
+      setTransitMethods(data.transitMethods || []);
+      setAddonOptions(data.addonOptions || []);
+    } catch (err) {
+      console.error('AdminTransitWork fetch error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!user) return;
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const r = await base44.functions.invoke('getAllTransitWorkData', {});
-        const data = r.data || {};
-        console.log('[AdminTransitWork] Received data:', {
-          locations: data.locations?.length,
-          pools: data.pools?.length,
-          poolsByLocation: Object.keys(data.poolsByLocation || {}).length,
-        });
-        console.log('[AdminTransitWork] Pools by location:', data.poolsByLocation);
-        setLocations(data.locations || []);
-        setPoolsByLocation(data.poolsByLocation || {});
-        setAllUsers(data.users || []);
-        setTransitMethods(data.transitMethods || []);
-        setAddonOptions(data.addonOptions || []);
-      } catch (err) {
-        console.error('AdminTransitWork fetch error:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchData();
   }, [user]);
 
@@ -183,6 +184,15 @@ export default function AdminTransitWork() {
           <p className="text-sm text-gray-400 mt-0.5">管理所有中转地的待处理包裹与配置</p>
         </div>
         <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={fetchData}
+            className="gap-1"
+          >
+            <CheckCircle className="w-3.5 h-3.5" />
+            刷新数据
+          </Button>
           {activeTab === "manage" && canManageTransitLocations && (
             <Button size="sm" className="bg-red-600 hover:bg-red-700" onClick={() => { setEditingLoc(null); setLocForm({ name: "", code_prefix: "", country: "", province: "", address: "", handling_fee: 0, handling_fee_currency: "JPY", manager_email: "", manager_contact: "", allow_storage: false, allow_pickup: false, description: "", is_active: true, disabled_transit_method_ids: [], disabled_addon_ids: [] }); setShowLocForm(true); }}>
               <Plus className="w-3.5 h-3.5 mr-1.5" />添加中转地

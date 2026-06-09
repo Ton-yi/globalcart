@@ -4,7 +4,7 @@
  * Only accessible by assigned transit location manager
  */
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { timePage } from "@/lib/timing";
@@ -30,6 +30,7 @@ const TRANSIT_STATUS_TABS = [
 export default function TransitLocationWork() {
   const { transit_location_id } = useParams();
   const navigate = useNavigate();
+  const locationState = useLocation();
   const { user } = useCurrentUser();
   
   const [loading, setLoading] = useState(true);
@@ -44,36 +45,44 @@ export default function TransitLocationWork() {
   const [arrivalNote, setArrivalNote] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const fetchData = async () => {
+    setLoading(true);
+    const t = timePage('TransitLocationWork');
+    try {
+      const r = await base44.functions.invoke('getTransitLocationWorkPageData', { 
+        transit_location_id 
+      });
+      const data = r.data || {};
+      
+      if (!data.location) {
+        navigate("/Home");
+        return;
+      }
+      
+      setLocation(data.location);
+      setPools(data.pools || []);
+      setOrders(data.orders || []);
+      t.done('data ready');
+    } catch (error) {
+      console.error('Failed to fetch transit location data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!user || !transit_location_id) return;
-    
-    const fetchData = async () => {
-      setLoading(true);
-      const t = timePage('TransitLocationWork');
-      try {
-        const r = await base44.functions.invoke('getTransitLocationWorkPageData', { 
-          transit_location_id 
-        });
-        const data = r.data || {};
-        
-        if (!data.location) {
-          navigate("/Home");
-          return;
-        }
-        
-        setLocation(data.location);
-        setPools(data.pools || []);
-        setOrders(data.orders || []);
-        t.done('data ready');
-      } catch (error) {
-        console.error('Failed to fetch transit location data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
     fetchData();
   }, [user, transit_location_id]);
+
+  // Refresh data when navigating back from TransitPoolWork with refresh flag
+  useEffect(() => {
+    if (locationState.state?.refresh) {
+      fetchData();
+      // Clear the state to avoid unnecessary re-refreshes
+      navigate(locationState.pathname, { replace: true, state: {} });
+    }
+  }, [locationState]);
 
   // Categorize pools by transit status
   const poolsByStatus = {

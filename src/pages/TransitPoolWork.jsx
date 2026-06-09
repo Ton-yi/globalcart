@@ -181,7 +181,8 @@ export default function TransitPoolWork() {
       });
       
       alert('发货信息已保存并提交');
-      navigate(`/TransitLocationWork/${location?.id}`);
+      // Navigate back with refresh flag
+      navigate(`/TransitLocationWork/${location?.id}`, { state: { refresh: true } });
     } catch (error) {
       console.error('Submit failed:', error);
       alert('提交失败：' + error.message);
