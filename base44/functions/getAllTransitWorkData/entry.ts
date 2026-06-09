@@ -49,22 +49,23 @@ Deno.serve(async (req) => {
     // Use tenant_id from first location if not resolved
     const resolvedTenantId = tenantId || locations[0]?.tenant_id;
 
-    // Fetch all GroupBuyRequests for this tenant
-    const [allRequests, allUsers, transitMethods, addonOptions] = await Promise.all([
+    // Fetch all GroupBuyRequests AND ShippingPools for this tenant
+    const [allGroupBuyRequests, allShippingPools, allUsers, transitMethods, addonOptions] = await Promise.all([
       base44.asServiceRole.entities.GroupBuyRequest.filter({ tenant_id: resolvedTenantId }),
+      base44.asServiceRole.entities.ShippingPool.filter({ tenant_id: resolvedTenantId }),
       base44.asServiceRole.entities.User.filter({ tenant_id: resolvedTenantId }),
       base44.asServiceRole.entities.TransitShippingMethod.filter({ tenant_id: resolvedTenantId }),
       base44.asServiceRole.entities.AddonOption.filter({ tenant_id: resolvedTenantId, addon_type: 'shipping' }),
     ]);
 
-    console.log('[getAllTransitWorkData] Total GroupBuyRequests:', allRequests?.length || 0);
+    console.log('[getAllTransitWorkData] Total GroupBuyRequests:', allGroupBuyRequests?.length || 0);
+    console.log('[getAllTransitWorkData] Total ShippingPools:', allShippingPools?.length || 0);
     
-    // Include ALL requests with transit_location_id assigned, regardless of status
-    // This ensures admin can see pending, completed, cancelled, expired requests
-    const transitRequests = (allRequests || []).filter(r => {
+    // Include ALL requests/pools with transit_location_id assigned
+    const transitGroupBuyRequests = (allGroupBuyRequests || []).filter(r => {
       const hasTransit = !!r.transit_location_id;
       if (hasTransit) {
-        console.log('[getAllTransitWorkData] Request with transit:', {
+        console.log('[getAllTransitWorkData] GroupBuyRequest with transit:', {
           id: r.id,
           title: r.title,
           transit_location_id: r.transit_location_id,
@@ -74,7 +75,24 @@ Deno.serve(async (req) => {
       return hasTransit;
     });
     
-    console.log('[getAllTransitWorkData] Requests with transit location:', transitRequests.length);
+    const transitShippingPools = (allShippingPools || []).filter(p => {
+      const hasTransit = !!p.transit_location_id;
+      if (hasTransit) {
+        console.log('[getAllTransitWorkData] ShippingPool with transit:', {
+          id: p.id,
+          title: p.pool_code || p.title,
+          transit_location_id: p.transit_location_id,
+          status: p.status,
+        });
+      }
+      return hasTransit;
+    });
+    
+    console.log('[getAllTransitWorkData] GroupBuyRequests with transit:', transitGroupBuyRequests.length);
+    console.log('[getAllTransitWorkData] ShippingPools with transit:', transitShippingPools.length);
+    
+    // Combine both arrays for unified handling
+    const transitRequests = [...transitGroupBuyRequests, ...transitShippingPools];
 
     // Group requests by transit_location_id
     const requestsByLocation = {};
@@ -110,6 +128,8 @@ Deno.serve(async (req) => {
       requestsByLocation,
       poolsByLocation,
       requests: transitRequests,
+      groupBuyRequests: transitGroupBuyRequests,
+      shippingPools: transitShippingPools,
       entries: allEntries,
       users: (allUsers || []).filter(u => u.role === 'admin'),
       transitMethods: (transitMethods || []).filter(m => m.is_active !== false),
@@ -120,9 +140,11 @@ Deno.serve(async (req) => {
         tenantIdFromUser,
         locationsCount: locations?.length || 0,
         locationIds: locations?.map(l => l.id) || [],
-        totalGroupBuyRequests: allRequests?.length || 0,
-        requestsWithTransit: transitRequests?.length || 0,
-        firstRequestSample: transitRequests?.length > 0 ? transitRequests[0] : null,
+        totalGroupBuyRequests: allGroupBuyRequests?.length || 0,
+        totalShippingPools: allShippingPools?.length || 0,
+        groupBuyRequestsWithTransit: transitGroupBuyRequests?.length || 0,
+        shippingPoolsWithTransit: transitShippingPools?.length || 0,
+        totalRequestsWithTransit: transitRequests?.length || 0,
       },
     });
 
