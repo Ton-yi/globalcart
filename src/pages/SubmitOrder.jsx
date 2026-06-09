@@ -707,12 +707,11 @@ export default function SubmitOrder() {
           </CardHeader>
           <CardContent>
             <div
-              className={`border-2 rounded-lg transition-colors cursor-text ${
+              className={`border-2 rounded-lg transition-colors ${
                 form.note_image_url ? "border-green-300 bg-green-50" :
                 uploading ? "border-blue-200 bg-blue-50" :
                 "border-gray-200 hover:border-blue-300"
               }`}
-              onClick={() => !form.note_image_url && !uploading && document.getElementById("note-image-input")?.click()}
             >
               <Textarea
                 placeholder="其他特殊说明...（可粘贴或拖拽图片）"
@@ -752,9 +751,22 @@ export default function SubmitOrder() {
                 </div>
               )}
               {!form.note_image_url && !uploading && (
-                <div className="border-t border-dashed border-gray-200 px-3 py-2 text-xs text-gray-400 flex items-center gap-2">
-                  <Upload className="w-3.5 h-3.5" />
-                  <span>可粘贴图片（Ctrl+V）或拖拽图片到输入框上传</span>
+                <div className="border-t border-dashed border-gray-200 px-3 py-2 text-xs text-gray-400 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>可粘贴图片（Ctrl+V）或拖拽图片上传</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      document.getElementById("note-image-input")?.click();
+                    }}
+                    className="text-blue-500 hover:text-blue-700 flex items-center gap-1 cursor-pointer"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>选择图片</span>
+                  </button>
                 </div>
               )}
               <input
