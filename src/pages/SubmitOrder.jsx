@@ -816,7 +816,7 @@ export default function SubmitOrder() {
             type="button"
             variant="outline"
             className="w-full border-purple-300 text-purple-700 hover:bg-purple-50"
-            disabled={submitting || !form.product_name}
+            disabled={submitting || !form.product_name || !form.estimated_jpy}
             onClick={async () => {
               setSubmitting(true);
               // Validate custom fees are within range
@@ -895,7 +895,7 @@ export default function SubmitOrder() {
             </Button>
             <Button
             type="submit"
-            disabled={submitting || !form.product_name}
+            disabled={submitting || !form.product_name || !form.estimated_jpy}
             className="w-full bg-red-600 hover:bg-red-700">
             
               <ShoppingBag className="w-4 h-4 mr-2" />
