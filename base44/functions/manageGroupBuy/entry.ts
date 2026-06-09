@@ -322,8 +322,9 @@ Deno.serve(async (req) => {
     // ── complete_request ─────────────────────────────────────────────
     if (action === 'complete_request') {
       if (!isTenantAdmin) return Response.json({ error: 'Forbidden' }, { status: 403 });
-      const { request_id, actual_shipping_fee_jpy, fee_overrides, admin_note } = body;
+      const { request_id, actual_shipping_fee_jpy, fee_overrides, admin_note, transit_location_id } = body;
       // fee_overrides: [{entry_id, allocated_fee_jpy}] optional per-user overrides
+      // transit_location_id: optional, specify transit location when completing the request
 
       const reqRecord = (await base44.asServiceRole.entities.GroupBuyRequest.filter({ id: request_id }))?.[0];
       if (!reqRecord || reqRecord.tenant_id !== tenantId) {
@@ -399,13 +400,24 @@ Deno.serve(async (req) => {
       }
 
       // Mark request as completed
-      await base44.asServiceRole.entities.GroupBuyRequest.update(request_id, {
+      const updateData = {
         status: 'completed',
         actual_shipping_fee_jpy: totalShipping,
         completed_at: new Date().toISOString(),
         completed_by: user.email,
         admin_note: admin_note || '',
-      });
+      };
+      
+      // Set transit location if provided
+      if (transit_location_id) {
+        const location = (await base44.asServiceRole.entities.TransitLocation.filter({ id: transit_location_id }))?.[0];
+        if (location && location.tenant_id === tenantId) {
+          updateData.transit_location_id = transit_location_id;
+          updateData.transit_location_name = location.name;
+        }
+      }
+      
+      await base44.asServiceRole.entities.GroupBuyRequest.update(request_id, updateData);
 
       return Response.json({ success: true, orders_created: createdOrders.length, orders: createdOrders });
     }

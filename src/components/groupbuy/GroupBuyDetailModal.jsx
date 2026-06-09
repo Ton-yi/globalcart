@@ -4,12 +4,13 @@
  * Admins: complete (convert to orders) or cancel the whole request
  */
 import { useState, useRef, useEffect } from "react";
-import { X, Users, Calendar, ShoppingBag, CheckCircle2, XCircle, Loader2, Trash2, DollarSign, AlertTriangle } from "lucide-react";
+import { X, Users, Calendar, ShoppingBag, CheckCircle2, XCircle, Loader2, Trash2, DollarSign, AlertTriangle, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { base44 } from "@/api/base44Client";
 import { usePermissions } from "@/hooks/usePermissions";
 import GroupBuyJoinForm from "./GroupBuyJoinForm";
@@ -30,8 +31,19 @@ export default function GroupBuyDetailModal({ request, entries = [], currentUser
   const [actualShippingFee, setActualShippingFee] = useState('');
   const [feeOverrides, setFeeOverrides] = useState({});
   const [adminNote, setAdminNote] = useState('');
+  const [transitLocationId, setTransitLocationId] = useState('');
+  const [transitLocations, setTransitLocations] = useState([]);
   const modalRef = useRef(null);
   const contentRef = useRef(null);
+
+  // Load transit locations on mount
+  useEffect(() => {
+    if (isAdmin && showCompleteForm) {
+      base44.entities.TransitLocation.filter({ is_active: true })
+        .then(locations => setTransitLocations(locations || []))
+        .catch(console.error);
+    }
+  }, [isAdmin, showCompleteForm]);
 
   const activeEntries = entries.filter(e => e.status === 'active');
   const myEntry = entries.find(e => e.user_email === currentUser?.email && e.status === 'active');
@@ -64,6 +76,7 @@ export default function GroupBuyDetailModal({ request, entries = [], currentUser
       action: 'complete_request', request_id: request.id,
       actual_shipping_fee_jpy: parseFloat(actualShippingFee) || 0,
       fee_overrides: overrides, admin_note: adminNote,
+      transit_location_id: transitLocationId || undefined,
     });
     setCompleting(false);
     onRefresh?.();
@@ -282,6 +295,27 @@ export default function GroupBuyDetailModal({ request, entries = [], currentUser
                     </div>
                     {shippingFeeNum > 0 && activeEntries.length > 0 && (
                       <p className="text-xs text-gray-400 mt-1">默认平分：每人 ¥{defaultShare}（可在上方条目处单独修改）</p>
+                    )}
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-500">中转地（可选）</Label>
+                    <Select value={transitLocationId} onValueChange={setTransitLocationId}>
+                      <SelectTrigger className="mt-1 h-8 text-xs">
+                        <SelectValue placeholder="选择中转地..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {transitLocations.map(loc => (
+                          <SelectItem key={loc.id} value={loc.id}>
+                            {loc.name} {loc.manager_email && `(${loc.manager_email})`}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {transitLocationId && (
+                      <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
+                        <MapPin className="w-3 h-3" />
+                        中转地将在拼单完成后指定
+                      </p>
                     )}
                   </div>
                   <div>
