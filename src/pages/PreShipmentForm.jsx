@@ -909,7 +909,7 @@ export default function PreShipmentForm() {
               <div className="space-y-2 border border-blue-100 rounded-xl p-3 bg-blue-50/40">
                 <Label className="text-xs text-blue-700 font-medium">加入已有的中转拼邮申请（可选）</Label>
                 <div className="mt-2">
-                  <Popover open={joinExistingPool} onOpenChange={(open) => {
+                  <Popover open={joinExistingPool && !selectedExistingPoolId} onOpenChange={(open) => {
                   if (!open) {
                     setJoinExistingPool(false);
                     setSelectedExistingPoolId("");
@@ -922,7 +922,13 @@ export default function PreShipmentForm() {
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      setJoinExistingPool(true);
+                      if (selectedExistingPoolId) {
+                        // Already selected, reopen to allow changing
+                        setJoinExistingPool(true);
+                      } else {
+                        // Not selected yet, toggle
+                        setJoinExistingPool(!joinExistingPool);
+                      }
                     }}>
 
                       {joinExistingPool && selectedExistingPoolId ?
@@ -972,9 +978,11 @@ export default function PreShipmentForm() {
                               value={pool.pool_code}
                               onSelect={() => {
                                 if (selectedExistingPoolId === pool.id) {
+                                  // Clicking already selected pool - clear selection and close
                                   setSelectedExistingPoolId("");
                                   setJoinExistingPool(false);
                                 } else {
+                                  // Select new pool - this will auto-close the popover due to open condition
                                   setSelectedExistingPoolId(pool.id);
                                   setJoinExistingPool(true);
                                 }
@@ -1040,9 +1048,11 @@ export default function PreShipmentForm() {
                               value={pool.pool_code}
                               onSelect={() => {
                                 if (selectedExistingPoolId === pool.id) {
+                                  // Clicking already selected pool - clear selection and close
                                   setSelectedExistingPoolId("");
                                   setJoinExistingPool(false);
                                 } else {
+                                  // Select new pool - this will auto-close the popover due to open condition
                                   setSelectedExistingPoolId(pool.id);
                                   setJoinExistingPool(true);
                                 }
