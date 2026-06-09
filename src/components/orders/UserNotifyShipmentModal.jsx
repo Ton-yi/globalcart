@@ -512,6 +512,33 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
     const hasCustoms = customsData && customsData.items && customsData.items.some(it => it.name);
     const customsNote = hasCustoms ? JSON.stringify(customsData) : null;
 
+    // Build pre_shipment data for transit location work panel
+    const addrObj = consType === "transit" ? getEffectiveAddr("final") : (consType === "other" ? getEffectiveAddr("other") : getEffectiveAddr("direct"));
+    const preShipmentData = consType === "transit" ? {
+      shipping_method: method,
+      scheduled_ship_date: deadline || null,
+      user_note: note,
+      address: addrObj ? {
+        recipient_name: addrObj.recipient_name,
+        country: addrObj.country,
+        addr1: addrObj.addr1,
+        addr2: addrObj.addr2,
+        addr3: addrObj.addr3,
+        state: addrObj.state,
+        phone: addrObj.phone,
+      } : null,
+      consType: consType,
+      transit_location_id: selectedTransitId,
+      transit_shipping_method_id: selectedTransitMethodId,
+      selected_addon_ids: selectedAddonIds,
+      selected_addons: selectedAddons.map(a => ({
+        id: a.id,
+        name: a.name,
+        fee: a.fee,
+        fee_currency: a.fee_currency,
+      })),
+    } : null;
+
     const updates = {
       shipping_method: method,
       consolidation_requested: consolidation,
@@ -521,6 +548,7 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
       ...(!isJoiningPool && consolidation && minWeight ? { consolidation_min_weight_g: parseFloat(minWeight) } : {}),
       ...(!isJoiningPool && hasConsolidationConditions ? { consolidation_timeout_action: timeoutAction } : {}),
       ...(consType === "transit" ? { consolidation_transit_id: selectedTransitId, consolidation_final_address_id: finalAddressId } : {}),
+      ...(preShipmentData ? { pre_shipment: preShipmentData } : {}),
       ...addonUpdates,
     };
 
@@ -578,6 +606,40 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
       // Extract destination country from the address object
       const destCountry = addrObj?.country || null;
 
+      // Build per_user_groups for transit location work panel display
+      const perUserGroups = [{
+        user_email: u.email,
+        user_name: u.full_name || u.email,
+        group_label: u.full_name || u.email,
+        note: note || "",
+        image_urls: [],
+        selected_addon_ids: selectedAddonIds,
+        selected_addons: selectedAddons.map(a => ({
+          id: a.id,
+          name: a.name,
+          fee: a.fee,
+          fee_currency: a.fee_currency,
+        })),
+        group_final_address: addrObj ? {
+          recipient_name: addrObj.recipient_name,
+          country: addrObj.country,
+          addr1: addrObj.addr1,
+          addr2: addrObj.addr2,
+          addr3: addrObj.addr3,
+          state: addrObj.state,
+          phone: addrObj.phone,
+        } : null,
+        order_entries: targetOrders.map(o => ({
+          order_id: o.id,
+          note: o.user_note || "",
+          image_urls: [o.product_image_url, o.arrival_photo_url, o.purchase_screenshot_url].filter(Boolean),
+          selected_addon_ids: o.selected_addon_ids || [],
+          selected_addons: o.selected_addons || [],
+          override_final_address: null,
+          use_group_address: true,
+        })),
+      }];
+
       await shippingPoolApi.create({
         pool_code,
         title: poolTitle.trim() || "",
@@ -609,6 +671,7 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
         city: addrObj?.addr3 || "",
         state: addrObj?.state || "",
         postal_code: "",
+        per_user_groups: perUserGroups,
       });
     }
 
