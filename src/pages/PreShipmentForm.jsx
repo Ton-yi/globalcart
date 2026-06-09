@@ -460,7 +460,7 @@ export default function PreShipmentForm() {
         const method = selectedLocation?.transit_shipping_methods?.find(m => m.id === transitShippingMethodId);
         return method?.name || "";
       })() : "",
-      address: consType === "transit" || consType === "official_pool" ? {} : { ...effectiveAddress },
+      address: { ...effectiveAddress },
       selected_addon_ids: effectiveSelectedAddonIds,
       selected_addons: selectedAddons.map((a) => {
         const customFee = addonCustomFees[a.id];
