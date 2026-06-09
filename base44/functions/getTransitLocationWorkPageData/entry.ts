@@ -52,42 +52,38 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Forbidden: Not authorized for this transit location' }, { status: 403 });
     }
 
-    // Fetch GroupBuyRequests for this transit location
+    // Fetch GroupBuyRequests AND ShippingPools for this transit location
     const filter = {
       tenant_id: location.tenant_id,
       transit_location_id: transitLocationId
     };
 
-    const allRequests = await base44.asServiceRole.entities.GroupBuyRequest.filter(filter);
+    const [allGroupBuyRequests, allShippingPools] = await Promise.all([
+      base44.asServiceRole.entities.GroupBuyRequest.filter(filter),
+      base44.asServiceRole.entities.ShippingPool.filter(filter),
+    ]);
     
-    console.log('[getTransitLocationWorkPageData] Raw filter:', filter);
-    console.log('[getTransitLocationWorkPageData] All GroupBuyRequests:', allRequests?.length || 0);
-    if (allRequests && allRequests.length > 0) {
-      console.log('[getTransitLocationWorkPageData] Sample request:', {
-        id: allRequests[0].id,
-        title: allRequests[0].title,
-        transit_location_id: allRequests[0].transit_location_id,
-        status: allRequests[0].status,
-        tenant_id: allRequests[0].tenant_id
-      });
-    }
+    console.log('[getTransitLocationWorkPageData] GroupBuyRequests:', allGroupBuyRequests?.length || 0);
+    console.log('[getTransitLocationWorkPageData] ShippingPools:', allShippingPools?.length || 0);
     
-    // Include ALL requests regardless of status - as long as they have transit_location_id assigned
-    // This ensures transit managers can see pending, completed, arrived, and forwarded requests
-    const requests = (allRequests || [])
+    // Combine both arrays for unified handling
+    const requests = [...(allGroupBuyRequests || []), ...(allShippingPools || [])]
       .sort((a, b) => new Date(b.created_date) - new Date(a.created_date));
     
     console.log('[getTransitLocationWorkPageData] Found', requests.length, 'requests for transit location', transitLocationId);
 
-    // Fetch entries for all requests
-    const requestIds = requests.map(r => r.id);
-    const allEntries = await base44.asServiceRole.entities.GroupBuyEntry.filter({ 
-      request_id: { $in: requestIds }
-    });
+    // Fetch entries for GroupBuyRequests (ShippingPools don't have entries)
+    const groupBuyRequestIds = (allGroupBuyRequests || []).map(r => r.id);
+    let allEntries = [];
+    if (groupBuyRequestIds.length > 0) {
+      allEntries = await base44.asServiceRole.entities.GroupBuyEntry.filter({ 
+        request_id: { $in: groupBuyRequestIds }
+      });
+    }
     
-    // Group entries by request_id
+    // Group entries by request_id (only for GroupBuyRequests)
     const entriesByRequest = {};
-    requestIds.forEach(rid => { entriesByRequest[rid] = []; });
+    groupBuyRequestIds.forEach(rid => { entriesByRequest[rid] = []; });
     (allEntries || []).forEach(entry => {
       if (entriesByRequest[entry.request_id]) {
         entriesByRequest[entry.request_id].push(entry);
@@ -96,16 +92,17 @@ Deno.serve(async (req) => {
     
     // Enrich requests with entry counts and totals
     const enrichedRequests = requests.map(request => {
+      const isRequest = !!request.title; // GroupBuyRequest has title, ShippingPool has pool_code
       const entries = entriesByRequest[request.id] || [];
-      const activeEntries = entries.filter(e => e.status === 'active');
-      const completedEntries = entries.filter(e => e.status === 'completed');
+      const orderCount = isRequest ? entries.length : (request.order_ids || []).length;
       
       return {
         ...request,
-        entry_count: entries.length,
-        active_entry_count: activeEntries.length,
-        completed_entry_count: completedEntries.length,
-        entries: entries, // Include entries for display
+        entry_count: orderCount,
+        active_entry_count: isRequest ? entries.filter(e => e.status === 'active').length : orderCount,
+        completed_entry_count: isRequest ? entries.filter(e => e.status === 'completed').length : 0,
+        entries: isRequest ? entries : [], // Include entries only for GroupBuyRequests
+        order_count: orderCount, // For ShippingPools
       };
     });
     
