@@ -759,19 +759,47 @@ export default function PreShipmentForm() {
                   const transitMethodsText = l.transit_shipping_methods?.length > 0 
                     ? l.transit_shipping_methods.map(m => m.name).join('、')
                     : '暂无运输方式';
+                  const hasStorage = l.allow_storage === true;
+                  const hasPickup = l.allow_pickup === true;
                   return (
-                  <label key={l.id} className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${transitLocationId === l.id ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
+                  <label key={l.id} className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${transitLocationId === l.id ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
                       <input type="radio" checked={transitLocationId === l.id} onChange={() => {
                         setTransitLocationId(l.id);
                         setTransitShippingMethodId(""); // Clear transit method selection when changing location
                       }} className="mt-0.5 accent-blue-600" />
-                      <div>
-                        <p className="text-sm font-medium text-gray-800">{l.name}</p>
-                        {l.manager_contact && <p className="text-xs text-gray-400">联系：{l.manager_contact}</p>}
-                        <p className="text-xs text-gray-500 mt-1">
-                          <span className="font-medium">中转运输方式：</span>
-                          {transitMethodsText}
-                        </p>
+                      <div className="flex-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="text-sm font-semibold text-gray-800">{l.name}</p>
+                            {l.country && (
+                              <p className="text-xs text-gray-500 mt-0.5">
+                                <MapPin className="w-3 h-3 inline mr-1" />
+                                {l.country}{l.province ? ` · ${l.province}` : ''}
+                              </p>
+                            )}
+                          </div>
+                          {l.handling_fee > 0 && (
+                            <Badge variant="outline" className="text-[10px] bg-yellow-50 text-yellow-700 border-yellow-200 flex-shrink-0">
+                              中转手续费：{l.handling_fee_currency || 'JPY'} {l.handling_fee.toLocaleString()}
+                            </Badge>
+                          )}
+                        </div>
+                        {l.manager_contact && <p className="text-xs text-gray-400 mt-1">联系：{l.manager_contact}</p>}
+                        <div className="space-y-1 mt-2">
+                          <p className="text-xs text-gray-500">
+                            <span className="font-medium">中转运输方式：</span>
+                            {transitMethodsText}
+                          </p>
+                          {(hasStorage || hasPickup) && (
+                            <p className="text-xs text-gray-500">
+                              <span className="font-medium">特色服务：</span>
+                              {[hasStorage && '暂存', hasPickup && '自取'].filter(Boolean).join('、')}
+                            </p>
+                          )}
+                          {l.description && (
+                            <p className="text-xs text-gray-400 line-clamp-1">{l.description}</p>
+                          )}
+                        </div>
                       </div>
                     </label>
                   );
