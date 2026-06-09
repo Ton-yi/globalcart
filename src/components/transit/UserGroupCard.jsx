@@ -24,7 +24,11 @@ export default function UserGroupCard({
   // Check for pickup/storage preferences from pool
   const isPickup = pool?.transit_pickup_enabled && pool.transit_pickup_user_confirmed;
   const isStorage = pool?.transit_storage_enabled;
-  const shippingMethod = pool?.shipping_method || pool?.transit_shipping_method;
+  const shippingMethod = pool?.shipping_method || pool?.transit_shipping_method || pool?.transit_shipping_method_name;
+  const transitMethodId = pool?.transit_shipping_method_id;
+  // Check if transit method is special storage/pickup
+  const isSpecialStorage = transitMethodId === '__storage__';
+  const isSpecialPickup = transitMethodId === '__pickup__';
 
   // Group orders by address (using override_final_address or group_final_address)
   const addressGroups = order_entries?.reduce((acc, entry) => {
@@ -92,13 +96,13 @@ export default function UserGroupCard({
               
               {/* Pickup/Storage badges */}
               <div className="flex items-center gap-1 mt-1.5 flex-wrap">
-                {isPickup && (
+                {(isPickup || isSpecialPickup) && (
                   <Badge className="bg-blue-100 text-blue-700 text-xs h-5">
                     <Clock className="w-2.5 h-2.5 mr-1" />
                     自取
                   </Badge>
                 )}
-                {isStorage && (
+                {(isStorage || isSpecialStorage) && (
                   <Badge className="bg-purple-100 text-purple-700 text-xs h-5">
                     <Box className="w-2.5 h-2.5 mr-1" />
                     暂存

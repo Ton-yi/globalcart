@@ -284,6 +284,8 @@ Deno.serve(async (req) => {
       scheduled_ship_date: pre.scheduled_ship_date === '__asap__' ? '' : (pre.scheduled_ship_date || ''),
       transit_location_id: pre.transit_location_id || '',
       transit_location_name: transitLoc?.name || '',
+      transit_shipping_method_id: pre.transit_shipping_method_id || '',
+      transit_shipping_method_name: pre.transit_shipping_method_name || '',
       user_note: pre.user_note || '',
       consolidation_type: consType,
       order_ids: [order.id],
