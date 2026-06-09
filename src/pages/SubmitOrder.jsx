@@ -246,6 +246,11 @@ export default function SubmitOrder() {
       quantity: 1,
       estimated_jpy: parseFloat(form.estimated_jpy) || 0,
       service_fee_rate: parseFloat(settings.service_fee_rate) || 10,
+      // Pass rule-engine computed fee so it's stored on the order correctly
+      service_fee_amount: calculated ? calculated.serviceFeeJpy : null,
+      service_fee_rule_id: activeRule?.id || null,
+      service_fee_rule_name: activeRule?.name || null,
+      service_fee_rule_version: activeRule?.version || null,
       prepayment_amount: prepaymentAmount,
       prepayment_currency: "JPY",
       online_store_tag: tagResult.tag_label,
@@ -845,6 +850,11 @@ export default function SubmitOrder() {
                 quantity: 1,
                 estimated_jpy: parseFloat(form.estimated_jpy) || 0,
                 service_fee_rate: parseFloat(settings.service_fee_rate) || 10,
+                // Pass rule-engine computed fee so it's stored on the order correctly
+                service_fee_amount: calculated ? calculated.serviceFeeJpy : null,
+                service_fee_rule_id: activeRule?.id || null,
+                service_fee_rule_name: activeRule?.name || null,
+                service_fee_rule_version: activeRule?.version || null,
                 prepayment_amount: prepaymentAmount,
                 prepayment_currency: "JPY",
                 online_store_tag: tagResult.tag_label,

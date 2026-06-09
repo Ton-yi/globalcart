@@ -84,10 +84,13 @@ Deno.serve(async (req) => {
       const addonTotal = (body.selected_addons || []).reduce((sum, a) => {
         return sum + (parseFloat(a.fee) || 0);
       }, 0);
-      // Use service_fee_amount if already calculated by the rule engine (snapshot on order),
+      // Use service_fee_amount from the frontend (rule-engine computed) if provided,
       // otherwise fall back to the submitted service_fee_rate (legacy path)
       let serviceFeeJpy = 0;
-      if (order.service_fee_amount != null && order.service_fee_amount > 0) {
+      const submittedServiceFee = parseFloat(body.service_fee_amount);
+      if (!isNaN(submittedServiceFee) && submittedServiceFee >= 0) {
+        serviceFeeJpy = submittedServiceFee;
+      } else if (order.service_fee_amount != null && order.service_fee_amount > 0) {
         serviceFeeJpy = parseFloat(order.service_fee_amount) || 0;
       } else {
         const serviceFeeRate = parseFloat(body.service_fee_rate) || 10;

@@ -536,7 +536,7 @@ Deno.serve(async (req) => {
     // Compute and snapshot service fee onto an order
     if (action === 'apply_to_order') {
       if (!isAdmin) return Response.json({ error: 'Forbidden' }, { status: 403 });
-      const { order_id, variables } = body;
+      const { order_id, variables, force_recalculate } = body;
       if (!order_id) return Response.json({ error: 'Missing order_id' }, { status: 400 });
 
       // Fetch order
@@ -545,6 +545,18 @@ Deno.serve(async (req) => {
       if (!order) return Response.json({ error: 'Order not found' }, { status: 404 });
       if (order.tenant_id !== tenantId && user.role !== 'platform_admin') {
         return Response.json({ error: 'Forbidden' }, { status: 403 });
+      }
+
+      // If order already has a rule-engine snapshot and force_recalculate is not set, return existing
+      if (!force_recalculate && order.service_fee_amount != null && order.service_fee_rule_id) {
+        return Response.json({ 
+          success: true, 
+          fee: order.service_fee_amount, 
+          steps: order.calculation_steps ? JSON.parse(order.calculation_steps) : [],
+          rule_name: order.service_fee_rule_name,
+          skipped: true,
+          reason: 'Order already has a rule-engine snapshot. Pass force_recalculate=true to override.'
+        });
       }
 
       const rules = await base44.asServiceRole.entities.ServiceFeeRule.filter({ tenant_id: tenantId });
