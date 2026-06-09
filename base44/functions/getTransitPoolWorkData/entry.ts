@@ -9,14 +9,15 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { pool_id } = await req.json();
+    const { pool_code } = await req.json();
     
-    if (!pool_id) {
-      return Response.json({ error: 'pool_id is required' }, { status: 400 });
+    if (!pool_code) {
+      return Response.json({ error: 'pool_code is required' }, { status: 400 });
     }
 
-    // Fetch pool data
-    const pool = await base44.entities.ShippingPool.get(pool_id);
+    // Fetch pool data by pool_code (ensure uniqueness)
+    const allPools = await base44.entities.ShippingPool.filter({});
+    const pool = allPools.find(p => p.pool_code === pool_code);
     if (!pool) {
       return Response.json({ error: 'Pool not found' }, { status: 404 });
     }

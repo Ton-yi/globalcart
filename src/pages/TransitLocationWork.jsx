@@ -241,7 +241,7 @@ export default function TransitLocationWork() {
                   key={pool.id} 
                   pool={pool} 
                   transitStatus="pending"
-                  onClick={() => navigate(`/TransitPoolWork/${pool.id}`)}
+                  onClick={() => navigate(`/Trworkon/${pool.pool_code}`)}
                 />
               ))}
             </div>
@@ -262,7 +262,7 @@ export default function TransitLocationWork() {
                   key={pool.id} 
                   pool={pool} 
                   transitStatus="arrived"
-                  onClick={() => navigate(`/TransitPoolWork/${pool.id}`)}
+                  onClick={() => navigate(`/Trworkon/${pool.pool_code}`)}
                 />
               ))}
             </div>
@@ -291,7 +291,7 @@ export default function TransitLocationWork() {
                         : [...prev, id]
                     );
                   }}
-                  onClick={() => navigate(`/TransitPoolWork/${pool.id}`)}
+                  onClick={() => navigate(`/Trworkon/${pool.pool_code}`)}
                 />
               ))}
             </div>

@@ -210,13 +210,29 @@ Deno.serve(async (req) => {
       ? (await base44.asServiceRole.entities.TransitLocation.filter({ id: pre.transit_location_id }))?.[0]
       : null;
     const prefix = consType === 'transit' && transitLoc?.code_prefix ? transitLoc.code_prefix.toUpperCase() : 'AAA';
-    const allPools = await base44.asServiceRole.entities.ShippingPool.filter({ tenant_id: tenantId });
-    const prefixPools = (allPools || []).filter(p => p.pool_code?.startsWith(prefix));
-    const maxSeq = prefixPools.reduce((max, p) => {
-      const seq = parseInt(p.pool_code.slice(prefix.length), 10);
-      return isNaN(seq) ? max : Math.max(max, seq);
-    }, 0);
-    const pool_code = `${prefix}${String(maxSeq + 1).padStart(5, '0')}`;
+    
+    // Generate unique pool_code with retry logic
+    const generatePoolCode = async (prefix, tenantId) => {
+      const allPools = await base44.asServiceRole.entities.ShippingPool.filter({ tenant_id: tenantId });
+      const prefixPools = (allPools || []).filter(p => p.pool_code?.startsWith(prefix));
+      const maxSeq = prefixPools.reduce((max, p) => {
+        const seq = parseInt(p.pool_code.slice(prefix.length), 10);
+        return isNaN(seq) ? max : Math.max(max, seq);
+      }, 0);
+      return `${prefix}${String(maxSeq + 1).padStart(5, '0')}`;
+    };
+    
+    // Generate pool_code and verify uniqueness (retry if collision)
+    let pool_code = await generatePoolCode(prefix, tenantId);
+    let retryCount = 0;
+    while (retryCount < 3) {
+      const existingPool = (await base44.asServiceRole.entities.ShippingPool.filter({ tenant_id: tenantId, pool_code }))?.[0];
+      if (!existingPool) break;
+      // Collision detected, increment sequence
+      retryCount++;
+      const currentSeq = parseInt(pool_code.slice(prefix.length), 10);
+      pool_code = `${prefix}${String(currentSeq + 1).padStart(5, '0')}`;
+    }
     
     console.log('[autoCreatePreShipmentPool] Creating new pool:', {
       pool_code,

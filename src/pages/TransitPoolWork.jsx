@@ -32,7 +32,7 @@ import StorageManagementCard from "@/components/transit/StorageManagementCard";
 import { toast } from "sonner";
 
 export default function TransitPoolWork() {
-  const { pool_id } = useParams();
+  const { pool_code } = useParams();
   const navigate = useNavigate();
   const { user } = useCurrentUser();
 
@@ -55,14 +55,14 @@ export default function TransitPoolWork() {
 
 
   useEffect(() => {
-    if (!user || !pool_id) return;
+    if (!user || !pool_code) return;
 
     const fetchData = async () => {
       setLoading(true);
       const t = timePage('TransitPoolWork');
       try {
         const r = await base44.functions.invoke('getTransitPoolWorkData', {
-          pool_id
+          pool_code
         });
         const data = r.data || {};
 
@@ -106,7 +106,7 @@ export default function TransitPoolWork() {
     };
 
     fetchData();
-  }, [user, pool_id]);
+  }, [user, pool_code]);
 
   // Use per_user_groups directly (contains order_entries)
   const userGroups = pool?.per_user_groups || [];
@@ -235,7 +235,7 @@ export default function TransitPoolWork() {
             preferredTransitMethodId={preferredTransitMethodId}
             onSubmit={async (data) => {
               await base44.functions.invoke('updateTransitPoolShipment', {
-                pool_id,
+                pool_id: pool.id,
                 ...data
               });
               alert('发货信息已保存并提交');
