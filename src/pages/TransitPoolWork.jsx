@@ -28,8 +28,8 @@ import ShippingRequestPanel from "@/components/transit/ShippingRequestPanel";
 import TransitShippingForm from "@/components/transit/TransitShippingForm";
 import AddressChangeCard from "@/components/transit/AddressChangeCard";
 import PickupScheduler from "@/components/transit/PickupScheduler";
-import TransitShippingDetailPanel from "@/components/transit/TransitShippingDetailPanel";
 import StorageManagementCard from "@/components/transit/StorageManagementCard";
+import TransitShippingDetailPanel from "@/components/transit/TransitShippingDetailPanel";
 import { toast } from "sonner";
 
 export default function TransitPoolWork() {
@@ -45,6 +45,9 @@ export default function TransitPoolWork() {
   const [showRequestPanel, setShowRequestPanel] = useState(false);
   const [activeRequests, setActiveRequests] = useState([]);
   const [inTransitRequests, setInTransitRequests] = useState([]);
+  const [showDetailPanel, setShowDetailPanel] = useState(false);
+  const [selectedUserEntry, setSelectedUserEntry] = useState(null);
+  const [selectedAddressGroup, setSelectedAddressGroup] = useState(null);
   const [saving, setSaving] = useState(false);
 
   // Form state
@@ -59,10 +62,7 @@ export default function TransitPoolWork() {
   // Expanded user groups
   const [expandedGroups, setExpandedGroups] = useState([]);
 
-  // Selected order for detail panel
-  const [selectedUserEntry, setSelectedUserEntry] = useState(null);
-  const [selectedAddressGroup, setSelectedAddressGroup] = useState(null);
-  const [showDetailPanel, setShowDetailPanel] = useState(false);
+
 
   useEffect(() => {
     if (!user || !pool_id) return;
@@ -388,6 +388,7 @@ export default function TransitPoolWork() {
         }} />
 
       }
+
     </div>);
 
 }
