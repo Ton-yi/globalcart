@@ -11,25 +11,34 @@ Deno.serve(async (req) => {
 
     const { 
       pool_id,
+      request_id,
       action,
       storage_until,
       target_pool_id,
       transit_shipping_method 
     } = await req.json();
     
-    if (!pool_id) {
-      return Response.json({ error: 'pool_id is required' }, { status: 400 });
+    // Support both ShippingPool (pool_id) and GroupBuyRequest (request_id)
+    const targetId = request_id || pool_id;
+    if (!targetId) {
+      return Response.json({ error: 'pool_id or request_id is required' }, { status: 400 });
     }
 
-    const pool = await base44.entities.ShippingPool.get(pool_id);
+    // Try to fetch as GroupBuyRequest first, then as ShippingPool
+    let pool = await base44.asServiceRole.entities.GroupBuyRequest.get(targetId);
+    let isRequest = true;
     if (!pool) {
-      return Response.json({ error: 'Pool not found' }, { status: 404 });
+      pool = await base44.asServiceRole.entities.ShippingPool.get(targetId);
+      isRequest = false;
+    }
+    
+    if (!pool) {
+      return Response.json({ error: 'Pool/Request not found' }, { status: 404 });
     }
 
     // Verify transit location manager or admin
-    let location;
     if (pool.transit_location_id) {
-      location = await base44.entities.TransitLocation.get(pool.transit_location_id);
+      location = await base44.asServiceRole.entities.TransitLocation.get(pool.transit_location_id);
       if (location && user.email !== location.manager_email && user.role !== 'admin' && user.role !== 'platform_admin') {
         return Response.json({ error: 'Forbidden' }, { status: 403 });
       }
@@ -57,10 +66,10 @@ Deno.serve(async (req) => {
         transit_shipped_by: user.email
       };
       
-      // Update orders to point to new pool
-      if (pool.order_ids && pool.order_ids.length > 0) {
+      // For ShippingPool, update orders to point to new pool
+      if (!isRequest && pool.order_ids && pool.order_ids.length > 0) {
         const updatePromises = pool.order_ids.map(orderId => 
-          base44.entities.Order.update(orderId, {
+          base44.asServiceRole.entities.Order.update(orderId, {
             consolidation_pool_id: target_pool_id
           }).catch(e => console.error(`Failed to update order ${orderId}:`, e))
         );
@@ -76,7 +85,12 @@ Deno.serve(async (req) => {
       };
     }
 
-    await base44.entities.ShippingPool.update(pool_id, updateData);
+    // Update the appropriate entity
+    if (isRequest) {
+      await base44.asServiceRole.entities.GroupBuyRequest.update(targetId, updateData);
+    } else {
+      await base44.asServiceRole.entities.ShippingPool.update(targetId, updateData);
+    }
 
     return Response.json({ success: true });
   } catch (error) {

@@ -21,6 +21,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import UserGroupCard from "@/components/transit/UserGroupCard";
 import TransitShippingForm from "@/components/transit/TransitShippingForm";
+import PickupScheduler from "@/components/transit/PickupScheduler";
+import StorageManagementCard from "@/components/transit/StorageManagementCard";
+import AddressChangeCard from "@/components/transit/AddressChangeCard";
 
 export default function TransitPoolWork() {
   const { request_id } = useParams();
@@ -163,6 +166,9 @@ export default function TransitPoolWork() {
   const completedEntries = entries.filter(e => e.status === 'completed');
   const totalAmount = activeEntries.reduce((sum, e) => sum + (e.estimated_jpy || 0), 0);
   const totalWeight = activeEntries.reduce((sum, e) => sum + (e.weight_g || 100), 0);
+
+  // Determine if this is a GroupBuyRequest (new) or ShippingPool (legacy)
+  const isRequest = !!request.title;
 
   // Group entries by user
   const userGroups = activeEntries.reduce((groups, entry) => {
@@ -322,6 +328,33 @@ export default function TransitPoolWork() {
           )}
         </CardContent>
       </Card>
+
+      {/* Transit Management Cards (Pickup, Storage, Address) */}
+      {location && (
+        <div className="space-y-4">
+          {/* Pickup Management */}
+          <PickupScheduler
+            pool={request}
+            onUpdate={fetchData}
+            isAdmin={user?.role === 'admin' || user?.role === 'tenant_admin'}
+          />
+
+          {/* Storage Management */}
+          <StorageManagementCard
+            pool={request}
+            onUpdate={fetchData}
+            isAdmin={user?.role === 'admin' || user?.role === 'tenant_admin'}
+          />
+
+          {/* Address Change (for ShippingPool only) */}
+          {!isRequest && (
+            <AddressChangeCard
+              pool={request}
+              onUpdate={fetchData}
+            />
+          )}
+        </div>
+      )}
 
       {/* Transit Shipping Form */}
       {location && (user?.role === 'admin' || user?.role === 'tenant_admin' || location.manager_email === user.email) && (
