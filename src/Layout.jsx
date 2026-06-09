@@ -9,7 +9,7 @@ import { getCurrentSubdomain } from "@/lib/tenantBranding";
 import { 
   ShoppingBag, Package, Truck, User, Settings, 
   Bell, LogOut, Menu, X, Shield,
-  Home, Users, BarChart3, Store, Send, Zap, UserPlus, ChevronDown
+  Home, Users, BarChart3, Store, Send, Zap, UserPlus, ChevronDown, MapPin
 } from "lucide-react";
 import { MidnightToggle } from "@/components/common/ThemeSelector";
 import { Badge } from "@/components/ui/badge";
@@ -83,7 +83,10 @@ export default function Layout({ children, currentPageName }) {
       { label: "拼下单", icon: UserPlus, page: "GroupBuy" },
     ]},
     { label: "我的订单", icon: Package, page: "MyOrders", requiredRole: "user", hidden: !canViewMyOrders },
-    { label: "发货 & 拼邮", icon: Send, page: "ShippingPool", requiredRole: "user" },
+    { label: "发货 & 拼邮", icon: Send, page: "ShippingPool", requiredRole: "user", adminSubItems: [
+      { label: "中转地管理", icon: MapPin, page: "AdminShippingPool", adminOnly: true },
+      { label: "中转地工作面板", icon: Truck, page: "AdminTransitWorkPanel", adminOnly: true },
+    ]},
     { label: "个人设置", icon: User, page: "UserPreferences" },
   ];
 
@@ -105,16 +108,24 @@ export default function Layout({ children, currentPageName }) {
 
   const visibleUserNav = userNav.filter(item => !item.hidden);
 
+  // Expand adminSubItems into subItems for admin/staff
+  const expandAdminSubItems = (items) => items.map(item => {
+    if (item.adminSubItems && (isAdmin || isStaff)) {
+      return { ...item, subItems: [...(item.subItems || []), ...item.adminSubItems] };
+    }
+    return item;
+  });
+
   // Build navigation based on roles
   let navItems = [visibleUserNav[0]]; // Always show Home
   
   if (isPlatformAdmin) {
-    navItems = [...navItems, ...visibleUserNav.slice(1), ...platformAdminNav, ...tenantAdminNav.filter(item => item.canAccess)];
+    navItems = [...navItems, ...expandAdminSubItems(visibleUserNav.slice(1)), ...platformAdminNav, ...tenantAdminNav.filter(item => item.canAccess)];
   } else if (isTenantAdmin) {
-    navItems = [...navItems, ...visibleUserNav.slice(1), ...tenantAdminNav.filter(item => item.canAccess)];
+    navItems = [...navItems, ...expandAdminSubItems(visibleUserNav.slice(1)), ...tenantAdminNav.filter(item => item.canAccess)];
   } else if (isStaff) {
     const staffAdminItems = tenantAdminNav.filter(item => item.canAccess);
-    navItems = [...navItems, ...visibleUserNav.slice(1), ...staffAdminItems];
+    navItems = [...navItems, ...expandAdminSubItems(visibleUserNav.slice(1)), ...staffAdminItems];
   } else if (isTenantUser) {
     navItems = [...navItems, ...visibleUserNav.slice(1)];
   } else {
