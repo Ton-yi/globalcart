@@ -15,8 +15,8 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'pool_code is required' }, { status: 400 });
     }
 
-    // Fetch pool data by pool_code (ensure uniqueness)
-    const allPools = await base44.entities.ShippingPool.filter({});
+    // Fetch pool data by pool_code with tenant isolation
+    const allPools = await base44.asServiceRole.entities.ShippingPool.filter({});
     const pool = allPools.find(p => p.pool_code === pool_code);
     if (!pool) {
       return Response.json({ error: 'Pool not found' }, { status: 404 });
@@ -43,7 +43,7 @@ Deno.serve(async (req) => {
     if (pool.order_ids && pool.order_ids.length > 0) {
       for (const orderId of pool.order_ids) {
         try {
-          const order = await base44.entities.Order.get(orderId);
+          const order = await base44.asServiceRole.entities.Order.get(orderId);
           if (order) orders.push(order);
         } catch (e) {
           console.error(`Failed to fetch order ${orderId}:`, e);
@@ -53,7 +53,7 @@ Deno.serve(async (req) => {
     console.log('[getTransitPoolWorkData] Fetched', orders.length, 'orders for pool', pool.pool_code);
 
     // Fetch transit shipping methods (filter out disabled ones)
-    const allTransitMethods = await base44.entities.TransitShippingMethod.filter({ 
+    const allTransitMethods = await base44.asServiceRole.entities.TransitShippingMethod.filter({ 
       tenant_id: pool.tenant_id,
       is_active: true 
     });
