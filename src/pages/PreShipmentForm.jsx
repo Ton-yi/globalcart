@@ -227,9 +227,10 @@ export default function PreShipmentForm() {
         // Filter pools that user can join:
         // - All admin-created official pools (any status)
         // - User's own pools (direct shipping or transit consolidation, pending/processing status)
+        // - Other users' non-private transit pools (pending status)
         const availablePools = allPools.filter((p) =>
         p.is_admin_created || (
-          (p.status === "pending" || p.status === "processing") && p.creator_email === user.email
+          (p.status === "pending" || p.status === "processing") && (p.creator_email === user.email || p.consolidation_type === 'transit')
         )
         );
         console.log('[PreShipmentForm] Available pools after filter:', availablePools.length);
