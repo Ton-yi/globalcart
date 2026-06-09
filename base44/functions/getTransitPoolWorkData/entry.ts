@@ -15,12 +15,19 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'pool_code is required' }, { status: 400 });
     }
 
+    console.log('[getTransitPoolWorkData] Fetching pool for pool_code:', pool_code);
+
     // Fetch pool data by pool_code with tenant isolation
     const allPools = await base44.asServiceRole.entities.ShippingPool.filter({});
+    console.log('[getTransitPoolWorkData] Total pools in system:', allPools.length);
     const pool = allPools.find(p => p.pool_code === pool_code);
+    
     if (!pool) {
+      console.error('[getTransitPoolWorkData] Pool not found for pool_code:', pool_code);
       return Response.json({ error: 'Pool not found' }, { status: 404 });
     }
+    
+    console.log('[getTransitPoolWorkData] Found pool:', pool.pool_code, 'id:', pool.id, 'order_ids:', pool.order_ids?.length);
 
     // Verify user is transit location manager
     if (!pool.transit_location_id) {

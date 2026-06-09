@@ -351,7 +351,7 @@ export default function AdminTransitWork() {
                           </div>
                           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
                             {byStatus.forwarded.map(pool => (
-                              <TransitPoolCard key={pool.id} pool={pool} transitStatus="forwarded" onClick={() => {}} />
+                              <TransitPoolCard key={pool.id} pool={pool} transitStatus="forwarded" onClick={() => navigate(`/Trworkon/${pool.pool_code}`)} />
                             ))}
                           </div>
                         </div>

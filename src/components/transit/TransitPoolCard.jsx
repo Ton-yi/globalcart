@@ -30,7 +30,7 @@ export default function TransitPoolCard({ pool, transitStatus, isSelected, onTog
       } ${onClick ? 'cursor-pointer' : ''}`}
       onClick={(e) => {
         e.stopPropagation();
-        onClick?.();
+        if (onClick) onClick();
       }}
     >
       <CardHeader className="pb-3">

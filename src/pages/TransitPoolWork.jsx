@@ -61,6 +61,7 @@ export default function TransitPoolWork() {
       setLoading(true);
       const t = timePage('TransitPoolWork');
       try {
+        console.log('[TransitPoolWork] Fetching data for pool_code:', pool_code);
         const r = await base44.functions.invoke('getTransitPoolWorkData', {
           pool_code
         });
@@ -68,13 +69,18 @@ export default function TransitPoolWork() {
 
         console.log('[TransitPoolWork] Received data:', {
           pool_code: data.pool?.pool_code,
+          pool_id: data.pool?.id,
           order_ids_count: data.pool?.order_ids?.length,
           orders_count: data.orders?.length,
-          debug: data.debug
+          location_name: data.location?.name,
+          transitMethods_count: data.transitMethods?.length,
+          debug: data.debug,
+          full_data: data
         });
 
         if (!data.pool) {
-          navigate("/TransitLocationWork");
+          console.error('[TransitPoolWork] No pool data received, navigating back');
+          navigate("/AdminTransitWork");
           return;
         }
 
