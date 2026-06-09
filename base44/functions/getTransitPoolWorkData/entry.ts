@@ -52,6 +52,52 @@ Deno.serve(async (req) => {
     }
     console.log('[getTransitPoolWorkData] Fetched', orders.length, 'orders for pool', pool.pool_code);
 
+    // Fetch all orders to enrich per_user_groups with product details
+    const allOrderIds = new Set(pool.order_ids || []);
+    pool.per_user_groups?.forEach(group => {
+      group.order_entries?.forEach(entry => {
+        if (entry.order_id) {
+          allOrderIds.add(entry.order_id);
+        }
+      });
+    });
+
+    const allOrdersMap = {};
+    for (const orderId of allOrderIds) {
+      try {
+        const order = await base44.asServiceRole.entities.Order.get(orderId);
+        if (order) {
+          allOrdersMap[orderId] = order;
+        }
+      } catch (e) {
+        console.error(`Failed to fetch order ${orderId}:`, e);
+      }
+    }
+
+    // Enrich per_user_groups order_entries with product details from orders
+    if (pool.per_user_groups) {
+      pool.per_user_groups.forEach(group => {
+        if (group.order_entries) {
+          group.order_entries.forEach(entry => {
+            const order = allOrdersMap[entry.order_id];
+            if (order) {
+              entry.product_name = order.product_name;
+              entry.product_description = order.product_description;
+              entry.product_image_url = order.product_image_url;
+              entry.arrival_photo_url = order.arrival_photo_url;
+              entry.purchase_screenshot_url = order.purchase_screenshot_url;
+              entry.note = entry.note || order.user_note || '';
+              // Merge images from order
+              const orderImages = [order.product_image_url, order.arrival_photo_url, order.purchase_screenshot_url].filter(Boolean);
+              if (orderImages.length > 0) {
+                entry.image_urls = [...new Set([...(entry.image_urls || []), ...orderImages])];
+              }
+            }
+          });
+        }
+      });
+    }
+
     // Fetch transit shipping methods (filter out disabled ones)
     const allTransitMethods = await base44.asServiceRole.entities.TransitShippingMethod.filter({ 
       tenant_id: pool.tenant_id,

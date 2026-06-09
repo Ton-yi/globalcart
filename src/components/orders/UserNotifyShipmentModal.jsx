@@ -432,8 +432,10 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
     if (!method && !isJoiningPool) return;
     if (!isJoiningPool && consType === "transit" && !selectedTransitId) return;
     if (!isJoiningPool && consType === "transit" && !selectedTransitMethodId) return;
-    if (!isJoiningPool && consType === "transit" && !isAddressSlotOk("final")) return;
-    if (isJoiningPool && !isAddressSlotOk("final")) return;
+    // Skip address validation for pickup (__pickup__) or storage (__storage__) transit methods
+    const isPickupOrStorage = selectedTransitMethodId === '__pickup__' || selectedTransitMethodId === '__storage__';
+    if (!isJoiningPool && consType === "transit" && !isPickupOrStorage && !isAddressSlotOk("final")) return;
+    if (isJoiningPool && !isPickupOrStorage && !isAddressSlotOk("final")) return;
     if (isJoiningPool && selectedPool?.consolidation_type === "transit" && !selectedTransitMethodId) return;
     if (!isJoiningPool && consType === "" && !joinDirectPool && !isAddressSlotOk("direct")) return;
     if (!isJoiningPool && consType === "other" && !isAddressSlotOk("other")) return;
@@ -515,11 +517,13 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
 
     // Build pre_shipment data for transit location work panel
     const addrObj = consType === "transit" ? getEffectiveAddr("final") : (consType === "other" ? getEffectiveAddr("other") : getEffectiveAddr("direct"));
+    // For pickup or storage, don't save final address (user will provide later or pick up in person)
+    const skipAddress = selectedTransitMethodId === '__pickup__' || selectedTransitMethodId === '__storage__';
     const preShipmentData = consType === "transit" ? {
       shipping_method: method,
       scheduled_ship_date: deadline || null,
       user_note: note,
-      address: addrObj ? {
+      address: (addrObj && !skipAddress) ? {
         recipient_name: addrObj.recipient_name,
         country: addrObj.country,
         addr1: addrObj.addr1,

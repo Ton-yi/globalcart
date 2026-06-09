@@ -12,7 +12,7 @@ import {
   ArrowLeft, Package, CheckCircle, Clock, Truck, MapPin,
   Image as ImageIcon, AlertCircle, Upload, Loader2, ChevronDown,
   ChevronUp, Edit2, X, Save, Send, User, Calendar, Phone,
-  FileText, Box, ClipboardList } from
+  FileText, Box, ClipboardList, Home } from
 "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -111,18 +111,30 @@ export default function TransitPoolWork() {
   // Use per_user_groups directly (contains order_entries)
   const userGroups = pool?.per_user_groups || [];
 
-  const handleToggleGroup = (email) => (e) => {
+  // State for showing address in right panel
+  const [showingAddress, setShowingAddress] = useState(null);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+
+  const handleToggleGroup = (groupKey) => (e) => {
     e.stopPropagation();
     setExpandedGroups((prev) =>
-      prev.includes(email) ?
-        prev.filter((e) => e !== email) :
-        [...prev, email]
+      prev.includes(groupKey) ?
+        prev.filter((k) => k !== groupKey) :
+        [...prev, groupKey]
     );
   };
 
   const handleOrderSelect = (orderId, orderEntry, address) => {
-    // 点击订单时的处理逻辑
-    console.log('Order selected:', orderId, orderEntry);
+    // 点击订单时显示订单详情和地址
+    setSelectedOrder({ orderId, orderEntry, address });
+    if (address) {
+      setShowingAddress({ address, orders: [orderEntry] });
+    }
+  };
+
+  const handleShowAddress = (address, orders) => {
+    setShowingAddress({ address, orders });
+    setSelectedOrder(null);
   };
 
   if (loading) {
@@ -203,20 +215,23 @@ export default function TransitPoolWork() {
             </CardHeader>
             <CardContent className="space-y-3">
               {userGroups.length > 0 ?
-              userGroups.map((userGroup) =>
-              <UserGroupCard
-                key={userGroup.user_email}
-                userEntry={userGroup}
-                pool={pool}
-                isExpanded={expandedGroups.includes(userGroup.user_email)}
-                onExpand={() => handleToggleGroup(userGroup.user_email)}
-                onOrderClick={(orderId) => {
-                  console.log('Order clicked:', orderId);
-                }}
-                onOrderSelect={handleOrderSelect}
-                selectedOrderIds={[]} />
-
-              ) :
+              userGroups.map((userGroup) => {
+                const groupKey = `${userGroup.user_email}__${userGroup.transit_shipping_method_id || 'none'}`;
+                return (
+                <UserGroupCard
+                  key={groupKey}
+                  userEntry={userGroup}
+                  pool={pool}
+                  isExpanded={expandedGroups.includes(groupKey)}
+                  onExpand={handleToggleGroup(groupKey)}
+                  onOrderClick={(orderId) => {
+                    console.log('Order clicked:', orderId);
+                  }}
+                  onOrderSelect={handleOrderSelect}
+                  onShowAddress={handleShowAddress}
+                  selectedOrderIds={[]} />
+                );
+              }) :
 
               <div className="text-center text-gray-400 py-8">
                   <Package className="w-8 h-8 mx-auto mb-2 opacity-50" />
@@ -229,6 +244,66 @@ export default function TransitPoolWork() {
 
         {/* Right: Management Cards */}
         <div className="space-y-4">
+          {/* Address Display Card (shown when user clicks "View Address" or selects an order) */}
+          {showingAddress && (
+            <Card className="border-blue-200 bg-blue-50">
+              <CardHeader className="py-4 px-4">
+                <CardTitle className="text-sm flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-blue-600" />
+                    最终收货地址
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 text-xs"
+                    onClick={() => setShowingAddress(null)}
+                  >
+                    <X className="w-3 h-3" />
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4 text-xs space-y-2">
+                {showingAddress.address && (
+                  <div className="space-y-1.5">
+                    <div className="flex items-start gap-2">
+                      <User className="w-3 h-3 text-gray-400 mt-0.5" />
+                      <span>收件人：{showingAddress.address.recipient_name || '未填写'}</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <Phone className="w-3 h-3 text-gray-400 mt-0.5" />
+                      <span>电话：{showingAddress.address.phone || '未填写'}</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <Home className="w-3 h-3 text-gray-400 mt-0.5" />
+                      <div>
+                        <p className="font-medium text-gray-700">国家/地区：{getCountry(showingAddress.address.country)?.name || showingAddress.address.country || '未填写'}</p>
+                        {showingAddress.address.addr1 && <p>地址 1：{showingAddress.address.addr1}</p>}
+                        {showingAddress.address.addr2 && <p>地址 2：{showingAddress.address.addr2}</p>}
+                        {showingAddress.address.addr3 && <p>地址 3：{showingAddress.address.addr3}</p>}
+                        {showingAddress.address.state && <p>州/省：{showingAddress.address.state}</p>}
+                        {showingAddress.address.postal_code && <p>邮编：{showingAddress.address.postal_code}</p>}
+                      </div>
+                    </div>
+                    {showingAddress.orders && showingAddress.orders.length > 0 && (
+                      <div className="mt-2 pt-2 border-t border-blue-200">
+                        <p className="font-medium text-gray-700 mb-1">相关订单（{showingAddress.orders.length}个）</p>
+                        <div className="space-y-1 max-h-32 overflow-y-auto">
+                          {showingAddress.orders.map((order, idx) => (
+                            <div key={order.order_id || idx} className="flex items-start gap-1.5">
+                              <Package className="w-3 h-3 text-gray-400 mt-0.5" />
+                              <span className="truncate">{order.product_name || order.note || `订单 ${order.order_id?.slice(-6) || idx + 1}`}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           {/* Transit Shipping Form */}
           <TransitShippingForm
             pool={pool}
@@ -254,27 +329,25 @@ export default function TransitPoolWork() {
             }} />
           
 
-          {/* Pickup Scheduling */}
-          {location?.allow_pickup &&
-          <PickupScheduler
-            pool={pool}
-            isAdmin={user.role === 'admin' || user.role === 'platform_admin' || user.email === location.manager_email}
-            onUpdate={() => {
-              window.location.reload();
-            }} />
+          {/* Pickup Scheduling - Only show if pool has pickup enabled */}
+          {location?.allow_pickup && pool?.transit_pickup_enabled && (
+            <PickupScheduler
+              pool={pool}
+              isAdmin={user.role === 'admin' || user.role === 'platform_admin' || user.email === location.manager_email}
+              onUpdate={() => {
+                window.location.reload();
+              }} />
+          )}
 
-          }
-
-          {/* Storage Management */}
-          {location?.allow_storage &&
-          <StorageManagementCard
-            pool={pool}
-            isAdmin={user.role === 'admin' || user.role === 'platform_admin' || user.email === location.manager_email}
-            onUpdate={() => {
-              window.location.reload();
-            }} />
-
-          }
+          {/* Storage Management - Only show if pool has storage enabled */}
+          {location?.allow_storage && pool?.transit_storage_enabled && (
+            <StorageManagementCard
+              pool={pool}
+              isAdmin={user.role === 'admin' || user.role === 'platform_admin' || user.email === location.manager_email}
+              onUpdate={() => {
+                window.location.reload();
+              }} />
+          )}
         </div>
       </div>
 
