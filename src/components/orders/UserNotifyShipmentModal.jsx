@@ -693,6 +693,22 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
             />
           )}
 
+          {/* Address selection for consType="other" (consolidation to other address) */}
+          {consType === "other" && !isJoiningPool && (
+            <AddressBlock
+              slot="other"
+              label="拼邮目标地址 *"
+              savedAddresses={savedAddresses}
+              selectedId={selectedAddress}
+              isNewMode={!!addressInputMode["other"]}
+              newAddress={newAddress}
+              saveNewAddress={saveNewAddress}
+              onSelect={(v) => handleAddressSelect(v, "other")}
+              onNewAddressChange={setNewAddress}
+              onSaveToggle={setSaveNewAddress}
+            />
+          )}
+
           {/* Customs declaration — single shipment only */}
           {consType === "" && !joinDirectPool && (
             <CustomsDeclarationForm
