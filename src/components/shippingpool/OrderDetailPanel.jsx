@@ -1,15 +1,16 @@
 /**
- * OrderDetailPanel - Displays expandable order details for shipping pool
+ * OrderDetailPanel - Displays order details in a popover triggered by a small button
  * Shows: destination address, transit shipping method, addons, and notes
  */
-import { useState } from "react";
-import { ChevronDown, ChevronUp, Truck, Tag, FileText, MapPin } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Info, Truck, Tag, FileText, MapPin, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getCountry } from "@/lib/countries";
 
 export default function OrderDetailPanel({ order, pool }) {
-  const [isExpanded, setIsExpanded] = useState(true);
-  
+  const [isOpen, setIsOpen] = useState(false);
+  const panelRef = useRef(null);
+
   // Find the user group this order belongs to
   const userGroup = (pool.per_user_groups || []).find(g => g.user_email === order.user_email);
   
@@ -24,28 +25,55 @@ export default function OrderDetailPanel({ order, pool }) {
   
   const hasDetails = addr.recipient_name || addr.addr1 || destinationCountry || transitMethod || orderAddons.length > 0 || orderNote;
   
+  // Close on click outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (panelRef.current && !panelRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+    
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isOpen]);
+
   if (!hasDetails) return null;
   
   return (
-    <div className="border-t px-3 pb-2">
-      <div className="bg-gray-50 border border-gray-200 rounded-lg overflow-hidden">
-        {/* Note: This component is now rendered inline within OrderCard/RenderOrder */}
-        <div className="px-3 py-2 flex items-center justify-between bg-gray-100 border-b border-gray-200">
-          <div className="flex items-center gap-2 text-xs font-medium text-gray-700">
-            <MapPin className="w-3.5 h-3.5" />
-            <span>中转发货信息</span>
+    <div ref={panelRef} className="relative">
+      {/* Small info button */}
+      <Button 
+        variant="ghost" 
+        size="sm" 
+        className="h-6 w-6 p-0 text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        <Info className="w-3.5 h-3.5" />
+      </Button>
+      
+      {/* Popover panel */}
+      {isOpen && (
+        <div className="absolute right-0 top-8 z-50 w-80 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
+          {/* Header */}
+          <div className="px-3 py-2 flex items-center justify-between bg-gray-50 border-b border-gray-200">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-gray-700">
+              <MapPin className="w-3.5 h-3.5" />
+              <span>中转发货信息</span>
+            </div>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="h-5 w-5 p-0 hover:bg-gray-200"
+              onClick={() => setIsOpen(false)}
+            >
+              <X className="w-3 h-3" />
+            </Button>
           </div>
-          <Button variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={() => setIsExpanded(!isExpanded)}>
-            {isExpanded ? (
-              <><ChevronUp className="w-3 h-3 mr-1" />收起</>
-            ) : (
-              <><ChevronDown className="w-3 h-3 mr-1" />查看</>
-            )}
-          </Button>
-        </div>
-        
-        {isExpanded && (
-          <div className="p-3 space-y-3 text-xs">
+          
+          {/* Content */}
+          <div className="p-3 space-y-3 text-xs max-h-96 overflow-y-auto">
             {(addr.recipient_name || addr.addr1 || destinationCountry) && (
               <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 space-y-1">
                 <div className="flex items-center gap-1.5 font-medium text-blue-700 mb-1">
@@ -110,8 +138,8 @@ export default function OrderDetailPanel({ order, pool }) {
               </div>
             )}
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

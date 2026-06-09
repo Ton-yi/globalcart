@@ -815,6 +815,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                           
                             </div>
                             <div className="flex items-center gap-1">
+                              <OrderDetailPanel order={o} pool={pool} />
                               {/* Admin can edit any order */}
                               {canEditPackage && pool.status !== "shipped" && pool.status !== "delivered" &&
                           <div className="flex items-center gap-1">
@@ -978,7 +979,6 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                       null}
                         </div>
                     }
-                    <OrderDetailPanel order={o} pool={pool} />
                     </div>
                     );
               }; // end renderOrder
