@@ -135,6 +135,11 @@ export default function PreShipmentForm() {
             setJoinOfficialPool(true);
             setSelectedPoolId(ps.target_pool_id || "");
           }
+          // Restore join existing pool selection (for both direct and transit)
+          if (ps.join_existing_pool && ps.target_pool_id) {
+            setJoinExistingPool(true);
+            setSelectedExistingPoolId(ps.target_pool_id);
+          }
           // Restore one-time payment config if previously saved
           if (ps.fullpay_once_config) {
             setFullPayOnceEnabled(true);
@@ -433,6 +438,22 @@ export default function PreShipmentForm() {
     // Get destination country from address
     const destinationCountry = effectiveAddress?.country || "";
     
+    // When joining existing pool, inherit consType from the pool
+    const effectiveConsType = joinExistingPool && selectedExistingPoolId && existingPool
+      ? (existingPool.consolidation_type || "")
+      : consType;
+
+    // Determine transit location and method - inherit from pool if joining existing pool
+    const effectiveTransitLocationId = joinExistingPool && selectedExistingPoolId && existingPool?.consolidation_type === 'transit'
+      ? (existingPool.transit_location_id || transitLocationId)
+      : transitLocationId;
+    
+    const effectiveTransitShippingMethodId = joinExistingPool && selectedExistingPoolId && existingPool?.consolidation_type === 'transit'
+      ? (existingPool.transit_shipping_method_id || transitShippingMethodId)
+      : transitShippingMethodId;
+    
+    const effectiveTransitLoc = transitLocations.find(l => l.id === effectiveTransitLocationId);
+
     // One-time payment config
     // service_fee_amount may be undefined if not yet calculated; use 0 as fallback
     const productFee = order.estimated_jpy || 0;
@@ -451,17 +472,16 @@ export default function PreShipmentForm() {
       scheduled_ship_date: scheduledDate,
       user_note: userNote,
       note_image_urls: noteImages,
-      consType,
-      transit_location_id: consType === "transit" ? transitLocationId : "",
-      transit_location_name: consType === "transit" ? transitLoc?.name || "" : "",
-      transit_location_country: consType === "transit" ? transitLoc?.country || "" : "",
-      transit_shipping_method_id: consType === "transit" ? transitShippingMethodId : "",
-      transit_shipping_method_name: consType === "transit" ? (() => {
+      consType: effectiveConsType,
+      transit_location_id: effectiveConsType === "transit" ? effectiveTransitLocationId : "",
+      transit_location_name: effectiveConsType === "transit" ? effectiveTransitLoc?.name || "" : "",
+      transit_location_country: effectiveConsType === "transit" ? effectiveTransitLoc?.country || "" : "",
+      transit_shipping_method_id: effectiveConsType === "transit" ? effectiveTransitShippingMethodId : "",
+      transit_shipping_method_name: effectiveConsType === "transit" ? (() => {
         // Handle special cases for storage and pickup
-        if (transitShippingMethodId === "__storage__") return "暂存";
-        if (transitShippingMethodId === "__pickup__") return "自取";
-        const selectedLocation = transitLocations.find(l => l.id === transitLocationId);
-        const method = selectedLocation?.transit_shipping_methods?.find(m => m.id === transitShippingMethodId);
+        if (effectiveTransitShippingMethodId === "__storage__") return "暂存";
+        if (effectiveTransitShippingMethodId === "__pickup__") return "自取";
+        const method = effectiveTransitLoc?.transit_shipping_methods?.find(m => m.id === effectiveTransitShippingMethodId);
         return method?.name || "";
       })() : "",
       address: { ...effectiveAddress },
@@ -476,10 +496,10 @@ export default function PreShipmentForm() {
           fee_currency: a.fee_currency
         };
       }),
-      pool_created: consType === "official_pool" || joinExistingPool && !!selectedExistingPoolId,
-      target_pool_id: consType === "official_pool" ? selectedPoolId : joinExistingPool ? selectedExistingPoolId : "",
-      target_pool_code: consType === "official_pool" ? poolCode : joinExistingPool ? existingPoolCode : "",
-      target_pool_title: consType === "official_pool" && selectedPool ? selectedPool.title || selectedPool.pool_code : joinExistingPool && existingPool ? existingPool.title || existingPool.pool_code : "",
+      pool_created: effectiveConsType === "official_pool" || joinExistingPool && !!selectedExistingPoolId,
+      target_pool_id: effectiveConsType === "official_pool" ? selectedPoolId : joinExistingPool ? selectedExistingPoolId : "",
+      target_pool_code: effectiveConsType === "official_pool" ? poolCode : joinExistingPool ? existingPoolCode : "",
+      target_pool_title: effectiveConsType === "official_pool" && selectedPool ? selectedPool.title || selectedPool.pool_code : joinExistingPool && existingPool ? existingPool.title || existingPool.pool_code : "",
       join_existing_pool: joinExistingPool,
       // One-time payment config
       fullpay_once_config: fullPayOnceConfig
