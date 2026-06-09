@@ -91,20 +91,18 @@ export default function TransitPoolWork() {
           setTransitShippingMethod(data.pool.transit_shipping_method_name);
         }
         
-        // Fetch all pools for this transit location for the panel
-        const allPools = await base44.entities.ShippingPool.filter({
-          tenant_id: data.pool.tenant_id,
-          transit_location_id: location.id
-        });
+        // Fetch all pools for this transit location for the panel using backend function
+        const panelData = await base44.functions.invoke('getTransitWorkPanelData', {});
+        const allPools = (panelData.data?.pools || []).filter(p => p.transit_location_id === data.location.id);
         
-        setActiveRequests(allPools.filter(p => 
-          p.transit_arrival_confirmed_at && !p.transit_shipped_date // Arrived
-        ));
-        setInTransitRequests(allPools.filter(p => 
-          p.status === "shipped" && 
-          !p.transit_arrival_confirmed_at && 
-          p.tracking_number // In transit
-        ));
+        console.log('[TransitPoolWork] Fetched', allPools?.length || 0, 'pools for transit location', data.location.name);
+        const arrived = allPools.filter(p => p.transit_arrival_confirmed_at && !p.transit_shipped_date);
+        const inTransit = allPools.filter(p => p.status === "shipped" && !p.transit_arrival_confirmed_at && p.tracking_number);
+        console.log('[TransitPoolWork] Arrived:', arrived?.length || 0);
+        console.log('[TransitPoolWork] In transit:', inTransit?.length || 0);
+        
+        setActiveRequests(arrived);
+        setInTransitRequests(inTransit);
         
         t.done('data ready');
       } catch (error) {
