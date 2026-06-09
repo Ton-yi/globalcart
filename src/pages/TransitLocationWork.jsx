@@ -102,11 +102,22 @@ export default function TransitLocationWork() {
     forwarded: requests.filter(r => r.transit_shipped_date),
   };
 
-  // Update tab counts
+  // Update tab counts - show real-time counts for all status tabs
   const tabsWithCounts = TRANSIT_STATUS_TABS.map(tab => ({
     ...tab,
     count: requestsByStatus[tab.key]?.length || 0,
   }));
+
+  // Debug logging for development (uncomment if needed)
+  // useEffect(() => {
+  //   console.log('[TransitLocationWork] Request distribution:', {
+  //     total: requests.length,
+  //     pending: requestsByStatus.pending.length,
+  //     in_transit: requestsByStatus.in_transit.length,
+  //     arrived: requestsByStatus.arrived.length,
+  //     forwarded: requestsByStatus.forwarded.length,
+  //   });
+  // }, [requests]);
 
   const handleBulkArrivalConfirm = async () => {
     if (selectedRequests.length === 0) return;

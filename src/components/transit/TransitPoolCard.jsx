@@ -22,8 +22,18 @@ export default function TransitPoolCard({ pool, transitStatus, isSelected, onTog
   const statusConfig = TRANSIT_STATUS_CONFIG[transitStatus || "in_transit"];
   const StatusIcon = statusConfig?.icon || Truck;
   
-  // Debug: log pool data for troubleshooting
-  console.log('[TransitPoolCard]', isRequest ? 'Request:' : 'Pool:', isRequest ? pool.title : pool.pool_code, 'Order count:', orderCount);
+  // Debug: log pool data for troubleshooting (check if we're receiving GroupBuyRequest or ShippingPool)
+  if (isRequest) {
+    console.log('[TransitPoolCard] GroupBuyRequest:', {
+      id: pool.id,
+      title: pool.title,
+      status: pool.status,
+      transit_location_id: pool.transit_location_id,
+      transit_arrival_confirmed_at: !!pool.transit_arrival_confirmed_at,
+      transit_shipped_date: !!pool.transit_shipped_date,
+      entry_count: orderCount,
+    });
+  }
 
   return (
     <Card 
@@ -59,6 +69,11 @@ export default function TransitPoolCard({ pool, transitStatus, isSelected, onTog
             <span className="truncate">
               {pool.transit_location_name || "中转地"}
             </span>
+            {isRequest && pool.status && (
+              <span className="text-gray-400 ml-1">
+                ({pool.status === 'open' ? '招募中' : pool.status === 'completed' ? '已完成' : pool.status})
+              </span>
+            )}
           </div>
           </div>
           
@@ -118,13 +133,19 @@ export default function TransitPoolCard({ pool, transitStatus, isSelected, onTog
           </div>
         )}
 
-        {/* Pending status info */}
+        {/* Pending status info - show GroupBuyRequest deadline */}
         {transitStatus === "pending" && (
           <div className="border-t pt-2 space-y-1">
             <div className="flex items-center gap-1.5 text-xs text-orange-600">
               <Clock className="w-3 h-3" />
-              <span>{pool.transit_shipped_date ? "等待中转地收货" : "等待日本发货"}</span>
+              <span>{pool.transit_shipped_date ? "等待中转地收货" : (pool.status === 'open' ? "等待成团发货" : "等待日本发货")}</span>
             </div>
+            {pool.deadline && (
+              <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                <Calendar className="w-3 h-3" />
+                <span>成单截止：{new Date(pool.deadline).toLocaleDateString("zh-CN")}</span>
+              </div>
+            )}
             {pool.consolidation_deadline && (
               <div className="flex items-center gap-1.5 text-xs text-gray-500">
                 <Calendar className="w-3 h-3" />
