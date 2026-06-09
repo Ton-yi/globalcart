@@ -149,7 +149,8 @@ Deno.serve(async (req) => {
     if (action === 'create_request') {
       const { title, template_id, deadline, on_deadline_action, condition_tier_id,
               product_url, product_name, product_description, product_image_url,
-              estimated_jpy, user_note, custom_deadline, transit_location_id } = body;
+              estimated_jpy, user_note, custom_deadline, transit_location_id,
+              storage_request_ids } = body;
       if (!title || !template_id || !deadline) {
         return Response.json({ error: 'title, template_id, deadline are required' }, { status: 400 });
       }
@@ -194,6 +195,19 @@ Deno.serve(async (req) => {
         transit_location_id: transit_location_id || '',
         transit_location_name: transitLocationName,
       });
+
+      // Link selected storage requests to this new request
+      if (storage_request_ids && storage_request_ids.length > 0 && transit_location_id) {
+        for (const storageReqId of storage_request_ids) {
+          try {
+            await base44.asServiceRole.entities.GroupBuyRequest.update(storageReqId, {
+              transit_storage_released_to_request_id: request.id,
+            });
+          } catch (e) {
+            console.error(`Failed to link storage request ${storageReqId}:`, e);
+          }
+        }
+      }
 
       // Auto-join: if creator provides their own product info, add as first entry
       if (product_name && estimated_jpy) {
@@ -478,6 +492,156 @@ Deno.serve(async (req) => {
       });
       
       return Response.json({ success: true, entry: updated });
+    }
+
+    // ── get_storage_requests ─────────────────────────────────────────
+    if (action === 'get_storage_requests') {
+      const { transit_location_id } = body;
+      if (!transit_location_id) {
+        return Response.json({ error: 'transit_location_id is required' }, { status: 400 });
+      }
+      
+      // Find all GroupBuyRequests assigned to this transit location with storage enabled
+      const all = await base44.asServiceRole.entities.GroupBuyRequest.filter({ tenant_id: tenantId });
+      const storageRequests = (all || []).filter(r => 
+        r.transit_location_id === transit_location_id &&
+        r.transit_storage_enabled === true &&
+        r.status === 'completed' &&
+        !r.transit_storage_released_to_request_id
+      );
+      
+      // Get entries for each request
+      const result = [];
+      for (const req of storageRequests) {
+        const entries = await base44.asServiceRole.entities.GroupBuyEntry.filter({ request_id: req.id });
+        const activeEntries = (entries || []).filter(e => e.status === 'active');
+        result.push({
+          request: req,
+          entries: activeEntries,
+          entry_count: activeEntries.length,
+          total_amount_jpy: activeEntries.reduce((sum, e) => sum + (e.estimated_jpy || 0), 0),
+        });
+      }
+      
+      return Response.json({ storage_requests: result });
+    }
+
+    // ── create_request_with_storage ──────────────────────────────────
+    if (action === 'create_request_with_storage') {
+      const { 
+        title, template_id, deadline, on_deadline_action, condition_tier_id,
+        product_url, product_name, product_description, product_image_url,
+        estimated_jpy, user_note, custom_deadline, transit_location_id,
+        storage_request_ids 
+      } = body;
+      
+      if (!title || !template_id || !deadline) {
+        return Response.json({ error: 'title, template_id, deadline are required' }, { status: 400 });
+      }
+      
+      // Validate storage requests if provided
+      let storageRequests = [];
+      if (storage_request_ids && storage_request_ids.length > 0) {
+        for (const storageId of storage_request_ids) {
+          const storageReq = (await base44.asServiceRole.entities.GroupBuyRequest.filter({ id: storageId }))?.[0];
+          if (!storageReq || storageReq.tenant_id !== tenantId) {
+            return Response.json({ error: `Storage request ${storageId} not found` }, { status: 404 });
+          }
+          if (storageReq.transit_location_id !== transit_location_id) {
+            return Response.json({ error: `Storage request ${storageId} is not assigned to this transit location` }, { status: 400 });
+          }
+          if (!storageReq.transit_storage_enabled || storageReq.transit_storage_released_to_request_id) {
+            return Response.json({ error: `Storage request ${storageId} is not available for merging` }, { status: 400 });
+          }
+          storageRequests.push(storageReq);
+        }
+      }
+      
+      // Create the new request (same as create_request)
+      const template = (await base44.asServiceRole.entities.GroupBuyTemplate.filter({ id: template_id }))?.[0];
+      if (!template || template.tenant_id !== tenantId || template.status !== 'approved') {
+        return Response.json({ error: 'Template not available' }, { status: 404 });
+      }
+      
+      const tier = condition_tier_id
+        ? (template.shipping_tiers || []).find(t => t.id === condition_tier_id)
+        : (template.shipping_tiers || []).find(t => t.is_default);
+      
+      let transitLocationName = '';
+      if (transit_location_id) {
+        const location = (await base44.asServiceRole.entities.TransitLocation.filter({ id: transit_location_id }))?.[0];
+        if (!location || location.tenant_id !== tenantId || !location.is_active) {
+          return Response.json({ error: 'Invalid transit location' }, { status: 400 });
+        }
+        transitLocationName = location.name;
+      }
+      
+      const request = await base44.asServiceRole.entities.GroupBuyRequest.create({
+        tenant_id: tenantId,
+        title,
+        template_id,
+        template_name: template.name,
+        template_color: template.color || '#6366f1',
+        deadline,
+        on_deadline_action: on_deadline_action || 'cancel',
+        condition_tier_id: tier?.id || '',
+        condition_tier_name: tier?.name || '',
+        condition_min_amount_jpy: tier?.min_amount_jpy || 0,
+        condition_shipping_fee_jpy: tier?.shipping_fee_jpy || 0,
+        status: 'open',
+        creator_email: user.email,
+        creator_name: user.full_name || user.email,
+        total_amount_jpy: 0,
+        entry_count: 0,
+        transit_location_id: transit_location_id || '',
+        transit_location_name: transitLocationName,
+      });
+      
+      // Mark storage requests as released to this new request
+      if (storageRequests.length > 0) {
+        await Promise.all(storageRequests.map(sr => 
+          base44.asServiceRole.entities.GroupBuyRequest.update(sr.id, {
+            transit_storage_released_to_request_id: request.id,
+            transit_shipped_date: new Date().toISOString().split('T')[0],
+            transit_shipped_by: user.email,
+          })
+        ));
+      }
+      
+      // Auto-join with creator's entry
+      if (product_name && estimated_jpy) {
+        const entry = await base44.asServiceRole.entities.GroupBuyEntry.create({
+          tenant_id: tenantId,
+          request_id: request.id,
+          user_email: user.email,
+          user_name: user.full_name || user.email,
+          product_url: product_url || '',
+          product_name,
+          product_description: product_description || '',
+          product_image_url: product_image_url || '',
+          estimated_jpy: parseFloat(estimated_jpy) || 0,
+          user_note: user_note || '',
+          custom_deadline: custom_deadline || deadline,
+          status: 'active',
+          allocated_shipping_fee_jpy: 0,
+        });
+        
+        // Calculate total including storage requests
+        const storageTotal = storageRequests.reduce((sum, sr) => {
+          const entries = (sr.entries || []);
+          return sum + entries.reduce((s, e) => s + (e.estimated_jpy || 0), 0);
+        }, 0);
+        const storageCount = storageRequests.reduce((sum, sr) => sum + (sr.entry_count || 0), 0);
+        
+        await base44.asServiceRole.entities.GroupBuyRequest.update(request.id, {
+          total_amount_jpy: (parseFloat(estimated_jpy) || 0) + storageTotal,
+          entry_count: 1 + storageCount,
+        });
+        
+        return Response.json({ success: true, request, entry, storage_requests_merged: storageRequests.length });
+      }
+      
+      return Response.json({ success: true, request, storage_requests_merged: storageRequests.length });
     }
 
     // ── add_entry_packing_image ──────────────────────────────────────

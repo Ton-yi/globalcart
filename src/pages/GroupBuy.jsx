@@ -64,6 +64,9 @@ export default function GroupBuy() {
     title: '', template_id: '', deadline: '', on_deadline_action: 'cancel', condition_tier_id: '', transit_location_id: '',
   });
   const [entryForm, setEntryForm] = useState(null); // the join form data
+  const [storageRequests, setStorageRequests] = useState([]); // storage requests at selected transit location
+  const [selectedStorageRequests, setSelectedStorageRequests] = useState([]); // IDs of selected storage requests to merge
+  const [loadingStorage, setLoadingStorage] = useState(false);
 
 
   const loadData = useCallback(async () => {
@@ -147,12 +150,16 @@ export default function GroupBuy() {
         user_note: entryForm.user_note || '',
         custom_deadline: entryForm.custom_deadline || createForm.deadline,
       } : {}),
+      // Include selected storage requests
+      storage_request_ids: selectedStorageRequests,
     });
     setCreating(false);
     if (res.data?.success) {
       setShowCreateForm(false);
       setCreateForm({ title: '', template_id: '', deadline: '', on_deadline_action: 'cancel', condition_tier_id: '', transit_location_id: '' });
       setEntryForm(null);
+      setSelectedStorageRequests([]);
+      setStorageRequests([]);
       loadData();
     }
   };
@@ -230,6 +237,42 @@ export default function GroupBuy() {
                   </div>
                 )}
 
+                {/* Storage Requests Selection */}
+                {storageRequests.length > 0 && (
+                  <div className="bg-white border border-indigo-100 rounded-xl px-3 py-3">
+                    <p className="text-xs text-indigo-700 font-medium mb-2">📦 该中转地有以下暂存订单，可勾选一起发货：</p>
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {storageRequests.map(req => (
+                        <label key={req.id} className="flex items-start gap-2 p-2 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            className="mt-0.5"
+                            checked={selectedStorageRequests.includes(req.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedStorageRequests([...selectedStorageRequests, req.id]);
+                              } else {
+                                setSelectedStorageRequests(selectedStorageRequests.filter(id => id !== req.id));
+                              }
+                            }}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium text-gray-900 truncate">{req.title}</p>
+                            <p className="text-xs text-gray-500">
+                              {req.entry_count || 0} 单 · 暂存至 {req.transit_storage_until}
+                            </p>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                    {selectedStorageRequests.length > 0 && (
+                      <p className="text-xs text-green-600 mt-2 font-medium">
+                        ✓ 已选择 {selectedStorageRequests.length} 个暂存订单
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-3">
                   <div className="col-span-2">
                     <Label className="text-xs text-gray-500">拼单名称 *</Label>
@@ -287,7 +330,32 @@ export default function GroupBuy() {
 
                   <div>
                     <Label className="text-xs text-gray-500">中转地（可选）</Label>
-                    <Select value={createForm.transit_location_id} onValueChange={v => setCreateForm(f => ({ ...f, transit_location_id: v }))}>
+                    <Select 
+                      value={createForm.transit_location_id} 
+                      onValueChange={async (v) => {
+                        setCreateForm(f => ({ ...f, transit_location_id: v }));
+                        // Load storage requests for this transit location
+                        if (v) {
+                          setLoadingStorage(true);
+                          try {
+                            const res = await base44.functions.invoke('manageGroupBuy', {
+                              action: 'get_storage_requests',
+                              transit_location_id: v,
+                            });
+                            setStorageRequests(res.data?.storage_requests || []);
+                            setSelectedStorageRequests([]);
+                          } catch (err) {
+                            console.error('Failed to load storage requests:', err);
+                            setStorageRequests([]);
+                          } finally {
+                            setLoadingStorage(false);
+                          }
+                        } else {
+                          setStorageRequests([]);
+                          setSelectedStorageRequests([]);
+                        }
+                      }}
+                    >
                       <SelectTrigger className="mt-1 h-8 text-xs">
                         <SelectValue placeholder="选择中转地..." />
                       </SelectTrigger>

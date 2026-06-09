@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Package, Clock, Calendar, CheckCircle, ArrowRight } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Package, Clock, Calendar, CheckCircle, ArrowRight, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,9 +10,37 @@ import { base44 } from "@/api/base44Client";
 export default function StorageManagementCard({ pool, onUpdate, isAdmin }) {
   const [storageUntil, setStorageUntil] = useState(pool.transit_storage_until || '');
   const [saving, setSaving] = useState(false);
+  const [loadingNewRequest, setLoadingNewRequest] = useState(false);
+  const [newRequest, setNewRequest] = useState(null); // The new request that this storage was merged into
 
   const isStorageMode = pool.transit_storage_enabled;
-  const isReleased = !!pool.transit_storage_released_to_pool_id;
+  // Support both GroupBuyRequest and ShippingPool fields
+  const isReleased = !!(pool.transit_storage_released_to_request_id || pool.transit_storage_released_to_pool_id);
+  const releasedToId = pool.transit_storage_released_to_request_id || pool.transit_storage_released_to_pool_id;
+
+  // Load the new request details if released
+  useEffect(() => {
+    if (!releasedToId) return;
+    
+    const loadNewRequest = async () => {
+      setLoadingNewRequest(true);
+      try {
+        // Try as GroupBuyRequest first
+        let req = await base44.asServiceRole.entities.GroupBuyRequest.get(releasedToId);
+        if (!req) {
+          // Try as ShippingPool
+          req = await base44.asServiceRole.entities.ShippingPool.get(releasedToId);
+        }
+        setNewRequest(req);
+      } catch (err) {
+        console.error('Failed to load new request:', err);
+      } finally {
+        setLoadingNewRequest(false);
+      }
+    };
+    
+    loadNewRequest();
+  }, [releasedToId]);
 
   const handleEnableStorage = async () => {
     if (!storageUntil) {
@@ -106,9 +134,30 @@ export default function StorageManagementCard({ pool, onUpdate, isAdmin }) {
 
         {/* Released Status */}
         {isReleased && (
-          <div className="flex items-center gap-2 text-sm bg-green-50 p-2 rounded">
-            <CheckCircle className="w-4 h-4 text-green-600" />
-            <span>已合并到新拼邮并发出</span>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-sm bg-green-50 p-2 rounded">
+              <CheckCircle className="w-4 h-4 text-green-600" />
+              <span>已合并到新拼邮并发出</span>
+            </div>
+            
+            {loadingNewRequest ? (
+              <p className="text-xs text-gray-400">加载中...</p>
+            ) : newRequest ? (
+              <div className="bg-white border border-green-200 rounded-lg p-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-gray-700">新拼邮：</p>
+                    <p className="text-sm font-semibold text-gray-900">{newRequest.title}</p>
+                    <p className="text-xs text-gray-500">截止：{newRequest.deadline}</p>
+                  </div>
+                  {newRequest.status === 'open' && (
+                    <Badge className="bg-green-100 text-green-700">招募中</Badge>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-gray-400">新拼邮信息不可用</p>
+            )}
           </div>
         )}
 
