@@ -994,7 +994,6 @@ export default function PreShipmentForm() {
                             const otherPools = officialPools.filter((p) =>
                             p.consolidation_type === 'transit' &&
                             p.creator_email !== user.email &&
-                            !p.is_admin_created &&
                             !p.is_private
                             );
                             return otherPools.map((pool) =>
