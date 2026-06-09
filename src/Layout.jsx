@@ -9,7 +9,7 @@ import { getCurrentSubdomain } from "@/lib/tenantBranding";
 import { 
   ShoppingBag, Package, Truck, User, Settings, 
   Bell, LogOut, Menu, X, Shield,
-  Home, Users, BarChart3, Store, Send, Zap, UserPlus, ChevronDown
+  Home, Users, BarChart3, Store, Send, Zap, UserPlus, ChevronDown, MapPin, Layers
 } from "lucide-react";
 import { MidnightToggle } from "@/components/common/ThemeSelector";
 import { Badge } from "@/components/ui/badge";
@@ -90,7 +90,10 @@ export default function Layout({ children, currentPageName }) {
   const tenantAdminNav = [
     { label: "管理总览", icon: BarChart3, page: "AdminDashboard", canAccess: canAccessAdminDashboard },
     { label: "订单管理", icon: Package, page: "AdminOrders", canAccess: canAccessAdminOrders },
-    { label: "发货池", icon: Send, page: "AdminShippingPool", canAccess: canAccessAdminShippingPool },
+    { label: "发货池", icon: Send, page: "AdminShippingPool", canAccess: canAccessAdminShippingPool, subItems: [
+      { label: "发货池管理", icon: Send, page: "AdminShippingPool" },
+      { label: "中转地工作总览", icon: Layers, page: "AdminTransitWork" },
+    ]},
     { label: "用户管理", icon: Users, page: "AdminUsers", canAccess: canAccessAdminUsers },
     { label: "网站设置", icon: Settings, page: "AdminSettings", canAccess: canAccessAdminSettings, subItems: [
       ...(canAccessAdminAnnouncements ? [{ label: "公告管理", icon: Bell, page: "AdminAnnouncements" }] : []),
