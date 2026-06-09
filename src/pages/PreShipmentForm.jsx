@@ -67,6 +67,7 @@ export default function PreShipmentForm() {
   const [fullPayOnceEnabled, setFullPayOnceEnabled] = useState(false);
   const [userEstimatedWeight, setUserEstimatedWeight] = useState("");
   const [estimatedShippingFee, setEstimatedShippingFee] = useState(0);
+  const [isRestoringData, setIsRestoringData] = useState(true); // true until initial data load completes
 
   // Official pools for selection
   const [officialPools, setOfficialPools] = useState([]);
@@ -108,7 +109,15 @@ export default function PreShipmentForm() {
             setJoinOfficialPool(true);
             setSelectedPoolId(ps.target_pool_id || "");
           }
+          // Restore one-time payment config if previously saved
+          if (ps.fullpay_once_config) {
+            setFullPayOnceEnabled(true);
+            setUserEstimatedWeight(String(ps.fullpay_once_config.user_estimated_weight_g || ""));
+            setEstimatedShippingFee(ps.fullpay_once_config.estimated_shipping_fee_jpy || 0);
+          }
         }
+        // Mark restoring as done after a tick so the reset useEffect in child sees isRestoring=true during the batch
+        setTimeout(() => setIsRestoringData(false), 50);
 
         // Deduplicate shipping methods by id - ensure unique
         // Filter based on shipping mode settings (enabled_for_direct_ship, enabled_for_user_pool, enabled_for_official_pool)
@@ -221,7 +230,10 @@ export default function PreShipmentForm() {
         if (isMounted) setLoading(false);
       } catch (error) {
         console.error('[PreShipmentForm] Load error:', error);
-        if (isMounted) setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+          setIsRestoringData(false);
+        }
       }
     };
 
@@ -1105,6 +1117,7 @@ export default function PreShipmentForm() {
         order={order}
         shippingMethod={shippingMethod}
         destinationCountry={address?.country || ""}
+        isRestoring={isRestoringData}
       />
 
       {/* Note */}

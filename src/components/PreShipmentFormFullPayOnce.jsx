@@ -2,7 +2,7 @@
  * PreShipmentFormFullPayOnce - 一次付款配置组件
  * 在预出货阶段，根据出货方式估算运费并收取预估运费
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,10 +25,15 @@ export default function PreShipmentFormFullPayOnce({
   setFullPayOnceEnabled,
   order,
   shippingMethod,
-  destinationCountry
+  destinationCountry,
+  isRestoring  // true during initial data load — skip the reset effect
 }) {
-  // Reset when consType changes
+  // Reset when consType/pool selection changes, but NOT during initial data restore
+  const isRestoringRef = useRef(isRestoring);
+  useEffect(() => { isRestoringRef.current = isRestoring; }, [isRestoring]);
+
   useEffect(() => {
+    if (isRestoringRef.current) return; // skip reset while parent is restoring saved data
     setUserEstimatedWeight("");
     setEstimatedShippingFee(0);
     setFullPayOnceEnabled(false);
