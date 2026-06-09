@@ -47,6 +47,7 @@ export default function GroupBuy() {
   const [loading, setLoading] = useState(true);
   const [requests, setRequests] = useState([]);
   const [templates, setTemplates] = useState([]);
+  const [transitLocations, setTransitLocations] = useState([]);
   const [myEntries, setMyEntries] = useState([]); // [{request_id, status}]
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('open');
@@ -60,7 +61,7 @@ export default function GroupBuy() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [creating, setCreating] = useState(false);
   const [createForm, setCreateForm] = useState({
-    title: '', template_id: '', deadline: '', on_deadline_action: 'cancel', condition_tier_id: '',
+    title: '', template_id: '', deadline: '', on_deadline_action: 'cancel', condition_tier_id: '', transit_location_id: '',
   });
   const [entryForm, setEntryForm] = useState(null); // the join form data
 
@@ -68,14 +69,16 @@ export default function GroupBuy() {
   const loadData = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    const [reqRes, tplRes] = await Promise.all([
+    const [reqRes, tplRes, transitRes] = await Promise.all([
       base44.functions.invoke('manageGroupBuy', { action: 'list_requests', status_filter: 'all' }),
       base44.functions.invoke('manageGroupBuy', { action: 'list_templates' }),
+      base44.entities.TransitLocation.filter({ is_active: true }),
     ]);
     const allRequests = reqRes.data?.requests || [];
     const allTemplates = tplRes.data?.templates || [];
     setRequests(allRequests);
     setTemplates(allTemplates);
+    setTransitLocations(transitRes || []);
 
     // Find my entries by searching requests where I joined
     // We load entries lazily in detail modal; here just track via completed/active entries
@@ -148,7 +151,7 @@ export default function GroupBuy() {
     setCreating(false);
     if (res.data?.success) {
       setShowCreateForm(false);
-      setCreateForm({ title: '', template_id: '', deadline: '', on_deadline_action: 'cancel', condition_tier_id: '' });
+      setCreateForm({ title: '', template_id: '', deadline: '', on_deadline_action: 'cancel', condition_tier_id: '', transit_location_id: '' });
       setEntryForm(null);
       loadData();
     }
@@ -280,6 +283,23 @@ export default function GroupBuy() {
                         <SelectItem value="proceed">继续单独下单</SelectItem>
                       </SelectContent>
                     </Select>
+                  </div>
+
+                  <div>
+                    <Label className="text-xs text-gray-500">中转地（可选）</Label>
+                    <Select value={createForm.transit_location_id} onValueChange={v => setCreateForm(f => ({ ...f, transit_location_id: v }))}>
+                      <SelectTrigger className="mt-1 h-8 text-xs">
+                        <SelectValue placeholder="选择中转地..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {transitLocations.map(loc => (
+                          <SelectItem key={loc.id} value={loc.id}>
+                            {loc.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-gray-400 mt-1">拼单完成后将发往此中转地</p>
                   </div>
                 </div>
 

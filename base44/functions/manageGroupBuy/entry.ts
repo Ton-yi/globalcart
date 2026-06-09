@@ -149,7 +149,7 @@ Deno.serve(async (req) => {
     if (action === 'create_request') {
       const { title, template_id, deadline, on_deadline_action, condition_tier_id,
               product_url, product_name, product_description, product_image_url,
-              estimated_jpy, user_note, custom_deadline } = body;
+              estimated_jpy, user_note, custom_deadline, transit_location_id } = body;
       if (!title || !template_id || !deadline) {
         return Response.json({ error: 'title, template_id, deadline are required' }, { status: 400 });
       }
@@ -163,6 +163,16 @@ Deno.serve(async (req) => {
       const tier = condition_tier_id
         ? (template.shipping_tiers || []).find(t => t.id === condition_tier_id)
         : (template.shipping_tiers || []).find(t => t.is_default);
+
+      // Validate transit location if provided
+      let transitLocationName = '';
+      if (transit_location_id) {
+        const location = (await base44.asServiceRole.entities.TransitLocation.filter({ id: transit_location_id }))?.[0];
+        if (!location || location.tenant_id !== tenantId || !location.is_active) {
+          return Response.json({ error: 'Invalid transit location' }, { status: 400 });
+        }
+        transitLocationName = location.name;
+      }
 
       const request = await base44.asServiceRole.entities.GroupBuyRequest.create({
         tenant_id: tenantId,
@@ -181,6 +191,8 @@ Deno.serve(async (req) => {
         creator_name: user.full_name || user.email,
         total_amount_jpy: 0,
         entry_count: 0,
+        transit_location_id: transit_location_id || '',
+        transit_location_name: transitLocationName,
       });
 
       // Auto-join: if creator provides their own product info, add as first entry
@@ -400,24 +412,13 @@ Deno.serve(async (req) => {
       }
 
       // Mark request as completed
-      const updateData = {
+      await base44.asServiceRole.entities.GroupBuyRequest.update(request_id, {
         status: 'completed',
         actual_shipping_fee_jpy: totalShipping,
         completed_at: new Date().toISOString(),
         completed_by: user.email,
         admin_note: admin_note || '',
-      };
-      
-      // Set transit location if provided
-      if (transit_location_id) {
-        const location = (await base44.asServiceRole.entities.TransitLocation.filter({ id: transit_location_id }))?.[0];
-        if (location && location.tenant_id === tenantId) {
-          updateData.transit_location_id = transit_location_id;
-          updateData.transit_location_name = location.name;
-        }
-      }
-      
-      await base44.asServiceRole.entities.GroupBuyRequest.update(request_id, updateData);
+      });
 
       return Response.json({ success: true, orders_created: createdOrders.length, orders: createdOrders });
     }

@@ -1,4 +1,4 @@
-import { Calendar, Users, ShoppingBag, ChevronRight, CheckCircle2, XCircle, Clock } from "lucide-react";
+import { Calendar, Users, ShoppingBag, ChevronRight, CheckCircle2, XCircle, Clock, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 const STATUS_CONFIG = {
@@ -91,7 +91,15 @@ export default function GroupBuyRequestCard({ request, onClick, myEntryStatus })
 
         {/* Footer */}
         <div className="flex items-center justify-between pt-1 border-t border-gray-50 text-xs text-gray-400">
-          <span>by {request.creator_name || request.creator_email}</span>
+          <div className="flex items-center gap-1">
+            <span>by {request.creator_name || request.creator_email}</span>
+            {request.transit_location_id && (
+              <span className="flex items-center gap-0.5 text-indigo-500">
+                <MapPin className="w-3 h-3" />
+                {request.transit_location_name}
+              </span>
+            )}
+          </div>
           <span>到期：{ACTION_LABELS[request.on_deadline_action] || request.on_deadline_action}</span>
         </div>
       </div>
