@@ -51,20 +51,30 @@ Deno.serve(async (req) => {
     }
     console.log('[getTransitPoolWorkData] Fetched', orders.length, 'orders for pool', pool.pool_code);
 
-    // Fetch shipping methods
-    const shippingMethods = await base44.entities.ShippingMethod.filter({ 
+    // Fetch transit shipping methods (filter out disabled ones)
+    const allTransitMethods = await base44.entities.TransitShippingMethod.filter({ 
       tenant_id: pool.tenant_id,
       is_active: true 
     });
+    
+    const transitMethods = allTransitMethods.filter(m => 
+      !location.disabled_transit_method_ids?.includes(m.id)
+    );
+
+    // Get user's preferred transit shipping method from orders
+    const preferredTransitMethodId = orders.find(o => o.pre_shipment?.transit_shipping_method_id)?.pre_shipment?.transit_shipping_method_id;
 
     return Response.json({
       pool,
       location,
       orders,
-      shippingMethods,
+      transitMethods,
+      preferredTransitMethodId,
       debug: {
         order_ids_count: pool.order_ids?.length || 0,
-        orders_fetched: orders.length
+        orders_fetched: orders.length,
+        transitMethods_count: transitMethods.length,
+        preferredTransitMethodId
       }
     });
   } catch (error) {

@@ -10,12 +10,13 @@ import { base44 } from "@/api/base44Client";
 
 export default function TransitShippingForm({ 
   pool, 
-  shippingMethods, 
+  transitMethods, 
+  preferredTransitMethodId,
   onSubmit,
   loading 
 }) {
   const isSubmitted = !!pool.transit_shipped_date;
-  const [transitShippingMethod, setTransitShippingMethod] = useState(pool.pre_shipment?.transit_shipping_method || "");
+  const [transitShippingMethodId, setTransitShippingMethodId] = useState(preferredTransitMethodId || "");
   const [transitShippingMethodCustom, setTransitShippingMethodCustom] = useState("");
   const [transitTrackingNumber, setTransitTrackingNumber] = useState("");
   const [transitFeeJpy, setTransitFeeJpy] = useState("");
@@ -50,8 +51,10 @@ export default function TransitShippingForm({
   const handleSubmit = async () => {
     setSaving(true);
     try {
+      const selectedMethod = transitMethods.find(m => m.id === transitShippingMethodId);
       await onSubmit({
-        transit_shipping_method: transitShippingMethod === 'custom' ? transitShippingMethodCustom : transitShippingMethod,
+        transit_shipping_method_id: transitShippingMethodId === 'custom' ? null : transitShippingMethodId,
+        transit_shipping_method: transitShippingMethodId === 'custom' ? transitShippingMethodCustom : selectedMethod?.name,
         transit_tracking_number: transitTrackingNumber,
         transit_fee_jpy: parseFloat(transitFeeJpy) || 0,
         transit_image_urls: transitImages,
@@ -197,19 +200,19 @@ export default function TransitShippingForm({
             <div>
               <Label>中转运输方式</Label>
               <select
-                value={transitShippingMethod}
-                onChange={(e) => setTransitShippingMethod(e.target.value)}
+                value={transitShippingMethodId}
+                onChange={(e) => setTransitShippingMethodId(e.target.value)}
                 className="mt-1 w-full border rounded-lg p-2 text-sm"
               >
                 <option value="">选择运输方式</option>
-                {shippingMethods.map(method => (
-                  <option key={method.id} value={method.name}>
-                    {method.name}
+                {transitMethods.map(method => (
+                  <option key={method.id} value={method.id}>
+                    {method.name} {method.description ? `(${method.description})` : ''}
                   </option>
                 ))}
                 <option value="custom">自定义...</option>
               </select>
-              {transitShippingMethod === 'custom' && (
+              {transitShippingMethodId === 'custom' && (
                 <Input
                   placeholder="输入自定义运输方式"
                   value={transitShippingMethodCustom}

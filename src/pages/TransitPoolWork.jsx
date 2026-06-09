@@ -40,20 +40,14 @@ export default function TransitPoolWork() {
   const [pool, setPool] = useState(null);
   const [orders, setOrders] = useState([]);
   const [location, setLocation] = useState(null);
-  const [shippingMethods, setShippingMethods] = useState([]);
   const [showRequestPanel, setShowRequestPanel] = useState(false);
   const [activeRequests, setActiveRequests] = useState([]);
   const [inTransitRequests, setInTransitRequests] = useState([]);
   const [saving, setSaving] = useState(false);
 
-  // Form state
-  const [transitShippingMethod, setTransitShippingMethod] = useState("");
-  const [transitShippingMethodCustom, setTransitShippingMethodCustom] = useState("");
-  const [transitTrackingNumber, setTransitTrackingNumber] = useState("");
-  const [transitFeeJpy, setTransitFeeJpy] = useState("");
-  const [transitNote, setTransitNote] = useState("");
-  const [transitImages, setTransitImages] = useState([]);
-  const [uploading, setUploading] = useState(false);
+  // Transit methods state
+  const [transitMethods, setTransitMethods] = useState([]);
+  const [preferredTransitMethodId, setPreferredTransitMethodId] = useState(null);
 
   // Expanded user groups
   const [expandedGroups, setExpandedGroups] = useState([]);
@@ -87,12 +81,8 @@ export default function TransitPoolWork() {
         setPool(data.pool);
         setOrders(data.orders || []);
         setLocation(data.location);
-        setShippingMethods(data.shippingMethods || []);
-
-        // Set default shipping method from pool
-        if (data.pool.transit_shipping_method_name) {
-          setTransitShippingMethod(data.pool.transit_shipping_method_name);
-        }
+        setTransitMethods(data.transitMethods || []);
+        setPreferredTransitMethodId(data.preferredTransitMethodId || null);
 
         // Fetch all pools for this transit location for the panel using backend function
         const panelData = await base44.functions.invoke('getTransitWorkPanelData', {});
@@ -132,57 +122,6 @@ export default function TransitPoolWork() {
   const handleOrderSelect = (orderId, orderEntry, address) => {
     // 点击订单时的处理逻辑（目前仅展开/收起）
     console.log('Order selected:', orderId, orderEntry);
-  };
-
-  const handleImageUpload = async (e) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length === 0) return;
-
-    setUploading(true);
-    try {
-      const uploadPromises = files.map((file) =>
-      base44.integrations.Core.UploadFile({ file }).then((r) => r.file_url)
-      );
-      const urls = await Promise.all(uploadPromises);
-      setTransitImages((prev) => [...prev, ...urls]);
-    } catch (error) {
-      console.error('Upload failed:', error);
-      alert('上传失败：' + error.message);
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleRemoveImage = (url) => {
-    setTransitImages((prev) => prev.filter((u) => u !== url));
-  };
-
-  const handleSubmit = async () => {
-    if (!transitShippingMethod && !transitShippingMethodCustom) {
-      alert('请填写中转运输方式');
-      return;
-    }
-
-    setSaving(true);
-    try {
-      await base44.functions.invoke('updateTransitPoolShipment', {
-        pool_id,
-        transit_shipping_method: transitShippingMethod || transitShippingMethodCustom,
-        transit_tracking_number: transitTrackingNumber,
-        transit_fee_jpy: transitFeeJpy ? parseFloat(transitFeeJpy) : 0,
-        transit_note: transitNote,
-        transit_image_urls: transitImages
-      });
-
-      alert('发货信息已保存并提交');
-      // Navigate back with refresh flag
-      navigate(`/TransitLocationWork/${location?.id}`, { state: { refresh: true } });
-    } catch (error) {
-      console.error('Submit failed:', error);
-      alert('提交失败：' + error.message);
-    } finally {
-      setSaving(false);
-    }
   };
 
   if (loading) {
@@ -292,7 +231,8 @@ export default function TransitPoolWork() {
           {/* Transit Shipping Form */}
           <TransitShippingForm
             pool={pool}
-            shippingMethods={shippingMethods}
+            transitMethods={transitMethods}
+            preferredTransitMethodId={preferredTransitMethodId}
             onSubmit={async (data) => {
               await base44.functions.invoke('updateTransitPoolShipment', {
                 pool_id,
