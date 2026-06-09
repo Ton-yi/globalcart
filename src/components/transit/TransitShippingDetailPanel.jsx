@@ -26,34 +26,61 @@ export default function TransitShippingDetailPanel({
   const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Generate a stable key for this address group based on order IDs
+  const getAddressGroupKey = () => {
+    if (!selectedAddressGroup?.orders?.length) return null;
+    const orderIds = selectedAddressGroup.orders.map(o => o.order_id).sort();
+    return orderIds.join('|');
+  };
+
   // Load existing shipping data when selection changes
   useEffect(() => {
     if (selectedUserEntry && selectedAddressGroup) {
+      const groupKey = getAddressGroupKey();
+      if (!groupKey) return;
+
       // Find existing shipping info from pool.transit_shipping_info_per_user
       const userInfo = pool?.transit_shipping_info_per_user?.find(
         info => info.user_email === selectedUserEntry.user_email
       );
-      const addressGroupIdx = selectedUserEntry.order_entries.findIndex(
-        entry => {
-          const addr = entry.override_final_address || selectedUserEntry.group_final_address;
-          return JSON.stringify(addr) === JSON.stringify(selectedAddressGroup.address);
-        }
-      );
       
-      if (userInfo && userInfo.address_groups && addressGroupIdx >= 0) {
-        const existingData = userInfo.address_groups[addressGroupIdx];
-        if (existingData) {
+      if (userInfo && userInfo.address_groups) {
+        // Find the address group by order IDs instead of index
+        const existingGroup = userInfo.address_groups.find(group => {
+          const groupOrderIds = (group.order_ids || []).sort();
+          const currentOrderIds = selectedAddressGroup.orders.map(o => o.order_id || o.id).filter(Boolean).sort();
+          return JSON.stringify(groupOrderIds) === JSON.stringify(currentOrderIds);
+        });
+        
+        if (existingGroup) {
           setFormData({
-            transit_shipping_method: existingData.transit_shipping_method || '',
-            transit_tracking_number: existingData.transit_tracking_number || '',
-            transit_fee_jpy: existingData.transit_fee_jpy || '',
-            transit_note: existingData.transit_note || '',
-            transit_image_urls: existingData.transit_image_urls || []
+            transit_shipping_method: existingGroup.transit_shipping_method || '',
+            transit_tracking_number: existingGroup.transit_tracking_number || '',
+            transit_fee_jpy: existingGroup.transit_fee_jpy || '',
+            transit_note: existingGroup.transit_note || '',
+            transit_image_urls: existingGroup.transit_image_urls || []
+          });
+        } else {
+          // Reset form for new address group
+          setFormData({
+            transit_shipping_method: '',
+            transit_tracking_number: '',
+            transit_fee_jpy: '',
+            transit_note: '',
+            transit_image_urls: []
           });
         }
+      } else {
+        setFormData({
+          transit_shipping_method: '',
+          transit_tracking_number: '',
+          transit_fee_jpy: '',
+          transit_note: '',
+          transit_image_urls: []
+        });
       }
     }
-  }, [selectedUserEntry, selectedAddressGroup, pool]);
+  }, [selectedUserEntry, selectedAddressGroup, pool?.id]);
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -93,18 +120,13 @@ export default function TransitShippingDetailPanel({
     
     setIsSaving(true);
     try {
-      // Find address group index
-      const addressGroupIdx = selectedUserEntry.order_entries.findIndex(
-        entry => {
-          const addr = entry.override_final_address || selectedUserEntry.group_final_address;
-          return JSON.stringify(addr) === JSON.stringify(selectedAddressGroup.address);
-        }
-      );
+      // Get order IDs for this address group - handle both order_id and id fields
+      const orderIds = selectedAddressGroup.orders.map(o => o.order_id || o.id).filter(Boolean);
 
       await base44.functions.invoke('updateUserTransitShipping', {
         pool_id: pool?.id,
         user_email: selectedUserEntry.user_email,
-        address_group_idx: addressGroupIdx,
+        order_ids: orderIds,
         shipping_data: {
           ...formData,
           transit_fee_jpy: formData.transit_fee_jpy ? Number(formData.transit_fee_jpy) : 0
