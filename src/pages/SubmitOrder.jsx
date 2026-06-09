@@ -171,11 +171,19 @@ export default function SubmitOrder() {
 
 
 
-  const handleImageUpload = async (file) => {
+  const handleProductImageUpload = async (file) => {
     if (!file) return;
     setUploading(true);
     const { file_url } = await base44.integrations.Core.UploadFile({ file });
     setForm((f) => ({ ...f, product_image_url: file_url }));
+    setUploading(false);
+  };
+
+  const handleNoteImageUpload = async (file) => {
+    if (!file) return;
+    setUploading(true);
+    const { file_url } = await base44.integrations.Core.UploadFile({ file });
+    setForm((f) => ({ ...f, note_image_url: file_url }));
     setUploading(false);
   };
 
@@ -724,7 +732,7 @@ export default function SubmitOrder() {
                   e.preventDefault();
                   if (form.note_image_url || uploading) return;
                   const file = e.dataTransfer.files[0];
-                  if (file && file.type.startsWith("image/")) handleImageUpload(file);
+                  if (file && file.type.startsWith("image/")) handleNoteImageUpload(file);
                 }}
                 onPaste={(e) => {
                   if (form.note_image_url || uploading) return;
@@ -732,7 +740,7 @@ export default function SubmitOrder() {
                   if (item) {
                     e.preventDefault();
                     const file = item.getAsFile();
-                    if (file) handleImageUpload(file);
+                    if (file) handleNoteImageUpload(file);
                   }
                 }}
               />
@@ -776,7 +784,7 @@ export default function SubmitOrder() {
                 className="hidden"
                 onChange={(e) => {
                   const f = e.target.files[0];
-                  if (f && !form.note_image_url && !uploading) handleImageUpload(f);
+                  if (f && !form.note_image_url && !uploading) handleNoteImageUpload(f);
                 }}
                 disabled={uploading}
               />
