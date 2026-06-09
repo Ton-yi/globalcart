@@ -978,6 +978,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                       null}
                         </div>
                     }
+                    <OrderDetailPanel order={o} pool={pool} />
                     </div>
                     );
               }; // end renderOrder
