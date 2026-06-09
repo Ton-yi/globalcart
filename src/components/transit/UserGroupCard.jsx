@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { getCountry } from "@/lib/countries";
+import { ImageWithViewer } from "@/components/common/ImageViewer";
 
 export default function UserGroupCard({ 
   userEntry, 
@@ -207,24 +208,12 @@ export default function UserGroupCard({
                           {entry.image_urls && entry.image_urls.length > 0 && (
                             <div className="flex items-center gap-2 overflow-x-auto">
                               {entry.image_urls.map((imgUrl, imgIdx) => (
-                                <div 
+                                <ImageWithViewer
                                   key={imgIdx}
-                                  className="w-16 h-16 rounded border border-gray-200 bg-gray-50 flex items-center justify-center flex-shrink-0 cursor-pointer hover:border-blue-300 transition-colors"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    window.open(imgUrl, '_blank');
-                                  }}
-                                >
-                                  <img 
-                                    src={imgUrl} 
-                                    alt={`包裹图片 ${imgIdx + 1}`}
-                                    className="w-full h-full object-cover rounded"
-                                    onError={(e) => {
-                                      e.target.style.display = 'none';
-                                      e.target.parentElement.innerHTML = '<ImageIcon class="w-6 h-6 text-gray-300" />';
-                                    }}
-                                  />
-                                </div>
+                                  src={imgUrl}
+                                  alt={`包裹图片 ${imgIdx + 1}`}
+                                  thumbClassName="w-16 h-16 rounded border border-gray-200 bg-gray-50 object-cover cursor-pointer hover:border-blue-300 transition-colors"
+                                />
                               ))}
                               <div className="flex items-center gap-1 text-gray-500">
                                 <ImageIcon className="w-3 h-3" />
