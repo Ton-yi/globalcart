@@ -121,7 +121,11 @@ export default function SubmitOrder() {
   const calculate = async () => {
     const jpy = parseFloat(form.estimated_jpy);
     if (!jpy || jpy <= 0) {setCalculated(null);return;}
-    const prepayRate = (parseFloat(settings.prepay_rate) || DEFAULT_PREPAY_RATE) / 100;
+    // When prepay is disabled (fullpay mode), prepay rate is 100% (full amount)
+    const prepayEnabled = settings.prepay_enabled !== 'false';
+    const prepayRate = prepayEnabled
+      ? (parseFloat(settings.prepay_rate) || (DEFAULT_PREPAY_RATE * 100)) / 100
+      : 1.0;
     const addonTotalJpy = getAddonTotal();
 
     let serviceFeeJpy = 0;
@@ -664,9 +668,22 @@ export default function SubmitOrder() {
               </div>
               {/* Prepay highlight — only when prepay is enabled */}
               {settings.prepay_enabled !== 'false' &&
-            <div className="flex items-center justify-between bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3">
-                  <span className="text-sm text-gray-700 font-medium">预付款 ({calculated.prepayRate}%)</span>
-                  <span className="text-lg font-bold text-red-600">¥{calculated.prepayJpy.toLocaleString()}</span>
+            <div className="flex items-center justify-between bg-red-50 border border-red-300 rounded-lg px-4 py-3">
+                  <div>
+                    <span className="text-sm text-gray-700 font-medium">本次应付预付款 ({calculated.prepayRate}%)</span>
+                    <p className="text-xs text-gray-400 mt-0.5">提交后跳转到付款页，请按此金额支付</p>
+                  </div>
+                  <span className="text-xl font-bold text-red-600">¥{calculated.prepayJpy.toLocaleString()}</span>
+                </div>
+            }
+              {/* Full payment mode - show total clearly as the amount to pay */}
+              {settings.prepay_enabled === 'false' &&
+            <div className="flex items-center justify-between bg-red-50 border border-red-300 rounded-lg px-4 py-3">
+                  <div>
+                    <span className="text-sm text-gray-700 font-medium">本次应付金额</span>
+                    <p className="text-xs text-gray-400 mt-0.5">提交后跳转到付款页，请按此金额支付</p>
+                  </div>
+                  <span className="text-xl font-bold text-red-600">¥{calculated.totalJpy.toLocaleString()}</span>
                 </div>
             }
             </CardContent>
