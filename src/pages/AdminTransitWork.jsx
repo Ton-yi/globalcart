@@ -46,6 +46,9 @@ export default function AdminTransitWork() {
   const [editingLoc, setEditingLoc] = useState(null);
   const [locForm, setLocForm] = useState({ name: "", code_prefix: "", country: "", province: "", address: "", handling_fee: 0, handling_fee_currency: "JPY", manager_email: "", manager_contact: "", allow_storage: false, allow_pickup: false, description: "", is_active: true, is_default_official_pool: false, disabled_transit_method_ids: [], disabled_addon_ids: [] });
   const [savingLoc, setSavingLoc] = useState(false);
+  
+  // Collapsed state for each location (default: all collapsed)
+  const [collapsedLocations, setCollapsedLocations] = useState({});
 
   useEffect(() => {
     if (!user) return;
@@ -149,6 +152,13 @@ export default function AdminTransitWork() {
     await fetchLocations();
   };
 
+  const toggleLocationCollapse = (locId) => {
+    setCollapsedLocations(prev => ({
+      ...prev,
+      [locId]: !prev[locId]
+    }));
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -201,10 +211,14 @@ export default function AdminTransitWork() {
                 const pools = poolsByLocation[loc.id] || [];
                 const byStatus = getPoolsByStatus(pools);
                 const pendingCount = byStatus.pending.length + byStatus.arrived.length + byStatus.in_transit.length;
+                const isCollapsed = collapsedLocations[loc.id] !== false; // default collapsed
 
                 return (
                   <div key={loc.id} className="border border-gray-200 rounded-xl overflow-hidden">
-                    <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
+                    <div 
+                      className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200 cursor-pointer hover:bg-gray-100 transition-colors"
+                      onClick={() => toggleLocationCollapse(loc.id)}
+                    >
                       <div className="flex items-center gap-2 flex-wrap flex-1">
                         <MapPin className="w-4 h-4 text-red-500 flex-shrink-0" />
                         <span className="font-semibold text-gray-800 text-sm">{loc.name}</span>
@@ -219,19 +233,47 @@ export default function AdminTransitWork() {
                             <AlertCircle className="w-2.5 h-2.5 mr-1 inline" />未分配负责人
                           </Badge>
                         )}
+                        {isCollapsed && (
+                          <Badge className="text-xs bg-gray-100 text-gray-600 ml-2">
+                            {pendingCount} 个包裹
+                          </Badge>
+                        )}
                       </div>
                       <div className="flex items-center gap-1 flex-shrink-0">
-                        {pendingCount > 0 && (
+                        <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform mr-2 ${!isCollapsed ? 'rotate-90' : ''}`} />
+                        {pendingCount > 0 && !isCollapsed && (
                           <Badge className="bg-red-100 text-red-700 text-xs mr-2">{pendingCount} 待处理</Badge>
                         )}
-                        <button onClick={() => window.open(`${window.location.origin}/TransitLocationWork/${loc.id}`, '_blank')} title="工作面板" className="p-1.5 rounded hover:bg-red-50 text-red-600"><MapPin className="w-3.5 h-3.5" /></button>
-                        <button onClick={() => handleLocEdit(loc)} className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-700"><Edit2 className="w-3.5 h-3.5" /></button>
-                        <button onClick={() => handleLocToggle(loc)} className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-700">{loc.is_active ? <X className="w-3.5 h-3.5" /> : <CheckCircle className="w-3.5 h-3.5" />}</button>
-                        <button onClick={() => handleLocDelete(loc.id)} className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); window.open(`${window.location.origin}/TransitLocationWork/${loc.id}`, '_blank'); }} 
+                          title="工作面板" 
+                          className="p-1.5 rounded hover:bg-red-50 text-red-600"
+                        >
+                          <MapPin className="w-3.5 h-3.5" />
+                        </button>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); handleLocEdit(loc); }} 
+                          className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-700"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); handleLocToggle(loc); }} 
+                          className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-700"
+                        >
+                          {loc.is_active ? <X className="w-3.5 h-3.5" /> : <CheckCircle className="w-3.5 h-3.5" />}
+                        </button>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); handleLocDelete(loc.id); }} 
+                          className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-500"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     </div>
 
-                    <div className="p-4 space-y-4">
+                    {!isCollapsed && (
+                      <div className="p-4 space-y-4">
                       {/* Pending Tab */}
                       {byStatus.pending.length > 0 && (
                         <div>
@@ -289,6 +331,7 @@ export default function AdminTransitWork() {
                         <p className="text-sm text-gray-400 text-center py-4">暂无包裹</p>
                       )}
                     </div>
+                    )}
                   </div>
                 );
               })}
