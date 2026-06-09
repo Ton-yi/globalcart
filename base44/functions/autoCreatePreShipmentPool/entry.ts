@@ -73,34 +73,52 @@ Deno.serve(async (req) => {
       }
       
       // Join pool - also add to per_user_groups
+      // Check if user already has a group in this pool
+      const existingGroupIndex = (pool.per_user_groups || []).findIndex(g => g.user_email === order.user_email);
       const addr = pre.address || {};
-      const newUserGroup = {
-        user_email: order.user_email,
-        user_name: order.user_name || order.user_email,
-        group_label: order.user_name || order.user_email,
-        note: pre.user_note || '',
-        image_urls: [],
-        selected_addon_ids: pre.selected_addon_ids || [],
-        selected_addons: pre.selected_addons || [],
-        group_final_address: {
-          recipient_name: addr.recipient_name || '',
-          country: addr.country || '',
-          addr1: addr.addr1 || '',
-          addr2: addr.addr2 || '',
-          addr3: addr.addr3 || '',
-          state: addr.state || '',
-          phone: addr.phone || '',
-        },
-        order_entries: [{
-          order_id: order.id,
-          note: order.product_name || '',
-          image_urls: order.product_image_url ? [order.product_image_url] : [],
-          selected_addon_ids: order.selected_addon_ids || [],
-          selected_addons: order.selected_addons || [],
-          override_final_address: null,
-          use_group_address: true,
-        }],
+      const newOrderEntry = {
+        order_id: order.id,
+        note: order.product_name || '',
+        image_urls: order.product_image_url ? [order.product_image_url] : [],
+        selected_addon_ids: order.selected_addon_ids || [],
+        selected_addons: order.selected_addons || [],
+        override_final_address: null,
+        use_group_address: true,
+        // Per-order transit shipping settings
+        transit_shipping_method_id: pre.transit_shipping_method_id || '',
+        transit_shipping_method_name: pre.transit_shipping_method_name || '',
+        transit_note: pre.user_note || '',
       };
+      
+      let updatedPerUserGroups = [...(pool.per_user_groups || [])];
+      if (existingGroupIndex >= 0) {
+        // User already has a group - add order entry to existing group
+        updatedPerUserGroups[existingGroupIndex] = {
+          ...updatedPerUserGroups[existingGroupIndex],
+          order_entries: [...(updatedPerUserGroups[existingGroupIndex].order_entries || []), newOrderEntry],
+        };
+      } else {
+        // Create new group for this user
+        updatedPerUserGroups.push({
+          user_email: order.user_email,
+          user_name: order.user_name || order.user_email,
+          group_label: order.user_name || order.user_email,
+          note: pre.user_note || '',
+          image_urls: [],
+          selected_addon_ids: pre.selected_addon_ids || [],
+          selected_addons: pre.selected_addons || [],
+          group_final_address: {
+            recipient_name: addr.recipient_name || '',
+            country: addr.country || '',
+            addr1: addr.addr1 || '',
+            addr2: addr.addr2 || '',
+            addr3: addr.addr3 || '',
+            state: addr.state || '',
+            phone: addr.phone || '',
+          },
+          order_entries: [newOrderEntry],
+        });
+      }
       
       await base44.asServiceRole.entities.ShippingPool.update(pool.id, {
         order_ids: [...(pool.order_ids || []), order.id],
@@ -135,40 +153,51 @@ Deno.serve(async (req) => {
       }
       
       // Join official pool - also add to per_user_groups
+      const existingGroupIndex = (pool.per_user_groups || []).findIndex(g => g.user_email === order.user_email);
       const addr = pre.address || {};
-      const newUserGroup = {
-        user_email: order.user_email,
-        user_name: order.user_name || order.user_email,
-        group_label: order.user_name || order.user_email,
-        note: pre.user_note || '',
-        image_urls: [],
-        selected_addon_ids: pre.selected_addon_ids || [],
-        selected_addons: pre.selected_addons || [],
-        group_final_address: {
-          recipient_name: addr.recipient_name || '',
-          country: addr.country || '',
-          addr1: addr.addr1 || '',
-          addr2: addr.addr2 || '',
-          addr3: addr.addr3 || '',
-          state: addr.state || '',
-          phone: addr.phone || '',
-        },
-        order_entries: [{
-          order_id: order.id,
-          note: order.product_name || '',
-          image_urls: order.product_image_url ? [order.product_image_url] : [],
-          selected_addon_ids: order.selected_addon_ids || [],
-          selected_addons: order.selected_addons || [],
-          override_final_address: null,
-          use_group_address: true,
-        }],
+      const newOrderEntry = {
+        order_id: order.id,
+        note: order.product_name || '',
+        image_urls: order.product_image_url ? [order.product_image_url] : [],
+        selected_addon_ids: order.selected_addon_ids || [],
+        selected_addons: order.selected_addons || [],
+        override_final_address: null,
+        use_group_address: true,
       };
+      
+      let updatedPerUserGroups = [...(pool.per_user_groups || [])];
+      if (existingGroupIndex >= 0) {
+        updatedPerUserGroups[existingGroupIndex] = {
+          ...updatedPerUserGroups[existingGroupIndex],
+          order_entries: [...(updatedPerUserGroups[existingGroupIndex].order_entries || []), newOrderEntry],
+        };
+      } else {
+        updatedPerUserGroups.push({
+          user_email: order.user_email,
+          user_name: order.user_name || order.user_email,
+          group_label: order.user_name || order.user_email,
+          note: pre.user_note || '',
+          image_urls: [],
+          selected_addon_ids: pre.selected_addon_ids || [],
+          selected_addons: pre.selected_addons || [],
+          group_final_address: {
+            recipient_name: addr.recipient_name || '',
+            country: addr.country || '',
+            addr1: addr.addr1 || '',
+            addr2: addr.addr2 || '',
+            addr3: addr.addr3 || '',
+            state: addr.state || '',
+            phone: addr.phone || '',
+          },
+          order_entries: [newOrderEntry],
+        });
+      }
       
       await base44.asServiceRole.entities.ShippingPool.update(pool.id, {
         order_ids: [...(pool.order_ids || []), order.id],
         order_names: [...(pool.order_names || []), order.product_name].filter(Boolean),
         total_weight_g: (pool.total_weight_g || 0) + (order.weight_g || 0),
-        per_user_groups: [...(pool.per_user_groups || []), newUserGroup],
+        per_user_groups: updatedPerUserGroups,
       });
       await base44.asServiceRole.entities.Order.update(order.id, {
         order_status: 'notified_shipment',
@@ -274,6 +303,10 @@ Deno.serve(async (req) => {
         selected_addons: order.selected_addons || [],
         override_final_address: null,
         use_group_address: true,
+        // Per-order transit shipping settings
+        transit_shipping_method_id: pre.transit_shipping_method_id || '',
+        transit_shipping_method_name: pre.transit_shipping_method_name || '',
+        transit_note: pre.user_note || '',
       }],
     }];
 
