@@ -120,17 +120,13 @@ export default function TransitLocationWork() {
         setUploading(false);
       }
 
-      // Update all selected requests
-      const updatePromises = selectedRequests.map(requestId => 
-        base44.functions.invoke('updateTransitLocationPool', {
-          request_id: requestId,
-          transit_arrival_image_urls: imageUrls,
-          transit_arrival_note: arrivalNote,
-          action: "confirm_arrival"
-        })
-      );
-      
-      await Promise.all(updatePromises);
+      // Update all selected requests using request_ids parameter
+      await base44.functions.invoke('updateTransitLocationPool', {
+        request_ids: selectedRequests,
+        transit_arrival_image_urls: imageUrls,
+        transit_arrival_note: arrivalNote,
+        action: "confirm_arrival"
+      });
       
       // Refresh data
       fetchData();

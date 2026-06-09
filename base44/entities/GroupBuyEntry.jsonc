@@ -4,11 +4,11 @@
   "properties": {
     "tenant_id": {
       "type": "string",
-      "description": "\u6240\u5c5e\u79df\u6237ID"
+      "description": "\u6240\u5c5e\u79df\u6237 ID"
     },
     "request_id": {
       "type": "string",
-      "description": "\u5173\u8054\u7684\u62fc\u4e0b\u5355\u7533\u8bf7ID"
+      "description": "\u5173\u8054\u7684\u62fc\u4e0b\u5355\u7533\u8bf7 ID"
     },
     "user_email": {
       "type": "string",
@@ -32,7 +32,7 @@
     },
     "product_image_url": {
       "type": "string",
-      "description": "\u5546\u54c1\u56fe\u7247URL"
+      "description": "\u5546\u54c1\u56fe\u7247 URL"
     },
     "estimated_jpy": {
       "type": "number",
@@ -64,7 +64,7 @@
         "completed"
       ],
       "default": "active",
-      "description": "active=\u53c2\u56e2\u4e2d, cancelled=\u5df2\u9000\u51fa, completed=\u5df2\u4e0b\u5355"
+      "description": "active=\u53c2\u56e2\u4e2d\uff0ccancelled=\u5df2\u9000\u51fa\uff0ccompleted=\u5df2\u4e0b\u5355"
     },
     "allocated_shipping_fee_jpy": {
       "type": "number",
@@ -73,11 +73,63 @@
     },
     "order_id": {
       "type": "string",
-      "description": "\u8f6c\u5316\u540e\u7684\u8ba2\u5355ID"
+      "description": "\u8f6c\u5316\u540e\u7684\u8ba2\u5355 ID"
     },
     "order_number": {
       "type": "string",
       "description": "\u8f6c\u5316\u540e\u7684\u8ba2\u5355\u7f16\u53f7\uff08\u5197\u4f59\uff09"
+    },
+    "final_address": {
+      "type": "object",
+      "description": "\u6700\u7ec8\u6536\u8d27\u5730\u5740",
+      "properties": {
+        "recipient_name": {
+          "type": "string"
+        },
+        "country": {
+          "type": "string"
+        },
+        "addr1": {
+          "type": "string"
+        },
+        "addr2": {
+          "type": "string"
+        },
+        "addr3": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        },
+        "phone": {
+          "type": "string"
+        }
+      }
+    },
+    "expected_transit_shipping_method": {
+      "type": "string",
+      "description": "\u671f\u671b\u7684\u4e2d\u8f6c\u8fd0\u8f93\u65b9\u5f0f"
+    },
+    "expected_transit_shipping_method_id": {
+      "type": "string",
+      "description": "\u671f\u671b\u7684\u4e2d\u8f6c\u8fd0\u8f93\u65b9\u5f0f ID"
+    },
+    "packing_image_urls": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "\u6700\u7ec8\u6253\u5305\u56fe\u7247 URL \u5217\u8868"
+    },
+    "address_change_count": {
+      "type": "number",
+      "default": 0,
+      "description": "\u5730\u5740\u5df2\u66f4\u6539\u6b21\u6570"
+    },
+    "max_address_changes": {
+      "type": "number",
+      "default": 1,
+      "description": "\u5141\u8bb8\u7684\u6700\u5927\u5730\u5740\u66f4\u6539\u6b21\u6570\uff08\u9ed8\u8ba4 1 \u6b21\uff09"
     }
   },
   "required": [
