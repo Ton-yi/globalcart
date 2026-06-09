@@ -56,8 +56,10 @@ Deno.serve(async (req) => {
     const isAdmin = user.role === 'admin' || user.role === 'platform_admin' || user.role === 'staff';
     const newStatus = updateData.order_status;
     if (isAdmin && newStatus && newStatus !== order.order_status) {
-      // Case 1: order was in notified_shipment and is being moved to another status → remove from pool
-      if (order.order_status === 'notified_shipment' && newStatus !== 'notified_shipment') {
+      // Case 1: order was in notified_shipment and is being moved to a status that means leaving the pool
+      // Only remove from pool if the new status is NOT a shipment-related status (e.g., notified_shipment_fee_pending is still in the pool)
+      const shipmentRelatedStatuses = ['notified_shipment_fee_pending', 'notified_shipment_fee_paid', 'ready_to_ship'];
+      if (order.order_status === 'notified_shipment' && newStatus !== 'notified_shipment' && !shipmentRelatedStatuses.includes(newStatus)) {
         const poolId = order.consolidation_pool_id;
         if (poolId) {
           const poolResults = await base44.asServiceRole.entities.ShippingPool.filter({ id: poolId });
@@ -65,9 +67,14 @@ Deno.serve(async (req) => {
           if (pool) {
             const updatedIds = (pool.order_ids || []).filter(id => id !== order_id);
             const updatedWeight = Math.max(0, (pool.total_weight_g || 0) - (order.weight_g || 0));
+            // Also remove from per_user_groups
+            const updatedPerUserGroups = (pool.per_user_groups || []).filter(
+              group => !group.order_entries?.some(entry => entry.order_id === order_id)
+            );
             await base44.asServiceRole.entities.ShippingPool.update(poolId, {
               order_ids: updatedIds,
               total_weight_g: updatedWeight,
+              per_user_groups: updatedPerUserGroups,
             });
           }
           // Clear pool reference from order
