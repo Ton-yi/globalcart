@@ -820,24 +820,25 @@ export default function PreShipmentForm() {
                     let hasStorage = false;
                     let hasPickup = false;
                     
+                    // Get transit location from either direct selection or from selected pool
+                    let selectedLocation = null;
+                    
                     if (transitLocationId) {
-                      const selectedLocation = transitLocations.find(l => l.id === transitLocationId);
-                      const disabledIds = selectedLocation?.disabled_transit_method_ids || [];
-                      availableMethods = (selectedLocation?.transit_shipping_methods || []).filter(
-                        m => !disabledIds.includes(m.id)
-                      );
-                      hasStorage = selectedLocation?.allow_storage === true;
-                      hasPickup = selectedLocation?.allow_pickup === true;
+                      selectedLocation = transitLocations.find(l => l.id === transitLocationId);
                     } else if (joinExistingPool && selectedExistingPoolId) {
                       const selectedPool = officialPools.find(p => p.id === selectedExistingPoolId);
-                      if (selectedPool?.transit_shipping_method_id) {
-                        // Check if the pool's transit method is disabled by its location
-                        const poolLocation = transitLocations.find(l => l.id === selectedPool.transit_location_id);
-                        const disabledIds = poolLocation?.disabled_transit_method_ids || [];
-                        if (!disabledIds.includes(selectedPool.transit_shipping_method_id)) {
-                          availableMethods = [{ id: selectedPool.transit_shipping_method_id, name: selectedPool.transit_shipping_method_name || '中转运输方式' }];
-                        }
+                      if (selectedPool?.transit_location_id) {
+                        selectedLocation = transitLocations.find(l => l.id === selectedPool.transit_location_id);
                       }
+                    }
+                    
+                    if (selectedLocation) {
+                      const disabledIds = selectedLocation.disabled_transit_method_ids || [];
+                      availableMethods = (selectedLocation.transit_shipping_methods || []).filter(
+                        m => !disabledIds.includes(m.id)
+                      );
+                      hasStorage = selectedLocation.allow_storage === true;
+                      hasPickup = selectedLocation.allow_pickup === true;
                     }
                     
                     if (availableMethods.length === 0 && !hasStorage && !hasPickup) {
@@ -848,9 +849,14 @@ export default function PreShipmentForm() {
                       );
                     }
                     
+                    // Determine the default value when a pool is selected
+                    const poolDefaultMethodId = joinExistingPool && selectedExistingPoolId 
+                      ? officialPools.find(p => p.id === selectedExistingPoolId)?.transit_shipping_method_id 
+                      : "";
+                    
                     return (
                       <Select 
-                        value={transitShippingMethodId || (joinExistingPool && selectedExistingPoolId ? officialPools.find(p => p.id === selectedExistingPoolId)?.transit_shipping_method_id : "")} 
+                        value={transitShippingMethodId || poolDefaultMethodId || ""} 
                         onValueChange={setTransitShippingMethodId}
                       >
                         <SelectTrigger className="mt-1 h-9 text-sm">
