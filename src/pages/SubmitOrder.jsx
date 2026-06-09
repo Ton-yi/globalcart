@@ -573,13 +573,13 @@ export default function SubmitOrder() {
                   onDrop={(e) => {
                     e.preventDefault();
                     const file = e.dataTransfer.files[0];
-                    if (file && file.type.startsWith("image/")) handleImageUpload(file);
+                    if (file && file.type.startsWith("image/")) handleProductImageUpload(file);
                   }}
                   onPaste={(e) => {
                     const item = Array.from(e.clipboardData.items).find((i) => i.type.startsWith("image/"));
                     if (item) {
                       const file = item.getAsFile();
-                      if (file) handleImageUpload(file);
+                      if (file) handleProductImageUpload(file);
                     }
                   }}
                   onClick={() => document.getElementById("product-image-input")?.click()}
@@ -606,7 +606,7 @@ export default function SubmitOrder() {
                       if (item) {
                         e.preventDefault();
                         const file = item.getAsFile();
-                        if (file) handleImageUpload(file);
+                        if (file) handleProductImageUpload(file);
                       }
                     }}
                     className="text-sm border-0 shadow-none bg-transparent px-0 h-7 focus-visible:ring-0" />
@@ -618,7 +618,7 @@ export default function SubmitOrder() {
                 type="file"
                 accept="image/*"
                 className="hidden"
-                onChange={(e) => {const f = e.target.files[0];if (f) handleImageUpload(f);}}
+                onChange={(e) => {const f = e.target.files[0];if (f) handleProductImageUpload(f);}}
                 disabled={uploading} />
               
             </div>
