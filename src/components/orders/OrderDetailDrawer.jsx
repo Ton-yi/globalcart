@@ -239,6 +239,12 @@ export default function OrderDetailDrawer({ order, currentUser, initialUserPrefe
               <p className="text-sm text-yellow-800 whitespace-pre-wrap">{order.admin_note}</p>
             </div>
           )}
+          {order.user_note && (
+            <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5">
+              <div className="text-xs text-gray-500 font-medium mb-0.5">我的备注</div>
+              <p className="text-sm text-gray-700 whitespace-pre-wrap">{order.user_note}</p>
+            </div>
+          )}
 
           {/* Cancel info */}
           {status === "cancelled" && order.cancel_reason && (
