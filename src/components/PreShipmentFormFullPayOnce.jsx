@@ -118,13 +118,18 @@ export default function PreShipmentFormFullPayOnce({
     
     if (consType === "official_pool") {
       // Priority: method-level config > global setting > defaults (150 JPY / 100g)
-      const useMethodRate = method.official_pool_estimate_rate_per_unit != null && method.official_pool_estimate_rate_per_unit > 0;
-      const ratePerUnit = useMethodRate
+      // Support both new field name (official_pool_estimate_rate_per_unit) and legacy (official_pool_estimate_rate_per_100g)
+      const methodRate = method.official_pool_estimate_rate_per_unit > 0
         ? method.official_pool_estimate_rate_per_unit
-        : (globalEstimateRatePer100g && globalEstimateRatePer100g > 0 ? globalEstimateRatePer100g : 150);
-      const unitG = useMethodRate
-        ? (method.official_pool_estimate_unit_g > 0 ? method.official_pool_estimate_unit_g : 100)
-        : (globalEstimateUnitG && globalEstimateUnitG > 0 ? globalEstimateUnitG : 100);
+        : method.official_pool_estimate_rate_per_100g > 0
+          ? method.official_pool_estimate_rate_per_100g
+          : null;
+      const methodUnitG = method.official_pool_estimate_unit_g > 0
+        ? method.official_pool_estimate_unit_g
+        : (method.official_pool_estimate_rate_per_100g > 0 ? 100 : null); // legacy field always used 100g unit
+      const useMethodRate = methodRate != null;
+      const ratePerUnit = useMethodRate ? methodRate : (globalEstimateRatePer100g > 0 ? globalEstimateRatePer100g : 150);
+      const unitG = useMethodRate ? methodUnitG : (globalEstimateUnitG > 0 ? globalEstimateUnitG : 100);
       fee = Math.ceil(weight / unitG) * ratePerUnit;
       console.log('[FullPay] Official pool fee:', fee, { ratePerUnit, unitG });
     } else if (consType === "") {
@@ -241,9 +246,11 @@ export default function PreShipmentFormFullPayOnce({
                   <Calculator className="w-3 h-3 inline mr-1" />
                   简易估算：{(() => {
                     const m = shippingMethods.find(sm => sm.code === shippingMethod);
-                    const useMethod = m?.official_pool_estimate_rate_per_unit > 0;
-                    const rate = useMethod ? m.official_pool_estimate_rate_per_unit : (globalEstimateRatePer100g > 0 ? globalEstimateRatePer100g : 150);
-                    const unit = useMethod ? (m.official_pool_estimate_unit_g > 0 ? m.official_pool_estimate_unit_g : 100) : (globalEstimateUnitG > 0 ? globalEstimateUnitG : 100);
+                    const mRate = m?.official_pool_estimate_rate_per_unit > 0 ? m.official_pool_estimate_rate_per_unit
+                      : m?.official_pool_estimate_rate_per_100g > 0 ? m.official_pool_estimate_rate_per_100g : null;
+                    const mUnit = mRate != null ? (m?.official_pool_estimate_unit_g > 0 ? m.official_pool_estimate_unit_g : 100) : null;
+                    const rate = mRate ?? (globalEstimateRatePer100g > 0 ? globalEstimateRatePer100g : 150);
+                    const unit = mUnit ?? (globalEstimateUnitG > 0 ? globalEstimateUnitG : 100);
                     return `每 ${unit}g 按 ${rate} JPY`;
                   })()} 计算
                 </p>
