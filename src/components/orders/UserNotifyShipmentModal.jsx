@@ -1215,6 +1215,7 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
                (!method && !joinDirectPool && !isJoiningPool) || submitting ||
                (method && !isJoiningPool && getMethodError()) ||
                (!isJoiningPool && consType === "transit" && !selectedTransitId) ||
+               (!isJoiningPool && consType === "transit" && !selectedTransitMethodId) ||
                (!isJoiningPool && consType === "transit" && !isAddressSlotOk("final")) ||
                (isJoiningPool && !isAddressSlotOk("final")) ||
                (isJoiningPool && selectedPool?.consolidation_type === "transit" && !selectedTransitMethodId) ||
