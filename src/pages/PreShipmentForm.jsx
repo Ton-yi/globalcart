@@ -21,7 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Switch } from "@/components/ui/switch";
-import { Truck, Package, MapPin, Check, ChevronLeft, PlusCircle, Zap, Search, Calculator, AlertTriangle } from "lucide-react";
+import { Truck, Package, MapPin, Check, ChevronLeft, PlusCircle, Zap, Search, Calculator, AlertTriangle, Image, X } from "lucide-react";
 import PaymentMethodSelector from "@/components/common/PaymentMethodSelector";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -54,6 +54,8 @@ export default function PreShipmentForm() {
   const [shippingMethod, setShippingMethod] = useState("");
   const [scheduledDate, setScheduledDate] = useState("");
   const [userNote, setUserNote] = useState("");
+  const [noteImages, setNoteImages] = useState([]); // Images for note section
+  const [uploadingImages, setUploadingImages] = useState(false);
   const [transitLocationId, setTransitLocationId] = useState("");
   const [selectedAddonIds, setSelectedAddonIds] = useState([]);
   const [addonCustomFees, setAddonCustomFees] = useState({});
@@ -121,6 +123,7 @@ export default function PreShipmentForm() {
           if (ps.shipping_method) setShippingMethod(ps.shipping_method);
           if (ps.scheduled_ship_date) setScheduledDate(ps.scheduled_ship_date);
           if (ps.user_note) setUserNote(ps.user_note);
+          if (ps.note_image_urls) setNoteImages(ps.note_image_urls);
           const savedConsType = ps.consType || "";
           setConsType(savedConsType);
           if (ps.transit_location_id) setTransitLocationId(ps.transit_location_id);
@@ -280,6 +283,58 @@ export default function PreShipmentForm() {
     }
   };
 
+  // Note image upload handlers
+  const handleNoteImageUpload = async (files) => {
+    if (files.length === 0) return;
+    
+    setUploadingImages(true);
+    try {
+      const uploadPromises = Array.from(files).map(file => 
+        base44.integrations.Core.UploadFile({ file }).then(r => r.file_url)
+      );
+      const urls = await Promise.all(uploadPromises);
+      setNoteImages(prev => [...prev, ...urls]);
+    } catch (error) {
+      console.error('Note image upload failed:', error);
+      alert('图片上传失败：' + error.message);
+    } finally {
+      setUploadingImages(false);
+    }
+  };
+
+  const handleNoteImagePaste = async (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    
+    const files = [];
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.startsWith('image/')) {
+        const file = items[i].getAsFile();
+        if (file) files.push(file);
+      }
+    }
+    
+    if (files.length > 0) {
+      e.preventDefault();
+      await handleNoteImageUpload(files);
+    }
+  };
+
+  const handleNoteImageDrop = async (e) => {
+    e.preventDefault();
+    const files = e.dataTransfer?.files;
+    if (!files || files.length === 0) return;
+    
+    const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
+    if (imageFiles.length > 0) {
+      await handleNoteImageUpload(imageFiles);
+    }
+  };
+
+  const handleRemoveNoteImage = (url) => {
+    setNoteImages(prev => prev.filter(u => u !== url));
+  };
+
   // Filter addons based on selected transit location's disabled_addon_ids
   const selectedTransitLocation = transitLocations.find((l) => l.id === transitLocationId);
   const disabledAddonIds = consType === "transit" && selectedTransitLocation?.disabled_addon_ids ?
@@ -375,6 +430,7 @@ export default function PreShipmentForm() {
       shipping_method: shippingMethod,
       scheduled_ship_date: scheduledDate,
       user_note: userNote,
+      note_image_urls: noteImages,
       consType,
       transit_location_id: consType === "transit" ? transitLocationId : "",
       transit_location_name: consType === "transit" ? transitLoc?.name || "" : "",
@@ -677,15 +733,24 @@ export default function PreShipmentForm() {
           <>
               <div className={`space-y-2 border border-blue-100 rounded-xl p-3 bg-blue-50/40 transition-opacity ${joinExistingPool && selectedExistingPoolId ? "opacity-40 pointer-events-none" : ""}`}>
                 <Label className="text-xs text-blue-700 font-medium">选择中转地 *</Label>
-                {transitLocations.map((l) =>
-              <label key={l.id} className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${transitLocationId === l.id ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
-                    <input type="radio" checked={transitLocationId === l.id} onChange={() => setTransitLocationId(l.id)} className="mt-0.5 accent-blue-600" />
-                    <div>
-                      <p className="text-sm font-medium text-gray-800">{l.name}</p>
-                      {l.manager_contact && <p className="text-xs text-gray-400">联系：{l.manager_contact}</p>}
-                    </div>
-                  </label>
-              )}
+                {transitLocations.map((l) => {
+                  const transitMethodsText = l.transit_shipping_methods?.length > 0 
+                    ? l.transit_shipping_methods.map(m => m.name).join('、')
+                    : '暂无运输方式';
+                  return (
+                  <label key={l.id} className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${transitLocationId === l.id ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
+                      <input type="radio" checked={transitLocationId === l.id} onChange={() => setTransitLocationId(l.id)} className="mt-0.5 accent-blue-600" />
+                      <div>
+                        <p className="text-sm font-medium text-gray-800">{l.name}</p>
+                        {l.manager_contact && <p className="text-xs text-gray-400">联系：{l.manager_contact}</p>}
+                        <p className="text-xs text-gray-500 mt-1">
+                          <span className="font-medium">中转运输方式：</span>
+                          {transitMethodsText}
+                        </p>
+                      </div>
+                    </label>
+                  );
+                })}
               </div>
               
               {/* Final destination address for transit */}
@@ -1151,8 +1216,60 @@ export default function PreShipmentForm() {
           <CardTitle className="text-sm font-semibold text-gray-700">备注（可选）</CardTitle>
         </CardHeader>
         <CardContent>
-          <Textarea rows={2} className="text-sm" placeholder="特殊要求、包装说明..."
-          value={userNote} onChange={(e) => setUserNote(e.target.value)} />
+          <div
+            onDrop={handleNoteImageDrop}
+            onDragOver={(e) => e.preventDefault()}
+            onPaste={handleNoteImagePaste}
+          >
+            <Textarea 
+              rows={2} 
+              className="text-sm" 
+              placeholder="特殊要求、包装说明...（支持粘贴或拖拽上传图片）"
+              value={userNote} 
+              onChange={(e) => setUserNote(e.target.value)} 
+            />
+            
+            {/* Image upload button */}
+            <div className="mt-2 flex items-center gap-2">
+              <input
+                type="file"
+                id="note-image-upload"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => handleNoteImageUpload(e.target.files)}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => document.getElementById('note-image-upload').click()}
+                disabled={uploadingImages}
+              >
+                <Image className="w-3.5 h-3.5 mr-1" />
+                {uploadingImages ? '上传中...' : '上传图片'}
+              </Button>
+            </div>
+            
+            {/* Uploaded images preview */}
+            {noteImages.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {noteImages.map((url) => (
+                  <div key={url} className="relative group">
+                    <img src={url} alt="Note attachment" className="w-20 h-20 object-cover rounded border" />
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveNoteImage(url)}
+                      className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
 
