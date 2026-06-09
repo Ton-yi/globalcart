@@ -453,6 +453,9 @@ export default function PreShipmentForm() {
       transit_location_country: consType === "transit" ? transitLoc?.country || "" : "",
       transit_shipping_method_id: consType === "transit" ? transitShippingMethodId : "",
       transit_shipping_method_name: consType === "transit" ? (() => {
+        // Handle special cases for storage and pickup
+        if (transitShippingMethodId === "__storage__") return "暂存";
+        if (transitShippingMethodId === "__pickup__") return "自取";
         const selectedLocation = transitLocations.find(l => l.id === transitLocationId);
         const method = selectedLocation?.transit_shipping_methods?.find(m => m.id === transitShippingMethodId);
         return method?.name || "";
@@ -756,11 +759,17 @@ export default function PreShipmentForm() {
               <div className={`space-y-2 border border-blue-100 rounded-xl p-3 bg-blue-50/40 transition-opacity ${joinExistingPool && selectedExistingPoolId ? "opacity-40 pointer-events-none" : ""}`}>
                 <Label className="text-xs text-blue-700 font-medium">选择中转地 *</Label>
                 {transitLocations.map((l) => {
-                  const transitMethodsText = l.transit_shipping_methods?.length > 0 
-                    ? l.transit_shipping_methods.map(m => m.name).join('、')
-                    : '暂无运输方式';
                   const hasStorage = l.allow_storage === true;
                   const hasPickup = l.allow_pickup === true;
+                  // Build complete list of transit options including storage and pickup
+                  const allTransitOptions = [
+                    ...(l.transit_shipping_methods?.map(m => m.name) || []),
+                    ...(hasStorage ? ['暂存'] : []),
+                    ...(hasPickup ? ['自取'] : [])
+                  ];
+                  const transitMethodsText = allTransitOptions.length > 0 
+                    ? allTransitOptions.join('、')
+                    : '暂无运输方式';
                   return (
                   <label key={l.id} className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${transitLocationId === l.id ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
                       <input type="radio" checked={transitLocationId === l.id} onChange={() => {
@@ -790,12 +799,6 @@ export default function PreShipmentForm() {
                             <span className="font-medium">中转运输方式：</span>
                             {transitMethodsText}
                           </p>
-                          {(hasStorage || hasPickup) && (
-                            <p className="text-xs text-gray-500">
-                              <span className="font-medium">特色服务：</span>
-                              {[hasStorage && '暂存', hasPickup && '自取'].filter(Boolean).join('、')}
-                            </p>
-                          )}
                           {l.description && (
                             <p className="text-xs text-gray-400 line-clamp-1">{l.description}</p>
                           )}
@@ -813,8 +816,10 @@ export default function PreShipmentForm() {
                   {(() => {
                     const selectedLocation = transitLocations.find(l => l.id === transitLocationId);
                     const availableMethods = selectedLocation?.transit_shipping_methods || [];
+                    const hasStorage = selectedLocation?.allow_storage === true;
+                    const hasPickup = selectedLocation?.allow_pickup === true;
                     
-                    if (availableMethods.length === 0) {
+                    if (availableMethods.length === 0 && !hasStorage && !hasPickup) {
                       return (
                         <div className="text-sm text-gray-500 py-2">
                           此中转地暂无可用的中转运输方式
@@ -831,6 +836,12 @@ export default function PreShipmentForm() {
                           {availableMethods.map((m) => (
                             <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
                           ))}
+                          {hasStorage && (
+                            <SelectItem value="__storage__">暂存</SelectItem>
+                          )}
+                          {hasPickup && (
+                            <SelectItem value="__pickup__">自取</SelectItem>
+                          )}
                         </SelectContent>
                       </Select>
                     );
