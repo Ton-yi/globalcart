@@ -431,6 +431,7 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
   const handleSubmit = async () => {
     if (!method && !isJoiningPool) return;
     if (!isJoiningPool && consType === "transit" && !selectedTransitId) return;
+    if (!isJoiningPool && consType === "transit" && !selectedTransitMethodId) return;
     if (!isJoiningPool && consType === "transit" && !isAddressSlotOk("final")) return;
     if (isJoiningPool && !isAddressSlotOk("final")) return;
     if (isJoiningPool && selectedPool?.consolidation_type === "transit" && !selectedTransitMethodId) return;
@@ -1069,14 +1070,26 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
             />
           )}
 
-          <TransitMethodSection
-            consType={isJoiningPool ? (selectedPool?.consolidation_type || consType) : consType}
-            selectedTransitId={isJoiningPool ? (selectedPool?.transit_location_id || selectedTransitId) : selectedTransitId}
-            transitLocations={transitLocations}
-            transitMethods={transitMethods}
-            selectedTransitMethodId={selectedTransitMethodId}
-            setSelectedTransitMethodId={setSelectedTransitMethodId}
-          />
+          {consType === "transit" && !isJoiningPool && (
+            <TransitMethodSection
+              consType="transit"
+              selectedTransitId={selectedTransitId}
+              transitLocations={transitLocations}
+              transitMethods={transitMethods}
+              selectedTransitMethodId={selectedTransitMethodId}
+              setSelectedTransitMethodId={setSelectedTransitMethodId}
+            />
+          )}
+          {isJoiningPool && selectedPool?.consolidation_type === "transit" && (
+            <TransitMethodSection
+              consType="transit"
+              selectedTransitId={selectedPool.transit_location_id}
+              transitLocations={transitLocations}
+              transitMethods={transitMethods}
+              selectedTransitMethodId={selectedTransitMethodId}
+              setSelectedTransitMethodId={setSelectedTransitMethodId}
+            />
+          )}
 
           {/* Show shipping addons for all shipment types */}
           {!joinDirectPool && (
@@ -1119,6 +1132,7 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
           const missing = [];
           if (!method && !joinDirectPool && !isJoiningPool) missing.push("发货方式");
           if (!isJoiningPool && consType === "transit" && !selectedTransitId) missing.push("中转地");
+          if (!isJoiningPool && consType === "transit" && !selectedTransitMethodId) missing.push("中转段运输方式");
           if (!isJoiningPool && consType === "transit" && !isAddressSlotOk("final")) {
             const inNew = !!addressInputMode["final"] || savedAddresses.length === 0;
             if (inNew) {
