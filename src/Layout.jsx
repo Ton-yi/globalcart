@@ -76,17 +76,19 @@ export default function Layout({ children, currentPageName }) {
   const isStaff = user?.role === "staff";
   const isTenantUser = user?.role === "user";
   const isAdmin = isPlatformAdmin || isTenantAdmin;
+  // Transit managers have admin-level privileges for transit-related features
+  const hasTransitAdminPrivileges = isAdmin || isTransitManager;
   
   // Platform admin has all permissions; tenant admin has tenant-level permissions
   const canAccessAdminSettings = isPlatformAdmin || isTenantAdmin || can("admin_settings:manage_backend_settings");
   const canAccessAdminDashboard = isPlatformAdmin || isTenantAdmin || can("view:admin_dashboard");
   const canAccessAdminOrders = isPlatformAdmin || isTenantAdmin || can("order:update") || can("view:order_management_page");
-  const canAccessAdminShippingPool = isPlatformAdmin || isTenantAdmin || can("shipping_pool:update");
+  const canAccessAdminShippingPool = (isPlatformAdmin || isTenantAdmin || can("shipping_pool:update")) || isTransitManager;
   const canAccessAdminUsers = isPlatformAdmin || isTenantAdmin || can("user:read") || can("view:user_management_page");
   const canAccessAdminAnnouncements = isPlatformAdmin || isTenantAdmin || can("view:announcement_management_page");
 
   const canViewMyOrders = isAdmin || isTenantUser || can("view:my_orders_module");
-  const canAccessTransitWork = isAdmin || can("shipping:view_transit_panel");
+  const canAccessTransitWork = hasTransitAdminPrivileges || can("shipping:view_transit_panel");
 
   const userNav = [
     { label: "首页", icon: Home, page: "Home" },
@@ -129,6 +131,12 @@ export default function Layout({ children, currentPageName }) {
     navItems = [...navItems, ...visibleUserNav.slice(1), ...platformAdminNav, ...tenantAdminNav.filter(item => item.canAccess)];
   } else if (isTenantAdmin) {
     navItems = [...navItems, ...visibleUserNav.slice(1), ...tenantAdminNav.filter(item => item.canAccess)];
+  } else if (isTransitManager) {
+    // Transit managers get access to transit-related admin items
+    const transitAdminItems = tenantAdminNav.filter(item => 
+      item.canAccess && (item.page === "AdminTransitWork" || item.page === "AdminShippingPool")
+    );
+    navItems = [...navItems, ...visibleUserNav.slice(1), ...transitAdminItems];
   } else if (isStaff) {
     const staffAdminItems = tenantAdminNav.filter(item => item.canAccess);
     navItems = [...navItems, ...visibleUserNav.slice(1), ...staffAdminItems];
