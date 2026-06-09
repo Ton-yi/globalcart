@@ -40,63 +40,80 @@ export default function AddressBlock({
   };
 
   return (
-    <div className="space-y-2">
-      <label className="text-xs text-gray-500 font-medium uppercase tracking-wide">{label}</label>
+    <div className="space-y-3">
+      <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-700 uppercase tracking-wide">
+        <MapPin className="w-3.5 h-3.5 text-blue-500" />
+        {label}
+      </label>
       {!hasSaved || effectiveNewMode ? (
         // Show structured address form
-        <div className="space-y-2">
+        <div className="space-y-3">
           {hasSaved && (
-            <Select value="__new__" disabled>
-              <SelectTrigger className="h-9">
-                <SelectValue placeholder="已选择：输入新地址" />
-              </SelectTrigger>
-            </Select>
+            <div className="relative">
+              <Select value="__new__" disabled>
+                <SelectTrigger className="h-10 bg-blue-50/50 border-blue-200">
+                  <SelectValue placeholder="已选择：输入新地址" />
+                </SelectTrigger>
+              </Select>
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                <PlusCircle className="w-4 h-4 text-blue-500" />
+              </div>
+            </div>
           )}
-          <AddressForm
-            value={addrValue}
-            onChange={handleAddressFormChange}
-            showLabel={false}
-          />
+          <div className="border border-gray-200 rounded-lg p-3 bg-white shadow-sm">
+            <AddressForm
+              value={addrValue}
+              onChange={handleAddressFormChange}
+              showLabel={false}
+            />
+          </div>
           {hasSaved && saveNewAddress !== undefined && (
-            <label className="flex items-center gap-2 mt-2">
-              <Checkbox checked={saveNewAddress} onCheckedChange={onSaveToggle} />
-              <span className="text-xs text-gray-500">保存到我的地址簿</span>
+            <label className="flex items-center gap-2 p-2 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer">
+              <Checkbox checked={saveNewAddress} onCheckedChange={onSaveToggle} className="data-[state=checked]:bg-blue-500" />
+              <span className="text-sm text-gray-600 font-medium">保存到我的地址簿</span>
             </label>
           )}
         </div>
       ) : (
         // Show saved address dropdown
-        <div className="space-y-2">
+        <div className="space-y-3">
           <Select value={selectedId || ""} onValueChange={onSelect}>
-            <SelectTrigger className="h-9">
+            <SelectTrigger className="h-10 border-gray-200 bg-white hover:border-blue-300 transition-colors">
               <SelectValue placeholder="请选择收货地址" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="max-h-60">
               {savedAddresses.map((addr) => (
-                <SelectItem key={addr.id} value={addr.id}>
-                  <div className="flex flex-col gap-0.5">
-                    <span className="font-medium">{addr.label || "地址"}</span>
-                    <span className="text-xs text-gray-500 truncate max-w-xs">
+                <SelectItem key={addr.id} value={addr.id} className="py-2.5">
+                  <div className="flex flex-col gap-1">
+                    <span className="font-semibold text-gray-800 text-sm">{addr.label || "地址"}</span>
+                    <span className="text-xs text-gray-500 line-clamp-2">
                       {formatAddressPreview(addr)}
                     </span>
                   </div>
                 </SelectItem>
               ))}
-              <SelectItem value="__new__">
-                <div className="flex items-center gap-1.5 text-blue-600">
-                  <PlusCircle className="w-3.5 h-3.5" />
-                  <span>输入新地址</span>
+              <SelectItem value="__new__" className="py-2.5">
+                <div className="flex items-center gap-2 text-blue-600">
+                  <PlusCircle className="w-4 h-4" />
+                  <span className="font-medium">输入新地址</span>
                 </div>
               </SelectItem>
             </SelectContent>
           </Select>
           {selectedAddr && (
-            <div className="text-xs text-gray-500 bg-gray-50 rounded p-2 space-y-0.5">
-              <div className="flex items-start gap-1.5">
-                <MapPin className="w-3 h-3 mt-0.5 flex-shrink-0 text-gray-400" />
-                <div className="flex flex-col gap-0.5">
-                  <span className="font-medium text-gray-700">{selectedAddr.label}</span>
-                  <span className="whitespace-pre-line">{formatAddressPreview(selectedAddr)}</span>
+            <div className="rounded-lg border border-blue-200 bg-gradient-to-br from-blue-50/80 to-blue-100/50 p-3.5 shadow-sm">
+              <div className="flex items-start gap-2.5">
+                <div className="w-7 h-7 rounded-full bg-blue-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <MapPin className="w-3.5 h-3.5 text-blue-600" />
+                </div>
+                <div className="flex flex-col gap-1.5 min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-gray-800 text-sm">{selectedAddr.label}</span>
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">已选择</span>
+                  </div>
+                  <div className="text-xs text-gray-600 leading-relaxed whitespace-pre-line break-words">
+                    {formatAddressPreview(selectedAddr)}
+                  </div>
                 </div>
               </div>
             </div>
