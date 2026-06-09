@@ -111,16 +111,17 @@ export default function TransitPoolWork() {
   // Use per_user_groups directly (contains order_entries)
   const userGroups = pool?.per_user_groups || [];
 
-  const handleToggleGroup = (email) => {
+  const handleToggleGroup = (email) => (e) => {
+    e.stopPropagation();
     setExpandedGroups((prev) =>
-    prev.includes(email) ?
-    prev.filter((e) => e !== email) :
-    [...prev, email]
+      prev.includes(email) ?
+        prev.filter((e) => e !== email) :
+        [...prev, email]
     );
   };
 
   const handleOrderSelect = (orderId, orderEntry, address) => {
-    // 点击订单时的处理逻辑（目前仅展开/收起）
+    // 点击订单时的处理逻辑
     console.log('Order selected:', orderId, orderEntry);
   };
 

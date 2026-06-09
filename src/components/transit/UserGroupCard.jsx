@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { ChevronDown, ChevronRight, Package, MapPin, FileText, Image as ImageIcon, Truck, Clock, Box, Tag, Phone, User, Home, ClipboardList, Send } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,6 +17,9 @@ export default function UserGroupCard({
 }) {
   const { user_email, user_name, order_entries, group_final_address, note: groupNote, selected_addons = [], selected_addon_ids = [] } = userEntry;
   const orderCount = order_entries?.length || 0;
+
+  // Create click handler that passes email to onExpand
+  const handleClick = onExpand ? onExpand(user_email) : null;
 
   const effectiveAddress = group_final_address;
   
@@ -53,7 +55,7 @@ export default function UserGroupCard({
         {/* Header - Clickable to expand */}
         <div 
           className="flex items-start justify-between cursor-pointer"
-          onClick={() => onExpand(!isExpanded)}
+          onClick={handleClick}
         >
           <div className="flex items-start gap-3 flex-1">
             <div className="mt-0.5">
