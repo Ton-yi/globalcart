@@ -1146,8 +1146,8 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
             </div>
           )}
 
-          {/* Address picker for consType="other" */}
-          {consType === "other" && (
+          {/* Address picker for consType="other" (only when NOT joining existing pool) */}
+          {consType === "other" && !isJoiningPool && (
             <AddressBlock
               slot="other"
               label="拼邮目标地址 *"
