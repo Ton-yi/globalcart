@@ -811,14 +811,26 @@ export default function PreShipmentForm() {
               </div>
               
               {/* Transit shipping method selection */}
-              {transitLocationId && (
+              {(transitLocationId || (joinExistingPool && selectedExistingPoolId)) && (
                 <div className="space-y-2 border border-blue-100 rounded-xl p-3 bg-blue-50/40">
                   <Label className="text-xs text-blue-700 font-medium">中转段运输方式 *</Label>
                   {(() => {
-                    const selectedLocation = transitLocations.find(l => l.id === transitLocationId);
-                    const availableMethods = selectedLocation?.transit_shipping_methods || [];
-                    const hasStorage = selectedLocation?.allow_storage === true;
-                    const hasPickup = selectedLocation?.allow_pickup === true;
+                    // Get transit shipping methods from either selected location or selected pool
+                    let availableMethods = [];
+                    let hasStorage = false;
+                    let hasPickup = false;
+                    
+                    if (transitLocationId) {
+                      const selectedLocation = transitLocations.find(l => l.id === transitLocationId);
+                      availableMethods = selectedLocation?.transit_shipping_methods || [];
+                      hasStorage = selectedLocation?.allow_storage === true;
+                      hasPickup = selectedLocation?.allow_pickup === true;
+                    } else if (joinExistingPool && selectedExistingPoolId) {
+                      const selectedPool = officialPools.find(p => p.id === selectedExistingPoolId);
+                      if (selectedPool?.transit_shipping_method_id) {
+                        availableMethods = [{ id: selectedPool.transit_shipping_method_id, name: selectedPool.transit_shipping_method_name || '中转运输方式' }];
+                      }
+                    }
                     
                     if (availableMethods.length === 0 && !hasStorage && !hasPickup) {
                       return (
@@ -829,7 +841,10 @@ export default function PreShipmentForm() {
                     }
                     
                     return (
-                      <Select value={transitShippingMethodId} onValueChange={setTransitShippingMethodId}>
+                      <Select 
+                        value={transitShippingMethodId || (joinExistingPool && selectedExistingPoolId ? officialPools.find(p => p.id === selectedExistingPoolId)?.transit_shipping_method_id : "")} 
+                        onValueChange={setTransitShippingMethodId}
+                      >
                         <SelectTrigger className="mt-1 h-9 text-sm">
                           <SelectValue placeholder="选择中转运输方式..." />
                         </SelectTrigger>
