@@ -110,7 +110,7 @@ export default function TransitPoolCard({ pool, transitStatus, isSelected, onTog
           <div className="border-t pt-2 space-y-1">
             <div className="flex items-center gap-1.5 text-xs text-orange-600">
               <Clock className="w-3 h-3" />
-              <span>等待中转地收货</span>
+              <span>{pool.transit_shipped_date ? "等待中转地收货" : "等待日本发货"}</span>
             </div>
             {pool.consolidation_deadline && (
               <div className="flex items-center gap-1.5 text-xs text-gray-500">
