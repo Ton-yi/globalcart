@@ -191,7 +191,7 @@ export default function PreShipmentFormFullPayOnce({
           <div>
             <Label className="text-sm">预估重量 (g) *</Label>
             <Input
-              type="number"
+              type="text"
               inputMode="decimal"
               placeholder="例如：500"
               value={userEstimatedWeight}
