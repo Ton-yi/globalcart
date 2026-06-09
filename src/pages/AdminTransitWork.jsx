@@ -51,18 +51,6 @@ export default function AdminTransitWork() {
   // Collapsed state for each location (default: all collapsed)
   const [collapsedLocations, setCollapsedLocations] = useState({});
 
-  // Redirect if user doesn't have permission
-  if (!canViewTransitPanel && user) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="text-center">
-          <h2 className="text-lg font-semibold text-gray-800">无权访问</h2>
-          <p className="text-sm text-gray-500 mt-2">您没有查看中转面板的权限</p>
-        </div>
-      </div>
-    );
-  }
-
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -90,6 +78,18 @@ export default function AdminTransitWork() {
     if (!user) return;
     fetchData();
   }, [user]);
+
+  // Redirect if user doesn't have permission
+  if (!canViewTransitPanel && user) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="text-center">
+          <h2 className="text-lg font-semibold text-gray-800">无权访问</h2>
+          <p className="text-sm text-gray-500 mt-2">您没有查看中转面板的权限</p>
+        </div>
+      </div>
+    );
+  }
 
   const getPoolsByStatus = (pools) => ({
     pending: pools.filter(p => 

@@ -23,6 +23,7 @@ export default function Layout({ children, currentPageName }) {
   const tenant = tenantBranding?.tenant || null;
   const [mobileOpen, setMobileOpen] = useState(false);
   const [announcements, setAnnouncements] = useState([]);
+  const [isTransitManager, setIsTransitManager] = useState(false);
   const location = useLocation();
 
   // Apply favicon if tenant has one
@@ -36,6 +37,16 @@ export default function Layout({ children, currentPageName }) {
       document.title = tenant.branding_name;
     }
   }, [tenant?.favicon_url, tenant?.branding_name]);
+
+  // Check if user is a transit location manager
+  useEffect(() => {
+    if (!user?.email) return;
+    base44.entities.TransitLocation.filter({ manager_email: user.email, is_active: true })
+      .then(locations => {
+        setIsTransitManager(locations.length > 0);
+      })
+      .catch(() => {});
+  }, [user?.email]);
 
   // Pages that load their own config via a page-level API (e.g. getAdminSettingsPageData).
   // Layout must not trigger fetchTenantConfig for these — they populate the cache themselves.
@@ -84,7 +95,7 @@ export default function Layout({ children, currentPageName }) {
       { label: "拼下单", icon: UserPlus, page: "GroupBuy" },
     ]},
     { label: "我的订单", icon: Package, page: "MyOrders", requiredRole: "user", hidden: !canViewMyOrders },
-    { label: "发货 & 拼邮", icon: Send, page: "ShippingPool", requiredRole: "user" },
+    { label: isTransitManager ? "发货池" : "发货 & 拼邮", icon: Send, page: "ShippingPool", requiredRole: "user" },
     { label: "个人设置", icon: User, page: "UserPreferences" },
   ];
 
