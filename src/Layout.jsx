@@ -95,9 +95,7 @@ export default function Layout({ children, currentPageName }) {
       { label: "拼下单", icon: UserPlus, page: "GroupBuy" },
     ]},
     { label: "我的订单", icon: Package, page: "MyOrders", requiredRole: "user", hidden: !canViewMyOrders },
-    { label: isTransitManager ? "发货池" : "发货 & 拼邮", icon: Send, page: "ShippingPool", requiredRole: "user", subItems: isTransitManager ? [
-      { label: "中转地工作面板", icon: Layers, page: "AdminTransitWork" },
-    ] : undefined },
+    { label: isTransitManager ? "发货池" : "发货 & 拼邮", icon: Send, page: "ShippingPool", requiredRole: "user" },
     { label: "个人设置", icon: User, page: "UserPreferences" },
   ];
 
