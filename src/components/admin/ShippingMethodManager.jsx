@@ -382,6 +382,22 @@ function MethodCard({ method, onSave, onDelete, itemSizeTemplates = [] }) {
                 </div>
               </div>
 
+              {/* Official pool estimate rate */}
+              <div className="border border-purple-100 bg-purple-50 rounded-lg p-3">
+                <Label className="text-xs text-gray-600 font-medium">官方拼邮预估运费简易估算率</Label>
+                <p className="text-xs text-gray-400 mt-0.5 mb-2">用于一次付款时的拼邮运费简易估算，无法从费率表计算时使用。留空则默认 150 JPY/100g。</p>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    className="h-8 text-sm w-36"
+                    value={form.official_pool_estimate_rate_per_100g ?? ""}
+                    onChange={e => f("official_pool_estimate_rate_per_100g", e.target.value === "" ? null : parseFloat(e.target.value) || 0)}
+                    placeholder="150"
+                  />
+                  <span className="text-xs text-gray-500">JPY / 100g</span>
+                </div>
+              </div>
+
               {/* Rate mode */}
               <div>
                 <Label className="text-xs text-gray-500 font-medium">费率设置模式</Label>

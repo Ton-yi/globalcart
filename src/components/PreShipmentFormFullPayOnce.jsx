@@ -115,8 +115,10 @@ export default function PreShipmentFormFullPayOnce({
     let fee = 0;
     
     if (consType === "official_pool") {
-      // Simple estimation for official pool: 150 JPY per 100g
-      const simpleRatePer100g = 150;
+      // Simple estimation for official pool: use method's configured rate, fallback to 150 JPY/100g
+      const simpleRatePer100g = (method.official_pool_estimate_rate_per_100g != null && method.official_pool_estimate_rate_per_100g > 0)
+        ? method.official_pool_estimate_rate_per_100g
+        : 150;
       fee = Math.ceil(weight / 100) * simpleRatePer100g;
       console.log('[FullPay] Official pool fee:', fee);
     } else if (consType === "") {
@@ -231,7 +233,10 @@ export default function PreShipmentFormFullPayOnce({
               {consType === "official_pool" && estimatedShippingFee > 0 && (
                 <p className="text-xs text-blue-600 mt-1">
                   <Calculator className="w-3 h-3 inline mr-1" />
-                  简易估算：每 100g 按 150 JPY 计算
+                  简易估算：每 100g 按 {(() => {
+                    const m = shippingMethods.find(m => m.code === shippingMethod);
+                    return (m?.official_pool_estimate_rate_per_100g > 0) ? m.official_pool_estimate_rate_per_100g : 150;
+                  })()} JPY 计算
                 </p>
               )}
             </div>
