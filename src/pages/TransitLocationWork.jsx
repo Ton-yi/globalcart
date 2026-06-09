@@ -206,7 +206,10 @@ export default function TransitLocationWork() {
             <Button 
               size="sm" 
               className="bg-red-600 hover:bg-red-700"
-              onClick={() => setShowArrivalModal(true)}
+              onClick={() => {
+                setSelectedRequests(requestsByStatus.in_transit.map(r => r.id));
+                setShowArrivalModal(true);
+              }}
             >
               <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
               批量确认收货

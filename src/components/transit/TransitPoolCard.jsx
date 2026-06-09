@@ -16,12 +16,14 @@ const TRANSIT_STATUS_CONFIG = {
 };
 
 export default function TransitPoolCard({ pool, transitStatus, isSelected, onToggleSelect, onClick }) {
-  const orderCount = (pool.order_ids || []).length;
+  // Support both GroupBuyRequest (new) and ShippingPool (legacy) data structures
+  const isRequest = !!pool.title; // GroupBuyRequest has title, ShippingPool has pool_code
+  const orderCount = isRequest ? (pool.entries?.length || pool.entry_count || 0) : (pool.order_ids || []).length;
   const statusConfig = TRANSIT_STATUS_CONFIG[transitStatus || "in_transit"];
   const StatusIcon = statusConfig?.icon || Truck;
   
   // Debug: log pool data for troubleshooting
-  console.log('[TransitPoolCard] Pool:', pool.pool_code, 'Order IDs:', pool.order_ids, 'Order names:', pool.order_names);
+  console.log('[TransitPoolCard]', isRequest ? 'Request:' : 'Pool:', isRequest ? pool.title : pool.pool_code, 'Order count:', orderCount);
 
   return (
     <Card 
@@ -36,23 +38,28 @@ export default function TransitPoolCard({ pool, transitStatus, isSelected, onTog
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <Badge className={`text-xs ${statusConfig?.color || "bg-blue-100 text-blue-700"}`}>
-                <StatusIcon className="w-2.5 h-2.5 mr-1 inline" />
-                {statusConfig?.label || "在途"}
+          <div className="flex items-center gap-2 flex-wrap">
+            <Badge className={`text-xs ${statusConfig?.color || "bg-blue-100 text-blue-700"}`}>
+              <StatusIcon className="w-2.5 h-2.5 mr-1 inline" />
+              {statusConfig?.label || "在途"}
+            </Badge>
+            {pool.pool_code && (
+              <Badge variant="outline" className="text-xs font-mono">
+                {pool.pool_code}
               </Badge>
-              {pool.pool_code && (
-                <Badge variant="outline" className="text-xs font-mono">
-                  {pool.pool_code}
-                </Badge>
-              )}
-            </div>
-            <div className="flex items-center gap-1.5 mt-1.5 text-xs text-gray-500">
-              <MapPin className="w-3 h-3" />
-              <span className="truncate">
-                {pool.transit_location_name || "中转地"}
-              </span>
-            </div>
+            )}
+            {pool.title && (
+              <Badge variant="outline" className="text-xs">
+                {pool.title}
+              </Badge>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5 mt-1.5 text-xs text-gray-500">
+            <MapPin className="w-3 h-3" />
+            <span className="truncate">
+              {pool.transit_location_name || "中转地"}
+            </span>
+          </div>
           </div>
           
           {onToggleSelect && transitStatus === "in_transit" && (
@@ -71,8 +78,14 @@ export default function TransitPoolCard({ pool, transitStatus, isSelected, onTog
         <div className="flex items-center gap-2 text-xs text-gray-600">
           <Package className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
           <span className="truncate">
-            {orderCount} 件包裹
-            {(pool.order_names || []).length > 0 && (
+            {orderCount} {isRequest ? '人参团' : '件包裹'}
+            {isRequest && pool.entries && pool.entries.length > 0 && (
+              <span className="text-gray-400">
+                ({pool.entries.slice(0, 2).map(e => e.product_name).join(", ")}
+                {pool.entries.length > 2 ? ` 等${pool.entries.length}个` : ""})
+              </span>
+            )}
+            {!isRequest && (pool.order_names || []).length > 0 && (
               <span className="text-gray-400">
                 ({pool.order_names.slice(0, 2).join(", ")}
                 {orderCount > 2 ? ` 等${orderCount}个` : ""})
@@ -159,7 +172,11 @@ export default function TransitPoolCard({ pool, transitStatus, isSelected, onTog
           <span>
             创建 {new Date(pool.created_date).toLocaleDateString("zh-CN")}
           </span>
-          <ChevronRight className="w-3 h-3" />
+          {isRequest ? (
+            <Badge className="text-[10px] bg-indigo-100 text-indigo-700">拼单</Badge>
+          ) : (
+            <ChevronRight className="w-3 h-3" />
+          )}
         </div>
       </CardContent>
     </Card>
