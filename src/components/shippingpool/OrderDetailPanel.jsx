@@ -7,9 +7,12 @@ import { Info, Truck, Tag, FileText, MapPin, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getCountry } from "@/lib/countries";
 
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+
 export default function OrderDetailPanel({ order, pool }) {
   const [isOpen, setIsOpen] = useState(false);
   const panelRef = useRef(null);
+  const { user } = useCurrentUser();
 
   // Find the user group this order belongs to
   const userGroup = (pool.per_user_groups || []).find(g => g.user_email === order.user_email);
@@ -23,7 +26,16 @@ export default function OrderDetailPanel({ order, pool }) {
   const addr = userGroup?.group_final_address || order.pre_shipment?.address || {};
   const destinationCountry = addr.country || order.destination_country;
   
-  const hasDetails = addr.recipient_name || addr.addr1 || destinationCountry || transitMethod || orderAddons.length > 0 || orderNote;
+  // Check if current user owns this order
+  const isOwner = user?.email === order.user_email;
+  
+  // Only show detailed info if user owns this order
+  const displayAddr = isOwner ? addr : {};
+  const displayTransitMethod = isOwner ? transitMethod : null;
+  const displayAddons = isOwner ? orderAddons : [];
+  const displayNote = isOwner ? orderNote : null;
+  
+  const hasDetails = displayAddr.recipient_name || displayAddr.addr1 || destinationCountry || displayTransitMethod || displayAddons.length > 0 || displayNote;
   
   // Close on click outside
   useEffect(() => {
@@ -74,17 +86,23 @@ export default function OrderDetailPanel({ order, pool }) {
           
           {/* Content */}
           <div className="p-3 space-y-3 text-xs max-h-96 overflow-y-auto">
-            {(addr.recipient_name || addr.addr1 || destinationCountry) && (
+            {!isOwner && (
+              <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-center text-gray-500">
+                <p className="text-xs">此包裹不属于您，详细信息已隐藏</p>
+              </div>
+            )}
+            
+            {isOwner && (displayAddr.recipient_name || displayAddr.addr1 || destinationCountry) && (
               <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 space-y-1">
                 <div className="flex items-center gap-1.5 font-medium text-blue-700 mb-1">
                   <MapPin className="w-3.5 h-3.5" />
                   发货目的地
                 </div>
-                {addr.recipient_name && (
+                {displayAddr.recipient_name && (
                   <div>
                     <span className="text-gray-500">收件人：</span>
-                    <span className="font-medium">{addr.recipient_name}</span>
-                    {addr.phone && <span className="ml-2 text-gray-600">{addr.phone}</span>}
+                    <span className="font-medium">{displayAddr.recipient_name}</span>
+                    {displayAddr.phone && <span className="ml-2 text-gray-600">{displayAddr.phone}</span>}
                   </div>
                 )}
                 {destinationCountry && (
@@ -93,31 +111,31 @@ export default function OrderDetailPanel({ order, pool }) {
                     <span className="font-medium">{getCountry(destinationCountry)?.name || destinationCountry}</span>
                   </div>
                 )}
-                {addr.addr1 && (
+                {displayAddr.addr1 && (
                   <div className="whitespace-pre-wrap text-gray-700">
-                    {addr.addr1}{addr.addr2 && ` ${addr.addr2}`}{addr.addr3 && ` ${addr.addr3}`}{addr.state && `, ${addr.state}`}
+                    {displayAddr.addr1}{displayAddr.addr2 && ` ${displayAddr.addr2}`}{displayAddr.addr3 && ` ${displayAddr.addr3}`}{displayAddr.state && `, ${displayAddr.state}`}
                   </div>
                 )}
               </div>
             )}
             
-            {transitMethod && (
+            {isOwner && displayTransitMethod && (
               <div className="bg-purple-50 border border-purple-100 rounded-lg px-3 py-2">
                 <div className="flex items-center gap-1.5 font-medium text-purple-700 mb-1">
                   <Truck className="w-3.5 h-3.5" />
                   中转运输方式
                 </div>
-                <div className="text-gray-700">{transitMethod}</div>
+                <div className="text-gray-700">{displayTransitMethod}</div>
               </div>
             )}
             
-            {orderAddons.length > 0 && (
+            {isOwner && displayAddons.length > 0 && (
               <div className="bg-yellow-50 border border-yellow-100 rounded-lg px-3 py-2 space-y-1">
                 <div className="flex items-center gap-1.5 font-medium text-yellow-700">
                   <Tag className="w-3.5 h-3.5" />
                   增值服务
                 </div>
-                {orderAddons.map((addon, idx) => (
+                {displayAddons.map((addon, idx) => (
                   <div key={idx} className="flex items-center justify-between text-gray-700">
                     <span>{addon.name || addon.id}</span>
                     {parseFloat(addon.fee) > 0 && (
@@ -128,13 +146,13 @@ export default function OrderDetailPanel({ order, pool }) {
               </div>
             )}
             
-            {orderNote && (
+            {isOwner && displayNote && (
               <div className="bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
                 <div className="flex items-center gap-1.5 font-medium text-gray-600 mb-1">
                   <FileText className="w-3.5 h-3.5" />
                   备注
                 </div>
-                <p className="text-gray-700 whitespace-pre-wrap">{orderNote}</p>
+                <p className="text-gray-700 whitespace-pre-wrap">{displayNote}</p>
               </div>
             )}
           </div>
