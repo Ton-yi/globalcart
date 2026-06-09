@@ -430,6 +430,68 @@ Deno.serve(async (req) => {
       return Response.json({ success: true });
     }
 
+    // ── update_entry_address ─────────────────────────────────────────
+    if (action === 'update_entry_address') {
+      const { entry_id, final_address } = body;
+      if (!entry_id || !final_address) {
+        return Response.json({ error: 'entry_id and final_address are required' }, { status: 400 });
+      }
+      
+      const entry = (await base44.asServiceRole.entities.GroupBuyEntry.filter({ id: entry_id }))?.[0];
+      if (!entry || entry.tenant_id !== tenantId) {
+        return Response.json({ error: 'Entry not found' }, { status: 404 });
+      }
+      
+      // Check authorization: user can update their own entry, or admin can update any
+      if (!isAdmin && entry.user_email !== user.email) {
+        return Response.json({ error: 'Forbidden' }, { status: 403 });
+      }
+      
+      // Check address change limit
+      const currentCount = entry.address_change_count || 0;
+      const maxChanges = entry.max_address_changes || 1;
+      
+      if (currentCount >= maxChanges && !isAdmin) {
+        return Response.json({ 
+          error: `地址更改次数已达上限 (${maxChanges}次)`,
+          current_count: currentCount,
+          max_changes: maxChanges
+        }, { status: 400 });
+      }
+      
+      const updated = await base44.asServiceRole.entities.GroupBuyEntry.update(entry_id, {
+        final_address,
+        address_change_count: currentCount + 1
+      });
+      
+      return Response.json({ success: true, entry: updated });
+    }
+
+    // ── add_entry_packing_image ──────────────────────────────────────
+    if (action === 'add_entry_packing_image') {
+      const { entry_id, image_url } = body;
+      if (!entry_id || !image_url) {
+        return Response.json({ error: 'entry_id and image_url are required' }, { status: 400 });
+      }
+      
+      const entry = (await base44.asServiceRole.entities.GroupBuyEntry.filter({ id: entry_id }))?.[0];
+      if (!entry || entry.tenant_id !== tenantId) {
+        return Response.json({ error: 'Entry not found' }, { status: 404 });
+      }
+      
+      // Check authorization
+      if (!isAdmin && entry.user_email !== user.email) {
+        return Response.json({ error: 'Forbidden' }, { status: 403 });
+      }
+      
+      const existingImages = entry.packing_image_urls || [];
+      const updated = await base44.asServiceRole.entities.GroupBuyEntry.update(entry_id, {
+        packing_image_urls: [...existingImages, image_url]
+      });
+      
+      return Response.json({ success: true, entry: updated });
+    }
+
     return Response.json({ error: `Unknown action: ${action}` }, { status: 400 });
 
   } catch (error) {
