@@ -9,7 +9,7 @@ import { tenantEntity } from "@/lib/tenantApi";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { usePermissions } from "@/hooks/usePermissions";
 import {
-  MapPin, Package, CheckCircle, Truck, Loader2, ChevronRight, AlertCircle, Edit2, Trash2, X, LogIn, Plus, Check
+  MapPin, Package, CheckCircle, Truck, Loader2, ChevronRight, AlertCircle, Edit2, Trash2, X, LogIn, Plus, Check, Clock
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -69,8 +69,13 @@ export default function AdminTransitWork() {
   }, [user]);
 
   const getPoolsByStatus = (pools) => ({
-    arrived: pools.filter(p => p.transit_arrival_confirmed_at && !p.transit_shipped_date),
+    pending: pools.filter(p => 
+      !p.transit_arrival_confirmed_at && 
+      !p.transit_shipped_date && 
+      (p.status === "pending" || p.status === "awaiting_payment" || p.status === "ready_to_ship")
+    ),
     in_transit: pools.filter(p => p.status === "shipped" && !p.transit_arrival_confirmed_at && p.tracking_number),
+    arrived: pools.filter(p => p.transit_arrival_confirmed_at && !p.transit_shipped_date),
     forwarded: pools.filter(p => p.transit_shipped_date),
   });
 
@@ -195,7 +200,7 @@ export default function AdminTransitWork() {
               {activeLocations.map(loc => {
                 const pools = poolsByLocation[loc.id] || [];
                 const byStatus = getPoolsByStatus(pools);
-                const pendingCount = byStatus.arrived.length + byStatus.in_transit.length;
+                const pendingCount = byStatus.pending.length + byStatus.arrived.length + byStatus.in_transit.length;
 
                 return (
                   <div key={loc.id} className="border border-gray-200 rounded-xl overflow-hidden">
@@ -227,6 +232,20 @@ export default function AdminTransitWork() {
                     </div>
 
                     <div className="p-4 space-y-4">
+                      {/* Pending Tab */}
+                      {byStatus.pending.length > 0 && (
+                        <div>
+                          <div className="flex items-center gap-1.5 mb-2">
+                            <Clock className="w-3.5 h-3.5 text-orange-500" />
+                            <span className="text-xs font-medium text-orange-700">待处理 ({byStatus.pending.length})</span>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                            {byStatus.pending.map(pool => (
+                              <TransitPoolCard key={pool.id} pool={pool} transitStatus="pending" onClick={() => navigate(`/TransitPoolWork/${pool.id}`)} />
+                            ))}
+                          </div>
+                        </div>
+                      )}
                       {byStatus.in_transit.length > 0 && (
                         <div>
                           <div className="flex items-center gap-1.5 mb-2">
