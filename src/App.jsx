@@ -90,7 +90,7 @@ const AuthenticatedApp = () => {
           <TransitLocationWork />
         </LayoutWrapper>
       } />
-      <Route path="/Trworkon/:pool_code" element={
+      <Route path="/Trworkon/:request_id" element={
         <LayoutWrapper currentPageName="TransitPoolWork">
           <TransitPoolWork />
         </LayoutWrapper>

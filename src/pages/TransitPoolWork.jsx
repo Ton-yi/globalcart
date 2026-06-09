@@ -21,7 +21,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { getCountry } from "@/lib/countries";
 
 export default function TransitPoolWork() {
-  const { pool_code } = useParams();
+  const { request_id } = useParams();
   const navigate = useNavigate();
   const { user } = useCurrentUser();
   
@@ -32,57 +32,58 @@ export default function TransitPoolWork() {
   const [editing, setEditing] = useState(false);
   const [editData, setEditData] = useState({});
   const [saving, setSaving] = useState(false);
+  const [transitMethods, setTransitMethods] = useState([]);
+  const [addonOptions, setAddonOptions] = useState([]);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      // 通过 pool_code 查找对应的 GroupBuyRequest
-      // 注意：这里需要根据实际业务逻辑调整
-      const allRequests = await base44.asServiceRole.entities.GroupBuyRequest.filter({});
-      const foundRequest = (allRequests || []).find(r => 
-        r.id === pool_code || r.pool_code === pool_code
-      );
+      const res = await base44.functions.invoke('getTransitPoolWorkData', { request_id });
       
-      if (!foundRequest) {
+      if (!res.data?.request) {
         navigate("/Home");
         return;
       }
       
-      setRequest(foundRequest);
-      setEditData(foundRequest);
-      
-      // 获取条目
-      const allEntries = await base44.asServiceRole.entities.GroupBuyEntry.filter({ 
-        request_id: foundRequest.id 
-      });
-      setEntries(allEntries || []);
-      
-      // 获取中转地信息
-      if (foundRequest.transit_location_id) {
-        const locations = await base44.asServiceRole.entities.TransitLocation.filter({ 
-          id: foundRequest.transit_location_id 
-        });
-        if (locations && locations.length > 0) {
-          setLocation(locations[0]);
-        }
-      }
+      setRequest(res.data.request);
+      setEditData(res.data.request);
+      setEntries(res.data.entries || []);
+      setLocation(res.data.location);
+      setTransitMethods(res.data.transitMethods || []);
+      setAddonOptions(res.data.addonOptions || []);
     } catch (error) {
       console.error('Failed to fetch data:', error);
+      alert('加载失败：' + error.message);
+      navigate("/Home");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (!user || !pool_code) return;
+    if (!user || !request_id) return;
     fetchData();
-  }, [user, pool_code]);
+  }, [user, request_id]);
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      await base44.asServiceRole.entities.GroupBuyRequest.update(request.id, editData);
-      setRequest({ ...request, ...editData });
+      // 只允许编辑特定字段
+      const allowedFields = ['deadline', 'on_deadline_action', 'admin_note'];
+      const updateData = {};
+      allowedFields.forEach(field => {
+        if (editData[field] !== undefined) {
+          updateData[field] = editData[field];
+        }
+      });
+      
+      await base44.functions.invoke('manageGroupBuy', {
+        action: 'update_request',
+        request_id: request.id,
+        ...updateData
+      });
+      
+      setRequest({ ...request, ...updateData });
       setEditing(false);
       alert('保存成功');
     } catch (error) {
@@ -149,15 +150,17 @@ export default function TransitPoolWork() {
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm font-semibold">拼单信息</CardTitle>
-            <Button 
-              size="sm" 
-              variant="outline"
-              onClick={() => setEditing(!editing)}
-              className="h-7 text-xs"
-            >
-              {editing ? <X className="w-3.5 h-3.5" /> : <Edit2 className="w-3.5 h-3.5" />}
-              {editing ? '取消' : '编辑'}
-            </Button>
+            {user?.role === 'admin' || user?.role === 'tenant_admin' ? (
+              <Button 
+                size="sm" 
+                variant="outline"
+                onClick={() => setEditing(!editing)}
+                className="h-7 text-xs"
+              >
+                {editing ? <X className="w-3.5 h-3.5" /> : <Edit2 className="w-3.5 h-3.5" />}
+                {editing ? '取消' : '编辑'}
+              </Button>
+            ) : null}
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -222,6 +225,10 @@ export default function TransitPoolWork() {
               <div>
                 <span className="text-gray-500">当前金额：</span>
                 <span className="font-medium text-indigo-600">¥{request.total_amount_jpy?.toLocaleString()}</span>
+              </div>
+              <div>
+                <span className="text-gray-500">参团人数：</span>
+                <span className="font-medium">{entries.filter(e => e.status === 'active').length} 人</span>
               </div>
             </div>
           )}

@@ -35,11 +35,10 @@ export default function TransitLocationWork() {
   
   const [loading, setLoading] = useState(true);
   const [location, setLocation] = useState(null);
-  const [pools, setPools] = useState([]);
-  const [orders, setOrders] = useState([]);
+  const [requests, setRequests] = useState([]);
   const [activeTab, setActiveTab] = useState("arrived");
   const [showArrivalModal, setShowArrivalModal] = useState(false);
-  const [selectedPools, setSelectedPools] = useState([]);
+  const [selectedRequests, setSelectedRequests] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [arrivalImages, setArrivalImages] = useState([]);
   const [arrivalNote, setArrivalNote] = useState("");
@@ -60,8 +59,7 @@ export default function TransitLocationWork() {
       }
       
       setLocation(data.location);
-      setPools(data.pools || []);
-      setOrders(data.orders || []);
+      setRequests(data.requests || []);
       t.done('data ready');
     } catch (error) {
       console.error('Failed to fetch transit location data:', error);
@@ -84,30 +82,29 @@ export default function TransitLocationWork() {
     }
   }, [locationState]);
 
-  // Categorize pools by transit status
-  const poolsByStatus = {
-    pending: pools.filter(p => 
-      !p.transit_arrival_confirmed_at && 
-      !p.transit_shipped_date && 
-      (p.status === "pending" || p.status === "awaiting_payment" || p.status === "ready_to_ship")
+  // Categorize requests by transit status
+  const requestsByStatus = {
+    pending: requests.filter(r => 
+      !r.transit_arrival_confirmed_at && 
+      !r.transit_shipped_date && 
+      (r.status === "open")
     ),
-    in_transit: pools.filter(p => 
-      p.status === "shipped" && 
-      !p.transit_arrival_confirmed_at && 
-      p.tracking_number
+    in_transit: requests.filter(r => 
+      r.status === "completed" && 
+      !r.transit_arrival_confirmed_at
     ),
-    arrived: pools.filter(p => p.transit_arrival_confirmed_at && !p.transit_shipped_date),
-    forwarded: pools.filter(p => p.transit_shipped_date),
+    arrived: requests.filter(r => r.transit_arrival_confirmed_at && !r.transit_shipped_date),
+    forwarded: requests.filter(r => r.transit_shipped_date),
   };
 
   // Update tab counts
   const tabsWithCounts = TRANSIT_STATUS_TABS.map(tab => ({
     ...tab,
-    count: poolsByStatus[tab.key]?.length || 0,
+    count: requestsByStatus[tab.key]?.length || 0,
   }));
 
   const handleBulkArrivalConfirm = async () => {
-    if (selectedPools.length === 0) return;
+    if (selectedRequests.length === 0) return;
     
     setSaving(true);
     try {
@@ -123,10 +120,10 @@ export default function TransitLocationWork() {
         setUploading(false);
       }
 
-      // Update all selected pools
-      const updatePromises = selectedPools.map(poolId => 
+      // Update all selected requests
+      const updatePromises = selectedRequests.map(requestId => 
         base44.functions.invoke('updateTransitLocationPool', {
-          pool_id: poolId,
+          request_id: requestId,
           transit_arrival_image_urls: imageUrls,
           transit_arrival_note: arrivalNote,
           action: "confirm_arrival"
@@ -136,12 +133,9 @@ export default function TransitLocationWork() {
       await Promise.all(updatePromises);
       
       // Refresh data
-      const r = await base44.functions.invoke('getTransitLocationWorkPageData', { 
-        transit_location_id 
-      });
-      setPools(r.data?.pools || []);
+      fetchData();
       setShowArrivalModal(false);
-      setSelectedPools([]);
+      setSelectedRequests([]);
       setArrivalImages([]);
       setArrivalNote("");
     } catch (error) {
@@ -208,7 +202,7 @@ export default function TransitLocationWork() {
             ))}
           </TabsList>
           
-          {activeTab === "in_transit" && poolsByStatus.in_transit.length > 0 && (
+          {activeTab === "in_transit" && requestsByStatus.in_transit.length > 0 && (
             <Button 
               size="sm" 
               className="bg-red-600 hover:bg-red-700"
@@ -219,29 +213,29 @@ export default function TransitLocationWork() {
             </Button>
           )}
           
-          {activeTab === "pending" && poolsByStatus.pending.length > 0 && (
+          {activeTab === "pending" && requestsByStatus.pending.length > 0 && (
             <Badge className="bg-orange-100 text-orange-700 text-xs">
               <Clock className="w-3 h-3 mr-1" />
-              待处理 {poolsByStatus.pending.length} 个
+              待处理 {requestsByStatus.pending.length} 个
             </Badge>
           )}
         </div>
 
         {/* Pending Tab */}
         <TabsContent value="pending" className="space-y-4">
-          {poolsByStatus.pending.length === 0 ? (
+          {requestsByStatus.pending.length === 0 ? (
             <div className="flex flex-col items-center py-20 text-gray-400">
               <Clock className="w-12 h-12 mb-3 opacity-20" />
-              <p className="text-sm">暂无待处理的包裹</p>
+              <p className="text-sm">暂无待处理的拼单</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-              {poolsByStatus.pending.map(pool => (
+              {requestsByStatus.pending.map(request => (
                 <TransitPoolCard 
-                  key={pool.id} 
-                  pool={pool} 
+                  key={request.id} 
+                  pool={request} 
                   transitStatus="pending"
-                  onClick={() => navigate(`/Trworkon/${pool.pool_code}`)}
+                  onClick={() => navigate(`/Trworkon/${request.id}`)}
                 />
               ))}
             </div>
@@ -250,19 +244,19 @@ export default function TransitLocationWork() {
 
         {/* Arrived Tab */}
         <TabsContent value="arrived" className="space-y-4">
-          {poolsByStatus.arrived.length === 0 ? (
+          {requestsByStatus.arrived.length === 0 ? (
             <div className="flex flex-col items-center py-20 text-gray-400">
               <CheckCircle className="w-12 h-12 mb-3 opacity-20" />
-              <p className="text-sm">暂无已收货的包裹</p>
+              <p className="text-sm">暂无已收货的拼单</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-              {poolsByStatus.arrived.map(pool => (
+              {requestsByStatus.arrived.map(request => (
                 <TransitPoolCard 
-                  key={pool.id} 
-                  pool={pool} 
+                  key={request.id} 
+                  pool={request} 
                   transitStatus="arrived"
-                  onClick={() => navigate(`/Trworkon/${pool.pool_code}`)}
+                  onClick={() => navigate(`/Trworkon/${request.id}`)}
                 />
               ))}
             </div>
@@ -271,27 +265,27 @@ export default function TransitLocationWork() {
 
         {/* In Transit Tab */}
         <TabsContent value="in_transit" className="space-y-4">
-          {poolsByStatus.in_transit.length === 0 ? (
+          {requestsByStatus.in_transit.length === 0 ? (
             <div className="flex flex-col items-center py-20 text-gray-400">
               <Truck className="w-12 h-12 mb-3 opacity-20" />
-              <p className="text-sm">暂无在途包裹</p>
+              <p className="text-sm">暂无在途拼单</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-              {poolsByStatus.in_transit.map(pool => (
+              {requestsByStatus.in_transit.map(request => (
                 <TransitPoolCard 
-                  key={pool.id} 
-                  pool={pool} 
+                  key={request.id} 
+                  pool={request} 
                   transitStatus="in_transit"
-                  isSelected={selectedPools.includes(pool.id)}
+                  isSelected={selectedRequests.includes(request.id)}
                   onToggleSelect={(id) => {
-                    setSelectedPools(prev => 
+                    setSelectedRequests(prev => 
                       prev.includes(id) 
                         ? prev.filter(pid => pid !== id)
                         : [...prev, id]
                     );
                   }}
-                  onClick={() => navigate(`/Trworkon/${pool.pool_code}`)}
+                  onClick={() => navigate(`/Trworkon/${request.id}`)}
                 />
               ))}
             </div>
@@ -300,17 +294,17 @@ export default function TransitLocationWork() {
 
         {/* Forwarded Tab */}
         <TabsContent value="forwarded" className="space-y-4">
-          {poolsByStatus.forwarded.length === 0 ? (
+          {requestsByStatus.forwarded.length === 0 ? (
             <div className="flex flex-col items-center py-20 text-gray-400">
               <Package className="w-12 h-12 mb-3 opacity-20" />
               <p className="text-sm">暂无已转发包裹</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-              {poolsByStatus.forwarded.map(pool => (
+              {requestsByStatus.forwarded.map(request => (
                 <TransitPoolCard 
-                  key={pool.id} 
-                  pool={pool} 
+                  key={request.id} 
+                  pool={request} 
                   transitStatus="forwarded"
                   onClick={() => {}}
                 />
@@ -327,7 +321,7 @@ export default function TransitLocationWork() {
             <div className="p-5 border-b">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold">
-                  确认收货 ({selectedPools.length} 个包裹)
+                  确认收货 ({selectedRequests.length} 个拼单)
                 </h2>
                 <button 
                   onClick={() => setShowArrivalModal(false)}
@@ -409,15 +403,15 @@ export default function TransitLocationWork() {
               {/* Selected pools summary */}
               <div className="bg-gray-50 rounded-lg p-3">
                 <p className="text-sm font-medium text-gray-700 mb-2">
-                  将确认以下包裹已到达中转地：
+                  将确认以下拼单已到达中转地：
                 </p>
                 <div className="max-h-32 overflow-y-auto space-y-1">
-                  {selectedPools.map(poolId => {
-                    const pool = pools.find(p => p.id === poolId);
-                    return pool ? (
-                      <div key={poolId} className="text-xs text-gray-600 flex items-center gap-1">
+                  {selectedRequests.map(requestId => {
+                    const request = requests.find(r => r.id === requestId);
+                    return request ? (
+                      <div key={requestId} className="text-xs text-gray-600 flex items-center gap-1">
                         <CheckCircle className="w-3 h-3 text-green-500" />
-                        <span className="truncate">{pool.pool_code || pool.id.slice(-6)}</span>
+                        <span className="truncate">{request.title || request.id.slice(-6)}</span>
                       </div>
                     ) : null;
                   })}
