@@ -234,22 +234,20 @@ export default function AdminSettings() {
   // Save all settings to backend
   const handleSaveAll = async () => {
     setSaving(true);
-    // Also persist rewarehouse fee input if changed
-    const rwSetting = settings.find(s => s.key === 'default_rewarehouse_fee_jpy');
-    const settingsToSave = settings.map(s => {
-      if (s.key === 'default_rewarehouse_fee_jpy') return { ...s, value: rewarehouseFeeInput || '0' };
-      return s;
-    });
-    // Only update existing records (new keys added via handleAdd)
-    await Promise.all(settingsToSave.filter(s => s.id).map(s =>
-      tenantEntity.update('SiteSettings', s.id, { value: s.value, description: s.description })
-    ));
-    // If a toggle key doesn't exist yet in DB, create it
-    const keysInDB = new Set(settings.filter(s => s.id).map(s => s.key));
-    // (New toggles created on-the-fly are handled by handleAdd or by load() seeding defaults)
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    try {
+      const settingsToSave = settings.map(s =>
+        s.key === 'default_rewarehouse_fee_jpy' ? { ...s, value: rewarehouseFeeInput || '0' } : s
+      );
+      await Promise.all(
+        settingsToSave.filter(s => s.id).map(s =>
+          tenantEntity.update('SiteSettings', s.id, { value: s.value, description: s.description })
+        )
+      );
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleAdd = async () => {
