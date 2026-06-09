@@ -12,18 +12,23 @@ export default function OrderDetailPanel({ order, pool }) {
   const panelRef = useRef(null);
 
   // Find the user group this order belongs to
-  const userGroup = (pool.per_user_groups || []).find(g => g.user_email === order.user_email);
+  const userGroup = (pool.per_user_groups || []).find(g => g.user_entries?.some(e => e.order_id === order.id));
   
   // Extract order-level details from per_user_groups (group-level settings)
   const transitMethod = userGroup?.transit_shipping_method_name || order.pre_shipment?.transit_shipping_method_name;
-  const orderAddons = userGroup?.selected_addons || order.selected_addons || [];
+  
+  // Distinguish between order addons (下单增值服务) and shipping addons (发货增值服务)
+  const orderEntry = userGroup?.order_entries?.find(e => e.order_id === order.id);
+  const shippingAddons = userGroup?.selected_addons || []; // 发货增值服务（用户组级别）
+  const orderAddons = orderEntry?.selected_addons || order.selected_addons || []; // 下单增值服务（订单级别）
+  
   const orderNote = userGroup?.note || order.pre_shipment?.user_note;
   
   // Get address from group_final_address or pre_shipment
   const addr = userGroup?.group_final_address || order.pre_shipment?.address || {};
   const destinationCountry = addr.country || order.destination_country;
   
-  const hasDetails = addr.recipient_name || addr.addr1 || destinationCountry || transitMethod || orderAddons.length > 0 || orderNote;
+  const hasDetails = addr.recipient_name || addr.addr1 || destinationCountry || transitMethod || shippingAddons.length > 0 || orderAddons.length > 0 || orderNote;
   
   // Close on click outside
   useEffect(() => {
@@ -112,12 +117,29 @@ export default function OrderDetailPanel({ order, pool }) {
             )}
             
             {orderAddons.length > 0 && (
-              <div className="bg-yellow-50 border border-yellow-100 rounded-lg px-3 py-2 space-y-1">
-                <div className="flex items-center gap-1.5 font-medium text-yellow-700">
+              <div className="bg-green-50 border border-green-100 rounded-lg px-3 py-2 space-y-1">
+                <div className="flex items-center gap-1.5 font-medium text-green-700 mb-1">
                   <Tag className="w-3.5 h-3.5" />
-                  增值服务
+                  下单增值服务
                 </div>
                 {orderAddons.map((addon, idx) => (
+                  <div key={idx} className="flex items-center justify-between text-gray-700">
+                    <span>{addon.name || addon.id}</span>
+                    {parseFloat(addon.fee) > 0 && (
+                      <span className="font-medium text-green-700">+{addon.fee_currency || "JPY"} {Math.round(parseFloat(addon.fee))}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {shippingAddons.length > 0 && (
+              <div className="bg-yellow-50 border border-yellow-100 rounded-lg px-3 py-2 space-y-1">
+                <div className="flex items-center gap-1.5 font-medium text-yellow-700 mb-1">
+                  <Tag className="w-3.5 h-3.5" />
+                  发货增值服务
+                </div>
+                {shippingAddons.map((addon, idx) => (
                   <div key={idx} className="flex items-center justify-between text-gray-700">
                     <span>{addon.name || addon.id}</span>
                     {parseFloat(addon.fee) > 0 && (
