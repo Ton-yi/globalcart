@@ -187,18 +187,22 @@ export default function PreShipmentFormFullPayOnce({
       
       {fullPayOnceEnabled && (
         <CardContent className="space-y-4">
-          {/* Weight input */}
+          {/* Weight input - required when full pay once is enabled */}
           <div>
-            <Label className="text-sm">预估重量 (g) *</Label>
+            <Label className="text-sm">预估重量 (g) <span className="text-red-500">*</span></Label>
             <Input
               type="text"
               inputMode="decimal"
               placeholder="例如：500"
               value={userEstimatedWeight}
               onChange={(e) => setUserEstimatedWeight(e.target.value)}
-              className="mt-1"
+              className={`mt-1 ${fullPayOnceEnabled && (!userEstimatedWeight || parseFloat(userEstimatedWeight) <= 0) ? "border-red-300 focus-visible:ring-red-300" : ""}`}
             />
-            <p className="text-xs text-gray-400 mt-1">请输入商品预估重量（克），用于计算运费</p>
+            {fullPayOnceEnabled && (!userEstimatedWeight || parseFloat(userEstimatedWeight) <= 0) ? (
+              <p className="text-xs text-red-500 mt-1">开启一次付款后，预估重量为必填项</p>
+            ) : (
+              <p className="text-xs text-gray-400 mt-1">请输入商品预估重量（克），用于计算运费</p>
+            )}
           </div>
 
           {/* Real-time shipping fee display */}

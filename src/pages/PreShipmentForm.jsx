@@ -271,6 +271,8 @@ export default function PreShipmentForm() {
     // Otherwise, shipping method is required unless specific pool selected
     if (!specificPoolSelected && !shippingMethod) return false;
     if (consType === "transit") return !!transitLocationId;
+    // If one-time payment is enabled, weight is required
+    if (fullPayOnceEnabled && (!userEstimatedWeight || parseFloat(userEstimatedWeight) <= 0)) return false;
     if (consType === "official_pool") return true;
     return isAddressFormValid(address);
   };
@@ -324,12 +326,15 @@ export default function PreShipmentForm() {
     const destinationCountry = effectiveAddress?.country || "";
     
     // One-time payment config
+    // service_fee_amount may be undefined if not yet calculated; use 0 as fallback
+    const productFee = order.estimated_jpy || 0;
+    const serviceFee = order.service_fee_amount || 0;
     const fullPayOnceConfig = fullPayOnceEnabled && userEstimatedWeight && estimatedShippingFee > 0 ? {
       user_estimated_weight_g: parseFloat(userEstimatedWeight) || 0,
       shipping_method_code: shippingMethod,
       destination_country: destinationCountry,
       estimated_shipping_fee_jpy: estimatedShippingFee,
-      total_paid_jpy: (order.estimated_jpy || 0) + (order.service_fee_amount || 0) + estimatedShippingFee,
+      total_paid_jpy: productFee + serviceFee + estimatedShippingFee,
       settlement_status: "pending"
     } : null;
 
@@ -385,8 +390,12 @@ export default function PreShipmentForm() {
 
     setSubmitting(false);
 
-    // If order needs payment, redirect directly to payment page
-    const needsPayment = order.payment_status === "awaiting_payment" || order.order_status === "payment_pending";
+    // Use updated order state for payment redirect decision
+    const latestOrder = res?.data?.order || order;
+    // Needs payment if: awaiting payment OR fullpay_once just enabled (need to pay product+shipping together)
+    const needsPayment = latestOrder.payment_status === "awaiting_payment" || 
+                         latestOrder.order_status === "payment_pending" ||
+                         (fullPayOnceConfig && (latestOrder.payment_status === "awaiting_payment" || latestOrder.order_status === "payment_pending"));
     if (needsPayment) {
       const m = paymentMethods.find((pm) => (pm.provider_key || pm.name) === paymentMethod || pm.value === paymentMethod);
       const cur = m?.payment_currency || "JPY";
