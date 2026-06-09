@@ -182,6 +182,10 @@
     "user_note": {
       "type": "string"
     },
+    "note_image_url": {
+      "type": "string",
+      "description": "\u5907\u6ce8\u56fe\u7247 URL"
+    },
     "payment_proof_url": {
       "type": "string"
     },

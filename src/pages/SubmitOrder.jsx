@@ -49,7 +49,7 @@ export default function SubmitOrder() {
   const [form, setForm] = useState({
     product_name: "", product_description: "",
     estimated_jpy: "", prepayment_currency: "JPY",
-    user_note: "", product_image_url: "", online_store_tag: "其它"
+    user_note: "", product_image_url: "", note_image_url: "", online_store_tag: "其它"
   });
   const [calculated, setCalculated] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -694,9 +694,80 @@ export default function SubmitOrder() {
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold text-gray-700">备注</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-3">
             <Textarea placeholder="其他特殊说明..." value={form.user_note}
             onChange={(e) => setForm((f) => ({ ...f, user_note: e.target.value }))} rows={2} />
+            
+            {/* Note image upload */}
+            <div>
+              <Label className="text-xs text-gray-500 mb-1.5 block">备注图片（可选）</Label>
+              <div className={`border-2 rounded-lg transition-colors ${
+                form.note_image_url ? "border-green-300 bg-green-50" :
+                uploading ? "border-blue-200 bg-blue-50" :
+                "border-gray-200 hover:border-blue-300"
+              }`}>
+                <div
+                  className="cursor-text p-2.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const file = e.dataTransfer.files[0];
+                    if (file && file.type.startsWith("image/")) handleImageUpload(file);
+                  }}
+                  onPaste={(e) => {
+                    const item = Array.from(e.clipboardData.items).find((i) => i.type.startsWith("image/"));
+                    if (item) {
+                      const file = item.getAsFile();
+                      if (file) handleImageUpload(file);
+                    }
+                  }}
+                  onClick={() => document.getElementById("note-image-input")?.click()}
+                  tabIndex={0}
+                >
+                  {form.note_image_url ? (
+                    <div className="flex items-center gap-3">
+                      <img src={form.note_image_url} alt="" className="h-12 rounded object-cover" />
+                      <div className="text-sm text-green-700">✓ 已上传，点击、粘贴或拖拽可更换</div>
+                    </div>
+                  ) : uploading ? (
+                    <div className="flex items-center gap-2 text-blue-500 text-sm">
+                      <Upload className="w-4 h-4 animate-pulse" />
+                      <span>上传中...</span>
+                    </div>
+                  ) : (
+                    <div className="text-sm text-gray-500">粘贴图片、点击选择或拖拽图片到此处上传</div>
+                  )}
+                </div>
+                <div className="border-t border-dashed border-gray-200 px-2.5 py-2">
+                  <Input
+                    type="text"
+                    placeholder="或粘贴图片 URL..."
+                    value={form.note_image_url || ""}
+                    onChange={(e) => setForm((f) => ({ ...f, note_image_url: e.target.value }))}
+                    onPaste={(e) => {
+                      const item = Array.from(e.clipboardData.items).find((i) => i.type.startsWith("image/"));
+                      if (item) {
+                        e.preventDefault();
+                        const file = item.getAsFile();
+                        if (file) handleImageUpload(file);
+                      }
+                    }}
+                    className="text-sm border-0 shadow-none bg-transparent px-0 h-6 focus-visible:ring-0"
+                  />
+                </div>
+              </div>
+              <input
+                id="note-image-input"
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files[0];
+                  if (f) handleImageUpload(f);
+                }}
+                disabled={uploading}
+              />
+            </div>
           </CardContent>
         </Card>
 
@@ -881,6 +952,7 @@ export default function SubmitOrder() {
                 order_status: isDeferred || isCredit ? "paid" : "payment_pending",
                 payment_status: isDeferred || isCredit ? "paid" : "awaiting_payment",
                 user_note: form.user_note || "",
+                note_image_url: form.note_image_url || "",
                 selected_addon_ids: selectedAddons,
                 selected_addons: selectedAddonObjects.map((a) => ({ id: a.id, name: a.name, fee: a.fee, fee_currency: a.fee_currency }))
               });
