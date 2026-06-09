@@ -41,10 +41,12 @@ Deno.serve(async (req) => {
     const resolvedTenantId = tenantId || locations[0]?.tenant_id;
 
     // Fetch all transit pools for this tenant
-    const pools = await base44.asServiceRole.entities.ShippingPool.filter({
-      tenant_id: resolvedTenantId,
-      consolidation_type: "transit",
-    });
+    const [pools, allUsers, transitMethods, addonOptions] = await Promise.all([
+      base44.asServiceRole.entities.ShippingPool.filter({ tenant_id: resolvedTenantId, consolidation_type: "transit" }),
+      base44.asServiceRole.entities.User.filter({ tenant_id: resolvedTenantId }),
+      base44.asServiceRole.entities.TransitShippingMethod.filter({ tenant_id: resolvedTenantId }),
+      base44.asServiceRole.entities.AddonOption.filter({ tenant_id: resolvedTenantId, addon_type: 'shipping' }),
+    ]);
 
     // Group pools by transit_location_id
     const poolsByLocation = {};
@@ -55,6 +57,9 @@ Deno.serve(async (req) => {
     return Response.json({
       locations: locations || [],
       poolsByLocation,
+      users: (allUsers || []).filter(u => u.role === 'admin'),
+      transitMethods: (transitMethods || []).filter(m => m.is_active !== false),
+      addonOptions: (addonOptions || []).filter(a => a.is_active !== false),
     });
 
   } catch (error) {
