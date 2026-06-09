@@ -26,8 +26,19 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const url = new URL(req.url);
-    const transitLocationId = url.searchParams.get('transit_location_id');
+    let transitLocationId;
+    
+    // Get transit_location_id from request body (JSON payload)
+    if (req.method === 'POST' && req.body) {
+      const body = await req.json();
+      transitLocationId = body.transit_location_id;
+    }
+    
+    // Fallback to query params
+    if (!transitLocationId) {
+      const url = new URL(req.url);
+      transitLocationId = url.searchParams.get('transit_location_id');
+    }
 
     if (!transitLocationId) {
       return Response.json({ error: 'Missing transit_location_id' }, { status: 400 });
