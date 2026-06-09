@@ -259,15 +259,15 @@ export default function SubmitOrder() {
       prepayment_currency: "JPY",
       online_store_tag: tagResult.tag_label,
       online_store_tag_color: tagResult.tag_color,
-      payment_mode: isCredit ? "credit" : isDeferred ? "deferred" : "prepay",
-      credit_cycle: isCredit ? (paymentMode === "credit_weekly" ? "weekly" : "monthly") : null,
-      order_status: isDeferred || isCredit ? "paid" : "payment_pending",
-      payment_status: isDeferred || isCredit ? "paid" : "awaiting_payment",
-      user_note: form.user_note || "",
-      selected_addon_ids: selectedAddons,
-      selected_addons: selectedAddonObjects.map((a) => ({ id: a.id, name: a.name, fee: parseFloat(a.fee) || 0, fee_currency: a.fee_currency || "JPY" }))
-    });
-    const order = res.data?.order;
+      payment_mode: isCredit ? "credit" : isDeferred ? "deferred" : (settings.prepay_enabled === 'false' ? "fullpay_once" : "prepay"),
+        credit_cycle: isCredit ? (paymentMode === "credit_weekly" ? "weekly" : "monthly") : null,
+        order_status: isDeferred || isCredit ? "paid" : "payment_pending",
+        payment_status: isDeferred || isCredit ? "paid" : "awaiting_payment",
+        user_note: form.user_note || "",
+        selected_addon_ids: selectedAddons,
+        selected_addons: selectedAddonObjects.map((a) => ({ id: a.id, name: a.name, fee: parseFloat(a.fee) || 0, fee_currency: a.fee_currency || "JPY" }))
+      });
+      const order = res.data?.order;
 
     // Backend downgraded credit order to deferred due to insufficient limit
     if (res.data?.credit_downgraded) {
@@ -876,7 +876,7 @@ export default function SubmitOrder() {
                 prepayment_currency: "JPY",
                 online_store_tag: tagResult.tag_label,
                 online_store_tag_color: tagResult.tag_color,
-                payment_mode: isCredit ? "credit" : isDeferred ? "deferred" : "prepay",
+                payment_mode: isCredit ? "credit" : isDeferred ? "deferred" : (settings.prepay_enabled === 'false' ? "fullpay_once" : "prepay"),
                 credit_cycle: isCredit ? (paymentMode === "credit_weekly" ? "weekly" : "monthly") : null,
                 order_status: isDeferred || isCredit ? "paid" : "payment_pending",
                 payment_status: isDeferred || isCredit ? "paid" : "awaiting_payment",
