@@ -550,6 +550,63 @@ function MethodCard({ method, onSave, onDelete, itemSizeTemplates = [] }) {
   );
 }
 
+function EstimateRateGlobalSetting() {
+  const [rate, setRate] = useState("");
+  const [settingId, setSettingId] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    tenantEntity.list('SiteSettings', { key: 'default_estimate_rate_per_100g' })
+      .then(list => {
+        if (list && list.length > 0) {
+          setSettingId(list[0].id);
+          setRate(list[0].value || "");
+        }
+      }).catch(() => {});
+  }, []);
+
+  const handleSave = async () => {
+    setSaving(true);
+    if (settingId) {
+      await tenantEntity.update('SiteSettings', settingId, { value: String(rate) });
+    } else {
+      const created = await tenantEntity.create('SiteSettings', {
+        key: 'default_estimate_rate_per_100g',
+        value: String(rate),
+        description: '官方拼邮预估运费简易估算率（JPY/100g，未在运输方式中单独设置时使用）',
+        category: 'shipping'
+      });
+      setSettingId(created.id);
+    }
+    setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  return (
+    <div className="border border-purple-200 rounded-xl p-4 bg-purple-50 space-y-2">
+      <div>
+        <p className="text-sm font-semibold text-gray-700">预估运费全局建议费率</p>
+        <p className="text-xs text-gray-400 mt-0.5">官方拼邮一次付款时，若运输方式未单独配置估算率，将使用此全局值。留空则默认 150 JPY/100g。</p>
+      </div>
+      <div className="flex items-center gap-2">
+        <Input
+          type="number"
+          className="h-8 text-sm w-36 bg-white"
+          value={rate}
+          onChange={e => setRate(e.target.value)}
+          placeholder="150"
+        />
+        <span className="text-xs text-gray-500">JPY / 100g</span>
+        <Button size="sm" className="h-8 text-xs bg-purple-600 hover:bg-purple-700" onClick={handleSave} disabled={saving}>
+          {saved ? "已保存 ✓" : saving ? "保存中..." : "保存"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export default function ShippingMethodManager({ initialData = null, itemSizeTemplates = [] }) {
   const [methods, setMethods] = useState(null); // null = not yet initialized
   const [loading, setLoading] = useState(false);
@@ -647,6 +704,8 @@ export default function ShippingMethodManager({ initialData = null, itemSizeTemp
       {methods.map(m => (
         <MethodCard key={m.id} method={m} onSave={handleSave} onDelete={handleDelete} itemSizeTemplates={itemSizeTemplates} />
       ))}
+
+      <EstimateRateGlobalSetting />
     </div>
   );
 }

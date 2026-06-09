@@ -68,6 +68,7 @@ export default function PreShipmentForm() {
   const [userEstimatedWeight, setUserEstimatedWeight] = useState("");
   const [estimatedShippingFee, setEstimatedShippingFee] = useState(0);
   const [isRestoringData, setIsRestoringData] = useState(true); // true until initial data load completes
+  const [globalEstimateRate, setGlobalEstimateRate] = useState(null); // global fallback estimate rate per 100g
 
   // Official pools for selection
   const [officialPools, setOfficialPools] = useState([]);
@@ -82,13 +83,16 @@ export default function PreShipmentForm() {
 
     const loadData = async () => {
       try {
-        const [ord, cfg, prefs, methods, poolsRes] = await Promise.all([
+        const [ord, cfg, prefs, methods, poolsRes, rateSettings] = await Promise.all([
         base44.functions.invoke('getTenantOrders', {}).then((r) => (r.data?.orders || []).find((o) => o.id === orderId)),
         fetchTenantConfig(),
         tenantEntity.list('UserPreference', { user_email: user.email }).catch(() => []),
         base44.functions.invoke('managePaymentMethod', { action: 'list' }).then((r) => r.data?.methods || []).catch(() => []),
-        base44.functions.invoke('getTenantShippingPools', { status: 'pending' }).catch(() => ({ data: { pools: [] } }))]
+        base44.functions.invoke('getTenantShippingPools', { status: 'pending' }).catch(() => ({ data: { pools: [] } })),
+        tenantEntity.list('SiteSettings', { key: 'default_estimate_rate_per_100g' }).catch(() => [])]
         );
+        const globalRate = rateSettings?.[0]?.value ? parseFloat(rateSettings[0].value) : null;
+        if (globalRate && globalRate > 0) setGlobalEstimateRate(globalRate);
 
         if (!isMounted) return;
 
@@ -1118,6 +1122,7 @@ export default function PreShipmentForm() {
         shippingMethod={shippingMethod}
         destinationCountry={address?.country || ""}
         isRestoring={isRestoringData}
+        globalEstimateRatePer100g={globalEstimateRate}
       />
 
       {/* Note */}

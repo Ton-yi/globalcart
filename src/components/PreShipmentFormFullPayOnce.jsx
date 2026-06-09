@@ -26,7 +26,8 @@ export default function PreShipmentFormFullPayOnce({
   order,
   shippingMethod,
   destinationCountry,
-  isRestoring  // true during initial data load — skip the reset effect
+  isRestoring,  // true during initial data load — skip the reset effect
+  globalEstimateRatePer100g  // global fallback rate from SiteSettings
 }) {
   // Reset when consType/pool selection changes, but NOT during initial data restore
   const isRestoringRef = useRef(isRestoring);
@@ -115,10 +116,12 @@ export default function PreShipmentFormFullPayOnce({
     let fee = 0;
     
     if (consType === "official_pool") {
-      // Simple estimation for official pool: use method's configured rate, fallback to 150 JPY/100g
+      // Priority: method-level rate > global setting > hardcoded default 150
       const simpleRatePer100g = (method.official_pool_estimate_rate_per_100g != null && method.official_pool_estimate_rate_per_100g > 0)
         ? method.official_pool_estimate_rate_per_100g
-        : 150;
+        : (globalEstimateRatePer100g && globalEstimateRatePer100g > 0)
+          ? globalEstimateRatePer100g
+          : 150;
       fee = Math.ceil(weight / 100) * simpleRatePer100g;
       console.log('[FullPay] Official pool fee:', fee);
     } else if (consType === "") {
@@ -235,7 +238,9 @@ export default function PreShipmentFormFullPayOnce({
                   <Calculator className="w-3 h-3 inline mr-1" />
                   简易估算：每 100g 按 {(() => {
                     const m = shippingMethods.find(m => m.code === shippingMethod);
-                    return (m?.official_pool_estimate_rate_per_100g > 0) ? m.official_pool_estimate_rate_per_100g : 150;
+                    if (m?.official_pool_estimate_rate_per_100g > 0) return m.official_pool_estimate_rate_per_100g;
+                    if (globalEstimateRatePer100g > 0) return globalEstimateRatePer100g;
+                    return 150;
                   })()} JPY 计算
                 </p>
               )}
