@@ -53,7 +53,7 @@ Deno.serve(async (req) => {
     const [allGroupBuyRequests, allShippingPools, allUsers, transitMethods, addonOptions] = await Promise.all([
       base44.asServiceRole.entities.GroupBuyRequest.filter({ tenant_id: resolvedTenantId }),
       base44.asServiceRole.entities.ShippingPool.filter({ tenant_id: resolvedTenantId }),
-      base44.asServiceRole.entities.User.filter({ tenant_id: resolvedTenantId }),
+      base44.asServiceRole.entities.User.list(), // User entity is global, no tenant_id filter
       base44.asServiceRole.entities.TransitShippingMethod.filter({ tenant_id: resolvedTenantId }),
       base44.asServiceRole.entities.AddonOption.filter({ tenant_id: resolvedTenantId, addon_type: 'shipping' }),
     ]);
@@ -70,7 +70,7 @@ Deno.serve(async (req) => {
     for (const loc of locations) {
       const reqsForLoc = transitRequests.filter(r => r.transit_location_id === loc.id);
       requestsByLocation[loc.id] = reqsForLoc;
-      console.log(`[getAllTransitWorkData] Location ${loc.name} (${loc.id}): ${reqsForLoc.length} items (${transitGroupBuyRequests.filter(r => r.transit_location_id === loc.id).length} GroupBuy, ${transitShippingPools.filter(p => p.transit_location_id === loc.id).length} ShippingPool)`);
+      console.log(`[getAllTransitWorkData] Location ${loc.name} (${loc.id}): ${reqsForLoc.length} items`);
     }
 
 
