@@ -14,9 +14,11 @@ Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     const body = await req.json();
-    const { order_id } = body;
     
-    // Fetch order
+    // Support both direct call ({ order_id }) and entity automation ({ event, data })
+    const order_id = body.order_id || body.event?.entity_id;
+    
+    // Fetch order - prefer body.data from automation, otherwise fetch
     let order = body.data;
     if (!order && order_id) {
       const results = await base44.asServiceRole.entities.Order.filter({ id: order_id });

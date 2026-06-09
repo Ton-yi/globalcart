@@ -55,6 +55,15 @@ Deno.serve(async (req) => {
       poolsByLocation[loc.id] = (pools || []).filter(p => p.transit_location_id === loc.id);
     }
 
+    // Debug: log pool order counts
+    console.log('[getAllTransitWorkData] Total pools:', pools?.length || 0);
+    console.log('[getAllTransitWorkData] Pools with orders:', (pools || []).filter(p => (p.order_ids || []).length > 0).length);
+    (pools || []).forEach(p => {
+      if (p.order_ids?.length > 0) {
+        console.log(`[getAllTransitWorkData] Pool ${p.pool_code}: ${p.order_ids.length} orders - IDs:`, p.order_ids);
+      }
+    });
+
     return Response.json({
       locations: locations || [],
       poolsByLocation,

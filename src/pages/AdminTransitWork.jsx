@@ -57,6 +57,12 @@ export default function AdminTransitWork() {
       try {
         const r = await base44.functions.invoke('getAllTransitWorkData', {});
         const data = r.data || {};
+        console.log('[AdminTransitWork] Received data:', {
+          locations: data.locations?.length,
+          pools: data.pools?.length,
+          poolsByLocation: Object.keys(data.poolsByLocation || {}).length,
+        });
+        console.log('[AdminTransitWork] Pools by location:', data.poolsByLocation);
         setLocations(data.locations || []);
         setPoolsByLocation(data.poolsByLocation || {});
         setAllUsers(data.users || []);
