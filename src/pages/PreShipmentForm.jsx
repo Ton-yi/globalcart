@@ -650,7 +650,7 @@ export default function PreShipmentForm() {
           {/* Direct shipping - option to join existing direct pool */}
           {consType === "" &&
           <>
-              <div className="space-y-2 border border-blue-100 rounded-xl p-3 bg-blue-50/40 transition-opacity">
+              <div className={`space-y-2 border border-blue-100 rounded-xl p-3 bg-blue-50/40 transition-opacity ${joinExistingPool && selectedExistingPoolId ? "opacity-40 pointer-events-none" : ""}`}>
                 <Label className="text-xs text-blue-700 font-medium">发货方式（创建新申请）</Label>
                 <div className="text-xs text-gray-500 mt-1">如选择加入已有申请，下方信息将自动继承</div>
               </div>
@@ -757,7 +757,7 @@ export default function PreShipmentForm() {
           {/* Transit location */}
           {consType === "transit" &&
           <>
-              <div className="space-y-2 border border-blue-100 rounded-xl p-3 bg-blue-50/40 transition-opacity">
+              <div className={`space-y-2 border border-blue-100 rounded-xl p-3 bg-blue-50/40 transition-opacity ${joinExistingPool && selectedExistingPoolId ? "opacity-40 pointer-events-none" : ""}`}>
                 <Label className="text-xs text-blue-700 font-medium">选择中转地 *</Label>
                 {transitLocations.map((l) => {
                   const hasStorage = l.allow_storage === true;
@@ -812,7 +812,7 @@ export default function PreShipmentForm() {
               
               {/* Transit shipping method selection */}
               {transitLocationId && (
-                <div className={`space-y-2 border border-blue-100 rounded-xl p-3 bg-blue-50/40 ${joinExistingPool && selectedExistingPoolId ? "" : ""}`}>
+                <div className="space-y-2 border border-blue-100 rounded-xl p-3 bg-blue-50/40">
                   <Label className="text-xs text-blue-700 font-medium">中转段运输方式 *</Label>
                   {(() => {
                     const selectedLocation = transitLocations.find(l => l.id === transitLocationId);
