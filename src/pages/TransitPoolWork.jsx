@@ -195,7 +195,7 @@ export default function TransitPoolWork() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
+          <Button variant="ghost" size="sm" onClick={() => window.history.back()}>
             <ArrowLeft className="w-4 h-4" />
             返回
           </Button>
