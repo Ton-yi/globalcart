@@ -36,6 +36,8 @@ export default function TransitLocationWork() {
   const [loading, setLoading] = useState(true);
   const [location, setLocation] = useState(null);
   const [requests, setRequests] = useState([]);
+  const [transitMethods, setTransitMethods] = useState([]);
+  const [addonOptions, setAddonOptions] = useState([]);
   const [activeTab, setActiveTab] = useState("arrived");
   const [showArrivalModal, setShowArrivalModal] = useState(false);
   const [selectedRequests, setSelectedRequests] = useState([]);
@@ -48,30 +50,28 @@ export default function TransitLocationWork() {
     setLoading(true);
     const t = timePage('TransitLocationWork');
     try {
-      console.log('[TransitLocationWork] Calling getTransitLocationWorkPageData with transit_location_id:', transit_location_id);
-      const r = await base44.functions.invoke('getTransitLocationWorkPageData', { 
-        transit_location_id 
-      });
-      console.log('[TransitLocationWork] Response:', r);
-      const data = r.data || {};
-      console.log('[TransitLocationWork] Response data:', data);
+      const payload = { transit_location_id: transit_location_id };
+      console.log('[TransitLocationWork] Calling getTransitLocationWorkPageData with payload:', payload);
+      const r = await base44.functions.invoke('getTransitLocationWorkPageData', payload);
+      console.log('[TransitLocationWork] Response status:', r.status);
+      console.log('[TransitLocationWork] Response data:', r.data);
       
-      if (!data.location) {
+      if (!r.data || !r.data.location) {
         console.warn('[TransitLocationWork] No location in response, navigating home');
         navigate("/Home");
         return;
       }
       
-      setLocation(data.location);
-      setRequests(data.requests || []);
+      setLocation(r.data.location);
+      setRequests(r.data.requests || []);
+      setTransitMethods(r.data.transitMethods || []);
+      setAddonOptions(r.data.addonOptions || []);
       t.done('data ready');
     } catch (error) {
       console.error('[TransitLocationWork] Error fetching data:', error);
-      console.error('[TransitLocationWork] Error details:', {
-        message: error.message,
-        status: error.status,
-        response: error.response?.data,
-      });
+      console.error('[TransitLocationWork] Error name:', error.name);
+      console.error('[TransitLocationWork] Error message:', error.message);
+      console.error('[TransitLocationWork] Error response:', error.response);
     } finally {
       setLoading(false);
     }
