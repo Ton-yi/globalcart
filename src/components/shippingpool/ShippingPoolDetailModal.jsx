@@ -24,7 +24,6 @@ import PaymentMethodSelector from "@/components/common/PaymentMethodSelector";
 import PaymentProofUploader from "@/components/shippingpool/PaymentProofUploader";
 import OrderDetailCard from "@/components/shippingpool/OrderDetailCard";
 import OrderDetailPanel from "@/components/shippingpool/OrderDetailPanel";
-import StagedOrderList from "@/components/shippingpool/StagedOrderList";
 
 const STATUS_CONFIG = {
   pending:                       { label: "待处理",    color: "bg-amber-100 text-amber-700" },
