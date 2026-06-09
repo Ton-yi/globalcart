@@ -167,17 +167,23 @@ Deno.serve(async (req) => {
       
       let updatedPerUserGroups = [...(pool.per_user_groups || [])];
       if (existingGroupIndex >= 0) {
+        // User already has a group - add order to existing group
         updatedPerUserGroups[existingGroupIndex] = {
           ...updatedPerUserGroups[existingGroupIndex],
           order_entries: [...(updatedPerUserGroups[existingGroupIndex].order_entries || []), newOrderEntry],
         };
       } else {
+        // Create new group for this user with transit/addon settings at group level
         updatedPerUserGroups.push({
           user_email: order.user_email,
           user_name: order.user_name || order.user_email,
           group_label: order.user_name || order.user_email,
           note: pre.user_note || '',
           image_urls: [],
+          // Group-level transit shipping settings (applies to all orders in this group)
+          transit_shipping_method_id: pre.transit_shipping_method_id || '',
+          transit_shipping_method_name: pre.transit_shipping_method_name || '',
+          // Group-level selected addons (applies to all orders in this group)
           selected_addon_ids: pre.selected_addon_ids || [],
           selected_addons: pre.selected_addons || [],
           group_final_address: {
@@ -284,6 +290,10 @@ Deno.serve(async (req) => {
       group_label: order.user_name || order.user_email,
       note: pre.user_note || '',
       image_urls: [],
+      // Group-level transit shipping settings (applies to all orders in this group)
+      transit_shipping_method_id: pre.transit_shipping_method_id || '',
+      transit_shipping_method_name: pre.transit_shipping_method_name || '',
+      // Group-level selected addons (applies to all orders in this group)
       selected_addon_ids: pre.selected_addon_ids || [],
       selected_addons: pre.selected_addons || [],
       group_final_address: {
@@ -303,10 +313,6 @@ Deno.serve(async (req) => {
         selected_addons: order.selected_addons || [],
         override_final_address: null,
         use_group_address: true,
-        // Per-order transit shipping settings
-        transit_shipping_method_id: pre.transit_shipping_method_id || '',
-        transit_shipping_method_name: pre.transit_shipping_method_name || '',
-        transit_note: pre.user_note || '',
       }],
     }];
 
