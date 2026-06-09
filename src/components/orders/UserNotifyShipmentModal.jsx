@@ -950,15 +950,7 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
           {consolidation && existingPools.length > 0 && (
             <div className="border border-gray-200 rounded-xl overflow-hidden">
               <label className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${joinExistingPool ? "bg-purple-50 border-b border-purple-100" : "hover:bg-gray-50"}`}>
-                <Checkbox checked={joinExistingPool} onCheckedChange={v => {
-                  setJoinExistingPool(!!v);
-                  if (!v) {
-                    setSelectedPoolId("");
-                  } else {
-                    // Clear consType when joining existing pool to avoid duplicate address inputs
-                    setConsType("");
-                  }
-                }} />
+                <Checkbox checked={joinExistingPool} onCheckedChange={v => { setJoinExistingPool(!!v); if (!v) setSelectedPoolId(""); }} />
                 <div>
                   <p className="text-sm font-medium text-gray-800">加入已有的拼邮需求</p>
                   <p className="text-xs text-gray-400 mt-0.5">将此次发货订单加入到现有的拼邮池中</p>
