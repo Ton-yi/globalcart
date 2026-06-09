@@ -72,11 +72,41 @@ Deno.serve(async (req) => {
         return Response.json({ skipped: true, reason: 'pool_shipped' });
       }
       
-      // Join pool
+      // Join pool - also add to per_user_groups
+      const addr = pre.address || {};
+      const newUserGroup = {
+        user_email: order.user_email,
+        user_name: order.user_name || order.user_email,
+        group_label: order.user_name || order.user_email,
+        note: pre.user_note || '',
+        image_urls: [],
+        selected_addon_ids: pre.selected_addon_ids || [],
+        selected_addons: pre.selected_addons || [],
+        group_final_address: {
+          recipient_name: addr.recipient_name || '',
+          country: addr.country || '',
+          addr1: addr.addr1 || '',
+          addr2: addr.addr2 || '',
+          addr3: addr.addr3 || '',
+          state: addr.state || '',
+          phone: addr.phone || '',
+        },
+        order_entries: [{
+          order_id: order.id,
+          note: order.product_name || '',
+          image_urls: order.product_image_url ? [order.product_image_url] : [],
+          selected_addon_ids: order.selected_addon_ids || [],
+          selected_addons: order.selected_addons || [],
+          override_final_address: null,
+          use_group_address: true,
+        }],
+      };
+      
       await base44.asServiceRole.entities.ShippingPool.update(pool.id, {
         order_ids: [...(pool.order_ids || []), order.id],
         order_names: [...(pool.order_names || []), order.product_name].filter(Boolean),
         total_weight_g: (pool.total_weight_g || 0) + (order.weight_g || 0),
+        per_user_groups: [...(pool.per_user_groups || []), newUserGroup],
       });
       await base44.asServiceRole.entities.Order.update(order.id, {
         order_status: 'notified_shipment',
@@ -104,11 +134,41 @@ Deno.serve(async (req) => {
         return Response.json({ skipped: true, reason: 'official_pool_shipped', reset_to_default: true });
       }
       
-      // Join official pool
+      // Join official pool - also add to per_user_groups
+      const addr = pre.address || {};
+      const newUserGroup = {
+        user_email: order.user_email,
+        user_name: order.user_name || order.user_email,
+        group_label: order.user_name || order.user_email,
+        note: pre.user_note || '',
+        image_urls: [],
+        selected_addon_ids: pre.selected_addon_ids || [],
+        selected_addons: pre.selected_addons || [],
+        group_final_address: {
+          recipient_name: addr.recipient_name || '',
+          country: addr.country || '',
+          addr1: addr.addr1 || '',
+          addr2: addr.addr2 || '',
+          addr3: addr.addr3 || '',
+          state: addr.state || '',
+          phone: addr.phone || '',
+        },
+        order_entries: [{
+          order_id: order.id,
+          note: order.product_name || '',
+          image_urls: order.product_image_url ? [order.product_image_url] : [],
+          selected_addon_ids: order.selected_addon_ids || [],
+          selected_addons: order.selected_addons || [],
+          override_final_address: null,
+          use_group_address: true,
+        }],
+      };
+      
       await base44.asServiceRole.entities.ShippingPool.update(pool.id, {
         order_ids: [...(pool.order_ids || []), order.id],
         order_names: [...(pool.order_names || []), order.product_name].filter(Boolean),
         total_weight_g: (pool.total_weight_g || 0) + (order.weight_g || 0),
+        per_user_groups: [...(pool.per_user_groups || []), newUserGroup],
       });
       await base44.asServiceRole.entities.Order.update(order.id, {
         order_status: 'notified_shipment',
@@ -172,6 +232,35 @@ Deno.serve(async (req) => {
     const destinationCountry = consType === 'transit'
       ? (pre.transit_location_country || transitLoc?.country || addr.country || '')
       : (addr.country || '');
+    // Build per_user_groups structure to preserve order-level details in the pool
+    const perUserGroups = [{
+      user_email: order.user_email,
+      user_name: order.user_name || order.user_email,
+      group_label: order.user_name || order.user_email,
+      note: pre.user_note || '',
+      image_urls: [],
+      selected_addon_ids: pre.selected_addon_ids || [],
+      selected_addons: pre.selected_addons || [],
+      group_final_address: {
+        recipient_name: addr.recipient_name || '',
+        country: destinationCountry,
+        addr1: addr.addr1 || '',
+        addr2: addr.addr2 || '',
+        addr3: addr.addr3 || '',
+        state: addr.state || '',
+        phone: addr.phone || '',
+      },
+      order_entries: [{
+        order_id: order.id,
+        note: order.product_name || '',
+        image_urls: order.product_image_url ? [order.product_image_url] : [],
+        selected_addon_ids: order.selected_addon_ids || [],
+        selected_addons: order.selected_addons || [],
+        override_final_address: null,
+        use_group_address: true,
+      }],
+    }];
+
     const pool = await base44.asServiceRole.entities.ShippingPool.create({
       tenant_id: tenantId,
       pool_code,
@@ -194,6 +283,7 @@ Deno.serve(async (req) => {
       address_line2: addr.addr2 || '',
       selected_addon_ids: pre.selected_addon_ids || [],
       selected_addons: pre.selected_addons || [],
+      per_user_groups: perUserGroups,
     });
 
     await base44.asServiceRole.entities.Order.update(order.id, {
