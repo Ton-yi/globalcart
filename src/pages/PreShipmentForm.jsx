@@ -169,8 +169,25 @@ export default function PreShipmentForm() {
           return prevIds === newIds ? prev : deduped;
         });
 
+        // Merge transit locations with their available transit shipping methods
         setTransitLocations((prev) => {
-          const filtered = (cfg.transitLocations || []).filter((l) => l.is_active !== false);
+          const transitMethods = cfg.transitMethods || [];
+          const filtered = (cfg.transitLocations || [])
+            .filter((l) => l.is_active !== false)
+            .map((l) => {
+              // Get available transit methods for this location
+              // Filter out disabled methods and methods not in supported_methods
+              const availableMethods = transitMethods.filter((m) => {
+                if (m.is_active === false) return false;
+                if (l.disabled_transit_method_ids?.includes(m.id)) return false;
+                if (l.supported_methods && l.supported_methods.length > 0 && !l.supported_methods.includes(m.name)) return false;
+                return true;
+              });
+              return {
+                ...l,
+                transit_shipping_methods: availableMethods
+              };
+            });
           const prevIds = prev.map((l) => l.id).join(',');
           const newIds = filtered.map((l) => l.id).join(',');
           return prevIds === newIds ? prev : filtered;
