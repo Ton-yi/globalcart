@@ -117,20 +117,8 @@ export default function TransitPoolWork() {
     fetchData();
   }, [user, pool_id]);
 
-  // Group orders by user
-  const ordersByUser = orders.reduce((acc, order) => {
-    const email = order.user_email;
-    if (!acc[email]) {
-      acc[email] = {
-        email,
-        name: order.user_name,
-        orders: [],
-        group: (pool.per_user_groups || []).find(g => g.user_email === email)
-      };
-    }
-    acc[email].orders.push(order);
-    return acc;
-  }, {});
+  // Use per_user_groups directly (contains order_entries)
+  const userGroups = pool.per_user_groups || [];
 
   const handleToggleGroup = (email) => {
     setExpandedGroups(prev => 
@@ -268,19 +256,26 @@ export default function TransitPoolWork() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {Object.values(ordersByUser).map(userGroup => (
-                <UserGroupCard
-                  key={userGroup.email}
-                  userEntry={userGroup}
-                  pool={pool}
-                  isExpanded={expandedGroups.includes(userGroup.email)}
-                  onExpand={() => handleToggleGroup(userGroup.email)}
-                  onOrderClick={(orderId) => {
-                    // TODO: Open order detail modal
-                    console.log('Order clicked:', orderId);
-                  }}
-                />
-              ))}
+              {userGroups.length > 0 ? (
+                userGroups.map(userGroup => (
+                  <UserGroupCard
+                    key={userGroup.user_email}
+                    userEntry={userGroup}
+                    pool={pool}
+                    isExpanded={expandedGroups.includes(userGroup.user_email)}
+                    onExpand={() => handleToggleGroup(userGroup.user_email)}
+                    onOrderClick={(orderId) => {
+                      // TODO: Open order detail modal
+                      console.log('Order clicked:', orderId);
+                    }}
+                  />
+                ))
+              ) : (
+                <div className="text-center text-gray-400 py-8">
+                  <Package className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                  <p>暂无订单分组</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
