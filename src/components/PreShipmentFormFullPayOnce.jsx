@@ -11,6 +11,64 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Switch } from "@/components/ui/switch";
 import { Truck, Calculator, AlertTriangle } from "lucide-react";
+import { getCountryZone } from "@/lib/countries";
+
+/**
+ * Resolve the best-match estimate rate for a given method + destination country.
+ * Priority: method.official_pool_estimate_rates (country/zone match) >
+ *           method.official_pool_estimate_rates (empty country = fallback) >
+ *           method scalar (legacy) >
+ *           globalRates array (country/zone match) >
+ *           globalRates array (empty = fallback) >
+ *           globalScalarRate/globalScalarUnit >
+ *           hardcoded default (150 JPY / 100g)
+ */
+function resolveEstimateRate(method, destinationCountry, globalScalarRate, globalScalarUnit, globalRates) {
+  const country = destinationCountry || "";
+  const zone = country ? (getCountryZone ? getCountryZone(country) : null) : null;
+
+  function matchRates(rates) {
+    if (!rates || rates.length === 0) return null;
+    // Exact country match
+    let hit = rates.find(r => r.country && r.country === country);
+    // Zone match
+    if (!hit && zone) hit = rates.find(r => r.country && r.country === zone);
+    // Fallback: empty country = applies to all
+    if (!hit) hit = rates.find(r => !r.country);
+    return hit;
+  }
+
+  // 1. Method-level rates array
+  const methodHit = matchRates(method?.official_pool_estimate_rates);
+  if (methodHit && methodHit.rate_per_unit > 0) {
+    return { rate: methodHit.rate_per_unit, unitG: methodHit.unit_g > 0 ? methodHit.unit_g : 100 };
+  }
+
+  // 2. Method-level legacy scalar fields
+  const legacyRate = method?.official_pool_estimate_rate_per_unit > 0
+    ? method.official_pool_estimate_rate_per_unit
+    : method?.official_pool_estimate_rate_per_100g > 0
+      ? method.official_pool_estimate_rate_per_100g
+      : null;
+  if (legacyRate) {
+    const legacyUnit = method?.official_pool_estimate_unit_g > 0 ? method.official_pool_estimate_unit_g : 100;
+    return { rate: legacyRate, unitG: legacyUnit };
+  }
+
+  // 3. Global rates array
+  const globalHit = matchRates(globalRates);
+  if (globalHit && globalHit.rate_per_unit > 0) {
+    return { rate: globalHit.rate_per_unit, unitG: globalHit.unit_g > 0 ? globalHit.unit_g : 100 };
+  }
+
+  // 4. Global legacy scalar
+  if (globalScalarRate > 0) {
+    return { rate: globalScalarRate, unitG: globalScalarUnit > 0 ? globalScalarUnit : 100 };
+  }
+
+  // 5. Hardcoded default
+  return { rate: 150, unitG: 100 };
+}
 
 export default function PreShipmentFormFullPayOnce({ 
   shippingMethods, 
@@ -26,9 +84,10 @@ export default function PreShipmentFormFullPayOnce({
   order,
   shippingMethod,
   destinationCountry,
-  isRestoring,  // true during initial data load — skip the reset effect
-  globalEstimateRatePer100g,  // global fallback rate from SiteSettings
-  globalEstimateUnitG  // global fallback unit (g) from SiteSettings
+  isRestoring,
+  globalEstimateRatePer100g,  // legacy scalar fallback
+  globalEstimateUnitG,         // legacy scalar unit fallback
+  globalEstimateRates,         // new array-style global rates [{country, rate_per_unit, unit_g}]
 }) {
   // Reset when consType/pool selection changes, but NOT during initial data restore
   const isRestoringRef = useRef(isRestoring);
@@ -117,19 +176,8 @@ export default function PreShipmentFormFullPayOnce({
     let fee = 0;
     
     if (consType === "official_pool") {
-      // Priority: method-level config > global setting > defaults (150 JPY / 100g)
-      // Support both new field name (official_pool_estimate_rate_per_unit) and legacy (official_pool_estimate_rate_per_100g)
-      const methodRate = method.official_pool_estimate_rate_per_unit > 0
-        ? method.official_pool_estimate_rate_per_unit
-        : method.official_pool_estimate_rate_per_100g > 0
-          ? method.official_pool_estimate_rate_per_100g
-          : null;
-      const methodUnitG = method.official_pool_estimate_unit_g > 0
-        ? method.official_pool_estimate_unit_g
-        : (method.official_pool_estimate_rate_per_100g > 0 ? 100 : null); // legacy field always used 100g unit
-      const useMethodRate = methodRate != null;
-      const ratePerUnit = useMethodRate ? methodRate : (globalEstimateRatePer100g > 0 ? globalEstimateRatePer100g : 150);
-      const unitG = useMethodRate ? methodUnitG : (globalEstimateUnitG > 0 ? globalEstimateUnitG : 100);
+      // Priority: method-level rates array (country match) > method-level scalar > global rates array > global scalar > default
+      const { rate: ratePerUnit, unitG } = resolveEstimateRate(method, destinationCountry, globalEstimateRatePer100g, globalEstimateUnitG, globalEstimateRates);
       fee = Math.ceil(weight / unitG) * ratePerUnit;
       console.log('[FullPay] Official pool fee:', fee, { ratePerUnit, unitG });
     } else if (consType === "") {
@@ -246,12 +294,8 @@ export default function PreShipmentFormFullPayOnce({
                   <Calculator className="w-3 h-3 inline mr-1" />
                   简易估算：{(() => {
                     const m = shippingMethods.find(sm => sm.code === shippingMethod);
-                    const mRate = m?.official_pool_estimate_rate_per_unit > 0 ? m.official_pool_estimate_rate_per_unit
-                      : m?.official_pool_estimate_rate_per_100g > 0 ? m.official_pool_estimate_rate_per_100g : null;
-                    const mUnit = mRate != null ? (m?.official_pool_estimate_unit_g > 0 ? m.official_pool_estimate_unit_g : 100) : null;
-                    const rate = mRate ?? (globalEstimateRatePer100g > 0 ? globalEstimateRatePer100g : 150);
-                    const unit = mUnit ?? (globalEstimateUnitG > 0 ? globalEstimateUnitG : 100);
-                    return `每 ${unit}g 按 ${rate} JPY`;
+                    const { rate, unitG } = resolveEstimateRate(m, destinationCountry, globalEstimateRatePer100g, globalEstimateUnitG, globalEstimateRates);
+                    return `每 ${unitG}g 按 ${rate} JPY`;
                   })()} 计算
                 </p>
               )}

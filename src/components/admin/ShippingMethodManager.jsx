@@ -382,28 +382,67 @@ function MethodCard({ method, onSave, onDelete, itemSizeTemplates = [] }) {
                 </div>
               </div>
 
-              {/* Official pool estimate rate */}
-              <div className="border border-purple-100 bg-purple-50 rounded-lg p-3">
-                <Label className="text-xs text-gray-600 font-medium">官方拼邮预估运费简易估算率</Label>
-                <p className="text-xs text-gray-400 mt-0.5 mb-2">用于一次付款时的拼邮运费简易估算，无法从费率表计算时使用。留空则使用全局设置或默认值。</p>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Input
-                    type="number"
-                    className="h-8 text-sm w-28"
-                    value={form.official_pool_estimate_rate_per_unit ?? ""}
-                    onChange={e => f("official_pool_estimate_rate_per_unit", e.target.value === "" ? null : parseFloat(e.target.value) || 0)}
-                    placeholder="150"
-                  />
-                  <span className="text-xs text-gray-500">JPY /</span>
-                  <Input
-                    type="number"
-                    className="h-8 text-sm w-24"
-                    value={form.official_pool_estimate_unit_g ?? ""}
-                    onChange={e => f("official_pool_estimate_unit_g", e.target.value === "" ? null : parseFloat(e.target.value) || 100)}
-                    placeholder="100"
-                  />
-                  <span className="text-xs text-gray-500">g</span>
+              {/* Official pool estimate rates (per country/zone) */}
+              <div className="border border-purple-100 bg-purple-50 rounded-lg p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-xs text-gray-600 font-medium">官方拼邮预估运费简易估算率</Label>
+                    <p className="text-xs text-gray-400 mt-0.5">可按国家/地带设置不同估算率。留空国家=适用所有（兜底）。留空则使用全局设置。</p>
+                  </div>
+                  <Button size="sm" variant="outline" className="h-6 text-xs flex-shrink-0"
+                    onClick={() => f("official_pool_estimate_rates", [...(form.official_pool_estimate_rates || []), { country: "", rate_per_unit: 150, unit_g: 100 }])}>
+                    <Plus className="w-3 h-3 mr-1" />添加
+                  </Button>
                 </div>
+                {(form.official_pool_estimate_rates || []).length === 0 && (
+                  <p className="text-xs text-gray-400 italic">暂无配置，留空将使用全局设置或默认 150 JPY/100g</p>
+                )}
+                {(form.official_pool_estimate_rates || []).map((row, idx) => (
+                  <div key={idx} className="flex items-center gap-2 flex-wrap bg-white rounded-lg border border-purple-100 px-2 py-1.5">
+                    <div className="w-36">
+                      <CountrySelect
+                        value={row.country || ""}
+                        onChange={v => {
+                          const arr = [...(form.official_pool_estimate_rates || [])];
+                          arr[idx] = { ...row, country: v };
+                          f("official_pool_estimate_rates", arr);
+                        }}
+                        placeholder="所有国家（兜底）"
+                        compact
+                        allowZone
+                      />
+                    </div>
+                    <Input
+                      type="number"
+                      className="h-7 text-xs w-20"
+                      value={row.rate_per_unit ?? ""}
+                      onChange={e => {
+                        const arr = [...(form.official_pool_estimate_rates || [])];
+                        arr[idx] = { ...row, rate_per_unit: e.target.value === "" ? "" : parseFloat(e.target.value) || 0 };
+                        f("official_pool_estimate_rates", arr);
+                      }}
+                      placeholder="150"
+                    />
+                    <span className="text-xs text-gray-400">JPY /</span>
+                    <Input
+                      type="number"
+                      className="h-7 text-xs w-16"
+                      value={row.unit_g ?? ""}
+                      onChange={e => {
+                        const arr = [...(form.official_pool_estimate_rates || [])];
+                        arr[idx] = { ...row, unit_g: e.target.value === "" ? "" : parseFloat(e.target.value) || 100 };
+                        f("official_pool_estimate_rates", arr);
+                      }}
+                      placeholder="100"
+                    />
+                    <span className="text-xs text-gray-400">g</span>
+                    <button
+                      onClick={() => f("official_pool_estimate_rates", (form.official_pool_estimate_rates || []).filter((_, i) => i !== idx))}
+                      className="text-red-400 hover:text-red-600 ml-auto">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
               </div>
 
               {/* Rate mode */}
@@ -559,58 +598,102 @@ function MethodCard({ method, onSave, onDelete, itemSizeTemplates = [] }) {
 }
 
 function EstimateRateGlobalSetting() {
-  const [rate, setRate] = useState("");
-  const [unitG, setUnitG] = useState("100");
-  const [rateSettingId, setRateSettingId] = useState(null);
-  const [unitSettingId, setUnitSettingId] = useState(null);
+  const [rows, setRows] = useState([{ country: "", rate_per_unit: "", unit_g: "100" }]);
+  const [settingId, setSettingId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
+    // Try new array-style setting first, fallback to legacy single values
     Promise.all([
+      tenantEntity.list('SiteSettings', { key: 'default_estimate_rates' }).catch(() => []),
       tenantEntity.list('SiteSettings', { key: 'default_estimate_rate_per_100g' }).catch(() => []),
-      tenantEntity.list('SiteSettings', { key: 'default_estimate_unit_g' }).catch(() => [])
-    ]).then(([rateList, unitList]) => {
-      if (rateList?.length > 0) { setRateSettingId(rateList[0].id); setRate(rateList[0].value || ""); }
-      if (unitList?.length > 0) { setUnitSettingId(unitList[0].id); setUnitG(unitList[0].value || "100"); }
+      tenantEntity.list('SiteSettings', { key: 'default_estimate_unit_g' }).catch(() => []),
+    ]).then(([newList, legacyRateList, legacyUnitList]) => {
+      if (newList?.length > 0) {
+        setSettingId(newList[0].id);
+        try {
+          const parsed = JSON.parse(newList[0].value);
+          if (Array.isArray(parsed) && parsed.length > 0) { setRows(parsed); return; }
+        } catch { /* ignore */ }
+      }
+      // Fallback: migrate from legacy single value
+      const legacyRate = legacyRateList?.[0]?.value || "";
+      const legacyUnit = legacyUnitList?.[0]?.value || "100";
+      if (legacyRate) {
+        setRows([{ country: "", rate_per_unit: legacyRate, unit_g: legacyUnit }]);
+      }
     });
   }, []);
 
-  const saveSetting = async (key, value, existingId, setId, description) => {
-    if (existingId) {
-      await tenantEntity.update('SiteSettings', existingId, { value: String(value) });
-    } else {
-      const created = await tenantEntity.create('SiteSettings', { key, value: String(value), description, category: 'shipping' });
-      setId(created.id);
-    }
-  };
-
   const handleSave = async () => {
     setSaving(true);
-    await Promise.all([
-      saveSetting('default_estimate_rate_per_100g', rate, rateSettingId, setRateSettingId, '官方拼邮预估运费简易估算率（JPY/单位g，未在运输方式中单独设置时使用）'),
-      saveSetting('default_estimate_unit_g', unitG, unitSettingId, setUnitSettingId, '官方拼邮预估运费计算单位（g）'),
-    ]);
+    const value = JSON.stringify(rows.map(r => ({
+      country: r.country || "",
+      rate_per_unit: parseFloat(r.rate_per_unit) || 0,
+      unit_g: parseFloat(r.unit_g) || 100,
+    })));
+    if (settingId) {
+      await tenantEntity.update('SiteSettings', settingId, { value });
+    } else {
+      const created = await tenantEntity.create('SiteSettings', {
+        key: 'default_estimate_rates',
+        value,
+        description: '官方拼邮预估运费全局建议估算率列表（按国家/地带，JSON数组）',
+        category: 'shipping'
+      });
+      setSettingId(created.id);
+    }
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
 
   return (
-    <div className="border border-purple-200 rounded-xl p-4 bg-purple-50 space-y-2">
-      <div>
-        <p className="text-sm font-semibold text-gray-700">预估运费全局建议费率</p>
-        <p className="text-xs text-gray-400 mt-0.5">官方拼邮一次付款时，若运输方式未单独配置估算率，将使用此全局值。留空则默认 150 JPY / 100g。</p>
-      </div>
-      <div className="flex items-center gap-2 flex-wrap">
-        <Input type="number" className="h-8 text-sm w-28 bg-white" value={rate} onChange={e => setRate(e.target.value)} placeholder="150" />
-        <span className="text-xs text-gray-500">JPY /</span>
-        <Input type="number" className="h-8 text-sm w-24 bg-white" value={unitG} onChange={e => setUnitG(e.target.value)} placeholder="100" />
-        <span className="text-xs text-gray-500">g</span>
-        <Button size="sm" className="h-8 text-xs bg-purple-600 hover:bg-purple-700" onClick={handleSave} disabled={saving}>
-          {saved ? "已保存 ✓" : saving ? "保存中..." : "保存"}
+    <div className="border border-purple-200 rounded-xl p-4 bg-purple-50 space-y-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-semibold text-gray-700">预估运费全局建议费率</p>
+          <p className="text-xs text-gray-400 mt-0.5">官方拼邮一次付款时，若运输方式未配置估算率，将使用此全局值。可按国家/地带设置不同费率。</p>
+        </div>
+        <Button size="sm" variant="outline" className="h-6 text-xs flex-shrink-0"
+          onClick={() => setRows(r => [...r, { country: "", rate_per_unit: "150", unit_g: "100" }])}>
+          <Plus className="w-3 h-3 mr-1" />添加
         </Button>
       </div>
+      <div className="space-y-1.5">
+        {rows.map((row, idx) => (
+          <div key={idx} className="flex items-center gap-2 flex-wrap bg-white rounded-lg border border-purple-100 px-2 py-1.5">
+            <div className="w-36">
+              <CountrySelect
+                value={row.country || ""}
+                onChange={v => setRows(r => r.map((x, i) => i === idx ? { ...x, country: v } : x))}
+                placeholder="所有国家（兜底）"
+                compact
+                allowZone
+              />
+            </div>
+            <Input type="number" className="h-7 text-xs w-20 bg-white"
+              value={row.rate_per_unit}
+              onChange={e => setRows(r => r.map((x, i) => i === idx ? { ...x, rate_per_unit: e.target.value } : x))}
+              placeholder="150" />
+            <span className="text-xs text-gray-500">JPY /</span>
+            <Input type="number" className="h-7 text-xs w-16 bg-white"
+              value={row.unit_g}
+              onChange={e => setRows(r => r.map((x, i) => i === idx ? { ...x, unit_g: e.target.value } : x))}
+              placeholder="100" />
+            <span className="text-xs text-gray-500">g</span>
+            {rows.length > 1 && (
+              <button onClick={() => setRows(r => r.filter((_, i) => i !== idx))} className="text-red-400 hover:text-red-600 ml-auto">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+      <Button size="sm" className="h-8 text-xs bg-purple-600 hover:bg-purple-700" onClick={handleSave} disabled={saving}>
+        {saved ? "已保存 ✓" : saving ? "保存中..." : "保存"}
+      </Button>
     </div>
   );
 }

@@ -68,8 +68,9 @@ export default function PreShipmentForm() {
   const [userEstimatedWeight, setUserEstimatedWeight] = useState("");
   const [estimatedShippingFee, setEstimatedShippingFee] = useState(0);
   const [isRestoringData, setIsRestoringData] = useState(true); // true until initial data load completes
-  const [globalEstimateRate, setGlobalEstimateRate] = useState(null); // global fallback estimate rate
-  const [globalEstimateUnitG, setGlobalEstimateUnitG] = useState(null); // global fallback estimate unit (g)
+  const [globalEstimateRate, setGlobalEstimateRate] = useState(null); // global fallback scalar rate (legacy)
+  const [globalEstimateUnitG, setGlobalEstimateUnitG] = useState(null); // global fallback scalar unit (legacy)
+  const [globalEstimateRates, setGlobalEstimateRates] = useState(null); // global fallback rates array (new)
 
   // Official pools for selection
   const [officialPools, setOfficialPools] = useState([]);
@@ -91,11 +92,20 @@ export default function PreShipmentForm() {
         base44.functions.invoke('managePaymentMethod', { action: 'list' }).then((r) => r.data?.methods || []).catch(() => []),
         base44.functions.invoke('getTenantShippingPools', { status: 'pending' }).catch(() => ({ data: { pools: [] } })),
         Promise.all([
+          tenantEntity.list('SiteSettings', { key: 'default_estimate_rates' }).catch(() => []),
           tenantEntity.list('SiteSettings', { key: 'default_estimate_rate_per_100g' }).catch(() => []),
           tenantEntity.list('SiteSettings', { key: 'default_estimate_unit_g' }).catch(() => [])
         ])]
         );
-        const [rateList, unitList] = rateSettings || [[], []];
+        const [newRatesList, rateList, unitList] = rateSettings || [[], [], []];
+        // New array-style global rates
+        if (newRatesList?.[0]?.value) {
+          try {
+            const parsed = JSON.parse(newRatesList[0].value);
+            if (Array.isArray(parsed) && parsed.length > 0) setGlobalEstimateRates(parsed);
+          } catch { /* ignore */ }
+        }
+        // Legacy scalar fallback
         const globalRate = rateList?.[0]?.value ? parseFloat(rateList[0].value) : null;
         const globalUnit = unitList?.[0]?.value ? parseFloat(unitList[0].value) : null;
         if (globalRate && globalRate > 0) setGlobalEstimateRate(globalRate);
@@ -1131,6 +1141,7 @@ export default function PreShipmentForm() {
         isRestoring={isRestoringData}
         globalEstimateRatePer100g={globalEstimateRate}
         globalEstimateUnitG={globalEstimateUnitG}
+        globalEstimateRates={globalEstimateRates}
       />
 
       {/* Note */}
