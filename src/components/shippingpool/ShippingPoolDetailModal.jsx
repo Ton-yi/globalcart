@@ -22,7 +22,8 @@ import ShippingFeeBreakdown from "@/components/shippingpool/ShippingFeeBreakdown
 import { ImageWithViewer } from "@/components/common/ImageViewer";
 import PaymentMethodSelector from "@/components/common/PaymentMethodSelector";
 import PaymentProofUploader from "@/components/shippingpool/PaymentProofUploader";
-import OrderDetailCard from "./OrderDetailCard";
+import OrderDetailCard from "@/components/shippingpool/OrderDetailCard";
+import OrderDetailPanel from "@/components/shippingpool/OrderDetailPanel";
 
 const STATUS_CONFIG = {
   pending:                       { label: "待处理",    color: "bg-amber-100 text-amber-700" },
