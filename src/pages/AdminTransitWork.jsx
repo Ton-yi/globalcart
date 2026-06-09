@@ -69,6 +69,7 @@ export default function AdminTransitWork() {
           Object.entries(requestsByLoc).map(([k, v]) => [k, v?.length || 0])
         ),
         totalRequestsCount: totalReqs,
+        debug: data.debug,
       });
       
       setLocations(data.locations || []);

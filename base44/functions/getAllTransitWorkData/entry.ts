@@ -21,13 +21,16 @@ Deno.serve(async (req) => {
     // Resolve tenant_id
     const tenants = await base44.asServiceRole.entities.Tenant.filter({ admin_email: user.email });
     let tenantId = null;
+    let tenantIdFromUser = null;
     if (tenants && tenants.length > 0) {
       tenantId = tenants[0].id;
+      tenantIdFromUser = tenantId;
     } else {
       // Try to find tenant via user's tenant assignment
       const allTenants = await base44.asServiceRole.entities.Tenant.list();
       const matched = allTenants.find(t => t.admin_email === user.email || (t.staff_emails || []).includes(user.email));
       tenantId = matched?.id || null;
+      tenantIdFromUser = tenantId;
     }
 
     const locationFilter = tenantId ? { tenant_id: tenantId } : {};
@@ -111,6 +114,16 @@ Deno.serve(async (req) => {
       users: (allUsers || []).filter(u => u.role === 'admin'),
       transitMethods: (transitMethods || []).filter(m => m.is_active !== false),
       addonOptions: (addonOptions || []).filter(a => a.is_active !== false),
+      // Debug info
+      debug: {
+        resolvedTenantId,
+        tenantIdFromUser,
+        locationsCount: locations?.length || 0,
+        locationIds: locations?.map(l => l.id) || [],
+        totalGroupBuyRequests: allRequests?.length || 0,
+        requestsWithTransit: transitRequests?.length || 0,
+        firstRequestSample: transitRequests?.length > 0 ? transitRequests[0] : null,
+      },
     });
 
   } catch (error) {
