@@ -28,7 +28,9 @@ import ShippingRequestPanel from "@/components/transit/ShippingRequestPanel";
 import TransitShippingForm from "@/components/transit/TransitShippingForm";
 import AddressChangeCard from "@/components/transit/AddressChangeCard";
 import PickupScheduler from "@/components/transit/PickupScheduler";
+import TransitShippingDetailPanel from "@/components/transit/TransitShippingDetailPanel";
 import StorageManagementCard from "@/components/transit/StorageManagementCard";
+import { toast } from "sonner";
 
 export default function TransitPoolWork() {
   const { pool_id } = useParams();
@@ -56,6 +58,11 @@ export default function TransitPoolWork() {
   
   // Expanded user groups
   const [expandedGroups, setExpandedGroups] = useState([]);
+  
+  // Selected order for detail panel
+  const [selectedUserEntry, setSelectedUserEntry] = useState(null);
+  const [selectedAddressGroup, setSelectedAddressGroup] = useState(null);
+  const [showDetailPanel, setShowDetailPanel] = useState(false);
 
   useEffect(() => {
     if (!user || !pool_id) return;
@@ -126,19 +133,31 @@ export default function TransitPoolWork() {
     );
   };
 
-  const handleUserShippingFormChange = async (userEmail, addressGroupIdx, shippingData) => {
-    // Debounce or save immediately based on your preference
-    // For now, we'll save immediately
-    try {
-      await base44.functions.invoke('updateUserTransitShipping', {
-        pool_id,
-        user_email: userEmail,
-        address_group_idx: addressGroupIdx,
-        shipping_data: shippingData
-      });
-    } catch (error) {
-      console.error('Failed to save shipping info:', error);
-    }
+  const handleOrderSelect = (orderId, orderEntry, address) => {
+    // Find the user entry for this order
+    const userEntry = userGroups.find(ug => 
+      ug.order_entries?.some(entry => entry.order_id === orderId)
+    );
+    
+    if (!userEntry) return;
+    
+    // Find the address group for this order
+    const effectiveAddress = userEntry.group_final_address;
+    const addr = orderEntry.override_final_address || effectiveAddress;
+    
+    // Check if this address matches the clicked order's address
+    const addressGroup = {
+      address: addr,
+      orders: userEntry.order_entries.filter(entry => {
+        const entryAddr = entry.override_final_address || effectiveAddress;
+        return JSON.stringify(entryAddr) === JSON.stringify(addr);
+      }),
+      addressLabel: addr ? `${addr.recipient_name || '收件人'} - ${addr.country || '国家'}` : '未填写地址'
+    };
+    
+    setSelectedUserEntry(userEntry);
+    setSelectedAddressGroup(addressGroup);
+    setShowDetailPanel(true);
   };
 
   const handleImageUpload = async (e) => {
@@ -258,9 +277,9 @@ export default function TransitPoolWork() {
       />
 
       {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+      <div className={`grid gap-5 ${showDetailPanel ? 'lg:grid-cols-2' : 'lg:grid-cols-3'}`}>
         {/* Left: User Groups */}
-        <div className="lg:col-span-2 space-y-4">
+        <div className={`${showDetailPanel ? 'lg:col-span-1' : 'lg:col-span-2'} space-y-4`}>
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
@@ -280,8 +299,8 @@ export default function TransitPoolWork() {
                     onOrderClick={(orderId) => {
                       console.log('Order clicked:', orderId);
                     }}
-                    showShippingForm={true}
-                    onShippingFormChange={handleUserShippingFormChange}
+                    onOrderSelect={handleOrderSelect}
+                    selectedOrderIds={[]}
                   />
                 ))
               ) : (
@@ -354,6 +373,19 @@ export default function TransitPoolWork() {
         onNavigate={(requestPoolId) => {
           navigate(`/TransitPoolWork/${requestPoolId}`);
         }}
+        />
+      )}
+
+      {/* Transit Shipping Detail Panel (Master-Detail) */}
+      {showDetailPanel && (
+        <TransitShippingDetailPanel
+          pool={pool}
+          selectedUserEntry={selectedUserEntry}
+          selectedAddressGroup={selectedAddressGroup}
+          onClose={() => setShowDetailPanel(false)}
+          onSave={() => {
+            toast.success('发货信息已保存');
+          }}
         />
       )}
     </div>

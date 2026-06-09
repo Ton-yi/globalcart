@@ -14,10 +14,7 @@ export default function UserGroupCard({
   onExpand,
   isExpanded,
   onOrderClick,
-  showShippingForm = false,
-  onShippingFormChange,
-  shippingFormData,
-  onRemoveImage
+  onOrderSelect
 }) {
   const { user_email, user_name, order_entries, group_final_address, note: groupNote, selected_addons = [], selected_addon_ids = [] } = userEntry;
   const orderCount = order_entries?.length || 0;
@@ -45,23 +42,6 @@ export default function UserGroupCard({
   }, {}) || {};
 
   const addressGroupList = Object.values(addressGroups);
-
-  // Local state for shipping form inputs (per address group)
-  const [localShippingData, setLocalShippingData] = useState({});
-
-  const handleShippingInputChange = (addressKey, field, value) => {
-    const newData = {
-      ...localShippingData,
-      [addressKey]: {
-        ...localShippingData[addressKey],
-        [field]: value
-      }
-    };
-    setLocalShippingData(newData);
-    if (onShippingFormChange) {
-      onShippingFormChange(user_email, addressKey, newData[addressKey]);
-    }
-  };
 
   return (
     <Card className="border border-gray-200">
@@ -201,7 +181,8 @@ export default function UserGroupCard({
                       {group.orders.map((entry, idx) => (
                         <div 
                           key={entry.order_id || idx}
-                          className="p-2 bg-white rounded border border-gray-100 text-xs"
+                          className="p-2 rounded border text-xs cursor-pointer transition-colors bg-white border-gray-100 hover:bg-gray-50"
+                          onClick={() => onOrderSelect?.(entry.order_id, entry, group.address)}
                         >
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex items-start gap-2 flex-1">
@@ -230,63 +211,6 @@ export default function UserGroupCard({
                           </div>
                         </div>
                       ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Shipping Form for this address group */}
-                {showShippingForm && (
-                  <div className="border-t border-gray-200 pt-3 mt-3">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Send className="w-4 h-4 text-blue-500" />
-                      <span className="font-medium text-gray-700 text-sm">中转地发货信息（地址 {groupIdx + 1}）</span>
-                    </div>
-
-                    <div className="space-y-3">
-                      {/* Transit Shipping Method */}
-                      <div>
-                        <Label className="text-xs">中转运输方式</Label>
-                        <Input
-                          className="text-sm"
-                          value={localShippingData[groupIdx]?.transit_shipping_method || shippingFormData?.transit_shipping_method || ''}
-                          onChange={(e) => handleShippingInputChange(groupIdx, 'transit_shipping_method', e.target.value)}
-                          placeholder="填写中转运输方式"
-                        />
-                      </div>
-
-                      {/* Tracking Number */}
-                      <div>
-                        <Label className="text-xs">中转运输单号</Label>
-                        <Input
-                          className="text-sm"
-                          value={localShippingData[groupIdx]?.transit_tracking_number || shippingFormData?.transit_tracking_number || ''}
-                          onChange={(e) => handleShippingInputChange(groupIdx, 'transit_tracking_number', e.target.value)}
-                          placeholder="填写运输单号"
-                        />
-                      </div>
-
-                      {/* Transit Fee */}
-                      <div>
-                        <Label className="text-xs">中转运费 (JPY)</Label>
-                        <Input
-                          className="text-sm"
-                          type="number"
-                          value={localShippingData[groupIdx]?.transit_fee_jpy || shippingFormData?.transit_fee_jpy || ''}
-                          onChange={(e) => handleShippingInputChange(groupIdx, 'transit_fee_jpy', e.target.value)}
-                          placeholder="0"
-                        />
-                      </div>
-
-                      {/* Note */}
-                      <div>
-                        <Label className="text-xs">备注</Label>
-                        <Textarea
-                          className="text-sm min-h-[60px]"
-                          value={localShippingData[groupIdx]?.transit_note || shippingFormData?.transit_note || ''}
-                          onChange={(e) => handleShippingInputChange(groupIdx, 'transit_note', e.target.value)}
-                          placeholder="填写备注信息"
-                        />
-                      </div>
                     </div>
                   </div>
                 )}
