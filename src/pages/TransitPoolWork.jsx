@@ -126,6 +126,21 @@ export default function TransitPoolWork() {
     );
   };
 
+  const handleUserShippingFormChange = async (userEmail, addressGroupIdx, shippingData) => {
+    // Debounce or save immediately based on your preference
+    // For now, we'll save immediately
+    try {
+      await base44.functions.invoke('updateUserTransitShipping', {
+        pool_id,
+        user_email: userEmail,
+        address_group_idx: addressGroupIdx,
+        shipping_data: shippingData
+      });
+    } catch (error) {
+      console.error('Failed to save shipping info:', error);
+    }
+  };
+
   const handleImageUpload = async (e) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
@@ -263,9 +278,10 @@ export default function TransitPoolWork() {
                     isExpanded={expandedGroups.includes(userGroup.user_email)}
                     onExpand={() => handleToggleGroup(userGroup.user_email)}
                     onOrderClick={(orderId) => {
-                      // TODO: Open order detail modal
                       console.log('Order clicked:', orderId);
                     }}
+                    showShippingForm={true}
+                    onShippingFormChange={handleUserShippingFormChange}
                   />
                 ))
               ) : (

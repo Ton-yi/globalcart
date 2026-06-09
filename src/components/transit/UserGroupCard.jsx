@@ -1,8 +1,11 @@
 import { useState } from "react";
-import { ChevronDown, ChevronRight, Package, MapPin, FileText, Image as ImageIcon, Truck, Clock, Box, Tag } from "lucide-react";
+import { ChevronDown, ChevronRight, Package, MapPin, FileText, Image as ImageIcon, Truck, Clock, Box, Tag, Phone, User, Home, ClipboardList, Send } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { getCountry } from "@/lib/countries";
 
 export default function UserGroupCard({ 
@@ -10,7 +13,11 @@ export default function UserGroupCard({
   pool, 
   onExpand,
   isExpanded,
-  onOrderClick 
+  onOrderClick,
+  showShippingForm = false,
+  onShippingFormChange,
+  shippingFormData,
+  onRemoveImage
 }) {
   const { user_email, user_name, order_entries, group_final_address, note: groupNote, selected_addons = [], selected_addon_ids = [] } = userEntry;
   const orderCount = order_entries?.length || 0;
@@ -21,6 +28,40 @@ export default function UserGroupCard({
   const isPickup = pool?.transit_pickup_enabled && pool.transit_pickup_user_confirmed;
   const isStorage = pool?.transit_storage_enabled;
   const shippingMethod = pool?.shipping_method || pool?.transit_shipping_method;
+
+  // Group orders by address (using override_final_address or group_final_address)
+  const addressGroups = order_entries?.reduce((acc, entry) => {
+    const addr = entry.override_final_address || effectiveAddress;
+    const addrKey = addr ? JSON.stringify(addr) : 'no_address';
+    if (!acc[addrKey]) {
+      acc[addrKey] = {
+        address: addr,
+        orders: [],
+        addressLabel: addr ? `${addr.recipient_name || '收件人'} - ${addr.country || '国家'}` : '未填写地址'
+      };
+    }
+    acc[addrKey].orders.push(entry);
+    return acc;
+  }, {}) || {};
+
+  const addressGroupList = Object.values(addressGroups);
+
+  // Local state for shipping form inputs (per address group)
+  const [localShippingData, setLocalShippingData] = useState({});
+
+  const handleShippingInputChange = (addressKey, field, value) => {
+    const newData = {
+      ...localShippingData,
+      [addressKey]: {
+        ...localShippingData[addressKey],
+        [field]: value
+      }
+    };
+    setLocalShippingData(newData);
+    if (onShippingFormChange) {
+      onShippingFormChange(user_email, addressKey, newData[addressKey]);
+    }
+  };
 
   return (
     <Card className="border border-gray-200">
@@ -46,6 +87,12 @@ export default function UserGroupCard({
                   <Package className="w-3 h-3 mr-1" />
                   {orderCount} 个订单
                 </Badge>
+                {addressGroupList.length > 1 && (
+                  <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                    <MapPin className="w-3 h-3 mr-1" />
+                    {addressGroupList.length} 个地址
+                  </Badge>
+                )}
               </div>
               
               {groupNote && (
@@ -107,71 +154,144 @@ export default function UserGroupCard({
                 </div>
               </div>
             )}
-            
-            {/* Address */}
-            {effectiveAddress && (
-              <div className="flex items-start gap-2">
-                <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                <div className="text-sm">
-                  <p className="font-medium text-gray-700 mb-1">最终收货地址</p>
-                  <div className="text-gray-600 space-y-0.5">
-                    {effectiveAddress.recipient_name && (
-                      <p>收件人：{effectiveAddress.recipient_name}</p>
-                    )}
-                    {effectiveAddress.country && (
-                      <p>{getCountry(effectiveAddress.country)?.name || effectiveAddress.country}</p>
-                    )}
-                    {[effectiveAddress.addr1, effectiveAddress.addr2, effectiveAddress.addr3].filter(Boolean).join(' ') && (
-                      <p>{[effectiveAddress.addr1, effectiveAddress.addr2, effectiveAddress.addr3].filter(Boolean).join(' ')}</p>
-                    )}
-                    {effectiveAddress.state && <p>{effectiveAddress.state}</p>}
-                    {effectiveAddress.phone && <p>电话：{effectiveAddress.phone}</p>}
-                  </div>
-                </div>
-              </div>
-            )}
 
-            {/* Order List */}
-            {order_entries && order_entries.length > 0 && (
-              <div>
-                <p className="font-medium text-gray-700 mb-2 text-sm">订单列表</p>
-                <div className="space-y-2">
-                  {order_entries.map((entry, idx) => (
-                    <div 
-                      key={entry.order_id || idx}
-                      className="p-3 bg-gray-50 rounded border border-gray-100"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-start gap-2 flex-1">
-                          <Package className="w-3.5 h-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
-                          <div className="flex-1">
-                            <p className="text-sm text-gray-700 font-medium">
-                              {entry.note || `订单 ${entry.order_id?.slice(-6) || idx + 1}`}
-                            </p>
-                            {/* Order-level addons */}
-                            {entry.selected_addons?.length > 0 && (
-                              <div className="flex flex-wrap gap-1 mt-1.5">
-                                {entry.selected_addons.map((addon, aidx) => (
-                                  <Badge key={aidx} variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 h-4.5">
-                                    {addon.name}
-                                  </Badge>
-                                ))}
+            {/* Address Groups */}
+            {addressGroupList.map((group, groupIdx) => (
+              <div key={groupIdx} className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                <div className="flex items-center gap-2 mb-3">
+                  <MapPin className="w-4 h-4 text-gray-500" />
+                  <span className="font-medium text-gray-700 text-sm">
+                    地址 {groupIdx + 1}：{group.addressLabel}
+                  </span>
+                </div>
+
+                {/* Address Details */}
+                {group.address && (
+                  <div className="mb-3 text-xs space-y-1">
+                    <div className="flex items-start gap-2">
+                      <User className="w-3 h-3 text-gray-400 mt-0.5 flex-shrink-0" />
+                      <span>收件人：{group.address.recipient_name || '未填写'}</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <Phone className="w-3 h-3 text-gray-400 mt-0.5 flex-shrink-0" />
+                      <span>电话：{group.address.phone || '未填写'}</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <Home className="w-3 h-3 text-gray-400 mt-0.5 flex-shrink-0" />
+                      <div className="flex-1">
+                        <p className="font-medium text-gray-700">国家/地区：{getCountry(group.address.country)?.name || group.address.country || '未填写'}</p>
+                        <p>地址行 1：{group.address.addr1 || '未填写'}</p>
+                        <p>地址行 2：{group.address.addr2 || '未填写'}</p>
+                        <p>地址行 3：{group.address.addr3 || '未填写'}</p>
+                        <p>州/省：{group.address.state || '未填写'}</p>
+                        {group.address.postal_code && <p>邮编：{group.address.postal_code}</p>}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Order List for this address */}
+                {group.orders.length > 0 && (
+                  <div className="mb-3">
+                    <p className="font-medium text-gray-700 mb-2 text-xs flex items-center gap-1">
+                      <ClipboardList className="w-3 h-3" />
+                      订单列表（{group.orders.length}个）
+                    </p>
+                    <div className="space-y-1.5">
+                      {group.orders.map((entry, idx) => (
+                        <div 
+                          key={entry.order_id || idx}
+                          className="p-2 bg-white rounded border border-gray-100 text-xs"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-start gap-2 flex-1">
+                              <Package className="w-3 h-3 text-gray-400 mt-0.5 flex-shrink-0" />
+                              <div className="flex-1">
+                                <p className="text-gray-700">
+                                  {entry.note || `订单 ${entry.order_id?.slice(-6) || idx + 1}`}
+                                </p>
+                                {entry.selected_addons?.length > 0 && (
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {entry.selected_addons.map((addon, aidx) => (
+                                      <Badge key={aidx} variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 h-4">
+                                        {addon.name}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            {entry.image_urls?.length > 0 && (
+                              <div className="flex items-center gap-1">
+                                <ImageIcon className="w-3 h-3 text-gray-400" />
+                                <span className="text-gray-500">{entry.image_urls.length}</span>
                               </div>
                             )}
                           </div>
                         </div>
-                        {entry.image_urls?.length > 0 && (
-                          <div className="flex items-center gap-1">
-                            <ImageIcon className="w-3.5 h-3.5 text-gray-400" />
-                            <span className="text-xs text-gray-500">{entry.image_urls.length}</span>
-                          </div>
-                        )}
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Shipping Form for this address group */}
+                {showShippingForm && (
+                  <div className="border-t border-gray-200 pt-3 mt-3">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Send className="w-4 h-4 text-blue-500" />
+                      <span className="font-medium text-gray-700 text-sm">中转地发货信息（地址 {groupIdx + 1}）</span>
+                    </div>
+
+                    <div className="space-y-3">
+                      {/* Transit Shipping Method */}
+                      <div>
+                        <Label className="text-xs">中转运输方式</Label>
+                        <Input
+                          className="text-sm"
+                          value={localShippingData[groupIdx]?.transit_shipping_method || shippingFormData?.transit_shipping_method || ''}
+                          onChange={(e) => handleShippingInputChange(groupIdx, 'transit_shipping_method', e.target.value)}
+                          placeholder="填写中转运输方式"
+                        />
+                      </div>
+
+                      {/* Tracking Number */}
+                      <div>
+                        <Label className="text-xs">中转运输单号</Label>
+                        <Input
+                          className="text-sm"
+                          value={localShippingData[groupIdx]?.transit_tracking_number || shippingFormData?.transit_tracking_number || ''}
+                          onChange={(e) => handleShippingInputChange(groupIdx, 'transit_tracking_number', e.target.value)}
+                          placeholder="填写运输单号"
+                        />
+                      </div>
+
+                      {/* Transit Fee */}
+                      <div>
+                        <Label className="text-xs">中转运费 (JPY)</Label>
+                        <Input
+                          className="text-sm"
+                          type="number"
+                          value={localShippingData[groupIdx]?.transit_fee_jpy || shippingFormData?.transit_fee_jpy || ''}
+                          onChange={(e) => handleShippingInputChange(groupIdx, 'transit_fee_jpy', e.target.value)}
+                          placeholder="0"
+                        />
+                      </div>
+
+                      {/* Note */}
+                      <div>
+                        <Label className="text-xs">备注</Label>
+                        <Textarea
+                          className="text-sm min-h-[60px]"
+                          value={localShippingData[groupIdx]?.transit_note || shippingFormData?.transit_note || ''}
+                          onChange={(e) => handleShippingInputChange(groupIdx, 'transit_note', e.target.value)}
+                          placeholder="填写备注信息"
+                        />
                       </div>
                     </div>
-                  ))}
-                </div>
+                  </div>
+                )}
               </div>
-            )}
+            ))}
           </div>
         )}
       </CardContent>
