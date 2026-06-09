@@ -909,40 +909,56 @@ export default function PreShipmentForm() {
               <div className="space-y-2 border border-blue-100 rounded-xl p-3 bg-blue-50/40">
                 <Label className="text-xs text-blue-700 font-medium">加入已有的中转拼邮申请（可选）</Label>
                 <div className="mt-2">
-                  <Popover open={joinExistingPool && selectedExistingPoolId === ""} onOpenChange={(open) => {
-                  if (!open) setJoinExistingPool(false);
-                }}>
-                    <PopoverTrigger asChild>
-                      <Button
-                      variant="outline"
-                      className={`w-full justify-between h-10 ${joinExistingPool ? "border-blue-400 bg-blue-50" : ""}`}
-                      onClick={() => setJoinExistingPool(!joinExistingPool)}>
-                      
-                        {joinExistingPool && selectedExistingPoolId ?
-                      <span className="text-sm">
-                            {(() => {
-                          const pool = officialPools.find((p) =>
-                          p.consolidation_type === 'transit' &&
-                          p.creator_email === user.email &&
-                          p.id === selectedExistingPoolId
-                          );
-                          const shippingInfo = pool?.transit_shipping_method_name ? ` · ${pool.transit_shipping_method_name}` : '';
-                          const weightInfo = pool?.total_weight_g ? ` · ${(pool.total_weight_g / 1000).toFixed(1)}kg` : '';
-                          const deadlineInfo = pool?.consolidation_deadline ? ` · 截止：${pool.consolidation_deadline}` : '';
-                          return pool ? `${pool.pool_code}${shippingInfo} · ${(pool.order_ids || []).length} 单${weightInfo}${deadlineInfo}` : "选择拼邮申请";
-                        })()}
-                          </span> :
+                  <Popover open={joinExistingPool} onOpenChange={(open) => {
+                  if (!open) {
+                    setJoinExistingPool(false);
+                    setSelectedExistingPoolId("");
+                  }
+                  }}>
+                  <PopoverTrigger asChild>
+                    <Button
+                    variant="outline"
+                    className={`w-full justify-between h-10 ${joinExistingPool ? "border-blue-400 bg-blue-50" : ""}`}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setJoinExistingPool(true);
+                    }}>
 
-                      <span className="text-sm text-gray-500">选择要加入的拼邮申请</span>
-                      }
-                        <Search className="w-4 h-4 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
+                      {joinExistingPool && selectedExistingPoolId ?
+                    <span className="text-sm">
+                          {(() => {
+                        const pool = officialPools.find((p) => p.id === selectedExistingPoolId);
+                        const titleInfo = pool?.title ? ` - ${pool.title}` : '';
+                        const shippingInfo = pool?.transit_shipping_method_name ? ` · ${pool.transit_shipping_method_name}` : '';
+                        const weightInfo = pool?.total_weight_g ? ` · ${(pool.total_weight_g / 1000).toFixed(1)}kg` : '';
+                        const deadlineInfo = pool?.consolidation_deadline ? ` · 截止：${pool.consolidation_deadline}` : '';
+                        return pool ? `${pool.pool_code}${titleInfo}${shippingInfo} · ${(pool.order_ids || []).length} 单${weightInfo}${deadlineInfo}` : "选择拼邮申请";
+                      })()}
+                        </span> :
+
+                    <span className="text-sm text-gray-500">选择要加入的拼邮申请</span>
+                    }
+                      <Search className="w-4 h-4 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
                     <PopoverContent className="w-full p-0" align="start">
                       <Command>
                         <CommandInput placeholder="搜索拼邮申请..." />
                         <CommandList>
-                          <CommandEmpty>暂无可用的拼邮申请</CommandEmpty>
+                          {selectedExistingPoolId && (
+                            <CommandGroup heading="当前选择">
+                              <CommandItem
+                                value="__clear_selection__"
+                                onSelect={() => {
+                                  setSelectedExistingPoolId("");
+                                  setJoinExistingPool(false);
+                                }}
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50">
+                                <span className="text-sm font-medium">取消选择</span>
+                              </CommandItem>
+                            </CommandGroup>
+                          )}
                           <CommandGroup heading="我创建的中转拼邮">
                             {(() => {
                             const myPools = officialPools.filter((p) =>
@@ -955,8 +971,13 @@ export default function PreShipmentForm() {
                               key={pool.id}
                               value={pool.pool_code}
                               onSelect={() => {
-                                setSelectedExistingPoolId(pool.id);
-                                setJoinExistingPool(true);
+                                if (selectedExistingPoolId === pool.id) {
+                                  setSelectedExistingPoolId("");
+                                  setJoinExistingPool(false);
+                                } else {
+                                  setSelectedExistingPoolId(pool.id);
+                                  setJoinExistingPool(true);
+                                }
                               }}
                               className="flex flex-col items-start gap-1.5 p-3 h-auto">
                               
@@ -1018,8 +1039,13 @@ export default function PreShipmentForm() {
                               key={pool.id}
                               value={pool.pool_code}
                               onSelect={() => {
-                                setSelectedExistingPoolId(pool.id);
-                                setJoinExistingPool(true);
+                                if (selectedExistingPoolId === pool.id) {
+                                  setSelectedExistingPoolId("");
+                                  setJoinExistingPool(false);
+                                } else {
+                                  setSelectedExistingPoolId(pool.id);
+                                  setJoinExistingPool(true);
+                                }
                               }}
                               className="flex flex-col items-start gap-1.5 p-3 h-auto">
                               
