@@ -22,8 +22,13 @@ export default function UserGroupCard({
   // Create unique group identifier (user_email + transit_method_id)
   const groupKey = `${user_email}__${transit_shipping_method_id || 'none'}`;
   
-  // Create click handler that passes the unique group key to onExpand
-  const handleClick = onExpand ? onExpand(groupKey) : null;
+  // Create click handler that stops propagation and calls onExpand with groupKey
+  const handleClick = (e) => {
+    if (e) {
+      e.stopPropagation();
+    }
+    onExpand?.(groupKey);
+  };
 
   const effectiveAddress = group_final_address;
   

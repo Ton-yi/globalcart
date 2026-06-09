@@ -121,8 +121,7 @@ export default function TransitPoolWork() {
   const [showingAddress, setShowingAddress] = useState(null);
   const [selectedOrder, setSelectedOrder] = useState(null);
 
-  const handleToggleGroup = (groupKey) => (e) => {
-    e.stopPropagation();
+  const handleToggleGroup = (groupKey) => () => {
     setExpandedGroups((prev) =>
       prev.includes(groupKey) ?
         prev.filter((k) => k !== groupKey) :
