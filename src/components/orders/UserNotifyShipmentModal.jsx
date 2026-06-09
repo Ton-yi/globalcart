@@ -572,8 +572,8 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
         });
       }
     } else if (isJoiningPool && selectedPool) {
-      // When joining an existing pool, we update the pool's order list.
-      // If the user filled a new address for this join, also persist it to the pool.
+      // When joining an existing pool, we update the pool's order list AND per_user_groups.
+      // This ensures the transit work panel can display orders grouped by user and transit method.
       const joinAddrObj = getEffectiveAddr("final");
       const joinAddrUpdate = joinAddrObj ? {
         destination_country: joinAddrObj.country || "",
@@ -584,9 +584,97 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
         city: joinAddrObj.addr3 || "",
         state: joinAddrObj.state || "",
       } : {};
+
+      // Build per_user_groups entry for this user's orders in the pool
+      // Group by user_email + transit_shipping_method_id to allow separate handling for different transit methods
+      const existingGroups = selectedPool.per_user_groups || [];
+      // Find existing group for this user with the SAME transit shipping method
+      const existingGroupIdx = existingGroups.findIndex(g => 
+        g.user_email === u.email && 
+        (g.transit_shipping_method_id || null) === (selectedTransitMethodId || null)
+      );
+      
+      const newGroupEntry = {
+        user_email: u.email,
+        user_name: u.full_name || u.email,
+        group_label: u.full_name || u.email,
+        note: note || "",
+        image_urls: [],
+        transit_shipping_method_id: selectedTransitMethodId || null,
+        transit_shipping_method_name: transitMethods.find(m => m.id === selectedTransitMethodId)?.name || "",
+        selected_addon_ids: selectedAddonIds,
+        selected_addons: selectedAddons.map(a => ({
+          id: a.id,
+          name: a.name,
+          fee: a.fee,
+          fee_currency: a.fee_currency,
+        })),
+        group_final_address: joinAddrObj ? {
+          recipient_name: joinAddrObj.recipient_name,
+          country: joinAddrObj.country,
+          addr1: joinAddrObj.addr1,
+          addr2: joinAddrObj.addr2,
+          addr3: joinAddrObj.addr3,
+          state: joinAddrObj.state,
+          phone: joinAddrObj.phone,
+        } : null,
+        order_entries: targetOrders.map(o => ({
+          order_id: o.id,
+          note: o.user_note || "",
+          image_urls: [o.product_image_url, o.arrival_photo_url, o.purchase_screenshot_url].filter(Boolean),
+          selected_addon_ids: o.selected_addon_ids || [],
+          selected_addons: o.selected_addons || [],
+          override_final_address: null,
+          use_group_address: true,
+        })),
+      };
+
+      let updatedGroups;
+      if (existingGroupIdx >= 0) {
+        // Merge with existing group that has the same transit method - append orders and update address/addons
+        const existingGroup = existingGroups[existingGroupIdx];
+        updatedGroups = existingGroups.map((g, idx) => {
+          if (idx === existingGroupIdx) {
+            return {
+              ...g,
+              selected_addon_ids: [...new Set([...(g.selected_addon_ids || []), ...selectedAddonIds])],
+              selected_addons: [...(g.selected_addons || []), ...selectedAddons.map(a => ({
+                id: a.id,
+                name: a.name,
+                fee: a.fee,
+                fee_currency: a.fee_currency,
+              }))].filter((v, i, a) => a.findIndex(x => x.id === v.id) === i),
+              group_final_address: joinAddrObj ? {
+                recipient_name: joinAddrObj.recipient_name,
+                country: joinAddrObj.country,
+                addr1: joinAddrObj.addr1,
+                addr2: joinAddrObj.addr2,
+                addr3: joinAddrObj.addr3,
+                state: joinAddrObj.state,
+                phone: joinAddrObj.phone,
+              } : g.group_final_address,
+              order_entries: [...(g.order_entries || []), ...targetOrders.map(o => ({
+                order_id: o.id,
+                note: o.user_note || "",
+                image_urls: [o.product_image_url, o.arrival_photo_url, o.purchase_screenshot_url].filter(Boolean),
+                selected_addon_ids: o.selected_addon_ids || [],
+                selected_addons: o.selected_addons || [],
+                override_final_address: null,
+                use_group_address: true,
+              }))],
+            };
+          }
+          return g;
+        });
+      } else {
+        // Create new group for this user + transit method combination
+        updatedGroups = [...existingGroups, newGroupEntry];
+      }
+
       await shippingPoolApi.update(selectedPool.id, {
         order_ids: [...new Set([...(selectedPool.order_ids || []), ...orderIds])],
         total_weight_g: (selectedPool.total_weight_g || 0) + totalWeight,
+        per_user_groups: updatedGroups,
         ...joinAddrUpdate,
       });
     } else {
