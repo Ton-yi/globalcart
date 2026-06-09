@@ -822,13 +822,21 @@ export default function PreShipmentForm() {
                     
                     if (transitLocationId) {
                       const selectedLocation = transitLocations.find(l => l.id === transitLocationId);
-                      availableMethods = selectedLocation?.transit_shipping_methods || [];
+                      const disabledIds = selectedLocation?.disabled_transit_method_ids || [];
+                      availableMethods = (selectedLocation?.transit_shipping_methods || []).filter(
+                        m => !disabledIds.includes(m.id)
+                      );
                       hasStorage = selectedLocation?.allow_storage === true;
                       hasPickup = selectedLocation?.allow_pickup === true;
                     } else if (joinExistingPool && selectedExistingPoolId) {
                       const selectedPool = officialPools.find(p => p.id === selectedExistingPoolId);
                       if (selectedPool?.transit_shipping_method_id) {
-                        availableMethods = [{ id: selectedPool.transit_shipping_method_id, name: selectedPool.transit_shipping_method_name || '中转运输方式' }];
+                        // Check if the pool's transit method is disabled by its location
+                        const poolLocation = transitLocations.find(l => l.id === selectedPool.transit_location_id);
+                        const disabledIds = poolLocation?.disabled_transit_method_ids || [];
+                        if (!disabledIds.includes(selectedPool.transit_shipping_method_id)) {
+                          availableMethods = [{ id: selectedPool.transit_shipping_method_id, name: selectedPool.transit_shipping_method_name || '中转运输方式' }];
+                        }
                       }
                     }
                     
