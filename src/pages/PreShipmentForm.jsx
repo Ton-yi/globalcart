@@ -369,7 +369,10 @@ export default function PreShipmentForm() {
   const canSubmit = () => {
     // If joining existing pool, shipping method is inherited - no need to select
     if (joinExistingPool && selectedExistingPoolId) {
-      if (consType === "transit") return !!transitLocationId;
+      if (consType === "transit") {
+        // When joining existing transit pool, transit location is inherited from the pool - not required
+        return true;
+      }
       if (consType === "official_pool") return true;
       return isAddressFormValid(address);
     }
@@ -758,7 +761,9 @@ export default function PreShipmentForm() {
           {consType === "transit" &&
           <>
               <div className={`space-y-2 border border-blue-100 rounded-xl p-3 bg-blue-50/40 transition-opacity ${joinExistingPool && selectedExistingPoolId ? "opacity-40 pointer-events-none" : ""}`}>
-                <Label className="text-xs text-blue-700 font-medium">选择中转地 *</Label>
+                <Label className="text-xs text-blue-700 font-medium">
+                  选择中转地 {joinExistingPool && selectedExistingPoolId ? "（已继承）" : "*"}
+                </Label>
                 {transitLocations.map((l) => {
                   const hasStorage = l.allow_storage === true;
                   const hasPickup = l.allow_pickup === true;
