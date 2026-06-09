@@ -56,14 +56,23 @@ export default function AdminTransitWork() {
     try {
       const r = await base44.functions.invoke('getAllTransitWorkData', {});
       const data = r.data || {};
+      
+      // Debug: log detailed structure
+      const requestsByLoc = data.requestsByLocation || data.poolsByLocation || {};
+      const totalReqs = Object.values(requestsByLoc).reduce((sum, arr) => sum + (arr?.length || 0), 0);
+      
       console.log('[AdminTransitWork] Received data:', {
         locations: data.locations?.length,
         requests: data.requests?.length,
-        requestsByLocation: Object.keys(data.requestsByLocation || {}).length,
-        totalRequestsCount: Object.values(data.requestsByLocation || {}).reduce((sum, arr) => sum + arr.length, 0),
+        requestsByLocation_keys: Object.keys(requestsByLoc),
+        requestsByLocation_detail: Object.fromEntries(
+          Object.entries(requestsByLoc).map(([k, v]) => [k, v?.length || 0])
+        ),
+        totalRequestsCount: totalReqs,
       });
+      
       setLocations(data.locations || []);
-      setRequestsByLocation(data.requestsByLocation || data.poolsByLocation || {});
+      setRequestsByLocation(requestsByLoc);
       setAllUsers(data.users || []);
       setTransitMethods(data.transitMethods || []);
       setAddonOptions(data.addonOptions || []);

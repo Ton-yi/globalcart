@@ -48,13 +48,24 @@ Deno.serve(async (req) => {
       base44.asServiceRole.entities.AddonOption.filter({ tenant_id: resolvedTenantId, addon_type: 'shipping' }),
     ]);
 
+    console.log('[getAllTransitWorkData] Total GroupBuyRequests:', allRequests?.length || 0);
+    
     // Include ALL requests with transit_location_id assigned, regardless of status
     // This ensures admin can see pending, completed, cancelled, expired requests
-    const transitRequests = (allRequests || []).filter(r => r.transit_location_id);
+    const transitRequests = (allRequests || []).filter(r => {
+      const hasTransit = !!r.transit_location_id;
+      if (hasTransit) {
+        console.log('[getAllTransitWorkData] Request with transit:', {
+          id: r.id,
+          title: r.title,
+          transit_location_id: r.transit_location_id,
+          status: r.status,
+        });
+      }
+      return hasTransit;
+    });
     
-    // Debug logging for development
-    // console.log('[getAllTransitWorkData] Total requests:', allRequests?.length || 0);
-    // console.log('[getAllTransitWorkData] Requests with transit location:', transitRequests.length);
+    console.log('[getAllTransitWorkData] Requests with transit location:', transitRequests.length);
 
     // Group requests by transit_location_id
     const requestsByLocation = {};
