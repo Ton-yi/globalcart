@@ -85,19 +85,25 @@ Deno.serve(async (req) => {
     // Kick off rates fetch immediately (non-blocking — uses cache when warm)
     const ratesPromise = fetchRatesCached();
 
-    const [settings, addons, shippingMethods, transitMethods, itemSizeTemplates, storeTagRules, announcements, boxTemplates, memberTiers, paymentMethods] = await Promise.all([
+    // Split into two batches to avoid hitting the API rate limit with 10 concurrent requests
+    const [settings, addons, shippingMethods, transitMethods, itemSizeTemplates] = await Promise.all([
       base44.asServiceRole.entities.SiteSettings.filter(filter),
       base44.asServiceRole.entities.AddonOption.filter(filter),
       base44.asServiceRole.entities.ShippingMethod.filter(filter),
       base44.asServiceRole.entities.TransitShippingMethod.filter(filter),
       base44.asServiceRole.entities.ItemSizeTemplate.filter(filter),
+    ]);
+    console.log(`[TIMING] getAdminSettingsPageData | batch 1 (5 queries): ${Date.now()-t3}ms`);
+
+    const t4 = Date.now();
+    const [storeTagRules, announcements, boxTemplates, memberTiers, paymentMethods] = await Promise.all([
       base44.asServiceRole.entities.OnlineStoreTagRule.filter(filter),
       base44.asServiceRole.entities.Announcement.filter({ ...filter, is_active: true }),
       base44.asServiceRole.entities.BoxTemplate.filter(filter),
       base44.asServiceRole.entities.MemberTier.filter(filter),
       base44.asServiceRole.entities.PaymentMethod.filter(filter),
     ]);
-    console.log(`[TIMING] getAdminSettingsPageData | 10x entity queries: ${Date.now()-t3}ms`);
+    console.log(`[TIMING] getAdminSettingsPageData | batch 2 (5 queries): ${Date.now()-t4}ms`);
 
     // Rates resolve independently — if already cached this is instant
     const rates = await ratesPromise;
