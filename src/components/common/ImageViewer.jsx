@@ -1,11 +1,11 @@
 /**
  * ImageViewer
  * - Hover: shows a floating preview thumbnail
- * - Click: opens a full-screen lightbox
- * - Click again in lightbox: opens image in new tab
+ * - Click: opens an in-page overlay with large image
+ * - Click again: closes the overlay
  */
 import { useState, useRef } from "react";
-import { X, ExternalLink } from "lucide-react";
+import { X } from "lucide-react";
 
 export function ImageWithViewer({ src, alt = "", thumbClassName = "", children }) {
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -54,33 +54,25 @@ export function ImageWithViewer({ src, alt = "", thumbClassName = "", children }
         </div>
       )}
 
-      {/* Lightbox */}
+      {/* In-page overlay */}
       {lightboxOpen && (
         <div
-          className="fixed inset-0 bg-black/80 z-[9999] flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4"
           onClick={() => setLightboxOpen(false)}
         >
           <button
-            className="absolute top-4 right-4 text-white/70 hover:text-white"
+            className="absolute top-4 right-4 text-white/80 hover:text-white bg-white/10 rounded-full p-2"
             onClick={() => setLightboxOpen(false)}
           >
-            <X className="w-6 h-6" />
+            <X className="w-5 h-5" />
           </button>
-          <div className="relative max-w-3xl max-h-[85vh] flex flex-col items-center gap-3">
+          <div className="relative max-w-4xl max-h-[90vh] flex items-center justify-center">
             <img
               src={src}
               alt={alt}
-              className="max-w-full max-h-[75vh] rounded-xl object-contain shadow-2xl cursor-zoom-in"
-              onClick={e => { e.stopPropagation(); window.open(src, "_blank"); }}
-              title="点击在新标签页打开"
+              className="max-w-full max-h-[85vh] rounded-xl object-contain shadow-2xl"
+              onClick={e => e.stopPropagation()}
             />
-            <button
-              className="flex items-center gap-1.5 text-white/60 hover:text-white text-xs"
-              onClick={e => { e.stopPropagation(); window.open(src, "_blank"); }}
-            >
-              <ExternalLink className="w-3.5 h-3.5" />
-              在新标签页打开
-            </button>
           </div>
         </div>
       )}
