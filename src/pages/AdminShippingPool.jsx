@@ -575,7 +575,7 @@ export default function AdminShippingPool() {
                       <>
                         {/* Work Panel Button */}
                         <a
-                          href={`/TransitLocationWork/${loc.id}`}
+                          href={`${window.location.origin}/TransitLocationWork/${loc.id}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           title="打开中转地工作面板"
