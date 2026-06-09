@@ -378,6 +378,7 @@ export default function PreShipmentForm() {
       consType,
       transit_location_id: consType === "transit" ? transitLocationId : "",
       transit_location_name: consType === "transit" ? transitLoc?.name || "" : "",
+      transit_location_country: consType === "transit" ? transitLoc?.country || "" : "",
       address: consType === "transit" || consType === "official_pool" ? {} : { ...effectiveAddress },
       selected_addon_ids: effectiveSelectedAddonIds,
       selected_addons: selectedAddons.map((a) => {

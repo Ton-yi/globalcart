@@ -127,10 +127,11 @@ Deno.serve(async (req) => {
     const pool_code = `${prefix}${String(maxSeq + 1).padStart(5, '0')}`;
     
     const addr = pre.address || {};
-    // For transit pools, destination_country comes from the transit location's country field;
-    // for direct shipment pools, it comes from the address the user filled in.
+    // For transit pools, destination_country is stored directly in pre_shipment.transit_location_country
+    // (set at form-submit time from the TransitLocation entity); fall back to fetched entity field.
+    // For direct shipment, it comes from the address the user filled in.
     const destinationCountry = consType === 'transit'
-      ? (transitLoc?.country || addr.country || '')
+      ? (pre.transit_location_country || transitLoc?.country || addr.country || '')
       : (addr.country || '');
     const pool = await base44.asServiceRole.entities.ShippingPool.create({
       tenant_id: tenantId,
