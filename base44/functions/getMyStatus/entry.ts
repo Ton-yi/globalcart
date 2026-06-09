@@ -8,7 +8,12 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 function computeEffectivePermissions(userRecord, allRoles) {
   const base = new Set();
   (userRecord.assigned_role_ids || []).forEach(roleId => {
-    const role = allRoles.find(r => r.id === roleId);
+    // Support both role ID lookup and legacy role name lookup (e.g., 'user', 'admin')
+    let role = allRoles.find(r => r.id === roleId);
+    if (!role && typeof roleId === 'string') {
+      // Fallback: try to find by predefined_key or name for legacy role references
+      role = allRoles.find(r => r.predefined_key === `builtin_${roleId}` || r.name === roleId);
+    }
     (role?.direct_permissions || []).forEach(p => base.add(p));
   });
 
@@ -49,11 +54,16 @@ Deno.serve(async (req) => {
 
     let assignedRoles = [];
     if (userRecord.tenant_id) {
-      const allRoles = await base44.asServiceRole.entities.Role.filter({
+      // Load both tenant-specific and global roles
+      const tenantRoles = await base44.asServiceRole.entities.Role.filter({
         tenant_id: userRecord.tenant_id,
         is_archived: false,
       });
-      const rolesArr = allRoles || [];
+      const globalRoles = await base44.asServiceRole.entities.Role.filter({
+        is_global: true,
+        is_archived: false,
+      });
+      const rolesArr = [...(tenantRoles || []), ...(globalRoles || [])];
       if (hasGranularPerms) {
         permissions = computeEffectivePermissions(userRecord, rolesArr);
       }
