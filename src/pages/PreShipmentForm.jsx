@@ -496,7 +496,7 @@ export default function PreShipmentForm() {
           fee_currency: a.fee_currency
         };
       }),
-      pool_created: effectiveConsType === "official_pool" || joinExistingPool && !!selectedExistingPoolId,
+      pool_created: false,
       target_pool_id: effectiveConsType === "official_pool" ? selectedPoolId : joinExistingPool ? selectedExistingPoolId : "",
       target_pool_code: effectiveConsType === "official_pool" ? poolCode : joinExistingPool ? existingPoolCode : "",
       target_pool_title: effectiveConsType === "official_pool" && selectedPool ? selectedPool.title || selectedPool.pool_code : joinExistingPool && existingPool ? existingPool.title || existingPool.pool_code : "",
