@@ -41,6 +41,14 @@ Deno.serve(async (req) => {
       return Response.json({ skipped: true, reason: 'order_already_has_pool', pool_id: order.consolidation_pool_id });
     }
 
+    // Support both in_warehouse and notified_shipment status
+    // This allows the function to be called when user submits shipment notification
+    const shouldProcess = order.order_status === 'in_warehouse' || order.order_status === 'notified_shipment';
+    if (!shouldProcess && !body.force) {
+      console.log('[autoCreatePreShipmentPool] Skipped: order status is', order.order_status);
+      return Response.json({ skipped: true, reason: 'order_status_not_eligible', status: order.order_status });
+    }
+
     const pre = order.pre_shipment;
     const { consType, target_pool_id } = pre;
     const tenantId = order.tenant_id;
