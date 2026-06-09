@@ -853,14 +853,19 @@ export default function PreShipmentForm() {
               )}
               
               {/* Final destination address for transit */}
-              <Card className="border-gray-200">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                    <MapPin className="w-4 h-4" />最终收货地址
-                  </CardTitle>
-                  <p className="text-xs text-gray-400 mt-1">货品到达中转地后，将发往此地址</p>
-                </CardHeader>
-                <CardContent className="space-y-3">
+              {(() => {
+                const isStorageOrPickup = transitShippingMethodId === '__storage__' || transitShippingMethodId === '__pickup__';
+                return (
+                <Card className={`border-gray-200 transition-opacity ${isStorageOrPickup ? "opacity-40 pointer-events-none" : ""}`}>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                      <MapPin className="w-4 h-4" />最终收货地址
+                    </CardTitle>
+                    <p className="text-xs text-gray-400 mt-1">
+                      {isStorageOrPickup ? "暂存/自取模式下无需填写最终地址" : "货品到达中转地后，将发往此地址"}
+                    </p>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
                   {savedAddresses.length > 0 &&
                     <Select value={useNewAddress ? "__new__" : selectedAddressId || ""} onValueChange={handleAddressSelect}>
                       <SelectTrigger><SelectValue placeholder="选择地址簿中的地址" /></SelectTrigger>
@@ -896,6 +901,8 @@ export default function PreShipmentForm() {
                   }
                 </CardContent>
               </Card>
+                );
+              })()}
 
               {/* Option to join existing transit pool */}
               <div className="space-y-2 border border-blue-100 rounded-xl p-3 bg-blue-50/40">
