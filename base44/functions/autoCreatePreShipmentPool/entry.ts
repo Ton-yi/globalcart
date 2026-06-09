@@ -62,8 +62,9 @@ Deno.serve(async (req) => {
       return { exists: true, pool, isShipped: pool.status === 'shipped' || pool.status === 'delivered' };
     };
 
-    // Case 1: Join existing direct/transit pool
-    if (consType !== 'official_pool' && target_pool_id) {
+    // Case 1: Join existing direct/transit pool (including join_existing_pool mode)
+    const shouldJoinExistingPool = pre.join_existing_pool && target_pool_id;
+    if ((consType !== 'official_pool' && target_pool_id) || shouldJoinExistingPool) {
       const { exists, pool, isShipped } = await checkPool(target_pool_id);
       if (!exists) return Response.json({ error: 'Pool not found' }, { status: 404 });
       
