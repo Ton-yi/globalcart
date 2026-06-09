@@ -116,7 +116,7 @@ export default function TransitPoolWork() {
   }, [user, pool_id]);
 
   // Use per_user_groups directly (contains order_entries)
-  const userGroups = pool.per_user_groups || [];
+  const userGroups = pool?.per_user_groups || [];
 
   const handleToggleGroup = (email) => {
     setExpandedGroups(prev => 
