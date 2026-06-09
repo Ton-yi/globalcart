@@ -8,7 +8,7 @@ import { fetchShippingPools, tenantEntity, fetchTenantConfig, shippingPoolApi } 
 import { timePage } from "@/lib/timing";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { usePermissions } from "@/hooks/usePermissions";
-import { Plus, RefreshCw, Truck, X, Package, MapPin, ChevronRight, ChevronLeft, Check, Scale, Calendar, Info, Layers, Lock, Users, Search, PlusCircle, Archive, ArchiveRestore, CreditCard, CheckCircle2 } from "lucide-react";
+import { Plus, RefreshCw, Truck, X, Package, MapPin, ChevronRight, ChevronLeft, Check, Scale, Calendar, Info, Layers, Lock, Users, Search, PlusCircle, Archive, ArchiveRestore, CreditCard, CheckCircle2, LogIn } from "lucide-react";
 import { getCountry } from "@/lib/countries";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -68,6 +68,7 @@ export default function ShippingPool() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedPool, setSelectedPool] = useState(null);
   const [showArchivedPools, setShowArchivedPools] = useState(false);
+  const [userTransitLocations, setUserTransitLocations] = useState([]);
 
   // Inline create form state
   const [showCreate, setShowCreate] = useState(false);
@@ -137,6 +138,14 @@ export default function ShippingPool() {
     setLoading(false);
     t.done('data ready');
   };
+
+  // Fetch transit locations where user is the manager
+  useEffect(() => {
+    if (!user?.email) return;
+    base44.entities.TransitLocation.filter({ manager_email: user.email, is_active: true })
+      .then(locations => setUserTransitLocations(locations))
+      .catch(() => {});
+  }, [user?.email]);
 
   useEffect(() => {
     if (user) {
@@ -983,13 +992,35 @@ export default function ShippingPool() {
       {/* ---- TAB: SHIPPING POOLS ---- */}
       {activeTab === "pools" &&
       <>
-          <div>
+          <div className="flex items-center justify-between gap-2 mb-3">
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-32 h-8 text-sm"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {STATUS_FILTERS.map((s) => <SelectItem key={s.v} value={s.v}>{s.l}</SelectItem>)}
               </SelectContent>
             </Select>
+            {/* Transit Location Work Panel Entry for transit managers */}
+            {userTransitLocations.length > 0 && (
+              <div className="flex items-center gap-2">
+                <Badge className="bg-blue-100 text-blue-700 border-blue-200 text-xs">
+                  <MapPin className="w-2.5 h-2.5 mr-1 inline" />
+                  负责 {userTransitLocations.length} 个中转地
+                </Badge>
+                {userTransitLocations.map(loc => (
+                  <a
+                    key={loc.id}
+                    href={`/TransitLocationWork/${loc.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Button size="sm" variant="outline" className="h-7 text-xs bg-white hover:bg-blue-50 text-blue-600 border-blue-200">
+                      <LogIn className="w-3 h-3 mr-1" />
+                      {loc.name} 工作面板
+                    </Button>
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
 
           {loading ?
