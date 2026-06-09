@@ -38,6 +38,7 @@ Deno.serve(async (req) => {
 
     // Fetch orders in this pool
     const orders = [];
+    console.log('[getTransitPoolWorkData] Pool', pool.pool_code, 'order_ids:', pool.order_ids);
     if (pool.order_ids && pool.order_ids.length > 0) {
       for (const orderId of pool.order_ids) {
         try {
@@ -48,6 +49,7 @@ Deno.serve(async (req) => {
         }
       }
     }
+    console.log('[getTransitPoolWorkData] Fetched', orders.length, 'orders for pool', pool.pool_code);
 
     // Fetch shipping methods
     const shippingMethods = await base44.entities.ShippingMethod.filter({ 
@@ -59,7 +61,11 @@ Deno.serve(async (req) => {
       pool,
       location,
       orders,
-      shippingMethods
+      shippingMethods,
+      debug: {
+        order_ids_count: pool.order_ids?.length || 0,
+        orders_fetched: orders.length
+      }
     });
   } catch (error) {
     console.error('Error in getTransitPoolWorkData:', error);

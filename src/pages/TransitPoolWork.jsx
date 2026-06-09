@@ -69,6 +69,13 @@ export default function TransitPoolWork() {
         });
         const data = r.data || {};
         
+        console.log('[TransitPoolWork] Received data:', {
+          pool_code: data.pool?.pool_code,
+          order_ids_count: data.pool?.order_ids?.length,
+          orders_count: data.orders?.length,
+          debug: data.debug
+        });
+        
         if (!data.pool) {
           navigate("/TransitLocationWork");
           return;
