@@ -21,8 +21,9 @@ import { getCountry } from "@/lib/countries";
 import TransitPoolCard from "@/components/transit/TransitPoolCard";
 
 const TRANSIT_STATUS_TABS = [
-  { key: "arrived", label: "中转地已收货", count: 0 },
+  { key: "pending", label: "待处理", count: 0 },
   { key: "in_transit", label: "日本已发往中转地", count: 0 },
+  { key: "arrived", label: "中转地已收货", count: 0 },
   { key: "forwarded", label: "中转地已发货", count: 0 },
 ];
 
@@ -76,12 +77,17 @@ export default function TransitLocationWork() {
 
   // Categorize pools by transit status
   const poolsByStatus = {
-    arrived: pools.filter(p => p.transit_arrival_confirmed_at && !p.transit_shipped_date),
+    pending: pools.filter(p => 
+      !p.transit_arrival_confirmed_at && 
+      !p.transit_shipped_date && 
+      (p.status === "pending" || p.status === "awaiting_payment" || p.status === "ready_to_ship")
+    ),
     in_transit: pools.filter(p => 
       p.status === "shipped" && 
       !p.transit_arrival_confirmed_at && 
       p.tracking_number
     ),
+    arrived: pools.filter(p => p.transit_arrival_confirmed_at && !p.transit_shipped_date),
     forwarded: pools.filter(p => p.transit_shipped_date),
   };
 
@@ -203,7 +209,35 @@ export default function TransitLocationWork() {
               批量确认收货
             </Button>
           )}
+          
+          {activeTab === "pending" && poolsByStatus.pending.length > 0 && (
+            <Badge className="bg-orange-100 text-orange-700 text-xs">
+              <Clock className="w-3 h-3 mr-1" />
+              待处理 {poolsByStatus.pending.length} 个
+            </Badge>
+          )}
         </div>
+
+        {/* Pending Tab */}
+        <TabsContent value="pending" className="space-y-4">
+          {poolsByStatus.pending.length === 0 ? (
+            <div className="flex flex-col items-center py-20 text-gray-400">
+              <Clock className="w-12 h-12 mb-3 opacity-20" />
+              <p className="text-sm">暂无待处理的包裹</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+              {poolsByStatus.pending.map(pool => (
+                <TransitPoolCard 
+                  key={pool.id} 
+                  pool={pool} 
+                  transitStatus="pending"
+                  onClick={() => navigate(`/TransitPoolWork/${pool.id}`)}
+                />
+              ))}
+            </div>
+          )}
+        </TabsContent>
 
         {/* Arrived Tab */}
         <TabsContent value="arrived" className="space-y-4">

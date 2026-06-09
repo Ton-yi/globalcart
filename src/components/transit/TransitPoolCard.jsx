@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { getCountry } from "@/lib/countries";
 
 const TRANSIT_STATUS_CONFIG = {
+  pending: { label: "待处理", color: "bg-orange-100 text-orange-700", icon: Clock },
   in_transit: { label: "日本已发货", color: "bg-blue-100 text-blue-700", icon: Truck },
   arrived: { label: "中转地已收货", color: "bg-green-100 text-green-700", icon: CheckCircle },
   forwarded: { label: "中转地已转发", color: "bg-gray-100 text-gray-700", icon: Package },
@@ -98,6 +99,22 @@ export default function TransitPoolCard({ pool, transitStatus, isSelected, onTog
           <div className="flex items-center gap-2 text-xs font-mono text-blue-600 bg-blue-50 px-2 py-1 rounded">
             <Truck className="w-3 h-3" />
             <span className="truncate">{pool.tracking_number}</span>
+          </div>
+        )}
+
+        {/* Pending status info */}
+        {transitStatus === "pending" && (
+          <div className="border-t pt-2 space-y-1">
+            <div className="flex items-center gap-1.5 text-xs text-orange-600">
+              <Clock className="w-3 h-3" />
+              <span>等待中转地收货</span>
+            </div>
+            {pool.consolidation_deadline && (
+              <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                <Calendar className="w-3 h-3" />
+                <span>凑单截止：{new Date(pool.consolidation_deadline).toLocaleDateString("zh-CN")}</span>
+              </div>
+            )}
           </div>
         )}
 
