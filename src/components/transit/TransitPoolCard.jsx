@@ -19,6 +19,9 @@ export default function TransitPoolCard({ pool, transitStatus, isSelected, onTog
   const orderCount = (pool.order_ids || []).length;
   const statusConfig = TRANSIT_STATUS_CONFIG[transitStatus || "in_transit"];
   const StatusIcon = statusConfig?.icon || Truck;
+  
+  // Debug: log pool data for troubleshooting
+  console.log('[TransitPoolCard] Pool:', pool.pool_code, 'Order IDs:', pool.order_ids, 'Order names:', pool.order_names);
 
   return (
     <Card 
