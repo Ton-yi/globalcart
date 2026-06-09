@@ -17,20 +17,20 @@ Deno.serve(async (req) => {
     const { request_id } = await req.json();
     
     if (!request_id) {
-      return Response.json({ error: 'request_id is required' }, { status: 400 });
+      return Response.json({ error: 'request_id or pool_code is required' }, { status: 400 });
     }
 
-    console.log('[getTransitPoolWorkData] Fetching data for ID:', request_id);
+    console.log('[getTransitPoolWorkData] Fetching data for:', request_id);
 
-    // Try to fetch as GroupBuyRequest first
+    // Try to fetch as GroupBuyRequest first (by ID or pool_code)
     let request = null;
     let isRequest = true;
     
     const allRequests = await base44.asServiceRole.entities.GroupBuyRequest.filter({});
-    request = allRequests.find(r => r.id === request_id);
+    request = allRequests.find(r => r.id === request_id || r.pool_code === request_id);
     
     if (!request) {
-      // Try ShippingPool as fallback
+      // Try ShippingPool as fallback (by ID or pool_code)
       console.log('[getTransitPoolWorkData] Not found as GroupBuyRequest, trying ShippingPool...');
       const allPools = await base44.asServiceRole.entities.ShippingPool.filter({});
       request = allPools.find(p => p.id === request_id || p.pool_code === request_id);

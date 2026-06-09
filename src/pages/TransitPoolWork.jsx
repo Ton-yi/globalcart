@@ -26,7 +26,7 @@ import StorageManagementCard from "@/components/transit/StorageManagementCard";
 import AddressChangeCard from "@/components/transit/AddressChangeCard";
 
 export default function TransitPoolWork() {
-  const { request_id } = useParams();
+  const { pool_code } = useParams();
   const navigate = useNavigate();
   const { user } = useCurrentUser();
   
@@ -46,7 +46,7 @@ export default function TransitPoolWork() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await base44.functions.invoke('getTransitPoolWorkData', { request_id });
+      const res = await base44.functions.invoke('getTransitPoolWorkData', { request_id: pool_code });
       
       if (!res.data?.request) {
         navigate("/Home");
@@ -69,9 +69,9 @@ export default function TransitPoolWork() {
   };
 
   useEffect(() => {
-    if (!user || !request_id) return;
+    if (!user || !pool_code) return;
     fetchData();
-  }, [user, request_id]);
+  }, [user, pool_code]);
 
   const handleSaveRequest = async () => {
     setSaving(true);
