@@ -52,35 +52,60 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Forbidden: Not authorized for this transit location' }, { status: 403 });
     }
 
-    // Fetch pools for this transit location
+    // Fetch GroupBuyRequests for this transit location
     const filter = {
       tenant_id: location.tenant_id,
-      transit_location_id: transitLocationId,
-      consolidation_type: "transit"
+      transit_location_id: transitLocationId
     };
 
-    const allPools = await base44.asServiceRole.entities.ShippingPool.filter(filter);
+    const allRequests = await base44.asServiceRole.entities.GroupBuyRequest.filter(filter);
     
-    // Deduplicate pools by id (defensive programming)
-    const uniquePoolsMap = new Map();
-    (allPools || []).forEach(p => {
-      if (!uniquePoolsMap.has(p.id)) {
-        uniquePoolsMap.set(p.id, p);
+    // Filter to only open/active requests and sort by created_date desc
+    const requests = (allRequests || [])
+      .filter(r => r.status === 'open' || r.status === 'completed')
+      .sort((a, b) => new Date(b.created_date) - new Date(a.created_date));
+    
+    console.log('[getTransitLocationWorkPageData] Found', requests.length, 'requests for transit location', transitLocationId);
+
+    // Fetch entries for all requests
+    const requestIds = requests.map(r => r.id);
+    const allEntries = await base44.asServiceRole.entities.GroupBuyEntry.filter({ 
+      request_id: { $in: requestIds }
+    });
+    
+    // Group entries by request_id
+    const entriesByRequest = {};
+    requestIds.forEach(rid => { entriesByRequest[rid] = []; });
+    (allEntries || []).forEach(entry => {
+      if (entriesByRequest[entry.request_id]) {
+        entriesByRequest[entry.request_id].push(entry);
       }
     });
-    const pools = Array.from(uniquePoolsMap.values());
+    
+    // Enrich requests with entry counts and totals
+    const enrichedRequests = requests.map(request => {
+      const entries = entriesByRequest[request.id] || [];
+      const activeEntries = entries.filter(e => e.status === 'active');
+      const completedEntries = entries.filter(e => e.status === 'completed');
+      
+      return {
+        ...request,
+        entry_count: entries.length,
+        active_entry_count: activeEntries.length,
+        completed_entry_count: completedEntries.length,
+        entries: entries, // Include entries for display
+      };
+    });
     
     // Fetch related data
-    const [orders, transitMethods, addonOptions] = await Promise.all([
-      base44.asServiceRole.entities.Order.filter({ tenant_id: location.tenant_id }),
+    const [transitMethods, addonOptions] = await Promise.all([
       base44.asServiceRole.entities.TransitShippingMethod.filter({ tenant_id: location.tenant_id }),
       base44.asServiceRole.entities.AddonOption.filter({ tenant_id: location.tenant_id, addon_type: 'shipping' }),
     ]);
 
     return Response.json({
       location,
-      pools: pools || [],
-      orders: orders || [],
+      requests: enrichedRequests,
       transitMethods: (transitMethods || []).filter(m => m.is_active !== false),
       addonOptions: (addonOptions || []).filter(a => a.is_active !== false),
       isManager,

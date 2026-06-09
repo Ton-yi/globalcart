@@ -40,46 +40,44 @@ Deno.serve(async (req) => {
     // Use tenant_id from first location if not resolved
     const resolvedTenantId = tenantId || locations[0]?.tenant_id;
 
-    // Fetch all transit pools for this tenant
-    const [pools, allUsers, transitMethods, addonOptions, orders] = await Promise.all([
-      base44.asServiceRole.entities.ShippingPool.filter({ tenant_id: resolvedTenantId, consolidation_type: "transit" }),
+    // Fetch all GroupBuyRequests for this tenant
+    const [allRequests, allUsers, transitMethods, addonOptions] = await Promise.all([
+      base44.asServiceRole.entities.GroupBuyRequest.filter({ tenant_id: resolvedTenantId }),
       base44.asServiceRole.entities.User.filter({ tenant_id: resolvedTenantId }),
       base44.asServiceRole.entities.TransitShippingMethod.filter({ tenant_id: resolvedTenantId }),
       base44.asServiceRole.entities.AddonOption.filter({ tenant_id: resolvedTenantId, addon_type: 'shipping' }),
-      base44.asServiceRole.entities.Order.filter({ tenant_id: resolvedTenantId }),
     ]);
 
-    // Deduplicate pools by id (same pool should not appear twice)
-    const uniquePoolsMap = new Map();
-    (pools || []).forEach(p => {
-      if (!uniquePoolsMap.has(p.id)) {
-        uniquePoolsMap.set(p.id, p);
-      } else {
-        console.warn('[getAllTransitWorkData] Duplicate pool detected:', p.pool_code, 'ID:', p.id);
-      }
-    });
-    const uniquePools = Array.from(uniquePoolsMap.values());
+    // Filter requests with transit_location_id assigned
+    const transitRequests = (allRequests || []).filter(r => r.transit_location_id);
+    
+    console.log('[getAllTransitWorkData] Total GroupBuyRequests:', allRequests?.length || 0);
+    console.log('[getAllTransitWorkData] Requests with transit location:', transitRequests.length);
 
-    // Group pools by transit_location_id
-    const poolsByLocation = {};
+    // Group requests by transit_location_id
+    const requestsByLocation = {};
     for (const loc of locations) {
-      poolsByLocation[loc.id] = uniquePools.filter(p => p.transit_location_id === loc.id);
+      requestsByLocation[loc.id] = transitRequests.filter(r => r.transit_location_id === loc.id);
     }
 
-    // Debug: log pool order counts
-    console.log('[getAllTransitWorkData] Total pools:', pools?.length || 0);
-    console.log('[getAllTransitWorkData] Pools with orders:', (pools || []).filter(p => (p.order_ids || []).length > 0).length);
-    (pools || []).forEach(p => {
-      if (p.order_ids?.length > 0) {
-        console.log(`[getAllTransitWorkData] Pool ${p.pool_code}: ${p.order_ids.length} orders - IDs:`, p.order_ids);
+    // Fetch entries for all requests
+    const requestIds = transitRequests.map(r => r.id);
+    let allEntries = [];
+    if (requestIds.length > 0) {
+      // Fetch entries in batches if needed
+      for (const requestId of requestIds) {
+        const entries = await base44.asServiceRole.entities.GroupBuyEntry.filter({ request_id: requestId });
+        allEntries = allEntries.concat(entries || []);
       }
-    });
+    }
+    
+    console.log('[getAllTransitWorkData] Total entries:', allEntries.length);
 
     return Response.json({
       locations: locations || [],
-      poolsByLocation,
-      pools: uniquePools, // Return deduplicated pools
-      orders: orders || [],
+      requestsByLocation,
+      requests: transitRequests,
+      entries: allEntries,
       users: (allUsers || []).filter(u => u.role === 'admin'),
       transitMethods: (transitMethods || []).filter(m => m.is_active !== false),
       addonOptions: (addonOptions || []).filter(a => a.is_active !== false),
