@@ -544,7 +544,18 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
       })),
     } : null;
 
-    const updates = {
+    // When joining existing pool, use pool's settings
+    const finalUpdates = isJoiningPool && selectedPool ? {
+      shipping_method: selectedPool.shipping_method || method,
+      consolidation_requested: true,
+      consolidation_pool_id: selectedPoolId,
+      order_status: "notified_shipment",
+      ...(hasCustoms ? { customs_declaration: customsData } : {}),
+      ...(deadline ? { consolidation_deadline: deadline } : {}),
+      ...(consType === "transit" && selectedPool.transit_location_id ? { consolidation_transit_id: selectedPool.transit_location_id, consolidation_final_address_id: selectedPool.final_address_id } : {}),
+      ...(preShipmentData ? { pre_shipment: { ...preShipmentData, shipping_method: selectedPool.shipping_method || method } } : {}),
+      ...addonUpdates,
+    } : {
       shipping_method: method,
       consolidation_requested: consolidation,
       order_status: "notified_shipment",
@@ -557,9 +568,29 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
       ...addonUpdates,
     };
 
-    // Trigger pool creation automation for each order
+    // Update orders
     for (const orderId of orderIds) {
-      await base44.functions.invoke('autoCreatePreShipmentPool', { order_id: orderId, force: true }).catch(() => {});
+      await updateOrder(orderId, finalUpdates);
+    }
+
+    // When joining existing pool, call userMutateShippingPool to add orders to the pool
+    if (isJoiningPool && selectedPoolId) {
+      for (const orderId of orderIds) {
+        await base44.functions.invoke('userMutateShippingPool', {
+          action: 'add_order',
+          pool_id: selectedPoolId,
+          order_id: orderId,
+          user_note: note || ''
+        }).catch((err) => {
+          console.error('Failed to add order to pool:', err);
+          throw new Error('加入拼邮需求失败');
+        });
+      }
+    } else {
+      // Trigger pool creation automation for new pool
+      for (const orderId of orderIds) {
+        await base44.functions.invoke('autoCreatePreShipmentPool', { order_id: orderId, force: true }).catch(() => {});
+      }
     }
 
     onSuccess?.();

@@ -71,10 +71,10 @@ Deno.serve(async (req) => {
       }
     }
 
-    // For add_order: order must be in_warehouse and NOT already in a pool
+    // For add_order: order must be in_warehouse or notified_shipment and NOT already in a pool
     if (action === 'add_order') {
-      if (order.order_status !== 'in_warehouse') {
-        return Response.json({ error: 'Order must be in_warehouse to add to pool' }, { status: 400 });
+      if (!['in_warehouse', 'notified_shipment'].includes(order.order_status)) {
+        return Response.json({ error: 'Order must be in_warehouse or notified_shipment to add to pool' }, { status: 400 });
       }
     }
 
