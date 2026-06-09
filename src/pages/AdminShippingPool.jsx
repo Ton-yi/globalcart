@@ -388,11 +388,11 @@ export default function AdminShippingPool() {
                 </div>
               </div>
               <div>
-                  <Label className="text-xs text-gray-500">负责人（仅限管理员用户）</Label>
+                  <Label className="text-xs text-gray-500">负责人（可选择任何用户）</Label>
                   <Select value={locForm.manager_email} onValueChange={v => lf("manager_email", v)}>
-                    <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue placeholder="选择管理员用户..." /></SelectTrigger>
+                    <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue placeholder="选择用户..." /></SelectTrigger>
                     <SelectContent>
-                      {allUsers.filter(u => u.role === "admin").map(u => (
+                      {allUsers.map(u => (
                         <SelectItem key={u.id} value={u.email}>
                           {u.full_name ? `${u.full_name} (${u.email})` : u.email}
                         </SelectItem>
