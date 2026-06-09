@@ -48,6 +48,16 @@ const BUILTIN_ROLE_TEMPLATES = [
     is_builtin: true,
   },
   {
+    id: '__builtin_transit_manager__',
+    name: '中转人',
+    direct_permissions: [
+      "shipping:view_transit_panel",
+      "shipping:edit_transit_pool",
+      "view:other_user_consolidation_pool",
+    ],
+    is_builtin: true,
+  },
+  {
     id: '__builtin_tenant_admin__',
     name: '租户管理员（全权限）',
     direct_permissions: ALL_PERM_IDS,

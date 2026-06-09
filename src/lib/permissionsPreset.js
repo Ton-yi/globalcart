@@ -31,6 +31,24 @@ export const PERMISSIONS_PRESET = [
     ]
   },
   {
+    category: "中转发货",
+    color: "bg-indigo-100 text-indigo-700",
+    permissions: [
+      {
+        name: "shipping:view_transit_panel",
+        display_name: "可见中转面板",
+        description: "可看见中转地发货面板及中转地工作面板并编辑",
+        children: [
+          {
+            name: "shipping:edit_transit_pool",
+            display_name: "可编辑中转包裹",
+            description: "可查看所有拼邮到中转地或单独发货到中转地以及发货申请中的包裹信息并编辑"
+          }
+        ]
+      }
+    ]
+  },
+  {
     category: "发货",
     color: "bg-teal-100 text-teal-700",
     permissions: [
@@ -83,11 +101,7 @@ export const PERMISSIONS_PRESET = [
           }
         ]
       },
-      {
-        name: "shipping:transit_shipment",
-        display_name: "可中转发货",
-        description: "待中转发货系统完善后再细化"
-      },
+
       {
         name: "shipping:edit_shipment_request",
         display_name: "可编辑发货申请",

@@ -75,6 +75,7 @@ export default function Layout({ children, currentPageName }) {
   const canAccessAdminAnnouncements = isPlatformAdmin || isTenantAdmin || can("view:announcement_management_page");
 
   const canViewMyOrders = isAdmin || isTenantUser || can("view:my_orders_module");
+  const canAccessTransitWork = isAdmin || can("shipping:view_transit_panel");
 
   const userNav = [
     { label: "首页", icon: Home, page: "Home" },
@@ -90,6 +91,7 @@ export default function Layout({ children, currentPageName }) {
   const tenantAdminNav = [
     { label: "管理总览", icon: BarChart3, page: "AdminDashboard", canAccess: canAccessAdminDashboard },
     { label: "订单管理", icon: Package, page: "AdminOrders", canAccess: canAccessAdminOrders },
+    { label: "中转发货", icon: Truck, page: "AdminTransitWork", canAccess: canAccessTransitWork },
     { label: "发货池", icon: Send, page: "AdminShippingPool", canAccess: canAccessAdminShippingPool, subItems: [
       { label: "中转地工作面板", icon: Layers, page: "AdminTransitWork" },
     ]},
