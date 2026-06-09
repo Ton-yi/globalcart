@@ -27,8 +27,7 @@ export default function TransitPoolCard({ pool, transitStatus, isSelected, onTog
       className={`border border-gray-200 hover:shadow-md transition-shadow ${
         isSelected ? 'ring-2 ring-red-500' : ''
       } ${onClick ? 'cursor-pointer' : ''}`}
-      onClick={(e) => {
-        e.stopPropagation();
+      onClick={() => {
         if (onClick) onClick();
       }}
     >
