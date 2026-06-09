@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { getCountry } from "@/lib/countries";
 
 export default function OrderDetailPanel({ order, pool }) {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(true);
   
   // Find the user group this order belongs to
   const userGroup = (pool.per_user_groups || []).find(g => g.user_email === order.user_email);
@@ -29,16 +29,16 @@ export default function OrderDetailPanel({ order, pool }) {
   return (
     <div className="border-t px-3 pb-2">
       <div className="bg-gray-50 border border-gray-200 rounded-lg overflow-hidden">
-        <div className="px-3 py-2 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-xs text-gray-600">
+        <div className="px-3 py-2 flex items-center justify-between bg-gray-100 border-b border-gray-200">
+          <div className="flex items-center gap-2 text-xs font-medium text-gray-700">
             <MapPin className="w-3.5 h-3.5" />
-            <span>发货目的地 & 增值服务</span>
+            <span>中转发货信息</span>
           </div>
           <Button variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={() => setIsExpanded(!isExpanded)}>
             {isExpanded ? (
               <><ChevronUp className="w-3 h-3 mr-1" />收起</>
             ) : (
-              <><ChevronDown className="w-3 h-3 mr-1" />查看详情</>
+              <><ChevronDown className="w-3 h-3 mr-1" />查看</>
             )}
           </Button>
         </div>
