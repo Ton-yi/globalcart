@@ -942,15 +942,14 @@ export default function PreShipmentForm() {
                         <CommandInput placeholder="搜索拼邮申请..." />
                         <CommandList>
                           <CommandEmpty>暂无可用的拼邮申请</CommandEmpty>
-                          <CommandGroup heading="我的中转拼邮申请">
+                          <CommandGroup heading="我创建的中转拼邮">
                             {(() => {
-                            // User's own transit pools (exclude admin-created official pools)
-                            const transitPools = officialPools.filter((p) =>
+                            const myPools = officialPools.filter((p) =>
                             p.consolidation_type === 'transit' &&
                             p.creator_email === user.email &&
                             !p.is_admin_created
                             );
-                            return transitPools.map((pool) =>
+                            return myPools.map((pool) =>
                             <CommandItem
                               key={pool.id}
                               value={pool.pool_code}
@@ -973,6 +972,57 @@ export default function PreShipmentForm() {
                                         {pool.transit_shipping_method_name}
                                       </Badge>
                                     )}
+                                  </div>
+                                  <div className="flex items-center gap-1.5 flex-wrap text-xs text-gray-500">
+                                    <span>{(pool.order_ids || []).length} 单</span>
+                                    {pool.total_weight_g && (
+                                      <span>· {(pool.total_weight_g / 1000).toFixed(1)}kg</span>
+                                    )}
+                                    {pool.consolidation_deadline && (
+                                      <span>· 截止：{pool.consolidation_deadline}</span>
+                                    )}
+                                  </div>
+                                  {pool.title &&
+                              <span className="text-xs text-gray-600 line-clamp-1 mt-1.5">{pool.title}</span>
+                              }
+                                </CommandItem>
+                            );
+                          })()}
+                          </CommandGroup>
+                          <CommandGroup heading="其他人创建的中转拼邮">
+                            {(() => {
+                            const otherPools = officialPools.filter((p) =>
+                            p.consolidation_type === 'transit' &&
+                            p.creator_email !== user.email &&
+                            !p.is_admin_created &&
+                            !p.is_private
+                            );
+                            return otherPools.map((pool) =>
+                            <CommandItem
+                              key={pool.id}
+                              value={pool.pool_code}
+                              onSelect={() => {
+                                setSelectedExistingPoolId(pool.id);
+                                setJoinExistingPool(true);
+                              }}
+                              className="flex flex-col items-start gap-1.5 p-3 h-auto">
+                              
+                                  <div className="flex items-center justify-between w-full mb-1.5">
+                                    <span className="text-sm font-semibold text-gray-800">{pool.pool_code}</span>
+                                    {selectedExistingPoolId === pool.id && <Check className="w-4 h-4 text-blue-600 flex-shrink-0" />}
+                                  </div>
+                                  <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                                    <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200">
+                                      {pool.transit_location_name || '中转地未设置'}
+                                    </Badge>
+                                    {pool.transit_shipping_method_name && (
+                                      <Badge variant="outline" className="text-[10px] bg-purple-50 text-purple-700 border-purple-200 font-medium">
+                                        {pool.transit_shipping_method_name}
+                                      </Badge>
+                                    )}
+                                    <Badge variant="outline" className="text-[10px] bg-gray-100 text-gray-600 border-gray-200">
+                                      {pool.creator_name || pool.creator_email?.split('@')[0]}
+                                    </Badge>
                                   </div>
                                   <div className="flex items-center gap-1.5 flex-wrap text-xs text-gray-500">
                                     <span>{(pool.order_ids || []).length} 单</span>
