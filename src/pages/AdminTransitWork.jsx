@@ -59,8 +59,8 @@ export default function AdminTransitWork() {
         locations: data.locations?.length,
         pools: data.pools?.length,
         poolsByLocation: Object.keys(data.poolsByLocation || {}).length,
+        totalPoolsCount: Object.values(data.poolsByLocation || {}).reduce((sum, arr) => sum + arr.length, 0),
       });
-      console.log('[AdminTransitWork] Pools by location:', data.poolsByLocation);
       setLocations(data.locations || []);
       setPoolsByLocation(data.poolsByLocation || {});
       setAllUsers(data.users || []);

@@ -49,10 +49,21 @@ Deno.serve(async (req) => {
       base44.asServiceRole.entities.Order.filter({ tenant_id: resolvedTenantId }),
     ]);
 
+    // Deduplicate pools by id (same pool should not appear twice)
+    const uniquePoolsMap = new Map();
+    (pools || []).forEach(p => {
+      if (!uniquePoolsMap.has(p.id)) {
+        uniquePoolsMap.set(p.id, p);
+      } else {
+        console.warn('[getAllTransitWorkData] Duplicate pool detected:', p.pool_code, 'ID:', p.id);
+      }
+    });
+    const uniquePools = Array.from(uniquePoolsMap.values());
+
     // Group pools by transit_location_id
     const poolsByLocation = {};
     for (const loc of locations) {
-      poolsByLocation[loc.id] = (pools || []).filter(p => p.transit_location_id === loc.id);
+      poolsByLocation[loc.id] = uniquePools.filter(p => p.transit_location_id === loc.id);
     }
 
     // Debug: log pool order counts
@@ -67,7 +78,7 @@ Deno.serve(async (req) => {
     return Response.json({
       locations: locations || [],
       poolsByLocation,
-      pools: pools || [],
+      pools: uniquePools, // Return deduplicated pools
       orders: orders || [],
       users: (allUsers || []).filter(u => u.role === 'admin'),
       transitMethods: (transitMethods || []).filter(m => m.is_active !== false),

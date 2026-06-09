@@ -59,7 +59,16 @@ Deno.serve(async (req) => {
       consolidation_type: "transit"
     };
 
-    const pools = await base44.asServiceRole.entities.ShippingPool.filter(filter);
+    const allPools = await base44.asServiceRole.entities.ShippingPool.filter(filter);
+    
+    // Deduplicate pools by id (defensive programming)
+    const uniquePoolsMap = new Map();
+    (allPools || []).forEach(p => {
+      if (!uniquePoolsMap.has(p.id)) {
+        uniquePoolsMap.set(p.id, p);
+      }
+    });
+    const pools = Array.from(uniquePoolsMap.values());
     
     // Fetch related data
     const [orders, transitMethods, addonOptions] = await Promise.all([

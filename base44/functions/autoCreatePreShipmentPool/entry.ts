@@ -25,8 +25,20 @@ Deno.serve(async (req) => {
       order = (results || [])[0];
     }
     
-    if (!order?.id || !order.pre_shipment || order.pre_shipment.pool_created) {
-      return Response.json({ skipped: true, reason: 'no_pre_shipment_or_already_created' });
+    if (!order?.id || !order.pre_shipment) {
+      return Response.json({ skipped: true, reason: 'no_order_or_no_pre_shipment' });
+    }
+    
+    // Check if pool already created - if yes, skip to prevent duplicates
+    if (order.pre_shipment.pool_created) {
+      console.log('[autoCreatePreShipmentPool] Pool already created for order:', order.id, 'Pool ID:', order.pre_shipment.pool_id);
+      return Response.json({ skipped: true, reason: 'pool_already_created', pool_id: order.pre_shipment.pool_id });
+    }
+    
+    // Additional check: if order already has consolidation_pool_id, skip
+    if (order.consolidation_pool_id) {
+      console.log('[autoCreatePreShipmentPool] Order already assigned to pool:', order.id, 'Pool ID:', order.consolidation_pool_id);
+      return Response.json({ skipped: true, reason: 'order_already_has_pool', pool_id: order.consolidation_pool_id });
     }
 
     const pre = order.pre_shipment;
@@ -116,6 +128,24 @@ Deno.serve(async (req) => {
     }
 
     // Case 4: Create new pool (direct/transit without existing pool)
+    // CRITICAL: Check if order already belongs to a pool (prevent duplicates)
+    if (order.consolidation_pool_id) {
+      console.log('[autoCreatePreShipmentPool] Order already has pool_id, skipping:', order.id, order.consolidation_pool_id);
+      return Response.json({ skipped: true, reason: 'order_already_has_pool' });
+    }
+    
+    // Double-check: search for any existing pool containing this order
+    const allPoolsCheck = await base44.asServiceRole.entities.ShippingPool.filter({ tenant_id: tenantId });
+    const existingPoolForOrder = (allPoolsCheck || []).find(p => (p.order_ids || []).includes(order.id));
+    if (existingPoolForOrder) {
+      console.log('[autoCreatePreShipmentPool] Order already in pool, skipping:', order.id, existingPoolForOrder.pool_code);
+      // Update order to mark as created (prevent future attempts)
+      await base44.asServiceRole.entities.Order.update(order.id, {
+        pre_shipment: { ...pre, pool_created: true, pool_id: existingPoolForOrder.id },
+      });
+      return Response.json({ skipped: true, reason: 'order_already_in_pool', pool_id: existingPoolForOrder.id });
+    }
+    
     const transitLoc = pre.transit_location_id
       ? (await base44.asServiceRole.entities.TransitLocation.filter({ id: pre.transit_location_id }))?.[0]
       : null;
@@ -127,6 +157,13 @@ Deno.serve(async (req) => {
       return isNaN(seq) ? max : Math.max(max, seq);
     }, 0);
     const pool_code = `${prefix}${String(maxSeq + 1).padStart(5, '0')}`;
+    
+    console.log('[autoCreatePreShipmentPool] Creating new pool:', {
+      pool_code,
+      order_id: order.id,
+      consType,
+      transit_location_id: pre.transit_location_id,
+    });
     
     const addr = pre.address || {};
     // For transit pools, destination_country is stored directly in pre_shipment.transit_location_country
