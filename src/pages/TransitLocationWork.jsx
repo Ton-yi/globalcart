@@ -108,16 +108,17 @@ export default function TransitLocationWork() {
     count: requestsByStatus[tab.key]?.length || 0,
   }));
 
-  // Debug logging for development (uncomment if needed)
-  // useEffect(() => {
-  //   console.log('[TransitLocationWork] Request distribution:', {
-  //     total: requests.length,
-  //     pending: requestsByStatus.pending.length,
-  //     in_transit: requestsByStatus.in_transit.length,
-  //     arrived: requestsByStatus.arrived.length,
-  //     forwarded: requestsByStatus.forwarded.length,
-  //   });
-  // }, [requests]);
+  // Debug logging for development
+  useEffect(() => {
+    console.log('[TransitLocationWork] Request distribution:', {
+      total: requests.length,
+      pending: requestsByStatus.pending.length,
+      in_transit: requestsByStatus.in_transit.length,
+      arrived: requestsByStatus.arrived.length,
+      forwarded: requestsByStatus.forwarded.length,
+    });
+    console.log('[TransitLocationWork] All requests:', requests);
+  }, [requests]);
 
   const handleBulkArrivalConfirm = async () => {
     if (selectedRequests.length === 0) return;

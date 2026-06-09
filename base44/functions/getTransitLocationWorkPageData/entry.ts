@@ -60,6 +60,18 @@ Deno.serve(async (req) => {
 
     const allRequests = await base44.asServiceRole.entities.GroupBuyRequest.filter(filter);
     
+    console.log('[getTransitLocationWorkPageData] Raw filter:', filter);
+    console.log('[getTransitLocationWorkPageData] All GroupBuyRequests:', allRequests?.length || 0);
+    if (allRequests && allRequests.length > 0) {
+      console.log('[getTransitLocationWorkPageData] Sample request:', {
+        id: allRequests[0].id,
+        title: allRequests[0].title,
+        transit_location_id: allRequests[0].transit_location_id,
+        status: allRequests[0].status,
+        tenant_id: allRequests[0].tenant_id
+      });
+    }
+    
     // Include ALL requests regardless of status - as long as they have transit_location_id assigned
     // This ensures transit managers can see pending, completed, arrived, and forwarded requests
     const requests = (allRequests || [])
