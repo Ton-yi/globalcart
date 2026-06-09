@@ -68,7 +68,8 @@ export default function PreShipmentForm() {
   const [userEstimatedWeight, setUserEstimatedWeight] = useState("");
   const [estimatedShippingFee, setEstimatedShippingFee] = useState(0);
   const [isRestoringData, setIsRestoringData] = useState(true); // true until initial data load completes
-  const [globalEstimateRate, setGlobalEstimateRate] = useState(null); // global fallback estimate rate per 100g
+  const [globalEstimateRate, setGlobalEstimateRate] = useState(null); // global fallback estimate rate
+  const [globalEstimateUnitG, setGlobalEstimateUnitG] = useState(null); // global fallback estimate unit (g)
 
   // Official pools for selection
   const [officialPools, setOfficialPools] = useState([]);
@@ -89,10 +90,16 @@ export default function PreShipmentForm() {
         tenantEntity.list('UserPreference', { user_email: user.email }).catch(() => []),
         base44.functions.invoke('managePaymentMethod', { action: 'list' }).then((r) => r.data?.methods || []).catch(() => []),
         base44.functions.invoke('getTenantShippingPools', { status: 'pending' }).catch(() => ({ data: { pools: [] } })),
-        tenantEntity.list('SiteSettings', { key: 'default_estimate_rate_per_100g' }).catch(() => [])]
+        Promise.all([
+          tenantEntity.list('SiteSettings', { key: 'default_estimate_rate_per_100g' }).catch(() => []),
+          tenantEntity.list('SiteSettings', { key: 'default_estimate_unit_g' }).catch(() => [])
+        ])]
         );
-        const globalRate = rateSettings?.[0]?.value ? parseFloat(rateSettings[0].value) : null;
+        const [rateList, unitList] = rateSettings || [[], []];
+        const globalRate = rateList?.[0]?.value ? parseFloat(rateList[0].value) : null;
+        const globalUnit = unitList?.[0]?.value ? parseFloat(unitList[0].value) : null;
         if (globalRate && globalRate > 0) setGlobalEstimateRate(globalRate);
+        if (globalUnit && globalUnit > 0) setGlobalEstimateUnitG(globalUnit);
 
         if (!isMounted) return;
 
@@ -1123,6 +1130,7 @@ export default function PreShipmentForm() {
         destinationCountry={address?.country || ""}
         isRestoring={isRestoringData}
         globalEstimateRatePer100g={globalEstimateRate}
+        globalEstimateUnitG={globalEstimateUnitG}
       />
 
       {/* Note */}

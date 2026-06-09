@@ -385,16 +385,24 @@ function MethodCard({ method, onSave, onDelete, itemSizeTemplates = [] }) {
               {/* Official pool estimate rate */}
               <div className="border border-purple-100 bg-purple-50 rounded-lg p-3">
                 <Label className="text-xs text-gray-600 font-medium">官方拼邮预估运费简易估算率</Label>
-                <p className="text-xs text-gray-400 mt-0.5 mb-2">用于一次付款时的拼邮运费简易估算，无法从费率表计算时使用。留空则默认 150 JPY/100g。</p>
-                <div className="flex items-center gap-2">
+                <p className="text-xs text-gray-400 mt-0.5 mb-2">用于一次付款时的拼邮运费简易估算，无法从费率表计算时使用。留空则使用全局设置或默认值。</p>
+                <div className="flex items-center gap-2 flex-wrap">
                   <Input
                     type="number"
-                    className="h-8 text-sm w-36"
-                    value={form.official_pool_estimate_rate_per_100g ?? ""}
-                    onChange={e => f("official_pool_estimate_rate_per_100g", e.target.value === "" ? null : parseFloat(e.target.value) || 0)}
+                    className="h-8 text-sm w-28"
+                    value={form.official_pool_estimate_rate_per_unit ?? ""}
+                    onChange={e => f("official_pool_estimate_rate_per_unit", e.target.value === "" ? null : parseFloat(e.target.value) || 0)}
                     placeholder="150"
                   />
-                  <span className="text-xs text-gray-500">JPY / 100g</span>
+                  <span className="text-xs text-gray-500">JPY /</span>
+                  <Input
+                    type="number"
+                    className="h-8 text-sm w-24"
+                    value={form.official_pool_estimate_unit_g ?? ""}
+                    onChange={e => f("official_pool_estimate_unit_g", e.target.value === "" ? null : parseFloat(e.target.value) || 100)}
+                    placeholder="100"
+                  />
+                  <span className="text-xs text-gray-500">g</span>
                 </div>
               </div>
 
@@ -552,33 +560,37 @@ function MethodCard({ method, onSave, onDelete, itemSizeTemplates = [] }) {
 
 function EstimateRateGlobalSetting() {
   const [rate, setRate] = useState("");
-  const [settingId, setSettingId] = useState(null);
+  const [unitG, setUnitG] = useState("100");
+  const [rateSettingId, setRateSettingId] = useState(null);
+  const [unitSettingId, setUnitSettingId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    tenantEntity.list('SiteSettings', { key: 'default_estimate_rate_per_100g' })
-      .then(list => {
-        if (list && list.length > 0) {
-          setSettingId(list[0].id);
-          setRate(list[0].value || "");
-        }
-      }).catch(() => {});
+    Promise.all([
+      tenantEntity.list('SiteSettings', { key: 'default_estimate_rate_per_100g' }).catch(() => []),
+      tenantEntity.list('SiteSettings', { key: 'default_estimate_unit_g' }).catch(() => [])
+    ]).then(([rateList, unitList]) => {
+      if (rateList?.length > 0) { setRateSettingId(rateList[0].id); setRate(rateList[0].value || ""); }
+      if (unitList?.length > 0) { setUnitSettingId(unitList[0].id); setUnitG(unitList[0].value || "100"); }
+    });
   }, []);
+
+  const saveSetting = async (key, value, existingId, setId, description) => {
+    if (existingId) {
+      await tenantEntity.update('SiteSettings', existingId, { value: String(value) });
+    } else {
+      const created = await tenantEntity.create('SiteSettings', { key, value: String(value), description, category: 'shipping' });
+      setId(created.id);
+    }
+  };
 
   const handleSave = async () => {
     setSaving(true);
-    if (settingId) {
-      await tenantEntity.update('SiteSettings', settingId, { value: String(rate) });
-    } else {
-      const created = await tenantEntity.create('SiteSettings', {
-        key: 'default_estimate_rate_per_100g',
-        value: String(rate),
-        description: '官方拼邮预估运费简易估算率（JPY/100g，未在运输方式中单独设置时使用）',
-        category: 'shipping'
-      });
-      setSettingId(created.id);
-    }
+    await Promise.all([
+      saveSetting('default_estimate_rate_per_100g', rate, rateSettingId, setRateSettingId, '官方拼邮预估运费简易估算率（JPY/单位g，未在运输方式中单独设置时使用）'),
+      saveSetting('default_estimate_unit_g', unitG, unitSettingId, setUnitSettingId, '官方拼邮预估运费计算单位（g）'),
+    ]);
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
@@ -588,17 +600,13 @@ function EstimateRateGlobalSetting() {
     <div className="border border-purple-200 rounded-xl p-4 bg-purple-50 space-y-2">
       <div>
         <p className="text-sm font-semibold text-gray-700">预估运费全局建议费率</p>
-        <p className="text-xs text-gray-400 mt-0.5">官方拼邮一次付款时，若运输方式未单独配置估算率，将使用此全局值。留空则默认 150 JPY/100g。</p>
+        <p className="text-xs text-gray-400 mt-0.5">官方拼邮一次付款时，若运输方式未单独配置估算率，将使用此全局值。留空则默认 150 JPY / 100g。</p>
       </div>
-      <div className="flex items-center gap-2">
-        <Input
-          type="number"
-          className="h-8 text-sm w-36 bg-white"
-          value={rate}
-          onChange={e => setRate(e.target.value)}
-          placeholder="150"
-        />
-        <span className="text-xs text-gray-500">JPY / 100g</span>
+      <div className="flex items-center gap-2 flex-wrap">
+        <Input type="number" className="h-8 text-sm w-28 bg-white" value={rate} onChange={e => setRate(e.target.value)} placeholder="150" />
+        <span className="text-xs text-gray-500">JPY /</span>
+        <Input type="number" className="h-8 text-sm w-24 bg-white" value={unitG} onChange={e => setUnitG(e.target.value)} placeholder="100" />
+        <span className="text-xs text-gray-500">g</span>
         <Button size="sm" className="h-8 text-xs bg-purple-600 hover:bg-purple-700" onClick={handleSave} disabled={saving}>
           {saved ? "已保存 ✓" : saving ? "保存中..." : "保存"}
         </Button>

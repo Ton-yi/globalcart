@@ -127,6 +127,15 @@
       },
       "description": "\u7981\u7528\u7684\u7269\u54c1\u5c3a\u5bf8\u6a21\u677f ID \u5217\u8868",
       "default": []
+    },
+    "official_pool_estimate_rate_per_unit": {
+      "type": "number",
+      "description": "\u5b98\u65b9\u62fc\u90ae\u9884\u4f30\u8fd0\u8d39\u7b80\u6613\u4f30\u7b97\u7387\uff08JPY / \u4f30\u7b97\u5355\u4f4dg\uff09\uff0c\u7559\u7a7a\u5219\u7528\u5168\u5c40\u8bbe\u7f6e\u6216\u9ed8\u8ba4\u503c"
+    },
+    "official_pool_estimate_unit_g": {
+      "type": "number",
+      "description": "\u5b98\u65b9\u62fc\u90ae\u9884\u4f30\u8fd0\u8d39\u8ba1\u7b97\u5355\u4f4d\uff08g\uff09\uff0c\u9ed8\u8ba4 100g",
+      "default": 100
     }
   },
   "required": [

@@ -27,7 +27,8 @@ export default function PreShipmentFormFullPayOnce({
   shippingMethod,
   destinationCountry,
   isRestoring,  // true during initial data load — skip the reset effect
-  globalEstimateRatePer100g  // global fallback rate from SiteSettings
+  globalEstimateRatePer100g,  // global fallback rate from SiteSettings
+  globalEstimateUnitG  // global fallback unit (g) from SiteSettings
 }) {
   // Reset when consType/pool selection changes, but NOT during initial data restore
   const isRestoringRef = useRef(isRestoring);
@@ -116,14 +117,16 @@ export default function PreShipmentFormFullPayOnce({
     let fee = 0;
     
     if (consType === "official_pool") {
-      // Priority: method-level rate > global setting > hardcoded default 150
-      const simpleRatePer100g = (method.official_pool_estimate_rate_per_100g != null && method.official_pool_estimate_rate_per_100g > 0)
-        ? method.official_pool_estimate_rate_per_100g
-        : (globalEstimateRatePer100g && globalEstimateRatePer100g > 0)
-          ? globalEstimateRatePer100g
-          : 150;
-      fee = Math.ceil(weight / 100) * simpleRatePer100g;
-      console.log('[FullPay] Official pool fee:', fee);
+      // Priority: method-level config > global setting > defaults (150 JPY / 100g)
+      const useMethodRate = method.official_pool_estimate_rate_per_unit != null && method.official_pool_estimate_rate_per_unit > 0;
+      const ratePerUnit = useMethodRate
+        ? method.official_pool_estimate_rate_per_unit
+        : (globalEstimateRatePer100g && globalEstimateRatePer100g > 0 ? globalEstimateRatePer100g : 150);
+      const unitG = useMethodRate
+        ? (method.official_pool_estimate_unit_g > 0 ? method.official_pool_estimate_unit_g : 100)
+        : (globalEstimateUnitG && globalEstimateUnitG > 0 ? globalEstimateUnitG : 100);
+      fee = Math.ceil(weight / unitG) * ratePerUnit;
+      console.log('[FullPay] Official pool fee:', fee, { ratePerUnit, unitG });
     } else if (consType === "") {
       // Direct shipping - use detailed rate table
       if (method.rate_mode === "simple" && method.simple_rates) {
@@ -236,12 +239,13 @@ export default function PreShipmentFormFullPayOnce({
               {consType === "official_pool" && estimatedShippingFee > 0 && (
                 <p className="text-xs text-blue-600 mt-1">
                   <Calculator className="w-3 h-3 inline mr-1" />
-                  简易估算：每 100g 按 {(() => {
-                    const m = shippingMethods.find(m => m.code === shippingMethod);
-                    if (m?.official_pool_estimate_rate_per_100g > 0) return m.official_pool_estimate_rate_per_100g;
-                    if (globalEstimateRatePer100g > 0) return globalEstimateRatePer100g;
-                    return 150;
-                  })()} JPY 计算
+                  简易估算：{(() => {
+                    const m = shippingMethods.find(sm => sm.code === shippingMethod);
+                    const useMethod = m?.official_pool_estimate_rate_per_unit > 0;
+                    const rate = useMethod ? m.official_pool_estimate_rate_per_unit : (globalEstimateRatePer100g > 0 ? globalEstimateRatePer100g : 150);
+                    const unit = useMethod ? (m.official_pool_estimate_unit_g > 0 ? m.official_pool_estimate_unit_g : 100) : (globalEstimateUnitG > 0 ? globalEstimateUnitG : 100);
+                    return `每 ${unit}g 按 ${rate} JPY`;
+                  })()} 计算
                 </p>
               )}
             </div>
