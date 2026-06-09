@@ -29,7 +29,6 @@ import TransitShippingForm from "@/components/transit/TransitShippingForm";
 import AddressChangeCard from "@/components/transit/AddressChangeCard";
 import PickupScheduler from "@/components/transit/PickupScheduler";
 import StorageManagementCard from "@/components/transit/StorageManagementCard";
-import TransitShippingDetailPanel from "@/components/transit/TransitShippingDetailPanel";
 import { toast } from "sonner";
 
 export default function TransitPoolWork() {
@@ -45,9 +44,6 @@ export default function TransitPoolWork() {
   const [showRequestPanel, setShowRequestPanel] = useState(false);
   const [activeRequests, setActiveRequests] = useState([]);
   const [inTransitRequests, setInTransitRequests] = useState([]);
-  const [showDetailPanel, setShowDetailPanel] = useState(false);
-  const [selectedUserEntry, setSelectedUserEntry] = useState(null);
-  const [selectedAddressGroup, setSelectedAddressGroup] = useState(null);
   const [saving, setSaving] = useState(false);
 
   // Form state
@@ -134,30 +130,8 @@ export default function TransitPoolWork() {
   };
 
   const handleOrderSelect = (orderId, orderEntry, address) => {
-    // Find the user entry for this order
-    const userEntry = userGroups.find((ug) =>
-    ug.order_entries?.some((entry) => entry.order_id === orderId)
-    );
-
-    if (!userEntry) return;
-
-    // Find the address group for this order
-    const effectiveAddress = userEntry.group_final_address;
-    const addr = orderEntry.override_final_address || effectiveAddress;
-
-    // Check if this address matches the clicked order's address
-    const addressGroup = {
-      address: addr,
-      orders: userEntry.order_entries.filter((entry) => {
-        const entryAddr = entry.override_final_address || effectiveAddress;
-        return JSON.stringify(entryAddr) === JSON.stringify(addr);
-      }),
-      addressLabel: addr ? `${addr.recipient_name || '收件人'} - ${addr.country || '国家'}` : '未填写地址'
-    };
-
-    setSelectedUserEntry(userEntry);
-    setSelectedAddressGroup(addressGroup);
-    setShowDetailPanel(true);
+    // 点击订单时的处理逻辑（目前仅展开/收起）
+    console.log('Order selected:', orderId, orderEntry);
   };
 
   const handleImageUpload = async (e) => {
@@ -277,9 +251,9 @@ export default function TransitPoolWork() {
       
 
       {/* Main Content */}
-      <div className={`grid gap-5 ${showDetailPanel ? 'lg:grid-cols-2' : 'lg:grid-cols-3'}`}>
+      <div className="grid gap-5 lg:grid-cols-3">
         {/* Left: User Groups */}
-        <div className={`${showDetailPanel ? 'lg:col-span-1' : 'lg:col-span-2'} space-y-4`}>
+        <div className="lg:col-span-2 space-y-4">
           <Card>
             <CardHeader className="py-6 px-5">
               <CardTitle className="text-base flex items-center gap-2">
@@ -372,19 +346,6 @@ export default function TransitPoolWork() {
         onClose={() => setShowRequestPanel(false)}
         onNavigate={(requestPoolId) => {
           navigate(`/TransitPoolWork/${requestPoolId}`);
-        }} />
-
-      }
-
-      {/* Transit Shipping Detail Panel (Master-Detail) */}
-      {showDetailPanel &&
-      <TransitShippingDetailPanel
-        pool={pool}
-        selectedUserEntry={selectedUserEntry}
-        selectedAddressGroup={selectedAddressGroup}
-        onClose={() => setShowDetailPanel(false)}
-        onSave={() => {
-          toast.success('发货信息已保存');
         }} />
 
       }
