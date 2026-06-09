@@ -923,7 +923,8 @@ export default function PreShipmentForm() {
                       e.preventDefault();
                       e.stopPropagation();
                       if (selectedExistingPoolId) {
-                        // Already selected, reopen to allow changing
+                        // Already selected - clear selection and reopen list to allow re-selection
+                        setSelectedExistingPoolId("");
                         setJoinExistingPool(true);
                       } else {
                         // Not selected yet, toggle
