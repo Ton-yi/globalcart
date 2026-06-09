@@ -16,24 +16,11 @@ const TRANSIT_STATUS_CONFIG = {
 };
 
 export default function TransitPoolCard({ pool, transitStatus, isSelected, onToggleSelect, onClick }) {
-  // Support both GroupBuyRequest (new) and ShippingPool (legacy) data structures
+  // Support both GroupBuyRequest and ShippingPool data structures
   const isRequest = !!pool.title; // GroupBuyRequest has title, ShippingPool has pool_code
   const orderCount = isRequest ? (pool.entries?.length || pool.entry_count || 0) : (pool.order_ids || []).length;
   const statusConfig = TRANSIT_STATUS_CONFIG[transitStatus || "in_transit"];
   const StatusIcon = statusConfig?.icon || Truck;
-  
-  // Debug: log pool data for troubleshooting (check if we're receiving GroupBuyRequest or ShippingPool)
-  if (isRequest) {
-    console.log('[TransitPoolCard] GroupBuyRequest:', {
-      id: pool.id,
-      title: pool.title,
-      status: pool.status,
-      transit_location_id: pool.transit_location_id,
-      transit_arrival_confirmed_at: !!pool.transit_arrival_confirmed_at,
-      transit_shipped_date: !!pool.transit_shipped_date,
-      entry_count: orderCount,
-    });
-  }
 
   return (
     <Card 

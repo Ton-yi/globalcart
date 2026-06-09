@@ -57,23 +57,8 @@ export default function AdminTransitWork() {
       const r = await base44.functions.invoke('getAllTransitWorkData', {});
       const data = r.data || {};
       
-      // Debug: log detailed structure
-      const requestsByLoc = data.requestsByLocation || data.poolsByLocation || {};
-      const totalReqs = Object.values(requestsByLoc).reduce((sum, arr) => sum + (arr?.length || 0), 0);
-      
-      console.log('[AdminTransitWork] Received data:', {
-        locations: data.locations?.length,
-        requests: data.requests?.length,
-        requestsByLocation_keys: Object.keys(requestsByLoc),
-        requestsByLocation_detail: Object.fromEntries(
-          Object.entries(requestsByLoc).map(([k, v]) => [k, v?.length || 0])
-        ),
-        totalRequestsCount: totalReqs,
-        debug: data.debug,
-      });
-      
       setLocations(data.locations || []);
-      setRequestsByLocation(requestsByLoc);
+      setRequestsByLocation(data.requestsByLocation || data.poolsByLocation || {});
       setAllUsers(data.users || []);
       setTransitMethods(data.transitMethods || []);
       setAddonOptions(data.addonOptions || []);
@@ -102,16 +87,15 @@ export default function AdminTransitWork() {
   }
 
   const getPoolsByStatus = (pools) => ({
-    // Pending: requests assigned to this transit location but not yet arrived
-    // Include open and completed GroupBuyRequests that have transit_location_id
+    // Pending: requests/pools assigned to this transit location but not yet arrived
     pending: pools.filter(p => 
       !p.transit_arrival_confirmed_at && 
       !p.transit_shipped_date && 
-      (p.status === "open" || p.status === "completed")
+      (p.status === "open" || p.status === "completed" || p.status === "pending" || p.status === "awaiting_payment")
     ),
-    // In transit: completed requests en route to transit location (Japan shipped but transit hasn't confirmed arrival)
+    // In transit: completed requests/pools en route to transit location (Japan shipped but transit hasn't confirmed arrival)
     in_transit: pools.filter(p => 
-      p.status === "completed" && 
+      (p.status === "completed" || p.status === "paid" || p.status === "ready_to_ship") && 
       !p.transit_arrival_confirmed_at
     ),
     // Arrived: transit location confirmed receipt but hasn't forwarded yet
