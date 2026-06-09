@@ -549,26 +549,25 @@ export default function AdminSettings() {
               <CardContent className="space-y-4">
                 {/* Prepay enabled toggle */}
                 {(() => {
-                  const s = grouped.fee?.find(s => s.key === 'prepay_enabled');
+                  const allSettings = Object.values(grouped).flat();
+                  const s = allSettings.find(s => s.key === 'prepay_enabled');
                   const enabled = s ? s.value !== 'false' : true;
                   return (
                     <div className="flex items-center justify-between pb-1 border-b border-gray-100">
                       <div>
                         <Label className="text-sm">开启预付款</Label>
-                        <p className="text-xs text-gray-400 mt-0.5">关闭后，用户提交订单时不再显示预付款选项</p>
+                        <p className="text-xs text-gray-400 mt-0.5">关闭后，用户提交订单时不再需要预付款，提交即按全额计算</p>
                       </div>
                       <button
                         type="button"
                         onClick={async () => {
                           const newVal = enabled ? 'false' : 'true';
                           if (s) {
-                            updateSetting(s.id, 'value', newVal);
                             await tenantEntity.update('SiteSettings', s.id, { value: newVal });
                           } else {
-                            // Create the setting record
                             await tenantEntity.create('SiteSettings', { key: 'prepay_enabled', value: newVal, category: 'fee', description: '是否开启预付款' });
-                            await load();
                           }
+                          await load();
                         }}
                         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${enabled ? 'bg-yellow-500' : 'bg-gray-200'}`}
                       >
@@ -594,12 +593,11 @@ export default function AdminSettings() {
                           onClick={async () => {
                             const newVal = enabled ? 'false' : 'true';
                             if (s) {
-                              updateSetting(s.id, 'value', newVal);
                               await tenantEntity.update('SiteSettings', s.id, { value: newVal });
                             } else {
                               await tenantEntity.create('SiteSettings', { key: 'allow_ship_without_payment', value: newVal, category: 'shipping', description: '允许未付款时进入已发货状态' });
-                              await load();
                             }
+                            await load();
                           }}
                           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${enabled ? 'bg-blue-600' : 'bg-gray-200'}`}
                         >
@@ -715,12 +713,11 @@ export default function AdminSettings() {
                         onClick={async () => {
                           const newVal = enabled ? 'false' : 'true';
                           if (s) {
-                            updateSetting(s.id, 'value', newVal);
                             await tenantEntity.update('SiteSettings', s.id, { value: newVal });
                           } else {
                             await tenantEntity.create('SiteSettings', { key: 'allow_order_split', value: newVal, category: 'general', description: '允许用户拆单（商品链接 --- 分割）' });
-                            await load();
                           }
+                          await load();
                         }}
                         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${enabled ? 'bg-indigo-600' : 'bg-gray-200'}`}
                       >
@@ -778,12 +775,11 @@ export default function AdminSettings() {
                         onClick={async () => {
                           const newVal = enabled ? 'false' : 'true';
                           if (s) {
-                            updateSetting(s.id, 'value', newVal);
                             await tenantEntity.update('SiteSettings', s.id, { value: newVal });
                           } else {
                             await tenantEntity.create('SiteSettings', { key: 'pre_shipment_enabled', value: newVal, category: 'shipping', description: '是否开启预出货功能' });
-                            await load();
                           }
+                          await load();
                         }}
                         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${enabled ? 'bg-purple-500' : 'bg-gray-200'}`}
                       >
@@ -809,12 +805,11 @@ export default function AdminSettings() {
                         onClick={async () => {
                           const newVal = enabled ? 'false' : 'true';
                           if (s) {
-                            updateSetting(s.id, 'value', newVal);
                             await tenantEntity.update('SiteSettings', s.id, { value: newVal });
                           } else {
                             await tenantEntity.create('SiteSettings', { key: 'allow_user_pool_edit_instant', value: newVal, category: 'shipping', description: '自动同意用户移动/添加包裹到发货申请' });
-                            await load();
                           }
+                          await load();
                         }}
                         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${enabled ? 'bg-teal-500' : 'bg-gray-200'}`}
                       >
@@ -840,45 +835,13 @@ export default function AdminSettings() {
                         onClick={async () => {
                           const newVal = enabled ? 'false' : 'true';
                           if (s) {
-                            updateSetting(s.id, 'value', newVal);
                             await tenantEntity.update('SiteSettings', s.id, { value: newVal });
                           } else {
                             await tenantEntity.create('SiteSettings', { key: 'transit_location_fee_split_enabled', value: newVal, category: 'fee', description: '中转地手续费是否平分（开启=平分给拼邮客户，关闭=每人单独计算）' });
-                            await load();
                           }
+                          await load();
                         }}
                         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${enabled ? 'bg-blue-600' : 'bg-gray-200'}`}
-                      >
-                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${enabled ? 'translate-x-6' : 'translate-x-1'}`} />
-                      </button>
-                    </div>
-                  );
-                })()}
-
-                {/* Pre-shipment feature toggle */}
-                {(() => {
-                  const allSettings = Object.values(grouped).flat();
-                  const sToggle = allSettings.find(s => s.key === 'pre_shipment_enabled');
-                  const enabled = sToggle?.value !== 'false';
-                  return (
-                    <div className="flex items-center justify-between pb-1 border-b border-gray-100">
-                      <div>
-                        <Label className="text-sm">开启预出货功能</Label>
-                        <p className="text-xs text-gray-400 mt-0.5">开启后，用户可在提交订单后预先填写发货信息，入库后自动生成发货申请</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          const newVal = enabled ? 'false' : 'true';
-                          if (sToggle) {
-                            updateSetting(sToggle.id, 'value', newVal);
-                            await tenantEntity.update('SiteSettings', sToggle.id, { value: newVal });
-                          } else {
-                            await tenantEntity.create('SiteSettings', { key: 'pre_shipment_enabled', value: newVal, category: 'shipping', description: '是否开启预出货功能' });
-                            await load();
-                          }
-                        }}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${enabled ? 'bg-purple-600' : 'bg-gray-200'}`}
                       >
                         <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${enabled ? 'translate-x-6' : 'translate-x-1'}`} />
                       </button>
