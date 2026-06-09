@@ -314,7 +314,7 @@ export default function AdminTransitWork() {
                           </div>
                           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
                             {byStatus.pending.map(pool => (
-                              <TransitPoolCard key={pool.id} pool={pool} transitStatus="pending" onClick={() => navigate(`/Trworkon/${pool.id}`)} />
+                              <TransitPoolCard key={pool.id} pool={pool} transitStatus="pending" onClick={() => navigate(`/Trworkon/${pool.pool_code || pool.id}`)} />
                             ))}
                           </div>
                         </div>
@@ -327,7 +327,7 @@ export default function AdminTransitWork() {
                           </div>
                           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
                             {byStatus.in_transit.map(pool => (
-                              <TransitPoolCard key={pool.id} pool={pool} transitStatus="in_transit" onClick={() => navigate(`/Trworkon/${pool.id}`)} />
+                              <TransitPoolCard key={pool.id} pool={pool} transitStatus="in_transit" onClick={() => navigate(`/Trworkon/${pool.pool_code || pool.id}`)} />
                             ))}
                           </div>
                         </div>
@@ -340,7 +340,7 @@ export default function AdminTransitWork() {
                           </div>
                           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
                             {byStatus.arrived.map(pool => (
-                              <TransitPoolCard key={pool.id} pool={pool} transitStatus="arrived" onClick={() => navigate(`/Trworkon/${pool.id}`)} />
+                              <TransitPoolCard key={pool.id} pool={pool} transitStatus="arrived" onClick={() => navigate(`/Trworkon/${pool.pool_code || pool.id}`)} />
                             ))}
                           </div>
                         </div>
@@ -353,7 +353,7 @@ export default function AdminTransitWork() {
                           </div>
                           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
                             {byStatus.forwarded.map(pool => (
-                              <TransitPoolCard key={pool.id} pool={pool} transitStatus="forwarded" onClick={() => navigate(`/Trworkon/${pool.id}`)} />
+                              <TransitPoolCard key={pool.id} pool={pool} transitStatus="forwarded" onClick={() => navigate(`/Trworkon/${pool.pool_code || pool.id}`)} />
                             ))}
                           </div>
                         </div>
