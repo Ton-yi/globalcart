@@ -79,6 +79,11 @@
       "type": "string",
       "description": "\u8f6c\u5316\u540e\u7684\u8ba2\u5355\u7f16\u53f7\uff08\u5197\u4f59\uff09"
     },
+    "weight_g": {
+      "type": "number",
+      "default": 100,
+      "description": "\u9884\u4f30\u91cd\u91cf\uff08g\uff09\uff0c\u7528\u4e8e\u8ba1\u7b97\u8fd0\u8d39"
+    },
     "final_address": {
       "type": "object",
       "description": "\u6700\u7ec8\u6536\u8d27\u5730\u5740",

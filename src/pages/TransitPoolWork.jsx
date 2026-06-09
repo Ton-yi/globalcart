@@ -162,7 +162,7 @@ export default function TransitPoolWork() {
   const activeEntries = entries.filter(e => e.status === 'active');
   const completedEntries = entries.filter(e => e.status === 'completed');
   const totalAmount = activeEntries.reduce((sum, e) => sum + (e.estimated_jpy || 0), 0);
-  const totalWeight = activeEntries.reduce((sum, e) => sum + (e.weight_g || 0), 0);
+  const totalWeight = activeEntries.reduce((sum, e) => sum + (e.weight_g || 100), 0);
 
   // Group entries by user
   const userGroups = activeEntries.reduce((groups, entry) => {
