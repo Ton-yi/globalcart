@@ -989,14 +989,30 @@ export default function PreShipmentForm() {
                             );
                           })()}
                           </CommandGroup>
-                          <CommandGroup heading="其他人创建的中转拼邮">
+                          <CommandGroup heading="其他人创建的拼邮">
                             {(() => {
                             const otherPools = officialPools.filter((p) =>
                             p.consolidation_type === 'transit' &&
                             p.creator_email !== user.email &&
                             !p.is_private
                             );
-                            return otherPools.map((pool) =>
+                            
+                            // Also include admin-created pools that are not private (any consolidation type)
+                            const adminPools = officialPools.filter((p) =>
+                            p.is_admin_created &&
+                            p.creator_email !== user.email &&
+                            !p.is_private
+                            );
+                            
+                            // Combine and deduplicate
+                            const combined = [...otherPools];
+                            adminPools.forEach((pool) => {
+                              if (!combined.find((p) => p.id === pool.id)) {
+                                combined.push(pool);
+                              }
+                            });
+                            
+                            return combined.map((pool) =>
                             <CommandItem
                               key={pool.id}
                               value={pool.pool_code}
