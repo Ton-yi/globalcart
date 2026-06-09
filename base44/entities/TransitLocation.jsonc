@@ -4,7 +4,7 @@
   "properties": {
     "tenant_id": {
       "type": "string",
-      "description": "\u6240\u5c5e\u79df\u6237ID"
+      "description": "\u6240\u5c5e\u79df\u6237 ID"
     },
     "name": {
       "type": "string",
@@ -16,7 +16,7 @@
     },
     "country": {
       "type": "string",
-      "description": "\u6240\u5728\u56fd\u5bb6\uff08\u56fd\u5bb6\u4ee3\u7801\uff0c\u5982CN/JP\uff09"
+      "description": "\u6240\u5728\u56fd\u5bb6\uff08\u56fd\u5bb6\u4ee3\u7801\uff0c\u5982 CN/JP\uff09"
     },
     "province": {
       "type": "string",
@@ -51,16 +51,11 @@
     },
     "manager_contact": {
       "type": "string",
-      "description": "\u8d1f\u8d23\u4eba\u8054\u7cfb\u65b9\u5f0f\uff08\u5fae\u4fe1/Line/WhatsApp\u7b49\uff09"
+      "description": "\u8d1f\u8d23\u4eba\u8054\u7cfb\u65b9\u5f0f\uff08\u5fae\u4fe1/Line/WhatsApp \u7b49\uff09"
     },
     "manager_role": {
       "type": "string",
-      "enum": [
-        "admin",
-        "transit_manager"
-      ],
-      "default": "transit_manager",
-      "description": "\u8d1f\u8d23\u4eba\u7528\u6237\u89d2\u8272"
+      "description": "\u8d1f\u8d23\u4eba\u7528\u6237\u89d2\u8272\uff08\u4e0d\u518d\u9650\u5b9a\u4e3a\u7ba1\u7406\u5458\uff0c\u53ef\u4ee5\u662f\u4efb\u4f55\u79df\u6237\u5185\u89d2\u8272\uff09"
     },
     "allow_storage": {
       "type": "boolean",
@@ -98,14 +93,14 @@
       "items": {
         "type": "string"
       },
-      "description": "\u6b64\u4e2d\u8f6c\u5730\u7981\u7528\u7684\u4e2d\u8f6c\u8fd0\u8f93\u65b9\u5f0fID\u5217\u8868"
+      "description": "\u6b64\u4e2d\u8f6c\u5730\u7981\u7528\u7684\u4e2d\u8f6c\u8fd0\u8f93\u65b9\u5f0f ID \u5217\u8868"
     },
     "disabled_addon_ids": {
       "type": "array",
       "items": {
         "type": "string"
       },
-      "description": "\u6b64\u4e2d\u8f6c\u5730\u7981\u7528\u7684\u53d1\u8d27\u589e\u503c\u670d\u52a1ID\u5217\u8868"
+      "description": "\u6b64\u4e2d\u8f6c\u5730\u7981\u7528\u7684\u53d1\u8d27\u589e\u503c\u670d\u52a1 ID \u5217\u8868"
     }
   },
   "required": [
