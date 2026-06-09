@@ -210,7 +210,7 @@ export default function TransitPoolWork() {
           <Button 
             variant="ghost" 
             size="sm" 
-            onClick={() => navigate(`/TransitLocationWork/${location?.id}`)}
+            onClick={() => navigate(-1)}
           >
             <ArrowLeft className="w-4 h-4 mr-1" />
             返回
@@ -296,7 +296,7 @@ export default function TransitPoolWork() {
                 ...data
               });
               alert('发货信息已保存并提交');
-              navigate(`/TransitLocationWork/${location?.id}`);
+              navigate(-1);
             }}
             loading={saving}
           />
