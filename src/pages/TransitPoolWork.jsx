@@ -1,374 +1,326 @@
 /**
- * TransitPoolWork - Single pool work page for transit location managers
- * Route: /TransitPoolWork/:pool_id
- * Manager can process shipping for a specific pool
+ * TransitPoolWork - 单箱工作面板（基于拼邮申请数据）
+ * Route: /Trworkon/:pool_code
+ * 此页面完全基于 GroupBuyRequest 数据，提供额外的编辑功能
  */
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { timePage } from "@/lib/timing";
-import {
-  ArrowLeft, Package, CheckCircle, Clock, Truck, MapPin,
-  Image as ImageIcon, AlertCircle, Upload, Loader2, ChevronDown,
-  ChevronUp, Edit2, X, Save, Send, User, Calendar, Phone,
-  FileText, Box, ClipboardList, Home } from
-"lucide-react";
+import { 
+  Package, CheckCircle, Clock, Truck, Calendar, 
+  MapPin, Scale, Image as ImageIcon, AlertCircle,
+  Loader2, ChevronRight, X, Edit2, Save
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { getCountry } from "@/lib/countries";
-import PoolDetailHeader from "@/components/transit/PoolDetailHeader";
-import UserGroupCard from "@/components/transit/UserGroupCard";
-import ShippingRequestPanel from "@/components/transit/ShippingRequestPanel";
-import TransitShippingForm from "@/components/transit/TransitShippingForm";
-import AddressChangeCard from "@/components/transit/AddressChangeCard";
-import PickupScheduler from "@/components/transit/PickupScheduler";
-import StorageManagementCard from "@/components/transit/StorageManagementCard";
-import { toast } from "sonner";
 
 export default function TransitPoolWork() {
   const { pool_code } = useParams();
   const navigate = useNavigate();
   const { user } = useCurrentUser();
-
+  
   const [loading, setLoading] = useState(true);
-  const [pool, setPool] = useState(null);
-  const [orders, setOrders] = useState([]);
+  const [request, setRequest] = useState(null);
+  const [entries, setEntries] = useState([]);
   const [location, setLocation] = useState(null);
-  const [showRequestPanel, setShowRequestPanel] = useState(false);
-  const [activeRequests, setActiveRequests] = useState([]);
-  const [inTransitRequests, setInTransitRequests] = useState([]);
+  const [editing, setEditing] = useState(false);
+  const [editData, setEditData] = useState({});
   const [saving, setSaving] = useState(false);
 
-  // Transit methods state
-  const [transitMethods, setTransitMethods] = useState([]);
-  const [preferredTransitMethodId, setPreferredTransitMethodId] = useState(null);
-
-  // Expanded user groups
-  const [expandedGroups, setExpandedGroups] = useState([]);
-
-
-
-  useEffect(() => {
-    if (!user || !pool_code) return;
-
-    const fetchData = async () => {
-      setLoading(true);
-      const t = timePage('TransitPoolWork');
-      try {
-        console.log('[TransitPoolWork] Fetching data for pool_code:', pool_code);
-        const r = await base44.functions.invoke('getTransitPoolWorkData', {
-          pool_code
-        });
-        const data = r.data || {};
-
-        console.log('[TransitPoolWork] Received data:', {
-          pool_code: data.pool?.pool_code,
-          pool_id: data.pool?.id,
-          order_ids_count: data.pool?.order_ids?.length,
-          orders_count: data.orders?.length,
-          location_name: data.location?.name,
-          transitMethods_count: data.transitMethods?.length,
-          debug: data.debug,
-          full_data: data
-        });
-
-        if (!data.pool) {
-          console.error('[TransitPoolWork] No pool data received, navigating back');
-          navigate("/AdminTransitWork");
-          return;
-        }
-
-        setPool(data.pool);
-        setOrders(data.orders || []);
-        setLocation(data.location);
-        setTransitMethods(data.transitMethods || []);
-        setPreferredTransitMethodId(data.preferredTransitMethodId || null);
-
-        // Fetch all pools for this transit location for the panel using backend function
-        const panelData = await base44.functions.invoke('getTransitWorkPanelData', {});
-        const allPools = (panelData.data?.pools || []).filter((p) => p.transit_location_id === data.location.id);
-
-        console.log('[TransitPoolWork] Fetched', allPools?.length || 0, 'pools for transit location', data.location.name);
-        const arrived = allPools.filter((p) => p.transit_arrival_confirmed_at && !p.transit_shipped_date);
-        const inTransit = allPools.filter((p) => p.status === "shipped" && !p.transit_arrival_confirmed_at && p.tracking_number);
-        console.log('[TransitPoolWork] Arrived:', arrived?.length || 0);
-        console.log('[TransitPoolWork] In transit:', inTransit?.length || 0);
-
-        setActiveRequests(arrived);
-        setInTransitRequests(inTransit);
-
-        t.done('data ready');
-      } catch (error) {
-        console.error('Failed to fetch pool data:', error);
-      } finally {
-        setLoading(false);
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      // 通过 pool_code 查找对应的 GroupBuyRequest
+      // 注意：这里需要根据实际业务逻辑调整
+      const allRequests = await base44.asServiceRole.entities.GroupBuyRequest.filter({});
+      const foundRequest = (allRequests || []).find(r => 
+        r.id === pool_code || r.pool_code === pool_code
+      );
+      
+      if (!foundRequest) {
+        navigate("/Home");
+        return;
       }
-    };
-
-    fetchData();
-  }, [user, pool_code]);
-
-  // Use per_user_groups directly (contains order_entries)
-  const userGroups = pool?.per_user_groups || [];
-
-  // State for showing address in right panel
-  const [showingAddress, setShowingAddress] = useState(null);
-  const [selectedOrder, setSelectedOrder] = useState(null);
-
-  const handleToggleGroup = (groupKey) => () => {
-    setExpandedGroups((prev) =>
-      prev.includes(groupKey) ?
-        prev.filter((k) => k !== groupKey) :
-        [...prev, groupKey]
-    );
-  };
-
-  const handleOrderSelect = (orderId, orderEntry, address) => {
-    // 点击订单时显示订单详情和地址
-    setSelectedOrder({ orderId, orderEntry, address });
-    if (address) {
-      setShowingAddress({ address, orders: [orderEntry] });
+      
+      setRequest(foundRequest);
+      setEditData(foundRequest);
+      
+      // 获取条目
+      const allEntries = await base44.asServiceRole.entities.GroupBuyEntry.filter({ 
+        request_id: foundRequest.id 
+      });
+      setEntries(allEntries || []);
+      
+      // 获取中转地信息
+      if (foundRequest.transit_location_id) {
+        const locations = await base44.asServiceRole.entities.TransitLocation.filter({ 
+          id: foundRequest.transit_location_id 
+        });
+        if (locations && locations.length > 0) {
+          setLocation(locations[0]);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch data:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleShowAddress = (address, orders) => {
-    setShowingAddress({ address, orders });
-    setSelectedOrder(null);
+  useEffect(() => {
+    if (!user || !pool_code) return;
+    fetchData();
+  }, [user, pool_code]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await base44.asServiceRole.entities.GroupBuyRequest.update(request.id, editData);
+      setRequest({ ...request, ...editData });
+      setEditing(false);
+      alert('保存成功');
+    } catch (error) {
+      console.error('Failed to save:', error);
+      alert('保存失败：' + error.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
-      </div>);
-
+      </div>
+    );
   }
 
-  if (!pool) {
+  if (!request) {
     return null;
   }
 
+  const activeEntries = entries.filter(e => e.status === 'active');
+  const completedEntries = entries.filter(e => e.status === 'completed');
+
   return (
     <div className="space-y-5">
-      {/* Header with back button */}
+      {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate(-1)}>
-            
-            <ArrowLeft className="w-4 h-4 mr-1" />
-            返回
+          <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
+            ← 返回
           </Button>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">
-              {pool.pool_code || '发货申请'} - 单箱工作
+            <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <Package className="w-5 h-5 text-indigo-600" />
+              {request.title}
             </h1>
             <p className="text-sm text-gray-400 mt-0.5">
-              中转地：{location?.name || pool.transit_location_name}
+              {request.template_name} · 创建者：{request.creator_name}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Badge className={pool.transit_arrival_confirmed_at ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"}>
-            {pool.transit_arrival_confirmed_at ? "已收货" : "待收货"}
+          <Badge className={
+            request.status === 'completed' ? 'bg-green-100 text-green-700' :
+            request.status === 'cancelled' ? 'bg-red-100 text-red-700' :
+            'bg-blue-100 text-blue-700'
+          }>
+            {request.status === 'completed' ? '已完成' :
+             request.status === 'cancelled' ? '已取消' : '招募中'}
           </Badge>
-          {pool.transit_shipped_date &&
-          <Badge className="bg-gray-100 text-gray-700">已发货</Badge>
-          }
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowRequestPanel(!showRequestPanel)}
-            className="relative">
-            
-            <ClipboardList className="w-4 h-4 mr-1" />
-            发货申请
-            {activeRequests.length > 0 &&
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
-                {activeRequests.length}
-              </span>
-            }
-          </Button>
+          {location && (
+            <Badge variant="outline" className="text-xs">
+              <MapPin className="w-3 h-3 mr-1" />
+              {location.name}
+            </Badge>
+          )}
         </div>
       </div>
 
-      {/* Pool Detail Summary */}
-      <PoolDetailHeader
-        pool={pool}
-        location={location}
-        orderCount={orders.length} />
-      
+      {/* Summary Card */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-semibold">拼单信息</CardTitle>
+            <Button 
+              size="sm" 
+              variant="outline"
+              onClick={() => setEditing(!editing)}
+              className="h-7 text-xs"
+            >
+              {editing ? <X className="w-3.5 h-3.5" /> : <Edit2 className="w-3.5 h-3.5" />}
+              {editing ? '取消' : '编辑'}
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {editing ? (
+            <>
+              <div>
+                <Label className="text-xs text-gray-500">截止日期</Label>
+                <Input 
+                  type="date" 
+                  value={editData.deadline || ''}
+                  onChange={(e) => setEditData({ ...editData, deadline: e.target.value })}
+                  className="mt-1 h-8 text-sm"
+                />
+              </div>
+              <div>
+                <Label className="text-xs text-gray-500">到期处理</Label>
+                <select
+                  value={editData.on_deadline_action || 'cancel'}
+                  onChange={(e) => setEditData({ ...editData, on_deadline_action: e.target.value })}
+                  className="mt-1 w-full border rounded-lg px-2 py-1.5 text-sm"
+                >
+                  <option value="cancel">取消订单</option>
+                  <option value="proceed">继续单独下单</option>
+                </select>
+              </div>
+              <div className="flex gap-2">
+                <Button 
+                  size="sm" 
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-xs h-8"
+                >
+                  {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <Save className="w-3.5 h-3.5 mr-1" />}
+                  保存
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={() => setEditing(false)}
+                  className="text-xs h-8"
+                >
+                  取消
+                </Button>
+              </div>
+            </>
+          ) : (
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <span className="text-gray-500">截止日期：</span>
+                <span className="font-medium">{request.deadline}</span>
+              </div>
+              <div>
+                <span className="text-gray-500">到期处理：</span>
+                <span className="font-medium">
+                  {request.on_deadline_action === 'cancel' ? '取消订单' : '继续单独下单'}
+                </span>
+              </div>
+              <div>
+                <span className="text-gray-500">目标金额：</span>
+                <span className="font-medium">¥{request.condition_min_amount_jpy?.toLocaleString()}</span>
+              </div>
+              <div>
+                <span className="text-gray-500">当前金额：</span>
+                <span className="font-medium text-indigo-600">¥{request.total_amount_jpy?.toLocaleString()}</span>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-      {/* Main Content */}
-      <div className="grid gap-5 lg:grid-cols-3">
-        {/* Left: User Groups */}
-        <div className="lg:col-span-2 space-y-4">
-          <Card>
-            <CardHeader className="py-6 px-5">
-              <CardTitle className="text-base flex items-center gap-2">
-                <User className="w-4 h-4" />
-                用户订单分组
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {userGroups.length > 0 ?
-              userGroups.map((userGroup) => {
-                const groupKey = `${userGroup.user_email}__${userGroup.transit_shipping_method_id || 'none'}`;
-                return (
-                <UserGroupCard
-                  key={groupKey}
-                  userEntry={userGroup}
-                  pool={pool}
-                  isExpanded={expandedGroups.includes(groupKey)}
-                  onExpand={handleToggleGroup(groupKey)}
-                  onOrderClick={(orderId) => {
-                    console.log('Order clicked:', orderId);
-                  }}
-                  onOrderSelect={handleOrderSelect}
-                  onShowAddress={handleShowAddress}
-                  selectedOrderIds={[]} />
-                );
-              }) :
-
-              <div className="text-center text-gray-400 py-8">
-                  <Package className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                  <p>暂无订单分组</p>
-                </div>
-              }
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Right: Management Cards */}
-        <div className="space-y-4">
-          {/* Address Display Card (shown when user clicks "View Address" or selects an order) */}
-          {showingAddress && (
-            <Card className="border-blue-200 bg-blue-50">
-              <CardHeader className="py-4 px-4">
-                <CardTitle className="text-sm flex items-center justify-between">
-                  <span className="flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-blue-600" />
-                    最终收货地址
-                  </span>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-6 text-xs"
-                    onClick={() => setShowingAddress(null)}
-                  >
-                    <X className="w-3 h-3" />
-                  </Button>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="px-4 pb-4 text-xs space-y-2">
-                {showingAddress.address && (
-                  <div className="space-y-1.5">
-                    <div className="flex items-start gap-2">
-                      <User className="w-3 h-3 text-gray-400 mt-0.5" />
-                      <span>收件人：{showingAddress.address.recipient_name || '未填写'}</span>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <Phone className="w-3 h-3 text-gray-400 mt-0.5" />
-                      <span>电话：{showingAddress.address.phone || '未填写'}</span>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <Home className="w-3 h-3 text-gray-400 mt-0.5" />
-                      <div>
-                        <p className="font-medium text-gray-700">国家/地区：{getCountry(showingAddress.address.country)?.name || showingAddress.address.country || '未填写'}</p>
-                        {showingAddress.address.addr1 && <p>地址 1：{showingAddress.address.addr1}</p>}
-                        {showingAddress.address.addr2 && <p>地址 2：{showingAddress.address.addr2}</p>}
-                        {showingAddress.address.addr3 && <p>地址 3：{showingAddress.address.addr3}</p>}
-                        {showingAddress.address.state && <p>州/省：{showingAddress.address.state}</p>}
-                        {showingAddress.address.postal_code && <p>邮编：{showingAddress.address.postal_code}</p>}
+      {/* Entries */}
+      <div className="space-y-4">
+        <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+          <Package className="w-4 h-4" />
+          参团条目（{activeEntries.length} 个）
+        </h3>
+        
+        {activeEntries.length === 0 ? (
+          <div className="text-center py-12 text-gray-400">
+            <Package className="w-12 h-12 mx-auto mb-3 opacity-20" />
+            <p className="text-sm">暂无参团条目</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-3">
+            {activeEntries.map(entry => (
+              <Card key={entry.id} className="border-gray-200">
+                <CardContent className="p-4 space-y-2">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">{entry.product_name}</span>
+                        {entry.user_email === user?.email && (
+                          <Badge className="text-[10px] bg-purple-100 text-purple-600">我</Badge>
+                        )}
                       </div>
+                      {entry.product_description && (
+                        <p className="text-xs text-gray-500 mt-0.5">{entry.product_description}</p>
+                      )}
+                      <p className="text-xs text-gray-400 mt-1">
+                        {entry.user_name || entry.user_email}
+                      </p>
                     </div>
-                    {showingAddress.orders && showingAddress.orders.length > 0 && (
-                      <div className="mt-2 pt-2 border-t border-blue-200">
-                        <p className="font-medium text-gray-700 mb-1">相关订单（{showingAddress.orders.length}个）</p>
-                        <div className="space-y-1 max-h-32 overflow-y-auto">
-                          {showingAddress.orders.map((order, idx) => (
-                            <div key={order.order_id || idx} className="flex items-start gap-1.5">
-                              <Package className="w-3 h-3 text-gray-400 mt-0.5" />
-                              <span className="truncate">{order.product_name || order.note || `订单 ${order.order_id?.slice(-6) || idx + 1}`}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                    <div className="text-right">
+                      <p className="text-sm font-semibold text-gray-800">
+                        ¥{Math.round(entry.estimated_jpy).toLocaleString()}
+                      </p>
+                      {entry.status === 'completed' && (
+                        <Badge className="mt-1 text-[10px] bg-green-100 text-green-700">
+                          已下单
+                        </Badge>
+                      )}
+                    </div>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Transit Shipping Form */}
-          <TransitShippingForm
-            pool={pool}
-            transitMethods={transitMethods}
-            preferredTransitMethodId={preferredTransitMethodId}
-            onSubmit={async (data) => {
-              await base44.functions.invoke('updateTransitPoolShipment', {
-                pool_id: pool.id,
-                ...data
-              });
-              alert('发货信息已保存并提交');
-              navigate(-1);
-            }}
-            loading={saving} />
-          
-
-          {/* Address Change */}
-          <AddressChangeCard
-            pool={pool}
-            onUpdate={() => {
-              // Refresh data
-              window.location.reload();
-            }} />
-          
-
-          {/* Pickup Scheduling - Only show if pool has pickup enabled */}
-          {location?.allow_pickup && pool?.transit_pickup_enabled && (
-            <PickupScheduler
-              pool={pool}
-              isAdmin={user.role === 'admin' || user.role === 'platform_admin' || user.email === location.manager_email}
-              onUpdate={() => {
-                window.location.reload();
-              }} />
-          )}
-
-          {/* Storage Management - Only show if pool has storage enabled */}
-          {location?.allow_storage && pool?.transit_storage_enabled && (
-            <StorageManagementCard
-              pool={pool}
-              isAdmin={user.role === 'admin' || user.role === 'platform_admin' || user.email === location.manager_email}
-              onUpdate={() => {
-                window.location.reload();
-              }} />
-          )}
-        </div>
+                  
+                  {entry.product_image_url && (
+                    <div className="mt-2">
+                      <img 
+                        src={entry.product_image_url} 
+                        alt={entry.product_name}
+                        className="w-20 h-20 object-cover rounded border"
+                      />
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Shipping Request Panel (Slide-over) */}
-      {showRequestPanel &&
-      <ShippingRequestPanel
-        arrivedRequests={activeRequests}
-        inTransitRequests={inTransitRequests}
-        currentPoolId={pool.id}
-        onClose={() => setShowRequestPanel(false)}
-        onNavigate={(requestPoolId) => {
-          navigate(`/TransitPoolWork/${requestPoolId}`);
-        }} />
-
-      }
-
-    </div>);
-
+      {/* Completed Entries */}
+      {completedEntries.length > 0 && (
+        <div className="space-y-4">
+          <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+            <CheckCircle className="w-4 h-4 text-green-600" />
+            已完成条目（{completedEntries.length} 个）
+          </h3>
+          <div className="grid grid-cols-1 gap-3">
+            {completedEntries.map(entry => (
+              <Card key={entry.id} className="border-green-200 bg-green-50/20">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium">{entry.product_name}</p>
+                      <p className="text-xs text-gray-500">{entry.user_name || entry.user_email}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-semibold text-green-700">
+                        ¥{Math.round(entry.estimated_jpy).toLocaleString()}
+                      </p>
+                      {entry.order_number && (
+                        <p className="text-xs text-green-600 mt-0.5">
+                          订单号：{entry.order_number}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
