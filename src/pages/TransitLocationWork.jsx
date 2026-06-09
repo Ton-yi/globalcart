@@ -82,18 +82,23 @@ export default function TransitLocationWork() {
     }
   }, [locationState]);
 
-  // Categorize requests by transit status
+  // Categorize requests by transit status - show ALL requests assigned to this transit location
+  // regardless of their GroupBuyRequest status (open, completed, cancelled, expired)
   const requestsByStatus = {
+    // Pending: not yet arrived at transit location (includes open, completed, and even cancelled/expired)
     pending: requests.filter(r => 
       !r.transit_arrival_confirmed_at && 
       !r.transit_shipped_date && 
-      (r.status === "open")
+      (r.status === "open" || r.status === "completed")
     ),
+    // In transit: completed and shipped from Japan, but transit location hasn't confirmed arrival
     in_transit: requests.filter(r => 
       r.status === "completed" && 
       !r.transit_arrival_confirmed_at
     ),
+    // Arrived: transit location confirmed receipt
     arrived: requests.filter(r => r.transit_arrival_confirmed_at && !r.transit_shipped_date),
+    // Forwarded: transit location has shipped to final destination
     forwarded: requests.filter(r => r.transit_shipped_date),
   };
 

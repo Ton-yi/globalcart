@@ -37,7 +37,7 @@ export default function AdminTransitWork() {
   const [activeTab, setActiveTab] = useState("work");
   const [loading, setLoading] = useState(true);
   const [locations, setLocations] = useState([]);
-  const [poolsByLocation, setPoolsByLocation] = useState({});
+  const [requestsByLocation, setRequestsByLocation] = useState({});
   const [allUsers, setAllUsers] = useState([]);
   const [transitMethods, setTransitMethods] = useState([]);
   const [addonOptions, setAddonOptions] = useState([]);
@@ -58,12 +58,12 @@ export default function AdminTransitWork() {
       const data = r.data || {};
       console.log('[AdminTransitWork] Received data:', {
         locations: data.locations?.length,
-        pools: data.pools?.length,
-        poolsByLocation: Object.keys(data.poolsByLocation || {}).length,
-        totalPoolsCount: Object.values(data.poolsByLocation || {}).reduce((sum, arr) => sum + arr.length, 0),
+        requests: data.requests?.length,
+        requestsByLocation: Object.keys(data.requestsByLocation || {}).length,
+        totalRequestsCount: Object.values(data.requestsByLocation || {}).reduce((sum, arr) => sum + arr.length, 0),
       });
       setLocations(data.locations || []);
-      setPoolsByLocation(data.poolsByLocation || {});
+      setRequestsByLocation(data.requestsByLocation || data.poolsByLocation || {});
       setAllUsers(data.users || []);
       setTransitMethods(data.transitMethods || []);
       setAddonOptions(data.addonOptions || []);
@@ -92,13 +92,21 @@ export default function AdminTransitWork() {
   }
 
   const getPoolsByStatus = (pools) => ({
+    // Pending: requests assigned to this transit location but not yet arrived
+    // Include open and completed GroupBuyRequests that have transit_location_id
     pending: pools.filter(p => 
       !p.transit_arrival_confirmed_at && 
       !p.transit_shipped_date && 
-      (p.status === "pending" || p.status === "awaiting_payment" || p.status === "ready_to_ship")
+      (p.status === "open" || p.status === "completed")
     ),
-    in_transit: pools.filter(p => p.status === "shipped" && !p.transit_arrival_confirmed_at && p.tracking_number),
+    // In transit: completed requests en route to transit location (Japan shipped but transit hasn't confirmed arrival)
+    in_transit: pools.filter(p => 
+      p.status === "completed" && 
+      !p.transit_arrival_confirmed_at
+    ),
+    // Arrived: transit location confirmed receipt but hasn't forwarded yet
     arrived: pools.filter(p => p.transit_arrival_confirmed_at && !p.transit_shipped_date),
+    // Forwarded: transit location has shipped to final destination
     forwarded: pools.filter(p => p.transit_shipped_date),
   });
 
@@ -122,9 +130,9 @@ export default function AdminTransitWork() {
       await tenantEntity.create('TransitLocation', locForm);
     }
     await fetchLocations();
-    // Refresh pools data
+    // Refresh requests data
     const r = await base44.functions.invoke('getAllTransitWorkData', {});
-    setPoolsByLocation(r.data?.poolsByLocation || {});
+    setRequestsByLocation(r.data?.requestsByLocation || r.data?.poolsByLocation || {});
     setShowLocForm(false);
     setEditingLoc(null);
     setLocForm({ name: "", code_prefix: "", country: "", province: "", address: "", handling_fee: 0, handling_fee_currency: "JPY", manager_email: "", manager_contact: "", allow_storage: false, allow_pickup: false, description: "", is_active: true, is_default_official_pool: false, disabled_transit_method_ids: [], disabled_addon_ids: [] });
@@ -153,7 +161,7 @@ export default function AdminTransitWork() {
     await tenantEntity.delete('TransitLocation', id);
     await fetchLocations();
     const r = await base44.functions.invoke('getAllTransitWorkData', {});
-    setPoolsByLocation(r.data?.poolsByLocation || {});
+    setRequestsByLocation(r.data?.requestsByLocation || r.data?.poolsByLocation || {});
   };
 
   const handleLocToggle = async (loc) => {
@@ -237,7 +245,7 @@ export default function AdminTransitWork() {
           ) : (
             <div className="space-y-8">
               {activeLocations.map(loc => {
-                const pools = poolsByLocation[loc.id] || [];
+                const pools = requestsByLocation[loc.id] || [];
                 const byStatus = getPoolsByStatus(pools);
                 const pendingCount = byStatus.pending.length + byStatus.arrived.length + byStatus.in_transit.length;
                 const isCollapsed = collapsedLocations[loc.id] !== false; // default collapsed

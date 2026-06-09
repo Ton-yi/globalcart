@@ -73,9 +73,13 @@ Deno.serve(async (req) => {
     
     console.log('[getAllTransitWorkData] Total entries:', allEntries.length);
 
+    // Also return poolsByLocation for backward compatibility with frontend AdminTransitWork
+    const poolsByLocation = requestsByLocation;
+
     return Response.json({
       locations: locations || [],
       requestsByLocation,
+      poolsByLocation,
       requests: transitRequests,
       entries: allEntries,
       users: (allUsers || []).filter(u => u.role === 'admin'),

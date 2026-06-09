@@ -60,9 +60,9 @@ Deno.serve(async (req) => {
 
     const allRequests = await base44.asServiceRole.entities.GroupBuyRequest.filter(filter);
     
-    // Filter to only open/active requests and sort by created_date desc
+    // Include ALL requests regardless of status - as long as they have transit_location_id assigned
+    // This ensures transit managers can see pending, completed, arrived, and forwarded requests
     const requests = (allRequests || [])
-      .filter(r => r.status === 'open' || r.status === 'completed')
       .sort((a, b) => new Date(b.created_date) - new Date(a.created_date));
     
     console.log('[getTransitLocationWorkPageData] Found', requests.length, 'requests for transit location', transitLocationId);
