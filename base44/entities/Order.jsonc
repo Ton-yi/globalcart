@@ -426,6 +426,13 @@
         "user_note": {
           "type": "string"
         },
+        "note_image_urls": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "\u5907\u6ce8\u56fe\u7247 URL \u5217\u8868"
+        },
         "address": {
           "type": "object"
         },
@@ -437,6 +444,17 @@
         },
         "transit_location_name": {
           "type": "string"
+        },
+        "transit_location_country": {
+          "type": "string"
+        },
+        "transit_shipping_method_id": {
+          "type": "string",
+          "description": "\u4e2d\u8f6c\u6bb5\u8fd0\u8f93\u65b9\u5f0f ID"
+        },
+        "transit_shipping_method_name": {
+          "type": "string",
+          "description": "\u4e2d\u8f6c\u6bb5\u8fd0\u8f93\u65b9\u5f0f\u540d\u79f0"
         },
         "selected_addon_ids": {
           "type": "array",
@@ -455,6 +473,18 @@
         },
         "pool_id": {
           "type": "string"
+        },
+        "target_pool_id": {
+          "type": "string"
+        },
+        "target_pool_code": {
+          "type": "string"
+        },
+        "target_pool_title": {
+          "type": "string"
+        },
+        "join_existing_pool": {
+          "type": "boolean"
         },
         "fullpay_once_config": {
           "type": "object",

@@ -57,6 +57,7 @@ export default function PreShipmentForm() {
   const [noteImages, setNoteImages] = useState([]); // Images for note section
   const [uploadingImages, setUploadingImages] = useState(false);
   const [transitLocationId, setTransitLocationId] = useState("");
+  const [transitShippingMethodId, setTransitShippingMethodId] = useState("");
   const [selectedAddonIds, setSelectedAddonIds] = useState([]);
   const [addonCustomFees, setAddonCustomFees] = useState({});
   const [addonFeeErrors, setAddonFeeErrors] = useState({});
@@ -127,6 +128,7 @@ export default function PreShipmentForm() {
           const savedConsType = ps.consType || "";
           setConsType(savedConsType);
           if (ps.transit_location_id) setTransitLocationId(ps.transit_location_id);
+          if (ps.transit_shipping_method_id) setTransitShippingMethodId(ps.transit_shipping_method_id);
           if (ps.selected_addon_ids) setSelectedAddonIds(ps.selected_addon_ids);
           // Restore the specific pool selection (use target_pool_id, NOT pool_created which is an automation flag)
           if (savedConsType === "official_pool") {
@@ -452,6 +454,12 @@ export default function PreShipmentForm() {
       transit_location_id: consType === "transit" ? transitLocationId : "",
       transit_location_name: consType === "transit" ? transitLoc?.name || "" : "",
       transit_location_country: consType === "transit" ? transitLoc?.country || "" : "",
+      transit_shipping_method_id: consType === "transit" ? transitShippingMethodId : "",
+      transit_shipping_method_name: consType === "transit" ? (() => {
+        const selectedLocation = transitLocations.find(l => l.id === transitLocationId);
+        const method = selectedLocation?.transit_shipping_methods?.find(m => m.id === transitShippingMethodId);
+        return method?.name || "";
+      })() : "",
       address: consType === "transit" || consType === "official_pool" ? {} : { ...effectiveAddress },
       selected_addon_ids: effectiveSelectedAddonIds,
       selected_addons: selectedAddons.map((a) => {
@@ -756,7 +764,10 @@ export default function PreShipmentForm() {
                     : '暂无运输方式';
                   return (
                   <label key={l.id} className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${transitLocationId === l.id ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
-                      <input type="radio" checked={transitLocationId === l.id} onChange={() => setTransitLocationId(l.id)} className="mt-0.5 accent-blue-600" />
+                      <input type="radio" checked={transitLocationId === l.id} onChange={() => {
+                        setTransitLocationId(l.id);
+                        setTransitShippingMethodId(""); // Clear transit method selection when changing location
+                      }} className="mt-0.5 accent-blue-600" />
                       <div>
                         <p className="text-sm font-medium text-gray-800">{l.name}</p>
                         {l.manager_contact && <p className="text-xs text-gray-400">联系：{l.manager_contact}</p>}
@@ -769,6 +780,41 @@ export default function PreShipmentForm() {
                   );
                 })}
               </div>
+              
+              {/* Transit shipping method selection */}
+              {transitLocationId && (
+                <div className="space-y-2 border border-blue-100 rounded-xl p-3 bg-blue-50/40">
+                  <Label className="text-xs text-blue-700 font-medium">中转段运输方式 *</Label>
+                  {(() => {
+                    const selectedLocation = transitLocations.find(l => l.id === transitLocationId);
+                    const availableMethods = selectedLocation?.transit_shipping_methods || [];
+                    
+                    if (availableMethods.length === 0) {
+                      return (
+                        <div className="text-sm text-gray-500 py-2">
+                          此中转地暂无可用的中转运输方式
+                        </div>
+                      );
+                    }
+                    
+                    return (
+                      <Select value={transitShippingMethodId} onValueChange={setTransitShippingMethodId}>
+                        <SelectTrigger className="mt-1 h-9 text-sm">
+                          <SelectValue placeholder="选择中转运输方式..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableMethods.map((m) => (
+                            <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    );
+                  })()}
+                  <p className="text-xs text-gray-400 mt-1">
+                    货品到达中转地后，将通过此运输方式发往最终地址
+                  </p>
+                </div>
+              )}
               
               {/* Final destination address for transit */}
               <Card className="border-gray-200">
