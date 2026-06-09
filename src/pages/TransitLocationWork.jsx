@@ -48,12 +48,16 @@ export default function TransitLocationWork() {
     setLoading(true);
     const t = timePage('TransitLocationWork');
     try {
+      console.log('[TransitLocationWork] Calling getTransitLocationWorkPageData with transit_location_id:', transit_location_id);
       const r = await base44.functions.invoke('getTransitLocationWorkPageData', { 
         transit_location_id 
       });
+      console.log('[TransitLocationWork] Response:', r);
       const data = r.data || {};
+      console.log('[TransitLocationWork] Response data:', data);
       
       if (!data.location) {
+        console.warn('[TransitLocationWork] No location in response, navigating home');
         navigate("/Home");
         return;
       }
@@ -62,7 +66,12 @@ export default function TransitLocationWork() {
       setRequests(data.requests || []);
       t.done('data ready');
     } catch (error) {
-      console.error('Failed to fetch transit location data:', error);
+      console.error('[TransitLocationWork] Error fetching data:', error);
+      console.error('[TransitLocationWork] Error details:', {
+        message: error.message,
+        status: error.status,
+        response: error.response?.data,
+      });
     } finally {
       setLoading(false);
     }

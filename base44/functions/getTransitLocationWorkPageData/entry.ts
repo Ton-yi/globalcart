@@ -58,6 +58,11 @@ Deno.serve(async (req) => {
       transit_location_id: transitLocationId
     };
 
+    console.log('[getTransitLocationWorkPageData] Fetching data for transit_location_id:', transitLocationId);
+    console.log('[getTransitLocationWorkPageData] Location tenant_id:', location.tenant_id);
+    console.log('[getTransitLocationWorkPageData] User email:', user.email);
+    console.log('[getTransitLocationWorkPageData] Is manager:', location.manager_email === user.email);
+    
     const [allGroupBuyRequests, allShippingPools] = await Promise.all([
       base44.asServiceRole.entities.GroupBuyRequest.filter(filter),
       base44.asServiceRole.entities.ShippingPool.filter(filter),
@@ -65,6 +70,7 @@ Deno.serve(async (req) => {
     
     console.log('[getTransitLocationWorkPageData] GroupBuyRequests:', allGroupBuyRequests?.length || 0);
     console.log('[getTransitLocationWorkPageData] ShippingPools:', allShippingPools?.length || 0);
+    console.log('[getTransitLocationWorkPageData] Combined requests:', (allGroupBuyRequests?.length || 0) + (allShippingPools?.length || 0));
     
     // Combine both arrays for unified handling
     const requests = [...(allGroupBuyRequests || []), ...(allShippingPools || [])]
