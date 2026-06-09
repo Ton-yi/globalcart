@@ -20,18 +20,29 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'request_id is required' }, { status: 400 });
     }
 
-    console.log('[getTransitPoolWorkData] Fetching GroupBuyRequest:', request_id);
+    console.log('[getTransitPoolWorkData] Fetching data for ID:', request_id);
 
-    // Fetch GroupBuyRequest with tenant isolation
+    // Try to fetch as GroupBuyRequest first
+    let request = null;
+    let isRequest = true;
+    
     const allRequests = await base44.asServiceRole.entities.GroupBuyRequest.filter({});
-    const request = allRequests.find(r => r.id === request_id);
+    request = allRequests.find(r => r.id === request_id);
     
     if (!request) {
-      console.error('[getTransitPoolWorkData] Request not found:', request_id);
+      // Try ShippingPool as fallback
+      console.log('[getTransitPoolWorkData] Not found as GroupBuyRequest, trying ShippingPool...');
+      const allPools = await base44.asServiceRole.entities.ShippingPool.filter({});
+      request = allPools.find(p => p.id === request_id || p.pool_code === request_id);
+      isRequest = false;
+    }
+    
+    if (!request) {
+      console.error('[getTransitPoolWorkData] Not found:', request_id);
       return Response.json({ error: 'Request not found' }, { status: 404 });
     }
     
-    console.log('[getTransitPoolWorkData] Found request:', request.id, 'title:', request.title);
+    console.log('[getTransitPoolWorkData] Found:', request.id, isRequest ? 'title=' + request.title : 'pool_code=' + request.pool_code);
 
     // Resolve tenant from user session
     const userRecords = await base44.asServiceRole.entities.User.filter({ email: user.email });
@@ -60,11 +71,28 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Fetch entries for this request
-    const allEntries = await base44.asServiceRole.entities.GroupBuyEntry.filter({ request_id: request.id });
-    const entries = allEntries || [];
-    
-    console.log('[getTransitPoolWorkData] Fetched', entries.length, 'entries for request', request.id);
+    // Fetch entries based on type
+    let entries = [];
+    if (isRequest) {
+      // GroupBuyRequest uses GroupBuyEntry
+      const allEntries = await base44.asServiceRole.entities.GroupBuyEntry.filter({ request_id: request.id });
+      entries = allEntries || [];
+      console.log('[getTransitPoolWorkData] Fetched', entries.length, 'GroupBuyEntry items');
+    } else {
+      // ShippingPool - create entries from order_ids
+      const orderIds = request.order_ids || [];
+      entries = orderIds.map((orderId, index) => ({
+        id: `order_${orderId}`,
+        order_id: orderId,
+        status: 'active',
+        product_name: '包裹',
+        user_email: request.creator_email,
+        user_name: request.creator_name,
+        estimated_jpy: 0,
+        weight_g: 100,
+      }));
+      console.log('[getTransitPoolWorkData] Created', entries.length, 'entries from ShippingPool orders');
+    }
 
     // Fetch orders linked to entries (for completed entries)
     const orderIds = entries.filter(e => e.order_id).map(e => e.order_id);
