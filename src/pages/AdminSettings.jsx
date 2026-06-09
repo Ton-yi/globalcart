@@ -128,6 +128,7 @@ export default function AdminSettings() {
   const [settings, setSettings] = useState([]);
   const [addons, setAddons] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const [showPayment, setShowPayment] = useState(false);
   const [liveRates, setLiveRates] = useState(null);
   const [newAddon, setNewAddon] = useState({ name: "", description: "", fee: "", fee_currency: "JPY", addon_type: "order", is_user_customizable: false, min_fee: 0, max_fee: 0 });
@@ -154,16 +155,23 @@ export default function AdminSettings() {
 
   const load = useCallback(async () => {
     const t = timePage('AdminSettings');
+    setLoadError(null);
     try {
       const r = await t.timeCall('getAdminSettingsPageData', () => base44.functions.invoke('getAdminSettingsPageData', {}));
       const data = r.data || {};
+      if (data.error) throw new Error(data.error);
       let settingsData = data.settings || [];
 
-      if (settingsData.length === 0) {
-        try {
-          await Promise.all(DEFAULT_SETTINGS.map(s => tenantEntity.create('SiteSettings', s)));
-          settingsData = await tenantEntity.list('SiteSettings');
-        } catch (_) {}
+      // Only seed defaults if the backend explicitly returned an empty array AND we got a valid response
+      // (not a silent error). Seed one by one to avoid duplicate key conflicts.
+      if (settingsData.length === 0 && data.settings !== undefined) {
+        const existingKeys = new Set(settingsData.map(s => s.key));
+        const toCreate = DEFAULT_SETTINGS.filter(s => !existingKeys.has(s.key));
+        if (toCreate.length > 0) {
+          await Promise.all(toCreate.map(s => tenantEntity.create('SiteSettings', s)));
+          const refreshed = await base44.functions.invoke('getAdminSettingsPageData', {});
+          settingsData = refreshed.data?.settings || [];
+        }
       }
 
       setSettings(settingsData);
@@ -197,12 +205,15 @@ export default function AdminSettings() {
         });
       }
       t.done('data ready');
-    } catch (_) {}
+    } catch (err) {
+      console.error('AdminSettings load error:', err);
+      setLoadError(err.message || '加载失败');
+    }
     setLoading(false);
   }, []);
 
-  const isTenantAdmin = user?.roles?.includes("tenant_admin");
-  const isPlatformAdmin = user?.roles?.includes("platform_admin");
+  const isTenantAdmin = user?.role === "admin" || user?.role === "tenant_admin";
+  const isPlatformAdmin = user?.role === "platform_admin";
 
   useEffect(() => { load(); }, [load]);
 
@@ -487,7 +498,7 @@ export default function AdminSettings() {
         </Card>
       )}
 
-      {isTenantAdmin && user?.tenant_id && (
+      {activeTab === "general" && isTenantAdmin && user?.tenant_id && (
         <Card className="border-blue-200">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
@@ -524,6 +535,9 @@ export default function AdminSettings() {
       )}
 
       {activeTab === "general" && loading && <p className="text-gray-400 text-sm">加载中...</p>}
+      {activeTab === "general" && !loading && loadError && (
+        <div className="text-red-600 text-sm bg-red-50 border border-red-200 rounded p-3">{loadError}</div>
+      )}
 
       {activeTab === "general" && !loading && (
         <>
