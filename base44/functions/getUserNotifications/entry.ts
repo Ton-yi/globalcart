@@ -32,18 +32,15 @@ Deno.serve(async (req) => {
     }
 
     // Fetch notifications
-    const notifications = await base44.asServiceRole.entities.Notification.filter(filter, '-created_date', limit + skip);
+    const allNotifications = await base44.asServiceRole.entities.Notification.filter(filter, '-created_date', limit + skip);
     
     // Apply pagination
-    const paginatedNotifications = notifications.slice(skip, skip + limit);
-
-    // Mark as read if fetching for display
-    // (Optional - can be done separately via markAsRead function)
+    const paginatedNotifications = allNotifications ? allNotifications.slice(skip, skip + limit) : [];
 
     return Response.json({
       notifications: paginatedNotifications,
-      total: notifications.length,
-      has_more: notifications.length > skip + limit
+      total: allNotifications ? allNotifications.length : 0,
+      has_more: allNotifications && allNotifications.length > skip + limit
     });
 
   } catch (error) {

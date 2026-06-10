@@ -20,14 +20,14 @@ Deno.serve(async (req) => {
     const tenantId = userRecords[0].tenant_id;
 
     // Count unread notifications
-    const unreadCount = await base44.asServiceRole.entities.Notification.filter({
+    const unreadNotifications = await base44.asServiceRole.entities.Notification.filter({
       tenant_id: tenantId,
       user_email: user.email,
       is_read: false
     });
 
     return Response.json({
-      unread_count: unreadCount?.length || 0
+      unread_count: unreadNotifications ? unreadNotifications.length : 0
     });
 
   } catch (error) {
