@@ -23,6 +23,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Switch } from "@/components/ui/switch";
 import { Truck, Package, MapPin, Check, ChevronLeft, PlusCircle, Zap, Search, Calculator, AlertTriangle, Image, X } from "lucide-react";
 import PaymentMethodSelector from "@/components/common/PaymentMethodSelector";
+import { ImageWithViewer } from "@/components/common/ImageViewer";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import PreShipmentFormFullPayOnce from "@/components/PreShipmentFormFullPayOnce";
@@ -65,9 +66,6 @@ export default function PreShipmentForm() {
   const [selectedAddressId, setSelectedAddressId] = useState("");
   const [useNewAddress, setUseNewAddress] = useState(false);
   const [saveAddress, setSaveAddress] = useState(false);
-
-  // Lightbox
-  const [lightboxUrl, setLightboxUrl] = useState(null);
 
   // One-time payment state
   const [fullPayOnceEnabled, setFullPayOnceEnabled] = useState(false);
@@ -1526,12 +1524,7 @@ export default function PreShipmentForm() {
               <div className="mt-3 flex flex-wrap gap-2">
                 {noteImages.map((url) => (
                   <div key={url} className="relative group">
-                    <img
-                      src={url}
-                      alt="Note attachment"
-                      className="w-20 h-20 object-cover rounded border cursor-pointer hover:opacity-90 transition-opacity"
-                      onClick={() => setLightboxUrl(url)}
-                    />
+                    <ImageWithViewer src={url} alt="Note attachment" thumbClassName="w-20 h-20 object-cover rounded border" />
                     <button
                       type="button"
                       onClick={() => handleRemoveNoteImage(url)}
@@ -1563,27 +1556,6 @@ export default function PreShipmentForm() {
           </CardContent>
         </Card>
       }
-
-      {/* Lightbox */}
-      {lightboxUrl && (
-        <div
-          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
-          onClick={() => setLightboxUrl(null)}
-        >
-          <button
-            className="absolute top-4 right-4 text-white hover:text-gray-300"
-            onClick={() => setLightboxUrl(null)}
-          >
-            <X className="w-7 h-7" />
-          </button>
-          <img
-            src={lightboxUrl}
-            alt="Preview"
-            className="max-w-full max-h-full rounded-lg shadow-2xl object-contain"
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
-      )}
 
       {/* Actions */}
       <div className="flex gap-3 pb-4">
