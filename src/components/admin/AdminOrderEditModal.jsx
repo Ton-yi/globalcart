@@ -848,6 +848,17 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
                         {order.pre_shipment.shipping_method && <div>运输方式：<strong>{order.pre_shipment.shipping_method}</strong></div>}
                         {order.pre_shipment.scheduled_ship_date && <div>计划发货：<strong>{order.pre_shipment.scheduled_ship_date}</strong></div>}
                         {order.pre_shipment.user_note && <div>备注：{order.pre_shipment.user_note}</div>}
+                        {/* Note images */}
+                        {(order.pre_shipment.note_image_urls || []).length > 0 && (
+                          <div className="pt-1">
+                            <div className="text-[10px] text-gray-500 mb-1">备注图片：</div>
+                            <div className="flex flex-wrap gap-1.5">
+                              {order.pre_shipment.note_image_urls.map((url, i) => (
+                                <img key={i} src={url} alt="备注图片" className="w-12 h-12 rounded object-cover border border-blue-100 hover:opacity-80 transition-opacity cursor-pointer" />
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
