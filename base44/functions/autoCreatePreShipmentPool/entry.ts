@@ -82,8 +82,15 @@ Deno.serve(async (req) => {
       }
       
       // Join pool - also add to per_user_groups
-      // Check if user already has a group in this pool
-      const existingGroupIndex = (pool.per_user_groups || []).findIndex(g => g.user_email === order.user_email);
+      // Normalize pickup/storage method ids (legacy without __ prefix)
+      const normalizeMethodId = (id) => {
+        if (id === 'pickup') return '__pickup__';
+        if (id === 'storage') return '__storage__';
+        return id || '';
+      };
+      const thisMethodId = normalizeMethodId(pre.transit_shipping_method_id);
+      const isPickupOrStorage = thisMethodId === '__pickup__' || thisMethodId === '__storage__';
+      
       const addr = pre.address || {};
       const newOrderEntry = {
         order_id: order.id,
@@ -93,30 +100,43 @@ Deno.serve(async (req) => {
         selected_addons: order.selected_addons || [],
         override_final_address: null,
         use_group_address: true,
-        // Per-order transit shipping settings
-        transit_shipping_method_id: pre.transit_shipping_method_id || '',
+        transit_shipping_method_id: thisMethodId,
         transit_shipping_method_name: pre.transit_shipping_method_name || '',
         transit_note: pre.user_note || '',
       };
       
       let updatedPerUserGroups = [...(pool.per_user_groups || [])];
+      // Only merge into an existing group if it has the SAME transit method and same address (or both are pickup/storage)
+      const existingGroupIndex = updatedPerUserGroups.findIndex(g => {
+        if (g.user_email !== order.user_email) return false;
+        const gMethodId = normalizeMethodId(g.transit_shipping_method_id);
+        // If this order is pickup/storage, create a separate group (don't merge with non-pickup/storage groups)
+        if (isPickupOrStorage || gMethodId === '__pickup__' || gMethodId === '__storage__') {
+          return gMethodId === thisMethodId;
+        }
+        // For regular transit methods, merge if same method id
+        return gMethodId === thisMethodId;
+      });
+      
       if (existingGroupIndex >= 0) {
-        // User already has a group - add order entry to existing group
+        // Same transit method — merge into existing group
         updatedPerUserGroups[existingGroupIndex] = {
           ...updatedPerUserGroups[existingGroupIndex],
           order_entries: [...(updatedPerUserGroups[existingGroupIndex].order_entries || []), newOrderEntry],
         };
       } else {
-        // Create new group for this user
+        // Different method or new user — create new group
         updatedPerUserGroups.push({
           user_email: order.user_email,
           user_name: order.user_name || order.user_email,
           group_label: order.user_name || order.user_email,
           note: pre.user_note || '',
           image_urls: [],
+          transit_shipping_method_id: thisMethodId,
+          transit_shipping_method_name: pre.transit_shipping_method_name || '',
           selected_addon_ids: pre.selected_addon_ids || [],
           selected_addons: pre.selected_addons || [],
-          group_final_address: {
+          group_final_address: isPickupOrStorage ? {} : {
             recipient_name: addr.recipient_name || '',
             country: addr.country || '',
             addr1: addr.addr1 || '',
@@ -292,6 +312,15 @@ Deno.serve(async (req) => {
     const destinationCountry = consType === 'transit'
       ? (pre.transit_location_country || transitLoc?.country || addr.country || '')
       : (addr.country || '');
+    // Normalize method id for this pool
+    const normalizeMethodId4 = (id) => {
+      if (id === 'pickup') return '__pickup__';
+      if (id === 'storage') return '__storage__';
+      return id || '';
+    };
+    const normalizedMethodId = normalizeMethodId4(pre.transit_shipping_method_id);
+    const isPickupStorage = normalizedMethodId === '__pickup__' || normalizedMethodId === '__storage__';
+
     // Build per_user_groups structure to preserve order-level details in the pool
     const perUserGroups = [{
       user_email: order.user_email,
@@ -300,12 +329,12 @@ Deno.serve(async (req) => {
       note: pre.user_note || '',
       image_urls: [],
       // Group-level transit shipping settings (applies to all orders in this group)
-      transit_shipping_method_id: pre.transit_shipping_method_id || '',
+      transit_shipping_method_id: normalizedMethodId,
       transit_shipping_method_name: pre.transit_shipping_method_name || '',
       // Group-level selected addons (applies to all orders in this group)
       selected_addon_ids: pre.selected_addon_ids || [],
       selected_addons: pre.selected_addons || [],
-      group_final_address: {
+      group_final_address: isPickupStorage ? {} : {
         recipient_name: addr.recipient_name || '',
         country: destinationCountry,
         addr1: addr.addr1 || '',

@@ -106,14 +106,14 @@ function TransitMethodSection({ consType, selectedTransitId, transitLocations, t
       </label>
       <div className="mt-1.5 space-y-1.5">
         {allowPickup && (
-          <label className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${selectedTransitMethodId === "pickup" ? "border-teal-400 bg-teal-50" : "border-gray-200 hover:bg-gray-50"}`}>
-            <input type="radio" checked={selectedTransitMethodId === "pickup"} onChange={() => setSelectedTransitMethodId("pickup")} className="accent-teal-600" />
+          <label className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${selectedTransitMethodId === "__pickup__" ? "border-teal-400 bg-teal-50" : "border-gray-200 hover:bg-gray-50"}`}>
+            <input type="radio" checked={selectedTransitMethodId === "__pickup__"} onChange={() => setSelectedTransitMethodId("__pickup__")} className="accent-teal-600" />
             <span className="text-sm text-gray-600">自取</span>
           </label>
         )}
         {allowStorage && (
-          <label className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${selectedTransitMethodId === "storage" ? "border-indigo-400 bg-indigo-50" : "border-gray-200 hover:bg-gray-50"}`}>
-            <input type="radio" checked={selectedTransitMethodId === "storage"} onChange={() => setSelectedTransitMethodId("storage")} className="accent-indigo-600" />
+          <label className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${selectedTransitMethodId === "__storage__" ? "border-indigo-400 bg-indigo-50" : "border-gray-200 hover:bg-gray-50"}`}>
+            <input type="radio" checked={selectedTransitMethodId === "__storage__"} onChange={() => setSelectedTransitMethodId("__storage__")} className="accent-indigo-600" />
             <span className="text-sm text-gray-600">暂存</span>
           </label>
         )}
@@ -433,7 +433,9 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
     if (!isJoiningPool && consType === "transit" && !selectedTransitId) return;
     if (!isJoiningPool && consType === "transit" && !selectedTransitMethodId) return;
     // Skip address validation for pickup (__pickup__) or storage (__storage__) transit methods
-    const isPickupOrStorage = selectedTransitMethodId === '__pickup__' || selectedTransitMethodId === '__storage__';
+    const normalizeId = id => id === 'pickup' ? '__pickup__' : id === 'storage' ? '__storage__' : (id || '');
+    const normalizedTransitMethodId = normalizeId(selectedTransitMethodId);
+    const isPickupOrStorage = normalizedTransitMethodId === '__pickup__' || normalizedTransitMethodId === '__storage__';
     if (!isJoiningPool && consType === "transit" && !isPickupOrStorage && !isAddressSlotOk("final")) return;
     if (isJoiningPool && !isPickupOrStorage && !isAddressSlotOk("final")) return;
     if (isJoiningPool && selectedPool?.consolidation_type === "transit" && !selectedTransitMethodId) return;
@@ -518,7 +520,7 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
     // Build pre_shipment data for transit location work panel
     const addrObj = consType === "transit" ? getEffectiveAddr("final") : (consType === "other" ? getEffectiveAddr("other") : getEffectiveAddr("direct"));
     // For pickup or storage, don't save final address (user will provide later or pick up in person)
-    const skipAddress = selectedTransitMethodId === '__pickup__' || selectedTransitMethodId === '__storage__';
+    const skipAddress = normalizedTransitMethodId === '__pickup__' || normalizedTransitMethodId === '__storage__';
     const preShipmentData = consType === "transit" ? {
       shipping_method: method,
       scheduled_ship_date: deadline || null,
@@ -534,7 +536,7 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
       } : null,
       consType: consType,
       transit_location_id: selectedTransitId,
-      transit_shipping_method_id: selectedTransitMethodId,
+      transit_shipping_method_id: normalizedTransitMethodId,
       selected_addon_ids: selectedAddonIds,
       selected_addons: selectedAddons.map(a => ({
         id: a.id,

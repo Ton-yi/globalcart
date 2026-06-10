@@ -56,12 +56,24 @@ export default function UserGroupCard({ userEntry, orders, transitMethods = [], 
     }) || null;
   }, [pool?.transit_shipping_info_per_user, userEntry.user_email, userEntry.group_index, orders]);
 
+  // Normalize transit method id: legacy "pickup"/"storage" → "__pickup__"/"__storage__"
+  const normalizeTransitMethodId = (id) => {
+    if (id === 'pickup') return '__pickup__';
+    if (id === 'storage') return '__storage__';
+    return id || '';
+  };
+
   // Batch/group info
   const hasBatchInfo = userEntry.group_index !== undefined;
   const batchIndex = userEntry.group_index ?? 0;
   const hasAddress = userEntry.final_address && userEntry.final_address.recipient_name;
-  const transitMethodName = userEntry.transit_shipping_method ||
-    (userEntry.transit_shipping_method_id && transitMethods.find(m => m.id === userEntry.transit_shipping_method_id)?.name) || '';
+  const rawTransitMethodId = normalizeTransitMethodId(userEntry.transit_shipping_method_id);
+  const transitMethodName = rawTransitMethodId === '__pickup__' ? '自取'
+    : rawTransitMethodId === '__storage__' ? '暂存'
+    : userEntry.transit_shipping_method
+    || (rawTransitMethodId && transitMethods.find(m => m.id === rawTransitMethodId)?.name)
+    || '';
+  const isPickupOrStorage = rawTransitMethodId === '__pickup__' || rawTransitMethodId === '__storage__';
   const addons = userEntry.selected_addons || [];
 
   // Badge label for this batch
@@ -118,7 +130,12 @@ export default function UserGroupCard({ userEntry, orders, transitMethods = [], 
           </div>
 
           <div className="flex items-center gap-2 flex-shrink-0">
-            {hasAddress ? (
+            {isPickupOrStorage ? (
+              <Badge className={`text-xs ${rawTransitMethodId === '__pickup__' ? 'bg-teal-100 text-teal-700' : 'bg-indigo-100 text-indigo-700'}`}>
+                <Truck className="w-3 h-3 mr-1" />
+                {rawTransitMethodId === '__pickup__' ? '自取' : '暂存'}
+              </Badge>
+            ) : hasAddress ? (
               <Badge variant="outline" className="text-xs">
                 <MapPin className="w-3 h-3 mr-1 text-green-600" />
                 已填写地址
@@ -228,61 +245,67 @@ export default function UserGroupCard({ userEntry, orders, transitMethods = [], 
               </div>
             )}
 
-            {/* Address Section */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                  <MapPin className="w-4 h-4" />
-                  最终收货地址
-                </h4>
-                {!editingAddress && (
-                  <Button size="sm" variant="ghost" onClick={() => setEditingAddress(true)} className="h-7 text-xs">
-                    <Edit2 className="w-3 h-3 mr-1" />编辑
-                  </Button>
+            {/* Address Section — hidden for pickup/storage */}
+            {isPickupOrStorage ? (
+              <div className={`rounded-lg px-3 py-2 text-xs font-medium flex items-center gap-2 ${rawTransitMethodId === '__pickup__' ? 'bg-teal-50 text-teal-700 border border-teal-200' : 'bg-indigo-50 text-indigo-700 border border-indigo-200'}`}>
+                <Truck className="w-3.5 h-3.5" />
+                {rawTransitMethodId === '__pickup__' ? '自取 — 用户将直接到中转地取货，无需填写最终收货地址' : '暂存 — 货物将在中转地暂存，无需填写最终收货地址'}
+              </div>
+            ) : (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                    <MapPin className="w-4 h-4" />
+                    最终收货地址
+                  </h4>
+                  {!editingAddress && (
+                    <Button size="sm" variant="ghost" onClick={() => setEditingAddress(true)} className="h-7 text-xs">
+                      <Edit2 className="w-3 h-3 mr-1" />编辑
+                    </Button>
+                  )}
+                </div>
+                {editingAddress ? (
+                  <div className="space-y-2 bg-gray-50 p-3 rounded-lg">
+                    {[
+                      { label: '收件人', key: 'recipient_name' },
+                      { label: '电话', key: 'phone' },
+                      { label: '国家', key: 'country' },
+                      { label: '地址行 1', key: 'addr1' },
+                      { label: '地址行 2', key: 'addr2' },
+                      { label: '地址行 3', key: 'addr3' },
+                      { label: '州/省', key: 'state' },
+                    ].map(({ label, key }) => (
+                      <div key={key}>
+                        <Label className="text-xs">{label}</Label>
+                        <Input
+                          value={addressData[key] || ''}
+                          onChange={(e) => setAddressData({ ...addressData, [key]: e.target.value })}
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                    ))}
+                    <div className="flex gap-2 pt-2">
+                      <Button size="sm" onClick={handleSaveAddress} disabled={saving} className="bg-indigo-600 hover:bg-indigo-700 text-xs h-8">
+                        {saving ? <span className="animate-spin">⏳</span> : <Save className="w-3 h-3 mr-1" />}保存
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => setEditingAddress(false)} className="text-xs h-8">取消</Button>
+                    </div>
+                  </div>
+                ) : hasAddress ? (
+                  <div className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg">
+                    <p className="font-medium">{addressData.recipient_name}</p>
+                    {addressData.phone && <p className="text-gray-600 mt-1">{addressData.phone}</p>}
+                    <p className="text-gray-600 mt-1">{getCountry(addressData.country)?.name || addressData.country}</p>
+                    {addressData.addr1 && <p className="text-gray-600">{addressData.addr1}</p>}
+                    {addressData.addr2 && <p className="text-gray-600">{addressData.addr2}</p>}
+                    {addressData.addr3 && <p className="text-gray-600">{addressData.addr3}</p>}
+                    {addressData.state && <p className="text-gray-600">{addressData.state}</p>}
+                  </div>
+                ) : (
+                  <div className="text-sm text-gray-400 italic bg-gray-50 p-3 rounded-lg">暂无地址信息</div>
                 )}
               </div>
-
-              {editingAddress ? (
-                <div className="space-y-2 bg-gray-50 p-3 rounded-lg">
-                  {[
-                    { label: '收件人', key: 'recipient_name' },
-                    { label: '电话', key: 'phone' },
-                    { label: '国家', key: 'country' },
-                    { label: '地址行 1', key: 'addr1' },
-                    { label: '地址行 2', key: 'addr2' },
-                    { label: '地址行 3', key: 'addr3' },
-                    { label: '州/省', key: 'state' },
-                  ].map(({ label, key }) => (
-                    <div key={key}>
-                      <Label className="text-xs">{label}</Label>
-                      <Input
-                        value={addressData[key] || ''}
-                        onChange={(e) => setAddressData({ ...addressData, [key]: e.target.value })}
-                        className="h-8 text-sm"
-                      />
-                    </div>
-                  ))}
-                  <div className="flex gap-2 pt-2">
-                    <Button size="sm" onClick={handleSaveAddress} disabled={saving} className="bg-indigo-600 hover:bg-indigo-700 text-xs h-8">
-                      {saving ? <span className="animate-spin">⏳</span> : <Save className="w-3 h-3 mr-1" />}保存
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => setEditingAddress(false)} className="text-xs h-8">取消</Button>
-                  </div>
-                </div>
-              ) : hasAddress ? (
-                <div className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg">
-                  <p className="font-medium">{addressData.recipient_name}</p>
-                  {addressData.phone && <p className="text-gray-600 mt-1">{addressData.phone}</p>}
-                  <p className="text-gray-600 mt-1">{getCountry(addressData.country)?.name || addressData.country}</p>
-                  {addressData.addr1 && <p className="text-gray-600">{addressData.addr1}</p>}
-                  {addressData.addr2 && <p className="text-gray-600">{addressData.addr2}</p>}
-                  {addressData.addr3 && <p className="text-gray-600">{addressData.addr3}</p>}
-                  {addressData.state && <p className="text-gray-600">{addressData.state}</p>}
-                </div>
-              ) : (
-                <div className="text-sm text-gray-400 italic bg-gray-50 p-3 rounded-lg">暂无地址信息</div>
-              )}
-            </div>
+            )}
 
             {/* Packing Images Section */}
             <div>
