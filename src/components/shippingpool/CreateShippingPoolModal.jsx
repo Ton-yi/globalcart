@@ -14,8 +14,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Truck, Star } from "lucide-react";
+import { tenantEntity } from "@/lib/tenantApi";
 
 export default function CreateShippingPoolModal({ isAdmin, onClose, onSuccess }) {
   const [step, setStep] = useState(1);
@@ -45,10 +48,14 @@ export default function CreateShippingPoolModal({ isAdmin, onClose, onSuccess })
     shipping_method: "",
     scheduled_ship_date: "",
     transit_location_id: "",
+    transit_shipping_method_id: "",
     user_note: "",
   });
   
   const [shippingMethods, setShippingMethods] = useState([]);
+  const [transitMethods, setTransitMethods] = useState([]);
+  const [shippingAddons, setShippingAddons] = useState([]);
+  const [selectedAddonIds, setSelectedAddonIds] = useState([]);
 
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
@@ -58,11 +65,13 @@ export default function CreateShippingPoolModal({ isAdmin, onClose, onSuccess })
       const u = await base44.auth.me();
       setUser(u);
 
-      const [ordersRes, locs, prefs, cfg] = await Promise.all([
+      const [ordersRes, locs, prefs, cfg, tMethods, addons] = await Promise.all([
         base44.functions.invoke('getTenantOrders', {}).then(r => r.data?.orders || []),
         tenantEntity.list('TransitLocation', { is_active: true }),
         userPrefApi.list({ user_email: u.email }),
         fetchTenantConfig(),
+        tenantEntity.list('TransitShippingMethod', { is_active: true }),
+        tenantEntity.list('AddonOption', { addon_type: "shipping", is_active: true }),
       ]);
       const warehouseOrders = ordersRes.filter(o => o.order_status === "in_warehouse");
       setAvailableOrders(warehouseOrders);
@@ -71,6 +80,8 @@ export default function CreateShippingPoolModal({ isAdmin, onClose, onSuccess })
       // Load shipping methods filtered by enabled_for_user_pool (since this is for creating a pool)
       const methods = (cfg.shippingMethods || []).filter(m => m.is_active !== false && m.enabled_for_user_pool !== false);
       setShippingMethods(methods);
+      setTransitMethods(tMethods || []);
+      setShippingAddons(addons || []);
 
       if (prefs.length > 0 && prefs[0].saved_addresses?.length > 0) {
         setSavedAddresses(prefs[0].saved_addresses);
@@ -137,9 +148,11 @@ export default function CreateShippingPoolModal({ isAdmin, onClose, onSuccess })
     }
 
     const transitLoc = transitLocations.find(l => l.id === form.transit_location_id);
+    const transitMethod = transitMethods.find(m => m.id === form.transit_shipping_method_id);
+    const isPickupOrStorage = form.transit_shipping_method_id === '__pickup__' || form.transit_shipping_method_id === '__storage__';
 
-    // Build standard address object for the engine
-    const resolvedAddress = {
+    // Build standard address object for the engine (skip for pickup/storage)
+    const resolvedAddress = isPickupOrStorage ? null : {
       recipient_name: form.recipient_name || '',
       country: form.destination_country || '',
       addr1: form.address_line1 || '',
@@ -148,6 +161,14 @@ export default function CreateShippingPoolModal({ isAdmin, onClose, onSuccess })
       state: form.state || '',
       phone: form.recipient_phone || '',
     };
+
+    // Build selected addons
+    const selectedAddons = shippingAddons.filter(a => selectedAddonIds.includes(a.id)).map(a => ({
+      id: a.id,
+      name: a.name,
+      fee: a.fee,
+      fee_currency: a.fee_currency,
+    }));
 
     // Call unified engine — pool_code generation and per_user_groups are handled server-side
     await base44.functions.invoke('createShippingPool', {
@@ -162,10 +183,10 @@ export default function CreateShippingPoolModal({ isAdmin, onClose, onSuccess })
         transit_location_id: form.transit_location_id || '',
         transit_location_name: transitLoc?.name || '',
         transit_location_country: transitLoc?.country || '',
-        transit_shipping_method_id: '',
-        transit_shipping_method_name: '',
-        selected_addon_ids: [],
-        selected_addons: [],
+        transit_shipping_method_id: form.transit_shipping_method_id || '',
+        transit_shipping_method_name: transitMethod?.name || '',
+        selected_addon_ids: selectedAddonIds,
+        selected_addons: selectedAddons,
         target_pool_id: '',
         join_existing_pool: false,
         is_private: false,
@@ -370,23 +391,67 @@ export default function CreateShippingPoolModal({ isAdmin, onClose, onSuccess })
                 </div>
               </div>
 
-              {/* Transit location + scheduled date */}
-              <div className="grid grid-cols-2 gap-3">
-                {transitLocations.length > 0 && (
-                  <div>
-                    <Label className="text-xs text-gray-500">中转地</Label>
-                    <Select value={form.transit_location_id} onValueChange={v => f("transit_location_id", v)}>
-                      <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue placeholder="选择中转地（可选）" /></SelectTrigger>
-                      <SelectContent>
-                        {transitLocations.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
+              {/* Transit location + transit shipping method */}
+              {transitLocations.length > 0 && (
                 <div>
-                  <Label className="text-xs text-gray-500">计划发货日期</Label>
-                  <Input type="date" className="mt-1 h-8 text-sm" value={form.scheduled_ship_date} onChange={e => f("scheduled_ship_date", e.target.value)} />
+                  <Label className="text-xs text-gray-500">中转地</Label>
+                  <Select value={form.transit_location_id} onValueChange={v => { f("transit_location_id", v); f("transit_shipping_method_id", ""); }}>
+                    <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue placeholder="选择中转地（可选）" /></SelectTrigger>
+                    <SelectContent>
+                      {transitLocations.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                 </div>
+              )}
+              
+              {/* Transit shipping method (only when transit location selected) */}
+              {form.transit_location_id && transitMethods.length > 0 && (
+                <div>
+                  <Label className="text-xs text-gray-500">中转段运输方式</Label>
+                  <div className="mt-1.5 space-y-1.5">
+                    {[
+                      { id: "__pickup__", name: "自取", description: "到中转地自行取货" },
+                      { id: "__storage__", name: "暂存", description: "货品暂存于中转地" },
+                    ].map(m => (
+                      <label key={m.id} className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors text-xs ${form.transit_shipping_method_id === m.id ? "border-teal-400 bg-teal-50" : "border-gray-200 hover:bg-gray-50"}`}>
+                        <input type="radio" checked={form.transit_shipping_method_id === m.id} onChange={() => f("transit_shipping_method_id", m.id)} className="accent-teal-600" />
+                        <span className="text-gray-700">{m.name}</span>
+                        <span className="text-gray-400">{m.description}</span>
+                      </label>
+                    ))}
+                    {transitMethods.map(m => (
+                      <label key={m.id} className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors text-xs ${form.transit_shipping_method_id === m.id ? "border-blue-400 bg-blue-50" : "border-gray-200 hover:bg-gray-50"}`}>
+                        <input type="radio" checked={form.transit_shipping_method_id === m.id} onChange={() => f("transit_shipping_method_id", m.id)} className="accent-blue-600" />
+                        <span className="text-gray-700">{m.name}</span>
+                        {m.description && <span className="text-gray-400">{m.description}</span>}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {/* Shipping addons */}
+              {shippingAddons.length > 0 && (
+                <div>
+                  <Label className="text-xs text-gray-500">发货增值服务（可选）</Label>
+                  <div className="mt-1.5 space-y-1.5">
+                    {shippingAddons.map(a => (
+                      <label key={a.id} className={`flex items-center justify-between gap-2 p-2 rounded-lg border cursor-pointer transition-colors text-xs ${selectedAddonIds.includes(a.id) ? "border-yellow-400 bg-yellow-50" : "border-gray-200 hover:bg-gray-50"}`}>
+                        <div className="flex items-center gap-2">
+                          <Checkbox checked={selectedAddonIds.includes(a.id)} onCheckedChange={v => setSelectedAddonIds(prev => v ? [...prev, a.id] : prev.filter(id => id !== a.id))} />
+                          <span className="text-gray-700">{a.name}</span>
+                        </div>
+                        {a.fee > 0 && <span className="text-yellow-700 font-medium">+{a.fee_currency || "JPY"} {Number(a.fee).toLocaleString()}</span>}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {/* Scheduled date */}
+              <div>
+                <Label className="text-xs text-gray-500">计划发货日期</Label>
+                <Input type="date" className="mt-1 h-8 text-sm" value={form.scheduled_ship_date} onChange={e => f("scheduled_ship_date", e.target.value)} />
               </div>
 
               {/* Pool title */}
