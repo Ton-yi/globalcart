@@ -4,11 +4,12 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Settings, Bell, Mail, Save, DollarSign, Package, MessageSquare, Info } from "lucide-react";
+import { Settings, Bell, Mail, Save, DollarSign, Package, MessageSquare, Info, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 
 const notificationCategories = [
@@ -69,9 +70,18 @@ export default function AdminNotificationDefaults() {
   const [globalEmail, setGlobalEmail] = useState(true);
   const [subtypeSettings, setSubtypeSettings] = useState({});
   const [description, setDescription] = useState("");
+  const [targetTenantId, setTargetTenantId] = useState(null); // null = 平台级
+
+  const { data: tenants } = useQuery({
+    queryKey: ['all-tenants'],
+    queryFn: async () => {
+      const res = await base44.functions.invoke('getTenantContext', {});
+      return res.data?.tenants || [];
+    },
+  });
 
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ['notification-defaults'],
+    queryKey: ['notification-defaults', targetTenantId],
     queryFn: async () => {
       const res = await base44.functions.invoke('getNotificationDefaults', {});
       return res.data;
@@ -92,13 +102,14 @@ export default function AdminNotificationDefaults() {
   const saveMutation = useMutation({
     mutationFn: async (settings) => {
       const res = await base44.functions.invoke('manageNotificationDefaults', {
-        action: 'update',
+        action: 'save',
+        tenant_id: targetTenantId,
         ...settings
       });
       return res.data;
     },
     onSuccess: () => {
-      toast.success('默认设置已保存');
+      toast.success(targetTenantId ? '租户默认设置已保存' : '平台默认设置已保存');
       refetch();
     },
     onError: (error) => {
@@ -130,6 +141,35 @@ export default function AdminNotificationDefaults() {
         <h1 className="text-2xl font-bold text-gray-900">新用户默认通知设置</h1>
         <p className="text-sm text-gray-500 mt-1">设置新注册用户的默认通知偏好</p>
       </div>
+
+      {/* Tenant Selector (Platform Admin Only) */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Globe className="w-5 h-5" />
+            设置范围
+          </CardTitle>
+          <CardDescription>平台管理员可选择设置平台级或特定租户的默认值</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Select
+            value={targetTenantId || 'platform'}
+            onValueChange={(value) => setTargetTenantId(value === 'platform' ? null : value)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="选择设置范围" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="platform">平台级（所有租户）</SelectItem>
+              {tenants?.map((tenant) => (
+                <SelectItem key={tenant.id} value={tenant.id}>
+                  {tenant.name || tenant.subdomain}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </CardContent>
+      </Card>
 
       {/* Global Settings */}
       <Card>
@@ -263,9 +303,10 @@ export default function AdminNotificationDefaults() {
           <CardTitle>使用说明</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm text-gray-600">
-          <p>• 此设置将应用于所有新注册用户</p>
+          <p>• 平台级设置：应用于所有租户的新用户（租户无自定义设置时）</p>
+          <p>• 租户级设置：仅应用于指定租户的新用户，优先级高于平台级</p>
           <p>• 用户注册后仍可在个人设置中自定义通知偏好</p>
-          <p>• 平台管理员可设置全局默认值，租户管理员可设置自己租户的默认值</p>
+          <p>• 租户管理员只能设置自己租户的默认值</p>
           <p>• 建议关闭不重要的通知（如订单创建）的邮件提醒，避免打扰用户</p>
         </CardContent>
       </Card>
