@@ -114,9 +114,10 @@ Deno.serve(async (req) => {
         
         // 计算订单阶段利润
         orders.forEach(order => {
-            // 下单阶段数据
+            // 下单阶段数据 - 优先使用 order_stage_payment_jpy，否则使用 paid_amount
             const orderPayment = order.order_stage_payment_jpy || order.paid_amount || 0;
             const refund = order.refund_amount_jpy || 0;
+            // 商品成本：使用 estimated_jpy（日元货款）
             const goodsCost = order.estimated_jpy || 0;
             const orderProfit = orderPayment - refund - goodsCost;
             
@@ -125,8 +126,27 @@ Deno.serve(async (req) => {
             reportData.summary.goods_cost_jpy += goodsCost;
             reportData.summary.order_stage_profit_jpy += orderProfit;
             
-            // 按维度分组
-            const dimensionValue = order[dimension] || 'unknown';
+            // 按维度分组 - 根据维度类型从订单或关联的发货池获取
+            let dimensionValue = 'unknown';
+            if (dimension === 'order_status') {
+                dimensionValue = order.order_status || 'unknown';
+            } else if (dimension === 'payment_status') {
+                dimensionValue = order.payment_status || 'unknown';
+            } else if (dimension === 'payment_method') {
+                dimensionValue = order.payment_method || 'unknown';
+            } else if (dimension === 'online_store_tag') {
+                dimensionValue = order.online_store_tag || '其它';
+            } else if (dimension === 'country') {
+                // 从 pre_shipment.address 或 destination_country 获取
+                dimensionValue = order.pre_shipment?.address?.country || order.destination_country || 'unknown';
+            } else if (dimension === 'shipping_method') {
+                // 从 pre_shipment 或订单获取
+                dimensionValue = order.pre_shipment?.shipping_method || order.shipping_method || 'unknown';
+            } else if (dimension === 'is_refunded') {
+                dimensionValue = (order.refund_amount_jpy && order.refund_amount_jpy > 0) ? '已退款' : '未退款';
+            } else {
+                dimensionValue = order[dimension] || 'unknown';
+            }
             if (!reportData.byDimension[dimensionValue]) {
                 reportData.byDimension[dimensionValue] = {
                     order_count: 0,
@@ -159,10 +179,15 @@ Deno.serve(async (req) => {
         
         // 计算发货阶段利润
         shippingPools.forEach(pool => {
+            // 运费收入：优先使用 shipping_stage_income_jpy，否则使用 shipping_fee_jpy
             const shippingIncome = pool.shipping_stage_income_jpy || pool.shipping_fee_jpy || 0;
+            // 实际国际运费支出
             const intlShippingCost = pool.actual_international_shipping_cost_jpy || 0;
+            // 外箱收费：优先使用 snapshot，否则使用 box_price_jpy
             const boxCharge = pool.box_charge_jpy_snapshot || pool.box_price_jpy || 0;
+            // 外箱实际成本
             const boxCost = pool.box_actual_cost_jpy_snapshot || 0;
+            // 发货利润 = 运费收入 - 国际运费 - 外箱成本
             const shippingProfit = shippingIncome - intlShippingCost - boxCost;
             
             reportData.summary.shipping_stage_income_jpy += shippingIncome;
@@ -171,27 +196,86 @@ Deno.serve(async (req) => {
             reportData.summary.box_actual_cost_jpy += boxCost;
             reportData.summary.shipping_stage_profit_jpy += shippingProfit;
             
-            // 外箱利润
+            // 外箱利润 = 外箱收费 - 外箱成本
             const boxProfit = boxCharge - boxCost;
             reportData.summary.box_profit_jpy += boxProfit;
+            
+            // 按维度分组发货利润 - 从关联订单获取维度值
+            // 简化处理：根据 pool 中的订单平均分配发货利润
+            const orderIds = pool.order_ids || [];
+            const relatedOrders = orders.filter(o => orderIds.includes(o.id));
+            
+            if (relatedOrders.length > 0) {
+                // 计算每个维度的订单数
+                const dimensionCount = {};
+                relatedOrders.forEach(order => {
+                    let dimValue = 'unknown';
+                    if (dimension === 'order_status') {
+                        dimValue = order.order_status || 'unknown';
+                    } else if (dimension === 'payment_status') {
+                        dimValue = order.payment_status || 'unknown';
+                    } else if (dimension === 'payment_method') {
+                        dimValue = order.payment_method || 'unknown';
+                    } else if (dimension === 'online_store_tag') {
+                        dimValue = order.online_store_tag || '其它';
+                    } else if (dimension === 'country') {
+                        dimValue = order.pre_shipment?.address?.country || order.destination_country || 'unknown';
+                    } else if (dimension === 'shipping_method') {
+                        dimValue = order.pre_shipment?.shipping_method || order.shipping_method || 'unknown';
+                    } else if (dimension === 'is_refunded') {
+                        dimValue = (order.refund_amount_jpy && order.refund_amount_jpy > 0) ? '已退款' : '未退款';
+                    } else {
+                        dimValue = order[dimension] || 'unknown';
+                    }
+                    
+                    if (!dimensionCount[dimValue]) {
+                        dimensionCount[dimValue] = 0;
+                    }
+                    dimensionCount[dimValue] += 1;
+                });
+                
+                // 按订单数比例分配发货利润到各维度
+                const profitPerOrder = shippingProfit / relatedOrders.length;
+                Object.entries(dimensionCount).forEach(([dimValue, count]) => {
+                    if (!reportData.byDimension[dimValue]) {
+                        reportData.byDimension[dimValue] = {
+                            order_count: 0,
+                            order_stage_payment_jpy: 0,
+                            refund_amount_jpy: 0,
+                            goods_cost_jpy: 0,
+                            order_stage_profit_jpy: 0,
+                            shipping_stage_profit_jpy: 0,
+                            total_profit_jpy: 0,
+                            orders_missing_cost_data: 0
+                        };
+                    }
+                    reportData.byDimension[dimValue].shipping_stage_profit_jpy += profitPerOrder * count;
+                    reportData.byDimension[dimValue].total_profit_jpy = 
+                        reportData.byDimension[dimValue].order_stage_profit_jpy + 
+                        reportData.byDimension[dimValue].shipping_stage_profit_jpy;
+                });
+            }
         });
         
         // 计算总利润
         reportData.summary.total_profit_jpy = 
             reportData.summary.order_stage_profit_jpy + reportData.summary.shipping_stage_profit_jpy;
         
-        // 按维度汇总发货利润（简化处理，假设每个 pool 对应一个维度值）
-        // 实际生产中需要从关联的 order 中获取维度值
-        Object.keys(reportData.byDimension).forEach(dimensionValue => {
-            const dimensionData = reportData.byDimension[dimensionValue];
-            // 避免除以零
-            const avgShippingProfit = orders.length > 0 
-                ? reportData.summary.shipping_stage_profit_jpy / orders.length 
-                : 0;
-            dimensionData.shipping_stage_profit_jpy = avgShippingProfit * dimensionData.order_count;
-            dimensionData.total_profit_jpy = 
-                dimensionData.order_stage_profit_jpy + dimensionData.shipping_stage_profit_jpy;
-        });
+        // 补充未分配完的发货利润（处理没有关联订单的 pool）
+        // 这些利润平均分配到所有维度
+        const allocatedShippingProfit = Object.values(reportData.byDimension)
+            .reduce((sum, d) => sum + (d.shipping_stage_profit_jpy || 0), 0);
+        const unallocatedProfit = reportData.summary.shipping_stage_profit_jpy - allocatedShippingProfit;
+        
+        if (unallocatedProfit !== 0 && Object.keys(reportData.byDimension).length > 0) {
+            // 将未分配的利润平均分配到所有维度
+            const profitPerDimension = unallocatedProfit / Object.keys(reportData.byDimension).length;
+            Object.values(reportData.byDimension).forEach(dimensionData => {
+                dimensionData.shipping_stage_profit_jpy += profitPerDimension;
+                dimensionData.total_profit_jpy = 
+                    dimensionData.order_stage_profit_jpy + dimensionData.shipping_stage_profit_jpy;
+            });
+        }
         
         const result = {
             success: true,
