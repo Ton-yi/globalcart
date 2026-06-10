@@ -16,6 +16,7 @@ import AdminTransitWork from '@/pages/AdminTransitWork';
 import Notifications from '@/pages/Notifications';
 import UserNotificationSettings from '@/pages/UserNotificationSettings';
 import AdminNotificationManager from '@/pages/AdminNotificationManager';
+import AdminNotificationTemplates from '@/pages/AdminNotificationTemplates';
 
 
 const { Pages, Layout, mainPage } = pagesConfig;
@@ -116,6 +117,11 @@ const AuthenticatedApp = () => {
       <Route path="/AdminNotificationManager" element={
         <LayoutWrapper currentPageName="AdminNotificationManager">
           <AdminNotificationManager />
+        </LayoutWrapper>
+      } />
+      <Route path="/AdminNotificationTemplates" element={
+        <LayoutWrapper currentPageName="AdminNotificationTemplates">
+          <AdminNotificationTemplates />
         </LayoutWrapper>
       } />
       <Route path="*" element={<PageNotFound />} />

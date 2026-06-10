@@ -3,6 +3,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 /**
  * 创建系统通知
  * 可用于管理员发送通知给用户，或系统自动发送通知
+ * 支持模板渲染和邮件发送
  */
 Deno.serve(async (req) => {
   try {
@@ -27,7 +28,10 @@ Deno.serve(async (req) => {
       related_url,
       priority = 'normal',
       metadata = {},
-      send_to_all = false
+      send_to_all = false,
+      use_template = false,
+      template_vars = {},
+      send_email = false
     } = data;
 
     const userRecords = await base44.asServiceRole.entities.User.filter({ email: user.email });
@@ -36,6 +40,34 @@ Deno.serve(async (req) => {
     }
 
     const tenantId = userRecords[0].tenant_id;
+
+    // Render title and content from template if needed
+    let finalTitle = title;
+    let finalContent = content;
+
+    if (use_template && notification_type && notification_subtype) {
+      const templates = await base44.asServiceRole.entities.NotificationTemplate.filter({
+        notification_type,
+        notification_subtype,
+        is_active: true
+      });
+
+      if (templates && templates.length > 0) {
+        const template = templates[0];
+        finalTitle = renderTemplate(template.title_template, template_vars);
+        finalContent = renderTemplate(template.content_template, template_vars);
+      }
+    }
+
+    // Helper function to render template variables
+    function renderTemplate(template, vars) {
+      if (!template) return '';
+      let result = template;
+      for (const [key, value] of Object.entries(vars)) {
+        result = result.replace(new RegExp(`{{${key}}}`, 'g'), String(value));
+      }
+      return result;
+    }
 
     // Permission check: only admins can send to all users
     if (send_to_all && !isAdmin) {
@@ -54,8 +86,8 @@ Deno.serve(async (req) => {
           notification_type,
           notification_subtype,
           icon: data.icon || 'Bell',
-          title,
-          content,
+          title: finalTitle,
+          content: finalContent,
           related_entity_type,
           related_entity_id,
           related_url,
@@ -66,6 +98,19 @@ Deno.serve(async (req) => {
           created_by: user.id
         });
         notifications.push(notification);
+
+        // Send email if enabled
+        if (send_email) {
+          try {
+            await base44.integrations.Core.SendEmail({
+              to: [targetUser.email],
+              subject: finalTitle,
+              html: finalContent
+            });
+          } catch (emailError) {
+            console.error('Failed to send email:', emailError);
+          }
+        }
       }
 
       return Response.json({
@@ -94,8 +139,8 @@ Deno.serve(async (req) => {
         notification_type,
         notification_subtype,
         icon: data.icon || 'Bell',
-        title,
-        content,
+        title: finalTitle,
+        content: finalContent,
         related_entity_type,
         related_entity_id,
         related_url,
@@ -105,6 +150,19 @@ Deno.serve(async (req) => {
         metadata,
         created_by: user.id
       });
+
+      // Send email if enabled
+      if (send_email) {
+        try {
+          await base44.integrations.Core.SendEmail({
+            to: [user_email],
+            subject: finalTitle,
+            html: finalContent
+          });
+        } catch (emailError) {
+          console.error('Failed to send email:', emailError);
+        }
+      }
 
       return Response.json({
         success: true,

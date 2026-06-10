@@ -5,12 +5,13 @@
 import { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Bell, Send, Users, User, AlertCircle, CheckCircle, Loader2 } from "lucide-react";
+import { Bell, Send, Users, User, AlertCircle, CheckCircle, Loader2, Mail, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
 const notificationTypes = [
@@ -31,6 +32,7 @@ const priorities = [
 
 export default function AdminNotificationManager() {
   const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState("create");
   const [formData, setFormData] = useState({
     user_email: "",
     notification_type: "order_status",
@@ -40,6 +42,7 @@ export default function AdminNotificationManager() {
     priority: "normal",
     related_url: "",
     send_to_all: false,
+    send_email: false,
   });
 
   const { data: tenantUsers } = useQuery({
@@ -48,6 +51,15 @@ export default function AdminNotificationManager() {
       const res = await base44.functions.invoke('getTenantUsers', {});
       return res.data.users || [];
     },
+  });
+
+  const { data: notifications } = useQuery({
+    queryKey: ['admin-notifications'],
+    queryFn: async () => {
+      const res = await base44.functions.invoke('getUserNotifications', { limit: 50, skip: 0 });
+      return res.data.notifications || [];
+    },
+    enabled: activeTab === 'history',
   });
 
   const createNotificationMutation = useMutation({
@@ -98,9 +110,27 @@ export default function AdminNotificationManager() {
           <h1 className="text-2xl font-bold text-gray-900">通知管理</h1>
           <p className="text-sm text-gray-500 mt-1">创建和管理系统通知</p>
         </div>
+        <div className="flex gap-2">
+          <Button
+            variant={activeTab === "create" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setActiveTab("create")}
+          >
+            <Send className="w-4 h-4 mr-2" />
+            创建通知
+          </Button>
+          <Button
+            variant={activeTab === "history" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setActiveTab("history")}
+          >
+            <Bell className="w-4 h-4 mr-2" />
+            通知历史
+          </Button>
+        </div>
       </div>
 
-      {/* Create Notification Form */}
+      {activeTab === "create" ? (
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -234,6 +264,21 @@ export default function AdminNotificationManager() {
               </p>
             </div>
 
+            {/* Send Email Option */}
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="send_email"
+                checked={formData.send_email}
+                onChange={(e) => setFormData({ ...formData, send_email: e.target.checked })}
+                className="h-4 w-4"
+              />
+              <label htmlFor="send_email" className="text-sm text-gray-700 flex items-center gap-1">
+                <Mail className="w-4 h-4" />
+                同时发送邮件通知
+              </label>
+            </div>
+
             {/* Submit Button */}
             <Button
               type="submit"
@@ -255,6 +300,48 @@ export default function AdminNotificationManager() {
           </form>
         </CardContent>
       </Card>
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle>通知历史</CardTitle>
+            <CardDescription>最近发送的通知记录</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {notifications && notifications.length > 0 ? (
+              <div className="space-y-3">
+                {notifications.map((notification) => (
+                  <div key={notification.id} className="flex items-start justify-between p-3 border rounded-lg">
+                    <div className="flex items-start gap-3 flex-1">
+                      <Bell className="w-5 h-5 text-gray-400 mt-0.5" />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-medium text-sm">{notification.title}</h3>
+                          <Badge variant="outline" className="text-xs">
+                            {notification.notification_type}
+                          </Badge>
+                          {notification.is_read && (
+                            <Badge variant="secondary" className="text-xs">已读</Badge>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-600 mt-1">{notification.content}</p>
+                        <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
+                          <span>{new Date(notification.created_date).toLocaleString('zh-CN')}</span>
+                          <span>收件人：{notification.user_email}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center text-gray-500 py-8">
+                <Bell className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                <p>暂无通知记录</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Usage Guide */}
       <Card>
