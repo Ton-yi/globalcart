@@ -730,18 +730,20 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
                   </label>
                 ))}
               </div>
-              <AddressBlock
-                slot="final"
-                label="最终收货地址（货品从中转地发往此处）*"
-                savedAddresses={savedAddresses}
-                selectedId={finalAddressId}
-                isNewMode={!!addressInputMode["final"]}
-                newAddress={newAddress}
-                saveNewAddress={saveNewAddress}
-                onSelect={(v) => handleAddressSelect(v, "final")}
-                onNewAddressChange={setNewAddress}
-                onSaveToggle={setSaveNewAddress}
-              />
+              {!isJoiningPool && (
+                <AddressBlock
+                  slot="final"
+                  label="最终收货地址（货品从中转地发往此处）*"
+                  savedAddresses={savedAddresses}
+                  selectedId={finalAddressId}
+                  isNewMode={!!addressInputMode["final"]}
+                  newAddress={newAddress}
+                  saveNewAddress={saveNewAddress}
+                  onSelect={(v) => handleAddressSelect(v, "final")}
+                  onNewAddressChange={setNewAddress}
+                  onSaveToggle={setSaveNewAddress}
+                />
+              )}
             </div>
           )}
 
