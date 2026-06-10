@@ -72,8 +72,9 @@ export default function PlatformNotificationManager() {
     content: "",
     priority: "normal",
     related_url: "",
-    send_to_all_tenants: true,
+    send_to_all_tenants: false,
     target_tenant_ids: [],
+    send_to_admins_only: true,
     send_email: false,
   });
 
@@ -99,8 +100,9 @@ export default function PlatformNotificationManager() {
         content: "",
         priority: "normal",
         related_url: "",
-        send_to_all_tenants: true,
+        send_to_all_tenants: false,
         target_tenant_ids: [],
+        send_to_admins_only: true,
         send_email: false,
       });
     },
@@ -140,7 +142,7 @@ export default function PlatformNotificationManager() {
             创建平台通知
           </CardTitle>
           <CardDescription>
-            发送通知给一个或多个租户的所有用户
+            发送通知给一个或多个租户的管理员或所有用户
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -162,6 +164,20 @@ export default function PlatformNotificationManager() {
                   <label htmlFor="send_to_all_tenants" className="text-sm text-gray-700 flex items-center gap-1">
                     <Globe className="w-4 h-4" />
                     发送给所有租户
+                  </label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="send_to_admins_only"
+                    checked={formData.send_to_admins_only}
+                    onCheckedChange={(checked) => setFormData({ 
+                      ...formData, 
+                      send_to_admins_only: checked
+                    })}
+                  />
+                  <label htmlFor="send_to_admins_only" className="text-sm text-gray-700 flex items-center gap-1">
+                    <Users className="w-4 h-4" />
+                    仅发送给管理员
                   </label>
                 </div>
               </div>
@@ -326,8 +342,9 @@ export default function PlatformNotificationManager() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm text-gray-600">
-          <p>• 平台通知会发送给所有租户的所有用户</p>
-          <p>• 可选择发送给特定租户</p>
+          <p>• 可选择发送给所有租户或指定租户</p>
+          <p>• 默认仅发送给管理员（租户管理员和平台管理员）</p>
+          <p>• 可取消"仅发送给管理员"选项来发送给所有用户</p>
           <p>• 通知类型用于分类管理，方便用户筛选</p>
           <p>• 关联 URL 可以让用户点击通知直接跳转到相关页面</p>
           <p>• 邮件发送会尊重用户的个人通知偏好设置</p>

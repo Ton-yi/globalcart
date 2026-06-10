@@ -23,7 +23,8 @@ Deno.serve(async (req) => {
       related_url,
       priority = 'normal',
       metadata = {},
-      send_to_all_tenants = true,
+      send_to_all_tenants = false,
+      send_to_admins_only = true,
       target_tenant_ids = [],
       send_email = false
     } = data;
@@ -41,10 +42,33 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'No target tenants selected' }, { status: 400 });
     }
 
-    // 获取所有目标租户的用户
-    const allUsers = await base44.asServiceRole.entities.User.filter({
-      tenant_id: tenantIds
-    });
+    // 获取目标租户的用户（根据 send_to_admins_only 过滤）
+    let allUsers = [];
+    if (send_to_admins_only) {
+      // 只获取管理员
+      const adminUsers = await base44.asServiceRole.entities.User.filter({
+        tenant_id: tenantIds,
+        role: 'admin'
+      });
+      const tenantAdminUsers = await base44.asServiceRole.entities.User.filter({
+        tenant_id: tenantIds,
+        role: 'tenant_admin'
+      });
+      const platformAdminUsers = await base44.asServiceRole.entities.User.filter({
+        role: 'platform_admin'
+      });
+      // 去重合并
+      const userMap = new Map();
+      [...(adminUsers || []), ...(tenantAdminUsers || []), ...(platformAdminUsers || [])].forEach(u => {
+        userMap.set(u.id, u);
+      });
+      allUsers = Array.from(userMap.values());
+    } else {
+      // 获取所有用户
+      allUsers = await base44.asServiceRole.entities.User.filter({
+        tenant_id: tenantIds
+      });
+    }
 
     const notifications = [];
     let emailSentCount = 0;

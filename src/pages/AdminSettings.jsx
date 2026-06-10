@@ -4,7 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { tenantEntity } from "@/lib/tenantApi";
 import { setTenantConfigCache } from "@/lib/configCache";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { Settings, Save, Plus, Trash2, Star, Lock, Eye, EyeOff, Palette, TrendingUp, Zap, Users, ExternalLink } from "lucide-react";
+import { Settings, Save, Plus, Trash2, Star, Lock, Eye, EyeOff, Palette, TrendingUp, Zap, Users, ExternalLink, Bell } from "lucide-react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import ThemeSelector from "@/components/common/ThemeSelector";
@@ -105,6 +105,7 @@ const TABS = [
   { key: "box_templates", label: "外箱模板" },
   { key: "store_tags", label: "商城标签规则" },
   { key: "countries", label: "国家设置" },
+  { key: "notifications", label: "通知设置" },
   { key: "theme", label: "界面主题" },
   { key: "permissions", label: "权限一览" },
 ];
@@ -520,6 +521,42 @@ export default function AdminSettings() {
           </CardHeader>
           <CardContent><PermissionViewer /></CardContent>
         </Card>
+      )}
+
+      {activeTab === "notifications" && (
+        <div className="space-y-4">
+          <Card className="border-blue-200">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                <Bell className="w-4 h-4 text-blue-500" />租户通知模板
+              </CardTitle>
+              <p className="text-xs text-gray-400 mt-1">管理当前租户的通知模板，包括标题、内容模板和默认发送方式</p>
+            </CardHeader>
+            <CardContent>
+              <Link to={createPageUrl("AdminNotificationTemplates")}>
+                <Button className="bg-blue-600 hover:bg-blue-700 w-full">
+                  <ExternalLink className="w-4 h-4 mr-2" />进入通知模板管理
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+
+          <Card className="border-green-200">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                <Settings className="w-4 h-4 text-green-500" />租户通知默认设置
+              </CardTitle>
+              <p className="text-xs text-gray-400 mt-1">设置新用户的默认通知偏好，包括站内通知和邮件通知的开关</p>
+            </CardHeader>
+            <CardContent>
+              <Link to={createPageUrl("AdminNotificationDefaults")}>
+                <Button className="bg-green-600 hover:bg-green-700 w-full">
+                  <ExternalLink className="w-4 h-4 mr-2" />进入默认设置管理
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       {activeTab === "theme" && (
