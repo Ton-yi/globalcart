@@ -90,32 +90,72 @@ Deno.serve(async (req) => {
           console.error(`[getTransitPoolWorkData] Failed to fetch order ${orderId}:`, e);
         }
       }
-      entries = fetchedOrders.map(order => ({
-        id: `order_${order.id}`,
-        order_id: order.id,
-        status: 'active',
-        product_name: order.product_name || '包裹',
-        user_email: order.user_email || request.creator_email,
-        user_name: order.user_name || request.creator_name,
-        estimated_jpy: order.estimated_jpy || 0,
-        weight_g: order.weight_g || 100,
-        order_details: order,
-      }));
-      // Also add any order_ids that couldn't be fetched as placeholders
+      const ordersById = {};
+      fetchedOrders.forEach(o => { ordersById[o.id] = o; });
+
+      // Build a map: order_id -> which per_user_groups address_group it belongs to
+      // This allows us to tag each entry with group_key for frontend grouping
+      const orderGroupMap = {}; // order_id -> { user_email, group_index, address_group }
+      const perUserGroups = request.per_user_groups || [];
+      for (const userGroup of perUserGroups) {
+        (userGroup.address_groups || []).forEach((ag, gi) => {
+          (ag.order_entries || []).forEach(oe => {
+            orderGroupMap[oe.order_id] = {
+              user_email: userGroup.user_email,
+              user_name: userGroup.user_name,
+              group_label: userGroup.group_label,
+              group_index: gi,
+              group_final_address: ag.group_final_address || userGroup.group_final_address,
+              transit_shipping_method: ag.transit_shipping_method,
+              transit_shipping_method_id: ag.transit_shipping_method_id,
+              selected_addon_ids: ag.selected_addon_ids || [],
+              selected_addons: ag.selected_addons || [],
+              note: ag.note || userGroup.note,
+            };
+          });
+        });
+      }
+
+      entries = fetchedOrders.map(order => {
+        const groupInfo = orderGroupMap[order.id];
+        return {
+          id: `order_${order.id}`,
+          order_id: order.id,
+          status: 'active',
+          product_name: order.product_name || '包裹',
+          user_email: groupInfo?.user_email || order.user_email || request.creator_email,
+          user_name: groupInfo?.user_name || order.user_name || request.creator_name,
+          group_label: groupInfo?.group_label,
+          group_index: groupInfo?.group_index ?? 0,
+          group_final_address: groupInfo?.group_final_address,
+          transit_shipping_method: groupInfo?.transit_shipping_method,
+          transit_shipping_method_id: groupInfo?.transit_shipping_method_id,
+          selected_addon_ids: groupInfo?.selected_addon_ids || [],
+          selected_addons: groupInfo?.selected_addons || [],
+          note: groupInfo?.note,
+          estimated_jpy: order.estimated_jpy || 0,
+          weight_g: order.weight_g || 100,
+          order_details: order,
+        };
+      });
+      // Placeholder for any unfetched order_ids
       const fetchedIds = new Set(fetchedOrders.map(o => o.id));
       poolOrderIds.filter(id => !fetchedIds.has(id)).forEach(orderId => {
+        const groupInfo = orderGroupMap[orderId];
         entries.push({
           id: `order_${orderId}`,
           order_id: orderId,
           status: 'active',
           product_name: '包裹',
-          user_email: request.creator_email,
-          user_name: request.creator_name,
+          user_email: groupInfo?.user_email || request.creator_email,
+          user_name: groupInfo?.user_name || request.creator_name,
+          group_label: groupInfo?.group_label,
+          group_index: groupInfo?.group_index ?? 0,
           estimated_jpy: 0,
           weight_g: 100,
         });
       });
-      console.log('[getTransitPoolWorkData] Created', entries.length, 'entries from ShippingPool orders with real user data');
+      console.log('[getTransitPoolWorkData] Created', entries.length, 'entries from ShippingPool orders with per_user_groups data');
     }
 
     // Fetch orders linked to entries (skip entries that already have order_details from ShippingPool fetch above)

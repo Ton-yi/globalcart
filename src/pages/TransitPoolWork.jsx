@@ -170,25 +170,63 @@ export default function TransitPoolWork() {
   // Determine if this is a GroupBuyRequest (new) or ShippingPool (legacy)
   const isRequest = !!request.title;
 
-  // Group entries by user
-  const userGroups = activeEntries.reduce((groups, entry) => {
-    const key = entry.user_email;
-    if (!groups[key]) {
-      groups[key] = {
-        user_email: entry.user_email,
-        user_name: entry.user_name,
-        entries: [],
-        final_address: entry.final_address,
-        packing_image_urls: entry.packing_image_urls || [],
-        estimated_jpy: 0,
-      };
-    }
-    groups[key].entries.push(entry);
-    groups[key].estimated_jpy += entry.estimated_jpy || 0;
-    return groups;
-  }, {});
+  // Build display groups:
+  // - ShippingPool with per_user_groups: group by (user_email + group_index) = one card per address-batch
+  // - GroupBuyRequest / ShippingPool without per_user_groups: group by user_email only
+  const hasPerUserGroups = !isRequest && (request.per_user_groups || []).length > 0;
 
-  const userGroupList = Object.values(userGroups);
+  const userGroupList = (() => {
+    if (hasPerUserGroups) {
+      // Group by composite key: user_email + group_index
+      const groups = {};
+      activeEntries.forEach(entry => {
+        const key = `${entry.user_email}__${entry.group_index ?? 0}`;
+        if (!groups[key]) {
+          groups[key] = {
+            key,
+            user_email: entry.user_email,
+            user_name: entry.user_name,
+            group_label: entry.group_label,
+            group_index: entry.group_index ?? 0,
+            final_address: entry.group_final_address,
+            transit_shipping_method: entry.transit_shipping_method,
+            transit_shipping_method_id: entry.transit_shipping_method_id,
+            selected_addons: entry.selected_addons || [],
+            selected_addon_ids: entry.selected_addon_ids || [],
+            note: entry.note,
+            entries: [],
+            estimated_jpy: 0,
+          };
+        }
+        groups[key].entries.push(entry);
+        groups[key].estimated_jpy += entry.estimated_jpy || 0;
+      });
+      // Sort: by user_email then group_index
+      return Object.values(groups).sort((a, b) =>
+        a.user_email.localeCompare(b.user_email) || a.group_index - b.group_index
+      );
+    } else {
+      // Simple grouping by user_email
+      const groups = {};
+      activeEntries.forEach(entry => {
+        const key = entry.user_email;
+        if (!groups[key]) {
+          groups[key] = {
+            key,
+            user_email: entry.user_email,
+            user_name: entry.user_name,
+            entries: [],
+            final_address: entry.final_address,
+            packing_image_urls: entry.packing_image_urls || [],
+            estimated_jpy: 0,
+          };
+        }
+        groups[key].entries.push(entry);
+        groups[key].estimated_jpy += entry.estimated_jpy || 0;
+      });
+      return Object.values(groups);
+    }
+  })();
 
   return (
     <div className="space-y-5">
@@ -432,9 +470,10 @@ export default function TransitPoolWork() {
         <div className="space-y-3">
           {userGroupList.map(userGroup => (
             <UserGroupCard
-              key={userGroup.user_email}
+              key={userGroup.key || userGroup.user_email}
               userEntry={userGroup}
               orders={userGroup.entries}
+              transitMethods={transitMethods}
               onAddressUpdate={handleAddressUpdate}
               onPackingImageUpload={handlePackingImageUpload}
             />
