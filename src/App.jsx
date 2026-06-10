@@ -13,6 +13,9 @@ import GroupBuy from '@/pages/GroupBuy';
 import TransitLocationWork from '@/pages/TransitLocationWork';
 import TransitPoolWork from '@/pages/TransitPoolWork';
 import AdminTransitWork from '@/pages/AdminTransitWork';
+import Notifications from '@/pages/Notifications';
+import UserNotificationSettings from '@/pages/UserNotificationSettings';
+import AdminNotificationManager from '@/pages/AdminNotificationManager';
 
 
 const { Pages, Layout, mainPage } = pagesConfig;
@@ -98,6 +101,21 @@ const AuthenticatedApp = () => {
       <Route path="/AdminTransitWork" element={
         <LayoutWrapper currentPageName="AdminTransitWork">
           <AdminTransitWork />
+        </LayoutWrapper>
+      } />
+      <Route path="/Notifications" element={
+        <LayoutWrapper currentPageName="Notifications">
+          <Notifications />
+        </LayoutWrapper>
+      } />
+      <Route path="/UserNotificationSettings" element={
+        <LayoutWrapper currentPageName="UserNotificationSettings">
+          <UserNotificationSettings />
+        </LayoutWrapper>
+      } />
+      <Route path="/AdminNotificationManager" element={
+        <LayoutWrapper currentPageName="AdminNotificationManager">
+          <AdminNotificationManager />
         </LayoutWrapper>
       } />
       <Route path="*" element={<PageNotFound />} />

@@ -11,6 +11,7 @@ import {
   Bell, LogOut, Menu, X, Shield,
   Home, Users, BarChart3, Store, Send, Zap, UserPlus, ChevronDown, MapPin, Layers
 } from "lucide-react";
+import NotificationBell from "@/components/common/NotificationBell";
 import { MidnightToggle } from "@/components/common/ThemeSelector";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -248,6 +249,7 @@ export default function Layout({ children, currentPageName }) {
           </nav>
 
           <div className="flex items-center gap-2">
+            <NotificationBell />
             <MidnightToggle />
             {isAdmin && (
               <Badge className="bg-red-100 text-red-700 border-red-200 text-xs">
