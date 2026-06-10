@@ -60,32 +60,47 @@ Deno.serve(async (req) => {
         }
         
         // 查询订单数据（按时间范围过滤）
-        const orderQuery = {
-            submit_date: { $gte: startDate, $lte: endDate }
-        };
-        if (tenantId) {
-            orderQuery.tenant_id = tenantId;
-        }
+        // 使用 created_date 过滤（因为 submit_date 大部分为空）
+        const orderQuery = tenantId ? { tenant_id: tenantId } : {};
         
         let orders;
         try {
             orders = await base44.entities.Order.filter(orderQuery);
+            console.log(`Found ${orders.length} total orders for tenant ${tenantId}`);
+            
+            // 在内存中按日期过滤
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            end.setHours(23, 59, 59, 999);
+            
+            orders = orders.filter(order => {
+                const orderDate = new Date(order.submit_date || order.created_date);
+                return orderDate >= start && orderDate <= end;
+            });
+            console.log(`Filtered to ${orders.length} orders in date range`);
         } catch (e) {
             console.error('Failed to query orders:', e);
             orders = [];
         }
         
-        // 查询发货池数据
-        const poolQuery = {
-            created_date: { $gte: startDate, $lte: endDate }
-        };
-        if (tenantId) {
-            poolQuery.tenant_id = tenantId;
-        }
+        // 查询发货池数据（按创建日期过滤）
+        const poolQuery = tenantId ? { tenant_id: tenantId } : {};
         
         let shippingPools;
         try {
             shippingPools = await base44.entities.ShippingPool.filter(poolQuery);
+            console.log(`Found ${shippingPools.length} total shipping pools for tenant ${tenantId}`);
+            
+            // 在内存中按日期过滤
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            end.setHours(23, 59, 59, 999);
+            
+            shippingPools = shippingPools.filter(pool => {
+                const poolDate = new Date(pool.created_date);
+                return poolDate >= start && poolDate <= end;
+            });
+            console.log(`Filtered to ${shippingPools.length} shipping pools in date range`);
         } catch (e) {
             console.error('Failed to query shipping pools:', e);
             shippingPools = [];
