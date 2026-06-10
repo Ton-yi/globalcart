@@ -25,22 +25,9 @@ import PaymentProofUploader from "@/components/shippingpool/PaymentProofUploader
 import OrderDetailCard from "@/components/shippingpool/OrderDetailCard";
 import OrderDetailPanel from "@/components/shippingpool/OrderDetailPanel";
 import TransitShippedPanel from "@/components/shippingpool/TransitShippedPanel";
+import UserGroupHeader from "@/components/shippingpool/UserGroupHeader";
 
-const STATUS_CONFIG = {
-  pending:                       { label: "待处理",    color: "bg-amber-100 text-amber-700" },
-  awaiting_payment:              { label: "待付款",    color: "bg-orange-100 text-orange-700" },
-  awaiting_payment_confirmation: { label: "待确认付款", color: "bg-blue-100 text-blue-700" },
-  ready_to_ship:                 { label: "待发货",    color: "bg-lime-100 text-lime-700" },
-  shipped:                       { label: "已发货",    color: "bg-green-100 text-green-700" },
-  delivered:                     { label: "已签收",    color: "bg-emerald-100 text-emerald-700" },
-  cancelled:                     { label: "已取消",    color: "bg-red-100 text-red-600" },
-  processing:                    { label: "处理中",    color: "bg-blue-100 text-blue-700" },
-};
-
-const METHOD_LABELS = {
-  EMS: "EMS", DHL: "DHL", FedEx: "FedEx", SAL: "SAL",
-  surface: "海运", small_packet_air: "小包空运", other: "其他"
-};
+import { STATUS_CONFIG, METHOD_LABELS } from "./shippingFormConstants";
 
 export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, currentUser, pendingEditRequests: initialPendingEdits = [], boxTemplates = [], shippingMethods = [], defaultPackingFeeSingle = 0, defaultPackingFeeConsolidation = 0, allowReadyToShipWithoutPayment = false, allowShipWithoutPaymentSingle = false, allowShipWithoutPaymentUserPool = false, allowShipWithoutPaymentOfficialPool = false, transitLocations = [], transitShippingMethods = [], availableAddons = [], allowUserRewarehouse = false, onClose, onUpdated }) {
   const { can } = usePermissions();
@@ -1009,41 +996,26 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                     return (
                       <div key={email}>
                         {isMultiUser && (
-                          <div className="flex items-start gap-2 px-1 mb-1">
-                            <div className="flex items-center gap-1.5 flex-shrink-0 mt-0.5">
-                              {userData.avatar_url ? (
-                                <img src={userData.avatar_url} alt={displayName} className="w-4 h-4 rounded-full object-cover flex-shrink-0" />
-                              ) : (
-                                <div className="w-4 h-4 rounded-full bg-gray-300 flex items-center justify-center text-gray-600 text-xs font-medium flex-shrink-0">
-                                  {displayName[0]?.toUpperCase()}
-                                </div>
-                              )}
-                              <span className="text-xs font-medium text-gray-600">{displayName}</span>
-                              <span className="text-xs text-gray-400">{groupOrders.length} 件 · {groupWeight}g</span>
-                            </div>
-                            <div className="flex flex-wrap items-center gap-1 flex-1 min-w-0">
-                              {uniqueGroupAddons.map((a, i) => (
-                                <span key={i} className="inline-flex items-center gap-0.5 text-xs bg-yellow-50 border border-yellow-200 text-yellow-700 rounded px-1.5 py-0.5">
-                                  <Star className="w-2.5 h-2.5" />{a.name}
-                                </span>
-                              ))}
-                              {transitMethodName && (
-                                <span className="inline-flex items-center gap-0.5 text-xs bg-blue-50 border border-blue-200 text-blue-700 rounded px-1.5 py-0.5">
-                                  <Truck className="w-2.5 h-2.5" />{transitMethodName}
-                                </span>
-                              )}
-                            </div>
-                            {canEditPrefs && (
-                              <button
-                                onClick={() => editingUserPrefs ? setEditingUserPrefs(false) : openUserPrefsEditor()}
-                                className="flex-shrink-0 p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-blue-600 transition-colors"
-                                title="编辑我的发货偏好">
-                                <Edit2 className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                          </div>
+                          <UserGroupHeader
+                            userData={userData}
+                            displayName={displayName}
+                            groupOrders={groupOrders}
+                            groupWeight={groupWeight}
+                            uniqueGroupAddons={uniqueGroupAddons}
+                            transitMethodId={transitMethodId}
+                            transitMethodName={transitMethodName}
+                            canEditPrefs={canEditPrefs}
+                            editingUserPrefs={editingUserPrefs}
+                            openUserPrefsEditor={openUserPrefsEditor}
+                            setEditingUserPrefs={setEditingUserPrefs}
+                            isRewarehousePool={isRewarehousePool}
+                            isMyGroup={isMyGroup}
+                            pendingEdits={pendingEdits}
+                            rewarehouseSelectedIds={rewarehouseSelectedIds}
+                            setRewarehouseSelectedIds={setRewarehouseSelectedIds}
+                            setShowBulkRewarehouse={setShowBulkRewarehouse}
+                          />
                         )}
-                        {isRewarehousePool && isMyGroup && (() => { const elig=groupOrders.filter(o=>!pendingEdits.some(r=>r.order_id===o.id&&r.is_rewarehouse_request)); if(!elig.length)return null; const allSel=elig.every(o=>rewarehouseSelectedIds.includes(o.id)); const selCount=rewarehouseSelectedIds.filter(id=>elig.find(o=>o.id===id)).length; return (<div className="flex items-center gap-2 px-1 mb-1 mt-1"><Checkbox checked={allSel} onCheckedChange={v=>{const ids=elig.map(o=>o.id);setRewarehouseSelectedIds(prev=>v?[...new Set([...prev,...ids])]:prev.filter(id=>!ids.includes(id)));}} /><span className="text-xs text-gray-500">全选我的包裹</span>{selCount>0&&<Button size="sm" className="h-6 text-xs px-2 bg-orange-600 hover:bg-orange-700 ml-auto gap-1" onClick={()=>setShowBulkRewarehouse(true)}><RotateCcw className="w-3 h-3"/>申请再入库 ({selCount})</Button>}</div>); })()}
                         <div className="space-y-1.5">
                           {groupOrders.map(o => renderOrder(o))}
                         </div>

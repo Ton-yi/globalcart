@@ -143,7 +143,8 @@ Deno.serve(async (req) => {
       transit_note: user_note || '',
     });
 
-    // Build per_user_groups: merges orders into existing group if same user+method, else creates new group
+    // Build per_user_groups: merges orders into existing group if same user + transit method + final address, else creates new group
+    // For pickup/storage: only group by user + method (address is not relevant)
     const buildUpdatedPerUserGroups = (existingGroups, ordersToAdd) => {
       let updatedGroups = [...(existingGroups || [])];
       const addr = address || {};
@@ -153,7 +154,20 @@ Deno.serve(async (req) => {
         const existingIdx = updatedGroups.findIndex(g => {
           if (g.user_email !== order.user_email) return false;
           const gMethodId = normalizeMethodId(g.transit_shipping_method_id);
-          return gMethodId === normalizedTransitMethodId;
+          if (gMethodId !== normalizedTransitMethodId) return false;
+          // For pickup/storage, don't check address
+          if (isPickupOrStorage) return true;
+          // For normal shipping, also check final address match
+          const gAddr = g.group_final_address || {};
+          return (
+            (gAddr.recipient_name || '') === (addr.recipient_name || '') &&
+            (gAddr.country || '') === (addr.country || '') &&
+            (gAddr.addr1 || '') === (addr.addr1 || '') &&
+            (gAddr.addr2 || '') === (addr.addr2 || '') &&
+            (gAddr.addr3 || '') === (addr.addr3 || '') &&
+            (gAddr.state || '') === (addr.state || '') &&
+            (gAddr.phone || '') === (addr.phone || '')
+          );
         });
 
         if (existingIdx >= 0) {
