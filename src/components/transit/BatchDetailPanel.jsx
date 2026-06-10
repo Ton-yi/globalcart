@@ -48,7 +48,10 @@ function AddonsBlock({ addons }) {
 
 // ─── 普通运输面板 ───────────────────────────────────────────────────────────────
 function TransitShippingPanel({ batch, pool, transitMethods, isManager, onSaved }) {
-  const defaultMethod = transitMethods.find(m => m.id === batch.transit_shipping_method_id)?.name || '';
+  // Get default method from batch's pre-shipment config (user's selected transit method)
+  const defaultMethod = batch.transit_shipping_method_name || 
+                        transitMethods.find(m => m.id === batch.transit_shipping_method_id)?.name || 
+                        '';
   const [formData, setFormData] = useState({
     transit_shipping_method: defaultMethod,
     transit_tracking_number: '',
