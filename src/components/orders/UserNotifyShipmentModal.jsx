@@ -367,6 +367,9 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
 
   const consolidation = consType !== "";
   const hasConsolidationConditions = consolidation && (deadline || minWeight);
+  const normalizeId = id => id === 'pickup' ? '__pickup__' : id === 'storage' ? '__storage__' : (id || '');
+  const normalizedTransitMethodId = normalizeId(selectedTransitMethodId);
+  const isPickupStorageSelected = normalizedTransitMethodId === '__pickup__' || normalizedTransitMethodId === '__storage__';
 
   // An address slot is "satisfied" when:
   //  - user picked a saved address (selectedId is set and not new mode), OR
@@ -432,11 +435,8 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
     if (!method && !isJoiningPool) return;
     if (!isJoiningPool && consType === "transit" && !selectedTransitId) return;
     if (!isJoiningPool && consType === "transit" && !selectedTransitMethodId) return;
-    const normalizeId = id => id === 'pickup' ? '__pickup__' : id === 'storage' ? '__storage__' : (id || '');
-    const normalizedTransitMethodId = normalizeId(selectedTransitMethodId);
-    const isPickupOrStorage = normalizedTransitMethodId === '__pickup__' || normalizedTransitMethodId === '__storage__';
-    if (!isJoiningPool && consType === "transit" && !isPickupOrStorage && !isAddressSlotOk("final")) return;
-    if (isJoiningPool && !isPickupOrStorage && !isAddressSlotOk("final")) return;
+    if (!isJoiningPool && consType === "transit" && !isPickupStorageSelected && !isAddressSlotOk("final")) return;
+    if (isJoiningPool && !isPickupStorageSelected && !isAddressSlotOk("final")) return;
     if (isJoiningPool && selectedPool?.consolidation_type === "transit" && !selectedTransitMethodId) return;
     if (!isJoiningPool && consType === "" && !joinDirectPool && !isAddressSlotOk("direct")) return;
     if (!isJoiningPool && consType === "other" && !isAddressSlotOk("other")) return;
@@ -489,7 +489,7 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
     }
 
     // Build resolved address object
-    const skipAddress = isPickupOrStorage;
+    const skipAddress = isPickupStorageSelected;
     const addrSlot = consType === "transit" ? "final" : (consType === "other" ? "other" : "direct");
     const addrObj = !skipAddress ? getEffectiveAddr(addrSlot) : null;
     const resolvedAddress = addrObj ? {
@@ -731,18 +731,20 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
                 ))}
               </div>
               {!isJoiningPool && (
-                <AddressBlock
-                  slot="final"
-                  label="最终收货地址（货品从中转地发往此处）*"
-                  savedAddresses={savedAddresses}
-                  selectedId={finalAddressId}
-                  isNewMode={!!addressInputMode["final"]}
-                  newAddress={newAddress}
-                  saveNewAddress={saveNewAddress}
-                  onSelect={(v) => handleAddressSelect(v, "final")}
-                  onNewAddressChange={setNewAddress}
-                  onSaveToggle={setSaveNewAddress}
-                />
+                <div className={isPickupStorageSelected ? "opacity-50 pointer-events-none grayscale" : ""}>
+                  <AddressBlock
+                    slot="final"
+                    label={`最终收货地址${isPickupStorageSelected ? '（自取/暂存模式下无需填写）' : '（货品从中转地发往此处）*'}`}
+                    savedAddresses={savedAddresses}
+                    selectedId={finalAddressId}
+                    isNewMode={!!addressInputMode["final"]}
+                    newAddress={newAddress}
+                    saveNewAddress={saveNewAddress}
+                    onSelect={(v) => handleAddressSelect(v, "final")}
+                    onNewAddressChange={setNewAddress}
+                    onSaveToggle={setSaveNewAddress}
+                  />
+                </div>
               )}
             </div>
           )}
@@ -924,18 +926,20 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
           {/* Joining existing pool: show final address + deadline */}
           {isJoiningPool && (
             <div className="space-y-3">
-              <AddressBlock
-                slot="final"
-                label="最终收货地址 *"
-                savedAddresses={savedAddresses}
-                selectedId={finalAddressId}
-                isNewMode={!!addressInputMode["final"]}
-                newAddress={newAddress}
-                saveNewAddress={saveNewAddress}
-                onSelect={(v) => handleAddressSelect(v, "final")}
-                onNewAddressChange={setNewAddress}
-                onSaveToggle={setSaveNewAddress}
-              />
+              <div className={isPickupStorageSelected ? "opacity-50 pointer-events-none grayscale" : ""}>
+                <AddressBlock
+                  slot="final"
+                  label={`最终收货地址${isPickupStorageSelected ? '（自取/暂存模式下无需填写）' : ' *'}`}
+                  savedAddresses={savedAddresses}
+                  selectedId={finalAddressId}
+                  isNewMode={!!addressInputMode["final"]}
+                  newAddress={newAddress}
+                  saveNewAddress={saveNewAddress}
+                  onSelect={(v) => handleAddressSelect(v, "final")}
+                  onNewAddressChange={setNewAddress}
+                  onSaveToggle={setSaveNewAddress}
+                />
+              </div>
               <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 space-y-2">
                 <p className="text-xs text-blue-500 font-medium uppercase tracking-wide">发货期限（仅适用于本次订单）</p>
                 <div className="text-sm text-gray-700 leading-8 flex flex-wrap items-center gap-x-1.5">
@@ -1023,10 +1027,10 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
         {/* Footer: missing required fields reminder */}
         {(() => {
           const missing = [];
+          const isPickupStorageSelected = selectedTransitMethodId === '__pickup__' || selectedTransitMethodId === '__storage__';
           if (!method && !joinDirectPool && !isJoiningPool) missing.push("发货方式");
           if (!isJoiningPool && consType === "transit" && !selectedTransitId) missing.push("中转地");
           if (!isJoiningPool && consType === "transit" && !selectedTransitMethodId) missing.push("中转段运输方式");
-          const isPickupStorageSelected = selectedTransitMethodId === '__pickup__' || selectedTransitMethodId === '__storage__';
           if (!isJoiningPool && consType === "transit" && !isPickupStorageSelected && !isAddressSlotOk("final")) {
             const inNew = !!addressInputMode["final"] || savedAddresses.length === 0;
             if (inNew) {
