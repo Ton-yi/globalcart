@@ -25,25 +25,28 @@ const notificationTypes = [
 const commonSubtypes = {
   payment: [
     { value: "order_payment_required", label: "订单需付款" },
-    { value: "payment_confirmed", label: "付款已确认" },
-    { value: "payment_overdue", label: "付款逾期" },
+    { value: "order_supplement_required", label: "订单需补款" },
+    { value: "shipping_fee_required", label: "需付运费" },
+    { value: "shipping_fee_supplement_required", label: "需补运费" },
   ],
   shipping_request: [
-    { value: "shipping_request_arrived", label: "发货申请到达中转地" },
-    { value: "shipping_request_shipped", label: "发货申请已发出" },
-    { value: "shipping_fee_required", label: "需付运费" },
+    { value: "shipping_request_sent", label: "发货申请已发出" },
+    { value: "shipping_request_arrived", label: "发货申请已送达中转地" },
+    { value: "transit_shipped", label: "中转地已发货" },
   ],
   order_status: [
     { value: "order_created", label: "订单创建" },
-    { value: "order_purchased", label: "订单已采购" },
-    { value: "order_in_warehouse", label: "订单入库" },
-    { value: "order_added_to_pool", label: "订单加入发货池" },
-    { value: "order_shipped", label: "订单已发货" },
-    { value: "order_delivered", label: "订单已签收" },
+    { value: "order_payment_confirmed", label: "订单付款已被确认" },
+    { value: "order_purchased", label: "订单已下单" },
+    { value: "order_in_warehouse", label: "订单已入库" },
+    { value: "order_added_to_pool", label: "订单已添加至发货申请" },
   ],
   message: [
-    { value: "new_reply", label: "新回复" },
-    { value: "admin_message", label: "管理员留言" },
+    { value: "new_reply", label: "订单/发货申请有新回复" },
+  ],
+  other: [
+    { value: "store_template_pending_review", label: "店铺模板提交待审核（管理员）" },
+    { value: "store_template_reviewed", label: "店铺模板审核结果通知（用户）" },
   ],
 };
 

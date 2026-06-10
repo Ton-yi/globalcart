@@ -19,6 +19,7 @@ import AdminNotificationManager from '@/pages/AdminNotificationManager';
 import AdminNotificationTemplates from '@/pages/AdminNotificationTemplates';
 import AdminNotificationDefaults from '@/pages/AdminNotificationDefaults';
 import PlatformNotificationManager from '@/pages/PlatformNotificationManager';
+import TestNotificationTemplates from '@/pages/TestNotificationTemplates';
 import { Bell, Settings, Globe } from 'lucide-react';
 
 
@@ -135,6 +136,11 @@ const AuthenticatedApp = () => {
       <Route path="/PlatformNotificationManager" element={
         <LayoutWrapper currentPageName="PlatformNotificationManager">
           <PlatformNotificationManager />
+        </LayoutWrapper>
+      } />
+      <Route path="/TestNotificationTemplates" element={
+        <LayoutWrapper currentPageName="TestNotificationTemplates">
+          <TestNotificationTemplates />
         </LayoutWrapper>
       } />
       <Route path="*" element={<PageNotFound />} />
