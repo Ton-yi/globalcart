@@ -170,11 +170,56 @@ Deno.serve(async (req) => {
         const updatedIds = [...new Set([...(pool.order_ids || []), order_id])];
         const updatedWeight = (pool.total_weight_g || 0) + (order.weight_g || 0);
         const updatedNames = [...(pool.order_names || []), order.product_name].filter(Boolean);
+        // Build per_user_groups update: merge order into user's existing group or create new one
+        const addr = order.pre_shipment?.address || {};
+        const newOrderEntry = {
+          order_id,
+          note: order.product_name || '',
+          image_urls: order.product_image_url ? [order.product_image_url] : [],
+          selected_addon_ids: order.selected_addon_ids || [],
+          selected_addons: order.selected_addons || [],
+          override_final_address: null,
+          use_group_address: true,
+          transit_shipping_method_id: order.pre_shipment?.transit_shipping_method_id || '',
+          transit_shipping_method_name: order.pre_shipment?.transit_shipping_method_name || '',
+          transit_note: user_note || order.pre_shipment?.user_note || '',
+        };
+        let updatedPerUserGroups = [...(pool.per_user_groups || [])];
+        const existingGroupIndex = updatedPerUserGroups.findIndex(g => g.user_email === order.user_email);
+        if (existingGroupIndex >= 0) {
+          updatedPerUserGroups[existingGroupIndex] = {
+            ...updatedPerUserGroups[existingGroupIndex],
+            order_entries: [...(updatedPerUserGroups[existingGroupIndex].order_entries || []), newOrderEntry],
+          };
+        } else {
+          updatedPerUserGroups.push({
+            user_email: order.user_email,
+            user_name: order.user_name || order.user_email,
+            group_label: order.user_name || order.user_email,
+            note: user_note || order.pre_shipment?.user_note || '',
+            image_urls: [],
+            selected_addon_ids: order.pre_shipment?.selected_addon_ids || [],
+            selected_addons: order.pre_shipment?.selected_addons || [],
+            transit_shipping_method_id: order.pre_shipment?.transit_shipping_method_id || '',
+            transit_shipping_method_name: order.pre_shipment?.transit_shipping_method_name || '',
+            group_final_address: {
+              recipient_name: addr.recipient_name || '',
+              country: addr.country || '',
+              addr1: addr.addr1 || '',
+              addr2: addr.addr2 || '',
+              addr3: addr.addr3 || '',
+              state: addr.state || '',
+              phone: addr.phone || '',
+            },
+            order_entries: [newOrderEntry],
+          });
+        }
         await Promise.all([
           base44.asServiceRole.entities.ShippingPool.update(pool_id, {
             order_ids: updatedIds,
             order_names: updatedNames,
             total_weight_g: updatedWeight,
+            per_user_groups: updatedPerUserGroups,
           }),
           base44.asServiceRole.entities.Order.update(order_id, {
             order_status: 'notified_shipment',

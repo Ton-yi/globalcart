@@ -133,7 +133,7 @@ Deno.serve(async (req) => {
         order_ids: [...(pool.order_ids || []), order.id],
         order_names: [...(pool.order_names || []), order.product_name].filter(Boolean),
         total_weight_g: (pool.total_weight_g || 0) + (order.weight_g || 0),
-        per_user_groups: [...(pool.per_user_groups || []), newUserGroup],
+        per_user_groups: updatedPerUserGroups,
       });
       await base44.asServiceRole.entities.Order.update(order.id, {
         order_status: 'notified_shipment',
