@@ -17,17 +17,78 @@ Deno.serve(async (req) => {
     const { 
       request_id,
       pool_id,
+      action,
+      // transit fields
       transit_shipping_method,
       transit_tracking_number,
       transit_fee_jpy,
       transit_note,
       transit_image_urls,
-      transit_shipped_date
+      transit_shipped_date,
+      // batch-level storage/pickup fields
+      order_ids: batchOrderIds,
+      storage_until,
+      pickup_time_slot,
+      user_email: targetUserEmail,
     } = body;
     
     // Support both new (request_id) and legacy (pool_id) parameters
-    if (!request_id && !pool_id) {
+    const targetId = request_id || pool_id;
+    if (!targetId) {
       return Response.json({ error: 'request_id or pool_id is required' }, { status: 400 });
+    }
+
+    // ── Batch-level actions: confirm_storage_batch / confirm_pickup_batch ──────
+    // These always operate on a ShippingPool (request_id == pool id for transit pools)
+    if (action === 'confirm_storage_batch' || action === 'confirm_pickup_batch') {
+      // Try ShippingPool first, then GroupBuyRequest
+      let pool = await base44.asServiceRole.entities.ShippingPool.get(targetId).catch(() => null);
+      let entityName = 'ShippingPool';
+      if (!pool) {
+        pool = await base44.asServiceRole.entities.GroupBuyRequest.get(targetId).catch(() => null);
+        entityName = 'GroupBuyRequest';
+      }
+      if (!pool) return Response.json({ error: 'Pool not found' }, { status: 404 });
+
+      // Auth: manager or admin
+      const isAdmin = user.role === 'admin' || user.role === 'tenant_admin' || user.role === 'platform_admin';
+      if (!isAdmin && pool.transit_location_id) {
+        const loc = await base44.asServiceRole.entities.TransitLocation.get(pool.transit_location_id).catch(() => null);
+        if (!loc || loc.manager_email !== user.email) {
+          return Response.json({ error: 'Forbidden' }, { status: 403 });
+        }
+      }
+
+      if (action === 'confirm_storage_batch') {
+        // Mark each order in this batch as in_storage (use a custom status stored in order)
+        if (batchOrderIds && batchOrderIds.length > 0) {
+          await Promise.all(batchOrderIds.map(orderId =>
+            base44.asServiceRole.entities.Order.update(orderId, {
+              order_status: 'in_warehouse', // stays in_warehouse but we add a storage marker
+              transit_storage_enabled: true,
+              transit_storage_until: storage_until || null,
+              transit_location_id: pool.transit_location_id,
+              transit_location_name: pool.transit_location_name,
+            }).catch(e => console.error('Failed to update order for storage:', e))
+          ));
+        }
+        // Mark pool-level transit_storage_enabled if all orders are storage
+        await base44.asServiceRole.entities[entityName].update(targetId, {
+          transit_storage_enabled: true,
+          transit_storage_until: storage_until || null,
+        }).catch(() => {});
+        return Response.json({ success: true });
+      }
+
+      if (action === 'confirm_pickup_batch') {
+        // Set pickup time slot on pool (pool-level for now)
+        await base44.asServiceRole.entities[entityName].update(targetId, {
+          transit_pickup_enabled: true,
+          transit_pickup_time_slot: pickup_time_slot || null,
+          transit_pickup_admin_confirmed: true,
+        }).catch(() => {});
+        return Response.json({ success: true });
+      }
     }
 
     // Handle GroupBuyRequest updates (new)

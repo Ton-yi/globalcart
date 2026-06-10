@@ -71,6 +71,7 @@ const STATUS_FILTERS = [
   { v: "paid", l: "已付款" },
   { v: "purchased", l: "已下单" },
   { v: "in_warehouse", l: "已入库" },
+  { v: "in_storage", l: "暂存中" },
   { v: "notified_shipment", l: "已通知出货" },
   { v: "shipping_fee_pending", l: "待付运费" },
   { v: "shipped", l: "已发出" },
@@ -544,6 +545,16 @@ export default function MyOrders() {
                       onClick={() => setShipmentOrder(order)}>
                       <Truck className="w-3 h-3 mr-1" />通知发货
                     </Button>
+                  )}
+                  {order.order_status === "in_storage" && (
+                    <div className="flex flex-col gap-1 items-start">
+                      <span className="inline-flex items-center gap-1 text-xs bg-indigo-100 text-indigo-700 border border-indigo-200 px-1.5 py-0.5 rounded-full font-medium">
+                        📦 暂存中{order.transit_location_name ? `于 ${order.transit_location_name}` : ''}
+                      </span>
+                      {order.transit_storage_until && (
+                        <span className="text-xs text-gray-400">期限至 {order.transit_storage_until}</span>
+                      )}
+                    </div>
                   )}
                   {/* Pre-shipment badge / button: show for all orders not yet in warehouse and not cancelled */}
                   {!["in_warehouse", "notified_shipment", "notified_shipment_fee_pending", "shipping_fee_pending", "ready_to_ship", "shipped", "delivered", "cancelled"].includes(order.order_status) && (

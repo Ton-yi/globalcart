@@ -93,27 +93,52 @@ Deno.serve(async (req) => {
       const ordersById = {};
       fetchedOrders.forEach(o => { ordersById[o.id] = o; });
 
-      // Build a map: order_id -> which per_user_groups address_group it belongs to
-      // This allows us to tag each entry with group_key for frontend grouping
-      const orderGroupMap = {}; // order_id -> { user_email, group_index, address_group }
+      // Build a map: order_id -> which per_user_groups entry it belongs to
+      const normalizeMethodId = (id) => {
+        if (id === 'pickup') return '__pickup__';
+        if (id === 'storage') return '__storage__';
+        return id || '';
+      };
+      const orderGroupMap = {};
       const perUserGroups = request.per_user_groups || [];
       for (const userGroup of perUserGroups) {
-        (userGroup.address_groups || []).forEach((ag, gi) => {
-          (ag.order_entries || []).forEach(oe => {
+        // Support both address_groups nested structure AND flat order_entries
+        const addressGroups = userGroup.address_groups;
+        if (addressGroups && addressGroups.length > 0) {
+          addressGroups.forEach((ag, gi) => {
+            (ag.order_entries || []).forEach(oe => {
+              orderGroupMap[oe.order_id] = {
+                user_email: userGroup.user_email,
+                user_name: userGroup.user_name,
+                group_label: userGroup.group_label,
+                group_index: gi,
+                group_final_address: ag.group_final_address || userGroup.group_final_address,
+                transit_shipping_method: ag.transit_shipping_method,
+                transit_shipping_method_id: normalizeMethodId(ag.transit_shipping_method_id),
+                selected_addon_ids: ag.selected_addon_ids || [],
+                selected_addons: ag.selected_addons || [],
+                note: ag.note || userGroup.note,
+              };
+            });
+          });
+        } else {
+          // Flat per_user_groups (current ShippingPool structure with order_entries directly on group)
+          (userGroup.order_entries || []).forEach(oe => {
+            const methodId = normalizeMethodId(oe.transit_shipping_method_id || userGroup.transit_shipping_method_id);
             orderGroupMap[oe.order_id] = {
               user_email: userGroup.user_email,
               user_name: userGroup.user_name,
               group_label: userGroup.group_label,
-              group_index: gi,
-              group_final_address: ag.group_final_address || userGroup.group_final_address,
-              transit_shipping_method: ag.transit_shipping_method,
-              transit_shipping_method_id: ag.transit_shipping_method_id,
-              selected_addon_ids: ag.selected_addon_ids || [],
-              selected_addons: ag.selected_addons || [],
-              note: ag.note || userGroup.note,
+              group_index: 0,
+              group_final_address: oe.override_final_address || userGroup.group_final_address,
+              transit_shipping_method: userGroup.transit_shipping_method,
+              transit_shipping_method_id: methodId,
+              selected_addon_ids: oe.selected_addon_ids || userGroup.selected_addon_ids || [],
+              selected_addons: oe.selected_addons || userGroup.selected_addons || [],
+              note: oe.note || userGroup.note,
             };
           });
-        });
+        }
       }
 
       entries = fetchedOrders.map(order => {

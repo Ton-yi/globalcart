@@ -1,71 +1,165 @@
 /**
- * TransitPoolWork - 单箱工作面板（基于拼邮申请数据）
- * Route: /Trworkon/:request_id
- * 此页面提供中转地发货工作流：用户分组、地址管理、打包图片、中转地发货信息填写
+ * TransitPoolWork - 单箱工作面板（Master-Detail 布局）
+ * Route: /Trworkon/:pool_code
+ * 左侧：发货申请详情 + 批次列表
+ * 右侧：选中批次的详细操作（普通发货 / 暂存 / 自取）
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { 
-  Package, CheckCircle, Clock, Truck, Calendar, 
-  MapPin, Scale, Image as ImageIcon, AlertCircle,
-  Loader2, ChevronRight, X, Edit2, Save, ArrowLeft,
-  Users, DollarSign, ClipboardCheck
+import {
+  Package, Loader2, ArrowLeft, Users, Layers, Truck, MapPin, Star,
+  ChevronRight
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import UserGroupCard from "@/components/transit/UserGroupCard";
-import TransitShippingDetailPanel from "@/components/transit/TransitShippingDetailPanel";
-import TransitShippingForm from "@/components/transit/TransitShippingForm";
-import PickupScheduler from "@/components/transit/PickupScheduler";
-import StorageManagementCard from "@/components/transit/StorageManagementCard";
-import AddressChangeCard from "@/components/transit/AddressChangeCard";
+import PoolInfoPanel from "@/components/transit/PoolInfoPanel";
+import BatchDetailPanel from "@/components/transit/BatchDetailPanel";
 
+// ─── Normalize transit method id ─────────────────────────────────────────────
+const normalizeMethodId = (id) => {
+  if (id === 'pickup') return '__pickup__';
+  if (id === 'storage') return '__storage__';
+  return id || '';
+};
+
+// ─── Build user group list from entries ──────────────────────────────────────
+function buildUserGroupList(entries, request) {
+  const hasPerUserGroups = !request?.title && (request?.per_user_groups || []).length > 0;
+
+  if (hasPerUserGroups) {
+    const groups = {};
+    entries.forEach(entry => {
+      const methodId = normalizeMethodId(entry.transit_shipping_method_id);
+      const key = `${entry.user_email}__${methodId}__${entry.group_index ?? 0}`;
+      if (!groups[key]) {
+        groups[key] = {
+          key,
+          user_email: entry.user_email,
+          user_name: entry.user_name,
+          group_label: entry.group_label,
+          group_index: entry.group_index ?? 0,
+          transit_shipping_method_id: methodId,
+          transit_shipping_method: entry.transit_shipping_method,
+          final_address: entry.group_final_address,
+          selected_addons: entry.selected_addons || [],
+          selected_addon_ids: entry.selected_addon_ids || [],
+          note: entry.note,
+          entries: [],
+          estimated_jpy: 0,
+        };
+      }
+      groups[key].entries.push(entry);
+      groups[key].estimated_jpy += entry.estimated_jpy || 0;
+    });
+    return Object.values(groups).sort((a, b) =>
+      a.user_email.localeCompare(b.user_email) || a.group_index - b.group_index
+    );
+  } else {
+    // Simple grouping by user
+    const groups = {};
+    entries.forEach(entry => {
+      const key = entry.user_email;
+      if (!groups[key]) {
+        groups[key] = {
+          key,
+          user_email: entry.user_email,
+          user_name: entry.user_name,
+          group_label: entry.user_name || entry.user_email,
+          final_address: entry.final_address,
+          transit_shipping_method_id: normalizeMethodId(entry.transit_shipping_method_id),
+          transit_shipping_method: entry.transit_shipping_method,
+          selected_addons: entry.selected_addons || [],
+          entries: [],
+          estimated_jpy: 0,
+        };
+      }
+      groups[key].entries.push(entry);
+      groups[key].estimated_jpy += entry.estimated_jpy || 0;
+    });
+    return Object.values(groups);
+  }
+}
+
+// ─── Batch list item ──────────────────────────────────────────────────────────
+function BatchListItem({ batch, selected, onClick }) {
+  const methodId = normalizeMethodId(batch.transit_shipping_method_id);
+  const isStorage = methodId === '__storage__';
+  const isPickup = methodId === '__pickup__';
+  const methodName = isStorage ? '暂存' : isPickup ? '自取' : (batch.transit_shipping_method || '中转发货');
+
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors border ${
+        selected
+          ? 'border-indigo-300 bg-indigo-50 shadow-sm'
+          : 'border-transparent hover:bg-gray-50 hover:border-gray-200'
+      }`}
+    >
+      <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-semibold ${
+        isStorage ? 'bg-indigo-100 text-indigo-700' :
+        isPickup ? 'bg-teal-100 text-teal-700' :
+        'bg-gray-100 text-gray-600'
+      }`}>
+        {(batch.user_name || batch.user_email || '?')[0].toUpperCase()}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5">
+          <p className="text-sm font-medium text-gray-800 truncate">
+            {batch.group_label || batch.user_name || batch.user_email}
+          </p>
+          {isStorage && <Badge className="bg-indigo-100 text-indigo-700 text-xs shrink-0">暂存</Badge>}
+          {isPickup && <Badge className="bg-teal-100 text-teal-700 text-xs shrink-0">自取</Badge>}
+        </div>
+        <div className="flex items-center gap-2 mt-0.5">
+          <span className="text-xs text-gray-500">{batch.entries.length} 件</span>
+          {!isStorage && !isPickup && (
+            <span className="text-xs text-blue-600 flex items-center gap-0.5">
+              <Truck className="w-2.5 h-2.5" />{methodName}
+            </span>
+          )}
+          {(batch.selected_addons || []).length > 0 && (
+            <span className="text-xs text-yellow-600 flex items-center gap-0.5">
+              <Star className="w-2.5 h-2.5" />{batch.selected_addons.length}项增值
+            </span>
+          )}
+        </div>
+      </div>
+      <ChevronRight className={`w-4 h-4 flex-shrink-0 transition-colors ${selected ? 'text-indigo-500' : 'text-gray-300'}`} />
+    </button>
+  );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
 export default function TransitPoolWork() {
   const { pool_code } = useParams();
   const navigate = useNavigate();
   const { user } = useCurrentUser();
-  
+
   const [loading, setLoading] = useState(true);
   const [request, setRequest] = useState(null);
   const [entries, setEntries] = useState([]);
   const [location, setLocation] = useState(null);
-  const [editing, setEditing] = useState(false);
-  const [editData, setEditData] = useState({});
-  const [saving, setSaving] = useState(false);
   const [transitMethods, setTransitMethods] = useState([]);
-  const [addonOptions, setAddonOptions] = useState([]);
-  
-  // Transit shipping form state
-  const [showTransitForm, setShowTransitForm] = useState(false);
-  // Per-user-group transit detail panel
-  const [selectedGroupForShipping, setSelectedGroupForShipping] = useState(null);
+  const [selectedBatchKey, setSelectedBatchKey] = useState(null);
+
+  const isAdmin = user?.role === 'admin' || user?.role === 'tenant_admin' || user?.role === 'platform_admin';
+  const isManager = isAdmin || (location && location.manager_email === user?.email);
 
   const fetchData = async () => {
     setLoading(true);
     try {
       const res = await base44.functions.invoke('getTransitPoolWorkData', { request_id: pool_code });
-      
-      if (!res.data?.request) {
-        navigate("/Home");
-        return;
-      }
-      
+      if (!res.data?.request) { navigate('/Home'); return; }
       setRequest(res.data.request);
-      setEditData(res.data.request);
       setEntries(res.data.entries || []);
       setLocation(res.data.location);
       setTransitMethods(res.data.transitMethods || []);
-      setAddonOptions(res.data.addonOptions || []);
     } catch (error) {
-      console.error('Failed to fetch data:', error);
       alert('加载失败：' + error.message);
-      navigate("/Home");
+      navigate('/Home');
     } finally {
       setLoading(false);
     }
@@ -76,82 +170,9 @@ export default function TransitPoolWork() {
     fetchData();
   }, [user, pool_code]);
 
-  const handleSaveRequest = async () => {
-    setSaving(true);
-    try {
-      const allowedFields = ['deadline', 'on_deadline_action', 'admin_note'];
-      const updateData = {};
-      allowedFields.forEach(field => {
-        if (editData[field] !== undefined) {
-          updateData[field] = editData[field];
-        }
-      });
-      
-      await base44.functions.invoke('manageGroupBuy', {
-        action: 'update_request',
-        request_id: request.id,
-        ...updateData
-      });
-      
-      setRequest({ ...request, ...updateData });
-      setEditing(false);
-      alert('保存成功');
-    } catch (error) {
-      console.error('Failed to save:', error);
-      alert('保存失败：' + error.message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleTransitShippingSubmit = async (formData) => {
-    setSaving(true);
-    try {
-      // Update request with transit shipping info
-      await base44.functions.invoke('updateTransitPoolShipment', {
-        request_id: request.id,
-        ...formData,
-      });
-
-      alert('中转地发货信息已保存');
-      setShowTransitForm(false);
-      fetchData(); // Refresh data
-    } catch (error) {
-      console.error('Failed to submit transit shipping:', error);
-      throw error; // Re-throw for component to handle
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleAddressUpdate = async (entryId, newAddress) => {
-    try {
-      await base44.functions.invoke('manageGroupBuy', {
-        action: 'update_entry_address',
-        entry_id: entryId,
-        final_address: newAddress
-      });
-      alert('地址已更新');
-      fetchData();
-    } catch (error) {
-      throw error;
-    }
-  };
-
-  const handlePackingImageUpload = async (entryId, file) => {
-    try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
-      await base44.functions.invoke('manageGroupBuy', {
-        action: 'add_entry_packing_image',
-        entry_id: entryId,
-        image_url: file_url
-      });
-      alert('图片已上传');
-      fetchData();
-    } catch (error) {
-      throw error;
-    }
-  };
+  const activeEntries = useMemo(() => entries.filter(e => e.status !== 'cancelled'), [entries]);
+  const userGroups = useMemo(() => buildUserGroupList(activeEntries, request), [activeEntries, request]);
+  const selectedBatch = userGroups.find(g => g.key === selectedBatchKey) || null;
 
   if (loading) {
     return (
@@ -161,388 +182,81 @@ export default function TransitPoolWork() {
     );
   }
 
-  if (!request) {
-    return null;
-  }
-
-  const activeEntries = entries.filter(e => e.status === 'active');
-  const completedEntries = entries.filter(e => e.status === 'completed');
-  const totalAmount = activeEntries.reduce((sum, e) => sum + (e.estimated_jpy || 0), 0);
-  const totalWeight = activeEntries.reduce((sum, e) => sum + (e.weight_g || 100), 0);
-
-  // Determine if this is a GroupBuyRequest (new) or ShippingPool (legacy)
-  const isRequest = !!request.title;
-
-  // Build display groups:
-  // - ShippingPool with per_user_groups: group by (user_email + group_index) = one card per address-batch
-  // - GroupBuyRequest / ShippingPool without per_user_groups: group by user_email only
-  const hasPerUserGroups = !isRequest && (request.per_user_groups || []).length > 0;
-
-  const userGroupList = (() => {
-    if (hasPerUserGroups) {
-      // Group by composite key: user_email + group_index
-      const groups = {};
-      activeEntries.forEach(entry => {
-        const key = `${entry.user_email}__${entry.group_index ?? 0}`;
-        if (!groups[key]) {
-          groups[key] = {
-            key,
-            user_email: entry.user_email,
-            user_name: entry.user_name,
-            group_label: entry.group_label,
-            group_index: entry.group_index ?? 0,
-            final_address: entry.group_final_address,
-            transit_shipping_method: entry.transit_shipping_method,
-            transit_shipping_method_id: entry.transit_shipping_method_id,
-            selected_addons: entry.selected_addons || [],
-            selected_addon_ids: entry.selected_addon_ids || [],
-            note: entry.note,
-            entries: [],
-            estimated_jpy: 0,
-          };
-        }
-        groups[key].entries.push(entry);
-        groups[key].estimated_jpy += entry.estimated_jpy || 0;
-      });
-      // Sort: by user_email then group_index
-      return Object.values(groups).sort((a, b) =>
-        a.user_email.localeCompare(b.user_email) || a.group_index - b.group_index
-      );
-    } else {
-      // Simple grouping by user_email
-      const groups = {};
-      activeEntries.forEach(entry => {
-        const key = entry.user_email;
-        if (!groups[key]) {
-          groups[key] = {
-            key,
-            user_email: entry.user_email,
-            user_name: entry.user_name,
-            entries: [],
-            final_address: entry.final_address,
-            packing_image_urls: entry.packing_image_urls || [],
-            estimated_jpy: 0,
-          };
-        }
-        groups[key].entries.push(entry);
-        groups[key].estimated_jpy += entry.estimated_jpy || 0;
-      });
-      return Object.values(groups);
-    }
-  })();
+  if (!request) return null;
 
   return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => window.history.back()}>
-            <ArrowLeft className="w-4 h-4" />
-            返回
-          </Button>
-          <div>
-            <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-              <Package className="w-5 h-5 text-indigo-600" />
-              {request.title || request.pool_code || request.id}
-            </h1>
-            <p className="text-sm text-gray-400 mt-0.5">
-              {request.template_name
-                ? `${request.template_name} · 创建者：${request.creator_name}`
-                : `创建者：${request.creator_name || request.creator_email}`}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge className={
-            (request.status === 'completed' || request.status === 'shipped' || request.status === 'delivered') ? 'bg-green-100 text-green-700' :
-            (request.status === 'cancelled') ? 'bg-red-100 text-red-700' :
-            'bg-blue-100 text-blue-700'
-          }>
-            {request.status === 'completed' ? '已完成' :
-             request.status === 'cancelled' ? '已取消' :
-             request.status === 'shipped' ? '已发货' :
-             request.status === 'delivered' ? '已签收' :
-             request.status === 'ready_to_ship' ? '待发货' :
-             request.status === 'awaiting_payment' ? '待付款' :
-             request.status === 'open' ? '招募中' :
-             request.status || '进行中'}
-          </Badge>
+    <div className="space-y-4">
+      {/* Page header */}
+      <div className="flex items-center gap-3">
+        <Button variant="ghost" size="sm" onClick={() => window.history.back()}>
+          <ArrowLeft className="w-4 h-4 mr-1" />返回
+        </Button>
+        <div>
+          <h1 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+            <Package className="w-5 h-5 text-indigo-600" />
+            {request.title || request.pool_code || '单箱工作面板'}
+          </h1>
           {location && (
-            <Badge variant="outline" className="text-xs">
-              <MapPin className="w-3 h-3 mr-1" />
-              {location.name}
-            </Badge>
+            <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
+              <MapPin className="w-3 h-3" />{location.name}
+            </p>
           )}
         </div>
       </div>
 
-      {/* Summary Card */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-sm font-semibold">拼单信息</CardTitle>
-            {(user?.role === 'admin' || user?.role === 'tenant_admin') && (
-              <Button 
-                size="sm" 
-                variant="outline"
-                onClick={() => setEditing(!editing)}
-                className="h-7 text-xs"
-              >
-                {editing ? <X className="w-3.5 h-3.5" /> : <Edit2 className="w-3.5 h-3.5" />}
-                {editing ? '取消' : '编辑'}
-              </Button>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {editing ? (
-            <>
-              <div>
-                <Label className="text-xs text-gray-500">截止日期</Label>
-                <Input 
-                  type="date" 
-                  value={editData.deadline || ''}
-                  onChange={(e) => setEditData({ ...editData, deadline: e.target.value })}
-                  className="mt-1 h-8 text-sm"
-                />
-              </div>
-              <div>
-                <Label className="text-xs text-gray-500">到期处理</Label>
-                <select
-                  value={editData.on_deadline_action || 'cancel'}
-                  onChange={(e) => setEditData({ ...editData, on_deadline_action: e.target.value })}
-                  className="mt-1 w-full border rounded-lg px-2 py-1.5 text-sm"
-                >
-                  <option value="cancel">取消订单</option>
-                  <option value="proceed">继续单独下单</option>
-                </select>
-              </div>
-              <div className="flex gap-2">
-                <Button 
-                  size="sm" 
-                  onClick={handleSaveRequest}
-                  disabled={saving}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-xs h-8"
-                >
-                  {saving ? <span className="animate-spin">⏳</span> : <Save className="w-3 h-3 mr-1" />}
-                  保存
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setEditing(false)}
-                  className="text-xs h-8"
-                >
-                  取消
-                </Button>
-              </div>
-            </>
-          ) : (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div className="flex items-center gap-2">
-                <Users className="w-4 h-4 text-indigo-600" />
-                <div>
-                  <p className="text-xs text-gray-500">参团人数</p>
-                  <p className="text-sm font-semibold">{userGroupList.length} 人</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Package className="w-4 h-4 text-indigo-600" />
-                <div>
-                  <p className="text-xs text-gray-500">订单数量</p>
-                  <p className="text-sm font-semibold">{activeEntries.length} 个</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <DollarSign className="w-4 h-4 text-indigo-600" />
-                <div>
-                  <p className="text-xs text-gray-500">总金额</p>
-                  <p className="text-sm font-semibold">¥{Math.round(totalAmount).toLocaleString()}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Scale className="w-4 h-4 text-indigo-600" />
-                <div>
-                  <p className="text-xs text-gray-500">总重量</p>
-                  <p className="text-sm font-semibold">{(totalWeight / 1000).toFixed(2)} kg</p>
-                </div>
-              </div>
-            </div>
-          )}
-          
-          {request.admin_note && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded p-2 text-xs text-yellow-800">
-              <strong>管理员备注：</strong>{request.admin_note}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Transit Management Cards (Pickup, Storage, Address) */}
-      {location && (
-        <div className="space-y-4">
-          {/* Pickup Management */}
-          <PickupScheduler
+      {/* Master-Detail layout */}
+      <div className="flex gap-4 items-start">
+        {/* ── Left Column ─────────────────────────────────────────────────────── */}
+        <div className="w-80 flex-shrink-0 space-y-4">
+          {/* Pool info */}
+          <PoolInfoPanel
             pool={request}
+            location={location}
+            userGroups={userGroups}
+            isAdmin={isAdmin}
+            isManager={isManager}
             onUpdate={fetchData}
-            isAdmin={user?.role === 'admin' || user?.role === 'tenant_admin'}
           />
 
-          {/* Storage Management */}
-          <StorageManagementCard
-            pool={request}
-            onUpdate={fetchData}
-            isAdmin={user?.role === 'admin' || user?.role === 'tenant_admin'}
-          />
-
-          {/* Address Change (for ShippingPool only) */}
-          {!isRequest && (
-            <AddressChangeCard
-              pool={request}
-              onUpdate={fetchData}
-            />
-          )}
-        </div>
-      )}
-
-      {/* Transit Shipping Form */}
-      {location && (user?.role === 'admin' || user?.role === 'tenant_admin' || location.manager_email === user.email) && (
-        <div>
-          {!showTransitForm && !request.transit_shipped_date && (
-            <Button
-              size="sm"
-              onClick={() => setShowTransitForm(true)}
-              className="w-full mb-3"
-            >
-              <Truck className="w-4 h-4 mr-2" />
-              填写中转地发货信息
-            </Button>
-          )}
-          {showTransitForm ? (
-            <TransitShippingForm
-              request={request}
-              onSave={handleTransitShippingSubmit}
-              onCancel={() => setShowTransitForm(false)}
-            />
-          ) : request.transit_shipped_date ? (
-            <Card className="border-green-200 bg-green-50/20">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                    <Truck className="w-4 h-4 text-green-600" />
-                    中转地发货信息
-                  </CardTitle>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setShowTransitForm(true)}
-                    className="h-7 text-xs"
-                  >
-                    <Edit2 className="w-3.5 h-3.5 mr-1" />
-                    编辑
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-2 text-sm">
-                <div className="flex items-center gap-2">
-                  <Truck className="w-4 h-4 text-green-600" />
-                  <span className="text-gray-700"><strong>运输方式：</strong>{request.transit_shipping_method}</span>
-                </div>
-                {request.transit_tracking_number && (
-                  <div className="flex items-center gap-2">
-                    <ClipboardCheck className="w-4 h-4 text-blue-600" />
-                    <span className="text-gray-700"><strong>单号：</strong>{request.transit_tracking_number}</span>
-                  </div>
-                )}
-                {request.transit_fee_jpy && (
-                  <div className="flex items-center gap-2">
-                    <DollarSign className="w-4 h-4 text-green-600" />
-                    <span className="text-gray-700"><strong>运费：</strong>¥{request.transit_fee_jpy.toLocaleString()}</span>
-                  </div>
-                )}
-                {request.transit_note && (
-                  <div className="text-gray-600"><strong>备注：</strong>{request.transit_note}</div>
-                )}
-                <div className="text-xs text-gray-500 mt-2">
-                  发货日期：{request.transit_shipped_date} · 操作人：{request.transit_shipped_by}
-                </div>
-              </CardContent>
-            </Card>
-          ) : null}
-        </div>
-      )}
-
-      {/* User Groups */}
-      <div>
-        <h2 className="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
-          <Users className="w-5 h-5 text-indigo-600" />
-          参团用户分组
-        </h2>
-        <div className="space-y-3">
-          {userGroupList.map(userGroup => (
-            <UserGroupCard
-              key={userGroup.key || userGroup.user_email}
-              userEntry={userGroup}
-              orders={userGroup.entries}
-              transitMethods={transitMethods}
-              pool={request}
-              isManager={!isRequest && (
-                user?.role === 'admin' || user?.role === 'tenant_admin' ||
-                (location && location.manager_email === user?.email)
+          {/* Batch list */}
+          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+            <div className="px-4 py-3 border-b bg-gray-50 flex items-center gap-2">
+              <Users className="w-4 h-4 text-gray-500" />
+              <span className="text-sm font-semibold text-gray-700">参团用户批次</span>
+              <span className="ml-auto text-xs text-gray-400">{userGroups.length} 个批次</span>
+            </div>
+            <div className="p-2 space-y-0.5">
+              {userGroups.length === 0 ? (
+                <p className="text-xs text-gray-400 text-center py-4">暂无活跃批次</p>
+              ) : (
+                userGroups.map(batch => (
+                  <BatchListItem
+                    key={batch.key}
+                    batch={batch}
+                    selected={selectedBatchKey === batch.key}
+                    onClick={() => setSelectedBatchKey(batch.key === selectedBatchKey ? null : batch.key)}
+                  />
+                ))
               )}
-              onAddressUpdate={handleAddressUpdate}
-              onPackingImageUpload={handlePackingImageUpload}
-              onEditTransitShipping={hasPerUserGroups ? (group) => setSelectedGroupForShipping(group) : null}
-            />
-          ))}
-        </div>
-
-        {/* Per-user-group transit shipping detail panel */}
-        {selectedGroupForShipping && (
-          <div className="fixed inset-0 z-50 flex items-stretch justify-end bg-black/30" onClick={() => setSelectedGroupForShipping(null)}>
-            <div className="h-full" onClick={e => e.stopPropagation()}>
-              <TransitShippingDetailPanel
-                pool={request}
-                selectedUserEntry={{ user_email: selectedGroupForShipping.user_email, user_name: selectedGroupForShipping.user_name }}
-                selectedAddressGroup={{
-                  address: selectedGroupForShipping.final_address,
-                  orders: selectedGroupForShipping.entries.map(e => ({
-                    order_id: e.order_id || e.id,
-                    product_name: e.product_name,
-                    quantity: e.order_details?.quantity || 1,
-                  }))
-                }}
-                onClose={() => setSelectedGroupForShipping(null)}
-                onSave={() => { setSelectedGroupForShipping(null); fetchData(); }}
-              />
             </div>
           </div>
-        )}
-      </div>
+        </div>
 
-      {/* Completed Entries */}
-      {completedEntries.length > 0 && (
-        <div>
-          <h2 className="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
-            <CheckCircle className="w-5 h-5 text-green-600" />
-            已完成订单
-          </h2>
-          <div className="space-y-2">
-            {completedEntries.map(entry => (
-              <div key={entry.id} className="flex items-center justify-between p-3 bg-white border rounded-lg">
-                <div className="flex items-center gap-3">
-                  <Package className="w-4 h-4 text-gray-400" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">{entry.product_name}</p>
-                    <p className="text-xs text-gray-500">{entry.user_name}</p>
-                  </div>
-                </div>
-                <span className="text-sm text-gray-600">¥{Math.round(entry.estimated_jpy).toLocaleString()}</span>
-              </div>
-            ))}
+        {/* ── Right Column (Detail Panel) ──────────────────────────────────────── */}
+        <div className="flex-1 min-w-0">
+          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden min-h-[400px]">
+            <BatchDetailPanel
+              batch={selectedBatch}
+              pool={request}
+              transitMethods={transitMethods}
+              isManager={isManager}
+              onSaved={() => {
+                fetchData();
+              }}
+            />
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }

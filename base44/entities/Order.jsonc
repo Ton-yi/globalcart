@@ -99,7 +99,7 @@
         "fullpay_once"
       ],
       "default": "prepay",
-      "description": "\u4ed8\u6b3e\u6a21\u5f0f\uff1aprepay=\u9884\u4ed8\u6b3e\uff0cdeferred=\u540e\u4ed8\u6b3e\uff0cfullpay_once=\u4e00\u6b21\u4ed8\u6b3e\uff08\u8d27\u6b3e + \u9884\u4f30\u8fd0\u8d39\uff09"
+      "description": "\u4ed8\u6b3e\u6a21\u5f0f"
     },
     "payment_status": {
       "type": "string",
@@ -124,6 +124,7 @@
         "pending_purchase",
         "purchased",
         "in_warehouse",
+        "in_storage",
         "notified_shipment",
         "notified_shipment_fee_pending",
         "notified_shipment_fee_paid",
@@ -134,7 +135,7 @@
         "cancelled"
       ],
       "default": "pending_confirmation",
-      "description": "\u8ba2\u5355\u72b6\u6001"
+      "description": "\u8ba2\u5355\u72b6\u6001\uff08in_storage=\u6682\u5b58\u4e8e\u4e2d\u8f6c\u5730\uff09"
     },
     "is_archived": {
       "type": "boolean",
@@ -416,6 +417,24 @@
     "calculated_at": {
       "type": "string",
       "description": "\u670d\u52a1\u8d39\u8ba1\u7b97\u65f6\u95f4\u6233"
+    },
+    "transit_storage_enabled": {
+      "type": "boolean",
+      "default": false,
+      "description": "\u662f\u5426\u5904\u4e8e\u6682\u5b58\u72b6\u6001\uff08\u7531\u4e2d\u8f6c\u5730\u8d1f\u8d23\u4eba\u786e\u8ba4\uff09"
+    },
+    "transit_storage_until": {
+      "type": "string",
+      "format": "date",
+      "description": "\u6682\u5b58\u622a\u6b62\u65e5\u671f\uff08null = \u65e0\u671f\u9650\uff09"
+    },
+    "transit_location_id": {
+      "type": "string",
+      "description": "\u6682\u5b58\u6240\u5728\u4e2d\u8f6c\u5730 ID"
+    },
+    "transit_location_name": {
+      "type": "string",
+      "description": "\u6682\u5b58\u6240\u5728\u4e2d\u8f6c\u5730\u540d\u79f0\uff08\u5feb\u7167\uff09"
     },
     "pre_shipment": {
       "type": "object",
