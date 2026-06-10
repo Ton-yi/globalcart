@@ -8,7 +8,7 @@ import { getTenantConfigCache } from "@/lib/configCache";
 import { getCurrentSubdomain } from "@/lib/tenantBranding";
 import { 
   ShoppingBag, Package, Truck, User, Settings, 
-  Bell, LogOut, Menu, X, Shield,
+  Bell, LogOut, Menu, X, Shield, Globe,
   Home, Users, BarChart3, Store, Send, Zap, UserPlus, ChevronDown, MapPin, Layers, FileText
 } from "lucide-react";
 import NotificationBell from "@/components/common/NotificationBell";
@@ -110,15 +110,18 @@ export default function Layout({ children, currentPageName }) {
     { label: "用户管理", icon: Users, page: "AdminUsers", canAccess: canAccessAdminUsers },
     { label: "网站设置", icon: Settings, page: "AdminSettings", canAccess: canAccessAdminSettings, subItems: [
       ...(canAccessAdminAnnouncements ? [{ label: "公告管理", icon: Bell, page: "AdminAnnouncements" }] : []),
-      ...(canAccessAdminSettings ? [{ label: "通知模板", icon: FileText, page: "AdminNotificationTemplates" }] : []),
-      ...(canAccessAdminSettings ? [{ label: "通知默认设置", icon: Settings, page: "AdminNotificationDefaults" }] : []),
       ...(canAccessAdminSettings ? [{ label: "服务费规则", icon: Zap, page: "AdminFeeRules" }] : []),
       { label: "网站设置", icon: Settings, page: "AdminSettings" },
     ]},
   ];
 
   const platformAdminNav = [
-    { label: "平台设置", icon: Settings, page: "PlatformAdminSettings", requiredRole: "platform_admin" },
+    { label: "平台设置", icon: Settings, page: "PlatformAdminSettings", requiredRole: "platform_admin", subItems: [
+      { label: "通知管理", icon: Bell, page: "PlatformNotificationManager" },
+      { label: "通知模板", icon: FileText, page: "AdminNotificationTemplates" },
+      { label: "通知默认设置", icon: Settings, page: "AdminNotificationDefaults" },
+      { label: "租户管理", icon: Globe, page: "PlatformAdminSettings" },
+    ]},
   ];
 
   const visibleUserNav = userNav.filter(item => !item.hidden);

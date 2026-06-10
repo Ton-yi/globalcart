@@ -23,6 +23,39 @@ const notificationTypes = [
   { value: "platform", label: "平台通知" },
 ];
 
+const commonSubtypes = {
+  payment: [
+    { value: "order_payment_required", label: "订单需付款" },
+    { value: "order_supplement_required", label: "订单需补款" },
+    { value: "shipping_fee_required", label: "需付运费" },
+    { value: "shipping_fee_supplement_required", label: "需补运费" },
+  ],
+  shipping_request: [
+    { value: "shipping_request_sent", label: "发货申请已发出" },
+    { value: "shipping_request_arrived", label: "发货申请已送达中转地" },
+    { value: "transit_shipped", label: "中转地已发货" },
+  ],
+  order_status: [
+    { value: "order_created", label: "订单创建" },
+    { value: "order_payment_confirmed", label: "订单付款已被确认" },
+    { value: "order_purchased", label: "订单已下单" },
+    { value: "order_in_warehouse", label: "订单已入库" },
+    { value: "order_added_to_pool", label: "订单已添加至发货申请" },
+  ],
+  message: [
+    { value: "new_reply", label: "订单/发货申请有新回复" },
+  ],
+  other: [
+    { value: "store_template_pending_review", label: "店铺模板提交待审核（管理员）" },
+    { value: "store_template_reviewed", label: "店铺模板审核结果通知（用户）" },
+  ],
+  platform: [
+    { value: "system_maintenance", label: "系统维护" },
+    { value: "new_feature_announcement", label: "新功能公告" },
+    { value: "policy_update", label: "政策更新" },
+  ],
+};
+
 const priorities = [
   { value: "low", label: "低" },
   { value: "normal", label: "普通" },
@@ -181,11 +214,21 @@ export default function PlatformNotificationManager() {
             {/* Notification Subtype */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">通知子类型（可选）</label>
-              <Input
-                placeholder="例如：system_maintenance, new_feature_announcement"
+              <Select
                 value={formData.notification_subtype}
-                onChange={(e) => setFormData({ ...formData, notification_subtype: e.target.value })}
-              />
+                onValueChange={(value) => setFormData({ ...formData, notification_subtype: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="选择通知子类型" />
+                </SelectTrigger>
+                <SelectContent>
+                  {commonSubtypes[formData.notification_type]?.map((subtype) => (
+                    <SelectItem key={subtype.value} value={subtype.value}>
+                      {subtype.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Priority */}
