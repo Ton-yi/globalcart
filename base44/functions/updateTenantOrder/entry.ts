@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
 /**
  * Update an order with tenant isolation verification
@@ -35,8 +35,13 @@ Deno.serve(async (req) => {
     }
 
     // Fetch order to verify ownership
-    const orderResult = await base44.asServiceRole.entities.Order.filter({ id: order_id });
-    const order = Array.isArray(orderResult) ? orderResult[0] : orderResult;
+    let order = null;
+    try {
+      const orderResult = await base44.asServiceRole.entities.Order.filter({ id: order_id });
+      order = Array.isArray(orderResult) ? orderResult[0] : orderResult;
+    } catch (_) {
+      // filter throws when no record found with exact id match
+    }
 
     if (!order) {
       return Response.json({ error: 'Order not found' }, { status: 404 });
@@ -62,7 +67,8 @@ Deno.serve(async (req) => {
       if (order.order_status === 'notified_shipment' && newStatus !== 'notified_shipment' && !shipmentRelatedStatuses.includes(newStatus)) {
         const poolId = order.consolidation_pool_id;
         if (poolId) {
-          const poolResults = await base44.asServiceRole.entities.ShippingPool.filter({ id: poolId });
+          let poolResults = [];
+          try { poolResults = await base44.asServiceRole.entities.ShippingPool.filter({ id: poolId }); } catch (_) {}
           const pool = Array.isArray(poolResults) ? poolResults[0] : poolResults;
           if (pool) {
             const updatedIds = (pool.order_ids || []).filter(id => id !== order_id);
@@ -86,7 +92,8 @@ Deno.serve(async (req) => {
       // (handles re-submission scenario)
       if (newStatus === 'notified_shipment' && order.consolidation_pool_id && updateData.consolidation_pool_id && updateData.consolidation_pool_id !== order.consolidation_pool_id) {
         const oldPoolId = order.consolidation_pool_id;
-        const oldPoolResults = await base44.asServiceRole.entities.ShippingPool.filter({ id: oldPoolId });
+        let oldPoolResults = [];
+        try { oldPoolResults = await base44.asServiceRole.entities.ShippingPool.filter({ id: oldPoolId }); } catch (_) {}
         const oldPool = Array.isArray(oldPoolResults) ? oldPoolResults[0] : oldPoolResults;
         if (oldPool) {
           const updatedIds = (oldPool.order_ids || []).filter(id => id !== order_id);
