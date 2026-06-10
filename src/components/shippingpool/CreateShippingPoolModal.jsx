@@ -16,9 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Truck, Star } from "lucide-react";
-import { tenantEntity } from "@/lib/tenantApi";
 
 export default function CreateShippingPoolModal({ isAdmin, onClose, onSuccess }) {
   const [step, setStep] = useState(1);
