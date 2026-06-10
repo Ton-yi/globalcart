@@ -96,15 +96,15 @@ export default function Layout({ children, currentPageName }) {
     { label: "网站设置", icon: Settings, page: "AdminSettings", canAccess: canAccessAdminSettings, subItems: [
       ...(canAccessAdminAnnouncements ? [{ label: "公告管理", icon: Bell, page: "AdminAnnouncements" }] : []),
       ...(canAccessAdminSettings ? [{ label: "服务费规则", icon: Zap, page: "AdminFeeRules" }] : []),
+      { label: "通知模板", icon: FileText, page: "AdminNotificationTemplates" },
+      { label: "通知默认设置", icon: Settings, page: "AdminNotificationDefaults" },
       { label: "网站设置", icon: Settings, page: "AdminSettings" },
     ]},
   ];
 
   const platformAdminNav = [
     { label: "平台设置", icon: Settings, page: "PlatformAdminSettings", requiredRole: "platform_admin", subItems: [
-      { label: "通知管理", icon: Bell, page: "PlatformNotificationManager" },
-      { label: "通知模板", icon: FileText, page: "AdminNotificationTemplates" },
-      { label: "通知默认设置", icon: Settings, page: "AdminNotificationDefaults" },
+      { label: "跨租户通知", icon: Bell, page: "PlatformNotificationManager" },
       { label: "租户管理", icon: Globe, page: "PlatformAdminSettings" },
     ]},
   ];
