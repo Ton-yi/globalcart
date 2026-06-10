@@ -104,6 +104,7 @@ Deno.serve(async (req) => {
                 actual_international_shipping_cost_jpy: 0,
                 box_charge_jpy: 0,
                 box_actual_cost_jpy: 0,
+                box_profit_jpy: 0,
                 shipping_stage_profit_jpy: 0,
                 total_profit_jpy: 0,
                 orders_missing_cost_data: 0
@@ -121,7 +122,7 @@ Deno.serve(async (req) => {
             
             reportData.summary.order_stage_payment_jpy += orderPayment;
             reportData.summary.refund_amount_jpy += refund;
-            reportData.summary.goods_amount_jpy += goodsCost;
+            reportData.summary.goods_cost_jpy += goodsCost;
             reportData.summary.order_stage_profit_jpy += orderProfit;
             
             // 按维度分组
@@ -146,7 +147,7 @@ Deno.serve(async (req) => {
             reportData.byDimension[dimensionValue].order_count += 1;
             reportData.byDimension[dimensionValue].order_stage_payment_jpy += orderPayment;
             reportData.byDimension[dimensionValue].refund_amount_jpy += refund;
-            reportData.byDimension[dimensionValue].goods_amount_jpy += goodsCost;
+            reportData.byDimension[dimensionValue].goods_cost_jpy += goodsCost;
             reportData.byDimension[dimensionValue].order_stage_profit_jpy += orderProfit;
             
             // 检查成本数据完整性
@@ -172,7 +173,7 @@ Deno.serve(async (req) => {
             
             // 外箱利润
             const boxProfit = boxCharge - boxCost;
-            reportData.summary.box_profit_jpy = (reportData.summary.box_profit_jpy || 0) + boxProfit;
+            reportData.summary.box_profit_jpy += boxProfit;
         });
         
         // 计算总利润

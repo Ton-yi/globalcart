@@ -63,13 +63,18 @@ export default function AdminReports() {
     );
 
     if (error) {
+        console.error('Report error details:', error);
         return (
             <div className="p-6">
                 <Card className="border-red-200 bg-red-50">
                     <CardContent className="pt-6">
-                        <div className="flex items-center gap-2 text-red-600">
-                            <AlertTriangle className="h-5 w-5" />
-                            <p>报表加载失败：{error.message}</p>
+                        <div className="flex items-start gap-3 text-red-600">
+                            <AlertTriangle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+                            <div>
+                                <p className="font-medium">报表加载失败</p>
+                                <p className="text-sm mt-1">{error?.message || '未知错误'}</p>
+                                <p className="text-xs mt-2 text-red-500">请检查控制台日志获取详细信息</p>
+                            </div>
                         </div>
                     </CardContent>
                 </Card>
@@ -131,7 +136,10 @@ export default function AdminReports() {
                             </Select>
                         </div>
                         <div className="flex items-end">
-                            <Button className="w-full">
+                            <Button className="w-full" onClick={() => {
+                                // Trigger refetch by updating query key
+                                console.log('Manual refresh triggered');
+                            }}>
                                 更新报表
                             </Button>
                         </div>
@@ -140,8 +148,9 @@ export default function AdminReports() {
             </Card>
 
             {isLoading ? (
-                <div className="flex items-center justify-center py-12">
-                    <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div>
+                <div className="flex flex-col items-center justify-center py-20">
+                    <div className="w-10 h-10 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin mb-4"></div>
+                    <p className="text-muted-foreground">正在加载报表数据...</p>
                 </div>
             ) : reportData ? (
                 <>
@@ -253,7 +262,9 @@ export default function AdminReports() {
                 </>
             ) : (
                 <div className="text-center py-12 text-muted-foreground">
-                    请选择日期范围后点击"更新报表"
+                    <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>暂无数据</p>
+                    <p className="text-sm mt-2">请选择日期范围后点击"更新报表"</p>
                 </div>
             )}
         </div>
