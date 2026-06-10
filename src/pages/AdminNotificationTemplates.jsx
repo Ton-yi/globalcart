@@ -54,7 +54,7 @@ export default function AdminNotificationTemplates() {
   const queryClient = useQueryClient();
   const [editingTemplate, setEditingTemplate] = useState(null);
   const [isCreating, setIsCreating] = useState(false);
-  const [selectedType, setSelectedType] = useState("payment");
+  const [selectedType, setSelectedType] = useState("all");
 
   const { data: templates } = useQuery({
     queryKey: ['notification-templates'],
@@ -112,7 +112,7 @@ export default function AdminNotificationTemplates() {
     });
   };
 
-  const filteredTemplates = templates?.filter(t => !selectedType || t.notification_type === selectedType) || [];
+  const filteredTemplates = templates?.filter(t => selectedType === "all" || t.notification_type === selectedType) || [];
   const availableSubtypes = commonSubtypes[selectedType] || [];
 
   return (
@@ -250,47 +250,87 @@ export default function AdminNotificationTemplates() {
         </Card>
       )}
 
-      {/* Template List */}
+      {/* Template List with Filter */}
+      <div className="flex items-center gap-2 mb-4">
+        <span className="text-sm text-gray-600">筛选类型：</span>
+        <Select value={selectedType} onValueChange={setSelectedType}>
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="全部类型" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">全部类型</SelectItem>
+            {notificationTypes.map((type) => (
+              <SelectItem key={type.value} value={type.value}>
+                {type.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Badge variant="outline" className="ml-2">
+          共 {filteredTemplates.length} 个模板
+        </Badge>
+      </div>
+
       <div className="grid gap-4">
-        {filteredTemplates.map((template) => (
-          <Card key={template.id}>
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <FileText className="w-5 h-5" />
-                    {template.notification_type} - {template.notification_subtype}
-                  </CardTitle>
-                  <CardDescription>
-                    {template.default_in_app && <Bell className="w-3 h-3 inline mr-1" />}
-                    {template.default_email && <Mail className="w-3 h-3 inline mr-1" />}
-                    最后更新：{new Date(template.updated_date).toLocaleDateString()}
-                  </CardDescription>
-                </div>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" onClick={() => setEditingTemplate(template)}>
-                    <Edit2 className="w-4 h-4" />
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => handleDelete(template.id)}>
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2 text-sm">
-                <div>
-                  <span className="font-medium text-gray-700">标题模板：</span>
-                  <span className="text-gray-600">{template.title_template}</span>
-                </div>
-                <div>
-                  <span className="font-medium text-gray-700">内容模板：</span>
-                  <div className="text-gray-600 mt-1 whitespace-pre-wrap">{template.content_template}</div>
-                </div>
-              </div>
+        {filteredTemplates.length === 0 ? (
+          <Card>
+            <CardContent className="py-8 text-center text-gray-500">
+              <FileText className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+              <p>暂无通知模板</p>
+              <p className="text-sm mt-1">点击右上角"新建模板"创建第一个模板</p>
             </CardContent>
           </Card>
-        ))}
+        ) : (
+          filteredTemplates.map((template) => (
+            <Card key={template.id}>
+              <CardHeader>
+                <div className="flex items-start justify-between">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-xs">
+                        {notificationTypes.find(t => t.value === template.notification_type)?.label || template.notification_type}
+                      </Badge>
+                      <span className="text-sm font-medium text-gray-600">{template.notification_subtype}</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-xs text-gray-500">
+                      <span className="flex items-center gap-1">
+                        <Bell className={`w-3 h-3 ${template.default_in_app ? 'text-blue-600' : 'text-gray-300'}`} />
+                        站内：{template.default_in_app ? '开启' : '关闭'}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Mail className={`w-3 h-3 ${template.default_email ? 'text-green-600' : 'text-gray-300'}`} />
+                        邮件：{template.default_email ? '开启' : '关闭'}
+                      </span>
+                      <span>更新：{new Date(template.updated_date).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" onClick={() => setEditingTemplate(template)}>
+                      <Edit2 className="w-4 h-4" />
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => handleDelete(template.id)}>
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3 text-sm">
+                  <div>
+                    <span className="font-medium text-gray-700 block mb-1">标题模板：</span>
+                    <div className="bg-gray-50 px-3 py-2 rounded text-gray-700 font-mono text-xs">{template.title_template}</div>
+                  </div>
+                  <div>
+                    <span className="font-medium text-gray-700 block mb-1">内容模板：</span>
+                    <div className="bg-gray-50 px-3 py-2 rounded text-gray-700 text-xs whitespace-pre-wrap max-h-32 overflow-auto">
+                      {template.content_template}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        )}
       </div>
 
       {/* Usage Guide */}
