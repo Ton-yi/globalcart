@@ -88,7 +88,8 @@ Deno.serve(async (req) => {
         in_app_enabled: in_app_enabled ?? true,
         email_enabled: email_enabled ?? true,
         notification_settings: notification_settings || {},
-        description: description || ''
+        description: description || '',
+        updated_by: user.email
       };
 
       if (existing && existing.length > 0) {
