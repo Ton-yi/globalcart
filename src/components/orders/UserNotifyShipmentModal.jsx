@@ -1068,7 +1068,8 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
           if (!method && !joinDirectPool && !isJoiningPool) missing.push("发货方式");
           if (!isJoiningPool && consType === "transit" && !selectedTransitId) missing.push("中转地");
           if (!isJoiningPool && consType === "transit" && !selectedTransitMethodId) missing.push("中转段运输方式");
-          if (!isJoiningPool && consType === "transit" && !isAddressSlotOk("final")) {
+          const isPickupStorageSelected = selectedTransitMethodId === '__pickup__' || selectedTransitMethodId === '__storage__';
+          if (!isJoiningPool && consType === "transit" && !isPickupStorageSelected && !isAddressSlotOk("final")) {
             const inNew = !!addressInputMode["final"] || savedAddresses.length === 0;
             if (inNew) {
               if (!newAddress.label?.trim()) missing.push("收货地址：地址标签");
@@ -1082,7 +1083,7 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
               missing.push("最终收货地址");
             }
           }
-          if (isJoiningPool && !isAddressSlotOk("final")) {
+          if (isJoiningPool && !isPickupStorageSelected && !isAddressSlotOk("final")) {
             const inNew = !!addressInputMode["final"] || savedAddresses.length === 0;
             if (inNew) {
               if (!newAddress.label?.trim()) missing.push("收货地址：地址标签");
@@ -1151,8 +1152,8 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
                (method && !isJoiningPool && getMethodError()) ||
                (!isJoiningPool && consType === "transit" && !selectedTransitId) ||
                (!isJoiningPool && consType === "transit" && !selectedTransitMethodId) ||
-               (!isJoiningPool && consType === "transit" && !isAddressSlotOk("final")) ||
-               (isJoiningPool && !isAddressSlotOk("final")) ||
+               (!isJoiningPool && consType === "transit" && !(selectedTransitMethodId === '__pickup__' || selectedTransitMethodId === '__storage__') && !isAddressSlotOk("final")) ||
+               (isJoiningPool && !(selectedTransitMethodId === '__pickup__' || selectedTransitMethodId === '__storage__') && !isAddressSlotOk("final")) ||
                (isJoiningPool && selectedPool?.consolidation_type === "transit" && !selectedTransitMethodId) ||
                (!isJoiningPool && consType === "" && !joinDirectPool && !isAddressSlotOk("direct")) ||
                (!isJoiningPool && consType === "other" && !isAddressSlotOk("other")) ||

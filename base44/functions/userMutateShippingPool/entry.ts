@@ -170,6 +170,14 @@ Deno.serve(async (req) => {
         const updatedIds = [...new Set([...(pool.order_ids || []), order_id])];
         const updatedWeight = (pool.total_weight_g || 0) + (order.weight_g || 0);
         const updatedNames = [...(pool.order_names || []), order.product_name].filter(Boolean);
+        // Normalize method id — collapse legacy "pickup"/"storage" to canonical form
+        const normalizeMethodId = (id) => {
+          if (id === 'pickup') return '__pickup__';
+          if (id === 'storage') return '__storage__';
+          return id || '';
+        };
+        const thisMethodId = normalizeMethodId(order.pre_shipment?.transit_shipping_method_id);
+        const isPickupOrStorage = thisMethodId === '__pickup__' || thisMethodId === '__storage__';
         // Build per_user_groups update: merge order into user's existing group or create new one
         const addr = order.pre_shipment?.address || {};
         const newOrderEntry = {
@@ -180,12 +188,17 @@ Deno.serve(async (req) => {
           selected_addons: order.selected_addons || [],
           override_final_address: null,
           use_group_address: true,
-          transit_shipping_method_id: order.pre_shipment?.transit_shipping_method_id || '',
+          transit_shipping_method_id: thisMethodId,
           transit_shipping_method_name: order.pre_shipment?.transit_shipping_method_name || '',
           transit_note: user_note || order.pre_shipment?.user_note || '',
         };
         let updatedPerUserGroups = [...(pool.per_user_groups || [])];
-        const existingGroupIndex = updatedPerUserGroups.findIndex(g => g.user_email === order.user_email);
+        // Only merge into a group with the SAME transit method (pickup/storage are always separate)
+        const existingGroupIndex = updatedPerUserGroups.findIndex(g => {
+          if (g.user_email !== order.user_email) return false;
+          const gMethodId = normalizeMethodId(g.transit_shipping_method_id);
+          return gMethodId === thisMethodId;
+        });
         if (existingGroupIndex >= 0) {
           updatedPerUserGroups[existingGroupIndex] = {
             ...updatedPerUserGroups[existingGroupIndex],
@@ -200,9 +213,9 @@ Deno.serve(async (req) => {
             image_urls: [],
             selected_addon_ids: order.pre_shipment?.selected_addon_ids || [],
             selected_addons: order.pre_shipment?.selected_addons || [],
-            transit_shipping_method_id: order.pre_shipment?.transit_shipping_method_id || '',
+            transit_shipping_method_id: thisMethodId,
             transit_shipping_method_name: order.pre_shipment?.transit_shipping_method_name || '',
-            group_final_address: {
+            group_final_address: isPickupOrStorage ? {} : {
               recipient_name: addr.recipient_name || '',
               country: addr.country || '',
               addr1: addr.addr1 || '',
