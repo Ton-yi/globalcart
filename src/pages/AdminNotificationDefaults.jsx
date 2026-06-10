@@ -1,14 +1,14 @@
 /**
- * UserNotificationSettings - 用户通知偏好设置
+ * AdminNotificationDefaults - 管理员设置新用户默认通知偏好
  */
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Bell, Mail, Settings, DollarSign, Package, MessageSquare, Info } from "lucide-react";
+import { Settings, Bell, Mail, Save, DollarSign, Package, MessageSquare, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
 const notificationCategories = [
@@ -58,55 +58,60 @@ const notificationCategories = [
     label: "其他通知",
     icon: Info,
     subtypes: [
-      { key: "store_template_pending_review", label: "店铺模板提交待审核（管理员）" },
-      { key: "store_template_reviewed", label: "店铺模板审核结果通知（用户）" },
+      { key: "store_template_pending_review", label: "店铺模板审核通知" },
     ]
   },
 ];
 
-export default function UserNotificationSettings() {
+export default function AdminNotificationDefaults() {
   const queryClient = useQueryClient();
   const [globalInApp, setGlobalInApp] = useState(true);
   const [globalEmail, setGlobalEmail] = useState(true);
   const [subtypeSettings, setSubtypeSettings] = useState({});
+  const [description, setDescription] = useState("");
 
-  // Fetch preferences
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ['notification-preferences'],
+    queryKey: ['notification-defaults'],
     queryFn: async () => {
-      const res = await base44.functions.invoke('getNotificationPreferences', {});
+      const res = await base44.functions.invoke('getNotificationDefaults', {});
       return res.data;
     },
   });
 
-  // Initialize settings from fetched data
-  useState(() => {
-    if (data?.preferences) {
-      setGlobalInApp(data.preferences.in_app_enabled ?? true);
-      setGlobalEmail(data.preferences.email_enabled ?? true);
-      if (data.preferences.notification_settings) {
-        setSubtypeSettings(data.preferences.notification_settings);
+  useEffect(() => {
+    if (data?.defaults) {
+      setGlobalInApp(data.defaults.in_app_enabled ?? true);
+      setGlobalEmail(data.defaults.email_enabled ?? true);
+      if (data.defaults.notification_settings) {
+        setSubtypeSettings(data.defaults.notification_settings);
       }
+      setDescription(data.defaults.description || "");
     }
-  });
+  }, [data]);
 
-  // Update preferences mutation
-  const updateMutation = useMutation({
+  const saveMutation = useMutation({
     mutationFn: async (settings) => {
-      const res = await base44.functions.invoke('updateNotificationPreferences', settings);
+      const res = await base44.functions.invoke('manageNotificationDefaults', {
+        action: 'update',
+        ...settings
+      });
       return res.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notification-preferences'] });
-      toast.success('设置已保存');
+      toast.success('默认设置已保存');
+      refetch();
+    },
+    onError: (error) => {
+      toast.error('保存失败：' + error.message);
     },
   });
 
   const handleSave = () => {
-    updateMutation.mutate({
+    saveMutation.mutate({
       in_app_enabled: globalInApp,
       email_enabled: globalEmail,
       notification_settings: subtypeSettings,
+      description,
     });
   };
 
@@ -122,8 +127,8 @@ export default function UserNotificationSettings() {
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">通知设置</h1>
-        <p className="text-sm text-gray-500 mt-1">管理您的通知偏好和提醒方式</p>
+        <h1 className="text-2xl font-bold text-gray-900">新用户默认通知设置</h1>
+        <p className="text-sm text-gray-500 mt-1">设置新注册用户的默认通知偏好</p>
       </div>
 
       {/* Global Settings */}
@@ -131,9 +136,9 @@ export default function UserNotificationSettings() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Settings className="w-5 h-5" />
-            全局设置
+            全局默认设置
           </CardTitle>
-          <CardDescription>控制所有通知的接收方式</CardDescription>
+          <CardDescription>新用户注册时的默认通知接收方式</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
@@ -162,12 +167,21 @@ export default function UserNotificationSettings() {
               onCheckedChange={setGlobalEmail}
             />
           </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">设置说明</label>
+            <textarea
+              className="w-full min-h-[80px] p-2 border rounded-md text-sm"
+              placeholder="描述此默认设置的应用场景或说明"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+          </div>
         </CardContent>
       </Card>
 
       {/* Category Settings */}
       <div className="space-y-4">
-        <h2 className="text-lg font-semibold text-gray-900">分类设置</h2>
+        <h2 className="text-lg font-semibold text-gray-900">分类默认设置</h2>
         {notificationCategories.map((category) => {
           const IconComponent = category.icon;
           return (
@@ -232,11 +246,29 @@ export default function UserNotificationSettings() {
         <Button
           className="bg-red-600 hover:bg-red-700"
           onClick={handleSave}
-          disabled={updateMutation.isPending}
+          disabled={saveMutation.isPending}
         >
-          {updateMutation.isPending ? '保存中...' : '保存设置'}
+          {saveMutation.isPending ? '保存中...' : (
+            <>
+              <Save className="w-4 h-4 mr-2" />
+              保存默认设置
+            </>
+          )}
         </Button>
       </div>
+
+      {/* Usage Guide */}
+      <Card>
+        <CardHeader>
+          <CardTitle>使用说明</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm text-gray-600">
+          <p>• 此设置将应用于所有新注册用户</p>
+          <p>• 用户注册后仍可在个人设置中自定义通知偏好</p>
+          <p>• 平台管理员可设置全局默认值，租户管理员可设置自己租户的默认值</p>
+          <p>• 建议关闭不重要的通知（如订单创建）的邮件提醒，避免打扰用户</p>
+        </CardContent>
+      </Card>
     </div>
   );
 }
