@@ -16,31 +16,80 @@ Deno.serve(async (req) => {
         }
         
         // 解析请求参数
-        const { startDate, endDate, dimension = 'order_status' } = await req.json();
-        
-        if (!startDate || !endDate) {
-            return Response.json({ error: 'Missing required parameters: startDate, endDate' }, { status: 400 });
+        let requestBody;
+        try {
+            requestBody = await req.json();
+        } catch (e) {
+            return Response.json({ error: 'Invalid JSON body', details: e.message }, { status: 400 });
         }
         
-        // 获取租户上下文
-        const tenantContext = await base44.functions.invoke('getTenantContext', {});
-        const tenantId = tenantContext.tenantId;
+        const { startDate, endDate, dimension = 'order_status' } = requestBody;
         
-        if (!tenantId) {
-            return Response.json({ error: 'Tenant context not found' }, { status: 400 });
+        if (!startDate || !endDate) {
+            return Response.json({ 
+                error: 'Missing required parameters: startDate, endDate',
+                received: requestBody
+            }, { status: 400 });
+        }
+        
+        // 获取租户上下文 - 从用户信息或租户列表获取
+        let tenantId = null;
+        
+        // 如果是平台管理员，需要从用户信息中获取当前查看的租户
+        if (user.role === 'platform_admin') {
+            // 平台管理员可以查看所有租户，这里暂时返回 null 允许查询所有数据
+            // 或者可以从请求参数中获取 tenant_id
+            tenantId = null;
+        } else {
+            // 普通管理员/员工/用户，从用户信息获取租户
+            try {
+                const tenantContext = await base44.functions.invoke('getTenantContext', {});
+                tenantId = tenantContext?.tenantId || user.tenant_id;
+            } catch (e) {
+                // 如果 getTenantContext 失败，尝试直接从用户对象获取
+                tenantId = user.tenant_id;
+            }
+        }
+        
+        if (!tenantId && user.role !== 'platform_admin') {
+            return Response.json({ 
+                error: 'Tenant context not found',
+                user_email: user.email,
+                user_role: user.role
+            }, { status: 400 });
         }
         
         // 查询订单数据（按时间范围过滤）
-        const orders = await base44.entities.Order.filter({
-            tenant_id: tenantId,
+        const orderQuery = {
             submit_date: { $gte: startDate, $lte: endDate }
-        });
+        };
+        if (tenantId) {
+            orderQuery.tenant_id = tenantId;
+        }
+        
+        let orders;
+        try {
+            orders = await base44.entities.Order.filter(orderQuery);
+        } catch (e) {
+            console.error('Failed to query orders:', e);
+            orders = [];
+        }
         
         // 查询发货池数据
-        const shippingPools = await base44.entities.ShippingPool.filter({
-            tenant_id: tenantId,
+        const poolQuery = {
             created_date: { $gte: startDate, $lte: endDate }
-        });
+        };
+        if (tenantId) {
+            poolQuery.tenant_id = tenantId;
+        }
+        
+        let shippingPools;
+        try {
+            shippingPools = await base44.entities.ShippingPool.filter(poolQuery);
+        } catch (e) {
+            console.error('Failed to query shipping pools:', e);
+            shippingPools = [];
+        }
         
         // 构建报表数据
         const reportData = {

@@ -26,13 +26,19 @@ export default function AdminReports() {
     const { data: reportData, isLoading, error } = useQuery({
         queryKey: ['reports', startDate, endDate, dimension],
         queryFn: async () => {
-            const response = await base44.functions.invoke('getReportData', {
-                startDate,
-                endDate,
-                dimensions: [dimension],
-                metrics: ['all']
-            });
-            return response.data;
+            console.log('Fetching reports with params:', { startDate, endDate, dimension });
+            try {
+                const response = await base44.functions.invoke('getReportData', {
+                    startDate,
+                    endDate,
+                    dimension
+                });
+                console.log('Report response:', response);
+                return response.data;
+            } catch (err) {
+                console.error('Report fetch error:', err);
+                throw err;
+            }
         }
     });
 
@@ -145,7 +151,7 @@ export default function AdminReports() {
                             title="下单阶段利润" 
                             value={reportData.summary.order_stage_profit_jpy} 
                             icon={TrendingUp}
-                            subtitle={`收入：${formatCurrency(reportData.summary.order_stage_payment_jpy)} - 退款：${formatCurrency(reportData.summary.refund_amount_jpy)} - 成本：${formatCurrency(reportData.summary.goods_amount_jpy)}`}
+                            subtitle={`收入：${formatCurrency(reportData.summary.order_stage_payment_jpy)} - 退款：${formatCurrency(reportData.summary.refund_amount_jpy)} - 成本：${formatCurrency(reportData.summary.goods_cost_jpy)}`}
                         />
                         <MetricCard 
                             title="运费结算利润" 
@@ -155,7 +161,7 @@ export default function AdminReports() {
                         />
                         <MetricCard 
                             title="外箱利润" 
-                            value={reportData.summary.box_profit_jpy} 
+                            value={reportData.summary.box_profit_jpy || 0} 
                             icon={Package}
                             subtitle={`收费：${formatCurrency(reportData.summary.box_charge_jpy)} - 成本：${formatCurrency(reportData.summary.box_actual_cost_jpy)}`}
                         />
@@ -168,14 +174,14 @@ export default function AdminReports() {
                     </div>
 
                     {/* 成本缺失提醒 */}
-                    {reportData.summary.orders_with_missing_cost > 0 && (
+                    {reportData.summary.orders_missing_cost_data > 0 && (
                         <Card className="border-yellow-200 bg-yellow-50">
                             <CardContent className="pt-6">
                                 <div className="flex items-center gap-2 text-yellow-800">
                                     <AlertTriangle className="h-5 w-5" />
                                     <p>
                                         <strong>注意：</strong>
-                                        有 {reportData.summary.orders_with_missing_cost} 个历史订单缺少实际成本数据，
+                                        有 {reportData.summary.orders_missing_cost_data} 个历史订单缺少实际成本数据，
                                         利润为估算值。请在发货结算时录入实际运费和外箱成本。
                                     </p>
                                 </div>
