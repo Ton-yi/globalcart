@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { Package, RefreshCw, Search, CreditCard, Truck, CheckCircle, ChevronUp, ChevronDown, ChevronsUpDown, Send, Archive, ArchiveRestore, RotateCcw, Zap } from "lucide-react";
+import { Package, RefreshCw, Search, CreditCard, Truck, CheckCircle, ChevronUp, ChevronDown, ChevronsUpDown, Send, Archive, ArchiveRestore, RotateCcw, Zap, MapPin } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Textarea } from "@/components/ui/textarea";
@@ -72,6 +72,7 @@ const STATUS_FILTERS = [
   { v: "purchased", l: "已下单" },
   { v: "in_warehouse", l: "已入库" },
   { v: "in_storage", l: "暂存中" },
+  { v: "transit_shipped", l: "中转地已发货" },
   { v: "notified_shipment", l: "已通知出货" },
   { v: "shipping_fee_pending", l: "待付运费" },
   { v: "shipped", l: "已发出" },
@@ -556,8 +557,58 @@ export default function MyOrders() {
                       )}
                     </div>
                   )}
+                  {order.order_status === "transit_shipped" && (() => {
+                    const pool = shippingPools.find(p => (p.order_ids || []).includes(order.id));
+                    // Other orders in same pool for this user
+                    const poolOrderIds = pool?.order_ids || [];
+                    const otherPoolOrders = poolOrderIds.filter(id => id !== order.id);
+                    return (
+                      <div className="flex flex-col gap-1 items-start">
+                        <span className="inline-flex items-center gap-1 text-xs bg-blue-100 text-blue-700 border border-blue-200 px-1.5 py-0.5 rounded-full font-medium">
+                          <Truck className="w-2.5 h-2.5" />中转地已发货
+                        </span>
+                        {order.transit_tracking_number && (
+                          <span className="text-xs font-mono text-gray-600 bg-gray-50 border border-gray-200 px-1.5 py-0.5 rounded select-all">
+                            {order.transit_tracking_number}
+                          </span>
+                        )}
+                        {order.transit_shipped_date && (
+                          <span className="text-xs text-gray-400">发货日 {order.transit_shipped_date}</span>
+                        )}
+                        <Button size="sm" className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            if (otherPoolOrders.length > 0) {
+                              const confirmAll = window.confirm(
+                                `此发货申请中还有其他 ${otherPoolOrders.length} 件包裹。\n\n点击"确定"一并确认所有包裹收货。\n点击"取消"仅确认此订单收货。`
+                              );
+                              if (confirmAll) {
+                                await Promise.all(poolOrderIds.map(id =>
+                                  base44.functions.invoke('updateTenantOrder', { order_id: id, order_status: 'delivered' })
+                                ));
+                                if (pool) await base44.functions.invoke('updateTenantOrder', { order_id: order.id, order_status: 'delivered' });
+                              } else {
+                                await base44.functions.invoke('updateTenantOrder', { order_id: order.id, order_status: 'delivered' });
+                              }
+                            } else {
+                              await base44.functions.invoke('updateTenantOrder', { order_id: order.id, order_status: 'delivered' });
+                            }
+                            fetchOrders(user);
+                          }}>
+                          <CheckCircle className="w-3 h-3 mr-1" />确认收货
+                        </Button>
+                        {pool && (
+                          <button
+                            className="text-xs font-mono text-purple-700 bg-purple-50 border border-purple-100 px-1.5 py-0.5 rounded hover:bg-purple-100 transition-colors"
+                            onClick={(e) => { e.stopPropagation(); setViewPool(pool); }}>
+                            {pool.pool_code || pool.id.slice(-6).toUpperCase()}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })()}
                   {/* Pre-shipment badge / button: show for all orders not yet in warehouse and not cancelled */}
-                  {!["in_warehouse", "notified_shipment", "notified_shipment_fee_pending", "shipping_fee_pending", "ready_to_ship", "shipped", "delivered", "cancelled"].includes(order.order_status) && (
+                  {!["in_warehouse", "in_storage", "transit_shipped", "notified_shipment", "notified_shipment_fee_pending", "shipping_fee_pending", "ready_to_ship", "shipped", "delivered", "cancelled"].includes(order.order_status) && (
                     order.pre_shipment
                       ? <Button size="sm" variant="outline" className="h-6 text-xs px-2 text-purple-600 border-purple-200 hover:bg-purple-50"
                           onClick={() => navigate(`/PreShipmentForm?order_id=${order.id}`)}>

@@ -24,6 +24,7 @@ import PaymentMethodSelector from "@/components/common/PaymentMethodSelector";
 import PaymentProofUploader from "@/components/shippingpool/PaymentProofUploader";
 import OrderDetailCard from "@/components/shippingpool/OrderDetailCard";
 import OrderDetailPanel from "@/components/shippingpool/OrderDetailPanel";
+import TransitShippedPanel from "@/components/shippingpool/TransitShippedPanel";
 
 const STATUS_CONFIG = {
   pending:                       { label: "待处理",    color: "bg-amber-100 text-amber-700" },
@@ -1383,7 +1384,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
 
           }
 
-          {/* User: shipped panel — tracking + confirm delivery */}
+          {!isAdmin && <TransitShippedPanel orders={orders} currentUser={currentUser} onUpdated={onUpdated} />}
           {!isAdmin && pool.status === "shipped" && (
             <div className="border border-green-200 rounded-xl overflow-hidden">
               <div className="bg-green-50 px-4 py-2.5 border-b border-green-200 flex items-center gap-2">

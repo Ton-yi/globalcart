@@ -102,6 +102,22 @@ Deno.serve(async (req) => {
       transit_shipping_info_per_user: transitShippingInfoPerUser
     });
 
+    // If a tracking number is provided, update each order to "transit_shipped" status
+    // and write transit info directly onto the order for easy user-facing display
+    if (shipping_data?.transit_tracking_number) {
+      await Promise.all(order_ids.map(orderId =>
+        base44.asServiceRole.entities.Order.update(orderId, {
+          order_status: 'transit_shipped',
+          transit_tracking_number: shipping_data.transit_tracking_number,
+          transit_shipping_method: shipping_data.transit_shipping_method || '',
+          transit_shipped_date: shipping_data.transit_shipped_date || new Date().toISOString().split('T')[0],
+          transit_note: shipping_data.transit_note || '',
+          // Store image urls as JSON string for order-level display
+          transit_image_urls: shipping_data.transit_image_urls || [],
+        }).catch(e => console.error(`Failed to update order ${orderId}:`, e))
+      ));
+    }
+
     return Response.json({ 
       success: true, 
       message: 'Shipping info updated successfully',
