@@ -4,7 +4,7 @@ import { tenantEntity, userPrefApi } from "@/lib/tenantApi";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAuth } from "@/lib/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
-import { User, Save, Camera, Plus, Trash2, MapPin, Edit2, Check, Star, Palette, Archive, Lock } from "lucide-react";
+import { User, Save, Camera, Plus, Trash2, MapPin, Edit2, Check, Star, Palette, Archive, Lock, Bell } from "lucide-react";
 import AvatarCropModal from "@/components/common/AvatarCropModal";
 import ThemeSelector from "@/components/common/ThemeSelector";
 import CreditPanel from "@/components/user/CreditPanel";
@@ -373,12 +373,19 @@ export default function UserPreferences() {
             </div>
             <Switch checked={form.prefer_consolidation} onCheckedChange={v => f("prefer_consolidation", v)} />
           </div>
-          <div className="flex items-center justify-between py-1">
+          <div className="flex items-center justify-between py-1 border-t border-gray-100 pt-3 mt-1">
             <div>
-              <Label className="text-sm">接收邮件通知</Label>
-              <p className="text-xs text-gray-400 mt-0.5">订单状态变更时通知您</p>
+              <Label className="text-sm">通知偏好设置</Label>
+              <p className="text-xs text-gray-400 mt-0.5">自定义各类通知的接收方式</p>
             </div>
-            <Switch checked={form.notification_email} onCheckedChange={v => f("notification_email", v)} />
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8"
+              onClick={() => window.location.href = '/UserNotificationSettings'}
+            >
+              设置
+            </Button>
           </div>
 
           <div className="flex items-center justify-between py-1 border-t border-gray-100 pt-3 mt-1">
@@ -389,6 +396,25 @@ export default function UserPreferences() {
             <Switch checked={form.order_info_public} onCheckedChange={v => f("order_info_public", v)} />
           </div>
 
+        </CardContent>
+      </Card>
+
+      {/* 通知设置入口 */}
+      <Card className="border-blue-200">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+            <Bell className="w-4 h-4 text-blue-500" />通知设置
+          </CardTitle>
+          <p className="text-xs text-gray-400 mt-1">管理您的通知接收偏好</p>
+        </CardHeader>
+        <CardContent>
+          <Button
+            className="w-full bg-blue-600 hover:bg-blue-700"
+            onClick={() => window.location.href = '/UserNotificationSettings'}
+          >
+            <Bell className="w-4 h-4 mr-2" />
+            管理通知偏好
+          </Button>
         </CardContent>
       </Card>
 

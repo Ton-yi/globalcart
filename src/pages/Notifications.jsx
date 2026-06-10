@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Bell, CheckCheck, DollarSign, Package, MessageSquare, Info, AlertCircle, Filter } from "lucide-react";
+import { Bell, CheckCheck, DollarSign, Package, MessageSquare, Info, AlertCircle, Filter, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -80,10 +80,16 @@ export default function NotificationsPage() {
           <h1 className="text-2xl font-bold text-gray-900">通知中心</h1>
           <p className="text-sm text-gray-500 mt-1">查看和管理您的所有通知</p>
         </div>
-        <Button variant="outline" size="sm" onClick={handleMarkAllRead} disabled={notifications.every(n => n.is_read)}>
-          <CheckCheck className="w-4 h-4 mr-2" />
-          全部标记为已读
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => window.location.href = '/UserNotificationSettings'}>
+            <Settings className="w-4 h-4 mr-2" />
+            通知设置
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleMarkAllRead} disabled={notifications.every(n => n.is_read)}>
+            <CheckCheck className="w-4 h-4 mr-2" />
+            全部标记为已读
+          </Button>
+        </div>
       </div>
 
       {/* Tabs */}
