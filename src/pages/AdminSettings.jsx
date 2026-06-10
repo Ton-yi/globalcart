@@ -528,7 +528,7 @@ export default function AdminSettings() {
           <Card className="border-blue-200">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                <Bell className="w-4 h-4 text-blue-500" />租户通知模板
+                <Bell className="w-4 h-4 text-blue-500" />通知模板管理
               </CardTitle>
               <p className="text-xs text-gray-400 mt-1">管理当前租户的通知模板，包括标题、内容模板和默认发送方式</p>
             </CardHeader>
@@ -544,7 +544,7 @@ export default function AdminSettings() {
           <Card className="border-green-200">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                <Settings className="w-4 h-4 text-green-500" />租户通知默认设置
+                <Settings className="w-4 h-4 text-green-500" />通知默认设置
               </CardTitle>
               <p className="text-xs text-gray-400 mt-1">设置新用户的默认通知偏好，包括站内通知和邮件通知的开关</p>
             </CardHeader>

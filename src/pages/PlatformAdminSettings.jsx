@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { AlertTriangle, ChevronDown, ChevronUp, Plus, Save, Building2, Users, Zap, X, TrendingUp, Bell, FileText, Settings } from "lucide-react";
+import { Link } from "react-router-dom";
+import { createPageUrl } from "@/utils";
+import { AlertTriangle, ChevronDown, ChevronUp, Plus, Save, Building2, Users, Zap, X, TrendingUp, Bell, FileText, Settings, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -537,45 +539,7 @@ export default function PlatformAdminSettings() {
         </Card>
       )}
 
-      {/* Notification Management */}
-      {activeTab === "notifications" && (
-        <Card className="border-blue-200">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-              <Bell className="w-4 h-4 text-blue-500" />通知管理
-            </CardTitle>
-            <p className="text-xs text-gray-400 mt-1">管理平台通知模板和默认设置</p>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <button
-                onClick={() => window.location.href = '/PlatformNotificationManager'}
-                className="flex flex-col items-center justify-center p-6 border-2 border-blue-100 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-colors"
-              >
-                <Bell className="w-8 h-8 text-blue-600 mb-3" />
-                <span className="text-sm font-semibold text-gray-900">跨租户通知</span>
-                <span className="text-xs text-gray-500 mt-1">发送平台级通知</span>
-              </button>
-              <button
-                onClick={() => window.location.href = '/AdminNotificationTemplates'}
-                className="flex flex-col items-center justify-center p-6 border-2 border-green-100 rounded-xl hover:border-green-300 hover:bg-green-50 transition-colors"
-              >
-                <FileText className="w-8 h-8 text-green-600 mb-3" />
-                <span className="text-sm font-semibold text-gray-900">通知模板</span>
-                <span className="text-xs text-gray-500 mt-1">管理租户模板</span>
-              </button>
-              <button
-                onClick={() => window.location.href = '/AdminNotificationDefaults'}
-                className="flex flex-col items-center justify-center p-6 border-2 border-purple-100 rounded-xl hover:border-purple-300 hover:bg-purple-50 transition-colors"
-              >
-                <Settings className="w-8 h-8 text-purple-600 mb-3" />
-                <span className="text-sm font-semibold text-gray-900">默认设置</span>
-                <span className="text-xs text-gray-500 mt-1">新用户默认偏好</span>
-              </button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+
 
       {/* Exchange Rates (Platform-level) */}
       {activeTab === "exchange_rates" && liveRates && (
@@ -625,48 +589,39 @@ export default function PlatformAdminSettings() {
 
       {/* Notifications Management */}
       {activeTab === "notifications" && (
-        <Card className="border-indigo-200">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-              <Bell className="w-4 h-4 text-indigo-500" />通知管理
-            </CardTitle>
-            <p className="text-xs text-gray-400 mt-1">管理平台通知设置和默认模板</p>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <button
-                onClick={() => window.location.href = '/PlatformNotificationManager'}
-                className="p-4 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors text-left"
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <Bell className="w-5 h-5 text-indigo-600" />
-                  <span className="text-sm font-semibold text-gray-900">跨租户通知</span>
-                </div>
-                <p className="text-xs text-gray-500">发送平台通知给一个或多个租户的所有用户</p>
-              </button>
-              <button
-                onClick={() => window.location.href = '/AdminNotificationDefaults'}
-                className="p-4 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors text-left"
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <Settings className="w-5 h-5 text-indigo-600" />
-                  <span className="text-sm font-semibold text-gray-900">默认通知设置</span>
-                </div>
-                <p className="text-xs text-gray-500">设置新用户注册时的默认通知偏好</p>
-              </button>
-            </div>
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={async () => {
-                const res = await base44.functions.invoke('initializeDefaultNotificationTemplates', {});
-                alert(`初始化完成：创建${res.data.created_count}个，更新${res.data.updated_count}个模板`);
-              }}
-            >
-              初始化默认通知模板
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="space-y-4">
+          <Card className="border-indigo-200">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                <Bell className="w-4 h-4 text-indigo-500" />平台通知管理
+              </CardTitle>
+              <p className="text-xs text-gray-400 mt-1">发送跨租户的系统通知，可指定目标租户和管理员范围</p>
+            </CardHeader>
+            <CardContent>
+              <Link to={createPageUrl("PlatformNotificationManager")}>
+                <Button className="bg-indigo-600 hover:bg-indigo-700 w-full">
+                  <ExternalLink className="w-4 h-4 mr-2" />进入平台通知管理
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+
+          <Card className="border-green-200">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                <Settings className="w-4 h-4 text-green-500" />平台级默认通知设置
+              </CardTitle>
+              <p className="text-xs text-gray-400 mt-1">设置全平台新用户的默认通知偏好（租户可覆盖）</p>
+            </CardHeader>
+            <CardContent>
+              <Link to={createPageUrl("AdminNotificationDefaults")}>
+                <Button className="bg-green-600 hover:bg-green-700 w-full">
+                  <ExternalLink className="w-4 h-4 mr-2" />进入默认设置管理
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </div>
       )}
     </div>
   );
