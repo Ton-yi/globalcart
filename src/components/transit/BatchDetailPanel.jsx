@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { base44 } from "@/api/base44Client";
 import { getCountry } from "@/lib/countries";
+import AdminOrderEditModal from "@/components/admin/AdminOrderEditModal";
 
 function AddressBlock({ address }) {
   if (!address || !address.recipient_name) return (
@@ -354,47 +355,32 @@ function PickupBatchPanel({ batch, pool, isManager, onSaved }) {
   );
 }
 
-// ─── 订单详情迷你弹窗 ─────────────────────────────────────────────────────────
-function OrderMiniDetail({ order, onClose }) {
+// ─── 订单详情弹窗（使用 AdminOrderEditModal） ──────────────────────────────────
+function OrderDetailModal({ order, onClose, onSaved }) {
   if (!order) return null;
   return (
-    <div className="fixed inset-0 bg-black/40 z-[60] flex items-center justify-center p-4" onMouseDown={onClose}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[80vh] overflow-y-auto p-6 space-y-4" onMouseDown={e => e.stopPropagation()}>
-        <div className="flex items-start justify-between">
-          <div>
-            <h3 className="font-semibold text-gray-900">{order.product_name}</h3>
-            <p className="text-xs text-gray-400 mt-0.5">{order.order_number}</p>
-          </div>
-          <button onClick={onClose}><X className="w-4 h-4 text-gray-400" /></button>
-        </div>
-        {(order.product_image_url || order.arrival_photo_url) && (
-          <div className="flex gap-2">
-            {order.product_image_url && <img src={order.product_image_url} className="w-20 h-20 object-cover rounded border" alt="商品图" />}
-            {order.arrival_photo_url && <img src={order.arrival_photo_url} className="w-20 h-20 object-cover rounded border border-blue-200" alt="入库图" />}
-          </div>
-        )}
-        <div className="grid grid-cols-2 gap-2 text-xs">
-          {order.estimated_jpy && <div className="bg-gray-50 rounded px-2 py-1.5"><p className="text-gray-400">估价</p><p className="font-medium">¥{Math.round(order.estimated_jpy).toLocaleString()}</p></div>}
-          {order.weight_g && <div className="bg-gray-50 rounded px-2 py-1.5"><p className="text-gray-400">重量</p><p className="font-medium">{order.weight_g}g</p></div>}
-          {order.order_status && <div className="bg-gray-50 rounded px-2 py-1.5"><p className="text-gray-400">状态</p><p className="font-medium">{order.order_status}</p></div>}
-          {order.quantity && <div className="bg-gray-50 rounded px-2 py-1.5"><p className="text-gray-400">数量</p><p className="font-medium">{order.quantity}</p></div>}
-        </div>
-        {order.product_description && <p className="text-xs text-gray-600 bg-gray-50 rounded p-2">{order.product_description}</p>}
-        {order.user_note && <div className="bg-yellow-50 border border-yellow-100 rounded px-2 py-1.5 text-xs text-yellow-800"><strong>备注：</strong>{order.user_note}</div>}
-        {(order.selected_addons || []).length > 0 && (
-          <div>
-            <p className="text-xs text-gray-500 mb-1">增值服务</p>
-            <AddonsBlock addons={order.selected_addons} />
-          </div>
-        )}
-      </div>
-    </div>
+    <AdminOrderEditModal
+      order={order}
+      initialItemSizeTemplates={[]}
+      onClose={onClose}
+      onSaved={onSaved}
+      onOpenPool={() => {}}
+      shippingPools={[]}
+      currentUser={{ email: "admin", role: "admin" }}
+      userProfileMap={{}}
+    />
   );
 }
 
 // ─── Main Export ──────────────────────────────────────────────────────────────
 export default function BatchDetailPanel({ batch, pool, transitMethods, isManager, onClose, onSaved }) {
   const [orderDetail, setOrderDetail] = useState(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  const handleOrderSaved = () => {
+    setRefreshTrigger(prev => prev + 1);
+    onSaved?.();
+  };
 
   if (!batch) {
     return (
@@ -496,7 +482,12 @@ export default function BatchDetailPanel({ batch, pool, transitMethods, isManage
       </div>
 
       {orderDetail && (
-        <OrderMiniDetail order={orderDetail} onClose={() => setOrderDetail(null)} />
+        <OrderDetailModal 
+          key={refreshTrigger}
+          order={orderDetail} 
+          onClose={() => setOrderDetail(null)} 
+          onSaved={handleOrderSaved}
+        />
       )}
     </div>
   );
