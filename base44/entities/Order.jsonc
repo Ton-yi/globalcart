@@ -431,11 +431,11 @@
     },
     "transit_location_id": {
       "type": "string",
-      "description": "\u6682\u5b58\u6240\u5728\u4e2d\u8f6c\u5730 ID"
+      "description": "\u6682\u5b58\u6240\u5728\u5730\u4e2d\u8f6c\u5730 ID"
     },
     "transit_location_name": {
       "type": "string",
-      "description": "\u6682\u5b58\u6240\u5728\u4e2d\u8f6c\u5730\u540d\u79f0\uff08\u5feb\u7167\uff09"
+      "description": "\u6682\u5b58\u6240\u5728\u5730\u4e2d\u8f6c\u5730\u540d\u79f0\uff08\u5feb\u7167\uff09"
     },
     "transit_tracking_number": {
       "type": "string",
@@ -581,6 +581,16 @@
     "group_buy_allocated_shipping_fee_jpy": {
       "type": "number",
       "description": "\u62fc\u5355\u5206\u644a\u7684\u8fd0\u8d39\uff08JPY\uff09\uff0c\u62fc\u5355\u5b8c\u6210\u65f6\u5199\u5165"
+    },
+    "refund_amount_jpy": {
+      "type": "number",
+      "description": "\u9000\u6b3e\u91d1\u989d\uff08JPY\uff09\uff0c\u7ba1\u7406\u5458\u5f55\u5165\u7684\u771f\u5b9e\u9000\u6b3e",
+      "default": null
+    },
+    "order_stage_payment_jpy": {
+      "type": "number",
+      "description": "\u4e0b\u5355\u9636\u6bb5\u7528\u6237\u5b9e\u9645\u652f\u4ed8\u603b\u989d\uff08JPY\uff09",
+      "default": null
     }
   },
   "required": [

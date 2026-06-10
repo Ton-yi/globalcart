@@ -614,6 +614,26 @@
           }
         }
       }
+    },
+    "shipping_stage_income_jpy": {
+      "type": "number",
+      "description": "\u53d1\u8d27\u9636\u6bb5\u5411\u7528\u6237\u6536\u53d6\u7684\u603b\u6536\u5165\uff08JPY\uff09\uff0c\u5305\u542b\u8fd0\u8d39\u3001\u5916\u7bb1\u8d39\u3001\u589e\u503c\u670d\u52a1\u8d39\u3001\u5c3a\u5bf8\u8ffd\u52a0\u8d39\u7b49",
+      "default": null
+    },
+    "actual_international_shipping_cost_jpy": {
+      "type": "number",
+      "description": "\u5b9e\u9645\u652f\u4ed8\u7ed9\u7269\u6d41\u5546\u7684\u56fd\u9645\u8fd0\u8d39\u652f\u51fa\uff08JPY\uff09",
+      "default": null
+    },
+    "box_charge_jpy_snapshot": {
+      "type": "number",
+      "description": "\u5916\u7bb1\u6536\u8d39\u5feb\u7167\uff08JPY\uff09\uff0c\u8bb0\u5f55\u5f53\u6b21\u53d1\u8d27\u5411\u7528\u6237\u6536\u53d6\u7684\u5916\u7bb1\u8d39\u7528",
+      "default": null
+    },
+    "box_actual_cost_jpy_snapshot": {
+      "type": "number",
+      "description": "\u5916\u7bb1\u5b9e\u9645\u6210\u672c\u5feb\u7167\uff08JPY\uff09\uff0c\u9632\u8303\u6a21\u677f\u6210\u672c\u53d8\u66f4\u5f71\u54cd\u5386\u53f2\u5229\u6da6",
+      "default": null
     }
   },
   "required": [

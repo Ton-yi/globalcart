@@ -4,29 +4,40 @@
   "properties": {
     "tenant_id": {
       "type": "string",
-      "description": "\u6240\u5c5e\u79df\u6237ID"
+      "description": "\u6240\u5c5e\u79df\u6237 ID"
     },
     "name": {
       "type": "string",
-      "description": "\u5916\u7bb1\u540d\u79f0"
+      "description": "\u5916\u7bb1\u6a21\u677f\u540d\u79f0"
     },
-    "description": {
+    "code": {
       "type": "string",
-      "description": "\u5916\u7bb1\u63cf\u8ff0\uff08\u5c3a\u5bf8\u7b49\uff09"
+      "description": "\u5916\u7bb1\u6a21\u677f\u4ee3\u7801"
     },
-    "image_url": {
-      "type": "string",
-      "description": "\u5916\u7bb1\u56fe\u7247URL"
+    "length_cm": {
+      "type": "number",
+      "description": "\u957f\u5ea6 (cm)"
+    },
+    "width_cm": {
+      "type": "number",
+      "description": "\u5bbd\u5ea6 (cm)"
+    },
+    "height_cm": {
+      "type": "number",
+      "description": "\u9ad8\u5ea6 (cm)"
     },
     "weight_g": {
       "type": "number",
-      "description": "\u5916\u7bb1\u81ea\u91cd (g)",
-      "default": 0
+      "description": "\u5916\u7bb1\u81ea\u91cd (g)"
     },
     "price_jpy": {
       "type": "number",
-      "description": "\u5916\u7bb1\u4ef7\u683c (JPY)",
-      "default": 0
+      "description": "\u5916\u7bb1\u552e\u4ef7 (JPY)"
+    },
+    "cost_jpy": {
+      "type": "number",
+      "description": "\u5916\u7bb1\u5b9e\u9645\u91c7\u8d2d\u6210\u672c (JPY)",
+      "default": null
     },
     "is_active": {
       "type": "boolean",
@@ -35,6 +46,8 @@
     }
   },
   "required": [
-    "name"
+    "name",
+    "code",
+    "price_jpy"
   ]
 }

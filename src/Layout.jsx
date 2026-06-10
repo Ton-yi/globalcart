@@ -96,6 +96,7 @@ export default function Layout({ children, currentPageName }) {
     { label: "网站设置", icon: Settings, page: "AdminSettings", canAccess: canAccessAdminSettings, subItems: [
       ...(canAccessAdminAnnouncements ? [{ label: "公告管理", icon: Bell, page: "AdminAnnouncements" }] : []),
       ...(canAccessAdminSettings ? [{ label: "服务费规则", icon: Zap, page: "AdminFeeRules" }] : []),
+      { label: "财务报表", icon: BarChart3, page: "AdminReports" },
       { label: "通知模板", icon: FileText, page: "AdminNotificationTemplates" },
       { label: "通知默认设置", icon: Settings, page: "AdminNotificationDefaults" },
       { label: "网站设置", icon: Settings, page: "AdminSettings" },
