@@ -10,7 +10,7 @@ import {
   Bell, LogOut, Menu, X, Shield, Globe,
   Home, Users, BarChart3, Store, Send, Zap, UserPlus, ChevronDown, Layers, FileText
 } from "lucide-react";
-import NotificationBell from "@/components/common/NotificationBell";
+import NotificationBell from "@/components/common/NotificationBell.jsx";
 import { MidnightToggle } from "@/components/common/ThemeSelector";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

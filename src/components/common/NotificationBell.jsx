@@ -24,7 +24,7 @@ const typeColors = {
   platform: "bg-indigo-100 text-indigo-700",
 };
 
-export default function NotificationBell() {
+export default function NotificationBellComponent() {
   const [isOpen, setIsOpen] = useState(false);
   const queryClient = useQueryClient();
 
@@ -120,7 +120,7 @@ export default function NotificationBell() {
                 <DollarSign className="w-3 h-3 mr-1" />
                 付款通知
               </Button>
-              <Button variant="outline" size="sm" className="h-7 text-xs flex-1" onClick={handleViewAll}>
+              <Button variant="outline" size="sm" className="h-7 text-xs flex-1" onClick={() => { setIsOpen(false); window.location.href = '/Notifications'; }}>
                 全部通知
               </Button>
             </div>
@@ -164,7 +164,7 @@ export default function NotificationBell() {
             </div>
 
             <div className="px-4 py-3 border-t border-gray-100 bg-gray-50">
-              <Button variant="outline" size="sm" className="w-full" onClick={handleViewAll}>
+              <Button variant="outline" size="sm" className="w-full" onClick={() => { setIsOpen(false); window.location.href = '/Notifications'; }}>
                 <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
                 查看全部通知
               </Button>
