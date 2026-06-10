@@ -112,10 +112,25 @@ Deno.serve(async (req) => {
           transit_shipping_method: shipping_data.transit_shipping_method || '',
           transit_shipped_date: shipping_data.transit_shipped_date || new Date().toISOString().split('T')[0],
           transit_note: shipping_data.transit_note || '',
-          // Store image urls as JSON string for order-level display
           transit_image_urls: shipping_data.transit_image_urls || [],
         }).catch(e => console.error(`Failed to update order ${orderId}:`, e))
       ));
+
+      // Check if ALL orders in the pool (for this user group) are now transit_shipped or delivered.
+      // If so, mark the pool as "shipped" so user sees the correct pool status.
+      const allPoolOrders = await base44.asServiceRole.entities.Order.filter({ tenant_id: pool.tenant_id })
+        .catch(() => []);
+      const poolOrders = allPoolOrders.filter(o => (pool.order_ids || []).includes(o.id));
+      // After this update, order_ids are transit_shipped; check all pool orders
+      const updatedOrderIds = new Set(order_ids);
+      const allShipped = poolOrders.every(o =>
+        updatedOrderIds.has(o.id)
+          ? true // just updated to transit_shipped
+          : (o.order_status === 'transit_shipped' || o.order_status === 'delivered' || o.order_status === 'shipped')
+      );
+      if (allShipped && poolOrders.length > 0) {
+        await base44.entities.ShippingPool.update(pool_id, { status: 'shipped' }).catch(() => {});
+      }
     }
 
     return Response.json({ 

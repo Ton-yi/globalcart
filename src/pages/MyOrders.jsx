@@ -586,7 +586,6 @@ export default function MyOrders() {
                                 await Promise.all(poolOrderIds.map(id =>
                                   base44.functions.invoke('updateTenantOrder', { order_id: id, order_status: 'delivered' })
                                 ));
-                                if (pool) await base44.functions.invoke('updateTenantOrder', { order_id: order.id, order_status: 'delivered' });
                               } else {
                                 await base44.functions.invoke('updateTenantOrder', { order_id: order.id, order_status: 'delivered' });
                               }

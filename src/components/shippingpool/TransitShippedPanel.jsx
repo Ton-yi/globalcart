@@ -24,8 +24,9 @@ export default function TransitShippedPanel({ orders, currentUser, onUpdated }) 
 
   const handleConfirm = async () => {
     setConfirming(true);
-    const myOrderIds = orders.filter(o => o.user_email === currentUser?.email).map(o => o.id);
-    await Promise.all(myOrderIds.map(id =>
+    // Only confirm orders that are actually in transit_shipped state (not other statuses)
+    const idsToConfirm = myTransitShippedOrders.map(o => o.id);
+    await Promise.all(idsToConfirm.map(id =>
       base44.functions.invoke('updateTenantOrder', { order_id: id, order_status: 'delivered' })
     ));
     setConfirming(false);
