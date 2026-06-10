@@ -78,10 +78,14 @@ Deno.serve(async (req) => {
       fullpay_once_config:            pre.fullpay_once_config || null,
     };
 
-    // Call the unified engine via service role (this is a server-to-server call)
+    // Call the unified engine via service role (this is a server-to-server call).
+    // Pass service_user_email so createShippingPool can identify the creator without
+    // a user token (asServiceRole.functions.invoke does not forward user auth).
     const result = await base44.asServiceRole.functions.invoke('createShippingPool', {
       order_ids: [order.id],
       payload,
+      service_user_email: order.user_email,
+      service_user_name: order.user_name || order.user_email,
     });
 
     // Mark pre_shipment as processed so we don't re-trigger

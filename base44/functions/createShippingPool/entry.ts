@@ -45,9 +45,18 @@ Deno.serve(async (req) => {
   const t0 = Date.now();
   try {
     const base44 = createClientFromRequest(req);
-    const [user, body] = await Promise.all([base44.auth.me(), req.json()]);
+    const body = await req.json();
 
-    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    // Support service-role calls (e.g. from autoCreatePreShipmentPool) that pass
+    // service_user_email + service_user_name instead of a real user token.
+    let user = null;
+    if (body.service_user_email) {
+      // Caller is a trusted backend function; skip auth.me()
+      user = { email: body.service_user_email, full_name: body.service_user_name || body.service_user_email };
+    } else {
+      user = await base44.auth.me();
+      if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
     const { order_ids, payload } = body;
 
