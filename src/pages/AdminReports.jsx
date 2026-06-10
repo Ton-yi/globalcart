@@ -6,10 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
 import { Download, TrendingUp, Package, DollarSign, AlertTriangle } from "lucide-react";
-import { format } from "date-fns";
 
 export default function AdminReports() {
     const [startDate, setStartDate] = useState(() => {
@@ -34,12 +31,15 @@ export default function AdminReports() {
                     dimension
                 });
                 console.log('Report response:', response);
+                // response 包含 { success, data, date_range, dimension }
+                // 返回内部的 data 字段（包含 summary 和 byDimension）
                 return response.data;
             } catch (err) {
                 console.error('Report fetch error:', err);
                 throw err;
             }
-        }
+        },
+        retry: false
     });
 
     const formatCurrency = (amount) => {
@@ -49,7 +49,7 @@ export default function AdminReports() {
         }).format(amount || 0);
     };
 
-    const MetricCard = ({ title, value, icon: Icon, trend, subtitle }) => (
+    const MetricCard = ({ title, value, icon: Icon, subtitle }) => (
         <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">{title}</CardTitle>
@@ -136,10 +136,7 @@ export default function AdminReports() {
                             </Select>
                         </div>
                         <div className="flex items-end">
-                            <Button className="w-full" onClick={() => {
-                                // Trigger refetch by updating query key
-                                console.log('Manual refresh triggered');
-                            }}>
+                            <Button className="w-full">
                                 更新报表
                             </Button>
                         </div>
@@ -152,45 +149,45 @@ export default function AdminReports() {
                     <div className="w-10 h-10 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin mb-4"></div>
                     <p className="text-muted-foreground">正在加载报表数据...</p>
                 </div>
-            ) : reportData ? (
+            ) : reportData && reportData.summary ? (
                 <>
                     {/* 汇总指标 */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <MetricCard 
                             title="下单阶段利润" 
-                            value={reportData.summary.order_stage_profit_jpy} 
+                            value={reportData.summary.order_stage_profit_jpy || 0} 
                             icon={TrendingUp}
-                            subtitle={`收入：${formatCurrency(reportData.summary.order_stage_payment_jpy)} - 退款：${formatCurrency(reportData.summary.refund_amount_jpy)} - 成本：${formatCurrency(reportData.summary.goods_cost_jpy)}`}
+                            subtitle={`收入：${formatCurrency(reportData.summary.order_stage_payment_jpy || 0)} - 退款：${formatCurrency(reportData.summary.refund_amount_jpy || 0)} - 成本：${formatCurrency(reportData.summary.goods_cost_jpy || 0)}`}
                         />
                         <MetricCard 
                             title="运费结算利润" 
-                            value={reportData.summary.shipping_stage_profit_jpy} 
+                            value={reportData.summary.shipping_stage_profit_jpy || 0} 
                             icon={DollarSign}
-                            subtitle={`运费收入：${formatCurrency(reportData.summary.shipping_stage_income_jpy)} - 运费支出：${formatCurrency(reportData.summary.actual_international_shipping_cost_jpy)}`}
+                            subtitle={`运费收入：${formatCurrency(reportData.summary.shipping_stage_income_jpy || 0)} - 运费支出：${formatCurrency(reportData.summary.actual_international_shipping_cost_jpy || 0)}`}
                         />
                         <MetricCard 
                             title="外箱利润" 
                             value={reportData.summary.box_profit_jpy || 0} 
                             icon={Package}
-                            subtitle={`收费：${formatCurrency(reportData.summary.box_charge_jpy)} - 成本：${formatCurrency(reportData.summary.box_actual_cost_jpy)}`}
+                            subtitle={`收费：${formatCurrency(reportData.summary.box_charge_jpy || 0)} - 成本：${formatCurrency(reportData.summary.box_actual_cost_jpy || 0)}`}
                         />
                         <MetricCard 
                             title="总利润" 
-                            value={reportData.summary.total_profit_jpy} 
+                            value={reportData.summary.total_profit_jpy || 0} 
                             icon={TrendingUp}
-                            subtitle={`订单数：${reportData.summary.total_orders}`}
+                            subtitle={`订单数：${reportData.summary.total_orders || 0}`}
                         />
                     </div>
 
                     {/* 成本缺失提醒 */}
-                    {reportData.summary.orders_missing_cost_data > 0 && (
+                    {(reportData.summary.orders_missing_cost_data || 0) > 0 && (
                         <Card className="border-yellow-200 bg-yellow-50">
                             <CardContent className="pt-6">
                                 <div className="flex items-center gap-2 text-yellow-800">
                                     <AlertTriangle className="h-5 w-5" />
                                     <p>
                                         <strong>注意：</strong>
-                                        有 {reportData.summary.orders_missing_cost_data} 个历史订单缺少实际成本数据，
+                                        有 {reportData.summary.orders_missing_cost_data || 0} 个历史订单缺少实际成本数据，
                                         利润为估算值。请在发货结算时录入实际运费和外箱成本。
                                     </p>
                                 </div>
@@ -216,23 +213,23 @@ export default function AdminReports() {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {Object.entries(reportData.byDimension).map(([key, data]) => (
+                                        {Object.entries(reportData.byDimension || {}).map(([key, data]) => (
                                             <tr key={key} className="border-b hover:bg-gray-50">
                                                 <td className="py-3 px-4">{key}</td>
-                                                <td className="text-right py-3 px-4">{data.order_count}</td>
+                                                <td className="text-right py-3 px-4">{data.order_count || 0}</td>
                                                 <td className="text-right py-3 px-4">
-                                                    <span className={data.order_stage_profit_jpy >= 0 ? 'text-green-600' : 'text-red-600'}>
-                                                        {formatCurrency(data.order_stage_profit_jpy)}
+                                                    <span className={(data.order_stage_profit_jpy || 0) >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                                        {formatCurrency(data.order_stage_profit_jpy || 0)}
                                                     </span>
                                                 </td>
                                                 <td className="text-right py-3 px-4">
-                                                    <span className={data.shipping_stage_profit_jpy >= 0 ? 'text-green-600' : 'text-red-600'}>
-                                                        {formatCurrency(data.shipping_stage_profit_jpy)}
+                                                    <span className={(data.shipping_stage_profit_jpy || 0) >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                                        {formatCurrency(data.shipping_stage_profit_jpy || 0)}
                                                     </span>
                                                 </td>
                                                 <td className="text-right py-3 px-4">
-                                                    <span className={data.total_profit_jpy >= 0 ? 'text-green-600' : 'text-red-600'}>
-                                                        {formatCurrency(data.total_profit_jpy)}
+                                                    <span className={(data.total_profit_jpy || 0) >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                                        {formatCurrency(data.total_profit_jpy || 0)}
                                                     </span>
                                                 </td>
                                             </tr>

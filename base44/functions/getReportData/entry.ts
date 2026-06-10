@@ -184,18 +184,25 @@ Deno.serve(async (req) => {
         // 实际生产中需要从关联的 order 中获取维度值
         Object.keys(reportData.byDimension).forEach(dimensionValue => {
             const dimensionData = reportData.byDimension[dimensionValue];
-            dimensionData.shipping_stage_profit_jpy = 
-                (reportData.summary.shipping_stage_profit_jpy / orders.length) * dimensionData.order_count;
+            // 避免除以零
+            const avgShippingProfit = orders.length > 0 
+                ? reportData.summary.shipping_stage_profit_jpy / orders.length 
+                : 0;
+            dimensionData.shipping_stage_profit_jpy = avgShippingProfit * dimensionData.order_count;
             dimensionData.total_profit_jpy = 
                 dimensionData.order_stage_profit_jpy + dimensionData.shipping_stage_profit_jpy;
         });
         
-        return Response.json({
+        const result = {
             success: true,
             data: reportData,
             date_range: { startDate, endDate },
             dimension: dimension
-        });
+        };
+        
+        console.log('Report result:', JSON.stringify(result, null, 2));
+        
+        return Response.json(result);
         
     } catch (error) {
         console.error('Report generation error:', error);
