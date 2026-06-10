@@ -8,7 +8,7 @@ import { X, Package, MapPin, ChevronRight, ChevronLeft, Plus, Check } from "luci
 import CountrySelect from "@/components/common/CountrySelect";
 import { getCountry } from "@/lib/countries";
 import { base44 } from "@/api/base44Client";
-import { updateOrder, shippingPoolApi, tenantEntity, userPrefApi, fetchShippingPools, fetchTenantConfig } from "@/lib/tenantApi";
+import { tenantEntity, userPrefApi, fetchTenantConfig } from "@/lib/tenantApi";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -121,6 +121,7 @@ export default function CreateShippingPoolModal({ isAdmin, onClose, onSuccess })
     if (selectedOrderIds.length === 0 || !form.destination_country) return;
     setSubmitting(true);
 
+    // Save new address to address book if requested
     if (useNewAddress && saveAddress && newAddressLabel.trim()) {
       const existingPrefs = await userPrefApi.list({ user_email: user.email });
       const addrEntry = {
@@ -137,30 +138,41 @@ export default function CreateShippingPoolModal({ isAdmin, onClose, onSuccess })
 
     const transitLoc = transitLocations.find(l => l.id === form.transit_location_id);
 
-    // Generate pool_code
-    const prefix = form.transit_location_id && transitLoc?.code_prefix ? transitLoc.code_prefix.toUpperCase() : "AAA";
-    const allPools = await fetchShippingPools();
-    const prefixPools = allPools.filter(p => p.pool_code && p.pool_code.startsWith(prefix));
-    const pool_code = `${prefix}${(prefixPools.length + 1).toString().padStart(5, "0")}`;
+    // Build standard address object for the engine
+    const resolvedAddress = {
+      recipient_name: form.recipient_name || '',
+      country: form.destination_country || '',
+      addr1: form.address_line1 || '',
+      addr2: form.address_line2 || '',
+      addr3: '',
+      state: form.state || '',
+      phone: form.recipient_phone || '',
+    };
 
-    await shippingPoolApi.create({
-      ...form,
-      pool_code,
-      title: poolTitle.trim() || "",
+    // Call unified engine — pool_code generation and per_user_groups are handled server-side
+    await base44.functions.invoke('createShippingPool', {
       order_ids: selectedOrderIds,
-      order_names: selectedOrders.map(o => o.product_name || ""),
-      creator_email: user.email,
-      creator_name: user.full_name || user.email,
-      is_admin_created: isAdmin || false,
-      total_weight_g: totalWeight,
-      status: "pending",
-      transit_location_name: transitLoc?.name || "",
-      messages: [],
+      payload: {
+        consType: form.transit_location_id ? 'transit' : '',
+        shipping_method: form.shipping_method || '',
+        scheduled_ship_date: form.scheduled_ship_date || '',
+        user_note: form.user_note || '',
+        pool_title: poolTitle.trim() || '',
+        address: resolvedAddress,
+        transit_location_id: form.transit_location_id || '',
+        transit_location_name: transitLoc?.name || '',
+        transit_location_country: transitLoc?.country || '',
+        transit_shipping_method_id: '',
+        transit_shipping_method_name: '',
+        selected_addon_ids: [],
+        selected_addons: [],
+        target_pool_id: '',
+        join_existing_pool: false,
+        is_private: false,
+        shared_with_emails: [],
+        customs_declaration: null,
+      },
     });
-
-    await Promise.all(
-      selectedOrderIds.map(id => updateOrder(id, { order_status: "notified_shipment" }))
-    );
 
     onSuccess?.();
   };

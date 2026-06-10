@@ -14,7 +14,7 @@ import { serializeAddressToText, isAddressFormValid, EMPTY_ADDRESS_FORM } from "
 import AddressBlock from "@/components/orders/AddressBlock";
 import { getCountry } from "@/lib/countries";
 import { base44 } from "@/api/base44Client";
-import { updateOrder, tenantEntity, shippingPoolApi, userPrefApi, fetchShippingPools } from "@/lib/tenantApi";
+import { tenantEntity, userPrefApi, fetchShippingPools } from "@/lib/tenantApi";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -432,7 +432,6 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
     if (!method && !isJoiningPool) return;
     if (!isJoiningPool && consType === "transit" && !selectedTransitId) return;
     if (!isJoiningPool && consType === "transit" && !selectedTransitMethodId) return;
-    // Skip address validation for pickup (__pickup__) or storage (__storage__) transit methods
     const normalizeId = id => id === 'pickup' ? '__pickup__' : id === 'storage' ? '__storage__' : (id || '');
     const normalizedTransitMethodId = normalizeId(selectedTransitMethodId);
     const isPickupOrStorage = normalizedTransitMethodId === '__pickup__' || normalizedTransitMethodId === '__storage__';
@@ -442,29 +441,27 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
     if (!isJoiningPool && consType === "" && !joinDirectPool && !isAddressSlotOk("direct")) return;
     if (!isJoiningPool && consType === "other" && !isAddressSlotOk("other")) return;
     if (joinExistingPool && !selectedPoolId) return;
-    
+
     // Validate addon custom fees are within range
     const hasFeeErrors = Object.entries(addonCustomFees).some(([addonId, fee]) => {
       const addon = shippingAddons.find(a => a.id === addonId);
-      return addon && addon.is_user_customizable && selectedAddonIds.includes(addonId) && 
+      return addon && addon.is_user_customizable && selectedAddonIds.includes(addonId) &&
              (fee < addon.min_fee || fee > addon.max_fee);
     });
-    
     if (hasFeeErrors) {
       alert('请确保所有自定义增值服务的金额都在指定区间内');
       return;
     }
-    
+
     setSubmitting(true);
 
     const u = currentUser || await base44.auth.me();
     const orderIds = targetOrders.map(o => o.id);
 
-    // Determine effective address object for each slot
+    // Resolve effective address for each slot
     const getEffectiveAddr = (slot) => {
       const inNewMode = !!addressInputMode[slot] || savedAddresses.length === 0;
       if (inNewMode) {
-        // user typed a new address — compute full_text dynamically
         if (!isAddressFormValid(newAddress)) return null;
         return { id: `new_${Date.now()}`, label: newAddress.label || "新地址", full_text: serializeAddressToText(newAddress), ...newAddress };
       }
@@ -472,10 +469,7 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
       return savedAddresses.find(a => a.id === addrId) || null;
     };
 
-    // Save new address to UserPreference if requested.
-    // addressInputMode[slot]=true only when user explicitly picks "输入新地址" from dropdown.
-    // But when there are NO saved addresses, the form is shown directly (no dropdown) and
-    // addressInputMode stays empty — so we also check if saveNewAddress is on and address is valid.
+    // Save new address to UserPreference if requested
     const isInNewAddressMode = Object.values(addressInputMode).some(v => v) || savedAddresses.length === 0;
     if (saveNewAddress && isAddressFormValid(newAddress) && isInNewAddressMode) {
       const newEntry = {
@@ -488,112 +482,74 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
       if (userPrefId) {
         await userPrefApi.update(userPrefId, { saved_addresses: updatedAddresses });
       } else {
-        // Create a new UserPreference record with tenant context via mutateTenantEntity
         const created = await userPrefApi.create({ user_email: u.email, saved_addresses: updatedAddresses });
         if (created?.id) setUserPrefId(created.id);
       }
-      // Update local state so address is available immediately
       setSavedAddresses(updatedAddresses);
     }
-    const totalWeight = targetOrders.reduce((s, o) => s + (o.weight_g || 0), 0);
 
-    // Addons belong to the submitter's orders, not the pool
-    const selectedAddons = shippingAddons.filter(a => selectedAddonIds.includes(a.id));
-    const addonUpdates = selectedAddonIds.length > 0 ? {
-      selected_addon_ids: selectedAddonIds,
-      selected_addons: selectedAddons.map(a => {
-        const customFee = addonCustomFees[a.id];
-        const isCustomizable = a.is_user_customizable;
-        return {
-          id: a.id,
-          name: a.name,
-          fee: isCustomizable && customFee !== undefined ? customFee : a.fee,
-          fee_currency: a.fee_currency
-        };
-      }),
-    } : {};
-
-    // Attach customs declaration data if filled out (single shipment only)
-    const hasCustoms = customsData && customsData.items && customsData.items.some(it => it.name);
-    const customsNote = hasCustoms ? JSON.stringify(customsData) : null;
-
-    // Build pre_shipment data for transit location work panel
-    const addrObj = consType === "transit" ? getEffectiveAddr("final") : (consType === "other" ? getEffectiveAddr("other") : getEffectiveAddr("direct"));
-    // For pickup or storage, don't save final address (user will provide later or pick up in person)
-    const skipAddress = normalizedTransitMethodId === '__pickup__' || normalizedTransitMethodId === '__storage__';
-    const preShipmentData = consType === "transit" ? {
-      shipping_method: method,
-      scheduled_ship_date: deadline || null,
-      user_note: note,
-      address: (addrObj && !skipAddress) ? {
-        recipient_name: addrObj.recipient_name,
-        country: addrObj.country,
-        addr1: addrObj.addr1,
-        addr2: addrObj.addr2,
-        addr3: addrObj.addr3,
-        state: addrObj.state,
-        phone: addrObj.phone,
-      } : null,
-      consType: consType,
-      transit_location_id: selectedTransitId,
-      transit_shipping_method_id: normalizedTransitMethodId,
-      selected_addon_ids: selectedAddonIds,
-      selected_addons: selectedAddons.map(a => ({
-        id: a.id,
-        name: a.name,
-        fee: a.fee,
-        fee_currency: a.fee_currency,
-      })),
+    // Build resolved address object
+    const skipAddress = isPickupOrStorage;
+    const addrSlot = consType === "transit" ? "final" : (consType === "other" ? "other" : "direct");
+    const addrObj = !skipAddress ? getEffectiveAddr(addrSlot) : null;
+    const resolvedAddress = addrObj ? {
+      recipient_name: addrObj.recipient_name || '',
+      country: addrObj.country || '',
+      addr1: addrObj.addr1 || '',
+      addr2: addrObj.addr2 || '',
+      addr3: addrObj.addr3 || '',
+      state: addrObj.state || '',
+      phone: addrObj.phone || '',
     } : null;
 
-    // When joining existing pool, use pool's settings
-    const finalUpdates = isJoiningPool && selectedPool ? {
-      shipping_method: selectedPool.shipping_method || method,
-      consolidation_requested: true,
-      consolidation_pool_id: selectedPoolId,
-      order_status: "notified_shipment",
-      ...(hasCustoms ? { customs_declaration: customsData } : {}),
-      ...(deadline ? { consolidation_deadline: deadline } : {}),
-      ...(consType === "transit" && selectedPool.transit_location_id ? { consolidation_transit_id: selectedPool.transit_location_id, consolidation_final_address_id: selectedPool.final_address_id } : {}),
-      ...(preShipmentData ? { pre_shipment: { ...preShipmentData, shipping_method: selectedPool.shipping_method || method } } : {}),
-      ...addonUpdates,
-    } : {
-      shipping_method: method,
-      consolidation_requested: consolidation,
-      order_status: "notified_shipment",
-      ...(hasCustoms ? { customs_declaration: customsData } : {}),
-      ...(consolidation && deadline ? { consolidation_deadline: deadline } : {}),
-      ...(!isJoiningPool && consolidation && minWeight ? { consolidation_min_weight_g: parseFloat(minWeight) } : {}),
-      ...(!isJoiningPool && hasConsolidationConditions ? { consolidation_timeout_action: timeoutAction } : {}),
-      ...(consType === "transit" ? { consolidation_transit_id: selectedTransitId, consolidation_final_address_id: finalAddressId } : {}),
-      ...(preShipmentData ? { pre_shipment: preShipmentData } : {}),
-      ...addonUpdates,
+    // Build resolved addons
+    const selectedAddons = shippingAddons.filter(a => selectedAddonIds.includes(a.id));
+    const resolvedAddons = selectedAddons.map(a => {
+      const customFee = addonCustomFees[a.id];
+      return {
+        id: a.id,
+        name: a.name,
+        fee: (a.is_user_customizable && customFee !== undefined) ? customFee : a.fee,
+        fee_currency: a.fee_currency,
+      };
+    });
+
+    const hasCustoms = customsData && customsData.items && customsData.items.some(it => it.name);
+
+    // Determine pool target and join mode
+    const effectiveTargetPoolId = isJoiningPool ? selectedPoolId : (joinDirectPool ? selectedDirectPoolId : '');
+    const effectiveJoinExisting = isJoiningPool || (joinDirectPool && !!selectedDirectPoolId);
+
+    // Resolve transit location name + country for new pool creation
+    const transitLoc = transitLocations.find(l => l.id === selectedTransitId);
+
+    // Build the standard shipment payload
+    const shipmentPayload = {
+      consType: isJoiningPool ? (selectedPool?.consolidation_type || consType) : consType,
+      shipping_method: isJoiningPool ? (selectedPool?.shipping_method || method) : method,
+      scheduled_ship_date: deadline || '',
+      user_note: note || '',
+      pool_title: poolTitle || '',
+      address: resolvedAddress,
+      transit_location_id: isJoiningPool ? (selectedPool?.transit_location_id || selectedTransitId) : selectedTransitId,
+      transit_location_name: isJoiningPool ? (selectedPool?.transit_location_name || transitLoc?.name || '') : (transitLoc?.name || ''),
+      transit_location_country: transitLoc?.country || '',
+      transit_shipping_method_id: normalizedTransitMethodId,
+      transit_shipping_method_name: transitMethods.find(m => m.id === selectedTransitMethodId)?.name || '',
+      selected_addon_ids: selectedAddonIds,
+      selected_addons: resolvedAddons,
+      target_pool_id: effectiveTargetPoolId,
+      join_existing_pool: effectiveJoinExisting,
+      is_private: isPrivate,
+      shared_with_emails: sharedWithEmails,
+      customs_declaration: hasCustoms ? customsData : null,
     };
 
-    // Update orders
-    for (const orderId of orderIds) {
-      await updateOrder(orderId, finalUpdates);
-    }
-
-    // When joining existing pool, call userMutateShippingPool to add orders to the pool
-    if (isJoiningPool && selectedPoolId) {
-      for (const orderId of orderIds) {
-        await base44.functions.invoke('userMutateShippingPool', {
-          action: 'add_order',
-          pool_id: selectedPoolId,
-          order_id: orderId,
-          user_note: note || ''
-        }).catch((err) => {
-          console.error('Failed to add order to pool:', err);
-          throw new Error('加入拼邮需求失败');
-        });
-      }
-    } else {
-      // Trigger pool creation automation for new pool
-      for (const orderId of orderIds) {
-        await base44.functions.invoke('autoCreatePreShipmentPool', { order_id: orderId, force: true }).catch(() => {});
-      }
-    }
+    // Call unified engine
+    await base44.functions.invoke('createShippingPool', {
+      order_ids: orderIds,
+      payload: shipmentPayload,
+    });
 
     onSuccess?.();
   };
