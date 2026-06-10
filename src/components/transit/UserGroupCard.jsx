@@ -3,8 +3,8 @@
  * 用于中转地工作面板，展示每个用户的订单集合
  * 支持 per_user_groups 批次（同一用户不同地址/运输方式/增值服务）
  */
-import { useState } from "react";
-import { ChevronDown, ChevronRight, Package, MapPin, Edit2, Save, X, Image as ImageIcon, Truck, Star, Layers } from "lucide-react";
+import { useState, useMemo } from "react";
+import { ChevronDown, ChevronRight, Package, MapPin, Edit2, Save, X, Image as ImageIcon, Truck, Star, Layers, ClipboardCheck, DollarSign } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { getCountry } from "@/lib/countries";
 
-export default function UserGroupCard({ userEntry, orders, transitMethods = [], onAddressUpdate, onPackingImageUpload }) {
+export default function UserGroupCard({ userEntry, orders, transitMethods = [], pool, isManager, onAddressUpdate, onPackingImageUpload, onEditTransitShipping }) {
   const [expanded, setExpanded] = useState(false);
   const [editingAddress, setEditingAddress] = useState(false);
   const [addressData, setAddressData] = useState(userEntry.final_address || {});
@@ -40,6 +40,21 @@ export default function UserGroupCard({ userEntry, orders, transitMethods = [], 
       alert('上传失败：' + error.message);
     }
   };
+
+  // Read existing transit_shipping_info_per_user for this batch
+  const savedTransitShipping = useMemo(() => {
+    if (!pool?.transit_shipping_info_per_user || userEntry.group_index === undefined) return null;
+    const userInfo = pool.transit_shipping_info_per_user.find(
+      info => info.user_email === userEntry.user_email
+    );
+    if (!userInfo?.address_groups) return null;
+    // Match by order IDs
+    const myOrderIds = orders.map(o => o.order_id || o.id).filter(Boolean).sort();
+    return userInfo.address_groups.find(ag => {
+      const agOrderIds = (ag.order_ids || []).sort();
+      return JSON.stringify(agOrderIds) === JSON.stringify(myOrderIds);
+    }) || null;
+  }, [pool?.transit_shipping_info_per_user, userEntry.user_email, userEntry.group_index, orders]);
 
   // Batch/group info
   const hasBatchInfo = userEntry.group_index !== undefined;
@@ -127,7 +142,7 @@ export default function UserGroupCard({ userEntry, orders, transitMethods = [], 
         {expanded && (
           <div className="border-t border-gray-100 p-4 space-y-4">
 
-            {/* Batch metadata */}
+            {/* Batch metadata: user-specified preferences */}
             {hasBatchInfo && (transitMethodName || addons.length > 0 || userEntry.note) && (
               <div className="bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2.5 space-y-1.5">
                 <p className="text-xs font-medium text-indigo-700 flex items-center gap-1">
@@ -136,11 +151,11 @@ export default function UserGroupCard({ userEntry, orders, transitMethods = [], 
                 {transitMethodName && (
                   <div className="flex items-center gap-1.5 text-xs text-gray-700">
                     <Truck className="w-3.5 h-3.5 text-blue-500" />
-                    <span className="text-gray-500">中转运输方式：</span>{transitMethodName}
+                    <span className="text-gray-500">用户指定中转方式：</span>{transitMethodName}
                   </div>
                 )}
                 {addons.length > 0 && (
-                  <div className="flex items-center gap-1.5 text-xs text-gray-700">
+                  <div className="flex items-center gap-1.5 text-xs text-gray-700 flex-wrap">
                     <Star className="w-3.5 h-3.5 text-yellow-500" />
                     <span className="text-gray-500">增值服务：</span>
                     {addons.map((a, i) => (
@@ -152,6 +167,63 @@ export default function UserGroupCard({ userEntry, orders, transitMethods = [], 
                 )}
                 {userEntry.note && (
                   <p className="text-xs text-gray-600 italic">备注：{userEntry.note}</p>
+                )}
+              </div>
+            )}
+
+            {/* Saved transit shipping info (from transit_shipping_info_per_user) */}
+            {hasBatchInfo && (
+              <div className={`rounded-lg border px-3 py-2.5 space-y-1.5 ${savedTransitShipping?.transit_tracking_number ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium text-gray-700 flex items-center gap-1">
+                    <Truck className="w-3.5 h-3.5 text-green-600" />
+                    中转地发货信息
+                    {savedTransitShipping?.transit_tracking_number ? (
+                      <Badge className="ml-1 text-xs bg-green-100 text-green-700 font-normal">已填写</Badge>
+                    ) : (
+                      <Badge className="ml-1 text-xs bg-gray-100 text-gray-500 font-normal">待填写</Badge>
+                    )}
+                  </p>
+                  {isManager && onEditTransitShipping && (
+                    <Button size="sm" variant="ghost" className="h-6 text-xs px-2" onClick={() => onEditTransitShipping(userEntry)}>
+                      <Edit2 className="w-3 h-3 mr-1" />{savedTransitShipping?.transit_tracking_number ? '编辑' : '填写'}
+                    </Button>
+                  )}
+                </div>
+                {savedTransitShipping?.transit_tracking_number ? (
+                  <div className="space-y-1">
+                    {savedTransitShipping.transit_shipping_method && (
+                      <div className="flex items-center gap-1.5 text-xs text-gray-700">
+                        <Truck className="w-3 h-3 text-green-500" />
+                        <span className="text-gray-500">运输方式：</span>{savedTransitShipping.transit_shipping_method}
+                      </div>
+                    )}
+                    <div className="flex items-center gap-1.5 text-xs text-gray-700">
+                      <ClipboardCheck className="w-3 h-3 text-blue-500" />
+                      <span className="text-gray-500">单号：</span>
+                      <span className="font-mono">{savedTransitShipping.transit_tracking_number}</span>
+                    </div>
+                    {savedTransitShipping.transit_fee_jpy > 0 && (
+                      <div className="flex items-center gap-1.5 text-xs text-gray-700">
+                        <DollarSign className="w-3 h-3 text-green-500" />
+                        <span className="text-gray-500">运费：</span>¥{savedTransitShipping.transit_fee_jpy.toLocaleString()}
+                      </div>
+                    )}
+                    {savedTransitShipping.transit_note && (
+                      <p className="text-xs text-gray-500 italic">备注：{savedTransitShipping.transit_note}</p>
+                    )}
+                    {savedTransitShipping.transit_image_urls?.length > 0 && (
+                      <div className="flex gap-1.5 mt-1">
+                        {savedTransitShipping.transit_image_urls.map((url, i) => (
+                          <img key={i} src={url} alt={`凭证${i+1}`} className="w-12 h-12 object-cover rounded border" />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-400 italic">
+                    {isManager && onEditTransitShipping ? '点击"填写"录入中转地发货信息' : '等待中转地填写发货信息'}
+                  </p>
                 )}
               </div>
             )}

@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import UserGroupCard from "@/components/transit/UserGroupCard";
+import TransitShippingDetailPanel from "@/components/transit/TransitShippingDetailPanel";
 import TransitShippingForm from "@/components/transit/TransitShippingForm";
 import PickupScheduler from "@/components/transit/PickupScheduler";
 import StorageManagementCard from "@/components/transit/StorageManagementCard";
@@ -42,6 +43,8 @@ export default function TransitPoolWork() {
   
   // Transit shipping form state
   const [showTransitForm, setShowTransitForm] = useState(false);
+  // Per-user-group transit detail panel
+  const [selectedGroupForShipping, setSelectedGroupForShipping] = useState(null);
 
   const fetchData = async () => {
     setLoading(true);
@@ -240,21 +243,29 @@ export default function TransitPoolWork() {
           <div>
             <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
               <Package className="w-5 h-5 text-indigo-600" />
-              {request.title}
+              {request.title || request.pool_code || request.id}
             </h1>
             <p className="text-sm text-gray-400 mt-0.5">
-              {request.template_name} · 创建者：{request.creator_name}
+              {request.template_name
+                ? `${request.template_name} · 创建者：${request.creator_name}`
+                : `创建者：${request.creator_name || request.creator_email}`}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <Badge className={
-            request.status === 'completed' ? 'bg-green-100 text-green-700' :
-            request.status === 'cancelled' ? 'bg-red-100 text-red-700' :
+            (request.status === 'completed' || request.status === 'shipped' || request.status === 'delivered') ? 'bg-green-100 text-green-700' :
+            (request.status === 'cancelled') ? 'bg-red-100 text-red-700' :
             'bg-blue-100 text-blue-700'
           }>
             {request.status === 'completed' ? '已完成' :
-             request.status === 'cancelled' ? '已取消' : '招募中'}
+             request.status === 'cancelled' ? '已取消' :
+             request.status === 'shipped' ? '已发货' :
+             request.status === 'delivered' ? '已签收' :
+             request.status === 'ready_to_ship' ? '待发货' :
+             request.status === 'awaiting_payment' ? '待付款' :
+             request.status === 'open' ? '招募中' :
+             request.status || '进行中'}
           </Badge>
           {location && (
             <Badge variant="outline" className="text-xs">
@@ -474,11 +485,39 @@ export default function TransitPoolWork() {
               userEntry={userGroup}
               orders={userGroup.entries}
               transitMethods={transitMethods}
+              pool={request}
+              isManager={!isRequest && (
+                user?.role === 'admin' || user?.role === 'tenant_admin' ||
+                (location && location.manager_email === user?.email)
+              )}
               onAddressUpdate={handleAddressUpdate}
               onPackingImageUpload={handlePackingImageUpload}
+              onEditTransitShipping={hasPerUserGroups ? (group) => setSelectedGroupForShipping(group) : null}
             />
           ))}
         </div>
+
+        {/* Per-user-group transit shipping detail panel */}
+        {selectedGroupForShipping && (
+          <div className="fixed inset-0 z-50 flex items-stretch justify-end bg-black/30" onClick={() => setSelectedGroupForShipping(null)}>
+            <div className="h-full" onClick={e => e.stopPropagation()}>
+              <TransitShippingDetailPanel
+                pool={request}
+                selectedUserEntry={{ user_email: selectedGroupForShipping.user_email, user_name: selectedGroupForShipping.user_name }}
+                selectedAddressGroup={{
+                  address: selectedGroupForShipping.final_address,
+                  orders: selectedGroupForShipping.entries.map(e => ({
+                    order_id: e.order_id || e.id,
+                    product_name: e.product_name,
+                    quantity: e.order_details?.quantity || 1,
+                  }))
+                }}
+                onClose={() => setSelectedGroupForShipping(null)}
+                onSave={() => { setSelectedGroupForShipping(null); fetchData(); }}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Completed Entries */}
