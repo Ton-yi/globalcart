@@ -79,23 +79,48 @@ Deno.serve(async (req) => {
       entries = allEntries || [];
       console.log('[getTransitPoolWorkData] Fetched', entries.length, 'GroupBuyEntry items');
     } else {
-      // ShippingPool - create entries from order_ids
-      const orderIds = request.order_ids || [];
-      entries = orderIds.map((orderId, index) => ({
-        id: `order_${orderId}`,
-        order_id: orderId,
+      // ShippingPool - fetch real Order records to get correct user_email/user_name per order
+      const poolOrderIds = request.order_ids || [];
+      const fetchedOrders = [];
+      for (const orderId of poolOrderIds) {
+        try {
+          const order = await base44.asServiceRole.entities.Order.get(orderId);
+          if (order) fetchedOrders.push(order);
+        } catch (e) {
+          console.error(`[getTransitPoolWorkData] Failed to fetch order ${orderId}:`, e);
+        }
+      }
+      entries = fetchedOrders.map(order => ({
+        id: `order_${order.id}`,
+        order_id: order.id,
         status: 'active',
-        product_name: '包裹',
-        user_email: request.creator_email,
-        user_name: request.creator_name,
-        estimated_jpy: 0,
-        weight_g: 100,
+        product_name: order.product_name || '包裹',
+        user_email: order.user_email || request.creator_email,
+        user_name: order.user_name || request.creator_name,
+        estimated_jpy: order.estimated_jpy || 0,
+        weight_g: order.weight_g || 100,
+        order_details: order,
       }));
-      console.log('[getTransitPoolWorkData] Created', entries.length, 'entries from ShippingPool orders');
+      // Also add any order_ids that couldn't be fetched as placeholders
+      const fetchedIds = new Set(fetchedOrders.map(o => o.id));
+      poolOrderIds.filter(id => !fetchedIds.has(id)).forEach(orderId => {
+        entries.push({
+          id: `order_${orderId}`,
+          order_id: orderId,
+          status: 'active',
+          product_name: '包裹',
+          user_email: request.creator_email,
+          user_name: request.creator_name,
+          estimated_jpy: 0,
+          weight_g: 100,
+        });
+      });
+      console.log('[getTransitPoolWorkData] Created', entries.length, 'entries from ShippingPool orders with real user data');
     }
 
-    // Fetch orders linked to entries (for completed entries)
-    const orderIds = entries.filter(e => e.order_id).map(e => e.order_id);
+    // Fetch orders linked to entries (skip entries that already have order_details from ShippingPool fetch above)
+    const entriesToFetch = entries.filter(e => e.order_id && !e.order_details);
+    const orderIds = entriesToFetch.map(e => e.order_id);
     const orders = [];
     if (orderIds.length > 0) {
       for (const orderId of orderIds) {
@@ -108,11 +133,12 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Enrich entries with order details
+    // Enrich entries with order details (ShippingPool entries already have order_details set above)
     const ordersMap = {};
     orders.forEach(o => { ordersMap[o.id] = o; });
     
     const enrichedEntries = entries.map(entry => {
+      if (entry.order_details) return entry; // already enriched
       const order = ordersMap[entry.order_id];
       return {
         ...entry,
