@@ -5,11 +5,10 @@ import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import { fetchTenantConfig } from "@/lib/tenantApi";
 import { getTenantConfigCache } from "@/lib/configCache";
-import { getCurrentSubdomain } from "@/lib/tenantBranding";
 import { 
   ShoppingBag, Package, Truck, User, Settings, 
   Bell, LogOut, Menu, X, Shield, Globe,
-  Home, Users, BarChart3, Store, Send, Zap, UserPlus, ChevronDown, MapPin, Layers, FileText
+  Home, Users, BarChart3, Store, Send, Zap, UserPlus, ChevronDown, Layers, FileText
 } from "lucide-react";
 import NotificationBell from "@/components/common/NotificationBell";
 import { MidnightToggle } from "@/components/common/ThemeSelector";
@@ -27,7 +26,6 @@ export default function Layout({ children, currentPageName }) {
   const [isTransitManager, setIsTransitManager] = useState(false);
   const location = useLocation();
 
-  // Apply favicon if tenant has one
   useEffect(() => {
     if (tenant?.favicon_url) {
       let link = document.querySelector("link[rel~='icon']");
@@ -39,34 +37,23 @@ export default function Layout({ children, currentPageName }) {
     }
   }, [tenant?.favicon_url, tenant?.branding_name]);
 
-  // Check if user is a transit location manager
   useEffect(() => {
     if (!user?.email) return;
     base44.entities.TransitLocation.filter({ manager_email: user.email, is_active: true })
-      .then(locations => {
-        setIsTransitManager(locations.length > 0);
-      })
+      .then(locations => setIsTransitManager(locations.length > 0))
       .catch(() => {});
   }, [user?.email]);
 
-  // Pages that load their own config via a page-level API (e.g. getAdminSettingsPageData).
-  // Layout must not trigger fetchTenantConfig for these — they populate the cache themselves.
   const SELF_CONFIG_PAGES = new Set(["AdminSettings"]);
 
   useEffect(() => {
     if (!user) return;
-
-    // If cache is already warm (populated by a page-level fetch), use it immediately.
     const cached = getTenantConfigCache();
     if (cached) {
       setAnnouncements(cached.announcements || []);
       return;
     }
-
-    // Skip fetching entirely for pages that self-supply config —
-    // they will populate the cache, and announcements will update on next navigation.
     if (SELF_CONFIG_PAGES.has(currentPageName)) return;
-
     fetchTenantConfig()
       .then(cfg => setAnnouncements(cfg.announcements || []))
       .catch(() => {});
@@ -78,14 +65,12 @@ export default function Layout({ children, currentPageName }) {
   const isTenantUser = user?.role === "user";
   const isAdmin = isPlatformAdmin || isTenantAdmin;
   
-  // Platform admin has all permissions; tenant admin has tenant-level permissions
   const canAccessAdminSettings = isPlatformAdmin || isTenantAdmin || can("admin_settings:manage_backend_settings");
   const canAccessAdminDashboard = isPlatformAdmin || isTenantAdmin || can("view:admin_dashboard");
   const canAccessAdminOrders = isPlatformAdmin || isTenantAdmin || can("order:update") || can("view:order_management_page");
   const canAccessAdminShippingPool = isPlatformAdmin || isTenantAdmin || can("shipping_pool:update");
   const canAccessAdminUsers = isPlatformAdmin || isTenantAdmin || can("user:read") || can("view:user_management_page");
   const canAccessAdminAnnouncements = isPlatformAdmin || isTenantAdmin || can("view:announcement_management_page");
-
   const canViewMyOrders = isAdmin || isTenantUser || can("view:my_orders_module");
   const canAccessTransitWork = isAdmin || can("shipping:view_transit_panel");
 
@@ -125,9 +110,7 @@ export default function Layout({ children, currentPageName }) {
   ];
 
   const visibleUserNav = userNav.filter(item => !item.hidden);
-
-  // Build navigation based on roles
-  let navItems = [visibleUserNav[0]]; // Always show Home
+  let navItems = [visibleUserNav[0]];
   
   if (isPlatformAdmin) {
     navItems = [...navItems, ...visibleUserNav.slice(1), ...platformAdminNav, ...tenantAdminNav.filter(item => item.canAccess)];
@@ -156,7 +139,6 @@ export default function Layout({ children, currentPageName }) {
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
-      {/* Account Suspended Banner */}
       {isSuspended && (
         <div className="bg-red-600 text-white px-4 py-3 text-sm text-center font-medium flex items-center justify-center gap-2">
           <Shield className="w-4 h-4 flex-shrink-0" />
@@ -165,7 +147,6 @@ export default function Layout({ children, currentPageName }) {
             onClick={() => base44.auth.logout()}>退出登录</Button>
         </div>
       )}
-      {/* Top Announcement Banner */}
       {activeAnnouncement && (
         <div className={`border-b px-4 py-2 text-sm text-center ${typeColors[activeAnnouncement.type] || typeColors.info}`}>
           <Bell className="inline w-3.5 h-3.5 mr-1" />
@@ -173,7 +154,6 @@ export default function Layout({ children, currentPageName }) {
         </div>
       )}
 
-      {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
         <div className="w-full px-4 sm:px-6 flex items-center justify-between h-14">
           <div className="flex items-center gap-3">
@@ -193,36 +173,27 @@ export default function Layout({ children, currentPageName }) {
             </Link>
           </div>
 
-          {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-1">
             {navItems.map(({ label, icon: NavIcon, page, subItems }) => {
               const isActive = currentPageName === page || (subItems && subItems.some(s => s.page === currentPageName));
               if (subItems) {
                 return (
                   <div key={page} className="relative group">
-                    <Link
-                      to={createPageUrl(page)}
+                    <Link to={createPageUrl(page)}
                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm transition-colors ${
                         isActive ? "bg-gray-100 text-gray-900 font-medium" : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
-                      }`}
-                    >
+                      }`}>
                       <NavIcon className="w-3.5 h-3.5" />
                       {label}
                       <ChevronDown className="w-3 h-3 ml-0.5 opacity-50" />
                     </Link>
-                    {/* Dropdown */}
                     <div className="absolute left-0 top-full pt-1 hidden group-hover:block z-50">
                       <div className="bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[130px]">
                         {subItems.map(({ label: subLabel, icon: SubIcon, page: subPage }) => (
-                          <Link
-                            key={subPage}
-                            to={createPageUrl(subPage)}
+                          <Link key={subPage} to={createPageUrl(subPage)}
                             className={`flex items-center gap-2 px-3 py-2 text-sm transition-colors ${
-                              currentPageName === subPage
-                                ? "bg-gray-50 text-gray-900 font-medium"
-                                : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                            }`}
-                          >
+                              currentPageName === subPage ? "bg-gray-50 text-gray-900 font-medium" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                            }`}>
                             <SubIcon className="w-3.5 h-3.5" />
                             {subLabel}
                           </Link>
@@ -233,19 +204,15 @@ export default function Layout({ children, currentPageName }) {
                 );
               }
               return (
-                <Link
-                  key={page}
-                  to={createPageUrl(page)}
+                <Link key={page} to={createPageUrl(page)}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm transition-colors ${
                     isActive ? "bg-gray-100 text-gray-900 font-medium" : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
-                  }`}
-                >
+                  }`}>
                   <NavIcon className="w-3.5 h-3.5" />
                   {label}
                 </Link>
               );
             })}
-            {/* Shop placeholder */}
             <span className="flex items-center gap-1.5 px-3 py-1.5 rounded text-sm text-gray-400 cursor-default">
               <Store className="w-3.5 h-3.5" />
               商城
@@ -264,12 +231,8 @@ export default function Layout({ children, currentPageName }) {
             {user ? (
               <div className="flex items-center gap-2">
                 <span className="text-sm text-gray-600 hidden sm:inline">{user.full_name || user.email}</span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-gray-500 h-7 px-2"
-                  onClick={() => base44.auth.logout()}
-                >
+                <Button variant="ghost" size="sm" className="text-gray-500 h-7 px-2"
+                  onClick={() => base44.auth.logout()}>
                   <LogOut className="w-3.5 h-3.5" />
                 </Button>
               </div>
@@ -281,32 +244,24 @@ export default function Layout({ children, currentPageName }) {
           </div>
         </div>
 
-        {/* Mobile Nav */}
         {mobileOpen && (
           <div className="md:hidden border-t bg-white px-4 py-3 space-y-1">
             {navItems.map(({ label, icon: NavIcon, page, subItems }) => (
               <div key={page}>
-                <Link
-                  to={createPageUrl(page)}
-                  onClick={() => setMobileOpen(false)}
+                <Link to={createPageUrl(page)} onClick={() => setMobileOpen(false)}
                   className={`flex items-center gap-2 px-3 py-2 rounded text-sm ${
                     currentPageName === page ? "bg-gray-100 font-medium" : "text-gray-600"
-                  }`}
-                >
+                  }`}>
                   <NavIcon className="w-4 h-4" />
                   {label}
                 </Link>
                 {subItems && (
                   <div className="ml-6 mt-0.5 space-y-0.5">
                     {subItems.map(({ label: subLabel, icon: SubIcon, page: subPage }) => (
-                      <Link
-                        key={subPage}
-                        to={createPageUrl(subPage)}
-                        onClick={() => setMobileOpen(false)}
+                      <Link key={subPage} to={createPageUrl(subPage)} onClick={() => setMobileOpen(false)}
                         className={`flex items-center gap-2 px-3 py-1.5 rounded text-sm ${
                           currentPageName === subPage ? "bg-gray-100 font-medium" : "text-gray-500"
-                        }`}
-                      >
+                        }`}>
                         <SubIcon className="w-3.5 h-3.5" />
                         {subLabel}
                       </Link>
