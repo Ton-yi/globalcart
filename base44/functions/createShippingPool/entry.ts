@@ -75,7 +75,7 @@ Deno.serve(async (req) => {
     // Load all orders and verify ownership + tenant
     const orders = [];
     for (const order_id of order_ids) {
-      const found = await base44.asServiceRole.entities.Order.filter({ id: order_id });
+      const found = await base44.asServiceRole.entities.Order.filter({ id: order_id }).catch(() => []);
       const order = found?.[0];
       if (!order || order.tenant_id !== tenantId) {
         return Response.json({ error: `Order not found: ${order_id}` }, { status: 404 });
@@ -118,7 +118,7 @@ Deno.serve(async (req) => {
     // Helper: verify pool exists, belongs to tenant, and is not shipped
     const checkPool = async (poolId) => {
       if (!poolId) return { exists: false };
-      const pools = await base44.asServiceRole.entities.ShippingPool.filter({ id: poolId });
+      const pools = await base44.asServiceRole.entities.ShippingPool.filter({ id: poolId }).catch(() => []);
       const pool = pools?.[0];
       if (!pool || pool.tenant_id !== tenantId) return { exists: false };
       return {
@@ -349,7 +349,7 @@ Deno.serve(async (req) => {
 
     // Resolve transit location if needed
     const transitLoc = transit_location_id
-      ? (await base44.asServiceRole.entities.TransitLocation.filter({ id: transit_location_id }))?.[0]
+      ? (await base44.asServiceRole.entities.TransitLocation.filter({ id: transit_location_id }).catch(() => []))?.[0]
       : null;
 
     const prefix = consType === 'transit' && transitLoc?.code_prefix
@@ -370,7 +370,7 @@ Deno.serve(async (req) => {
     let pool_code = await generatePoolCode(prefix, tenantId);
     let retryCount = 0;
     while (retryCount < 3) {
-      const existing = (await base44.asServiceRole.entities.ShippingPool.filter({ tenant_id: tenantId, pool_code }))?.[0];
+      const existing = (await base44.asServiceRole.entities.ShippingPool.filter({ tenant_id: tenantId, pool_code }).catch(() => []))?.[0];
       if (!existing) break;
       retryCount++;
       const currentSeq = parseInt(pool_code.slice(prefix.length), 10);

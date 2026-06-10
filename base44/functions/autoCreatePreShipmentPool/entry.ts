@@ -81,12 +81,14 @@ Deno.serve(async (req) => {
     // Call the unified engine via service role (this is a server-to-server call).
     // Pass service_user_email so createShippingPool can identify the creator without
     // a user token (asServiceRole.functions.invoke does not forward user auth).
-    const result = await base44.asServiceRole.functions.invoke('createShippingPool', {
+    const engineRes = await base44.asServiceRole.functions.invoke('createShippingPool', {
       order_ids: [order.id],
       payload,
       service_user_email: order.user_email,
       service_user_name: order.user_name || order.user_email,
     });
+    // asServiceRole.functions.invoke returns an Axios response { data: {...} }
+    const result = engineRes?.data || engineRes;
 
     // Mark pre_shipment as processed so we don't re-trigger
     if (result?.success || result?.skipped) {
@@ -101,7 +103,7 @@ Deno.serve(async (req) => {
     }
 
     console.log('[autoCreatePreShipmentPool] Engine result:', result);
-    return Response.json(result || { success: true });
+    return Response.json(result || { success: true, pool_id: null });
 
   } catch (error) {
     console.error('autoCreatePreShipmentPool error:', error);
