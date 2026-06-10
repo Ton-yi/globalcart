@@ -89,7 +89,7 @@ Deno.serve(async (req) => {
     
     console.log('[getTransitLocationWorkPageData] Found', requests.length, 'requests for transit location', transitLocationId);
 
-    // Fetch entries for GroupBuyRequests (ShippingPools don't have entries)
+    // Fetch entries for GroupBuyRequests
     const groupBuyRequestIds = (allGroupBuyRequests || []).map(r => r.id);
     let allEntries = [];
     if (groupBuyRequestIds.length > 0) {
@@ -107,20 +107,122 @@ Deno.serve(async (req) => {
       }
     });
     
+    // Fetch all orders for ShippingPools (to get user_email/user_name per order)
+    const shippingPoolOrderIds = [];
+    (allShippingPools || []).forEach(pool => {
+      if (pool.order_ids && pool.order_ids.length > 0) {
+        shippingPoolOrderIds.push(...pool.order_ids);
+      }
+    });
+    
+    const ordersById = {};
+    if (shippingPoolOrderIds.length > 0) {
+      const fetchedOrders = [];
+      for (const orderId of shippingPoolOrderIds) {
+        try {
+          const order = await base44.asServiceRole.entities.Order.get(orderId);
+          if (order) fetchedOrders.push(order);
+        } catch (e) {
+          console.error(`[getTransitLocationWorkPageData] Failed to fetch order ${orderId}:`, e);
+        }
+      }
+      fetchedOrders.forEach(o => { ordersById[o.id] = o; });
+    }
+    
     // Enrich requests with entry counts and totals
     const enrichedRequests = requests.map(request => {
       const isRequest = !!request.title; // GroupBuyRequest has title, ShippingPool has pool_code
       const entries = entriesByRequest[request.id] || [];
-      const orderCount = isRequest ? entries.length : (request.order_ids || []).length;
       
-      return {
-        ...request,
-        entry_count: orderCount,
-        active_entry_count: isRequest ? entries.filter(e => e.status === 'active').length : orderCount,
-        completed_entry_count: isRequest ? entries.filter(e => e.status === 'completed').length : 0,
-        entries: isRequest ? entries : [], // Include entries only for GroupBuyRequests
-        order_count: orderCount, // For ShippingPools
-      };
+      if (isRequest) {
+        // GroupBuyRequest
+        return {
+          ...request,
+          entry_count: entries.length,
+          active_entry_count: entries.filter(e => e.status === 'active').length,
+          completed_entry_count: entries.filter(e => e.status === 'completed').length,
+          entries: entries,
+          order_count: entries.length,
+        };
+      } else {
+        // ShippingPool - build entries from order_ids and per_user_groups
+        const poolOrderIds = request.order_ids || [];
+        const perUserGroups = request.per_user_groups || [];
+        
+        // Build a map: order_id -> which per_user_groups entry it belongs to
+        const orderGroupMap = {};
+        for (const userGroup of perUserGroups) {
+          const addressGroups = userGroup.address_groups;
+          if (addressGroups && addressGroups.length > 0) {
+            addressGroups.forEach((ag, gi) => {
+              (ag.order_entries || []).forEach(oe => {
+                orderGroupMap[oe.order_id] = {
+                  user_email: userGroup.user_email,
+                  user_name: userGroup.user_name,
+                  group_label: userGroup.group_label,
+                  group_index: gi,
+                  group_final_address: ag.group_final_address || userGroup.group_final_address,
+                  transit_shipping_method: ag.transit_shipping_method,
+                  transit_shipping_method_id: ag.transit_shipping_method_id,
+                  selected_addon_ids: ag.selected_addon_ids || [],
+                  selected_addons: ag.selected_addons || [],
+                  note: ag.note || userGroup.note,
+                };
+              });
+            });
+          } else {
+            // Flat per_user_groups structure
+            (userGroup.order_entries || []).forEach(oe => {
+              orderGroupMap[oe.order_id] = {
+                user_email: userGroup.user_email,
+                user_name: userGroup.user_name,
+                group_label: userGroup.group_label,
+                group_index: 0,
+                group_final_address: oe.override_final_address || userGroup.group_final_address,
+                transit_shipping_method: userGroup.transit_shipping_method,
+                transit_shipping_method_id: oe.transit_shipping_method_id || userGroup.transit_shipping_method_id,
+                selected_addon_ids: oe.selected_addon_ids || userGroup.selected_addon_ids || [],
+                selected_addons: oe.selected_addons || userGroup.selected_addons || [],
+                note: oe.note || userGroup.note,
+              };
+            });
+          }
+        }
+        
+        // Build entries from orders
+        const poolEntries = poolOrderIds.map(orderId => {
+          const order = ordersById[orderId];
+          const groupInfo = orderGroupMap[orderId];
+          return {
+            id: `order_${orderId}`,
+            order_id: orderId,
+            status: 'active',
+            product_name: order?.product_name || '包裹',
+            user_email: groupInfo?.user_email || order?.user_email || request.creator_email,
+            user_name: groupInfo?.user_name || order?.user_name || request.creator_name,
+            group_label: groupInfo?.group_label,
+            group_index: groupInfo?.group_index ?? 0,
+            group_final_address: groupInfo?.group_final_address,
+            transit_shipping_method: groupInfo?.transit_shipping_method,
+            transit_shipping_method_id: groupInfo?.transit_shipping_method_id,
+            selected_addon_ids: groupInfo?.selected_addon_ids || [],
+            selected_addons: groupInfo?.selected_addons || [],
+            note: groupInfo?.note,
+            estimated_jpy: order?.estimated_jpy || 0,
+            weight_g: order?.weight_g || 100,
+            order_details: order || null,
+          };
+        });
+        
+        return {
+          ...request,
+          entry_count: poolEntries.length,
+          active_entry_count: poolEntries.length,
+          completed_entry_count: 0,
+          entries: poolEntries,
+          order_count: poolOrderIds.length,
+        };
+      }
     });
     
     // Fetch related data
