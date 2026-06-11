@@ -35,11 +35,8 @@ export default function AdminReports() {
                 startDate, endDate, dimension, granularity, compare,
             });
             // 兼容多层嵌套
+            // 后端返回结构: { success, data: { summary, byDimension, ..., compare_period } }
             const payload = response?.data?.data ?? response?.data ?? response;
-            // 将顶层 compare_period 合并到 data 方便子组件读取
-            if (payload?.summary && response?.data?.compare_period) {
-                payload.compare_period = response.data.compare_period;
-            }
             return payload;
         },
         retry: false,

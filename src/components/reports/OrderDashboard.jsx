@@ -54,8 +54,8 @@ export default function OrderDashboard({ data, dimension }) {
                 <MetricCard title="客均订单" value={
                     summary.total_customers > 0
                         ? (summary.total_orders / summary.total_customers).toFixed(1)
-                        : 0
-                } icon={ShoppingBag} isCount={false} subtitle="单/客户" />
+                        : '0'
+                } icon={ShoppingBag} raw subtitle="单/客户" />
             </div>
 
             {/* 订单数趋势 */}

@@ -527,9 +527,9 @@ Deno.serve(async (req) => {
                 topCustomers,
                 storeTagCounts,
                 compareSummary,
+                compare_period: comparePeriod,   // 放进 data 内，前端直接读 data.compare_period
             },
             date_range: { startDate, endDate },
-            compare_period: comparePeriod,
             dimension,
             granularity,
             compare,

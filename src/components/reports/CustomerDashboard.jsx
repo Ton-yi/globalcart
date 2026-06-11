@@ -43,10 +43,10 @@ export default function CustomerDashboard({ data }) {
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <MetricCard title="复购率" value={`${repurchaseRate}%`} icon={Repeat2}
-                    isCount={false} colorClass="text-green-600" subtitle="老客 / 总客户" />
+                    raw colorClass="text-green-600" subtitle="老客 / 总客户" />
                 <MetricCard title="客均订单数" icon={ShoppingBag}
-                    value={summary.total_customers > 0 ? (summary.total_orders / summary.total_customers).toFixed(1) : 0}
-                    isCount={false} subtitle="单/客户" />
+                    value={summary.total_customers > 0 ? (summary.total_orders / summary.total_customers).toFixed(1) : '0'}
+                    raw subtitle="单/客户" />
                 <MetricCard title="总订单数" value={summary.total_orders} icon={ShoppingBag} isCount />
                 <MetricCard title="客均利润" icon={DollarSign}
                     value={summary.total_customers > 0 ? Math.round(summary.total_profit_jpy / summary.total_customers) : 0}

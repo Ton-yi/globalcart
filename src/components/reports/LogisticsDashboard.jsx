@@ -54,7 +54,7 @@ export default function LogisticsDashboard({ data, dimension }) {
                 <MetricCard title="待发货订单" value={summary.pending_ship_count} icon={Truck} isCount />
                 <MetricCard title="平均发货时长" icon={Clock}
                     value={summary.avg_ship_days != null ? `${summary.avg_ship_days} 天` : '—'}
-                    isCount={false} subtitle="入库→发货" />
+                    raw subtitle="入库→发货" />
             </div>
 
             {/* 运输方式分布 + 目的地国家分布 */}

@@ -83,9 +83,10 @@ export default function OverviewDashboard({ data, compare }) {
                 <MetricCard title="运费利润" value={summary.shipping_stage_profit_jpy} icon={TrendingUp}
                     colorClass={summary.shipping_stage_profit_jpy >= 0 ? 'text-green-600' : 'text-red-600'}
                     subtitle={`收 ${formatCurrency(summary.shipping_stage_income_jpy)} - 支 ${formatCurrency(summary.actual_international_shipping_cost_jpy)}`} />
-                <MetricCard title="平均发货时长" value={summary.avg_ship_days != null ? summary.avg_ship_days : '—'}
-                    icon={Truck} isCount={false}
-                    subtitle="入库→发货（天）" />
+                <MetricCard title="平均发货时长"
+                    value={summary.avg_ship_days != null ? `${summary.avg_ship_days} 天` : '—'}
+                    icon={Truck} raw
+                    subtitle="入库→发货" />
             </div>
 
             {/* 趋势图 */}

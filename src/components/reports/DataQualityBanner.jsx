@@ -12,8 +12,7 @@ export default function DataQualityBanner({ summary }) {
     if (summary?.orders_missing_cost_data > 0) {
         issues.push({
             field: "下单收入字段",
-            count: summary.orders_missing_cost_data,
-            desc: `有 ${summary.orders_missing_cost_data} 笔订单缺少 order_stage_payment_jpy，系统已降级使用 paid_amount 估算，金额可能偏差`
+            desc: `有 ${summary.orders_missing_cost_data} 笔订单同时缺少 order_stage_payment_jpy 和 paid_amount，该部分订单收入计为 0，利润数据可能偏低`
         });
     }
 
