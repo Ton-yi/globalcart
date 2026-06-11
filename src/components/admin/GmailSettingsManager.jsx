@@ -64,74 +64,54 @@ export default function GmailSettingsManager() {
     }
   };
 
-  // 连接 Gmail
+  // 连接 Gmail - Shared 模式不需要前端连接，直接更新设置
   const handleConnectGmail = async () => {
     try {
       setConnecting(true);
       
-      // 使用正确的 connector ID 进行连接
-      // 对于已授权的 shared 连接器，使用 integration type
-      const url = await base44.connectors.connectAppUser('gmail');
+      // Shared 模式的 Gmail 连接器已经由平台授权
+      // 只需要检查连接状态并更新租户设置
+      const connection = await base44.asServiceRole.connectors.getConnection('gmail');
       
-      if (!url) {
-        throw new Error('无法获取 Gmail 连接 URL，请确认连接器已正确配置');
+      if (!connection || !connection.accessToken) {
+        throw new Error('Gmail 连接器未授权，请联系平台管理员进行授权');
       }
       
-      // 打开 OAuth 窗口，使用更可靠的窗口设置
-      const popup = window.open(
-        url, 
-        '_blank', 
-        'width=600,height=800,menubar=no,toolbar=no,location=no,status=no'
-      );
+      // 更新租户设置，启用 Gmail
+      const data = {
+        tenant_id: user.tenant_id,
+        email_provider: 'gmail',
+        gmail_connection_enabled: true,
+        configured_by: user.email,
+        configured_at: new Date().toISOString()
+      };
       
-      // 检查窗口是否成功打开
-      if (!popup || popup.closed) {
-        throw new Error('无法打开 Gmail 授权窗口，请检查浏览器是否阻止了弹窗');
+      if (settings) {
+        await base44.entities.TenantEmailSettings.update(settings.id, data);
+      } else {
+        await base44.entities.TenantEmailSettings.create(data);
       }
       
-      // 轮询检查 OAuth 完成
-      const checkInterval = setInterval(() => {
-        try {
-          if (popup.closed) {
-            clearInterval(checkInterval);
-            // 延迟一下再加载，确保数据已同步
-            setTimeout(async () => {
-              await loadSettings();
-              toast.success('Gmail 连接成功');
-            }, 1000);
-          }
-        } catch (e) {
-          console.error('轮询检查失败:', e);
-          clearInterval(checkInterval);
-        }
-      }, 500);
-      
-      // 5 分钟后停止轮询
-      setTimeout(() => clearInterval(checkInterval), 5 * 60 * 1000);
+      setConnected(true);
+      toast.success('Gmail 已启用');
+      await loadSettings();
       
     } catch (error) {
-      console.error('连接 Gmail 失败:', error);
-      toast.error('连接失败：' + (error.message || '未知错误'));
+      console.error('启用 Gmail 失败:', error);
+      toast.error('启用失败：' + (error.message || '未知错误'));
+    } finally {
       setConnecting(false);
     }
   };
 
-  // 断开 Gmail 连接
+  // 断开 Gmail 连接 - Shared 模式只需更新租户设置
   const handleDisconnectGmail = async () => {
     try {
       if (!confirm('确定要断开 Gmail 连接吗？断开后将使用平台默认邮件服务发送邮件。')) {
         return;
       }
       
-      // 尝试断开连接
-      try {
-        await base44.connectors.disconnectAppUser('gmail');
-      } catch (e) {
-        console.warn('断开连接器失败（可能是 shared 模式）:', e);
-        // 对于 shared 模式，只需要更新设置即可
-      }
-      
-      // 更新设置
+      // 更新设置，禁用 Gmail
       if (settings) {
         await base44.entities.TenantEmailSettings.update(settings.id, {
           gmail_connection_enabled: false
@@ -214,8 +194,9 @@ export default function GmailSettingsManager() {
             <div className="space-y-3">
               <Alert className="border-blue-200 bg-blue-50">
                 <AlertDescription className="text-xs text-blue-700">
-                  <strong>提示：</strong>连接 Gmail 后，租户发送的通知邮件将使用您授权的 Gmail 账号。
-                  需要 Gmail scope: <code className="bg-blue-100 px-1 rounded text-xs">gmail.send</code>
+                  <strong>提示：</strong>Gmail 连接器已由平台授权（Shared 模式）。
+                  <br />点击"启用 Gmail"后，通知邮件将通过平台的 Gmail 账号发送。
+                  <br />Gmail scope: <code className="bg-blue-100 px-1 rounded text-xs">gmail.send</code>
                 </AlertDescription>
               </Alert>
               
@@ -227,12 +208,12 @@ export default function GmailSettingsManager() {
                 {connecting ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    连接中...
+                    启用中...
                   </>
                 ) : (
                   <>
                     <LinkIcon className="w-4 h-4 mr-2" />
-                    连接 Gmail 账号
+                    启用 Gmail
                   </>
                 )}
               </Button>
