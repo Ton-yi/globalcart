@@ -1,348 +1,329 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
+// 白名单维度
+const ALLOWED_DIMENSIONS = [
+    'order_status', 'payment_status', 'shipping_method', 'country',
+    'online_store_tag', 'payment_method', 'is_refunded', 'item_size_title',
+    'destination_country', 'user_email'
+];
+
+function getDimensionValue(order, pool, dimension) {
+    switch (dimension) {
+        case 'order_status': return order.order_status || 'unknown';
+        case 'payment_status': return order.payment_status || 'unknown';
+        case 'payment_method': return order.payment_method || 'unknown';
+        case 'online_store_tag': return order.online_store_tag || '其它';
+        case 'item_size_title': return order.item_size_title || '无尺寸';
+        case 'user_email': return order.user_email || 'unknown';
+        case 'is_refunded': return (order.refund_amount_jpy && order.refund_amount_jpy > 0) ? '已退款' : '未退款';
+        case 'country':
+        case 'destination_country':
+            return pool?.destination_country
+                || order.destination_country
+                || order.pre_shipment?.address?.country
+                || order.pre_shipment?.transit_location_country
+                || 'unknown';
+        case 'shipping_method':
+            return pool?.shipping_method
+                || order.shipping_method
+                || order.pre_shipment?.shipping_method
+                || order.pre_shipment?.transit_shipping_method_name
+                || 'unknown';
+        default: return order[dimension] || 'unknown';
+    }
+}
+
+function buildTimeSeries(orders, pools, granularity) {
+    // group orders by period
+    const buckets = {};
+    orders.forEach(order => {
+        const d = new Date(order.submit_date || order.created_date);
+        let key;
+        if (granularity === 'day') key = d.toISOString().split('T')[0];
+        else if (granularity === 'week') {
+            const startOfWeek = new Date(d);
+            startOfWeek.setDate(d.getDate() - d.getDay());
+            key = startOfWeek.toISOString().split('T')[0];
+        } else if (granularity === 'month') key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+        else if (granularity === 'quarter') key = `${d.getFullYear()}-Q${Math.floor(d.getMonth()/3)+1}`;
+        else key = String(d.getFullYear());
+
+        if (!buckets[key]) buckets[key] = { period: key, order_count: 0, revenue_jpy: 0, profit_jpy: 0, refund_jpy: 0 };
+        buckets[key].order_count += 1;
+        buckets[key].revenue_jpy += order.order_stage_payment_jpy || order.paid_amount || 0;
+        buckets[key].refund_jpy += order.refund_amount_jpy || 0;
+        const orderProfit = (order.order_stage_payment_jpy || order.paid_amount || 0)
+            - (order.refund_amount_jpy || 0)
+            - (order.estimated_jpy || 0);
+        buckets[key].profit_jpy += orderProfit;
+    });
+
+    return Object.values(buckets).sort((a, b) => a.period.localeCompare(b.period));
+}
+
+function calcAddonRevenue(orders) {
+    let total = 0;
+    orders.forEach(order => {
+        (order.selected_addons || []).forEach(addon => {
+            // convert to JPY if needed (simplify: assume JPY unless explicitly CNY at fixed rate)
+            total += addon.fee || 0;
+        });
+    });
+    return total;
+}
+
 Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
-        
-        // 验证用户身份和权限
         const user = await base44.auth.me();
-        if (!user) {
-            return Response.json({ error: 'Unauthorized' }, { status: 401 });
+        if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+
+        if (!['admin', 'platform_admin', 'tenant_admin', 'staff'].includes(user.role)) {
+            return Response.json({ error: 'Forbidden' }, { status: 403 });
         }
-        
-        // 仅允许管理员访问
-        if (user.role !== 'admin' && user.role !== 'platform_admin' && user.role !== 'tenant_admin' && user.role !== 'staff') {
-            return Response.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
-        }
-        
-        // 解析请求参数
+
         let requestBody;
-        try {
-            requestBody = await req.json();
-        } catch (e) {
-            return Response.json({ error: 'Invalid JSON body', details: e.message }, { status: 400 });
-        }
-        
-        const { startDate, endDate, dimension = 'order_status' } = requestBody;
-        
+        try { requestBody = await req.json(); }
+        catch (e) { return Response.json({ error: 'Invalid JSON body' }, { status: 400 }); }
+
+        const {
+            startDate, endDate,
+            dimension = 'order_status',
+            granularity = 'day'  // day / week / month / quarter / year
+        } = requestBody;
+
         if (!startDate || !endDate) {
-            return Response.json({ 
-                error: 'Missing required parameters: startDate, endDate',
-                received: requestBody
-            }, { status: 400 });
+            return Response.json({ error: 'Missing startDate or endDate' }, { status: 400 });
         }
-        
-        // 获取租户上下文 - 从用户信息或租户列表获取
+
+        if (!ALLOWED_DIMENSIONS.includes(dimension)) {
+            return Response.json({ error: `Invalid dimension: ${dimension}` }, { status: 400 });
+        }
+
+        // 解析 tenant
         let tenantId = null;
-        
-        // 如果是平台管理员，需要从请求参数中获取 tenant_id（可选，不传则查所有）
         if (user.role === 'platform_admin') {
             tenantId = requestBody.tenant_id || null;
         } else {
-            // 从 User 实体获取 tenant_id（租户隔离）
             try {
-                const userRecord = await base44.asServiceRole.entities.User.filter({ id: user.id });
-                tenantId = userRecord?.[0]?.tenant_id || user.tenant_id;
-            } catch (e) {
-                tenantId = user.tenant_id;
-            }
+                const userRecords = await base44.asServiceRole.entities.User.filter({ id: user.id });
+                tenantId = userRecords?.[0]?.tenant_id || user.tenant_id;
+            } catch { tenantId = user.tenant_id; }
         }
-        
+
         if (!tenantId && user.role !== 'platform_admin') {
-            return Response.json({ 
-                error: 'Tenant context not found',
-                user_email: user.email,
-                user_role: user.role
-            }, { status: 400 });
+            return Response.json({ error: 'Tenant context not found' }, { status: 400 });
         }
-        
-        // 查询订单数据（按时间范围过滤）
-        // 使用 created_date 过滤（因为 submit_date 大部分为空）
-        const orderQuery = tenantId ? { tenant_id: tenantId } : {};
-        
-        let orders;
-        try {
-            orders = await base44.asServiceRole.entities.Order.filter(orderQuery);
-            console.log(`Found ${orders.length} total orders for tenant ${tenantId}`);
-            
-            // 在内存中按日期过滤
-            const start = new Date(startDate);
-            const end = new Date(endDate);
-            end.setHours(23, 59, 59, 999);
-            
-            orders = orders.filter(order => {
-                const orderDate = new Date(order.submit_date || order.created_date);
-                return orderDate >= start && orderDate <= end;
-            });
-            console.log(`Filtered to ${orders.length} orders in date range`);
-        } catch (e) {
-            console.error('Failed to query orders:', e);
-            orders = [];
-        }
-        
-        // 查询发货池数据（按创建日期过滤）
-        const poolQuery = tenantId ? { tenant_id: tenantId } : {};
-        
-        let shippingPools;
-        try {
-            shippingPools = await base44.asServiceRole.entities.ShippingPool.filter(poolQuery);
-            console.log(`Found ${shippingPools.length} total shipping pools for tenant ${tenantId}`);
-            
-            // 在内存中按日期过滤
-            const start = new Date(startDate);
-            const end = new Date(endDate);
-            end.setHours(23, 59, 59, 999);
-            
-            shippingPools = shippingPools.filter(pool => {
-                const poolDate = new Date(pool.created_date);
-                return poolDate >= start && poolDate <= end;
-            });
-            console.log(`Filtered to ${shippingPools.length} shipping pools in date range`);
-        } catch (e) {
-            console.error('Failed to query shipping pools:', e);
-            shippingPools = [];
-        }
-        
-        // 构建报表数据
-        const reportData = {
-            summary: {
-                total_orders: orders.length,
-                total_shipping_pools: shippingPools.length,
-                order_stage_payment_jpy: 0,
-                refund_amount_jpy: 0,
-                goods_cost_jpy: 0,
-                order_stage_profit_jpy: 0,
-                shipping_stage_income_jpy: 0,
-                actual_international_shipping_cost_jpy: 0,
-                box_charge_jpy: 0,
-                box_actual_cost_jpy: 0,
-                box_profit_jpy: 0,
-                shipping_stage_profit_jpy: 0,
-                total_profit_jpy: 0,
-                orders_missing_cost_data: 0
-            },
-            byDimension: {}
+
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+
+        const baseFilter = tenantId ? { tenant_id: tenantId } : {};
+
+        // 并行加载订单和发货池
+        const [allOrders, allPools] = await Promise.all([
+            base44.asServiceRole.entities.Order.filter(baseFilter),
+            base44.asServiceRole.entities.ShippingPool.filter(baseFilter),
+        ]);
+
+        // 过滤时间范围
+        const orders = allOrders.filter(o => {
+            const d = new Date(o.submit_date || o.created_date);
+            return d >= start && d <= end;
+        });
+
+        const pools = allPools.filter(p => {
+            const d = new Date(p.created_date);
+            return d >= start && d <= end;
+        });
+
+        console.log(`Orders in range: ${orders.length}, Pools in range: ${pools.length}`);
+
+        // 客户分析：所有用户（去重）
+        const allUserEmails = new Set(orders.map(o => o.user_email).filter(Boolean));
+        const totalCustomers = allUserEmails.size;
+
+        // 获取客户首单日期（用于新老客户区分）
+        const customerFirstOrder = {};
+        allOrders.forEach(o => {
+            if (!o.user_email) return;
+            const d = new Date(o.submit_date || o.created_date);
+            if (!customerFirstOrder[o.user_email] || d < customerFirstOrder[o.user_email]) {
+                customerFirstOrder[o.user_email] = d;
+            }
+        });
+
+        // 新客 = 期间内首单日期在时间范围内的客户
+        let newCustomers = 0;
+        allUserEmails.forEach(email => {
+            const firstOrder = customerFirstOrder[email];
+            if (firstOrder && firstOrder >= start && firstOrder <= end) newCustomers++;
+        });
+
+        // 汇总指标初始化
+        const summary = {
+            total_orders: orders.length,
+            total_customers: totalCustomers,
+            new_customers: newCustomers,
+            returning_customers: totalCustomers - newCustomers,
+            total_shipping_pools: pools.length,
+            order_stage_payment_jpy: 0,
+            refund_amount_jpy: 0,
+            goods_cost_jpy: 0,
+            order_stage_profit_jpy: 0,
+            addon_revenue_jpy: 0,
+            item_size_extra_fee_jpy: 0,
+            shipping_stage_income_jpy: 0,
+            actual_international_shipping_cost_jpy: 0,
+            box_charge_jpy: 0,
+            box_actual_cost_jpy: 0,
+            box_profit_jpy: 0,
+            shipping_stage_profit_jpy: 0,
+            total_profit_jpy: 0,
+            avg_order_value_jpy: 0,
+            orders_missing_cost_data: 0,
+            // 订单状态分布
+            status_counts: {},
+            // 待处理汇总
+            pending_payment_count: 0,
+            pending_purchase_count: 0,
+            pending_ship_count: 0,
         };
-        
-        // 计算订单阶段利润
+
+        const byDimension = {};
+
+        // 为发货池关联，构建订单ID→池的映射
+        const orderIdToPool = {};
+        allPools.forEach(pool => {
+            (pool.order_ids || []).forEach(oid => { orderIdToPool[oid] = pool; });
+        });
+
+        // 计算订单阶段指标
         orders.forEach(order => {
-            // 下单阶段数据 - 优先使用 order_stage_payment_jpy，否则使用 paid_amount
             const orderPayment = order.order_stage_payment_jpy || order.paid_amount || 0;
             const refund = order.refund_amount_jpy || 0;
-            // 商品成本：使用 estimated_jpy（日元货款）
             const goodsCost = order.estimated_jpy || 0;
+            const addonRevenue = (order.selected_addons || []).reduce((s, a) => s + (a.fee || 0), 0);
+            const itemSizeExtraFee = order.item_size_extra_fee || 0;
             const orderProfit = orderPayment - refund - goodsCost;
-            
-            reportData.summary.order_stage_payment_jpy += orderPayment;
-            reportData.summary.refund_amount_jpy += refund;
-            reportData.summary.goods_cost_jpy += goodsCost;
-            reportData.summary.order_stage_profit_jpy += orderProfit;
-            
-            // 按维度分组 - 根据维度类型从订单或关联的发货池获取
-            let dimensionValue = 'unknown';
-            if (dimension === 'order_status') {
-                dimensionValue = order.order_status || 'unknown';
-            } else if (dimension === 'payment_status') {
-                dimensionValue = order.payment_status || 'unknown';
-            } else if (dimension === 'payment_method') {
-                dimensionValue = order.payment_method || 'unknown';
-            } else if (dimension === 'online_store_tag') {
-                dimensionValue = order.online_store_tag || '其它';
-            } else if (dimension === 'country') {
-                // 从 pre_shipment.address、destination_country、或 pre_shipment 取
-                dimensionValue = order.destination_country 
-                    || order.pre_shipment?.address?.country 
-                    || order.pre_shipment?.transit_location_country
-                    || 'unknown';
-            } else if (dimension === 'shipping_method') {
-                // 优先从 ShippingPool 取（在 pool 遍历时会覆盖），此处先从订单取
-                dimensionValue = order.shipping_method 
-                    || order.pre_shipment?.shipping_method 
-                    || order.pre_shipment?.transit_shipping_method_name
-                    || 'unknown';
-            } else if (dimension === 'is_refunded') {
-                dimensionValue = (order.refund_amount_jpy && order.refund_amount_jpy > 0) ? '已退款' : '未退款';
-            } else {
-                dimensionValue = order[dimension] || 'unknown';
-            }
-            if (!reportData.byDimension[dimensionValue]) {
-                reportData.byDimension[dimensionValue] = {
-                    order_count: 0,
-                    order_stage_payment_jpy: 0,
-                    refund_amount_jpy: 0,
-                    goods_cost_jpy: 0,
-                    order_stage_profit_jpy: 0,
-                    shipping_stage_income_jpy: 0,
-                    actual_international_shipping_cost_jpy: 0,
-                    box_charge_jpy: 0,
-                    box_actual_cost_jpy: 0,
-                    shipping_stage_profit_jpy: 0,
-                    total_profit_jpy: 0,
-                    orders_missing_cost_data: 0
+
+            summary.order_stage_payment_jpy += orderPayment;
+            summary.refund_amount_jpy += refund;
+            summary.goods_cost_jpy += goodsCost;
+            summary.order_stage_profit_jpy += orderProfit;
+            summary.addon_revenue_jpy += addonRevenue;
+            summary.item_size_extra_fee_jpy += itemSizeExtraFee;
+
+            // 订单状态分布
+            const status = order.order_status || 'unknown';
+            summary.status_counts[status] = (summary.status_counts[status] || 0) + 1;
+
+            // 待处理统计
+            if (['pending_confirmation', 'payment_pending', 'paid'].includes(status)) summary.pending_payment_count++;
+            if (status === 'pending_purchase') summary.pending_purchase_count++;
+            if (['in_warehouse', 'in_storage'].includes(status)) summary.pending_ship_count++;
+
+            if (!order.order_stage_payment_jpy && !order.paid_amount) summary.orders_missing_cost_data++;
+
+            // 维度分组
+            const pool = orderIdToPool[order.id];
+            const dimValue = getDimensionValue(order, pool, dimension);
+            if (!byDimension[dimValue]) {
+                byDimension[dimValue] = {
+                    order_count: 0, order_stage_payment_jpy: 0, refund_amount_jpy: 0,
+                    goods_cost_jpy: 0, order_stage_profit_jpy: 0, addon_revenue_jpy: 0,
+                    shipping_stage_profit_jpy: 0, total_profit_jpy: 0, orders_missing_cost_data: 0
                 };
             }
-            
-            reportData.byDimension[dimensionValue].order_count += 1;
-            reportData.byDimension[dimensionValue].order_stage_payment_jpy += orderPayment;
-            reportData.byDimension[dimensionValue].refund_amount_jpy += refund;
-            reportData.byDimension[dimensionValue].goods_cost_jpy += goodsCost;
-            reportData.byDimension[dimensionValue].order_stage_profit_jpy += orderProfit;
-            
-            // 检查成本数据完整性：
-            // fullpay_once 模式用 paid_amount 降级是正常的，不算缺失
-            // 只有当两者都为空时才算缺失
-            if (!order.order_stage_payment_jpy && !order.paid_amount) {
-                reportData.summary.orders_missing_cost_data += 1;
-                reportData.byDimension[dimensionValue].orders_missing_cost_data += 1;
-            }
+            byDimension[dimValue].order_count++;
+            byDimension[dimValue].order_stage_payment_jpy += orderPayment;
+            byDimension[dimValue].refund_amount_jpy += refund;
+            byDimension[dimValue].goods_cost_jpy += goodsCost;
+            byDimension[dimValue].order_stage_profit_jpy += orderProfit;
+            byDimension[dimValue].addon_revenue_jpy += addonRevenue;
+            if (!order.order_stage_payment_jpy && !order.paid_amount) byDimension[dimValue].orders_missing_cost_data++;
         });
-        
-        // 为发货利润关联，需要加载 pool 关联的所有订单（可能超出时间范围）
-        // 收集所有 pool 引用的 order_id
-        const allPoolOrderIds = new Set();
-        shippingPools.forEach(pool => {
-            (pool.order_ids || []).forEach(id => allPoolOrderIds.add(id));
-        });
-        // 找出已在 orders 中没有的 order_id，额外加载
-        const missingOrderIds = [...allPoolOrderIds].filter(id => !orders.find(o => o.id === id));
-        let extraOrders = [];
-        if (missingOrderIds.length > 0 && tenantId) {
-            try {
-                const allTenantOrders = await base44.asServiceRole.entities.Order.filter({ tenant_id: tenantId });
-                extraOrders = allTenantOrders.filter(o => missingOrderIds.includes(o.id));
-                console.log(`Loaded ${extraOrders.length} extra orders for pool dimension allocation`);
-            } catch (e) {
-                console.error('Failed to load extra orders for pools:', e);
-            }
-        }
-        const allOrdersForPool = [...orders, ...extraOrders];
 
-        // 计算发货阶段利润
-        shippingPools.forEach(pool => {
-            // 运费收入：优先使用 shipping_stage_income_jpy，否则使用 shipping_fee_jpy
+        // 计算发货阶段指标
+        pools.forEach(pool => {
             const shippingIncome = pool.shipping_stage_income_jpy || pool.shipping_fee_jpy || 0;
-            // 实际国际运费支出
-            const intlShippingCost = pool.actual_international_shipping_cost_jpy || 0;
-            // 外箱收费：优先使用 snapshot，否则使用 box_price_jpy
+            const intlCost = pool.actual_international_shipping_cost_jpy || 0;
             const boxCharge = pool.box_charge_jpy_snapshot || pool.box_price_jpy || 0;
-            // 外箱实际成本
             const boxCost = pool.box_actual_cost_jpy_snapshot || 0;
-            // 发货利润 = 运费收入 - 国际运费 - 外箱成本
-            const shippingProfit = shippingIncome - intlShippingCost - boxCost;
-            
-            reportData.summary.shipping_stage_income_jpy += shippingIncome;
-            reportData.summary.actual_international_shipping_cost_jpy += intlShippingCost;
-            reportData.summary.box_charge_jpy += boxCharge;
-            reportData.summary.box_actual_cost_jpy += boxCost;
-            reportData.summary.shipping_stage_profit_jpy += shippingProfit;
-            
-            // 外箱利润 = 外箱收费 - 外箱成本
+            const shippingProfit = shippingIncome - intlCost - boxCost;
             const boxProfit = boxCharge - boxCost;
-            reportData.summary.box_profit_jpy += boxProfit;
-            
-            // 按维度分组发货利润 - 从关联订单获取维度值
-            // 简化处理：根据 pool 中的订单平均分配发货利润
+
+            summary.shipping_stage_income_jpy += shippingIncome;
+            summary.actual_international_shipping_cost_jpy += intlCost;
+            summary.box_charge_jpy += boxCharge;
+            summary.box_actual_cost_jpy += boxCost;
+            summary.shipping_stage_profit_jpy += shippingProfit;
+            summary.box_profit_jpy += boxProfit;
+
+            // 分配发货利润到维度
             const orderIds = pool.order_ids || [];
-            const relatedOrders = allOrdersForPool.filter(o => orderIds.includes(o.id));
-            
+            const relatedOrders = orders.filter(o => orderIds.includes(o.id));
             if (relatedOrders.length > 0) {
-                // 计算每个维度的订单数
-                const dimensionCount = {};
-                relatedOrders.forEach(order => {
-                    let dimValue = 'unknown';
-                    if (dimension === 'order_status') {
-                        dimValue = order.order_status || 'unknown';
-                    } else if (dimension === 'payment_status') {
-                        dimValue = order.payment_status || 'unknown';
-                    } else if (dimension === 'payment_method') {
-                        dimValue = order.payment_method || 'unknown';
-                    } else if (dimension === 'online_store_tag') {
-                        dimValue = order.online_store_tag || '其它';
-                    } else if (dimension === 'country') {
-                        // 优先用 pool 级别的 destination_country
-                        dimValue = pool.destination_country 
-                            || order.destination_country 
-                            || order.pre_shipment?.address?.country 
-                            || 'unknown';
-                    } else if (dimension === 'shipping_method') {
-                        // 优先用 pool 级别的 shipping_method
-                        dimValue = pool.shipping_method 
-                            || order.shipping_method 
-                            || order.pre_shipment?.shipping_method 
-                            || 'unknown';
-                    } else if (dimension === 'is_refunded') {
-                        dimValue = (order.refund_amount_jpy && order.refund_amount_jpy > 0) ? '已退款' : '未退款';
-                    } else {
-                        dimValue = order[dimension] || 'unknown';
-                    }
-                    
-                    if (!dimensionCount[dimValue]) {
-                        dimensionCount[dimValue] = 0;
-                    }
-                    dimensionCount[dimValue] += 1;
-                });
-                
-                // 按订单数比例分配发货利润到各维度
                 const profitPerOrder = shippingProfit / relatedOrders.length;
-                Object.entries(dimensionCount).forEach(([dimValue, count]) => {
-                    if (!reportData.byDimension[dimValue]) {
-                        reportData.byDimension[dimValue] = {
-                            order_count: 0,
-                            order_stage_payment_jpy: 0,
-                            refund_amount_jpy: 0,
-                            goods_cost_jpy: 0,
-                            order_stage_profit_jpy: 0,
-                            shipping_stage_profit_jpy: 0,
-                            total_profit_jpy: 0,
-                            orders_missing_cost_data: 0
-                        };
+                relatedOrders.forEach(order => {
+                    const dimValue = getDimensionValue(order, pool, dimension);
+                    if (byDimension[dimValue]) {
+                        byDimension[dimValue].shipping_stage_profit_jpy += profitPerOrder;
                     }
-                    reportData.byDimension[dimValue].shipping_stage_profit_jpy += profitPerOrder * count;
-                    reportData.byDimension[dimValue].total_profit_jpy = 
-                        reportData.byDimension[dimValue].order_stage_profit_jpy + 
-                        reportData.byDimension[dimValue].shipping_stage_profit_jpy;
                 });
             }
         });
-        
-        // 计算总利润（下单利润 + 运费利润，无运费数据时仅下单利润）
-        reportData.summary.total_profit_jpy = 
-            reportData.summary.order_stage_profit_jpy + reportData.summary.shipping_stage_profit_jpy;
-        
-        // 补充未分配完的发货利润（处理没有关联订单的 pool）
-        const allocatedShippingProfit = Object.values(reportData.byDimension)
-            .reduce((sum, d) => sum + (d.shipping_stage_profit_jpy || 0), 0);
-        const unallocatedProfit = reportData.summary.shipping_stage_profit_jpy - allocatedShippingProfit;
-        
-        if (unallocatedProfit !== 0 && Object.keys(reportData.byDimension).length > 0) {
-            const profitPerDimension = unallocatedProfit / Object.keys(reportData.byDimension).length;
-            Object.values(reportData.byDimension).forEach(dimensionData => {
-                dimensionData.shipping_stage_profit_jpy += profitPerDimension;
-            });
-        }
-        
-        // 最终统一计算每个维度的总利润（确保无运费数据时也正确显示下单利润）
-        Object.values(reportData.byDimension).forEach(dimensionData => {
-            dimensionData.total_profit_jpy = 
-                dimensionData.order_stage_profit_jpy + dimensionData.shipping_stage_profit_jpy;
+
+        // 统一计算维度总利润
+        Object.values(byDimension).forEach(d => {
+            d.total_profit_jpy = d.order_stage_profit_jpy + d.shipping_stage_profit_jpy;
         });
-        
-        const result = {
+
+        // 汇总总利润和客单价
+        summary.total_profit_jpy = summary.order_stage_profit_jpy + summary.shipping_stage_profit_jpy;
+        summary.avg_order_value_jpy = summary.total_orders > 0
+            ? Math.round(summary.order_stage_payment_jpy / summary.total_orders)
+            : 0;
+
+        // 客户消费排行（Top 10）
+        const customerRevenue = {};
+        orders.forEach(o => {
+            if (!o.user_email) return;
+            const amt = o.order_stage_payment_jpy || o.paid_amount || 0;
+            customerRevenue[o.user_email] = (customerRevenue[o.user_email] || 0) + amt;
+        });
+        const topCustomers = Object.entries(customerRevenue)
+            .map(([email, revenue]) => ({ email, revenue_jpy: revenue }))
+            .sort((a, b) => b.revenue_jpy - a.revenue_jpy)
+            .slice(0, 10);
+
+        // 下单网站分布
+        const storeTagCounts = {};
+        orders.forEach(o => {
+            const tag = o.online_store_tag || '其它';
+            storeTagCounts[tag] = (storeTagCounts[tag] || 0) + 1;
+        });
+
+        // 时间趋势
+        const timeSeries = buildTimeSeries(orders, pools, granularity);
+
+        return Response.json({
             success: true,
-            data: reportData,
+            data: {
+                summary,
+                byDimension,
+                timeSeries,
+                topCustomers,
+                storeTagCounts,
+            },
             date_range: { startDate, endDate },
-            dimension: dimension
-        };
-        
-        console.log('Report result:', JSON.stringify(result, null, 2));
-        
-        return Response.json(result);
-        
+            dimension,
+            granularity,
+        });
+
     } catch (error) {
-        console.error('Report generation error:', error);
-        return Response.json({ 
-            error: error.message,
-            stack: error.stack 
-        }, { status: 500 });
+        console.error('Report error:', error);
+        return Response.json({ error: error.message, stack: error.stack }, { status: 500 });
     }
 });
