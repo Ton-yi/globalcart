@@ -72,7 +72,12 @@ export default function AdminReports() {
             </div>
 
             {/* 数据质量警告 */}
-            {reportData?.summary && <DataQualityBanner summary={reportData.summary} />}
+            {reportData?.summary && (
+                <DataQualityBanner 
+                    summary={reportData.summary} 
+                    warnings={reportData.dataQualityWarnings || []} 
+                />
+            )}
 
             {/* 筛选条件 */}
             <ReportFilters

@@ -443,6 +443,15 @@ Deno.serve(async (req) => {
 
         if (!startDate || !endDate) return Response.json({ error: 'Missing startDate or endDate' }, { status: 400 });
         if (startDate > endDate)    return Response.json({ error: 'startDate must be <= endDate' }, { status: 400 });
+        
+        // 安全限制：最大查询 365 天
+        const queryStart = new Date(startDate);
+        const queryEnd   = new Date(endDate);
+        const diffDays = Math.round((queryEnd - queryStart) / 86400000);
+        if (diffDays > 365) {
+            return Response.json({ error: '最大查询范围为 365 天，请缩小时间范围' }, { status: 400 });
+        }
+        
         if (!ALLOWED_DIMENSIONS.includes(dimension))    return Response.json({ error: `Invalid dimension` }, { status: 400 });
         if (!ALLOWED_GRANULARITIES.includes(granularity)) return Response.json({ error: `Invalid granularity` }, { status: 400 });
         if (compare && !['yoy', 'mom'].includes(compare)) return Response.json({ error: `Invalid compare` }, { status: 400 });
@@ -516,6 +525,15 @@ Deno.serve(async (req) => {
             comparePeriod  = { startDate: cStart, endDate: cEnd };
         }
 
+        // 数据量警告
+        const dataQualityWarnings = [];
+        if (orders.length > 5000) {
+            dataQualityWarnings.push(`查询到 ${orders.length} 条订单，数据量较大，建议缩小时间范围`);
+        }
+        if (pools.length > 2000) {
+            dataQualityWarnings.push(`查询到 ${pools.length} 个发货池，数据量较大`);
+        }
+
         console.log(`[getReportData] orders=${orders.length} pools=${pools.length} dim=${dimension} gran=${granularity}`);
 
         return Response.json({
@@ -528,6 +546,7 @@ Deno.serve(async (req) => {
                 storeTagCounts,
                 compareSummary,
                 compare_period: comparePeriod,   // 放进 data 内，前端直接读 data.compare_period
+                dataQualityWarnings,
             },
             date_range: { startDate, endDate },
             dimension,

@@ -1,13 +1,20 @@
 import React, { useState } from "react";
 import { AlertTriangle, X, ChevronDown, ChevronUp } from "lucide-react";
 
-export default function DataQualityBanner({ summary }) {
+export default function DataQualityBanner({ summary, warnings = [] }) {
     const [collapsed, setCollapsed] = useState(false);
     const [dismissed, setDismissed] = useState(false);
 
-    if (dismissed) return null;
+    if (dismissed && warnings.length === 0) return null;
 
     const issues = [];
+
+    // 后端返回的警告
+    if (warnings && warnings.length > 0) {
+        warnings.forEach((w, i) => {
+            issues.push({ field: '数据量', desc: w });
+        });
+    }
 
     if (summary?.orders_missing_cost_data > 0) {
         issues.push({
