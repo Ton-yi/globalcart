@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { base44 } from "@/api/base44Client";
 
-const EMPTY = { name: "", description: "", image_url: "", weight_g: "", price_jpy: "" };
+const EMPTY = { name: "", description: "", image_url: "", weight_g: "", price_jpy: "", cost_jpy: "" };
 
 export default function BoxTemplateManager({ initialData = [], onReload }) {
   const [items, setItems] = useState(initialData);
@@ -29,6 +29,7 @@ export default function BoxTemplateManager({ initialData = [], onReload }) {
       image_url: form.image_url,
       weight_g: parseFloat(form.weight_g) || 0,
       price_jpy: parseFloat(form.price_jpy) || 0,
+      cost_jpy: parseFloat(form.cost_jpy) || null,
       is_active: true,
     });
     setItems(prev => [...prev, created]);
@@ -79,7 +80,10 @@ export default function BoxTemplateManager({ initialData = [], onReload }) {
                   <span className="text-xs text-gray-500">{item.weight_g}g</span>
                 )}
                 {item.price_jpy > 0 && (
-                  <span className="text-xs text-orange-600">¥{item.price_jpy} JPY</span>
+                  <span className="text-xs text-orange-600">收 ¥{item.price_jpy} JPY</span>
+                )}
+                {item.cost_jpy > 0 && (
+                  <span className="text-xs text-gray-400">成本 ¥{item.cost_jpy}</span>
                 )}
                 {!item.is_active && (
                   <span className="text-xs bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded">已停用</span>
@@ -121,9 +125,14 @@ export default function BoxTemplateManager({ initialData = [], onReload }) {
               onChange={e => setForm(p => ({ ...p, weight_g: e.target.value }))} />
           </div>
           <div>
-            <Label className="text-xs text-gray-400">价格 (JPY)</Label>
+            <Label className="text-xs text-gray-400">向用户收取金额 (JPY)</Label>
             <Input type="number" className="mt-0.5 h-8 text-sm" placeholder="0" value={form.price_jpy}
               onChange={e => setForm(p => ({ ...p, price_jpy: e.target.value }))} />
+          </div>
+          <div>
+            <Label className="text-xs text-gray-400">实际成本 (JPY)</Label>
+            <Input type="number" className="mt-0.5 h-8 text-sm" placeholder="0（选填）" value={form.cost_jpy}
+              onChange={e => setForm(p => ({ ...p, cost_jpy: e.target.value }))} />
           </div>
           <div className="col-span-2">
             <Label className="text-xs text-gray-400">图片</Label>
