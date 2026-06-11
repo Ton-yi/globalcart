@@ -460,8 +460,20 @@ Deno.serve(async (req) => {
 
         const start = new Date(startDate);
         const end   = new Date(endDate); end.setHours(23, 59, 59, 999);
+        const queryDays = Math.round((end - start) / 86400000) + 1;
 
         const baseFilter = tenantId ? { tenant_id: tenantId } : {};
+
+        // 查询汇总数据（如果查询范围>7 天）
+        let dailySummaries = [];
+        const useSummary = queryDays > 7;
+        
+        if (useSummary && tenantId) {
+            dailySummaries = await base44.asServiceRole.entities.DailyReportSummary.filter({
+                tenant_id: tenantId,
+                date: { $gte: startDate, $lte: endDate }
+            });
+        }
 
         // 并行拉取全量数据
         const [allOrders, allPools] = await Promise.all([
@@ -491,10 +503,77 @@ Deno.serve(async (req) => {
         const allOrderMap = {};
         allOrders.forEach(o => { allOrderMap[o.id] = o; });
 
-        // 汇总计算
-        const summary      = calcSummary(orders, pools, allPools, allOrders);
-        const byDimension  = buildDimensions(orders, pools, dimension, allOrderMap);
-        const timeSeries   = buildTimeSeries(orders, pools, granularity);
+        // 汇总计算 - 优先使用汇总数据（如果查询范围>7 天且有汇总数据）
+        let summary;
+        let byDimension;
+        let timeSeries;
+        
+        if (useSummary && dailySummaries.length > 0) {
+            // 使用汇总数据快速计算
+            summary = {
+                total_orders: dailySummaries.reduce((s, d) => s + (d.order_count || 0), 0),
+                total_shipping_pools: dailySummaries.reduce((s, d) => s + ((d.country_distribution ? Object.values(d.country_distribution).reduce((a,b)=>a+b,0) : 0)), 0),
+                total_customers: dailySummaries.reduce((s, d) => s + (d.customer_count || 0), 0),
+                new_customers: dailySummaries.reduce((s, d) => s + (d.new_customer_count || 0), 0),
+                returning_customers: 0,
+                order_stage_payment_jpy: dailySummaries.reduce((s, d) => s + (d.order_stage_payment_jpy || 0), 0),
+                refund_amount_jpy: dailySummaries.reduce((s, d) => s + (d.refund_amount_jpy || 0), 0),
+                goods_cost_jpy: dailySummaries.reduce((s, d) => s + (d.goods_cost_jpy || 0), 0),
+                service_fee_revenue_jpy: dailySummaries.reduce((s, d) => s + (d.service_fee_revenue_jpy || 0), 0),
+                addon_revenue_jpy: dailySummaries.reduce((s, d) => s + (d.addon_revenue_jpy || 0), 0),
+                item_size_extra_fee_jpy: 0,
+                order_stage_profit_jpy: dailySummaries.reduce((s, d) => s + (d.order_stage_profit_jpy || 0), 0),
+                shipping_stage_income_jpy: dailySummaries.reduce((s, d) => s + (d.shipping_stage_income_jpy || 0), 0),
+                actual_international_shipping_cost_jpy: 0,
+                box_charge_jpy: 0,
+                box_actual_cost_jpy: 0,
+                box_profit_jpy: 0,
+                shipping_stage_profit_jpy: dailySummaries.reduce((s, d) => s + (d.shipping_stage_profit_jpy || 0), 0),
+                total_profit_jpy: dailySummaries.reduce((s, d) => s + (d.total_profit_jpy || 0), 0),
+                avg_order_value_jpy: 0,
+                orders_missing_cost_data: 0,
+                status_counts: {},
+                pending_payment_count: dailySummaries.reduce((s, d) => s + (d.pending_payment_count || 0), 0),
+                pending_purchase_count: dailySummaries.reduce((s, d) => s + (d.pending_purchase_count || 0), 0),
+                pending_ship_count: dailySummaries.reduce((s, d) => s + (d.pending_ship_count || 0), 0),
+                unpaid_amount_jpy: dailySummaries.reduce((s, d) => s + (d.unpaid_amount_jpy || 0), 0),
+                avg_ship_days: null,
+                addon_distribution: {},
+                country_distribution: {},
+                shipping_method_distribution: {},
+                transit_location_distribution: {},
+            };
+            
+            // 合并分布数据
+            dailySummaries.forEach(d => {
+                Object.entries(d.status_counts || {}).forEach(([k, v]) => {
+                    summary.status_counts[k] = (summary.status_counts[k] || 0) + v;
+                });
+                Object.entries(d.country_distribution || {}).forEach(([k, v]) => {
+                    summary.country_distribution[k] = (summary.country_distribution[k] || 0) + v;
+                });
+                Object.entries(d.shipping_method_distribution || {}).forEach(([k, v]) => {
+                    summary.shipping_method_distribution[k] = (summary.shipping_method_distribution[k] || 0) + v;
+                });
+            });
+            
+            // 使用汇总数据计算平均值
+            if (summary.total_orders > 0) {
+                summary.avg_order_value_jpy = Math.round(summary.order_stage_payment_jpy / summary.total_orders);
+            }
+            
+            // 维度分析和时序图仍使用原始数据（保证准确性）
+            byDimension = buildDimensions(orders, pools, dimension, allOrderMap);
+            timeSeries = buildTimeSeries(orders, pools, granularity);
+            
+            console.log(`[getReportData] 使用汇总数据，days=${queryDays}, summaries=${dailySummaries.length}`);
+        } else {
+            // 使用原始数据计算
+            summary = calcSummary(orders, pools, allPools, allOrders);
+            byDimension = buildDimensions(orders, pools, dimension, allOrderMap);
+            timeSeries = buildTimeSeries(orders, pools, granularity);
+        }
+        
         const topCustomers = buildTopCustomers(orders, 10);
         const storeTagCounts = {};
         orders.forEach(o => {
@@ -523,14 +602,16 @@ Deno.serve(async (req) => {
 
         // 数据量警告
         const dataQualityWarnings = [];
-        if (orders.length > 5000) {
+        if (useSummary && dailySummaries.length > 0) {
+            dataQualityWarnings.push(`已使用汇总数据加速查询（${dailySummaries.length} 天），部分维度分析基于原始数据`);
+        } else if (orders.length > 5000) {
             dataQualityWarnings.push(`查询到 ${orders.length} 条订单，数据量较大，建议缩小时间范围`);
         }
         if (pools.length > 2000) {
             dataQualityWarnings.push(`查询到 ${pools.length} 个发货池，数据量较大`);
         }
 
-        console.log(`[getReportData] orders=${orders.length} pools=${pools.length} dim=${dimension} gran=${granularity}`);
+        console.log(`[getReportData] orders=${orders.length} pools=${pools.length} dim=${dimension} gran=${granularity} useSummary=${useSummary} summaries=${dailySummaries.length}`);
 
         return Response.json({
             success: true,
