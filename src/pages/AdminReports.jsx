@@ -30,8 +30,8 @@ export default function AdminReports() {
                     endDate,
                     dimension
                 });
-                // Platform V3: invoke returns body directly: { success: true, data: { summary, byDimension } }
-                return response.data;
+                // invoke returns axios response: response.data = { success, data: { summary, byDimension } }
+                return response.data.data;
             } catch (err) {
                 console.error('Report fetch error:', err);
                 throw err;
