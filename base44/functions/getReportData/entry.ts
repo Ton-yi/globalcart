@@ -444,18 +444,18 @@ Deno.serve(async (req) => {
             }
         }
 
-        // 租户解析
+        // 租户解析 - 从用户记录获取，不信任客户端
         let tenantId = null;
         if (user.role === 'platform_admin') {
             tenantId = requestBody.tenant_id || null;
         } else {
-            try {
-                const records = await base44.asServiceRole.entities.User.filter({ id: user.id });
-                tenantId = records?.[0]?.tenant_id || user.tenant_id;
-            } catch { tenantId = user.tenant_id; }
+            // 从用户记录获取租户 ID（不信任客户端传入的 tenant_id）
+            const userRecords = await base44.asServiceRole.entities.User.filter({ id: user.id });
+            tenantId = userRecords?.[0]?.tenant_id;
         }
+        
         if (!tenantId && user.role !== 'platform_admin') {
-            return Response.json({ error: 'Tenant context not found' }, { status: 400 });
+            return Response.json({ error: '用户未关联租户，请联系管理员' }, { status: 400 });
         }
 
         const start = new Date(startDate);
