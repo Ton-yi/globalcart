@@ -32,14 +32,13 @@ export default function SMTPSettingsManager() {
 
   const loadSettings = async () => {
     try {
-      const settingsList = await base44.entities.TenantEmailSettings.filter({
-        tenant_id: user.tenant_id
-      });
+      // 使用后端函数获取设置（安全：不返回密码）
+      const response = await base44.functions.invoke('getTenantEmailSettings');
       
-      const currentSettings = settingsList && settingsList.length > 0 ? settingsList[0] : null;
-      setSettings(currentSettings);
-      
-      if (currentSettings) {
+      if (response.success && response.settings) {
+        const currentSettings = response.settings;
+        setSettings(currentSettings);
+        
         setFormData({
           smtp_enabled: currentSettings.smtp_enabled || false,
           smtp_host: currentSettings.smtp_host || "",
@@ -52,9 +51,23 @@ export default function SMTPSettingsManager() {
           sender_name: currentSettings.sender_name || "",
           sender_email: currentSettings.sender_email || ""
         });
+      } else {
+        setSettings(null);
+        setFormData({
+          smtp_enabled: false,
+          smtp_host: "",
+          smtp_port: "587",
+          smtp_username: "",
+          smtp_password: "",
+          smtp_from_name: "",
+          smtp_from_email: "",
+          sender_name: "",
+          sender_email: ""
+        });
       }
     } catch (error) {
       console.error('加载 SMTP 设置失败:', error);
+      toast.error('加载失败：' + error.message);
     } finally {
       setLoading(false);
     }
@@ -65,13 +78,6 @@ export default function SMTPSettingsManager() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      // 权限验证
-      if (user.role !== 'admin' && user.role !== 'tenant_admin') {
-        toast.error('仅管理员可配置 SMTP 设置');
-        setSaving(false);
-        return;
-      }
-
       // 验证必填字段
       if (formData.smtp_enabled) {
         if (!formData.smtp_host || !formData.smtp_username) {
@@ -87,35 +93,26 @@ export default function SMTPSettingsManager() {
         }
       }
 
-      const saveData = {
-        tenant_id: user.tenant_id,
-        email_provider: formData.smtp_enabled ? 'smtp' : 'platform',
+      // 使用后端函数保存（包含权限验证和端口白名单）
+      const response = await base44.functions.invoke('manageTenantEmailSettings', {
         smtp_enabled: formData.smtp_enabled,
         smtp_host: formData.smtp_host,
-        smtp_port: formData.smtp_port,
+        smtp_port: parseInt(formData.smtp_port),
         smtp_username: formData.smtp_username,
+        smtp_password: formData.smtp_password || '',
         smtp_from_name: formData.smtp_from_name,
         smtp_from_email: formData.smtp_from_email,
         sender_name: formData.sender_name,
-        sender_email: formData.sender_email,
-        configured_by: user.email,
-        configured_at: new Date().toISOString()
-      };
+        sender_email: formData.sender_email
+      });
 
-      // 仅当密码非空时才保存（更新场景）
-      if (formData.smtp_password) {
-        saveData.smtp_password = formData.smtp_password;
-      }
-
-      if (!settings) {
-        await base44.entities.TenantEmailSettings.create(saveData);
+      if (response.success) {
+        toast.success('SMTP 设置已保存');
+        setFormData(prev => ({ ...prev, smtp_password: '' }));
+        await loadSettings();
       } else {
-        await base44.entities.TenantEmailSettings.update(settings.id, saveData);
+        toast.error('保存失败：' + (response.error || '未知错误'));
       }
-      
-      toast.success('SMTP 设置已保存');
-      setFormData(prev => ({ ...prev, smtp_password: '' }));
-      await loadSettings();
     } catch (error) {
       toast.error('保存失败：' + error.message);
     } finally {

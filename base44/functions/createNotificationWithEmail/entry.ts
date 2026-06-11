@@ -85,7 +85,7 @@ Deno.serve(async (req) => {
         // 检查是否需要发送邮件
         const shouldSendEmail = await shouldSendEmailNotification(base44, targetUser.email, notification_type, notification_subtype);
         if (shouldSendEmail) {
-          await sendEmailViaIntegration(base44, targetUser.email, finalTitle, finalContent);
+          await sendEmailViaIntegration(base44, targetUser.email, finalTitle, finalContent, tenantId);
           emailSentCount++;
         }
       }
@@ -131,7 +131,7 @@ Deno.serve(async (req) => {
       // 检查是否需要发送邮件
       const shouldSendEmail = await shouldSendEmailNotification(base44, user_email, notification_type, notification_subtype);
       if (shouldSendEmail) {
-        await sendEmailViaIntegration(base44, user_email, finalTitle, finalContent);
+        await sendEmailViaIntegration(base44, user_email, finalTitle, finalContent, tenantId);
         emailSentCount = 1;
       }
 
@@ -207,10 +207,12 @@ async function shouldSendEmailNotification(base44, userEmail, notificationType, 
 /**
  * 使用 SendEmail 集成发送邮件
  */
-async function sendEmailViaIntegration(base44, toEmail, subject, content) {
+async function sendEmailViaIntegration(base44, toEmail, subject, content, tenantId) {
   try {
-    // 获取租户邮箱设置
-    const tenantEmailSettings = await base44.asServiceRole.entities.TenantEmailSettings.filter({});
+    // 获取租户邮箱设置（必须按 tenant_id 过滤）
+    const tenantEmailSettings = await base44.asServiceRole.entities.TenantEmailSettings.filter({
+      tenant_id: tenantId
+    });
     const settings = tenantEmailSettings && tenantEmailSettings.length > 0 ? tenantEmailSettings[0] : null;
 
     // 使用 SMTP 发送
