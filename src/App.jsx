@@ -24,6 +24,8 @@ import AdminReports from '@/pages/AdminReports';
 import MetricCardSizesDemo from '@/pages/MetricCardSizesDemo';
 import TestGmailConnection from '@/pages/TestGmailConnection';
 import AdminUserDetail from '@/pages/AdminUserDetail';
+import PublicProfile from '@/pages/PublicProfile';
+import UserPrivacySettings from '@/pages/UserPrivacySettings';
 import { Bell, Settings, Globe, Mail, Package } from 'lucide-react';
 
 
@@ -165,6 +167,16 @@ const AuthenticatedApp = () => {
       <Route path="/AdminUserDetail/:userId" element={
         <LayoutWrapper currentPageName="AdminUserDetail">
           <AdminUserDetail />
+        </LayoutWrapper>
+      } />
+      <Route path="/UserPrivacySettings" element={
+        <LayoutWrapper currentPageName="UserPrivacySettings">
+          <UserPrivacySettings />
+        </LayoutWrapper>
+      } />
+      <Route path="/:locale/u/:handle" element={
+        <LayoutWrapper currentPageName="PublicProfile">
+          <PublicProfile />
         </LayoutWrapper>
       } />
       <Route path="*" element={<PageNotFound />} />
