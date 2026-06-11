@@ -9,6 +9,14 @@ const ALLOWED_DIMENSIONS = [
     'currency',
 ];
 
+// ─── 筛选条件白名单 ───────────────────────────────────────────────────────
+const FILTER_WHITELIST = {
+    order_status: ['pending_confirmation', 'payment_pending', 'paid', 'pending_purchase', 'purchased', 'in_warehouse', 'in_storage', 'notified_shipment', 'ready_to_ship', 'shipped', 'transit_shipped', 'delivered', 'cancelled'],
+    payment_status: ['pending', 'awaiting_payment', 'awaiting_confirmation', 'paid', 'underpaid', 'overpaid', 'confirmed'],
+    shipping_method: ['EMS', 'DHL', 'FedEx', 'SAL', 'surface', 'other'],
+    is_refunded: ['true', 'false'],
+};
+
 // ─── 维度取值 ────────────────────────────────────────────────────────────────
 function getDimensionValue(order, pool, dimension) {
     switch (dimension) {
@@ -39,7 +47,6 @@ function getDimensionValue(order, pool, dimension) {
                 || order.pre_shipment?.transit_shipping_method_name
                 || 'unknown';
         case 'addon_type': {
-            // 如果有增值服务取第一个（用于分组），或 '无增值服务'
             const addons = order.selected_addons || [];
             if (addons.length === 0) return '无增值服务';
             return addons.map(a => a.name || '未知').join('+');
@@ -70,12 +77,10 @@ function shiftDateRange(start, end, mode) {
     const diffDays = Math.round(diffMs / 86400000) + 1;
 
     if (mode === 'yoy') {
-        // 同比：去年同期
         const ps = new Date(s); ps.setFullYear(ps.getFullYear() - 1);
         const pe = new Date(e); pe.setFullYear(pe.getFullYear() - 1);
         return [ps.toISOString().split('T')[0], pe.toISOString().split('T')[0]];
     }
-    // 环比：上一个等长周期
     const ps = new Date(s.getTime() - diffDays * 86400000);
     const pe = new Date(e.getTime() - diffDays * 86400000);
     return [ps.toISOString().split('T')[0], pe.toISOString().split('T')[0]];
@@ -144,10 +149,8 @@ function buildTimeSeries(orders, pools, granularity) {
     });
 
     let series = Object.values(buckets).sort((a, b) => a.period.localeCompare(b.period));
-    // 计算移动平均（7期）
     series = calcMovingAverage(series, 'revenue_jpy', 7);
     series = calcMovingAverage(series, 'order_count', 7);
-    // 计算累计值
     series = calcCumulative(series, ['revenue_jpy', 'profit_jpy', 'order_count']);
     return series;
 }
@@ -163,7 +166,7 @@ function calcSummary(orders, pools, allPools, allOrders) {
         order_stage_payment_jpy: 0,
         refund_amount_jpy: 0,
         goods_cost_jpy: 0,
-        service_fee_revenue_jpy: 0,   // 代购服务费（已计算的快照）
+        service_fee_revenue_jpy: 0,
         addon_revenue_jpy: 0,
         item_size_extra_fee_jpy: 0,
         order_stage_profit_jpy: 0,
@@ -177,25 +180,17 @@ function calcSummary(orders, pools, allPools, allOrders) {
         avg_order_value_jpy: 0,
         orders_missing_cost_data: 0,
         status_counts: {},
-        // 待处理
         pending_payment_count: 0,
         pending_purchase_count: 0,
         pending_ship_count: 0,
-        // 未收款
         unpaid_amount_jpy: 0,
-        // 平均发货时长（天）
         avg_ship_days: null,
-        // 增值服务分布
         addon_distribution: {},
-        // 目的地国家分布（不依赖维度）
         country_distribution: {},
-        // 运输方式分布（不依赖维度）
         shipping_method_distribution: {},
-        // 中转地使用
         transit_location_distribution: {},
     };
 
-    // 客户首单日期（用于新老客户）
     const customerFirstOrder = {};
     allOrders.forEach(o => {
         if (!o.user_email) return;
@@ -205,13 +200,10 @@ function calcSummary(orders, pools, allPools, allOrders) {
         }
     });
 
-    // 发货时长计算
     const shipDays = [];
-
     const allUserEmails = new Set(orders.map(o => o.user_email).filter(Boolean));
     s.total_customers = allUserEmails.size;
 
-    // 期间日期范围（用于新客判断）
     const periodStart = orders.length > 0
         ? new Date(Math.min(...orders.map(o => new Date(o.submit_date || o.created_date))))
         : new Date();
@@ -241,36 +233,29 @@ function calcSummary(orders, pools, allPools, allOrders) {
         s.item_size_extra_fee_jpy  += itemExtra;
         s.order_stage_profit_jpy   += payment - refund - cost;
 
-        // 状态分布
         const st = order.order_status || 'unknown';
         s.status_counts[st] = (s.status_counts[st] || 0) + 1;
 
-        // 待处理
         if (['pending_confirmation','payment_pending','paid'].includes(st)) s.pending_payment_count++;
         if (st === 'pending_purchase') s.pending_purchase_count++;
         if (['in_warehouse','in_storage'].includes(st)) s.pending_ship_count++;
 
-        // 未收款：payment_status=pending/awaiting
         if (['pending','awaiting_payment','awaiting_confirmation'].includes(order.payment_status)) {
             s.unpaid_amount_jpy += order.prepayment_amount || order.estimated_jpy || 0;
         }
 
-        // 数据缺失
         if (!order.order_stage_payment_jpy && !order.paid_amount) s.orders_missing_cost_data++;
 
-        // 增值服务分布
         (order.selected_addons || []).forEach(a => {
             const name = a.name || '未知';
             s.addon_distribution[name] = (s.addon_distribution[name] || 0) + 1;
         });
 
-        // 入库尺寸分布
         if (order.item_size_title) {
             if (!s.item_size_distribution) s.item_size_distribution = {};
             s.item_size_distribution[order.item_size_title] = (s.item_size_distribution[order.item_size_title] || 0) + 1;
         }
 
-        // 发货时长
         if (order.in_warehouse_date && order.shipped_date) {
             const d1 = new Date(order.in_warehouse_date), d2 = new Date(order.shipped_date);
             const days = Math.round((d2 - d1) / 86400000);
@@ -278,7 +263,6 @@ function calcSummary(orders, pools, allPools, allOrders) {
         }
     });
 
-    // 发货池指标
     pools.forEach(pool => {
         const income   = pool.shipping_stage_income_jpy || pool.shipping_fee_jpy || 0;
         const intlCost = pool.actual_international_shipping_cost_jpy || 0;
@@ -292,20 +276,16 @@ function calcSummary(orders, pools, allPools, allOrders) {
         s.shipping_stage_profit_jpy             += income - intlCost - boxCost;
         s.box_profit_jpy                        += boxCharge - boxCost;
 
-        // 目的地国家分布
         const country = pool.destination_country || 'unknown';
         s.country_distribution[country] = (s.country_distribution[country] || 0) + 1;
 
-        // 运输方式分布
         const method = pool.shipping_method || 'unknown';
         s.shipping_method_distribution[method] = (s.shipping_method_distribution[method] || 0) + 1;
 
-        // 中转地分布
         const transit = pool.transit_location_name || '无中转';
         s.transit_location_distribution[transit] = (s.transit_location_distribution[transit] || 0) + 1;
     });
 
-    // 汇总
     s.total_profit_jpy  = s.order_stage_profit_jpy + s.shipping_stage_profit_jpy;
     s.avg_order_value_jpy = s.total_orders > 0
         ? Math.round(s.order_stage_payment_jpy / s.total_orders) : 0;
@@ -330,7 +310,6 @@ function buildDimensions(orders, pools, dimension, allOrderMap) {
         };
     };
 
-    // 构建订单ID→池映射
     const orderIdToPool = {};
     pools.forEach(pool => (pool.order_ids || []).forEach(id => { orderIdToPool[id] = pool; }));
 
@@ -355,7 +334,6 @@ function buildDimensions(orders, pools, dimension, allOrderMap) {
         if (!order.order_stage_payment_jpy && !order.paid_amount) byDimension[dim].orders_missing_cost_data++;
     });
 
-    // 分配发货利润到维度（使用全量订单映射，不受时间过滤影响）
     pools.forEach(pool => {
         const income      = pool.shipping_stage_income_jpy || pool.shipping_fee_jpy || 0;
         const intlCost    = pool.actual_international_shipping_cost_jpy || 0;
@@ -384,7 +362,7 @@ function buildDimensions(orders, pools, dimension, allOrderMap) {
     return byDimension;
 }
 
-// ─── 对比期计算（精简版：仅汇总指标）────────────────────────────────────
+// ─── 对比期计算 ─────────────────────────────────────────────────────────────
 function calcCompareSummary(orders, pools) {
     const payment = orders.reduce((s, o) => s + (o.order_stage_payment_jpy || o.paid_amount || 0), 0);
     const refund  = orders.reduce((s, o) => s + (o.refund_amount_jpy || 0), 0);
@@ -438,14 +416,13 @@ Deno.serve(async (req) => {
             startDate, endDate,
             dimension   = 'order_status',
             granularity = 'day',
-            compare     = null,  // 'yoy' | 'mom' | null
-            filters     = {},    // 多维度筛选 { order_status: ['paid', 'shipped'], ... }
+            compare     = null,
+            filters     = {},
         } = requestBody;
 
         if (!startDate || !endDate) return Response.json({ error: 'Missing startDate or endDate' }, { status: 400 });
         if (startDate > endDate)    return Response.json({ error: 'startDate must be <= endDate' }, { status: 400 });
         
-        // 安全限制：最大查询 365 天
         const queryStart = new Date(startDate);
         const queryEnd   = new Date(endDate);
         const diffDays = Math.round((queryEnd - queryStart) / 86400000);
@@ -457,22 +434,9 @@ Deno.serve(async (req) => {
         if (!ALLOWED_GRANULARITIES.includes(granularity)) return Response.json({ error: `Invalid granularity` }, { status: 400 });
         if (compare && !['yoy', 'mom'].includes(compare)) return Response.json({ error: `Invalid compare` }, { status: 400 });
 
-        // 筛选条件校验（白名单）
-        const ALLOWED_FILTERS = {
-            order_status: ['pending_confirmation', 'payment_pending', 'paid', 'pending_purchase', 'purchased', 'in_warehouse', 'in_storage', 'notified_shipment', 'ready_to_ship', 'shipped', 'transit_shipped', 'delivered', 'cancelled'],
-            payment_status: ['pending', 'awaiting_payment', 'awaiting_confirmation', 'paid', 'underpaid', 'overpaid', 'confirmed'],
-            shipping_method: ['EMS', 'DHL', 'FedEx', 'SAL', 'surface', 'other'],
-            is_refunded: ['true', 'false'],
-        };
-        
-        for (const [filterDim, values] of Object.entries(filters)) {
-            if (!Array.isArray(values)) {
-                return Response.json({ error: `筛选条件 ${filterDim} 必须是数组` }, { status: 400 });
-            }
-            const allowed = ALLOWED_FILTERS[filterDim];
-            if (!allowed) {
-                return Response.json({ error: `不支持的筛选维度：${filterDim}` }, { status: 400 });
-            }
+        // 筛选条件校验
+        for (const [dim, values] of Object.entries(filters)) {
+            const allowed = FILTER_WHITELIST[dim] || [];
             for (const v of values) {
                 if (!allowed.includes(v)) {
                     return Response.json({ error: `无效的筛选值：${v}` }, { status: 400 });
@@ -499,7 +463,7 @@ Deno.serve(async (req) => {
 
         const baseFilter = tenantId ? { tenant_id: tenantId } : {};
 
-        // 并行拉取全量数据（按租户）
+        // 并行拉取全量数据
         const [allOrders, allPools] = await Promise.all([
             base44.asServiceRole.entities.Order.filter(baseFilter),
             base44.asServiceRole.entities.ShippingPool.filter(baseFilter),
@@ -510,7 +474,6 @@ Deno.serve(async (req) => {
             const d = new Date(o.submit_date || o.created_date);
             if (d < start || d > end) return false;
             
-            // 应用筛选条件
             for (const [filterDim, values] of Object.entries(filters)) {
                 if (!values || values.length === 0) continue;
                 const dimValue = getDimensionValue(o, null, filterDim);
@@ -524,11 +487,11 @@ Deno.serve(async (req) => {
             return d >= start && d <= end;
         });
 
-        // 构建全量订单 Map（维度分配用）
+        // 构建全量订单 Map
         const allOrderMap = {};
         allOrders.forEach(o => { allOrderMap[o.id] = o; });
 
-        // 汇总
+        // 汇总计算
         const summary      = calcSummary(orders, pools, allPools, allOrders);
         const byDimension  = buildDimensions(orders, pools, dimension, allOrderMap);
         const timeSeries   = buildTimeSeries(orders, pools, granularity);
@@ -578,7 +541,7 @@ Deno.serve(async (req) => {
                 topCustomers,
                 storeTagCounts,
                 compareSummary,
-                compare_period: comparePeriod,   // 放进 data 内，前端直接读 data.compare_period
+                compare_period: comparePeriod,
                 dataQualityWarnings,
             },
             date_range: { startDate, endDate },
