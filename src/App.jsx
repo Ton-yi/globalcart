@@ -21,6 +21,7 @@ import AdminNotificationDefaults from '@/pages/AdminNotificationDefaults';
 import PlatformNotificationManager from '@/pages/PlatformNotificationManager';
 import TestNotificationTemplates from '@/pages/TestNotificationTemplates';
 import AdminReports from '@/pages/AdminReports';
+import MetricCardSizesDemo from '@/pages/MetricCardSizesDemo';
 import { Bell, Settings, Globe } from 'lucide-react';
 
 
@@ -147,6 +148,11 @@ const AuthenticatedApp = () => {
       <Route path="/AdminReports" element={
         <LayoutWrapper currentPageName="AdminReports">
           <AdminReports />
+        </LayoutWrapper>
+      } />
+      <Route path="/MetricCardSizesDemo" element={
+        <LayoutWrapper currentPageName="MetricCardSizesDemo">
+          <MetricCardSizesDemo />
         </LayoutWrapper>
       } />
       <Route path="*" element={<PageNotFound />} />
