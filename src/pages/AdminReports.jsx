@@ -30,13 +30,8 @@ export default function AdminReports() {
                     endDate,
                     dimension
                 });
-                console.log('Report response full:', JSON.stringify(response));
-                // Platform V3: invoke returns body directly: { success, data: { summary, byDimension } }
-                // Detect correct path
-                if (response?.data?.summary) return response.data;
-                if (response?.summary) return response;
-                if (response?.data?.data?.summary) return response.data.data;
-                return response?.data ?? response;
+                // Platform V3: invoke returns body directly: { success: true, data: { summary, byDimension } }
+                return response.data;
             } catch (err) {
                 console.error('Report fetch error:', err);
                 throw err;

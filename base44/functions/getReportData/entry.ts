@@ -62,7 +62,7 @@ Deno.serve(async (req) => {
         
         let orders;
         try {
-            orders = await base44.entities.Order.filter(orderQuery);
+            orders = await base44.asServiceRole.entities.Order.filter(orderQuery);
             console.log(`Found ${orders.length} total orders for tenant ${tenantId}`);
             
             // 在内存中按日期过滤
@@ -85,7 +85,7 @@ Deno.serve(async (req) => {
         
         let shippingPools;
         try {
-            shippingPools = await base44.entities.ShippingPool.filter(poolQuery);
+            shippingPools = await base44.asServiceRole.entities.ShippingPool.filter(poolQuery);
             console.log(`Found ${shippingPools.length} total shipping pools for tenant ${tenantId}`);
             
             // 在内存中按日期过滤
