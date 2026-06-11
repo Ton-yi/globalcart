@@ -58,27 +58,33 @@ export default function AdminReports() {
         }
         setExporting(true);
         try {
-            // 获取后端函数 URL 并直接下载
+            // 使用 base44.functions.invoke 获取下载 URL，然后直接 fetch
             const exportUrl = `${appParams.appBaseUrl}/api/functions/exportReportData`;
-            const token = appParams.token;
+            
+            console.log('[handleExport] 开始导出', { format, startDate, endDate, exportUrl });
             
             const response = await fetch(exportUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
+                    'Authorization': `Bearer ${appParams.token}`,
                 },
                 body: JSON.stringify({
                     startDate, endDate, dimension, granularity, compare, filters, format,
                 }),
             });
             
+            console.log('[handleExport] 响应状态:', response.status, response.headers.get('content-type'));
+            
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
+                console.error('[handleExport] 错误:', errorData);
                 throw new Error(errorData.error || `导出失败：${response.status}`);
             }
             
             const blob = await response.blob();
+            console.log('[handleExport] Blob 大小:', blob.size, '类型:', blob.type);
+            
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
