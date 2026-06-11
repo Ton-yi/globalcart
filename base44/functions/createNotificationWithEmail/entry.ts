@@ -209,12 +209,31 @@ async function shouldSendEmailNotification(base44, userEmail, notificationType, 
  */
 async function sendEmailViaIntegration(base44, toEmail, subject, content) {
   try {
-    await base44.integrations.Core.SendEmail({
-      to: toEmail,
-      subject: subject,
-      body: content,
-      body_type: 'html'
+    // 检查租户是否配置了 Gmail
+    const tenantEmailSettings = await base44.asServiceRole.entities.TenantEmailSettings.filter({
+      email_provider: 'gmail',
+      gmail_connection_enabled: true
     });
+
+    if (tenantEmailSettings && tenantEmailSettings.length > 0) {
+      // 使用 Gmail 发送
+      const settings = tenantEmailSettings[0];
+      await base44.functions.invoke('sendEmailViaGmail', {
+        to: toEmail,
+        subject: subject,
+        body: content,
+        from_name: settings.sender_name || '通知中心',
+        from_email: settings.sender_email || null,
+      });
+    } else {
+      // 使用平台默认邮件服务
+      await base44.integrations.Core.SendEmail({
+        to: toEmail,
+        subject: subject,
+        body: content,
+        body_type: 'html'
+      });
+    }
   } catch (error) {
     console.error('Failed to send email:', error);
     // 邮件发送失败不影响站内通知

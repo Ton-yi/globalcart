@@ -4,7 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { tenantEntity } from "@/lib/tenantApi";
 import { setTenantConfigCache } from "@/lib/configCache";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { Settings, Save, Plus, Trash2, Star, Lock, Eye, EyeOff, Palette, TrendingUp, Zap, Users, ExternalLink, Bell } from "lucide-react";
+import { Settings, Save, Plus, Trash2, Star, Lock, Eye, EyeOff, Palette, TrendingUp, Zap, Users, ExternalLink, Bell, Mail } from "lucide-react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import ThemeSelector from "@/components/common/ThemeSelector";
@@ -28,6 +28,7 @@ import PaymentMethodManager from "@/components/admin/PaymentMethodManager";
 import TenantRoleManagerForUsers from "@/components/admin/TenantRoleManagerForUsers";
 import PermissionViewer from "@/components/admin/PermissionViewer";
 import CountrySettingsManager from "@/components/admin/CountrySettingsManager";
+import GmailSettingsManager from "@/components/admin/GmailSettingsManager";
 
 // Standalone editor with its own local save button (textarea content is large, better kept isolated)
 function CustomsHazmatTextEditor({ settings, onReload }) {
@@ -554,6 +555,18 @@ export default function AdminSettings() {
                   <ExternalLink className="w-4 h-4 mr-2" />进入默认设置管理
                 </Button>
               </Link>
+            </CardContent>
+          </Card>
+
+          <Card className="border-purple-200">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                <Mail className="w-4 h-4 text-purple-500" />Gmail 邮箱设置
+              </CardTitle>
+              <p className="text-xs text-gray-400 mt-1">配置租户 Gmail 邮箱，用于发送通知邮件</p>
+            </CardHeader>
+            <CardContent>
+              <GmailSettingsManager />
             </CardContent>
           </Card>
         </div>
