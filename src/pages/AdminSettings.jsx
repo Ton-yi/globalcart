@@ -368,10 +368,10 @@ export default function AdminSettings() {
 
       {/* Tabs */}
       <div className="w-full border-b border-gray-200">
-        <div className="flex gap-1 overflow-x-auto">
+        <div className="flex gap-1">
           {TABS.map(tab => (
             <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-              className={`flex-1 min-w-[100px] px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px whitespace-nowrap ${activeTab === tab.key ? "border-red-600 text-red-600" : "border-transparent text-gray-500 hover:text-gray-800"}`}>
+              className={`flex-1 px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px whitespace-nowrap ${activeTab === tab.key ? "border-red-600 text-red-600" : "border-transparent text-gray-500 hover:text-gray-800"}`}>
               {tab.label}
             </button>
           ))}
