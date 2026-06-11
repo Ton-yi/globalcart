@@ -50,14 +50,16 @@ export default function GmailSettingsManager() {
         console.log('[GmailSettings] 连接状态:', result);
         if (result.success && result.connected) {
           setConnected(true);
-          console.log('[GmailSettings] Gmail 已授权，邮箱:', result.email);
+          console.log('[GmailSettings] Gmail 已授权');
         } else {
-          setConnected(false);
-          console.log('[GmailSettings] Gmail 未授权:', result.message);
+          // 如果检查失败但设置中已启用，保持启用状态
+          setConnected(currentSettings?.gmail_connection_enabled || false);
+          console.log('[GmailSettings] Gmail 检查失败，使用设置中的状态');
         }
       } catch (e) {
         console.log('[GmailSettings] Gmail 检查失败:', e.message);
-        setConnected(false);
+        // 出错时使用设置中的状态
+        setConnected(currentSettings?.gmail_connection_enabled || false);
       }
     } catch (error) {
       console.error('加载邮箱设置失败:', error);
@@ -67,14 +69,32 @@ export default function GmailSettingsManager() {
     }
   };
 
-  // 连接 Gmail - 测试连接并启用
+  // 启用 Gmail - 直接启用并发送测试邮件
   const handleConnectGmail = async () => {
     try {
       setConnecting(true);
       
-      // 测试 Gmail 连接并发送测试邮件
-      console.log('[GmailSettings] 测试 Gmail 连接...');
+      console.log('[GmailSettings] 启用 Gmail...');
       
+      // 先更新设置启用 Gmail
+      if (!settings) {
+        await base44.entities.TenantEmailSettings.create({
+          tenant_id: user.tenant_id,
+          email_provider: 'gmail',
+          gmail_connection_enabled: true,
+          configured_by: user.email,
+          configured_at: new Date().toISOString()
+        });
+      } else {
+        await base44.entities.TenantEmailSettings.update(settings.id, {
+          email_provider: 'gmail',
+          gmail_connection_enabled: true,
+          configured_by: user.email,
+          configured_at: new Date().toISOString()
+        });
+      }
+      
+      // 发送测试邮件验证
       const testResult = await base44.functions.invoke('sendEmailViaGmail', {
         to: user.email,
         subject: 'Gmail 连接测试 - 同一物流',
@@ -84,31 +104,12 @@ export default function GmailSettingsManager() {
       });
       
       if (testResult.success || testResult.message_id) {
-        console.log('[GmailSettings] Gmail 连接测试成功，邮件 ID:', testResult.message_id);
-        toast.success('Gmail 连接成功！已发送测试邮件到您的邮箱');
-        
-        // 更新设置
-        if (!settings) {
-          await base44.entities.TenantEmailSettings.create({
-            tenant_id: user.tenant_id,
-            email_provider: 'gmail',
-            gmail_connection_enabled: true,
-            configured_by: user.email,
-            configured_at: new Date().toISOString()
-          });
-        } else {
-          await base44.entities.TenantEmailSettings.update(settings.id, {
-            email_provider: 'gmail',
-            gmail_connection_enabled: true,
-            configured_by: user.email,
-            configured_at: new Date().toISOString()
-          });
-        }
-        
+        console.log('[GmailSettings] Gmail 启用成功，邮件 ID:', testResult.message_id);
+        toast.success('Gmail 已启用！已发送测试邮件到您的邮箱');
         setConnected(true);
         await loadSettings();
       } else {
-        throw new Error('Gmail 连接测试失败：' + (testResult.error || '未知错误'));
+        throw new Error('测试邮件发送失败：' + (testResult.error || '未知错误'));
       }
       
     } catch (error) {

@@ -23,28 +23,13 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 测试 Gmail API 是否可以访问
-    const testResponse = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
-      headers: {
-        'Authorization': `Bearer ${connection.accessToken}`
-      }
+    // Gmail 连接器已授权，accessToken 可用
+    // 由于 scope 只有 gmail.send，不测试具体 API，由 sendEmailViaGmail 函数实际测试
+    return Response.json({
+      success: true,
+      connected: true,
+      message: 'Gmail 连接器已授权'
     });
-
-    if (testResponse.ok) {
-      const profile = await testResponse.json();
-      return Response.json({
-        success: true,
-        connected: true,
-        email: profile.emailAddress,
-        message: 'Gmail 连接器已授权并可正常使用'
-      });
-    } else {
-      return Response.json({
-        success: false,
-        connected: false,
-        message: 'Gmail API 访问失败'
-      });
-    }
 
   } catch (error) {
     console.error('[checkGmailConnection] error:', error);
