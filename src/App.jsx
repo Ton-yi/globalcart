@@ -22,7 +22,8 @@ import PlatformNotificationManager from '@/pages/PlatformNotificationManager';
 import TestNotificationTemplates from '@/pages/TestNotificationTemplates';
 import AdminReports from '@/pages/AdminReports';
 import MetricCardSizesDemo from '@/pages/MetricCardSizesDemo';
-import { Bell, Settings, Globe } from 'lucide-react';
+import TestGmailConnection from '@/pages/TestGmailConnection';
+import { Bell, Settings, Globe, Mail } from 'lucide-react';
 
 
 const { Pages, Layout, mainPage } = pagesConfig;
@@ -153,6 +154,11 @@ const AuthenticatedApp = () => {
       <Route path="/MetricCardSizesDemo" element={
         <LayoutWrapper currentPageName="MetricCardSizesDemo">
           <MetricCardSizesDemo />
+        </LayoutWrapper>
+      } />
+      <Route path="/TestGmailConnection" element={
+        <LayoutWrapper currentPageName="TestGmailConnection">
+          <TestGmailConnection />
         </LayoutWrapper>
       } />
       <Route path="*" element={<PageNotFound />} />
