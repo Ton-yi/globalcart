@@ -188,6 +188,7 @@ export default function AdminShippingInfoPanel({
   }, [orders.length]);
   const [adminNote, setAdminNote] = useState(pool.admin_note || "");
   const [adminPackingNote, setAdminPackingNote] = useState(pool.admin_packing_note || "");
+  const [actualShippingCostJpy, setActualShippingCostJpy] = useState(pool.actual_international_shipping_cost_jpy?.toString() || "");
 
   // Image uploads
   const [labelImageUrls, setLabelImageUrls] = useState(pool.label_image_urls || []);
@@ -328,6 +329,7 @@ export default function AdminShippingInfoPanel({
       admin_packing_note: adminPackingNote,
       label_image_urls: labelImageUrls,
       packing_image_urls: packingImageUrls,
+      actual_international_shipping_cost_jpy: parseFloat(actualShippingCostJpy) || null,
     };
   };
 
@@ -797,6 +799,17 @@ export default function AdminShippingInfoPanel({
               </div>
             );
           })()}
+
+          {/* Actual international shipping cost (internal, for financial reporting) */}
+          <div>
+            <Label className="text-xs text-gray-500 flex items-center gap-1">
+              实际支付物流商运费 (JPY)
+              <span className="text-gray-400 font-normal">（内部成本，用于财务报表）</span>
+            </Label>
+            <Input className="mt-1 h-8 text-sm" type="text" inputMode="decimal" placeholder="0（选填）"
+              value={actualShippingCostJpy}
+              onChange={e => setActualShippingCostJpy(e.target.value)} />
+          </div>
 
           {/* Packing fees per user */}
           <div className="space-y-2">
