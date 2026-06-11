@@ -58,32 +58,58 @@ export default function AdminReports() {
         }
         setExporting(true);
         try {
-            // 使用 base44.functions.invoke 获取下载 URL，然后直接 fetch
-            const exportUrl = `${appParams.appBaseUrl}/api/functions/exportReportData`;
+            // 验证用户登录状态
+            const user = await base44.auth.me();
+            if (!user) {
+                toast.error('请先登录');
+                return;
+            }
             
-            console.log('[handleExport] 开始导出', { format, startDate, endDate, exportUrl });
+            // 检查用户权限
+            if (!['admin', 'tenant_admin', 'staff', 'platform_admin'].includes(user.role)) {
+                toast.error('权限不足：仅管理员可导出报表');
+                return;
+            }
             
-            const response = await fetch(exportUrl, {
+            console.log('[handleExport] 开始导出', { format, startDate, endDate });
+            
+            // 使用 fetch 调用后端函数，从 base44 SDK 获取认证 token
+            // base44 客户端在创建时已经设置了 token，存储在 appParams.token 中
+            const authToken = appParams.token;
+            
+            if (!authToken) {
+                throw new Error('未获取到认证 token，请重新登录');
+            }
+            
+            const response = await fetch(`${appParams.appBaseUrl}/api/functions/exportReportData`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${appParams.token}`,
+                    'Authorization': `Bearer ${authToken}`,
                 },
                 body: JSON.stringify({
                     startDate, endDate, dimension, granularity, compare, filters, format,
                 }),
             });
             
-            console.log('[handleExport] 响应状态:', response.status, response.headers.get('content-type'));
+            console.log('[handleExport] 响应状态:', response.status);
             
             if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                console.error('[handleExport] 错误:', errorData);
-                throw new Error(errorData.error || `导出失败：${response.status}`);
+                let errorMsg = `HTTP ${response.status}`;
+                try {
+                    const errorData = await response.json();
+                    errorMsg = errorData.error || errorMsg;
+                } catch (e) {
+                    // 忽略解析错误
+                }
+                throw new Error(errorMsg);
             }
             
             const blob = await response.blob();
-            console.log('[handleExport] Blob 大小:', blob.size, '类型:', blob.type);
+            
+            if (blob.size === 0) {
+                throw new Error('导出的文件为空');
+            }
             
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
@@ -95,9 +121,9 @@ export default function AdminReports() {
             link.remove();
             window.URL.revokeObjectURL(url);
             
-            toast.success('导出成功');
+            toast.success(`导出成功：${fileName}`);
         } catch (err) {
-            console.error('[handleExport] error:', err);
+            console.error('[handleExport] 错误:', err);
             toast.error(err.message || '导出失败');
         } finally {
             setExporting(false);
