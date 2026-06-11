@@ -152,11 +152,17 @@ Deno.serve(async (req) => {
             } else if (dimension === 'online_store_tag') {
                 dimensionValue = order.online_store_tag || '其它';
             } else if (dimension === 'country') {
-                // 从 pre_shipment.address 或 destination_country 获取
-                dimensionValue = order.pre_shipment?.address?.country || order.destination_country || 'unknown';
+                // 从 pre_shipment.address、destination_country、或 pre_shipment 取
+                dimensionValue = order.destination_country 
+                    || order.pre_shipment?.address?.country 
+                    || order.pre_shipment?.transit_location_country
+                    || 'unknown';
             } else if (dimension === 'shipping_method') {
-                // 从 pre_shipment 或订单获取
-                dimensionValue = order.pre_shipment?.shipping_method || order.shipping_method || 'unknown';
+                // 优先从 ShippingPool 取（在 pool 遍历时会覆盖），此处先从订单取
+                dimensionValue = order.shipping_method 
+                    || order.pre_shipment?.shipping_method 
+                    || order.pre_shipment?.transit_shipping_method_name
+                    || 'unknown';
             } else if (dimension === 'is_refunded') {
                 dimensionValue = (order.refund_amount_jpy && order.refund_amount_jpy > 0) ? '已退款' : '未退款';
             } else {
@@ -185,13 +191,33 @@ Deno.serve(async (req) => {
             reportData.byDimension[dimensionValue].goods_cost_jpy += goodsCost;
             reportData.byDimension[dimensionValue].order_stage_profit_jpy += orderProfit;
             
-            // 检查成本数据完整性
-            if (order.estimated_jpy && !order.order_stage_payment_jpy) {
+            // 检查成本数据完整性：只要没有 order_stage_payment_jpy 就说明用了降级字段，可信度降低
+            if (!order.order_stage_payment_jpy) {
                 reportData.summary.orders_missing_cost_data += 1;
                 reportData.byDimension[dimensionValue].orders_missing_cost_data += 1;
             }
         });
         
+        // 为发货利润关联，需要加载 pool 关联的所有订单（可能超出时间范围）
+        // 收集所有 pool 引用的 order_id
+        const allPoolOrderIds = new Set();
+        shippingPools.forEach(pool => {
+            (pool.order_ids || []).forEach(id => allPoolOrderIds.add(id));
+        });
+        // 找出已在 orders 中没有的 order_id，额外加载
+        const missingOrderIds = [...allPoolOrderIds].filter(id => !orders.find(o => o.id === id));
+        let extraOrders = [];
+        if (missingOrderIds.length > 0 && tenantId) {
+            try {
+                const allTenantOrders = await base44.asServiceRole.entities.Order.filter({ tenant_id: tenantId });
+                extraOrders = allTenantOrders.filter(o => missingOrderIds.includes(o.id));
+                console.log(`Loaded ${extraOrders.length} extra orders for pool dimension allocation`);
+            } catch (e) {
+                console.error('Failed to load extra orders for pools:', e);
+            }
+        }
+        const allOrdersForPool = [...orders, ...extraOrders];
+
         // 计算发货阶段利润
         shippingPools.forEach(pool => {
             // 运费收入：优先使用 shipping_stage_income_jpy，否则使用 shipping_fee_jpy
@@ -218,7 +244,7 @@ Deno.serve(async (req) => {
             // 按维度分组发货利润 - 从关联订单获取维度值
             // 简化处理：根据 pool 中的订单平均分配发货利润
             const orderIds = pool.order_ids || [];
-            const relatedOrders = orders.filter(o => orderIds.includes(o.id));
+            const relatedOrders = allOrdersForPool.filter(o => orderIds.includes(o.id));
             
             if (relatedOrders.length > 0) {
                 // 计算每个维度的订单数
@@ -234,9 +260,17 @@ Deno.serve(async (req) => {
                     } else if (dimension === 'online_store_tag') {
                         dimValue = order.online_store_tag || '其它';
                     } else if (dimension === 'country') {
-                        dimValue = order.pre_shipment?.address?.country || order.destination_country || 'unknown';
+                        // 优先用 pool 级别的 destination_country
+                        dimValue = pool.destination_country 
+                            || order.destination_country 
+                            || order.pre_shipment?.address?.country 
+                            || 'unknown';
                     } else if (dimension === 'shipping_method') {
-                        dimValue = order.pre_shipment?.shipping_method || order.shipping_method || 'unknown';
+                        // 优先用 pool 级别的 shipping_method
+                        dimValue = pool.shipping_method 
+                            || order.shipping_method 
+                            || order.pre_shipment?.shipping_method 
+                            || 'unknown';
                     } else if (dimension === 'is_refunded') {
                         dimValue = (order.refund_amount_jpy && order.refund_amount_jpy > 0) ? '已退款' : '未退款';
                     } else {
