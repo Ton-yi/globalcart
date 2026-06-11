@@ -18,18 +18,17 @@ export default function CustomDashboardTab({ reportData, dimension }) {
         const res = await base44.functions.invoke('manageCustomDashboard', { action: 'list' });
         const list = res?.data?.dashboards || [];
         setDashboards(list);
-        // 如果当前激活的看板被删除了，自动清空
-        if (activeDashboardId && !list.find(d => d.id === activeDashboardId)) {
-            setActiveDashboardId(list[0]?.id || null);
-        } else if (!activeDashboardId && list.length > 0) {
-            setActiveDashboardId(list[0].id);
-        }
+        // 使用函数式更新避免 stale closure
+        setActiveDashboardId(prev => {
+            if (prev && list.find(d => d.id === prev)) return prev;
+            return list[0]?.id || null;
+        });
         setLoading(false);
-    }, [activeDashboardId]);
+    }, []); // 无依赖，逻辑通过函数式 setState 解决
 
     useEffect(() => {
         loadDashboards();
-    }, []);
+    }, [loadDashboards]);
 
     const activeDashboard = dashboards.find(d => d.id === activeDashboardId) || null;
 
