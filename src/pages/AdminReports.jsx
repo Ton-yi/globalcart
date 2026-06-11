@@ -3,7 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
-import { AlertTriangle, BarChart3, Package, TrendingUp, Truck, Users } from "lucide-react";
+import { AlertTriangle, BarChart3, Package, TrendingUp, Truck, Users, LayoutDashboard } from "lucide-react";
+import CustomDashboardTab from "@/components/reports/CustomDashboardTab";
 import ReportFilters from "@/components/reports/ReportFilters";
 import OverviewDashboard from "@/components/reports/OverviewDashboard";
 import FinanceDashboard from "@/components/reports/FinanceDashboard";
@@ -85,7 +86,7 @@ export default function AdminReports() {
 
             {/* 看板 Tabs */}
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="grid grid-cols-5 w-full max-w-2xl">
+                <TabsList className="grid grid-cols-6 w-full max-w-3xl">
                     <TabsTrigger value="overview"  className="flex items-center gap-1 text-xs">
                         <BarChart3 className="w-3 h-3" />经营概览
                     </TabsTrigger>
@@ -101,7 +102,15 @@ export default function AdminReports() {
                     <TabsTrigger value="customers" className="flex items-center gap-1 text-xs">
                         <Users className="w-3 h-3" />客户分析
                     </TabsTrigger>
+                    <TabsTrigger value="custom" className="flex items-center gap-1 text-xs">
+                        <LayoutDashboard className="w-3 h-3" />我的看板
+                    </TabsTrigger>
                 </TabsList>
+
+                {/* 我的看板 Tab 始终可访问，不受数据加载影响 */}
+                <TabsContent value="custom" className="mt-4">
+                    <CustomDashboardTab reportData={reportData} dimension={dimension} />
+                </TabsContent>
 
                 {isLoading ? (
                     <div className="flex flex-col items-center justify-center py-24">
