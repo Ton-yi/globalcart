@@ -34,7 +34,13 @@ export default function WidgetEditModal({ open, widget, onSave, onClose }) {
     const handleTypeChange = (t) => {
         setType(t);
         const cat = WIDGET_CATALOG.find(c => c.type === t);
-        setConfig(cat ? { ...cat.defaultConfig } : {});
+        const newConfig = cat ? { ...cat.defaultConfig } : {};
+        // 对 metric_card，同步 isCount 元数据
+        if (t === 'metric_card' && newConfig.field) {
+            const meta = METRIC_FIELDS.find(f => f.value === newConfig.field);
+            if (meta) newConfig.isCount = meta.isCount;
+        }
+        setConfig(newConfig);
         setTitle('');
     };
 
@@ -79,7 +85,7 @@ export default function WidgetEditModal({ open, widget, onSave, onClose }) {
                         <>
                             <div className="space-y-1.5">
                                 <Label>数据字段</Label>
-                                <Select value={config.field || ''} onValueChange={v => {
+                                <Select value={config.field || METRIC_FIELDS[0].value} onValueChange={v => {
                                     const meta = METRIC_FIELDS.find(f => f.value === v);
                                     setConfig(prev => ({ ...prev, field: v, isCount: meta?.isCount ?? false }));
                                 }}>
@@ -141,7 +147,10 @@ export default function WidgetEditModal({ open, widget, onSave, onClose }) {
                             ))}
                             {(config.lines || []).length < 4 && (
                                 <Button variant="outline" size="sm" className="w-full text-xs"
-                                    onClick={() => setC('lines', [...(config.lines || []), { key: 'revenue_jpy', name: '收入', color: CHART_COLORS[(config.lines || []).length % CHART_COLORS.length] }])}>
+                                    onClick={() => {
+                                        const defaultField = TIME_SERIES_FIELDS[0];
+                                        setC('lines', [...(config.lines || []), { key: defaultField.value, name: defaultField.label, color: CHART_COLORS[(config.lines || []).length % CHART_COLORS.length] }]);
+                                    }}>
                                     + 添加系列
                                 </Button>
                             )}
@@ -180,7 +189,10 @@ export default function WidgetEditModal({ open, widget, onSave, onClose }) {
                             ))}
                             {(config.bars || []).length < 3 && (
                                 <Button variant="outline" size="sm" className="w-full text-xs"
-                                    onClick={() => setC('bars', [...(config.bars || []), { key: 'order_count', name: '订单数', color: '#6366f1' }])}>
+                                    onClick={() => {
+                                        const defaultField = TIME_SERIES_FIELDS[0];
+                                        setC('bars', [...(config.bars || []), { key: defaultField.value, name: defaultField.label, color: CHART_COLORS[(config.bars || []).length % CHART_COLORS.length] }]);
+                                    }}>
                                     + 添加柱
                                 </Button>
                             )}

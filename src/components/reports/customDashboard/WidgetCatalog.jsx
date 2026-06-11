@@ -7,13 +7,15 @@ export const WIDGET_CATALOG = [
         type: 'metric_card',
         label: '指标卡片',
         description: '展示单个关键数字指标，支持趋势对比。',
-        defaultConfig: { field: 'revenue_jpy', isCount: false },
+        // field 对应 METRIC_FIELDS[0].value
+        defaultConfig: { field: 'order_stage_payment_jpy', isCount: false },
     },
     {
         type: 'trend_line',
         label: '折线趋势图',
         description: '展示多条时间序列折线，适合对比多指标走势。',
-        defaultConfig: { lines: [{ key: 'revenue_jpy', name: '收入', color: '#3b82f6' }] },
+        // key 对应 TIME_SERIES_FIELDS 中实际存在的字段
+        defaultConfig: { lines: [{ key: 'revenue_jpy', name: '收入 (JPY)', color: '#3b82f6' }] },
     },
     {
         type: 'trend_bar',
