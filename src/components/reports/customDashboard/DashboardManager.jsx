@@ -33,8 +33,9 @@ export default function DashboardManager({ dashboards, activeDashboardId, onSele
                 toast.success('看板已创建');
                 setCreateOpen(false);
                 setNameInput('');
-                await onRefresh();
+                // 先选中新看板，再刷新列表（避免刷新时覆盖选择）
                 onSelect(result.dashboard.id);
+                await onRefresh();
             } else {
                 console.error('[DashboardManager.create] failed:', result);
                 toast.error(result?.error || '创建失败');
