@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import NotificationBell from "@/components/common/NotificationBell.jsx";
 import { MidnightToggle } from "@/components/common/ThemeSelector";
+import LocaleSwitcher from "@/components/common/LocaleSwitcher";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -222,6 +223,7 @@ export default function Layout({ children, currentPageName }) {
           </nav>
 
           <div className="flex items-center gap-2">
+            <LocaleSwitcher />
             <NotificationBell />
             <MidnightToggle />
             {isAdmin && (

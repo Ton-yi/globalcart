@@ -1,3 +1,4 @@
 export function createPageUrl(pageName: string) {
-    return '/' + pageName.replace(/ /g, '-');
+    const locale = window.location.pathname.split('/')[1] || 'ja';
+    return `/${locale}/${pageName.replace(/ /g, '-')}`;
 }
