@@ -60,6 +60,9 @@ const notificationCategories = [
     icon: Info,
     subtypes: [
       { key: "store_template_pending_review", label: "店铺模板审核通知" },
+      { key: "storage_upcoming_deadline", label: "仓储期限即将到期", default_off: true },
+      { key: "storage_expired", label: "仓储期限已超期", default_off: true },
+      { key: "storage_fee_required", label: "需要支付逾期仓储费", default_off: true },
     ]
   },
 ];

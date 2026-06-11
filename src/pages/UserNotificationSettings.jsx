@@ -1,7 +1,7 @@
 /**
  * UserNotificationSettings - 用户通知偏好设置
  */
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Bell, Mail, Settings, DollarSign, Package, MessageSquare, Info } from "lucide-react";
@@ -60,6 +60,9 @@ const notificationCategories = [
     subtypes: [
       { key: "store_template_pending_review", label: "店铺模板提交待审核（管理员）" },
       { key: "store_template_reviewed", label: "店铺模板审核结果通知（用户）" },
+      { key: "storage_upcoming_deadline", label: "仓储期限即将到期", default_off: true },
+      { key: "storage_expired", label: "仓储期限已超期", default_off: true },
+      { key: "storage_fee_required", label: "需要支付逾期仓储费", default_off: true },
     ]
   },
 ];
@@ -80,7 +83,7 @@ export default function UserNotificationSettings() {
   });
 
   // Initialize settings from fetched data
-  useState(() => {
+  useEffect(() => {
     if (data?.preferences) {
       setGlobalInApp(data.preferences.in_app_enabled ?? true);
       setGlobalEmail(data.preferences.email_enabled ?? true);
@@ -88,7 +91,7 @@ export default function UserNotificationSettings() {
         setSubtypeSettings(data.preferences.notification_settings);
       }
     }
-  });
+  }, [data]);
 
   // Update preferences mutation
   const updateMutation = useMutation({

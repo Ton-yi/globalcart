@@ -47,6 +47,9 @@ const commonSubtypes = {
   other: [
     { value: "store_template_pending_review", label: "店铺模板提交待审核（管理员）" },
     { value: "store_template_reviewed", label: "店铺模板审核结果通知（用户）" },
+    { value: "storage_upcoming_deadline", label: "仓储期限即将到期" },
+    { value: "storage_expired", label: "仓储期限已超期" },
+    { value: "storage_fee_required", label: "需要支付逾期仓储费" },
   ],
 };
 
