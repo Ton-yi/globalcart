@@ -31,9 +31,8 @@ export default function AdminReports() {
                     dimension
                 });
                 console.log('Report response:', response);
-                // response 包含 { success, data, date_range, dimension }
-                // 返回内部的 data 字段（包含 summary 和 byDimension）
-                return response.data;
+                // axios response: response.data = { success, data: { summary, byDimension }, ... }
+                return response.data?.data ?? response.data;
             } catch (err) {
                 console.error('Report fetch error:', err);
                 throw err;
@@ -259,7 +258,7 @@ export default function AdminReports() {
                 <div className="text-center py-12 text-muted-foreground">
                     <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
                     <p>暂无数据</p>
-                    <p className="text-sm mt-2">请选择日期范围后点击"更新报表"</p>
+                    <p className="text-sm mt-2">请选择日期范围后等待自动刷新</p>
                 </div>
             )}
         </div>
