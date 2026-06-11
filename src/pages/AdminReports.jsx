@@ -3,7 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
-import { AlertTriangle, BarChart3, Package, TrendingUp, Truck, Users, LayoutDashboard } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { AlertTriangle, BarChart3, Package, TrendingUp, Truck, Users, LayoutDashboard, Download } from "lucide-react";
+import { toast } from "sonner";
 import CustomDashboardTab from "@/components/reports/CustomDashboardTab";
 import ReportFilters from "@/components/reports/ReportFilters";
 import OverviewDashboard from "@/components/reports/OverviewDashboard";
@@ -28,6 +30,7 @@ export default function AdminReports() {
     const [compare,     setCompare]     = useState(null);   // 'yoy' | 'mom' | null
     const [activeTab,   setActiveTab]   = useState("overview");
     const [filters,     setFilters]     = useState({});  // 多维度筛选条件
+    const [exporting,   setExporting]   = useState(false);
 
     const { data: rawData, isLoading, error } = useQuery({
         queryKey: ['reports', startDate, endDate, dimension, granularity, compare, filters],
@@ -46,6 +49,40 @@ export default function AdminReports() {
     });
 
     const reportData = rawData;
+
+    const handleExport = async (format) => {
+        if (!reportData?.summary) {
+            toast.error('暂无可导出的数据');
+            return;
+        }
+        setExporting(true);
+        try {
+            const response = await base44.functions.invoke('exportReportData', {
+                startDate, endDate, dimension, granularity, compare, filters, format,
+            });
+            
+            // 处理下载
+            const blob = new Blob([response.data], { 
+                type: format === 'csv' ? 'text/csv' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+            });
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            const fileName = `报表导出_${startDate}_至_${endDate}.${format}`;
+            link.setAttribute('download', fileName);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+            
+            toast.success('导出成功');
+        } catch (err) {
+            console.error('[handleExport] error:', err);
+            toast.error(err.message || '导出失败');
+        } finally {
+            setExporting(false);
+        }
+    };
 
     if (error) {
         return (
@@ -80,17 +117,43 @@ export default function AdminReports() {
                 />
             )}
 
-            {/* 筛选条件 */}
-            <ReportFilters
-                startDate={startDate}   endDate={endDate}
-                dimension={dimension}   granularity={granularity}
-                compare={compare}
-                filters={filters}
-                onStartDate={setStartDate}  onEndDate={setEndDate}
-                onDimension={setDimension}  onGranularity={setGranularity}
-                onCompare={setCompare}
-                onFiltersChange={setFilters}
-            />
+            {/* 筛选条件和导出按钮 */}
+            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+                <div className="flex-1">
+                    <ReportFilters
+                        startDate={startDate}   endDate={endDate}
+                        dimension={dimension}   granularity={granularity}
+                        compare={compare}
+                        filters={filters}
+                        onStartDate={setStartDate}  onEndDate={setEndDate}
+                        onDimension={setDimension}  onGranularity={setGranularity}
+                        onCompare={setCompare}
+                        onFiltersChange={setFilters}
+                    />
+                </div>
+                <div className="flex gap-2 flex-shrink-0">
+                    <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="gap-1.5"
+                        onClick={() => handleExport('xlsx')}
+                        disabled={exporting || !reportData?.summary}
+                    >
+                        <Download className="w-3.5 h-3.5" />
+                        导出 Excel
+                    </Button>
+                    <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="gap-1.5"
+                        onClick={() => handleExport('csv')}
+                        disabled={exporting || !reportData?.summary}
+                    >
+                        <Download className="w-3.5 h-3.5" />
+                        导出 CSV
+                    </Button>
+                </div>
+            </div>
 
             {/* 看板 Tabs */}
             <Tabs value={activeTab} onValueChange={setActiveTab}>
