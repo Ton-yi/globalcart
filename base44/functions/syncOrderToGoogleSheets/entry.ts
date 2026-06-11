@@ -10,15 +10,39 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
+        // 权限验证：仅管理员可触发同步
+        if (user.role !== 'admin' && user.role !== 'tenant_admin' && user.role !== 'platform_admin') {
+            return Response.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
+        }
+
         const { order_id } = await req.json();
         if (!order_id) {
             return Response.json({ error: 'order_id required' }, { status: 400 });
         }
 
-        // 获取订单数据
-        const order = await base44.entities.Order.get(order_id);
+        // 获取订单数据（确保是租户订单）
+        const order = await base44.asServiceRole.entities.Order.get(order_id);
         if (!order) {
             return Response.json({ error: 'Order not found' }, { status: 404 });
+        }
+
+        // 验证订单属于当前租户
+        if (order.tenant_id !== user.tenant_id) {
+            return Response.json({ error: 'Order does not belong to your tenant' }, { status: 403 });
+        }
+
+        // 检查功能开关
+        const settings = await base44.asServiceRole.entities.SiteSettings.filter({
+            tenant_id: user.tenant_id,
+            key: 'google_sheets_enabled'
+        });
+        const isEnabled = settings && settings.length > 0 && settings[0].value === 'true';
+        
+        if (!isEnabled) {
+            return Response.json({ 
+                error: 'Google Sheets 同步功能未启用',
+                success: false 
+            }, { status: 400 });
         }
 
         // 获取 Google Sheets 连接器
