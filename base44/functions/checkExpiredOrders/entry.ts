@@ -17,8 +17,8 @@ Deno.serve(async (req) => {
     // 自动化模式下使用 service role
     const serviceBase44 = isAutomated ? base44.asServiceRole : base44;
 
-    // 获取所有启用库存管理的租户
-    const storageSettingsList = await serviceBase44.entities.StorageSettings.filter({
+    // 获取所有启用库存管理的租户（使用 service role 确保能读取所有租户数据）
+    const storageSettingsList = await serviceBase44.asServiceRole.entities.StorageSettings.filter({
       storage_enabled: true
     });
 
@@ -41,8 +41,8 @@ Deno.serve(async (req) => {
       const tenantId = settings.tenant_id;
       
       try {
-        // 获取该租户下所有在库订单
-        const orders = await serviceBase44.entities.Order.filter({
+        // 获取该租户下所有在库订单（使用 service role）
+        const orders = await serviceBase44.asServiceRole.entities.Order.filter({
           tenant_id: tenantId,
           order_status: 'in_storage'
         });
@@ -143,18 +143,14 @@ Deno.serve(async (req) => {
  */
 async function sendReminderNotification(base44, order, settings, type) {
   try {
-    let templateId = null;
     let notificationType = 'other';
     let notificationSubtype = 'storage_reminder';
 
     if (type === 'upcoming') {
-      templateId = settings.deadline_reminder_template_id;
       notificationSubtype = 'storage_upcoming_deadline';
     } else if (type === 'expired') {
-      templateId = settings.expired_reminder_template_id;
       notificationSubtype = 'storage_expired';
     } else if (type === 'fee_required') {
-      templateId = settings.fee_reminder_template_id;
       notificationSubtype = 'storage_fee_required';
     }
 
@@ -162,7 +158,8 @@ async function sendReminderNotification(base44, order, settings, type) {
     const title = getNotificationTitle(type, order.order_number);
     const content = getNotificationContent(type, order, settings);
 
-    await base44.functions.invoke('createNotificationWithEmail', {
+    // 使用 service role 调用通知函数
+    await base44.asServiceRole.functions.invoke('createNotificationWithEmail', {
       tenant_id: order.tenant_id,
       notifications: [{
         user_email: order.user_email,
