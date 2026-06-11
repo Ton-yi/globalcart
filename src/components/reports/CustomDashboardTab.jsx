@@ -23,8 +23,9 @@ export default function CustomDashboardTab({ reportData, dimension }) {
         setLoading(true);
         try {
             const res = await base44.functions.invoke('manageCustomDashboard', { action: 'list' });
-            // 兼容 SDK 嵌套结构
-            const result = res?.data?.data ?? res?.data;
+            console.log('[CustomDashboardTab] raw response:', res);
+            // 后端直接返回 {success: true, dashboards: [...]}
+            const result = res?.data;
             const list = result?.dashboards || [];
             const currentId = activeDashboardIdRef.current;
             console.log('[CustomDashboardTab] loaded dashboards:', list, 'current activeDashboardId:', currentId);
