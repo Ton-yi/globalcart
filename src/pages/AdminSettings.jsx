@@ -29,6 +29,7 @@ import TenantRoleManagerForUsers from "@/components/admin/TenantRoleManagerForUs
 import PermissionViewer from "@/components/admin/PermissionViewer";
 import CountrySettingsManager from "@/components/admin/CountrySettingsManager";
 import GmailSettingsManager from "@/components/admin/GmailSettingsManager";
+import SMTPSettingsManager from "@/components/admin/SMTPSettingsManager";
 
 // Standalone editor with its own local save button (textarea content is large, better kept isolated)
 function CustomsHazmatTextEditor({ settings, onReload }) {
@@ -592,6 +593,18 @@ export default function AdminSettings() {
                 🔄 同步时机：订单状态从其他状态变更为 <code className="bg-gray-100 px-1 rounded">shipped</code> 时<br/>
                 📧 数据位置：Google Drive → 我的云端硬盘 → 订单归档表
               </p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-cyan-200">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                <Mail className="w-4 h-4 text-cyan-500" />SMTP 邮箱设置
+              </CardTitle>
+              <p className="text-xs text-gray-400 mt-1">配置自定义 SMTP 服务器发送通知邮件，支持所有主流邮箱服务商</p>
+            </CardHeader>
+            <CardContent>
+              <SMTPSettingsManager />
             </CardContent>
           </Card>
         </div>

@@ -209,15 +209,22 @@ async function shouldSendEmailNotification(base44, userEmail, notificationType, 
  */
 async function sendEmailViaIntegration(base44, toEmail, subject, content) {
   try {
-    // 检查租户是否配置了 Gmail
-    const tenantEmailSettings = await base44.asServiceRole.entities.TenantEmailSettings.filter({
-      email_provider: 'gmail',
-      gmail_connection_enabled: true
-    });
+    // 获取租户邮箱设置
+    const tenantEmailSettings = await base44.asServiceRole.entities.TenantEmailSettings.filter({});
+    const settings = tenantEmailSettings && tenantEmailSettings.length > 0 ? tenantEmailSettings[0] : null;
 
-    if (tenantEmailSettings && tenantEmailSettings.length > 0) {
-      // 使用 Gmail 发送
-      const settings = tenantEmailSettings[0];
+    // 使用 SMTP 发送
+    if (settings?.email_provider === 'smtp' && settings?.smtp_enabled) {
+      await base44.functions.invoke('sendEmailViaSMTP', {
+        to: toEmail,
+        subject: subject,
+        body: content,
+        from_name: settings.smtp_from_name || settings.sender_name || '通知中心',
+        from_email: settings.smtp_from_email || settings.sender_email || null,
+      });
+    }
+    // 使用 Gmail 发送
+    else if (settings?.email_provider === 'gmail' && settings?.gmail_connection_enabled) {
       await base44.functions.invoke('sendEmailViaGmail', {
         to: toEmail,
         subject: subject,
@@ -225,8 +232,9 @@ async function sendEmailViaIntegration(base44, toEmail, subject, content) {
         from_name: settings.sender_name || '通知中心',
         from_email: settings.sender_email || null,
       });
-    } else {
-      // 使用平台默认邮件服务
+    }
+    // 使用平台默认邮件服务
+    else {
       await base44.integrations.Core.SendEmail({
         to: toEmail,
         subject: subject,
