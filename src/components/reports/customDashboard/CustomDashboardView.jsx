@@ -5,7 +5,7 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { Button } from "@/components/ui/button";
-import { Plus, GripVertical, Pencil, Trash2, Save, Loader2 } from "lucide-react";
+import { Plus, GripVertical, Pencil, Trash2, Save, Loader2, LayoutDashboard } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { toast } from "sonner";
 import WidgetRenderer from "./WidgetRenderer.jsx";
@@ -17,7 +17,7 @@ function nanoid() {
 
 export default function CustomDashboardView({ dashboard, reportData, dimension, onSaved }) {
     const [widgets,    setWidgets]    = useState(dashboard?.widgets || []);
-    const [editWidget, setEditWidget] = useState(null);   // { index, widget } | null
+    const [editWidget, setEditWidget] = useState(null);
     const [addOpen,    setAddOpen]    = useState(false);
     const [saving,     setSaving]     = useState(false);
     const [dirty,      setDirty]      = useState(false);
@@ -40,6 +40,16 @@ export default function CustomDashboardView({ dashboard, reportData, dimension, 
         items.splice(result.destination.index, 0, moved);
         markDirty(items);
     }, [widgets]);
+
+    // 没有 dashboard 时显示提示（在所有 hooks 之后）
+    if (!dashboard) {
+        return (
+            <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
+                <LayoutDashboard className="w-12 h-12 mb-4 opacity-30" />
+                <p className="text-sm">请先选择或新建一个看板</p>
+            </div>
+        );
+    }
 
     const handleAddWidget = (partial) => {
         const newWidget = { id: nanoid(), ...partial };
@@ -75,14 +85,6 @@ export default function CustomDashboardView({ dashboard, reportData, dimension, 
         }
     };
 
-    if (!dashboard) {
-        return (
-            <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
-                <p className="text-sm">请先选择或新建一个看板</p>
-            </div>
-        );
-    }
-
     return (
         <div className="space-y-4">
             {/* 工具栏 */}
@@ -106,8 +108,12 @@ export default function CustomDashboardView({ dashboard, reportData, dimension, 
 
             {/* 空状态 */}
             {widgets.length === 0 && (
-                <div className="border-2 border-dashed rounded-lg py-20 flex flex-col items-center justify-center text-muted-foreground gap-3">
-                    <p className="text-sm">看板还没有组件</p>
+                <div className="border-2 border-dashed rounded-lg py-20 flex flex-col items-center justify-center text-muted-foreground gap-3 bg-muted/20">
+                    <LayoutDashboard className="w-10 h-10 opacity-20" />
+                    <div className="text-center space-y-1">
+                        <p className="text-sm font-medium">看板还没有组件</p>
+                        <p className="text-xs opacity-70">添加指标卡片、趋势图等组件来定制您的数据看板</p>
+                    </div>
                     <Button variant="outline" size="sm" onClick={() => setAddOpen(true)}>
                         <Plus className="w-3.5 h-3.5 mr-1" />添加第一个组件
                     </Button>

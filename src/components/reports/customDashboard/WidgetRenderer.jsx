@@ -21,11 +21,14 @@ const STATUS_LABELS = {
 export default function WidgetRenderer({ widget, reportData, dimension }) {
     const { type, title, config = {} } = widget;
 
-    // 报表数据未加载时显示占位
+    // 报表数据未加载时显示占位（但允许看板本身显示）
     if (!reportData?.summary) {
         return (
-            <div className="border rounded-lg p-6 flex items-center justify-center text-muted-foreground text-sm bg-muted/30">
-                等待报表数据加载...
+            <div className="border rounded-lg p-6 flex items-center justify-center text-muted-foreground text-sm bg-muted/30 min-h-[120px]">
+                <div className="text-center">
+                    <p className="text-xs mb-1">暂无数据</p>
+                    <p className="text-[10px] opacity-70">请先选择报表时间范围</p>
+                </div>
             </div>
         );
     }

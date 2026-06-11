@@ -21,52 +21,72 @@ export default function DashboardManager({ dashboards, activeDashboardId, onSele
 
     const handleCreate = async () => {
         if (!nameInput.trim()) return;
-        const res = await base44.functions.invoke('manageCustomDashboard', {
-            action: 'create',
-            data: { name: nameInput.trim(), widgets: [] },
-        });
-        if (res?.data?.success) {
-            toast.success('看板已创建');
-            setCreateOpen(false);
-            setNameInput('');
-            await onRefresh();
-            onSelect(res.data.dashboard.id);
-        } else {
-            toast.error('创建失败');
+        try {
+            const res = await base44.functions.invoke('manageCustomDashboard', {
+                action: 'create',
+                data: { name: nameInput.trim(), widgets: [] },
+            });
+            // 兼容 SDK 可能的嵌套结构：res.data.data 或 res.data
+            const result = res?.data?.data ?? res?.data;
+            console.log('[DashboardManager.create] response:', res, 'result:', result);
+            if (result?.success && result?.dashboard) {
+                toast.success('看板已创建');
+                setCreateOpen(false);
+                setNameInput('');
+                await onRefresh();
+                onSelect(result.dashboard.id);
+            } else {
+                console.error('[DashboardManager.create] failed:', result);
+                toast.error(result?.error || '创建失败');
+            }
+        } catch (err) {
+            console.error('[DashboardManager.create] error:', err);
+            toast.error(err.message || '创建失败');
         }
     };
 
     const handleRename = async () => {
         if (!nameInput.trim() || !activeDashboardId) return;
-        const res = await base44.functions.invoke('manageCustomDashboard', {
-            action: 'update',
-            id: activeDashboardId,
-            data: { name: nameInput.trim() },
-        });
-        if (res?.data?.success) {
-            toast.success('已重命名');
-            setRenameOpen(false);
-            setNameInput('');
-            onRefresh();
-        } else {
-            toast.error('重命名失败');
+        try {
+            const res = await base44.functions.invoke('manageCustomDashboard', {
+                action: 'update',
+                id: activeDashboardId,
+                data: { name: nameInput.trim() },
+            });
+            const result = res?.data?.data ?? res?.data;
+            console.log('[DashboardManager.rename] result:', result);
+            if (result?.success) {
+                toast.success('已重命名');
+                setRenameOpen(false);
+                setNameInput('');
+                onRefresh();
+            } else {
+                toast.error(result?.error || '重命名失败');
+            }
+        } catch (err) {
+            toast.error(err.message || '重命名失败');
         }
     };
 
     const handleDelete = async () => {
         if (!activeDashboardId) return;
         if (!window.confirm(`确认删除看板「${activeDashboard?.name}」？`)) return;
-        const res = await base44.functions.invoke('manageCustomDashboard', {
-            action: 'delete',
-            id: activeDashboardId,
-        });
-        if (res?.data?.success) {
-            toast.success('看板已删除');
-            // 先清空选中，再刷新列表（loadDashboards 会自动选第一个）
-            onSelect(null);
-            await onRefresh();
-        } else {
-            toast.error('删除失败');
+        try {
+            const res = await base44.functions.invoke('manageCustomDashboard', {
+                action: 'delete',
+                id: activeDashboardId,
+            });
+            const result = res?.data?.data ?? res?.data;
+            console.log('[DashboardManager.delete] result:', result);
+            if (result?.success) {
+                toast.success('看板已删除');
+                onSelect(null);
+                await onRefresh();
+            } else {
+                toast.error(result?.error || '删除失败');
+            }
+        } catch (err) {
+            toast.error(err.message || '删除失败');
         }
     };
 

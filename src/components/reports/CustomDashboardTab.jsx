@@ -15,16 +15,23 @@ export default function CustomDashboardTab({ reportData, dimension }) {
 
     const loadDashboards = useCallback(async () => {
         setLoading(true);
-        const res = await base44.functions.invoke('manageCustomDashboard', { action: 'list' });
-        const list = res?.data?.dashboards || [];
-        setDashboards(list);
-        // 使用函数式更新避免 stale closure
-        setActiveDashboardId(prev => {
-            if (prev && list.find(d => d.id === prev)) return prev;
-            return list[0]?.id || null;
-        });
-        setLoading(false);
-    }, []); // 无依赖，逻辑通过函数式 setState 解决
+        try {
+            const res = await base44.functions.invoke('manageCustomDashboard', { action: 'list' });
+            // 兼容 SDK 嵌套结构
+            const result = res?.data?.data ?? res?.data;
+            const list = result?.dashboards || [];
+            console.log('[CustomDashboardTab] loaded dashboards:', list);
+            setDashboards(list);
+            setActiveDashboardId(prev => {
+                if (prev && list.find(d => d.id === prev)) return prev;
+                return list[0]?.id || null;
+            });
+        } catch (err) {
+            console.error('[CustomDashboardTab] failed to load:', err);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
     useEffect(() => {
         loadDashboards();
