@@ -27,13 +27,14 @@ export default function AdminReports() {
     const [granularity, setGranularity] = useState("day");
     const [compare,     setCompare]     = useState(null);   // 'yoy' | 'mom' | null
     const [activeTab,   setActiveTab]   = useState("overview");
+    const [filters,     setFilters]     = useState({});  // 多维度筛选条件
 
     const { data: rawData, isLoading, error } = useQuery({
-        queryKey: ['reports', startDate, endDate, dimension, granularity, compare],
+        queryKey: ['reports', startDate, endDate, dimension, granularity, compare, filters],
         queryFn: async () => {
             if (startDate > endDate) throw new Error('开始日期不能晚于结束日期');
             const response = await base44.functions.invoke('getReportData', {
-                startDate, endDate, dimension, granularity, compare,
+                startDate, endDate, dimension, granularity, compare, filters,
             });
             // 兼容多层嵌套
             // 后端返回结构: { success, data: { summary, byDimension, ..., compare_period } }
@@ -84,9 +85,11 @@ export default function AdminReports() {
                 startDate={startDate}   endDate={endDate}
                 dimension={dimension}   granularity={granularity}
                 compare={compare}
+                filters={filters}
                 onStartDate={setStartDate}  onEndDate={setEndDate}
                 onDimension={setDimension}  onGranularity={setGranularity}
                 onCompare={setCompare}
+                onFiltersChange={setFilters}
             />
 
             {/* 看板 Tabs */}

@@ -439,6 +439,7 @@ Deno.serve(async (req) => {
             dimension   = 'order_status',
             granularity = 'day',
             compare     = null,  // 'yoy' | 'mom' | null
+            filters     = {},    // 多维度筛选 { order_status: ['paid', 'shipped'], ... }
         } = requestBody;
 
         if (!startDate || !endDate) return Response.json({ error: 'Missing startDate or endDate' }, { status: 400 });
@@ -455,6 +456,29 @@ Deno.serve(async (req) => {
         if (!ALLOWED_DIMENSIONS.includes(dimension))    return Response.json({ error: `Invalid dimension` }, { status: 400 });
         if (!ALLOWED_GRANULARITIES.includes(granularity)) return Response.json({ error: `Invalid granularity` }, { status: 400 });
         if (compare && !['yoy', 'mom'].includes(compare)) return Response.json({ error: `Invalid compare` }, { status: 400 });
+
+        // 筛选条件校验（白名单）
+        const ALLOWED_FILTERS = {
+            order_status: ['pending_confirmation', 'payment_pending', 'paid', 'pending_purchase', 'purchased', 'in_warehouse', 'in_storage', 'notified_shipment', 'ready_to_ship', 'shipped', 'transit_shipped', 'delivered', 'cancelled'],
+            payment_status: ['pending', 'awaiting_payment', 'awaiting_confirmation', 'paid', 'underpaid', 'overpaid', 'confirmed'],
+            shipping_method: ['EMS', 'DHL', 'FedEx', 'SAL', 'surface', 'other'],
+            is_refunded: ['true', 'false'],
+        };
+        
+        for (const [filterDim, values] of Object.entries(filters)) {
+            if (!Array.isArray(values)) {
+                return Response.json({ error: `筛选条件 ${filterDim} 必须是数组` }, { status: 400 });
+            }
+            const allowed = ALLOWED_FILTERS[filterDim];
+            if (!allowed) {
+                return Response.json({ error: `不支持的筛选维度：${filterDim}` }, { status: 400 });
+            }
+            for (const v of values) {
+                if (!allowed.includes(v)) {
+                    return Response.json({ error: `无效的筛选值：${v}` }, { status: 400 });
+                }
+            }
+        }
 
         // 租户解析
         let tenantId = null;
@@ -481,11 +505,20 @@ Deno.serve(async (req) => {
             base44.asServiceRole.entities.ShippingPool.filter(baseFilter),
         ]);
 
-        // 时间过滤
+        // 时间过滤 + 筛选条件
         const orders = allOrders.filter(o => {
             const d = new Date(o.submit_date || o.created_date);
-            return d >= start && d <= end;
+            if (d < start || d > end) return false;
+            
+            // 应用筛选条件
+            for (const [filterDim, values] of Object.entries(filters)) {
+                if (!values || values.length === 0) continue;
+                const dimValue = getDimensionValue(o, null, filterDim);
+                if (!values.includes(dimValue)) return false;
+            }
+            return true;
         });
+        
         const pools = allPools.filter(p => {
             const d = new Date(p.created_date);
             return d >= start && d <= end;
