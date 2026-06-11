@@ -10,6 +10,8 @@ import FinanceDashboard from "@/components/reports/FinanceDashboard";
 import OrderDashboard from "@/components/reports/OrderDashboard";
 import LogisticsDashboard from "@/components/reports/LogisticsDashboard";
 import CustomerDashboard from "@/components/reports/CustomerDashboard";
+import DataQualityBanner from "@/components/reports/DataQualityBanner";
+import CrossPeriodNote from "@/components/reports/CrossPeriodNote";
 
 const DEFAULT_START = (() => {
     const d = new Date(); d.setDate(d.getDate() - 29);
@@ -64,6 +66,9 @@ export default function AdminReports() {
                 <h1 className="text-2xl font-bold">数据报表</h1>
                 <p className="text-sm text-muted-foreground mt-0.5">多维度业务数据分析</p>
             </div>
+
+            {/* 数据质量警告 */}
+            {reportData?.summary && <DataQualityBanner summary={reportData.summary} />}
 
             {/* 筛选条件 */}
             <ReportFilters
@@ -124,6 +129,9 @@ export default function AdminReports() {
                     </>
                 )}
             </Tabs>
+
+            {/* 跨期说明 */}
+            {reportData?.summary && <CrossPeriodNote />}
         </div>
     );
 }

@@ -1,6 +1,27 @@
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Download } from "lucide-react";
 import { formatCurrency } from "./MetricCard";
+
+function exportToCSV(entries, labelFor, title) {
+    const headers = ["分类", "订单数", "收入(JPY)", "退款(JPY)", "下单利润(JPY)", "运费利润(JPY)", "总利润(JPY)"];
+    const rows = entries.map(([key, d]) => [
+        labelFor(key),
+        d.order_count || 0,
+        d.order_stage_payment_jpy || 0,
+        d.refund_amount_jpy || 0,
+        d.order_stage_profit_jpy || 0,
+        Math.round(d.shipping_stage_profit_jpy || 0),
+        Math.round(d.total_profit_jpy || 0),
+    ]);
+    const csv = [headers, ...rows].map(r => r.join(",")).join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url;
+    a.download = `${title || "维度分析"}_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click(); URL.revokeObjectURL(url);
+}
 
 const ORDER_STATUS_LABELS = {
     pending_confirmation: '待确认', payment_pending: '待付款', paid: '已付款',
@@ -21,7 +42,15 @@ export default function DimensionTable({ title, data, dimension }) {
     return (
         <Card>
             <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">{title || '维度分析'}</CardTitle>
+                <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm font-medium">{title || '维度分析'}</CardTitle>
+                    {entries.length > 0 && (
+                        <Button variant="outline" size="sm" className="h-7 text-xs gap-1"
+                            onClick={() => exportToCSV(entries, labelFor, title)}>
+                            <Download className="w-3 h-3" />导出CSV
+                        </Button>
+                    )}
+                </div>
             </CardHeader>
             <CardContent>
                 <div className="overflow-x-auto">
