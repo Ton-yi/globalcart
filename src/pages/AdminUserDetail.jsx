@@ -175,6 +175,9 @@ export default function AdminUserDetail() {
   
   const { userProfile, metrics, recentOrders, pendingTasks, riskFlags, preferences, timeline } = data;
   
+  // Calculate refund count from timeline
+  const refundCount = timeline?.filter(e => e.type === 'refund').length || 0;
+  
   const formatCurrency = (amount) => {
     return `¥${Math.round(amount).toLocaleString()}`;
   };
@@ -321,6 +324,13 @@ export default function AdminUserDetail() {
         />
         <MetricCard 
           icon={DollarSign} 
+          label="退款次数" 
+          value={refundCount} 
+          subValue="次退款"
+          color="red"
+        />
+        <MetricCard 
+          icon={DollarSign} 
           label="退款金额" 
           value={formatCurrency(metrics.totalRefundJpy)} 
           subValue="JPY"
@@ -332,6 +342,13 @@ export default function AdminUserDetail() {
           value={formatCurrency(metrics.totalGoodsJpy)} 
           subValue="JPY"
           color="blue"
+        />
+        <MetricCard 
+          icon={CreditCard} 
+          label="服务费" 
+          value={formatCurrency(metrics.totalServiceFeeJpy || 0)} 
+          subValue="JPY"
+          color="purple"
         />
         <MetricCard 
           icon={Clock} 
@@ -730,18 +747,35 @@ export default function AdminUserDetail() {
             <CardContent>
               {timeline && timeline.length > 0 ? (
                 <div className="space-y-3">
-                  {timeline.slice(0, 30).map((event, idx) => (
-                    <div key={idx} className="flex items-start gap-3 p-3 border rounded-lg">
-                      <div className="w-2 h-2 rounded-full bg-blue-500 mt-2 flex-shrink-0"></div>
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm font-medium">{event.title}</p>
-                          <p className="text-xs text-gray-400">{formatDate(event.date)}</p>
+                  {timeline.slice(0, 50).map((event, idx) => {
+                    const eventIcons = {
+                      registered: { icon: User, color: 'bg-green-500' },
+                      order_created: { icon: ShoppingCart, color: 'bg-blue-500' },
+                      payment: { icon: CreditCard, color: 'bg-green-500' },
+                      refund: { icon: DollarSign, color: 'bg-red-500' },
+                      shipped: { icon: Truck, color: 'bg-blue-500' },
+                      order_cancelled: { icon: X, color: 'bg-gray-500' },
+                      order_expired: { icon: AlertTriangle, color: 'bg-red-500' },
+                      credit_application: { icon: FileText, color: 'bg-indigo-500' },
+                    };
+                    const Icon = eventIcons[event.type]?.icon || Clock;
+                    const color = eventIcons[event.type]?.color || 'bg-blue-500';
+                    
+                    return (
+                      <div key={idx} className="flex items-start gap-3 p-3 border rounded-lg">
+                        <div className={`${color} p-1.5 rounded-full mt-0.5 flex-shrink-0`}>
+                          <Icon className="w-3 h-3 text-white" />
                         </div>
-                        <p className="text-xs text-gray-500 mt-1">{event.description}</p>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <p className="text-sm font-medium">{event.title}</p>
+                            <p className="text-xs text-gray-400">{formatDate(event.date)}</p>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-1">{event.description}</p>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <p className="text-sm text-gray-400 text-center py-8">暂无时间线数据</p>

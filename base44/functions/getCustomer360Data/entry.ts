@@ -46,33 +46,48 @@ Deno.serve(async (req) => {
     
     // Parse request body
     const body = await req.json().catch(() => ({}));
-    const { userId } = body;
+    let { userId } = body;
     
     if (!userId) {
       return Response.json({ error: 'userId is required' }, { status: 400 });
     }
     
-    // Get target user record
-    const targetUsers = await base44.asServiceRole.entities.User.filter({ email: userId });
+    // Handle 'me' case - user can only view their own profile
+    if (userId === 'me') {
+      userId = user.id;
+    }
+    
+    // Get target user record by ID (not email)
+    const targetUsers = await base44.asServiceRole.entities.User.filter({ id: userId });
     if (!targetUsers || targetUsers.length === 0) {
       return Response.json({ error: 'User not found' }, { status: 404 });
     }
     
     const targetUser = targetUsers[0];
     const targetEmail = targetUser.email;
-    const tenantId = targetUser.tenant_id;
+    const targetTenantId = targetUser.tenant_id;
     
-    // Tenant isolation check
-    if (!isPlatformAdmin && tenantId && tenantId !== user.tenant_id) {
-      return Response.json({ error: 'Forbidden: Cannot view users from other tenants' }, { status: 403 });
+    // Tenant isolation check - CRITICAL: Always enforce tenant boundary
+    if (!isPlatformAdmin) {
+      // Staff and tenant admins can only view users in their own tenant
+      if (targetTenantId && targetTenantId !== user.tenant_id) {
+        return Response.json({ error: 'Forbidden: Cannot view users from other tenants' }, { status: 403 });
+      }
+      // Additional check: ensure tenant_id is present for non-platform-admins
+      if (!targetTenantId) {
+        return Response.json({ error: 'Forbidden: Invalid tenant context' }, { status: 403 });
+      }
     }
+    
+    // Use targetTenantId for all queries - NEVER query without tenant filter
+    const tenantId = targetTenantId;
     
     const t1 = Date.now();
     
-    // Parallel fetch all data
+    // Parallel fetch all data - CRITICAL: Always filter by tenant_id
     const [allOrders, creditApps] = await Promise.all([
-      base44.asServiceRole.entities.Order.filter(tenantId ? { tenant_id: tenantId, user_email: targetEmail } : { user_email: targetEmail }),
-      base44.asServiceRole.entities.CreditApplication.filter({ user_email: targetEmail })
+      base44.asServiceRole.entities.Order.filter({ tenant_id: tenantId, user_email: targetEmail }),
+      base44.asServiceRole.entities.CreditApplication.filter({ tenant_id: tenantId, user_email: targetEmail })
     ]);
     
     console.log(`[TIMING] getCustomer360Data | parallel fetches: ${Date.now() - t1}ms`);
@@ -137,8 +152,10 @@ Deno.serve(async (req) => {
     if (unpaidOrders.length > 3) {
       riskFlags.push({ type: 'multiple_unpaid', message: `有 ${unpaidOrders.length} 笔未付款订单`, severity: 'medium' });
     }
+    // Add refund count for frontend display
+    const refundCount = allOrders.filter(o => (o.refund_amount_jpy || 0) > 0).length;
     
-    // Build timeline events (simplified for phase 1)
+    // Build timeline events (enhanced for phase 2)
     const timelineEvents = [];
     
     // Registration
@@ -149,8 +166,9 @@ Deno.serve(async (req) => {
       description: `${targetEmail} 注册账户`
     });
     
-    // Orders
+    // Orders and related events
     (allOrders || []).forEach(order => {
+      // Order creation
       timelineEvents.push({
         type: 'order_created',
         date: order.created_date,
@@ -159,6 +177,7 @@ Deno.serve(async (req) => {
         orderId: order.id
       });
       
+      // Payment events
       if (order.paid_amount && order.paid_amount > 0) {
         timelineEvents.push({
           type: 'payment',
@@ -169,6 +188,18 @@ Deno.serve(async (req) => {
         });
       }
       
+      // Refund events
+      if (order.refund_amount_jpy && order.refund_amount_jpy > 0) {
+        timelineEvents.push({
+          type: 'refund',
+          date: order.updated_date || order.created_date,
+          title: '退款',
+          description: `退款 ¥${order.refund_amount_jpy}`,
+          orderId: order.id
+        });
+      }
+      
+      // Shipping events
       if (order.order_status === 'shipped' || order.order_status === 'delivered') {
         timelineEvents.push({
           type: 'shipped',
@@ -178,6 +209,37 @@ Deno.serve(async (req) => {
           orderId: order.id
         });
       }
+      
+      // Order status changes
+      if (order.order_status === 'cancelled') {
+        timelineEvents.push({
+          type: 'order_cancelled',
+          date: order.updated_date || order.created_date,
+          title: '订单取消',
+          description: `订单已取消${order.cancel_reason ? ': ' + order.cancel_reason : ''}`,
+          orderId: order.id
+        });
+      }
+      
+      if (order.order_status === 'expired') {
+        timelineEvents.push({
+          type: 'order_expired',
+          date: order.updated_date || order.created_date,
+          title: '订单超期',
+          description: `订单已超期`,
+          orderId: order.id
+        });
+      }
+    });
+    
+    // Credit application events
+    (creditApps || []).forEach(app => {
+      timelineEvents.push({
+        type: 'credit_application',
+        date: app.reviewed_at || app.created_date,
+        title: '记账申请',
+        description: `${app.application_type === 'apply' ? '申请开启记账' : app.application_type === 'disable' ? '申请关闭记账' : '申请调整额度'} - ${app.status === 'approved' ? '已通过' : app.status === 'rejected' ? '已拒绝' : '待审核'}`,
+      });
     });
     
     // Sort timeline
@@ -208,6 +270,7 @@ Deno.serve(async (req) => {
         totalGoodsJpy,
         totalServiceFeeJpy,
         totalRefundJpy,
+        refundCount,
         avgOrderValue,
         unpaidOrderCount: unpaidOrders.length,
         pendingShipOrderCount: pendingShipOrders.length,
