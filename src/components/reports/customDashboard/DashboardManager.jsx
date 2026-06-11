@@ -62,7 +62,9 @@ export default function DashboardManager({ dashboards, activeDashboardId, onSele
         });
         if (res?.data?.success) {
             toast.success('看板已删除');
-            onRefresh();
+            // 先清空选中，再刷新列表（loadDashboards 会自动选第一个）
+            onSelect(null);
+            await onRefresh();
         } else {
             toast.error('删除失败');
         }

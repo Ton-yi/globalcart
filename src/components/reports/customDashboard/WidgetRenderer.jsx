@@ -7,7 +7,7 @@ import MetricCard from "../MetricCard";
 import { TrendLineChart, TrendBarChart } from "../TrendChart";
 import PieDistribution from "../PieDistribution";
 import DimensionTable from "../DimensionTable";
-import { METRIC_FIELDS } from "./WidgetCatalog";
+import { METRIC_FIELDS, PIE_SOURCES } from "./WidgetCatalog";
 import { ShoppingBag } from "lucide-react";
 
 const STATUS_LABELS = {
@@ -19,9 +19,18 @@ const STATUS_LABELS = {
 };
 
 export default function WidgetRenderer({ widget, reportData, dimension }) {
-    if (!reportData?.summary) return null;
-    const { summary, timeSeries, byDimension } = reportData;
     const { type, title, config = {} } = widget;
+
+    // 报表数据未加载时显示占位
+    if (!reportData?.summary) {
+        return (
+            <div className="border rounded-lg p-6 flex items-center justify-center text-muted-foreground text-sm bg-muted/30">
+                等待报表数据加载...
+            </div>
+        );
+    }
+
+    const { summary, timeSeries, byDimension } = reportData;
 
     if (type === 'metric_card') {
         const fieldMeta = METRIC_FIELDS.find(f => f.value === config.field);
@@ -33,7 +42,7 @@ export default function WidgetRenderer({ widget, reportData, dimension }) {
                 value={rawValue}
                 icon={ShoppingBag}
                 isCount={isCount}
-                raw={config.raw}
+                raw={config.raw ?? fieldMeta?.raw ?? false}
                 colorClass={config.colorClass}
                 subtitle={config.subtitle}
             />
@@ -61,12 +70,14 @@ export default function WidgetRenderer({ widget, reportData, dimension }) {
     }
 
     if (type === 'pie_chart') {
-        const raw = summary[config.dataSource] || {};
-        const labelMap = config.labelMap || STATUS_LABELS;
+        const sourceMeta = PIE_SOURCES.find(s => s.value === config.dataSource);
+        const raw = sourceMeta?.from === 'root'
+            ? (reportData[config.dataSource] || {})
+            : (summary[config.dataSource] || {});
         const pieData = Object.entries(raw)
-            .map(([k, v]) => ({ name: labelMap[k] || k, value: v }))
+            .map(([k, v]) => ({ name: STATUS_LABELS[k] || k, value: v }))
             .filter(d => d.value > 0);
-        return <PieDistribution title={title || '分布图'} data={pieData} />;
+        return <PieDistribution title={title || (sourceMeta?.label || '分布图')} data={pieData} />;
     }
 
     if (type === 'dimension_table') {

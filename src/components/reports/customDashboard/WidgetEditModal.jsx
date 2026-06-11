@@ -191,7 +191,7 @@ export default function WidgetEditModal({ open, widget, onSave, onClose }) {
                     {type === 'pie_chart' && (
                         <div className="space-y-1.5">
                             <Label>数据来源</Label>
-                            <Select value={config.dataSource || 'status_counts'} onValueChange={v => setC('dataSource', v)}>
+                            <Select value={config.dataSource || PIE_SOURCES[0].value} onValueChange={v => setC('dataSource', v)}>
                                 <SelectTrigger><SelectValue /></SelectTrigger>
                                 <SelectContent>
                                     {PIE_SOURCES.map(s => (
