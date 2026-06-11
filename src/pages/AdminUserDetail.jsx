@@ -100,12 +100,25 @@ export default function AdminUserDetail() {
   const [savingNote, setSavingNote] = useState(false);
   
   useEffect(() => {
-    if (!userId) return;
+    // Determine which user ID to load
+    const targetUserId = userId === 'me' ? currentUser?.id : userId;
+    
+    if (!targetUserId) return;
     
     setLoading(true);
     setError(null);
     
-    base44.functions.invoke('getCustomer360Data', { userId })
+    // Check if user is viewing their own profile or has admin permissions
+    const isOwnProfile = targetUserId === currentUser?.id;
+    const hasAdminPermission = isAdmin || can("user:read");
+    
+    if (!isOwnProfile && !hasAdminPermission) {
+      setError('Forbidden: You do not have permission to view this profile');
+      setLoading(false);
+      return;
+    }
+    
+    base44.functions.invoke('getCustomer360Data', { userId: targetUserId })
       .then((res) => {
         if (res.data?.error) {
           setError(res.data.error);
@@ -118,10 +131,11 @@ export default function AdminUserDetail() {
         setError(err.message);
         setLoading(false);
       });
-  }, [userId]);
+  }, [userId, currentUser?.id]);
   
   // Check permissions
-  const canViewCustomerProfile = isAdmin || can("user:read");
+  const isOwnProfile = userId === 'me' || (data && data.userProfile?.id === currentUser?.id);
+  const canViewCustomerProfile = isOwnProfile || isAdmin || can("user:read");
   const canManageNotes = isAdmin || can("user:add_note");
   
   if (!canViewCustomerProfile) {
@@ -178,9 +192,9 @@ export default function AdminUserDetail() {
     <div className="max-w-7xl mx-auto space-y-6">
       {/* Header - Back button */}
       <div className="flex items-center justify-between">
-        <Button variant="outline" size="sm" onClick={() => navigate(createPageUrl("AdminUsers"))}>
+        <Button variant="outline" size="sm" onClick={() => isOwnProfile || !userId ? navigate('/') : navigate(createPageUrl("AdminUsers"))}>
           <ArrowLeft className="w-4 h-4 mr-2" />
-          返回用户列表
+          {isOwnProfile || !userId ? '返回首页' : '返回用户列表'}
         </Button>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm">

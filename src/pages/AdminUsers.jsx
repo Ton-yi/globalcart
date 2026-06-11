@@ -2,9 +2,10 @@ import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { usePermissions } from "@/hooks/usePermissions";
+import { Link } from "react-router-dom";
 import {
   Search, UserPlus, Shield, AlertTriangle, ChevronDown, ChevronUp,
-  Pencil, Trash2, Ban, CheckCircle, X, CreditCard, Settings, Lock
+  Pencil, Trash2, Ban, CheckCircle, X, CreditCard, Settings, Lock, FileText
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -458,6 +459,14 @@ export default function AdminUsers() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1 justify-end">
+                       {/* View Customer Profile */}
+                       <Link
+                         to={`/AdminUserDetail/${u.id}`}
+                         className="p-1.5 rounded hover:bg-blue-50 text-blue-500 hover:text-blue-700"
+                         title="查看客户档案"
+                       >
+                         <FileText className="w-3.5 h-3.5" />
+                       </Link>
                        {/* Edit permissions */}
                        {canEditUserPermissions && (
                          <button
