@@ -70,18 +70,28 @@ export default function CustomDashboardView({ dashboard, reportData, dimension, 
     const handleSave = async () => {
         if (!dashboard?.id) return;
         setSaving(true);
-        const res = await base44.functions.invoke('manageCustomDashboard', {
-            action: 'update',
-            id: dashboard.id,
-            data: { widgets },
-        });
-        setSaving(false);
-        if (res?.data?.success) {
-            toast.success('看板已保存');
-            setDirty(false);
-            onSaved?.();
-        } else {
-            toast.error('保存失败');
+        try {
+            const res = await base44.functions.invoke('manageCustomDashboard', {
+                action: 'update',
+                id: dashboard.id,
+                data: { widgets },
+            });
+            // 兼容 SDK 嵌套结构
+            const result = res?.data?.data ?? res?.data;
+            console.log('[CustomDashboardView.save] response:', res, 'result:', result);
+            setSaving(false);
+            if (result?.success) {
+                toast.success('看板已保存');
+                setDirty(false);
+                onSaved?.();
+            } else {
+                console.error('[CustomDashboardView.save] failed:', result);
+                toast.error(result?.error || '保存失败');
+            }
+        } catch (err) {
+            console.error('[CustomDashboardView.save] error:', err);
+            setSaving(false);
+            toast.error(err.message || '保存失败');
         }
     };
 
