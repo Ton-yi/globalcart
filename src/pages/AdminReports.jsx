@@ -30,8 +30,17 @@ export default function AdminReports() {
                     endDate,
                     dimension
                 });
-                // invoke returns axios response: response.data = { success, data: { summary, byDimension } }
-                return response.data.data;
+                // 全路径调试：打印每一层
+                console.log('[DEBUG] typeof response:', typeof response);
+                console.log('[DEBUG] response keys:', response ? Object.keys(response) : 'null');
+                console.log('[DEBUG] response.data:', JSON.stringify(response?.data));
+                console.log('[DEBUG] response.data?.data:', JSON.stringify(response?.data?.data));
+                console.log('[DEBUG] response.summary:', JSON.stringify(response?.summary));
+                // 自动检测正确路径
+                if (response?.data?.data?.summary) return response.data.data;
+                if (response?.data?.summary) return response.data;
+                if (response?.summary) return response;
+                return response?.data ?? response;
             } catch (err) {
                 console.error('Report fetch error:', err);
                 throw err;
