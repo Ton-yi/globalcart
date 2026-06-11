@@ -44,7 +44,7 @@ export default function OverviewDashboard({ data }) {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <MetricCard title="期间订单数" value={summary.total_orders} icon={ShoppingBag} isCount subtitle={`待采购 ${summary.pending_purchase_count}`} />
                 <MetricCard title="客户数" value={summary.total_customers} icon={Users} isCount subtitle={`新客 ${summary.new_customers} / 老客 ${summary.returning_customers}`} />
-                <MetricCard title="总收入" value={summary.order_stage_payment_jpy} icon={DollarSign} subtitle={`退款：${formatCurrency(summary.refund_amount_jpy)}`} />
+                <MetricCard title="总收入" value={(summary.order_stage_payment_jpy || 0) + (summary.shipping_stage_income_jpy || 0) + (summary.addon_revenue_jpy || 0) + (summary.item_size_extra_fee_jpy || 0)} icon={DollarSign} subtitle={`退款：${formatCurrency(summary.refund_amount_jpy)}`} />
                 <MetricCard title="总利润" value={summary.total_profit_jpy} icon={TrendingUp}
                     colorClass={summary.total_profit_jpy >= 0 ? 'text-green-600' : 'text-red-600'}
                     subtitle={`订单均价：${formatCurrency(summary.avg_order_value_jpy)}`} />

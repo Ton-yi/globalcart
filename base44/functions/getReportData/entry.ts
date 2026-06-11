@@ -1,6 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
-// 白名单维度
+// 白名单
+const ALLOWED_GRANULARITIES = ['day', 'week', 'month', 'quarter', 'year'];
 const ALLOWED_DIMENSIONS = [
     'order_status', 'payment_status', 'shipping_method', 'country',
     'online_store_tag', 'payment_method', 'is_refunded', 'item_size_title',
@@ -61,17 +62,6 @@ function buildTimeSeries(orders, pools, granularity) {
     return Object.values(buckets).sort((a, b) => a.period.localeCompare(b.period));
 }
 
-function calcAddonRevenue(orders) {
-    let total = 0;
-    orders.forEach(order => {
-        (order.selected_addons || []).forEach(addon => {
-            // convert to JPY if needed (simplify: assume JPY unless explicitly CNY at fixed rate)
-            total += addon.fee || 0;
-        });
-    });
-    return total;
-}
-
 Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
@@ -98,6 +88,9 @@ Deno.serve(async (req) => {
 
         if (!ALLOWED_DIMENSIONS.includes(dimension)) {
             return Response.json({ error: `Invalid dimension: ${dimension}` }, { status: 400 });
+        }
+        if (!ALLOWED_GRANULARITIES.includes(granularity)) {
+            return Response.json({ error: `Invalid granularity: ${granularity}` }, { status: 400 });
         }
 
         // 解析 tenant
@@ -193,11 +186,15 @@ Deno.serve(async (req) => {
 
         const byDimension = {};
 
-        // 为发货池关联，构建订单ID→池的映射
+        // 为发货池关联，构建订单ID→池的映射（使用全量订单以保证维度分配正确）
         const orderIdToPool = {};
         allPools.forEach(pool => {
             (pool.order_ids || []).forEach(oid => { orderIdToPool[oid] = pool; });
         });
+
+        // 构建全量订单ID→订单对象的映射（用于发货池维度分配）
+        const allOrderMap = {};
+        allOrders.forEach(o => { allOrderMap[o.id] = o; });
 
         // 计算订单阶段指标
         orders.forEach(order => {
@@ -233,7 +230,8 @@ Deno.serve(async (req) => {
                 byDimension[dimValue] = {
                     order_count: 0, order_stage_payment_jpy: 0, refund_amount_jpy: 0,
                     goods_cost_jpy: 0, order_stage_profit_jpy: 0, addon_revenue_jpy: 0,
-                    shipping_stage_profit_jpy: 0, total_profit_jpy: 0, orders_missing_cost_data: 0
+                    shipping_stage_income_jpy: 0, shipping_stage_profit_jpy: 0,
+                    total_profit_jpy: 0, orders_missing_cost_data: 0
                 };
             }
             byDimension[dimValue].order_count++;
@@ -249,7 +247,8 @@ Deno.serve(async (req) => {
         pools.forEach(pool => {
             const shippingIncome = pool.shipping_stage_income_jpy || pool.shipping_fee_jpy || 0;
             const intlCost = pool.actual_international_shipping_cost_jpy || 0;
-            const boxCharge = pool.box_charge_jpy_snapshot || pool.box_price_jpy || 0;
+            // box_charge_jpy_snapshot 是实际向用户收取的金额快照，不用 box_price_jpy（模板单价）
+            const boxCharge = pool.box_charge_jpy_snapshot || 0;
             const boxCost = pool.box_actual_cost_jpy_snapshot || 0;
             const shippingProfit = shippingIncome - intlCost - boxCost;
             const boxProfit = boxCharge - boxCost;
@@ -261,15 +260,25 @@ Deno.serve(async (req) => {
             summary.shipping_stage_profit_jpy += shippingProfit;
             summary.box_profit_jpy += boxProfit;
 
-            // 分配发货利润到维度
+            // 分配发货利润到维度（使用全量订单映射，避免因时间过滤漏掉分配）
             const orderIds = pool.order_ids || [];
-            const relatedOrders = orders.filter(o => orderIds.includes(o.id));
+            const relatedOrders = orderIds.map(id => allOrderMap[id]).filter(Boolean);
             if (relatedOrders.length > 0) {
                 const profitPerOrder = shippingProfit / relatedOrders.length;
                 relatedOrders.forEach(order => {
                     const dimValue = getDimensionValue(order, pool, dimension);
                     if (byDimension[dimValue]) {
                         byDimension[dimValue].shipping_stage_profit_jpy += profitPerOrder;
+                    }
+                });
+            }
+            // 同时补充维度中的 shipping_stage_income_jpy
+            if (relatedOrders.length > 0) {
+                const incomePerOrder = shippingIncome / relatedOrders.length;
+                relatedOrders.forEach(order => {
+                    const dimValue = getDimensionValue(order, pool, dimension);
+                    if (byDimension[dimValue]) {
+                        byDimension[dimValue].shipping_stage_income_jpy = (byDimension[dimValue].shipping_stage_income_jpy || 0) + incomePerOrder;
                     }
                 });
             }

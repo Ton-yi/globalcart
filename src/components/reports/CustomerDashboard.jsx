@@ -3,7 +3,7 @@ import MetricCard, { formatCurrency, formatNumber } from "./MetricCard";
 import { TrendBarChart } from "./TrendChart";
 import PieDistribution from "./PieDistribution";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, UserPlus, RepeatIcon, DollarSign } from "lucide-react";
+import { Users, UserPlus, Repeat2, DollarSign } from "lucide-react";
 
 export default function CustomerDashboard({ data }) {
     if (!data) return null;
@@ -29,7 +29,7 @@ export default function CustomerDashboard({ data }) {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <MetricCard title="活跃客户数" value={summary.total_customers} icon={Users} isCount />
                 <MetricCard title="新客户" value={summary.new_customers} icon={UserPlus} isCount colorClass="text-blue-600" />
-                <MetricCard title="老客户" value={summary.returning_customers} icon={RepeatIcon} isCount colorClass="text-green-600" />
+                <MetricCard title="老客户" value={summary.returning_customers} icon={Repeat2} isCount colorClass="text-green-600" />
                 <MetricCard title="客均消费" value={avgRevenuePerCustomer} icon={DollarSign} />
             </div>
 

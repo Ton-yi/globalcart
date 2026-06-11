@@ -14,7 +14,7 @@ export default function LogisticsDashboard({ data, dimension }) {
     const shippingMethodData = dimension === 'shipping_method'
         ? Object.entries(byDimension || {}).map(([name, d]) => ({
             name,
-            收入: d.order_stage_payment_jpy || 0,
+            运费收入: d.shipping_stage_income_jpy || 0,
             利润: d.shipping_stage_profit_jpy || 0,
         }))
         : [];
@@ -53,7 +53,7 @@ export default function LogisticsDashboard({ data, dimension }) {
                                 <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `¥${(v/1000).toFixed(0)}k`} width={55} />
                                 <Tooltip formatter={v => `¥${v.toLocaleString('ja-JP')}`} />
                                 <Legend />
-                                <Bar dataKey="收入" fill="#3b82f6" />
+                                <Bar dataKey="运费收入" fill="#3b82f6" />
                                 <Bar dataKey="利润" fill="#10b981" />
                             </BarChart>
                         </ResponsiveContainer>
