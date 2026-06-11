@@ -45,7 +45,8 @@ export default function SMTPSettingsManager() {
           smtp_host: currentSettings.smtp_host || "",
           smtp_port: currentSettings.smtp_port || "587",
           smtp_username: currentSettings.smtp_username || "",
-          smtp_password: currentSettings.smtp_password || "",
+          // 安全：不加载密码，保持空白
+          smtp_password: "",
           smtp_from_name: currentSettings.smtp_from_name || "",
           smtp_from_email: currentSettings.smtp_from_email || "",
           sender_name: currentSettings.sender_name || "",
@@ -64,40 +65,56 @@ export default function SMTPSettingsManager() {
   const handleSave = async () => {
     setSaving(true);
     try {
+      // 权限验证
+      if (user.role !== 'admin' && user.role !== 'tenant_admin') {
+        toast.error('仅管理员可配置 SMTP 设置');
+        setSaving(false);
+        return;
+      }
+
+      // 验证必填字段
+      if (formData.smtp_enabled) {
+        if (!formData.smtp_host || !formData.smtp_username) {
+          toast.error('SMTP 服务器和用户名为必填项');
+          setSaving(false);
+          return;
+        }
+        // 密码验证：新建时必须，更新时可选
+        if (!settings && !formData.smtp_password) {
+          toast.error('首次配置必须提供 SMTP 密码');
+          setSaving(false);
+          return;
+        }
+      }
+
+      const saveData = {
+        tenant_id: user.tenant_id,
+        email_provider: formData.smtp_enabled ? 'smtp' : 'platform',
+        smtp_enabled: formData.smtp_enabled,
+        smtp_host: formData.smtp_host,
+        smtp_port: formData.smtp_port,
+        smtp_username: formData.smtp_username,
+        smtp_from_name: formData.smtp_from_name,
+        smtp_from_email: formData.smtp_from_email,
+        sender_name: formData.sender_name,
+        sender_email: formData.sender_email,
+        configured_by: user.email,
+        configured_at: new Date().toISOString()
+      };
+
+      // 仅当密码非空时才保存（更新场景）
+      if (formData.smtp_password) {
+        saveData.smtp_password = formData.smtp_password;
+      }
+
       if (!settings) {
-        await base44.entities.TenantEmailSettings.create({
-          tenant_id: user.tenant_id,
-          email_provider: formData.smtp_enabled ? 'smtp' : 'platform',
-          smtp_enabled: formData.smtp_enabled,
-          smtp_host: formData.smtp_host,
-          smtp_port: formData.smtp_port,
-          smtp_username: formData.smtp_username,
-          smtp_password: formData.smtp_password,
-          smtp_from_name: formData.smtp_from_name,
-          smtp_from_email: formData.smtp_from_email,
-          sender_name: formData.sender_name,
-          sender_email: formData.sender_email,
-          configured_by: user.email,
-          configured_at: new Date().toISOString()
-        });
+        await base44.entities.TenantEmailSettings.create(saveData);
       } else {
-        await base44.entities.TenantEmailSettings.update(settings.id, {
-          email_provider: formData.smtp_enabled ? 'smtp' : 'platform',
-          smtp_enabled: formData.smtp_enabled,
-          smtp_host: formData.smtp_host,
-          smtp_port: formData.smtp_port,
-          smtp_username: formData.smtp_username,
-          smtp_password: formData.smtp_password,
-          smtp_from_name: formData.smtp_from_name,
-          smtp_from_email: formData.smtp_from_email,
-          sender_name: formData.sender_name,
-          sender_email: formData.sender_email,
-          configured_by: user.email,
-          configured_at: new Date().toISOString()
-        });
+        await base44.entities.TenantEmailSettings.update(settings.id, saveData);
       }
       
       toast.success('SMTP 设置已保存');
+      setFormData(prev => ({ ...prev, smtp_password: '' }));
       await loadSettings();
     } catch (error) {
       toast.error('保存失败：' + error.message);
@@ -283,7 +300,7 @@ export default function SMTPSettingsManager() {
           variant="outline"
           className="flex-1"
           onClick={handleTest}
-          disabled={testing || !formData.smtp_enabled || !formData.smtp_host || !formData.smtp_username}
+          disabled={testing || !formData.smtp_enabled || !formData.smtp_host || !formData.smtp_username || !formData.smtp_password}
         >
           {testing ? (
             <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
@@ -293,6 +310,22 @@ export default function SMTPSettingsManager() {
           {testing ? "测试中..." : "发送测试邮件"}
         </Button>
       </div>
+
+      <div className="bg-amber-50 border border-amber-200 rounded p-3">
+        <p className="text-xs text-amber-800 font-semibold mb-1">🔒 安全提示</p>
+        <ul className="text-xs text-amber-700 space-y-1">
+          <li>• 密码仅在保存时传输，不会回显到前端</li>
+          <li>• 建议使用应用专用密码而非登录密码</li>
+          <li>• 定期更换 SMTP 密码以保安全</li>
+        </ul>
+      </div>
+
+      <Alert className="border-amber-200 bg-amber-50">
+        <AlertCircle className="h-4 w-4 text-amber-600" />
+        <AlertDescription className="text-xs text-amber-700 ml-2">
+          <strong>⚠ 安全提示：</strong>密码以加密形式存储，仅用于邮件发送。建议使用邮箱服务商提供的授权码而非登录密码。
+        </AlertDescription>
+      </Alert>
 
       <div className="bg-gray-50 border border-gray-200 rounded p-3">
         <p className="text-xs text-gray-600 font-semibold mb-2">📧 常见邮箱 SMTP 设置：</p>
