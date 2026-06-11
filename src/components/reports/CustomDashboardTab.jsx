@@ -2,7 +2,7 @@
  * CustomDashboardTab — 「我的看板」选项卡的完整内容
  * 负责加载看板列表、切换、传入数据
  */
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { Loader2, LayoutDashboard } from "lucide-react";
 import DashboardManager from "./customDashboard/DashboardManager.jsx";
@@ -12,6 +12,12 @@ export default function CustomDashboardTab({ reportData, dimension }) {
     const [dashboards,         setDashboards]         = useState([]);
     const [activeDashboardId,  setActiveDashboardId]  = useState(null);
     const [loading,            setLoading]            = useState(true);
+    const activeDashboardIdRef = useRef(activeDashboardId);
+
+    // 保持 ref 同步
+    useEffect(() => {
+        activeDashboardIdRef.current = activeDashboardId;
+    }, [activeDashboardId]);
 
     const loadDashboards = useCallback(async () => {
         setLoading(true);
@@ -20,11 +26,12 @@ export default function CustomDashboardTab({ reportData, dimension }) {
             // 兼容 SDK 嵌套结构
             const result = res?.data?.data ?? res?.data;
             const list = result?.dashboards || [];
-            console.log('[CustomDashboardTab] loaded dashboards:', list, 'current activeDashboardId:', activeDashboardId);
+            const currentId = activeDashboardIdRef.current;
+            console.log('[CustomDashboardTab] loaded dashboards:', list, 'current activeDashboardId:', currentId);
             setDashboards(list);
             // 保持当前选择，如果当前选择的看板不存在则选第一个
-            if (activeDashboardId && list.find(d => d.id === activeDashboardId)) {
-                console.log('[CustomDashboardTab] keeping active dashboard:', activeDashboardId);
+            if (currentId && list.find(d => d.id === currentId)) {
+                console.log('[CustomDashboardTab] keeping active dashboard:', currentId);
             } else {
                 const newActiveId = list[0]?.id || null;
                 console.log('[CustomDashboardTab] setting new active dashboard:', newActiveId);
@@ -39,7 +46,7 @@ export default function CustomDashboardTab({ reportData, dimension }) {
 
     useEffect(() => {
         loadDashboards();
-    }, [loadDashboards]);
+    }, []);
 
     const activeDashboard = dashboards.find(d => d.id === activeDashboardId) || null;
 

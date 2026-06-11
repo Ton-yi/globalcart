@@ -18,8 +18,6 @@ export default function DashboardManager({ dashboards, activeDashboardId, onSele
     const [nameInput,  setNameInput]  = useState('');
 
     const activeDashboard = dashboards.find(d => d.id === activeDashboardId);
-    
-    console.log('[DashboardManager] render:', { dashboards, activeDashboardId, activeDashboard });
 
     const handleCreate = async () => {
         if (!nameInput.trim()) return;
@@ -35,13 +33,11 @@ export default function DashboardManager({ dashboards, activeDashboardId, onSele
                 toast.success('看板已创建');
                 setCreateOpen(false);
                 setNameInput('');
-                console.log('[DashboardManager] created dashboard:', result.dashboard);
                 // 先选中新看板，再刷新列表（避免刷新时覆盖选择）
                 onSelect(result.dashboard.id);
                 // 等待一小段时间再刷新，确保状态更新
                 setTimeout(async () => {
                     await onRefresh();
-                    console.log('[DashboardManager] refreshed dashboard list');
                 }, 100);
             } else {
                 console.error('[DashboardManager.create] failed:', result);

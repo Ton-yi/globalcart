@@ -24,10 +24,9 @@ export default function CustomDashboardView({ dashboard, reportData, dimension, 
 
     // 当 dashboard 切换时重置
     useEffect(() => {
-        console.log('[CustomDashboardView] dashboard changed:', dashboard);
         setWidgets(dashboard?.widgets || []);
         setDirty(false);
-    }, [dashboard?.id, dashboard]);
+    }, [dashboard?.id]);
 
     const markDirty = (newWidgets) => {
         setWidgets(newWidgets);
