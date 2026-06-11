@@ -20,27 +20,33 @@ const DEFAULT_START = (() => {
 const DEFAULT_END = new Date().toISOString().split('T')[0];
 
 export default function AdminReports() {
-    const [startDate, setStartDate] = useState(DEFAULT_START);
-    const [endDate, setEndDate] = useState(DEFAULT_END);
-    const [dimension, setDimension] = useState("order_status");
+    const [startDate,   setStartDate]   = useState(DEFAULT_START);
+    const [endDate,     setEndDate]     = useState(DEFAULT_END);
+    const [dimension,   setDimension]   = useState("order_status");
     const [granularity, setGranularity] = useState("day");
-    const [activeTab, setActiveTab] = useState("overview");
+    const [compare,     setCompare]     = useState(null);   // 'yoy' | 'mom' | null
+    const [activeTab,   setActiveTab]   = useState("overview");
 
-    const { data: reportData, isLoading, error } = useQuery({
-        queryKey: ['reports', startDate, endDate, dimension, granularity],
+    const { data: rawData, isLoading, error } = useQuery({
+        queryKey: ['reports', startDate, endDate, dimension, granularity, compare],
         queryFn: async () => {
             if (startDate > endDate) throw new Error('开始日期不能晚于结束日期');
             const response = await base44.functions.invoke('getReportData', {
-                startDate, endDate, dimension, granularity
+                startDate, endDate, dimension, granularity, compare,
             });
-            if (response?.data?.data?.summary) return response.data.data;
-            if (response?.data?.summary) return response.data;
-            if (response?.summary) return response;
-            return response?.data ?? response;
+            // 兼容多层嵌套
+            const payload = response?.data?.data ?? response?.data ?? response;
+            // 将顶层 compare_period 合并到 data 方便子组件读取
+            if (payload?.summary && response?.data?.compare_period) {
+                payload.compare_period = response.data.compare_period;
+            }
+            return payload;
         },
         retry: false,
         staleTime: 60 * 1000,
     });
+
+    const reportData = rawData;
 
     if (error) {
         return (
@@ -72,22 +78,24 @@ export default function AdminReports() {
 
             {/* 筛选条件 */}
             <ReportFilters
-                startDate={startDate} endDate={endDate}
-                dimension={dimension} granularity={granularity}
-                onStartDate={setStartDate} onEndDate={setEndDate}
-                onDimension={setDimension} onGranularity={setGranularity}
+                startDate={startDate}   endDate={endDate}
+                dimension={dimension}   granularity={granularity}
+                compare={compare}
+                onStartDate={setStartDate}  onEndDate={setEndDate}
+                onDimension={setDimension}  onGranularity={setGranularity}
+                onCompare={setCompare}
             />
 
             {/* 看板 Tabs */}
             <Tabs value={activeTab} onValueChange={setActiveTab}>
                 <TabsList className="grid grid-cols-5 w-full max-w-2xl">
-                    <TabsTrigger value="overview" className="flex items-center gap-1 text-xs">
+                    <TabsTrigger value="overview"  className="flex items-center gap-1 text-xs">
                         <BarChart3 className="w-3 h-3" />经营概览
                     </TabsTrigger>
-                    <TabsTrigger value="finance" className="flex items-center gap-1 text-xs">
+                    <TabsTrigger value="finance"   className="flex items-center gap-1 text-xs">
                         <TrendingUp className="w-3 h-3" />财务分析
                     </TabsTrigger>
-                    <TabsTrigger value="orders" className="flex items-center gap-1 text-xs">
+                    <TabsTrigger value="orders"    className="flex items-center gap-1 text-xs">
                         <Package className="w-3 h-3" />订单分析
                     </TabsTrigger>
                     <TabsTrigger value="logistics" className="flex items-center gap-1 text-xs">
@@ -112,10 +120,10 @@ export default function AdminReports() {
                 ) : (
                     <>
                         <TabsContent value="overview" className="mt-4">
-                            <OverviewDashboard data={reportData} />
+                            <OverviewDashboard data={reportData} compare={compare} />
                         </TabsContent>
                         <TabsContent value="finance" className="mt-4">
-                            <FinanceDashboard data={reportData} dimension={dimension} />
+                            <FinanceDashboard data={reportData} dimension={dimension} compare={compare} />
                         </TabsContent>
                         <TabsContent value="orders" className="mt-4">
                             <OrderDashboard data={reportData} dimension={dimension} />
