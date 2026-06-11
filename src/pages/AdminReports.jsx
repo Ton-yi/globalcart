@@ -27,6 +27,7 @@ export default function AdminReports() {
     const { data: reportData, isLoading, error } = useQuery({
         queryKey: ['reports', startDate, endDate, dimension, granularity],
         queryFn: async () => {
+            if (startDate > endDate) throw new Error('开始日期不能晚于结束日期');
             const response = await base44.functions.invoke('getReportData', {
                 startDate, endDate, dimension, granularity
             });

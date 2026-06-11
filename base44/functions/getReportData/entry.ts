@@ -34,29 +34,48 @@ function getDimensionValue(order, pool, dimension) {
     }
 }
 
-function buildTimeSeries(orders, pools, granularity) {
-    // group orders by period
-    const buckets = {};
-    orders.forEach(order => {
-        const d = new Date(order.submit_date || order.created_date);
-        let key;
-        if (granularity === 'day') key = d.toISOString().split('T')[0];
-        else if (granularity === 'week') {
-            const startOfWeek = new Date(d);
-            startOfWeek.setDate(d.getDate() - d.getDay());
-            key = startOfWeek.toISOString().split('T')[0];
-        } else if (granularity === 'month') key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-        else if (granularity === 'quarter') key = `${d.getFullYear()}-Q${Math.floor(d.getMonth()/3)+1}`;
-        else key = String(d.getFullYear());
+function getPeriodKey(date, granularity) {
+    const d = new Date(date);
+    if (granularity === 'day') return d.toISOString().split('T')[0];
+    if (granularity === 'week') {
+        const startOfWeek = new Date(d);
+        startOfWeek.setDate(d.getDate() - d.getDay());
+        return startOfWeek.toISOString().split('T')[0];
+    }
+    if (granularity === 'month') return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    if (granularity === 'quarter') return `${d.getFullYear()}-Q${Math.floor(d.getMonth()/3)+1}`;
+    return String(d.getFullYear());
+}
 
+function buildTimeSeries(orders, pools, granularity) {
+    const buckets = {};
+
+    const ensureBucket = (key) => {
         if (!buckets[key]) buckets[key] = { period: key, order_count: 0, revenue_jpy: 0, profit_jpy: 0, refund_jpy: 0 };
+    };
+
+    // 订单阶段
+    orders.forEach(order => {
+        const key = getPeriodKey(order.submit_date || order.created_date, granularity);
+        ensureBucket(key);
+        const payment = order.order_stage_payment_jpy || order.paid_amount || 0;
+        const refund = order.refund_amount_jpy || 0;
+        const cost = order.estimated_jpy || 0;
         buckets[key].order_count += 1;
-        buckets[key].revenue_jpy += order.order_stage_payment_jpy || order.paid_amount || 0;
-        buckets[key].refund_jpy += order.refund_amount_jpy || 0;
-        const orderProfit = (order.order_stage_payment_jpy || order.paid_amount || 0)
-            - (order.refund_amount_jpy || 0)
-            - (order.estimated_jpy || 0);
-        buckets[key].profit_jpy += orderProfit;
+        buckets[key].revenue_jpy += payment;
+        buckets[key].refund_jpy += refund;
+        buckets[key].profit_jpy += payment - refund - cost;
+    });
+
+    // 发货阶段：将运费收入/利润叠加到对应时间桶
+    pools.forEach(pool => {
+        const key = getPeriodKey(pool.shipped_date || pool.created_date, granularity);
+        ensureBucket(key);
+        const shippingIncome = pool.shipping_stage_income_jpy || pool.shipping_fee_jpy || 0;
+        const intlCost = pool.actual_international_shipping_cost_jpy || 0;
+        const boxCost = pool.box_actual_cost_jpy_snapshot || 0;
+        buckets[key].revenue_jpy += shippingIncome;
+        buckets[key].profit_jpy += shippingIncome - intlCost - boxCost;
     });
 
     return Object.values(buckets).sort((a, b) => a.period.localeCompare(b.period));
