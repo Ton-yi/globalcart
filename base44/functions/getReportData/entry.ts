@@ -305,25 +305,27 @@ Deno.serve(async (req) => {
             }
         });
         
-        // 计算总利润
+        // 计算总利润（下单利润 + 运费利润，无运费数据时仅下单利润）
         reportData.summary.total_profit_jpy = 
             reportData.summary.order_stage_profit_jpy + reportData.summary.shipping_stage_profit_jpy;
         
         // 补充未分配完的发货利润（处理没有关联订单的 pool）
-        // 这些利润平均分配到所有维度
         const allocatedShippingProfit = Object.values(reportData.byDimension)
             .reduce((sum, d) => sum + (d.shipping_stage_profit_jpy || 0), 0);
         const unallocatedProfit = reportData.summary.shipping_stage_profit_jpy - allocatedShippingProfit;
         
         if (unallocatedProfit !== 0 && Object.keys(reportData.byDimension).length > 0) {
-            // 将未分配的利润平均分配到所有维度
             const profitPerDimension = unallocatedProfit / Object.keys(reportData.byDimension).length;
             Object.values(reportData.byDimension).forEach(dimensionData => {
                 dimensionData.shipping_stage_profit_jpy += profitPerDimension;
-                dimensionData.total_profit_jpy = 
-                    dimensionData.order_stage_profit_jpy + dimensionData.shipping_stage_profit_jpy;
             });
         }
+        
+        // 最终统一计算每个维度的总利润（确保无运费数据时也正确显示下单利润）
+        Object.values(reportData.byDimension).forEach(dimensionData => {
+            dimensionData.total_profit_jpy = 
+                dimensionData.order_stage_profit_jpy + dimensionData.shipping_stage_profit_jpy;
+        });
         
         const result = {
             success: true,
