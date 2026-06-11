@@ -33,7 +33,9 @@ Deno.serve(async (req) => {
         if (action === 'list') {
             const filter = { created_by: user.email };
             if (tenantId) filter.tenant_id = tenantId;
+            console.log('[manageCustomDashboard.list] user:', user.email, 'tenantId:', tenantId, 'filter:', filter);
             const dashboards = await base44.asServiceRole.entities.CustomDashboard.filter(filter);
+            console.log('[manageCustomDashboard.list] found dashboards:', dashboards);
             return Response.json({ success: true, dashboards: dashboards || [] });
         }
 
@@ -41,6 +43,7 @@ Deno.serve(async (req) => {
             if (!data?.name?.trim()) {
                 return Response.json({ error: 'Name is required' }, { status: 400 });
             }
+            console.log('[manageCustomDashboard.create] creating with tenantId:', tenantId, 'user:', user.email, 'data:', data);
             const dashboard = await base44.asServiceRole.entities.CustomDashboard.create({
                 tenant_id: tenantId,
                 name: data.name.trim(),
@@ -49,6 +52,7 @@ Deno.serve(async (req) => {
                 created_by: user.email,
                 is_default: data.is_default || false,
             });
+            console.log('[manageCustomDashboard.create] created dashboard:', dashboard);
             return Response.json({ success: true, dashboard });
         }
 
