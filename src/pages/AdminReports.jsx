@@ -57,16 +57,16 @@ export default function AdminReports() {
         }
         setExporting(true);
         try {
+            // 直接调用后端函数获取 Blob
             const response = await base44.functions.invoke('exportReportData', {
                 startDate, endDate, dimension, granularity, compare, filters, format,
+            }, {
+                // 指定响应类型为 blob，避免 Axios 解析为 JSON
+                responseType: 'blob',
             });
             
-            // response.data 是 Axios 响应，实际数据在 response.data 中
-            // 后端返回的是 ArrayBuffer 或字符串（CSV）
-            const fileData = response.data;
-            const blob = new Blob([fileData], { 
-                type: format === 'csv' ? 'text/csv;charset=utf-8' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
-            });
+            // response.data 是 Blob 对象
+            const blob = response.data;
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;

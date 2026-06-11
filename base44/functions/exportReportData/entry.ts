@@ -118,15 +118,7 @@ function generateCSV(data, startDate, endDate) {
     }
 
     // 转换为 CSV
-    const csvContent = rows.map(row => row.map(cell => {
-        if (cell === null || cell === undefined) return '';
-        const str = String(cell);
-        // 处理包含逗号或换行的字段
-        if (str.includes(',') || str.includes('\n') || str.includes('"')) {
-            return `"${str.replace(/"/g, '""')}"`;
-        }
-        return str;
-    }).join(',')).join('\n');
+    const csvContent = rows.map(row => row.map(formatCSVCell).join(',')).join('\n');
 
     const fileName = `report_export_${startDate}_to_${endDate}.csv`;
     return new Response(csvContent, {
@@ -217,11 +209,12 @@ function generateExcel(data, startDate, endDate) {
         xlsx.utils.book_append_sheet(wb, wsCompare, '对比分析');
     }
 
-    // 生成 buffer
+    // 生成 buffer - xlsx.write 返回的是数组，需要转换为 Uint8Array
     const buffer = xlsx.write(wb, { type: 'array', bookType: 'xlsx' });
+    const uint8Array = new Uint8Array(buffer);
 
     const fileName = `report_export_${startDate}_to_${endDate}.xlsx`;
-    return new Response(buffer, {
+    return new Response(uint8Array, {
         status: 200,
         headers: {
             'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -233,4 +226,14 @@ function generateExcel(data, startDate, endDate) {
 function formatPercent(value) {
     if (value === null || value === undefined) return '';
     return `${(value * 100).toFixed(2)}%`;
+}
+
+// 修复 CSV 中的 undefined/null 值
+function formatCSVCell(cell) {
+    if (cell === null || cell === undefined) return '';
+    const str = String(cell);
+    if (str.includes(',') || str.includes('\n') || str.includes('"')) {
+        return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
 }
