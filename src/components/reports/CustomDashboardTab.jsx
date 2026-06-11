@@ -20,22 +20,22 @@ export default function CustomDashboardTab({ reportData, dimension }) {
             // 兼容 SDK 嵌套结构
             const result = res?.data?.data ?? res?.data;
             const list = result?.dashboards || [];
-            console.log('[CustomDashboardTab] loaded dashboards:', list, 'activeDashboardId:', activeDashboardId);
+            console.log('[CustomDashboardTab] loaded dashboards:', list, 'current activeDashboardId:', activeDashboardId);
             setDashboards(list);
             // 保持当前选择，如果当前选择的看板不存在则选第一个
             if (activeDashboardId && list.find(d => d.id === activeDashboardId)) {
                 console.log('[CustomDashboardTab] keeping active dashboard:', activeDashboardId);
-                return; // 保持当前选择
+            } else {
+                const newActiveId = list[0]?.id || null;
+                console.log('[CustomDashboardTab] setting new active dashboard:', newActiveId);
+                setActiveDashboardId(newActiveId);
             }
-            const newActiveId = list[0]?.id || null;
-            console.log('[CustomDashboardTab] setting new active dashboard:', newActiveId);
-            setActiveDashboardId(newActiveId);
         } catch (err) {
             console.error('[CustomDashboardTab] failed to load:', err);
         } finally {
             setLoading(false);
         }
-    }, [activeDashboardId]);
+    }, []);
 
     useEffect(() => {
         loadDashboards();
@@ -67,10 +67,10 @@ export default function CustomDashboardTab({ reportData, dimension }) {
                 />
             </div>
 
-            {/* 看板画布 */}
+            {/* 看板画布 - 即使没有报表数据也能工作 */}
             <CustomDashboardView
                 dashboard={activeDashboard}
-                reportData={reportData}
+                reportData={reportData || { summary: {}, byDimension: {}, timeSeries: [] }}
                 dimension={dimension}
                 onSaved={loadDashboards}
             />
