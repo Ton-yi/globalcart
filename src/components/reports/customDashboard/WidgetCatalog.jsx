@@ -8,7 +8,7 @@ export const WIDGET_CATALOG = [
         label: '指标卡片',
         description: '展示单个关键数字指标，支持趋势对比。',
         // field 对应 METRIC_FIELDS[0].value
-        defaultConfig: { field: 'order_stage_payment_jpy', isCount: false },
+        defaultConfig: { field: 'order_stage_payment_jpy', isCount: false, size: 'md' },
     },
     {
         type: 'trend_line',

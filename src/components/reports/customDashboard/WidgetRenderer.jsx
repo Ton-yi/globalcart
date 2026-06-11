@@ -48,6 +48,7 @@ export default function WidgetRenderer({ widget, reportData, dimension }) {
                 raw={config.raw ?? fieldMeta?.raw ?? false}
                 colorClass={config.colorClass}
                 subtitle={config.subtitle}
+                size={config.size || 'md'}
             />
         );
     }

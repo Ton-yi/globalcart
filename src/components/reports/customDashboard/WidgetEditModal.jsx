@@ -27,7 +27,12 @@ export default function WidgetEditModal({ open, widget, onSave, onClose }) {
             const cat = WIDGET_CATALOG[0];
             setType(cat.type);
             setTitle('');
-            setConfig({ ...cat.defaultConfig });
+            const defaultConfig = { ...cat.defaultConfig };
+            // 为 metric_card 添加默认尺寸
+            if (cat.type === 'metric_card') {
+                defaultConfig.size = 'md';
+            }
+            setConfig(defaultConfig);
         }
     }, [widget, open]);
 
@@ -35,10 +40,14 @@ export default function WidgetEditModal({ open, widget, onSave, onClose }) {
         setType(t);
         const cat = WIDGET_CATALOG.find(c => c.type === t);
         const newConfig = cat ? { ...cat.defaultConfig } : {};
-        // 对 metric_card，同步 isCount 元数据
-        if (t === 'metric_card' && newConfig.field) {
-            const meta = METRIC_FIELDS.find(f => f.value === newConfig.field);
-            if (meta) newConfig.isCount = meta.isCount;
+        // 对 metric_card，同步 isCount 元数据和默认尺寸
+        if (t === 'metric_card') {
+            if (newConfig.field) {
+                const meta = METRIC_FIELDS.find(f => f.value === newConfig.field);
+                if (meta) newConfig.isCount = meta.isCount;
+            }
+            // 默认使用中尺寸
+            newConfig.size = 'md';
         }
         setConfig(newConfig);
         setTitle('');
@@ -97,6 +106,20 @@ export default function WidgetEditModal({ open, widget, onSave, onClose }) {
                                         ))}
                                     </SelectContent>
                                 </Select>
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label>卡片尺寸</Label>
+                                <Select value={config.size || 'md'} onValueChange={v => setC('size', v)}>
+                                    <SelectTrigger><SelectValue placeholder="默认（中）" /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="sm">小（紧凑布局）</SelectItem>
+                                        <SelectItem value="md">中（标准布局）</SelectItem>
+                                        <SelectItem value="lg">大（突出显示）</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <p className="text-xs text-muted-foreground">
+                                    小：每行 4-6 个 · 中：每行 3-4 个 · 大：每行 1-2 个
+                                </p>
                             </div>
                             <div className="space-y-1.5">
                                 <Label>数值颜色</Label>
