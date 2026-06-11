@@ -35,18 +35,15 @@ Deno.serve(async (req) => {
         // 获取租户上下文 - 从用户信息或租户列表获取
         let tenantId = null;
         
-        // 如果是平台管理员，需要从用户信息中获取当前查看的租户
+        // 如果是平台管理员，需要从请求参数中获取 tenant_id（可选，不传则查所有）
         if (user.role === 'platform_admin') {
-            // 平台管理员可以查看所有租户，这里暂时返回 null 允许查询所有数据
-            // 或者可以从请求参数中获取 tenant_id
-            tenantId = null;
+            tenantId = requestBody.tenant_id || null;
         } else {
-            // 普通管理员/员工/用户，从用户信息获取租户
+            // 从 User 实体获取 tenant_id（租户隔离）
             try {
-                const tenantContext = await base44.functions.invoke('getTenantContext', {});
-                tenantId = tenantContext?.tenantId || user.tenant_id;
+                const userRecord = await base44.asServiceRole.entities.User.filter({ id: user.id });
+                tenantId = userRecord?.[0]?.tenant_id || user.tenant_id;
             } catch (e) {
-                // 如果 getTenantContext 失败，尝试直接从用户对象获取
                 tenantId = user.tenant_id;
             }
         }
