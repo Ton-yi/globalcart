@@ -136,9 +136,7 @@ export default function AdminReports() {
                             </Select>
                         </div>
                         <div className="flex items-end">
-                            <Button className="w-full">
-                                更新报表
-                            </Button>
+                            <p className="text-xs text-muted-foreground w-full text-center">条件变更后自动刷新</p>
                         </div>
                     </div>
                 </CardContent>

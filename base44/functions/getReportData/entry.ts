@@ -188,8 +188,10 @@ Deno.serve(async (req) => {
             reportData.byDimension[dimensionValue].goods_cost_jpy += goodsCost;
             reportData.byDimension[dimensionValue].order_stage_profit_jpy += orderProfit;
             
-            // 检查成本数据完整性：只要没有 order_stage_payment_jpy 就说明用了降级字段，可信度降低
-            if (!order.order_stage_payment_jpy) {
+            // 检查成本数据完整性：
+            // fullpay_once 模式用 paid_amount 降级是正常的，不算缺失
+            // 只有当两者都为空时才算缺失
+            if (!order.order_stage_payment_jpy && !order.paid_amount) {
                 reportData.summary.orders_missing_cost_data += 1;
                 reportData.byDimension[dimensionValue].orders_missing_cost_data += 1;
             }
