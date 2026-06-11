@@ -9,8 +9,10 @@
 ## 实现细节
 
 ### 前端 (`pages/AdminReports.jsx`)
-- ✅ 添加了导出 Excel 和 CSV 按钮
-- ✅ 正确处理二进制数据下载
+- ✅ 使用 fetch 直接调用后端函数 URL
+- ✅ 通过 Authorization header 传递认证 Token
+- ✅ 使用 response.blob() 获取二进制数据
+- ✅ 正确处理 Blob 下载为文件
 - ✅ 文件名格式：`report_export_{startDate}_to_{endDate}.{format}`
 - ✅ 禁用状态：无数据时或导出中时按钮禁用
 - ✅ 错误处理：显示 toast 提示
@@ -47,9 +49,10 @@
 
 ### 修复的问题（2026-06-11）
 - ✅ 修复 Excel 二进制数据处理：将 xlsx.write 返回的数组转换为 Uint8Array
-- ✅ 修复前端响应类型：指定 responseType: 'blob' 避免 Axios 解析为 JSON
+- ✅ 修复前端下载方式：使用 fetch 直接调用函数 URL 获取 Blob
 - ✅ 修复 CSV 单元格处理：添加 formatCSVCell 辅助函数处理特殊字符
 - ✅ 修复文件名编码：使用英文字符避免 headers 编码问题
+- ✅ 添加认证 Token：前端通过 Authorization header 传递认证信息
 
 ## 使用说明
 
@@ -68,16 +71,31 @@
 
 普通用户（user）无法访问报表页面。
 
-## 技术要点
+## 技术实现
+
+### 前端下载流程
+1. 使用 fetch 调用 `/api/functions/exportReportData`
+2. 传递 Authorization: Bearer {token} 进行认证
+3. 后端验证用户身份和权限
+4. 获取 Blob 数据（Excel 或 CSV）
+5. 创建临时下载链接触发下载
+
+### 后端处理流程
+1. 验证用户身份和权限（管理员角色）
+2. 调用 getReportData 获取报表数据
+3. 根据 format 参数生成对应格式文件
+4. Excel: 使用 xlsx 库生成多工作表工作簿，返回 Uint8Array
+5. CSV: 生成 UTF-8 编码的文本数据
+6. 设置正确的 Content-Type 和 Content-Disposition headers
 
 ### 文件命名
 - 使用英文字符：`report_export_YYYY-MM-DD_to_YYYY-MM-DD.xlsx`
 - 避免中文文件名导致的编码问题
 
 ### 数据处理
-- CSV: UTF-8 编码，正确处理特殊字符
-- Excel: 使用 xlsx 库生成标准 Excel 格式
-- 二进制数据：前端正确处理 Blob 下载
+- CSV: UTF-8 编码，自动处理逗号、引号等特殊字符
+- Excel: xlsx 库生成标准 Excel 格式，兼容所有版本
+- 二进制数据：Uint8Array 正确传输
 
 ### 兼容性
 - Excel 文件：所有现代 Excel 版本可打开

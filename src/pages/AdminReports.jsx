@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
+import { appParams } from "@/lib/app-params";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -57,16 +58,27 @@ export default function AdminReports() {
         }
         setExporting(true);
         try {
-            // 直接调用后端函数获取 Blob
-            const response = await base44.functions.invoke('exportReportData', {
-                startDate, endDate, dimension, granularity, compare, filters, format,
-            }, {
-                // 指定响应类型为 blob，避免 Axios 解析为 JSON
-                responseType: 'blob',
+            // 获取后端函数 URL 并直接下载
+            const exportUrl = `${appParams.appBaseUrl}/api/functions/exportReportData`;
+            const token = appParams.token;
+            
+            const response = await fetch(exportUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    startDate, endDate, dimension, granularity, compare, filters, format,
+                }),
             });
             
-            // response.data 是 Blob 对象
-            const blob = response.data;
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || `导出失败：${response.status}`);
+            }
+            
+            const blob = await response.blob();
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
