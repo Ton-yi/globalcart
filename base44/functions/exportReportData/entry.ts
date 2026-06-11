@@ -128,11 +128,12 @@ function generateCSV(data, startDate, endDate) {
         return str;
     }).join(',')).join('\n');
 
+    const fileName = `report_export_${startDate}_to_${endDate}.csv`;
     return new Response(csvContent, {
         status: 200,
         headers: {
             'Content-Type': 'text/csv; charset=utf-8',
-            'Content-Disposition': `attachment; filename="报表导出_${startDate}_至_${endDate}.csv"`,
+            'Content-Disposition': `attachment; filename="${fileName}"`,
         },
     });
 }
@@ -219,11 +220,12 @@ function generateExcel(data, startDate, endDate) {
     // 生成 buffer
     const buffer = xlsx.write(wb, { type: 'array', bookType: 'xlsx' });
 
+    const fileName = `report_export_${startDate}_to_${endDate}.xlsx`;
     return new Response(buffer, {
         status: 200,
         headers: {
             'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'Content-Disposition': `attachment; filename="报表导出_${startDate}_至_${endDate}.xlsx"`,
+            'Content-Disposition': `attachment; filename="${fileName}"`,
         },
     });
 }

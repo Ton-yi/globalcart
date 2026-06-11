@@ -61,14 +61,16 @@ export default function AdminReports() {
                 startDate, endDate, dimension, granularity, compare, filters, format,
             });
             
-            // 处理下载
-            const blob = new Blob([response.data], { 
-                type: format === 'csv' ? 'text/csv' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+            // response.data 是 Axios 响应，实际数据在 response.data 中
+            // 后端返回的是 ArrayBuffer 或字符串（CSV）
+            const fileData = response.data;
+            const blob = new Blob([fileData], { 
+                type: format === 'csv' ? 'text/csv;charset=utf-8' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
             });
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            const fileName = `报表导出_${startDate}_至_${endDate}.${format}`;
+            const fileName = `report_export_${startDate}_to_${endDate}.${format}`;
             link.setAttribute('download', fileName);
             document.body.appendChild(link);
             link.click();
