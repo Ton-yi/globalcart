@@ -23,7 +23,8 @@ import TestNotificationTemplates from '@/pages/TestNotificationTemplates';
 import AdminReports from '@/pages/AdminReports';
 import MetricCardSizesDemo from '@/pages/MetricCardSizesDemo';
 import TestGmailConnection from '@/pages/TestGmailConnection';
-import { Bell, Settings, Globe, Mail } from 'lucide-react';
+import AdminStorageSettings from '@/pages/AdminStorageSettings';
+import { Bell, Settings, Globe, Mail, Package } from 'lucide-react';
 
 
 const { Pages, Layout, mainPage } = pagesConfig;
@@ -159,6 +160,11 @@ const AuthenticatedApp = () => {
       <Route path="/TestGmailConnection" element={
         <LayoutWrapper currentPageName="TestGmailConnection">
           <TestGmailConnection />
+        </LayoutWrapper>
+      } />
+      <Route path="/AdminStorageSettings" element={
+        <LayoutWrapper currentPageName="AdminStorageSettings">
+          <AdminStorageSettings />
         </LayoutWrapper>
       } />
       <Route path="*" element={<PageNotFound />} />

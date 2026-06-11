@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { base44 } from "@/api/base44Client";
 
-const EMPTY = { name: "", description: "", image_url: "", weight_g: "", price_jpy: "", cost_jpy: "" };
+const EMPTY = { name: "", description: "", image_url: "", weight_g: "", price_jpy: "", cost_jpy: "", storage_fee_per_day: "" };
 
 export default function BoxTemplateManager({ initialData = [], onReload }) {
   const [items, setItems] = useState(initialData);
@@ -30,6 +30,7 @@ export default function BoxTemplateManager({ initialData = [], onReload }) {
       weight_g: parseFloat(form.weight_g) || 0,
       price_jpy: parseFloat(form.price_jpy) || 0,
       cost_jpy: parseFloat(form.cost_jpy) || null,
+      storage_fee_per_day: parseFloat(form.storage_fee_per_day) || 0,
       is_active: true,
     });
     setItems(prev => [...prev, created]);
@@ -85,6 +86,9 @@ export default function BoxTemplateManager({ initialData = [], onReload }) {
                 {item.cost_jpy > 0 && (
                   <span className="text-xs text-gray-400">成本 ¥{item.cost_jpy}</span>
                 )}
+                {item.storage_fee_per_day > 0 && (
+                  <span className="text-xs text-amber-600">仓储费 ¥{item.storage_fee_per_day}/天</span>
+                )}
                 {!item.is_active && (
                   <span className="text-xs bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded">已停用</span>
                 )}
@@ -133,6 +137,12 @@ export default function BoxTemplateManager({ initialData = [], onReload }) {
             <Label className="text-xs text-gray-400">实际成本 (JPY)</Label>
             <Input type="number" className="mt-0.5 h-8 text-sm" placeholder="0（选填）" value={form.cost_jpy}
               onChange={e => setForm(p => ({ ...p, cost_jpy: e.target.value }))} />
+          </div>
+          <div>
+            <Label className="text-xs text-gray-400">每日仓储管理费 (JPY)</Label>
+            <Input type="number" className="mt-0.5 h-8 text-sm" placeholder="0（选填）" value={form.storage_fee_per_day}
+              onChange={e => setForm(p => ({ ...p, storage_fee_per_day: e.target.value }))} />
+            <p className="text-xs text-gray-400 mt-0.5">设置此外箱的每日仓储费，优先级高于默认设置</p>
           </div>
           <div className="col-span-2">
             <Label className="text-xs text-gray-400">图片</Label>

@@ -4,7 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { tenantEntity } from "@/lib/tenantApi";
 import { setTenantConfigCache } from "@/lib/configCache";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { Settings, Save, Plus, Trash2, Star, Lock, Eye, EyeOff, Palette, TrendingUp, Zap, Users, ExternalLink, Bell, Mail, AlertCircle } from "lucide-react";
+import { Settings, Save, Plus, Trash2, Star, Lock, Eye, EyeOff, Palette, TrendingUp, Zap, Users, ExternalLink, Bell, Mail, AlertCircle, Package } from "lucide-react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import ThemeSelector from "@/components/common/ThemeSelector";
@@ -31,6 +31,7 @@ import CountrySettingsManager from "@/components/admin/CountrySettingsManager";
 import GmailSettingsManager from "@/components/admin/GmailSettingsManager";
 import SMTPSettingsManager from "@/components/admin/SMTPSettingsManager";
 import GoogleSheetsSettingsManager from "@/components/admin/GoogleSheetsSettingsManager";
+import StorageSettingsManager from "@/components/admin/StorageSettingsManager";
 
 // Standalone editor with its own local save button (textarea content is large, better kept isolated)
 function CustomsHazmatTextEditor({ settings, onReload }) {
@@ -575,6 +576,18 @@ export default function AdminSettings() {
           </Card>
 
           <GoogleSheetsSettingsManager onReload={load} />
+
+          <Card className="border-amber-200">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                <Package className="w-4 h-4 text-amber-500" />库存存放期限设置
+              </CardTitle>
+              <p className="text-xs text-gray-400 mt-1">设置订单库存存放期限、超期提醒和仓储管理费用</p>
+            </CardHeader>
+            <CardContent>
+              <StorageSettingsManager onReload={load} />
+            </CardContent>
+          </Card>
 
           <Card className="border-cyan-200">
             <CardHeader className="pb-3">
