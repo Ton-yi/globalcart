@@ -7,7 +7,7 @@ import MetricCard from "../MetricCard";
 import { TrendLineChart, TrendBarChart } from "../TrendChart";
 import PieDistribution from "../PieDistribution";
 import DimensionTable from "../DimensionTable";
-import { METRIC_FIELDS } from "./WidgetCatalog.js";
+import { METRIC_FIELDS } from "./WidgetCatalog";
 import { ShoppingBag } from "lucide-react";
 
 const STATUS_LABELS = {

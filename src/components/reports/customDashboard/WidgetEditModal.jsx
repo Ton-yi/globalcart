@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
     WIDGET_CATALOG, METRIC_FIELDS, TIME_SERIES_FIELDS, PIE_SOURCES, COLOR_OPTIONS
-} from "./WidgetCatalog.js";
+} from "./WidgetCatalog";
 
 const CHART_COLORS = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#f97316'];
 
