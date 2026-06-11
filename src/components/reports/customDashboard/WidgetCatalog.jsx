@@ -81,7 +81,7 @@ export const PIE_SOURCES = [
 ];
 
 export const COLOR_OPTIONS = [
-    { value: '',                   label: '默认'   },
+    { value: 'text-slate-900',     label: '默认'   },
     { value: 'text-green-600',     label: '绿色'   },
     { value: 'text-blue-600',      label: '蓝色'   },
     { value: 'text-red-600',       label: '红色'   },

@@ -2,7 +2,7 @@
  * WidgetEditModal — 新增/编辑单个 Widget 的配置弹窗
  */
 import React, { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -55,6 +55,7 @@ export default function WidgetEditModal({ open, widget, onSave, onClose }) {
             <DialogContent className="max-w-md">
                 <DialogHeader>
                     <DialogTitle>{widget ? '编辑组件' : '添加组件'}</DialogTitle>
+                    <DialogDescription className="sr-only">配置报表组件的标题、类型和数据字段</DialogDescription>
                 </DialogHeader>
 
                 <div className="space-y-4 py-2">
@@ -99,11 +100,11 @@ export default function WidgetEditModal({ open, widget, onSave, onClose }) {
                             </div>
                             <div className="space-y-1.5">
                                 <Label>数值颜色</Label>
-                                <Select value={config.colorClass || ''} onValueChange={v => setC('colorClass', v)}>
+                                <Select value={config.colorClass || 'text-slate-900'} onValueChange={v => setC('colorClass', v)}>
                                     <SelectTrigger><SelectValue placeholder="默认" /></SelectTrigger>
                                     <SelectContent>
                                         {COLOR_OPTIONS.map(c => (
-                                            <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                                            <SelectItem key={c.value} value={c.value || 'default'}>{c.label}</SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
