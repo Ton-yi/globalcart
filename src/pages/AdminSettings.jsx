@@ -571,6 +571,29 @@ export default function AdminSettings() {
               <GmailSettingsManager />
             </CardContent>
           </Card>
+
+          <Card className="border-emerald-200">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                <ExternalLink className="w-4 h-4 text-emerald-500" />Google Sheets 订单归档
+              </CardTitle>
+              <p className="text-xs text-gray-400 mt-1">自动化同步已发货订单到 Google Sheets 表格进行归档管理</p>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="bg-emerald-50 border border-emerald-200 rounded p-3">
+                <p className="text-xs text-emerald-800">
+                  <strong>✅ 自动化已启用</strong><br/>
+                  每当订单状态变更为「已发货」时，系统会自动将订单信息同步到 Google Sheets 归档表。<br/>
+                  同步字段包括：订单编号、用户信息、商品详情、费用明细、运输信息、发货日期等。
+                </p>
+              </div>
+              <p className="text-xs text-gray-500">
+                📊 表格名称：<code className="bg-gray-100 px-1 rounded">订单归档表</code><br/>
+                🔄 同步时机：订单状态从其他状态变更为 <code className="bg-gray-100 px-1 rounded">shipped</code> 时<br/>
+                📧 数据位置：Google Drive → 我的云端硬盘 → 订单归档表
+              </p>
+            </CardContent>
+          </Card>
         </div>
       )}
 
