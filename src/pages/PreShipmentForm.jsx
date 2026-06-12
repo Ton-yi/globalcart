@@ -79,6 +79,10 @@ export default function PreShipmentForm() {
   // Official pools for selection
   const [officialPools, setOfficialPools] = useState([]);
 
+  // Pre-shipment feature settings
+  const [preShipmentEnabled, setPreShipmentEnabled] = useState(true);
+  const [allowedMethodCodes, setAllowedMethodCodes] = useState([]);
+
   // Payment after submit (direct to payment page if needed)
   const [paymentMethod, setPaymentMethod] = useState("");
 
@@ -98,10 +102,16 @@ export default function PreShipmentForm() {
         Promise.all([
           tenantEntity.list('SiteSettings', { key: 'default_estimate_rates' }).catch(() => []),
           tenantEntity.list('SiteSettings', { key: 'default_estimate_rate_per_100g' }).catch(() => []),
-          tenantEntity.list('SiteSettings', { key: 'default_estimate_unit_g' }).catch(() => [])
+          tenantEntity.list('SiteSettings', { key: 'default_estimate_unit_g' }).catch(() => []),
+          tenantEntity.list('SiteSettings', { key: 'pre_shipment_enabled' }).catch(() => []),
+          tenantEntity.list('SiteSettings', { key: 'pre_shipment_allowed_methods' }).catch(() => [])
         ])]
         );
-        const [newRatesList, rateList, unitList] = rateSettings || [[], [], []];
+        const [newRatesList, rateList, unitList, enabledList, allowedList] = rateSettings || [[], [], [], [], []];
+        // Feature gate + allowed shipping methods whitelist
+        if (enabledList?.[0]?.value === 'false') setPreShipmentEnabled(false);
+        const allowedRaw = allowedList?.[0]?.value || '';
+        setAllowedMethodCodes(allowedRaw.split(',').map(x => x.trim()).filter(Boolean));
         // New array-style global rates
         if (newRatesList?.[0]?.value) {
           try {
@@ -213,22 +223,6 @@ export default function PreShipmentForm() {
 
         // Set all available pools for user to join
         const allPools = poolsRes.data?.pools || [];
-        console.log('[PreShipmentForm] ALL pools loaded:', allPools.length);
-        console.log('[PreShipmentForm] Sample pool data:', allPools.slice(0, 3).map(p => ({ 
-          id: p.id, 
-          pool_code: p.pool_code, 
-          title: p.title, 
-          status: p.status,
-          is_admin_created: p.is_admin_created,
-          creator_email: p.creator_email,
-          creator_name: p.creator_name
-        })));
-        console.log('[PreShipmentForm] Admin-created pools:', allPools.filter(p => p.is_admin_created).map(p => ({ 
-          id: p.id, 
-          pool_code: p.pool_code, 
-          title: p.title, 
-          status: p.status 
-        })));
         
         // Filter pools that user can join:
         // - All admin-created official pools (any status)
@@ -239,7 +233,6 @@ export default function PreShipmentForm() {
           (p.status === "pending" || p.status === "processing") && (p.creator_email === user.email || p.consolidation_type === 'transit')
         )
         );
-        console.log('[PreShipmentForm] Available pools after filter:', availablePools.length);
         setOfficialPools(availablePools);
 
         const pref = prefs[0];
@@ -254,10 +247,7 @@ export default function PreShipmentForm() {
           setSelectedAddressId("");
         } else {
           const defaultId = pref?.default_address_id || "";
-          console.log('[PreShipmentForm] Default address ID:', defaultId);
-          console.log('[PreShipmentForm] Available addresses:', addrs.map(a => ({ id: a.id, label: a.label })));
           const defaultAddr = addrs.find((a) => a.id === defaultId);
-          console.log('[PreShipmentForm] Found default address:', defaultAddr);
           if (defaultAddr) {
             setSelectedAddressId(defaultAddr.id);
             setAddress({ label: defaultAddr.label || "", ...defaultAddr });
@@ -384,7 +374,13 @@ export default function PreShipmentForm() {
     }
     // Otherwise, shipping method is required unless specific pool selected
     if (!specificPoolSelected && !shippingMethod) return false;
-    if (consType === "transit") return !!transitLocationId;
+    if (consType === "transit") {
+      // Transit location AND transit shipping method are both required
+      if (!transitLocationId || !transitShippingMethodId) return false;
+      // Final address required unless storage/pickup mode
+      const isStorageOrPickup = transitShippingMethodId === '__storage__' || transitShippingMethodId === '__pickup__';
+      return isStorageOrPickup || isAddressFormValid(address);
+    }
     // If one-time payment is enabled, weight is required
     if (fullPayOnceEnabled && (!userEstimatedWeight || parseFloat(userEstimatedWeight) <= 0)) return false;
     if (consType === "official_pool") return true;
@@ -403,6 +399,12 @@ export default function PreShipmentForm() {
 
     if (hasFeeErrors) {
       alert('请确保所有自定义增值服务的金额都在指定区间内');
+      return;
+    }
+
+    // One-time payment enabled but shipping fee couldn't be estimated → block instead of silently dropping
+    if (fullPayOnceEnabled && parseFloat(userEstimatedWeight) > 0 && !(estimatedShippingFee > 0)) {
+      alert('一次付款已开启，但运费估算为 0（该运输方式可能未配置估算费率）。请关闭一次付款或更换运输方式后再提交。');
       return;
     }
 
@@ -533,9 +535,8 @@ export default function PreShipmentForm() {
     // Use updated order state for payment redirect decision
     const latestOrder = res?.data?.order || order;
     // Needs payment if: awaiting payment OR fullpay_once just enabled (need to pay product+shipping together)
-    const needsPayment = latestOrder.payment_status === "awaiting_payment" || 
-                         latestOrder.order_status === "payment_pending" ||
-                         (fullPayOnceConfig && (latestOrder.payment_status === "awaiting_payment" || latestOrder.order_status === "payment_pending"));
+    const needsPayment = latestOrder.payment_status === "awaiting_payment" ||
+                         latestOrder.order_status === "payment_pending";
     if (needsPayment) {
       const m = paymentMethods.find((pm) => (pm.provider_key || pm.name) === paymentMethod || pm.value === paymentMethod);
       const cur = m?.payment_currency || "JPY";
@@ -549,6 +550,14 @@ export default function PreShipmentForm() {
 
   if (loading) {
     return <div className="max-w-2xl mx-auto py-12 text-center text-gray-400 text-sm">加载中...</div>;
+  }
+
+  if (!preShipmentEnabled) {
+    return (
+      <div className="max-w-2xl mx-auto py-12 text-center text-gray-400">
+        <p className="text-sm">预出货功能当前未开启</p>
+        <Button variant="outline" size="sm" className="mt-4" onClick={() => navigate(createPageUrl("MyOrders"))}>返回我的订单</Button>
+      </div>);
   }
 
   if (!order) {
@@ -1297,6 +1306,10 @@ export default function PreShipmentForm() {
                 // Official pool - only show methods with enabled_for_official_pool !== false
                 filteredMethods = shippingMethods.filter(m => m.enabled_for_official_pool !== false);
               }
+              // Admin whitelist: pre_shipment_allowed_methods (empty = all allowed)
+              if (allowedMethodCodes.length > 0) {
+                filteredMethods = filteredMethods.filter(m => allowedMethodCodes.includes(m.code) || allowedMethodCodes.includes(m.name));
+              }
               
               return (
                 <div>
@@ -1456,7 +1469,6 @@ export default function PreShipmentForm() {
       }
 
       {/* One-time payment configuration */}
-      {console.log('[PreShipmentForm] Passing destinationCountry:', address?.country, 'full address:', address)}
       <PreShipmentFormFullPayOnce
         shippingMethods={shippingMethods}
         consType={consType}

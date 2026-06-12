@@ -235,6 +235,16 @@ export default function AdminSettings() {
   // Metadata lookup for creating missing settings when toggled
   const settingMeta = (key) => DEFAULT_SETTINGS.find(d => d.key === key);
 
+  // Update (or locally create) a setting by key — for text settings that may not exist yet
+  const updateSettingByKey = (key, value, description = '', category = 'general') => {
+    setSettings(prev => {
+      if (!prev.some(s => s.key === key)) {
+        return [...prev, { key, value, description, category }];
+      }
+      return prev.map(s => s.key === key ? { ...s, value } : s);
+    });
+  };
+
   // Toggle a boolean setting in local state; if the record doesn't exist yet,
   // add it locally so it gets created on save (fixes silent no-op for missing keys)
   const toggleSetting = (key) => {
@@ -830,10 +840,7 @@ export default function AdminSettings() {
                     className="h-8 text-sm"
                     placeholder="EMS,SAL,DHL,FedEx"
                     value={getVal('pre_shipment_allowed_methods') || ''}
-                    onChange={e => {
-                      const s = getSetting('pre_shipment_allowed_methods');
-                      if (s) updateSetting(s.id, e.target.value);
-                    }}
+                    onChange={e => updateSettingByKey('pre_shipment_allowed_methods', e.target.value, '允许的预出货运输方式（逗号分隔，留空=全部）', 'shipping')}
                   />
                   {(getVal('pre_shipment_allowed_methods') || '') && (
                     <div className="mt-2 flex flex-wrap gap-1">
@@ -884,10 +891,7 @@ export default function AdminSettings() {
                                 className="h-8 text-sm mt-1"
                                 placeholder="EMS,SAL,DHL"
                                 value={separateMethods}
-                                onChange={e => {
-                                  const s = getSetting('official_pool_separate_methods');
-                                  if (s) updateSetting(s.id, e.target.value);
-                                }}
+                                onChange={e => updateSettingByKey('official_pool_separate_methods', e.target.value, '单独成列的运输方式（逗号分隔）', 'shipping')}
                               />
                               {separateMethods && (
                                 <div className="mt-2 flex flex-wrap gap-1">

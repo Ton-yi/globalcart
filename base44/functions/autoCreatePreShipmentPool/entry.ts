@@ -35,6 +35,23 @@ Deno.serve(async (req) => {
       return Response.json({ skipped: true, reason: 'no_order_or_no_pre_shipment' });
     }
 
+    // Authorization: direct (user-token) calls must come from the order owner
+    // or staff/admin of the same tenant. Automation/service-role calls carry
+    // no user token and are allowed through.
+    const caller = await base44.auth.me().catch(() => null);
+    if (caller) {
+      const isStaffRole = ['admin', 'tenant_admin', 'staff', 'platform_admin'].includes(caller.role);
+      const isOwner = order.user_email === caller.email;
+      let sameTenant = caller.role === 'platform_admin';
+      if (!sameTenant) {
+        const callerRecords = await base44.asServiceRole.entities.User.filter({ email: caller.email }).catch(() => []);
+        sameTenant = !!callerRecords?.[0]?.tenant_id && callerRecords[0].tenant_id === order.tenant_id;
+      }
+      if (!sameTenant || (!isOwner && !isStaffRole)) {
+        return Response.json({ error: 'Forbidden' }, { status: 403 });
+      }
+    }
+
     // Prevent duplicate processing
     if (order.pre_shipment.pool_created) {
       console.log('[autoCreatePreShipmentPool] Pool already created for order:', order.id);

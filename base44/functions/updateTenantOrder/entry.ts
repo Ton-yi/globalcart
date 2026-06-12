@@ -118,6 +118,28 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Server-side sanitization of fullpay-once config — never trust client-computed totals
+    const sanitizeFullpayConfig = (cfg) => {
+      if (!cfg || typeof cfg !== 'object') return cfg;
+      const weight = Math.max(0, parseFloat(cfg.user_estimated_weight_g) || 0);
+      const shipFee = Math.max(0, Math.round(parseFloat(cfg.estimated_shipping_fee_jpy) || 0));
+      const productFee = parseFloat(order.estimated_jpy) || 0;
+      const serviceFee = parseFloat(order.service_fee_amount) || 0;
+      return {
+        ...cfg,
+        user_estimated_weight_g: weight,
+        estimated_shipping_fee_jpy: shipFee,
+        // Recompute total from server-known order amounts (JPY)
+        total_paid_jpy: Math.round(productFee + serviceFee + shipFee),
+      };
+    };
+    if (updateData.fullpay_once_config) {
+      updateData.fullpay_once_config = sanitizeFullpayConfig(updateData.fullpay_once_config);
+    }
+    if (updateData.pre_shipment && updateData.pre_shipment.fullpay_once_config) {
+      updateData.pre_shipment.fullpay_once_config = sanitizeFullpayConfig(updateData.pre_shipment.fullpay_once_config);
+    }
+
     // Update order
     const updatedOrder = await base44.asServiceRole.entities.Order.update(order_id, updateData);
 

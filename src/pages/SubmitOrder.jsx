@@ -538,6 +538,7 @@ export default function SubmitOrder() {
         {/* 提交按钮 */}
         {canSubmitOrder && (
           <div className="space-y-2">
+            {settings.pre_shipment_enabled !== 'false' && (
             <Button
               type="button"
               variant="outline"
@@ -584,6 +585,7 @@ export default function SubmitOrder() {
               <Truck className="w-4 h-4 mr-2" />
               填写预出货信息
             </Button>
+            )}
             <Button
               type="submit"
               disabled={submitting || !form.product_name || !form.estimated_jpy}
