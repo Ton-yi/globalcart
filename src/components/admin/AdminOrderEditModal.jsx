@@ -99,6 +99,10 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
   // Post-warehouse split request approval state
   const [approvingSplit, setApprovingSplit] = useState(false);
 
+  // Balance (尾款) recalculation state
+  const [recalcingBalance, setRecalcingBalance] = useState(false);
+  const [balanceRecalcResult, setBalanceRecalcResult] = useState(null); // { success } or { error }
+
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
   const status = order.order_status;
@@ -1280,6 +1284,58 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
                   </div>
                 )}
               </div>
+              {/* Balance (尾款) recalculation */}
+              {order.payment_mode === "prepay" && (
+                <div className="border border-orange-100 rounded-lg p-3 bg-orange-50 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm text-orange-800">货款尾款</Label>
+                    {order.order_balance_settled && (
+                      <Badge className="bg-green-100 text-green-700 text-xs">已结算</Badge>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-2 text-xs text-gray-600">
+                    <span className="bg-white border border-orange-100 rounded px-2 py-0.5">
+                      尾款：<strong>¥{Math.round(order.order_balance_due_jpy || 0).toLocaleString()}</strong>
+                    </span>
+                    {(order.order_balance_surcharge_jpy || 0) > 0 && (
+                      <span className="bg-white border border-orange-100 rounded px-2 py-0.5">
+                        加值（{order.order_balance_surcharge_rate || 0}%）：<strong>¥{Math.round(order.order_balance_surcharge_jpy).toLocaleString()}</strong>
+                      </span>
+                    )}
+                  </div>
+                  {!order.order_balance_settled && canEditAmount && (
+                    <>
+                      <p className="text-xs text-gray-400">修改报价/服务费/预付款后，可按当前金额与租户尾款加值比例重新计算尾款</p>
+                      <Button size="sm" variant="outline" className="w-full text-xs border-orange-300 text-orange-700"
+                        disabled={recalcingBalance}
+                        onClick={async () => {
+                          setRecalcingBalance(true);
+                          setBalanceRecalcResult(null);
+                          const res = await base44.functions.invoke("recalculateOrderBalance", { order_id: order.id });
+                          setRecalcingBalance(false);
+                          if (res.data?.success) {
+                            setBalanceRecalcResult(res.data);
+                            onSaved();
+                          } else {
+                            setBalanceRecalcResult({ error: res.data?.error || "重算失败" });
+                          }
+                        }}>
+                        {recalcingBalance ? <><Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />重算中...</> : "重算尾款"}
+                      </Button>
+                      {balanceRecalcResult?.success && (
+                        <div className="text-xs text-green-700 bg-green-50 border border-green-100 rounded px-2 py-1.5">
+                          ✓ 已重算：尾款 ¥{balanceRecalcResult.order_balance_due_jpy.toLocaleString()}
+                          {balanceRecalcResult.order_balance_surcharge_jpy > 0 && `，加值 ¥${balanceRecalcResult.order_balance_surcharge_jpy.toLocaleString()}（${balanceRecalcResult.order_balance_surcharge_rate}%）`}
+                          （订单总额 ¥{balanceRecalcResult.order_total_jpy.toLocaleString()} − 预付款 ¥{balanceRecalcResult.prepayment_jpy.toLocaleString()}）
+                        </div>
+                      )}
+                      {balanceRecalcResult?.error && (
+                        <div className="text-xs text-red-600 bg-red-50 border border-red-100 rounded px-2 py-1.5">{balanceRecalcResult.error}</div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
               <div>
                 <Label className="text-sm">付款截止日期</Label>
                 <Input type="date" className="mt-1" value={form.payment_due_date}
