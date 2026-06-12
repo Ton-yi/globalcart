@@ -49,14 +49,6 @@
       "default": false,
       "description": "\u4e0d\u518d\u964d\u7ea7\uff1a\u8fbe\u5230\u6b64\u9636\u7ea7\u540e\u5c06\u6c38\u4e45\u4fdd\u7559\uff0c\u4e0d\u4f1a\u88ab\u81ea\u52a8\u964d\u7ea7"
     },
-    "allow_list": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      },
-      "default": [],
-      "description": "\u9636\u7ea7\u57fa\u7840\u529f\u80fd\u6743\u9650 allow-list\uff08\u6743\u9650 key \u5217\u8868\uff0c\u4e0e\u89d2\u8272\u6807\u7b7e\u6743\u9650\u53d6\u5e76\u96c6\uff09"
-    },
     "associated_role_ids": {
       "type": "array",
       "items": {
@@ -64,28 +56,6 @@
       },
       "default": [],
       "description": "\u5173\u8054\u89d2\u8272\u6807\u7b7e ID \u5217\u8868\uff08\u7528\u6237\u8fdb\u5165\u6b64\u9636\u7ea7\u65f6\u81ea\u52a8\u540c\u6b65\uff09"
-    },
-    "fee_config": {
-      "type": "object",
-      "description": "\u9636\u7ea7\u57fa\u7840\u670d\u52a1\u8d39\u89c4\u5219\uff08\u88ab\u670d\u52a1\u8d39\u89c4\u5219\u5f15\u64ce\u7684 customer_level_filter \u5f15\u7528\uff09",
-      "properties": {
-        "rate": {
-          "type": "number",
-          "description": "\u670d\u52a1\u8d39\u7387 (%)"
-        },
-        "fixed_fee_jpy": {
-          "type": "number",
-          "description": "\u56fa\u5b9a\u8d39 (JPY)"
-        },
-        "min_fee_jpy": {
-          "type": "number",
-          "description": "\u6700\u4f4e\u670d\u52a1\u8d39 (JPY\uff0c0=\u4e0d\u9650)"
-        },
-        "max_fee_jpy": {
-          "type": "number",
-          "description": "\u5c01\u9876\u670d\u52a1\u8d39 (JPY\uff0c0=\u4e0d\u9650)"
-        }
-      }
     },
     "trigger_enabled": {
       "type": "boolean",

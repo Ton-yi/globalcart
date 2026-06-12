@@ -135,13 +135,7 @@ Deno.serve(async (req) => {
     if (!valid) {
       console.error('[DIAG][handleAlipayPaymentCallback] SIGNATURE VERIFICATION FAILED — returning fail');
       console.error('[DIAG][handleAlipayPaymentCallback] verifyError:', verifyError);
-      // DIAG: temporarily skip sig verification to test order lookup and update
-      const skipSigForDiag = Deno.env.get('ALIPAY_SKIP_SIG_VERIFY') === 'true';
-      console.log('[DIAG][handleAlipayPaymentCallback] ALIPAY_SKIP_SIG_VERIFY:', skipSigForDiag);
-      if (!skipSigForDiag) {
-        return new Response('fail', { status: 200 });
-      }
-      console.warn('[DIAG][handleAlipayPaymentCallback] SKIPPING SIG VERIFY FOR DIAGNOSIS — proceeding');
+      return new Response('fail', { status: 200 });
     }
 
     // 2. Only process successful trades
