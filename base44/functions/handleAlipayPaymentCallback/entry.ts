@@ -93,7 +93,11 @@ Deno.serve(async (req) => {
     // Resolve tenant from out_trade_no via matching order, then use tenant-specific public key
     // We do a pre-fetch to find tenant_id for the right public key
     let tenantIdForKey = null;
-    {
+    if (out_trade_no && out_trade_no.startsWith('MT')) {
+      // 会员阶级购买单：从 TierPurchase 解析租户
+      const tp = await base44.asServiceRole.entities.TierPurchase.filter({ out_trade_no });
+      if (tp?.[0]) tenantIdForKey = tp[0].tenant_id;
+    } else {
       const preOrders = await base44.asServiceRole.entities.Order.list('-created_date', 500);
       const preMatch = (preOrders || []).find(o =>
         o.alipay_trade_no === out_trade_no || o.shipping_alipay_trade_no === out_trade_no
@@ -143,6 +147,63 @@ Deno.serve(async (req) => {
     // 2. Only process successful trades
     if (trade_status !== 'TRADE_SUCCESS' && trade_status !== 'TRADE_FINISHED') {
       console.log('[DIAG][handleAlipayPaymentCallback] trade_status not success/finished, skipping');
+      return new Response('success', { status: 200 });
+    }
+
+    // 3-pre. Member tier purchase (out_trade_no starts with 'MT')
+    if (out_trade_no && out_trade_no.startsWith('MT')) {
+      console.log('[DIAG][handleAlipayPaymentCallback] detected tier purchase trade_no:', out_trade_no);
+      const tpList = await base44.asServiceRole.entities.TierPurchase.filter({ out_trade_no });
+      const purchase = tpList?.[0];
+      if (!purchase) {
+        console.error('[DIAG][handleAlipayPaymentCallback] no TierPurchase matched:', out_trade_no);
+        return new Response('success', { status: 200 });
+      }
+      if (purchase.status === 'paid') {
+        console.log('[DIAG][handleAlipayPaymentCallback] tier purchase already paid, idempotent skip');
+        return new Response('success', { status: 200 });
+      }
+      const [users, tiers] = await Promise.all([
+        base44.asServiceRole.entities.User.filter({ email: purchase.user_email, tenant_id: purchase.tenant_id }),
+        base44.asServiceRole.entities.MemberTier.filter({ tenant_id: purchase.tenant_id }),
+      ]);
+      const userRec = users?.[0];
+      const toTier = (tiers || []).find(t => t.id === purchase.to_tier_id);
+      if (!userRec || !toTier) {
+        console.error('[DIAG][handleAlipayPaymentCallback] tier purchase user/tier not found:', purchase.user_email, purchase.to_tier_id);
+        return new Response('success', { status: 200 });
+      }
+      const fromTier = (tiers || []).find(t => t.id === userRec.member_tier_id) || null;
+      // 升级用户阶级 + 同步角色标签
+      const oldRoleIds = fromTier?.associated_role_ids || [];
+      const newRoleIds = toTier.associated_role_ids || [];
+      const assigned = new Set(userRec.assigned_role_ids || []);
+      oldRoleIds.forEach(r => { if (!newRoleIds.includes(r)) assigned.delete(r); });
+      newRoleIds.forEach(r => assigned.add(r));
+      await Promise.all([
+        base44.asServiceRole.entities.User.update(userRec.id, {
+          member_tier_id: toTier.id,
+          member_tier_name: toTier.name,
+          assigned_role_ids: [...assigned],
+        }),
+        base44.asServiceRole.entities.TierPurchase.update(purchase.id, {
+          status: 'paid',
+          alipay_transaction_id: trade_no,
+          paid_at: new Date().toISOString(),
+        }),
+      ]);
+      await base44.asServiceRole.entities.Notification.create({
+        tenant_id: purchase.tenant_id,
+        user_email: purchase.user_email,
+        notification_type: 'other',
+        notification_subtype: 'member_tier_purchased',
+        icon: 'Crown',
+        title: `🎉 会员升级成功：${toTier.name}`,
+        content: `感谢您的购买！您已升级为「${toTier.name}」会员。${toTier.description || ''}`,
+        is_system: true,
+        priority: 'normal',
+      });
+      console.log(`[DIAG][handleAlipayPaymentCallback] tier purchase SUCCESS: ${purchase.user_email} -> ${toTier.name}`);
       return new Response('success', { status: 200 });
     }
 

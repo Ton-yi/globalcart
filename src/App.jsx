@@ -28,6 +28,7 @@ import AdminUserDetail from '@/pages/AdminUserDetail';
 import PublicProfile from '@/pages/PublicProfile';
 import UserPrivacySettings from '@/pages/UserPrivacySettings';
 import AdminNavbarSettings from '@/pages/AdminNavbarSettings';
+import MemberTiers from '@/pages/MemberTiers';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -186,6 +187,11 @@ const AuthenticatedApp = () => {
       <Route path="/:locale/AdminNavbarSettings" element={
         <LayoutWrapper currentPageName="AdminNavbarSettings">
           <AdminNavbarSettings />
+        </LayoutWrapper>
+      } />
+      <Route path="/:locale/MemberTiers" element={
+        <LayoutWrapper currentPageName="MemberTiers">
+          <MemberTiers />
         </LayoutWrapper>
       } />
       <Route path="/:locale/UserPrivacySettings" element={
