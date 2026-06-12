@@ -230,7 +230,13 @@ Deno.serve(async (req) => {
       biz_content: bizContent,
     };
 
-    const privateKey = await importPrivateKey(privateKeyPem);
+    let privateKey;
+    try {
+      privateKey = await importPrivateKey(privateKeyPem);
+    } catch (e) {
+      console.error('[DIAG][generateAlipayPaymentLink] private key import failed:', e.message);
+      return Response.json({ error: '支付宝应用私钥格式无效，请管理员在「网站设置 → 支付宝密钥」中重新粘贴正确的 PKCS8 私钥。' }, { status: 500 });
+    }
     const sign = await signParams(params, privateKey);
     params.sign = sign;
 

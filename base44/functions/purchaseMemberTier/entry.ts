@@ -261,7 +261,13 @@ Deno.serve(async (req) => {
         return_url,
         biz_content: bizContent,
       };
-      const privateKey = await importPrivateKey(privateKeyPem);
+      let privateKey;
+      try {
+        privateKey = await importPrivateKey(privateKeyPem);
+      } catch (e) {
+        console.error('[purchaseMemberTier] private key import failed:', e.message);
+        return Response.json({ error: '支付宝应用私钥格式无效，请管理员在「网站设置 → 支付宝密钥」中重新粘贴正确的 PKCS8 私钥。' }, { status: 500 });
+      }
       params.sign = await signParams(params, privateKey);
       const paymentUrl = `${gatewayUrl}?${Object.entries(params)
         .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&')}`;
