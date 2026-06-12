@@ -60,7 +60,9 @@ export const DEFAULT_NAV_TREES = {
 };
 
 function collectKeys(nodes, set = new Set()) {
+  if (!Array.isArray(nodes)) return set;
   for (const n of nodes || []) {
+    if (!n || typeof n.key !== 'string') continue;
     set.add(n.key);
     collectKeys(n.children, set);
   }
@@ -71,7 +73,7 @@ function collectKeys(nodes, set = new Set()) {
  * 合并已保存的配置树与默认树：配置中缺少的注册项（如后续新增的功能入口）追加到根级末尾。
  */
 export function mergeNavTree(configTree, group) {
-  if (!configTree || !configTree.length) {
+  if (!Array.isArray(configTree) || !configTree.length) {
     return JSON.parse(JSON.stringify(DEFAULT_NAV_TREES[group]));
   }
   const present = collectKeys(configTree);
@@ -97,8 +99,8 @@ export function mergeNavTree(configTree, group) {
  */
 export function buildNav(tree, group, { access = {}, labelOverrides = {} } = {}) {
   const registry = NAV_REGISTRY[group];
-  const walk = (nodes) => (nodes || [])
-    .filter(n => registry[n.key] && !n.hidden && access[n.key] !== false)
+  const walk = (nodes, depth = 1) => (Array.isArray(nodes) && depth <= 3 ? nodes : [])
+    .filter(n => n && registry[n.key] && !n.hidden && access[n.key] !== false)
     .map(n => {
       const reg = registry[n.key];
       return {
@@ -106,7 +108,7 @@ export function buildNav(tree, group, { access = {}, labelOverrides = {} } = {})
         label: n.label || labelOverrides[n.key] || reg.label,
         icon: reg.icon,
         page: reg.page,
-        children: walk(n.children),
+        children: walk(n.children, depth + 1),
       };
     });
   return walk(tree);

@@ -1,19 +1,40 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
-function validateTree(tree, depth = 1) {
+function validateTree(tree, depth = 1, seenKeys = new Set()) {
   if (!Array.isArray(tree)) return '导航配置必须是数组';
+  if (tree.length > 50) return '导航节点过多';
   if (depth > 3) return '导航层级最多 3 层';
   for (const node of tree) {
-    if (!node || typeof node.key !== 'string' || !node.key) return '节点缺少 key';
+    if (!node || typeof node !== 'object' || Array.isArray(node)) return '节点格式错误';
+    if (typeof node.key !== 'string' || !node.key || node.key.length > 60) return '节点缺少有效 key';
+    if (seenKeys.has(node.key)) return `入口 "${node.key}" 重复出现`;
+    seenKeys.add(node.key);
     if (node.label != null && (typeof node.label !== 'string' || node.label.length > 30)) return '显示文字最长 30 字';
     if (node.hidden != null && typeof node.hidden !== 'boolean') return 'hidden 必须是布尔值';
-    if (node.children && node.children.length > 0) {
-      if (depth >= 3) return '导航层级最多 3 层';
-      const err = validateTree(node.children, depth + 1);
-      if (err) return err;
+    if (node.children != null) {
+      if (!Array.isArray(node.children)) return 'children 必须是数组';
+      if (node.children.length > 0) {
+        if (depth >= 3) return '导航层级最多 3 层';
+        const err = validateTree(node.children, depth + 1, seenKeys);
+        if (err) return err;
+      }
     }
   }
   return null;
+}
+
+// 只保留允许的字段，丢弃任意附加属性；标签去除首尾空白，空白则不存
+function sanitizeTree(tree) {
+  return tree.map(node => {
+    const clean = { key: node.key };
+    const label = (node.label || '').trim();
+    if (label) clean.label = label;
+    if (node.hidden === true) clean.hidden = true;
+    if (Array.isArray(node.children) && node.children.length > 0) {
+      clean.children = sanitizeTree(node.children);
+    }
+    return clean;
+  });
 }
 
 Deno.serve(async (req) => {
@@ -46,8 +67,8 @@ Deno.serve(async (req) => {
       }
       const data = {
         tenant_id: tenantId,
-        ...(admin_nav != null && { admin_nav }),
-        ...(user_nav != null && { user_nav }),
+        ...(admin_nav != null && { admin_nav: sanitizeTree(admin_nav) }),
+        ...(user_nav != null && { user_nav: sanitizeTree(user_nav) }),
         updated_by: user.email,
       };
       let saved;
