@@ -57,16 +57,22 @@ Deno.serve(async (req) => {
     // ===== 留言权限检查（settings-driven：租户配置了该权限才强制） =====
     const checkCanComment = async () => {
       if (isAdminUser) return true;
-      const perms = await base44.asServiceRole.entities.Permission.filter({
-        tenant_id: me.tenant_id,
-        name: 'message:send_profile_comment'
-      });
-      if (!perms || perms.length === 0) return true; // 租户未配置该权限 → 默认允许
       const roles = await base44.asServiceRole.entities.Role.filter({
         tenant_id: me.tenant_id,
         is_archived: false
       });
       const effective = computeEffectivePermissions(me, roles);
+      // 阻断标签优先级最高：精确或整类通配，强制禁止留言
+      if (effective.includes('block_message:send_profile_comment') ||
+          effective.includes('block_message:send_message') ||
+          effective.includes('block_message:*')) {
+        return false;
+      }
+      const perms = await base44.asServiceRole.entities.Permission.filter({
+        tenant_id: me.tenant_id,
+        name: 'message:send_profile_comment'
+      });
+      if (!perms || perms.length === 0) return true; // 租户未配置该权限 → 默认允许
       return effective.includes('message:send_profile_comment') || effective.includes(perms[0].id);
     };
 

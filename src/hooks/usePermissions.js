@@ -22,10 +22,17 @@ export function usePermissions() {
    * Check if the user has a specific permission.
    * @param {string} permissionId  e.g. "order:update"
    */
+  // 阻断标签匹配：精确（block_<permission>）或整类通配（block_<前缀>:*）
+  const hasBlockTag = (permissionId) => {
+    if (permissions.includes(`block_${permissionId}`)) return true;
+    const prefix = permissionId.split(':')[0];
+    return permissions.includes(`block_${prefix}:*`);
+  };
+
   const can = (permissionId) => {
     if (isAdmin) return true;
     // 阻断标签优先级最高：拥有 block_<permission> 则强制禁止，覆盖任何允许项
-    if (permissions.includes(`block_${permissionId}`)) return false;
+    if (hasBlockTag(permissionId)) return false;
     return permissions.includes(permissionId);
   };
 
@@ -35,7 +42,7 @@ export function usePermissions() {
    */
   const blocked = (permissionId) => {
     if (isAdmin) return false;
-    return permissions.includes(`block_${permissionId}`);
+    return hasBlockTag(permissionId);
   };
 
   /**

@@ -415,6 +415,16 @@ export const PERMISSIONS_PRESET = [
         name: "block_payment:self_pay",
         display_name: "禁止自助付款",
         description: "阻断标签：勾选后将被强制禁止使用支付宝等自动回调付款方式，优先级高于任何允许项"
+      },
+      {
+        name: "block_message:*",
+        display_name: "禁止留言",
+        description: "阻断标签：勾选后将被强制禁止全部留言功能（订单留言、发货申请留言、资料页留言、传图），优先级高于任何允许项"
+      },
+      {
+        name: "block_profile:*",
+        display_name: "禁止个人档案页操作",
+        description: "阻断标签：勾选后将被强制禁止个人档案页全部操作（改名、改头像、改自动存档设置），优先级高于任何允许项"
       }
     ]
   },
