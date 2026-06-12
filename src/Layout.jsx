@@ -82,7 +82,7 @@ export default function Layout({ children, currentPageName }) {
   const canAccessTransitWork = isAdmin || can("shipping:view_transit_panel");
 
   const userNavBuilt = buildNav(mergeNavTree(navbarSettings?.user_nav, "user"), "user", {
-    access: { MyOrders: canViewMyOrders },
+    access: { MyOrders: canViewMyOrders, ShippingPool: !canAccessAdminShippingPool },
     labelOverrides: { ShippingPool: isTransitManager ? "发货池" : "发货 & 拼邮" },
   });
 
