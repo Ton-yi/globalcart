@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import MemberStatsScanCard from "@/components/admin/MemberStatsScanCard";
 
 const CYCLE_LABELS = { weekly: "周结", monthly: "月结" };
 
@@ -101,6 +102,7 @@ export default function MemberTierManager({ initialData = [], onReload }) {
 
   return (
     <div className="space-y-4">
+      <MemberStatsScanCard />
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm text-gray-600">定义会员阶级，可为每个阶级配置记账功能和结帐规则。</p>
