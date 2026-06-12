@@ -58,6 +58,30 @@ async function signParams(params, privateKey) {
   return btoa(String.fromCharCode(...new Uint8Array(sig)));
 }
 
+// ── 阻断标签检查：拥有 block_<permission> 即被强制禁止（优先级最高，覆盖任何允许项） ──
+async function hasBlockTag(base44, userRecord, permissionId) {
+  const blockKey = `block_${permissionId}`;
+  const overrides = userRecord.permission_overrides || {};
+  if (overrides[blockKey] === 'add') return true;
+  if (overrides[blockKey] === 'remove') return false;
+  const roleIds = userRecord.assigned_role_ids || [];
+  if (roleIds.length === 0) return false;
+  const [tenantRoles, globalRoles] = await Promise.all([
+    userRecord.tenant_id
+      ? base44.asServiceRole.entities.Role.filter({ tenant_id: userRecord.tenant_id, is_archived: false })
+      : Promise.resolve([]),
+    base44.asServiceRole.entities.Role.filter({ is_global: true, is_archived: false }),
+  ]);
+  const allRoles = [...(tenantRoles || []), ...(globalRoles || [])];
+  return roleIds.some(roleId => {
+    let role = allRoles.find(r => r.id === roleId);
+    if (!role && typeof roleId === 'string') {
+      role = allRoles.find(r => r.predefined_key === `builtin_${roleId}` || r.name === roleId);
+    }
+    return (role?.direct_permissions || []).includes(blockKey);
+  });
+}
+
 // ── Main handler ───────────────────────────────────────────────────────────
 
 Deno.serve(async (req) => {
@@ -89,6 +113,12 @@ Deno.serve(async (req) => {
     }
     if (!tenantId && user.role !== 'platform_admin') {
       return Response.json({ error: 'User has no tenant assigned' }, { status: 403 });
+    }
+
+    // 阻断检查：禁止自助付款（管理员豁免）
+    if (!['platform_admin', 'admin', 'tenant_admin'].includes(user.role) &&
+        await hasBlockTag(base44, userRecord[0], 'payment:self_pay')) {
+      return Response.json({ error: '您已被禁止使用自助付款，请联系管理员。' }, { status: 403 });
     }
 
     const body = await req.json();

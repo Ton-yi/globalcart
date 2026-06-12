@@ -403,6 +403,22 @@ export const PERMISSIONS_PRESET = [
     ]
   },
   {
+    category: "阻断（风控）",
+    color: "bg-rose-100 text-rose-700",
+    permissions: [
+      {
+        name: "block_order:submit_purchase_request",
+        display_name: "禁止下单",
+        description: "阻断标签：勾选后该角色/用户将被强制禁止提交购买需求，优先级高于任何允许项"
+      },
+      {
+        name: "block_payment:self_pay",
+        display_name: "禁止自助付款",
+        description: "阻断标签：勾选后将被强制禁止使用支付宝等自动回调付款方式，优先级高于任何允许项"
+      }
+    ]
+  },
+  {
     category: "网站后台设置",
     color: "bg-gray-100 text-gray-700",
     permissions: [

@@ -60,7 +60,17 @@ export async function getUserPermissions(forceRefresh = false) {
  */
 export async function hasPermission(permissionId) {
   const permissions = await getUserPermissions();
+  // 阻断标签优先级最高：拥有 block_<permission> 则强制禁止
+  if (permissions.includes(`block_${permissionId}`)) return false;
   return permissions.includes(permissionId);
+}
+
+/**
+ * 检查用户是否被阻断标签强制禁止指定权限
+ */
+export async function isPermissionBlocked(permissionId) {
+  const permissions = await getUserPermissions();
+  return permissions.includes(`block_${permissionId}`);
 }
 
 /**
@@ -68,7 +78,7 @@ export async function hasPermission(permissionId) {
  */
 export async function hasAnyPermission(permissionIds) {
   const permissions = await getUserPermissions();
-  return permissionIds.some(p => permissions.includes(p));
+  return permissionIds.some(p => !permissions.includes(`block_${p}`) && permissions.includes(p));
 }
 
 /**
@@ -76,7 +86,7 @@ export async function hasAnyPermission(permissionIds) {
  */
 export async function hasAllPermissions(permissionIds) {
   const permissions = await getUserPermissions();
-  return permissionIds.every(p => permissions.includes(p));
+  return permissionIds.every(p => !permissions.includes(`block_${p}`) && permissions.includes(p));
 }
 
 /**

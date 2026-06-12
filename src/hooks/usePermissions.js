@@ -24,7 +24,18 @@ export function usePermissions() {
    */
   const can = (permissionId) => {
     if (isAdmin) return true;
+    // 阻断标签优先级最高：拥有 block_<permission> 则强制禁止，覆盖任何允许项
+    if (permissions.includes(`block_${permissionId}`)) return false;
     return permissions.includes(permissionId);
+  };
+
+  /**
+   * Check if the user is explicitly blocked from a permission (block tag).
+   * @param {string} permissionId  e.g. "order:submit_purchase_request"
+   */
+  const blocked = (permissionId) => {
+    if (isAdmin) return false;
+    return permissions.includes(`block_${permissionId}`);
   };
 
   /**
@@ -33,8 +44,8 @@ export function usePermissions() {
    */
   const canAny = (permissionIds) => {
     if (isAdmin) return true;
-    return permissionIds.some(p => permissions.includes(p));
+    return permissionIds.some(p => can(p));
   };
 
-  return { can, canAny, permissions, isAdmin };
+  return { can, canAny, blocked, permissions, isAdmin };
 }

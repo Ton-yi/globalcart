@@ -1,5 +1,29 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
 
+// ── 阻断标签检查：拥有 block_<permission> 即被强制禁止（优先级最高，覆盖任何允许项） ──
+async function hasBlockTag(base44, userRecord, permissionId) {
+  const blockKey = `block_${permissionId}`;
+  const overrides = userRecord.permission_overrides || {};
+  if (overrides[blockKey] === 'add') return true;
+  if (overrides[blockKey] === 'remove') return false;
+  const roleIds = userRecord.assigned_role_ids || [];
+  if (roleIds.length === 0) return false;
+  const [tenantRoles, globalRoles] = await Promise.all([
+    userRecord.tenant_id
+      ? base44.asServiceRole.entities.Role.filter({ tenant_id: userRecord.tenant_id, is_archived: false })
+      : Promise.resolve([]),
+    base44.asServiceRole.entities.Role.filter({ is_global: true, is_archived: false }),
+  ]);
+  const allRoles = [...(tenantRoles || []), ...(globalRoles || [])];
+  return roleIds.some(roleId => {
+    let role = allRoles.find(r => r.id === roleId);
+    if (!role && typeof roleId === 'string') {
+      role = allRoles.find(r => r.predefined_key === `builtin_${roleId}` || r.name === roleId);
+    }
+    return (role?.direct_permissions || []).includes(blockKey);
+  });
+}
+
 /**
  * Create an order with automatic tenant_id assignment from authenticated user
  * Frontend must NOT send tenant_id; it will be derived from the authenticated session
@@ -36,6 +60,12 @@ Deno.serve(async (req) => {
 
     if (!assignedTenantId) {
       return Response.json({ error: 'Cannot determine tenant for order creation' }, { status: 400 });
+    }
+
+    // 阻断检查：禁止下单（管理员豁免）
+    if (!['platform_admin', 'admin', 'tenant_admin'].includes(user.role) &&
+        await hasBlockTag(base44, userRecord[0], 'order:submit_purchase_request')) {
+      return Response.json({ error: '您已被禁止提交购买需求，请联系管理员。' }, { status: 403 });
     }
 
     // === Server-side fee recomputation (never trust client-submitted amounts) ===
