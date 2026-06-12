@@ -247,9 +247,11 @@ function calculateDailySummary(orders, pools, allOrders) {
 
     // 发货池汇总
     pools.forEach(pool => {
-        const income = pool.shipping_stage_income_jpy || pool.shipping_fee_jpy || 0;
+        // 仅统计已确认收款的发货池收入（未付款发货/待付款不计收入；成本照常计入）
+        const isPaid = pool.payment_status === 'paid';
+        const income = isPaid ? (pool.shipping_stage_income_jpy || pool.shipping_fee_jpy || 0) : 0;
         const intlCost = pool.actual_international_shipping_cost_jpy || 0;
-        const boxCharge = pool.box_charge_jpy_snapshot || 0;
+        const boxCharge = isPaid ? (pool.box_charge_jpy_snapshot || 0) : 0;
         const boxCost = pool.box_actual_cost_jpy_snapshot || 0;
 
         summary.shipping_stage_income_jpy += income;

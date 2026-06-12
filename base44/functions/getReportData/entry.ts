@@ -139,7 +139,9 @@ function buildTimeSeries(orders, pools, granularity) {
     pools.forEach(pool => {
         const key = getPeriodKey(pool.shipped_date || pool.created_date, granularity);
         ensure(key);
-        const income  = pool.shipping_stage_income_jpy || pool.shipping_fee_jpy || 0;
+        // 仅统计已确认收款的发货池收入（未付款发货/待付款不计收入）
+        const income  = pool.payment_status === 'paid'
+            ? (pool.shipping_stage_income_jpy || pool.shipping_fee_jpy || 0) : 0;
         const intlCost = pool.actual_international_shipping_cost_jpy || 0;
         const boxCost  = pool.box_actual_cost_jpy_snapshot || 0;
         buckets[key].revenue_jpy         += income;
@@ -264,9 +266,11 @@ function calcSummary(orders, pools, allPools, allOrders) {
     });
 
     pools.forEach(pool => {
-        const income   = pool.shipping_stage_income_jpy || pool.shipping_fee_jpy || 0;
+        // 仅统计已确认收款的发货池收入（未付款发货/待付款不计收入；成本照常计入）
+        const isPaid   = pool.payment_status === 'paid';
+        const income   = isPaid ? (pool.shipping_stage_income_jpy || pool.shipping_fee_jpy || 0) : 0;
         const intlCost = pool.actual_international_shipping_cost_jpy || 0;
-        const boxCharge = pool.box_charge_jpy_snapshot || 0;
+        const boxCharge = isPaid ? (pool.box_charge_jpy_snapshot || 0) : 0;
         const boxCost  = pool.box_actual_cost_jpy_snapshot || 0;
 
         s.shipping_stage_income_jpy             += income;
@@ -335,7 +339,8 @@ function buildDimensions(orders, pools, dimension, allOrderMap) {
     });
 
     pools.forEach(pool => {
-        const income      = pool.shipping_stage_income_jpy || pool.shipping_fee_jpy || 0;
+        const income      = pool.payment_status === 'paid'
+            ? (pool.shipping_stage_income_jpy || pool.shipping_fee_jpy || 0) : 0;
         const intlCost    = pool.actual_international_shipping_cost_jpy || 0;
         const boxCost     = pool.box_actual_cost_jpy_snapshot || 0;
         const profit      = income - intlCost - boxCost;
@@ -367,7 +372,7 @@ function calcCompareSummary(orders, pools) {
     const payment = orders.reduce((s, o) => s + (o.order_stage_payment_jpy || o.paid_amount || 0), 0);
     const refund  = orders.reduce((s, o) => s + (o.refund_amount_jpy || 0), 0);
     const cost    = orders.reduce((s, o) => s + (o.estimated_jpy || 0), 0);
-    const income  = pools.reduce((s, p) => s + (p.shipping_stage_income_jpy || p.shipping_fee_jpy || 0), 0);
+    const income  = pools.reduce((s, p) => s + (p.payment_status === 'paid' ? (p.shipping_stage_income_jpy || p.shipping_fee_jpy || 0) : 0), 0);
     const intlCost = pools.reduce((s, p) => s + (p.actual_international_shipping_cost_jpy || 0), 0);
     const boxCost  = pools.reduce((s, p) => s + (p.box_actual_cost_jpy_snapshot || 0), 0);
     return {

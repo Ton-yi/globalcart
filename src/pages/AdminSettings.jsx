@@ -33,6 +33,7 @@ import SMTPSettingsManager from "@/components/admin/SMTPSettingsManager";
 import GoogleSheetsSettingsManager from "@/components/admin/GoogleSheetsSettingsManager";
 import StorageSettingsManager from "@/components/admin/StorageSettingsManager";
 import PaymentModeSettings from "@/components/admin/PaymentModeSettings";
+import ShipWithoutPaymentSettings from "@/components/admin/ShipWithoutPaymentSettings";
 
 // Standalone editor with its own local save button (textarea content is large, better kept isolated)
 function CustomsHazmatTextEditor({ settings, onReload }) {
@@ -105,6 +106,7 @@ const TABS = [
   { key: "payment_methods", label: "支付方式" },
   { key: "member_tiers", label: "会员阶级" },
   { key: "shipping_methods", label: "运输方式" },
+  { key: "shipping_settings", label: "发货设置" },
   { key: "transit_methods", label: "中转运输方式" },
   { key: "item_sizes", label: "物品尺寸" },
   { key: "box_templates", label: "外箱模板" },
@@ -498,6 +500,10 @@ export default function AdminSettings() {
         </Card>
       )}
 
+      {activeTab === "shipping_settings" && !loading && (
+        <ShipWithoutPaymentSettings settings={settings} onReload={load} />
+      )}
+
       {activeTab === "transit_methods" && (
         <Card className="border-gray-200">
           <CardContent className="pt-5">
@@ -742,38 +748,7 @@ export default function AdminSettings() {
 
               {/* 预付款/后付款设置已移至「支付方式」tab 的付款模式设置区块 */}
 
-              {/* allow_ship_without_payment */}
-              {(() => {
-                const enabled = getBool('allow_ship_without_payment');
-                return (
-                  <>
-                    <div className="flex items-center justify-between pb-1 border-b border-gray-100">
-                      <div>
-                        <Label className="text-sm">允许未付款时进入已发货状态</Label>
-                        <p className="text-xs text-gray-400 mt-0.5">开启后，管理员可在用户未付款情况下直接将发货申请进入已发货状态</p>
-                      </div>
-                      <Toggle enabled={enabled} onToggle={() => toggleSetting('allow_ship_without_payment')} color="bg-blue-600" />
-                    </div>
-                    {enabled && (
-                      <div className="pl-4 space-y-2 pb-2 border-b border-gray-100">
-                        {[
-                          { key: 'allow_ship_without_payment_single', label: '单独发货', desc: '允许单独发货未付款直接发货' },
-                          { key: 'allow_ship_without_payment_user_pool', label: '用户拼邮发货', desc: '允许用户拼邮未付款直接发货' },
-                          { key: 'allow_ship_without_payment_official_pool', label: '官方拼邮发货', desc: '允许官方拼邮未付款直接发货' },
-                        ].map(({ key, label, desc }) => (
-                          <div key={key} className="flex items-center justify-between">
-                            <div>
-                              <Label className="text-xs text-gray-600">{label}</Label>
-                              <p className="text-xs text-gray-400 mt-0.5">{desc}</p>
-                            </div>
-                            <Toggle enabled={getBool(key)} onToggle={() => toggleSetting(key)} color="bg-blue-600" size="sm" />
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </>
-                );
-              })()}
+              {/* 允许未付款发货设置已移至「发货设置」tab */}
 
               {/* allow_order_split */}
               {(() => {

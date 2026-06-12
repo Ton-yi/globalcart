@@ -158,6 +158,35 @@ Deno.serve(async (req) => {
         if (!isCreator && !isPaymentOnlyUpdate && !isJoinPoolUpdate) {
           return Response.json({ error: 'Forbidden: Can only update your own shipping pools' }, { status: 403 });
         }
+
+        // ── Value-level hardening: users may never self-confirm payment or self-ship ──
+        // (admin confirmation flag is admin-only)
+        delete data.admin_confirmed_payment;
+        // status: users may only move a pool into "awaiting_payment_confirmation"
+        // (payment proof submitted), or cancel their own un-notified pool
+        if ('status' in data && data.status !== record.status) {
+          const allowedStatuses = ['awaiting_payment_confirmation'];
+          if (record.status === 'pending') allowedStatuses.push('cancelled');
+          if (!allowedStatuses.includes(data.status)) {
+            return Response.json({ error: 'Forbidden: status change not allowed for users' }, { status: 403 });
+          }
+        }
+        // payment_status: users may never set "paid" themselves (admin confirms payment)
+        if ('payment_status' in data && data.payment_status !== record.payment_status) {
+          if (!['unpaid', 'partial', 'awaiting_confirmation'].includes(data.payment_status)) {
+            return Response.json({ error: 'Forbidden: payment status change not allowed for users' }, { status: 403 });
+          }
+        }
+        // per_user_payments: users may not mark entries as "paid" that weren't already confirmed
+        if (Array.isArray(data.per_user_payments)) {
+          const prevPaid = new Set((record.per_user_payments || [])
+            .filter(p => p.payment_status === 'paid').map(p => p.user_email));
+          const forging = data.per_user_payments.some(p =>
+            p.payment_status === 'paid' && !prevPaid.has(p.user_email));
+          if (forging) {
+            return Response.json({ error: 'Forbidden: cannot self-confirm payment' }, { status: 403 });
+          }
+        }
       }
       delete data.tenant_id;
       const t5 = Date.now();
