@@ -69,6 +69,16 @@
       "type": "number",
       "description": "\u751f\u6210\u652f\u4ed8\u5b9d\u94fe\u63a5\u65f6\u4f7f\u7528\u7684 JPY\u2192CNY \u6c47\u7387"
     },
+    "order_balance_due_jpy": {
+      "type": "number",
+      "default": 0,
+      "description": "\u4e0b\u5355\u9636\u6bb5\u9884\u4ed8\u540e\u7684\u8d27\u6b3e\u5c3e\u6b3e\uff08JPY\uff09\uff0c\u7531\u540e\u7aef\u5728\u521b\u5efa\u8ba2\u5355\u65f6\u8ba1\u7b97\uff08\u8ba2\u5355\u603b\u989d \u2212 \u9884\u4ed8\u6b3e\uff09\uff0c\u5728\u7528\u6237\u652f\u4ed8\u8fd0\u8d39\u65f6\u4e00\u5e76\u6536\u53d6"
+    },
+    "order_balance_settled": {
+      "type": "boolean",
+      "default": false,
+      "description": "\u8d27\u6b3e\u5c3e\u6b3e\u662f\u5426\u5df2\u968f\u8fd0\u8d39\u7ed3\u7b97\uff08\u7ba1\u7406\u5458\u786e\u8ba4\u6536\u6b3e\u65f6\u6807\u8bb0\uff09"
+    },
     "paid_amount": {
       "type": "number",
       "description": "\u5b9e\u9645\u5df2\u4ed8\u91d1\u989d\uff08JPY \u8ba1\uff09"

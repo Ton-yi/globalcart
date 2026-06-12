@@ -137,6 +137,13 @@ Deno.serve(async (req) => {
     // Enforce payment mode consistency with prepay setting
     if (body.payment_mode === 'prepay' && !prepayEnabled) body.payment_mode = 'fullpay_once';
 
+    // Remaining goods balance (尾款) after prepayment — collected at the shipping-fee stage.
+    // Only applies to prepay mode with partial prepayment; fullpay/credit/deferred have no balance.
+    body.order_balance_due_jpy = (body.payment_mode === 'prepay' && prepayRate < 1)
+      ? Math.max(0, Math.round(orderTotalJpy) - serverPrepayment)
+      : 0;
+    body.order_balance_settled = false;
+
     // Generate a unique order number server-side to avoid frontend race conditions
     // Format: TY{YYYYMMDD}{4-digit seq}, e.g. TY202605130001
     const now = new Date();

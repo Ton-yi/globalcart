@@ -108,21 +108,6 @@ export default function AdminShippingInfoPanel({
     (isOfficialPool && allowShipWithoutPaymentOfficialPool)
   );
   
-  // Debug logging
-  useEffect(() => {
-    console.log('[AdminShippingInfoPanel] Settings:', {
-      allowShipWithoutPayment,
-      allowShipWithoutPaymentSingle,
-      allowShipWithoutPaymentUserPool,
-      allowShipWithoutPaymentOfficialPool,
-      isSingle,
-      isUserPool,
-      isOfficialPool,
-      canDirectShipWithoutPayment,
-      poolStatus: initialPool.status,
-    });
-  }, [allowShipWithoutPayment, allowShipWithoutPaymentSingle, allowShipWithoutPaymentUserPool, allowShipWithoutPaymentOfficialPool, isSingle, isUserPool, isOfficialPool, canDirectShipWithoutPayment, initialPool.status]);
-
   // Derive unique users from orders
   const uniqueUsers = [...new Map(
     orders.filter(o => o.user_email).map(o => [o.user_email, { email: o.user_email, name: o.user_name || o.user_email }])
@@ -330,6 +315,11 @@ export default function AdminShippingInfoPanel({
       label_image_urls: labelImageUrls,
       packing_image_urls: packingImageUrls,
       actual_international_shipping_cost_jpy: parseFloat(actualShippingCostJpy) || null,
+      // Financial reporting snapshots (JPY): full income charged to users incl. balance due,
+      // box charge and box actual cost — consumed by aggregateDailyReport / getReportData
+      shipping_stage_income_jpy: Math.round(breakdowns.reduce((s, b) => s + (b.total_jpy || 0), 0)) || null,
+      box_charge_jpy_snapshot: btId ? boxPrice : 0,
+      box_actual_cost_jpy_snapshot: btId ? (selectedBox?.cost_jpy ?? null) : 0,
     };
   };
 
@@ -379,7 +369,7 @@ export default function AdminShippingInfoPanel({
     // Update all orders in this pool to notified_shipment_fee_paid
     await Promise.all(
       (pool.order_ids || []).map(id =>
-        updateOrder(id, { order_status: "notified_shipment_fee_paid" })
+        updateOrder(id, { order_status: "notified_shipment_fee_paid", order_balance_settled: true })
       )
     );
     setPool(p => ({ ...p, ...payload }));
@@ -406,10 +396,10 @@ export default function AdminShippingInfoPanel({
       per_user_payments: updatedPerUserPayments,
     };
     await shippingPoolApi.update(pool.id, payload);
-    // Update all orders in this pool to shipped
+    // Update all orders in this pool to shipped (payment confirmed → balance settled)
     await Promise.all(
       (pool.order_ids || []).map(id =>
-        updateOrder(id, { order_status: "shipped" })
+        updateOrder(id, { order_status: "shipped", order_balance_settled: true })
       )
     );
     setPool(p => ({ ...p, ...payload }));
@@ -509,7 +499,7 @@ export default function AdminShippingInfoPanel({
     } else {
       await Promise.all(
         (pool.order_ids || []).map(id =>
-          updateOrder(id, { order_status: "notified_shipment_fee_paid" })
+          updateOrder(id, { order_status: "notified_shipment_fee_paid", order_balance_settled: true })
         )
       );
     }
@@ -598,6 +588,7 @@ export default function AdminShippingInfoPanel({
           order_status: "shipped",
           tracking_number: trackingNumber,
           shipped_date: shippedDate,
+          order_balance_settled: true,
         })
       )
     );
@@ -621,6 +612,8 @@ export default function AdminShippingInfoPanel({
           order_status: "shipped",
           tracking_number: trackingNumber,
           shipped_date: payload.shipped_date,
+          // Step 2 ship: settle balance only if pool payment was confirmed
+          ...(pool.payment_status === "paid" ? { order_balance_settled: true } : {}),
         })
       )
     );

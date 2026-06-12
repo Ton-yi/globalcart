@@ -92,7 +92,22 @@ export function calcFeeBreakdownPerUser({
     }
     const userAddonFeeJpy = userAddons.reduce((s, a) => s + (parseFloat(a.fee) || 0), 0);
 
+    // 货款尾款: remaining goods balance after prepayment, collected with the shipping fee.
+    // order_balance_due_jpy is computed server-side at order creation (total − prepayment).
+    // Supplements already paid at order stage (paid_amount above prepayment) reduce the balance.
+    const balanceDueJpy = userOrders.reduce((s, o) => {
+      if (o.order_balance_settled) return s;
+      const base = parseFloat(o.order_balance_due_jpy) || 0;
+      if (base <= 0) return s;
+      const extraPaid = Math.max(0, (parseFloat(o.paid_amount) || 0) - (parseFloat(o.prepayment_amount) || 0));
+      return s + Math.max(0, Math.round(base - extraPaid));
+    }, 0);
+
     const items = [];
+
+    if (balanceDueJpy > 0) {
+      items.push({ label: "货款尾款（预付款剩余差额）", amount_jpy: balanceDueJpy });
+    }
 
     if (itemSizeFeeJpy > 0) {
       items.push({ label: "物品尺寸追加费", amount_jpy: itemSizeFeeJpy });
