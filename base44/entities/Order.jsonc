@@ -79,6 +79,16 @@
       "default": false,
       "description": "\u8d27\u6b3e\u5c3e\u6b3e\u662f\u5426\u5df2\u968f\u8fd0\u8d39\u7ed3\u7b97\uff08\u7ba1\u7406\u5458\u786e\u8ba4\u6536\u6b3e\u65f6\u6807\u8bb0\uff09"
     },
+    "order_balance_surcharge_rate": {
+      "type": "number",
+      "default": 0,
+      "description": "\u5c3e\u6b3e\u52a0\u503c\u6bd4\u4f8b\u5feb\u7167\uff08%\uff09\uff0c\u76f8\u5bf9\u8ba2\u5355\u603b\u989d\uff0c\u521b\u5efa\u8ba2\u5355\u65f6\u8bb0\u5f55"
+    },
+    "order_balance_surcharge_jpy": {
+      "type": "number",
+      "default": 0,
+      "description": "\u5c3e\u6b3e\u52a0\u503c\u91d1\u989d\uff08JPY\uff09= \u8ba2\u5355\u603b\u989d \u00d7 \u5c3e\u6b3e\u52a0\u503c\u6bd4\u4f8b\uff0c\u968f\u8fd0\u8d39\u4e00\u5e76\u6536\u53d6"
+    },
     "paid_amount": {
       "type": "number",
       "description": "\u5b9e\u9645\u5df2\u4ed8\u91d1\u989d\uff08JPY \u8ba1\uff09"

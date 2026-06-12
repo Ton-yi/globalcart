@@ -93,20 +93,35 @@ export function calcFeeBreakdownPerUser({
     const userAddonFeeJpy = userAddons.reduce((s, a) => s + (parseFloat(a.fee) || 0), 0);
 
     // 货款尾款: remaining goods balance after prepayment, collected with the shipping fee.
-    // order_balance_due_jpy is computed server-side at order creation (total − prepayment).
-    // Supplements already paid at order stage (paid_amount above prepayment) reduce the balance.
-    const balanceDueJpy = userOrders.reduce((s, o) => {
-      if (o.order_balance_settled) return s;
+    // order_balance_due_jpy / order_balance_surcharge_jpy are computed server-side at order creation.
+    // Supplements already paid at order stage (paid_amount above prepayment) reduce base first, then surcharge.
+    let balanceDueJpy = 0;
+    let balanceSurchargeJpy = 0;
+    const surchargeRateSet = new Set();
+    for (const o of userOrders) {
+      if (o.order_balance_settled) continue;
       const base = parseFloat(o.order_balance_due_jpy) || 0;
-      if (base <= 0) return s;
-      const extraPaid = Math.max(0, (parseFloat(o.paid_amount) || 0) - (parseFloat(o.prepayment_amount) || 0));
-      return s + Math.max(0, Math.round(base - extraPaid));
-    }, 0);
+      const surcharge = parseFloat(o.order_balance_surcharge_jpy) || 0;
+      if (base <= 0 && surcharge <= 0) continue;
+      let extraPaid = Math.max(0, (parseFloat(o.paid_amount) || 0) - (parseFloat(o.prepayment_amount) || 0));
+      const baseRemaining = Math.max(0, Math.round(base - extraPaid));
+      extraPaid = Math.max(0, extraPaid - base);
+      const surchargeRemaining = Math.max(0, Math.round(surcharge - extraPaid));
+      balanceDueJpy += baseRemaining;
+      balanceSurchargeJpy += surchargeRemaining;
+      if (surchargeRemaining > 0 && o.order_balance_surcharge_rate) {
+        surchargeRateSet.add(parseFloat(o.order_balance_surcharge_rate));
+      }
+    }
 
     const items = [];
 
     if (balanceDueJpy > 0) {
       items.push({ label: "货款尾款（预付款剩余差额）", amount_jpy: balanceDueJpy });
+    }
+    if (balanceSurchargeJpy > 0) {
+      const rateLabel = surchargeRateSet.size === 1 ? `（${[...surchargeRateSet][0]}%）` : "";
+      items.push({ label: `尾款加值${rateLabel}`, amount_jpy: balanceSurchargeJpy });
     }
 
     if (itemSizeFeeJpy > 0) {

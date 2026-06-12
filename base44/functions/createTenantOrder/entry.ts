@@ -139,8 +139,16 @@ Deno.serve(async (req) => {
 
     // Remaining goods balance (尾款) after prepayment — collected at the shipping-fee stage.
     // Only applies to prepay mode with partial prepayment; fullpay/credit/deferred have no balance.
-    body.order_balance_due_jpy = (body.payment_mode === 'prepay' && prepayRate < 1)
+    const hasBalance = body.payment_mode === 'prepay' && prepayRate < 1;
+    body.order_balance_due_jpy = hasBalance
       ? Math.max(0, Math.round(orderTotalJpy) - serverPrepayment)
+      : 0;
+    // 尾款加值比例: extra percentage of the order total added on top of the balance (default 0%)
+    let surchargeRatePct = parseFloat(settingsMap.pre_shipment_balance_surcharge_rate);
+    if (isNaN(surchargeRatePct) || surchargeRatePct < 0) surchargeRatePct = 0;
+    body.order_balance_surcharge_rate = hasBalance ? surchargeRatePct : 0;
+    body.order_balance_surcharge_jpy = (hasBalance && surchargeRatePct > 0)
+      ? Math.round(orderTotalJpy * surchargeRatePct / 100)
       : 0;
     body.order_balance_settled = false;
 

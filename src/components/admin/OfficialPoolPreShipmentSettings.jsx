@@ -21,6 +21,11 @@ export default function OfficialPoolPreShipmentSettings({ settings, onUpdate, on
 
   const [localMethods, setLocalMethods] = useState(separateMethodsValue);
 
+  // 尾款加值比例（%），相对订单总额，默认 0%
+  const surchargeSetting = getSetting("pre_shipment_balance_surcharge_rate");
+  const [localSurchargeRate, setLocalSurchargeRate] = useState(surchargeSetting?.value || "0");
+  const [savingSurcharge, setSavingSurcharge] = useState(false);
+
   return (
     <Card className="border-purple-200">
       <CardHeader className="pb-3">
@@ -33,6 +38,41 @@ export default function OfficialPoolPreShipmentSettings({ settings, onUpdate, on
         </p>
       </CardHeader>
       <CardContent className="space-y-3">
+        {/* Balance surcharge rate */}
+        <div className="pb-2 border-b border-gray-100">
+          <Label className="text-sm">尾款加值比例 (%)</Label>
+          <p className="text-xs text-gray-400 mt-0.5">
+            对预付款尾款比例直接加算，相对订单总额。例：预付 80% 时尾款为 20%，设为 10% 后尾款变为 30%。加值部分会在运费费用明细中单独列出。
+          </p>
+          <div className="flex items-center gap-2 mt-1.5">
+            <Input
+              className="h-8 text-sm w-28"
+              type="text"
+              inputMode="decimal"
+              placeholder="0"
+              value={localSurchargeRate}
+              onChange={e => setLocalSurchargeRate(e.target.value)}
+            />
+            <span className="text-xs text-gray-400">%（默认 0）</span>
+            <Button
+              size="sm"
+              className="h-8 text-xs"
+              disabled={savingSurcharge}
+              onClick={async () => {
+                const v = parseFloat(localSurchargeRate);
+                const safe = isNaN(v) || v < 0 ? 0 : v;
+                setSavingSurcharge(true);
+                await onUpdate("pre_shipment_balance_surcharge_rate", String(safe));
+                await onReload();
+                setLocalSurchargeRate(String(safe));
+                setSavingSurcharge(false);
+              }}
+            >
+              {savingSurcharge ? "保存中..." : "保存"}
+            </Button>
+          </div>
+        </div>
+
         {/* Auto-create pending column */}
         <div className="flex items-center justify-between pb-1 border-b border-gray-100">
           <div>
