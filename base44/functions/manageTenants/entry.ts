@@ -30,8 +30,17 @@ Deno.serve(async (req) => {
     if (action === 'create') {
       if (!isPlatformAdmin) return Response.json({ error: 'Forbidden: only platform_admin can create tenants' }, { status: 403 });
 
-      const { name, code, branding_name, timezone, subdomain, login_title, login_subtitle, logo_url, favicon_url, theme_color, contact_info, initial_fee_rule_template_id, allowed_features } = body;
+      const { name, code, branding_name, timezone, subdomain, login_title, login_subtitle, logo_url, favicon_url, theme_color, contact_info, initial_fee_rule_template_id, allowed_features, tenant_template_id } = body;
       if (!name || !code) return Response.json({ error: 'name and code are required' }, { status: 400 });
+
+      // 加载租户模板（初始化配置包：规则模板 + 功能模块 + 仓储策略）
+      let tenantTemplate = null;
+      if (tenant_template_id) {
+        const tpls = await base44.asServiceRole.entities.TenantTemplate.filter({ id: tenant_template_id });
+        if (tpls?.[0] && !tpls[0].is_archived) tenantTemplate = tpls[0];
+      }
+      const effectiveFeatures = Array.isArray(allowed_features) ? allowed_features : (tenantTemplate?.allowed_features || []);
+      const effectiveFeeTplId = initial_fee_rule_template_id || tenantTemplate?.fee_rule_template_id || '';
 
       const normalizedCode = code.toUpperCase();
       const normalizedSubdomain = (subdomain || code).toLowerCase().replace(/[^a-z0-9-]/g, '');
@@ -57,9 +66,10 @@ Deno.serve(async (req) => {
         theme_color: theme_color || '#dc2626',
         contact_info: contact_info || '',
         is_active: true,
-        // 功能模块化付费预留：开通的功能模块标识列表（后续付费开关均基于此字段）
-        allowed_features: Array.isArray(allowed_features) ? allowed_features : [],
-        initial_fee_rule_template_id: initial_fee_rule_template_id || '',
+        // 功能模块化付费：开通的功能模块标识列表（后续付费开关均基于此字段）
+        allowed_features: effectiveFeatures,
+        initial_fee_rule_template_id: effectiveFeeTplId,
+        tenant_template_id: tenant_template_id || '',
       });
 
       // 为新租户自动创建内置预定义角色
@@ -67,12 +77,12 @@ Deno.serve(async (req) => {
 
       // 套用全局服务费规则模板（克隆为该租户的草稿规则）
       let appliedFeeRule = null;
-      if (initial_fee_rule_template_id) {
-        appliedFeeRule = await cloneFeeRuleTemplateToTenant(base44, initial_fee_rule_template_id, tenant.id);
+      if (effectiveFeeTplId) {
+        appliedFeeRule = await cloneFeeRuleTemplateToTenant(base44, effectiveFeeTplId, tenant.id);
       }
 
-      // 联动初始化：默认通知模板 + 仓储设置
-      const initialized = await initTenantDefaultSettings(base44, tenant.id, user.email);
+      // 联动初始化：默认通知模板 + 仓储设置（模板可覆盖仓储策略）
+      const initialized = await initTenantDefaultSettings(base44, tenant.id, user.email, tenantTemplate?.storage_policy || null);
 
       return Response.json({ tenant, applied_fee_rule: appliedFeeRule, initialized });
     }
@@ -125,6 +135,10 @@ Deno.serve(async (req) => {
         // Restrict: cannot change code or is_active; CAN change subdomain
         delete fields.code;
         delete fields.is_active;
+        // 功能模块化付费：仅 platform_admin 可变更开通模块与模板溯源字段
+        delete fields.allowed_features;
+        delete fields.initial_fee_rule_template_id;
+        delete fields.tenant_template_id;
         // Validate and normalize subdomain if provided
         if (fields.subdomain !== undefined) {
           const normalizedSubdomain = (fields.subdomain || '').toLowerCase().replace(/[^a-z0-9-]/g, '');
@@ -211,7 +225,7 @@ const DEFAULT_NOTIFICATION_TEMPLATES = [
 /**
  * 联动初始化新租户的默认设置：通知模板 + 仓储设置（幂等：已存在则跳过）
  */
-async function initTenantDefaultSettings(base44, tenantId, adminEmail) {
+async function initTenantDefaultSettings(base44, tenantId, adminEmail, storagePolicy = null) {
   const result = { notification_templates: 0, storage_settings: false };
 
   // 1. 默认通知模板（批量创建，已存在的子类型跳过）
@@ -225,18 +239,19 @@ async function initTenantDefaultSettings(base44, tenantId, adminEmail) {
     result.notification_templates = toCreate.length;
   }
 
-  // 2. 默认仓储设置（与 manageStorageSettings 默认值一致）
+  // 2. 默认仓储设置（租户模板策略优先，否则与 manageStorageSettings 默认值一致）
   const existingStorage = await base44.asServiceRole.entities.StorageSettings.filter({ tenant_id: tenantId });
   if (!existingStorage || existingStorage.length === 0) {
+    const sp = storagePolicy || {};
     await base44.asServiceRole.entities.StorageSettings.create({
       tenant_id: tenantId,
-      storage_enabled: false,
-      default_storage_days: 90,
-      default_reminder_days: 60,
-      default_storage_fee_per_day: 0,
+      storage_enabled: sp.storage_enabled ?? false,
+      default_storage_days: sp.default_storage_days ?? 90,
+      default_reminder_days: sp.default_reminder_days ?? 60,
+      default_storage_fee_per_day: sp.default_storage_fee_per_day ?? 0,
       storage_fee_currency: 'JPY',
-      on_deadline_action: 'change_status',
-      deadline_status: 'expired',
+      on_deadline_action: sp.on_deadline_action ?? 'change_status',
+      deadline_status: sp.deadline_status ?? 'expired',
       updated_by: adminEmail,
       updated_at: new Date().toISOString(),
     });

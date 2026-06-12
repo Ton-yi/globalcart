@@ -75,6 +75,10 @@
     "initial_fee_rule_template_id": {
       "type": "string",
       "description": "\u521b\u5efa\u79df\u6237\u65f6\u5957\u7528\u7684\u5168\u5c40\u670d\u52a1\u8d39\u89c4\u5219\u6a21\u677f ID\uff08\u6eaf\u6e90\u7528\uff09"
+    },
+    "tenant_template_id": {
+      "type": "string",
+      "description": "\u521b\u5efa\u79df\u6237\u65f6\u5957\u7528\u7684\u79df\u6237\u6a21\u677f\uff08\u521d\u59cb\u5316\u914d\u7f6e\u5305\uff09ID\uff08\u6eaf\u6e90\u7528\uff09"
     }
   },
   "required": [

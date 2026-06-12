@@ -16,6 +16,7 @@ import GlobalRoleManager from "@/components/admin/GlobalRoleManager";
 import PermissionViewer from "@/components/admin/PermissionViewer";
 import ExchangeRateApiSettings from "@/components/platform/ExchangeRateApiSettings";
 import GlobalFeeRuleTemplates from "@/components/platform/GlobalFeeRuleTemplates";
+import TenantTemplateManager from "@/components/platform/TenantTemplateManager";
 
 export default function PlatformAdminSettings() {
   const { user } = useCurrentUser();
@@ -28,8 +29,9 @@ export default function PlatformAdminSettings() {
 
   const [tenants, setTenants] = useState([]);
   const [tenantsLoading, setTenantsLoading] = useState(false);
-  const [newTenant, setNewTenant] = useState({ name: "", code: "", branding_name: "", timezone: "Asia/Tokyo", login_title: "", login_subtitle: "", logo_url: "", favicon_url: "", theme_color: "#dc2626", contact_info: "", initial_fee_rule_template_id: "none" });
+  const [newTenant, setNewTenant] = useState({ name: "", code: "", branding_name: "", timezone: "Asia/Tokyo", login_title: "", login_subtitle: "", logo_url: "", favicon_url: "", theme_color: "#dc2626", contact_info: "", initial_fee_rule_template_id: "none", tenant_template_id: "none" });
   const [feeTemplates, setFeeTemplates] = useState([]);
+  const [tenantTemplates, setTenantTemplates] = useState([]);
   const [creatingTenant, setCreatingTenant] = useState(false);
   const [tenantMsg, setTenantMsg] = useState(null);
   const [assigningAll, setAssigningAll] = useState(false);
@@ -55,6 +57,7 @@ export default function PlatformAdminSettings() {
       { key: "roles", label: "全局角色" },
       { key: "exchange_rates", label: "汇率设置" },
       { key: "fee_templates", label: "服务费规则模板" },
+      { key: "tenant_templates", label: "租户模板" },
       { key: "reports", label: "数据报表" },
       { key: "notification_templates", label: "通知模板" },
     ]},
@@ -93,13 +96,15 @@ export default function PlatformAdminSettings() {
 
   const loadTenants = async () => {
     setTenantsLoading(true);
-    const [tenantsRes, domainRes, ratesRes, tplRes] = await Promise.all([
+    const [tenantsRes, domainRes, ratesRes, tplRes, tenantTplRes] = await Promise.all([
       base44.functions.invoke('manageTenants', { action: 'list' }),
       base44.functions.invoke('manageTenants', { action: 'get_platform_domain' }),
       base44.functions.invoke('fetchExchangeRates', {}),
       base44.functions.invoke('serviceFeeRuleEngine', { action: 'list_global_templates' }),
+      base44.functions.invoke('manageTenantTemplates', { action: 'list' }),
     ]);
     setFeeTemplates(tplRes.data?.templates || []);
+    setTenantTemplates(tenantTplRes.data?.templates || []);
     setTenants(tenantsRes.data?.tenants || []);
     const domain = domainRes.data?.platform_base_domain || "";
     setPlatformBaseDomain(domain);
@@ -126,10 +131,13 @@ export default function PlatformAdminSettings() {
     if (!newTenant.name || !newTenant.code) return;
     setCreatingTenant(true);
     setTenantMsg(null);
-    const { initial_fee_rule_template_id, ...rest } = newTenant;
+    const { initial_fee_rule_template_id, tenant_template_id, ...rest } = newTenant;
     const payload = { action: 'create', ...rest };
     if (initial_fee_rule_template_id && initial_fee_rule_template_id !== "none") {
       payload.initial_fee_rule_template_id = initial_fee_rule_template_id;
+    }
+    if (tenant_template_id && tenant_template_id !== "none") {
+      payload.tenant_template_id = tenant_template_id;
     }
     const r = await base44.functions.invoke('manageTenants', payload);
     if (r.data?.error) {
@@ -138,7 +146,7 @@ export default function PlatformAdminSettings() {
       const ruleNote = r.data.applied_fee_rule ? `，已套用规则模板「${r.data.applied_fee_rule.name}」（草稿）` : '';
       const initNote = r.data.initialized ? `，已初始化 ${r.data.initialized.notification_templates} 个通知模板和默认仓储设置` : '';
       setTenantMsg({ type: 'success', text: `租户 "${r.data.tenant.name}" 创建成功！${ruleNote}${initNote}` });
-      setNewTenant({ name: "", code: "", branding_name: "", timezone: "Asia/Tokyo", login_title: "", login_subtitle: "", logo_url: "", favicon_url: "", theme_color: "#dc2626", contact_info: "", initial_fee_rule_template_id: "none" });
+      setNewTenant({ name: "", code: "", branding_name: "", timezone: "Asia/Tokyo", login_title: "", login_subtitle: "", logo_url: "", favicon_url: "", theme_color: "#dc2626", contact_info: "", initial_fee_rule_template_id: "none", tenant_template_id: "none" });
       await loadTenants();
     }
     setCreatingTenant(false);
@@ -387,7 +395,31 @@ export default function PlatformAdminSettings() {
                 onChange={e => setNewTenant(p => ({ ...p, contact_info: e.target.value }))} />
             </div>
             <div className="col-span-2">
-              <Label className="text-xs text-gray-500">服务费规则模板（可选）</Label>
+              <Label className="text-xs text-gray-500">租户模板（可选，初始化配置包）</Label>
+              <Select value={newTenant.tenant_template_id}
+                onValueChange={v => setNewTenant(p => ({ ...p, tenant_template_id: v }))}>
+                <SelectTrigger className="mt-0.5 h-8 text-sm"><SelectValue placeholder="不套用" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">不套用</SelectItem>
+                  {tenantTemplates.map(t => (
+                    <SelectItem key={t.id} value={t.id}>{t.name}{t.description ? ` — ${t.description}` : ''}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {newTenant.tenant_template_id !== "none" && (() => {
+                const tpl = tenantTemplates.find(t => t.id === newTenant.tenant_template_id);
+                if (!tpl) return null;
+                return (
+                  <p className="text-xs text-teal-600 mt-1">
+                    ✓ 将套用：{tpl.fee_rule_template_name ? `规则「${tpl.fee_rule_template_name}」` : '无规则模板'}
+                    {(tpl.allowed_features || []).length > 0 && ` · ${tpl.allowed_features.length} 个功能模块`}
+                    {tpl.storage_policy?.storage_enabled && ` · 仓储策略（${tpl.storage_policy.default_storage_days}天）`}
+                  </p>
+                );
+              })()}
+            </div>
+            <div className="col-span-2">
+              <Label className="text-xs text-gray-500">服务费规则模板（可选，优先于租户模板中的规则）</Label>
               <Select value={newTenant.initial_fee_rule_template_id}
                 onValueChange={v => setNewTenant(p => ({ ...p, initial_fee_rule_template_id: v }))}>
                 <SelectTrigger className="mt-0.5 h-8 text-sm"><SelectValue placeholder="不套用" /></SelectTrigger>
@@ -645,6 +677,9 @@ export default function PlatformAdminSettings() {
 
       {/* Global fee rule templates */}
       {activeTab === "fee_templates" && <GlobalFeeRuleTemplates />}
+
+      {/* Tenant templates (initialization packages) */}
+      {activeTab === "tenant_templates" && <TenantTemplateManager />}
 
       {/* Global reports placeholder */}
       {activeTab === "reports" && (
