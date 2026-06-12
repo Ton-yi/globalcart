@@ -71,7 +71,10 @@ Deno.serve(async (req) => {
         appliedFeeRule = await cloneFeeRuleTemplateToTenant(base44, initial_fee_rule_template_id, tenant.id);
       }
 
-      return Response.json({ tenant, applied_fee_rule: appliedFeeRule });
+      // 联动初始化：默认通知模板 + 仓储设置
+      const initialized = await initTenantDefaultSettings(base44, tenant.id, user.email);
+
+      return Response.json({ tenant, applied_fee_rule: appliedFeeRule, initialized });
     }
 
     // ── get_platform_domain (any admin) ─────────────────────────────────────
@@ -183,6 +186,66 @@ Deno.serve(async (req) => {
     return Response.json({ error: error.message }, { status: 500 });
   }
 });
+
+/**
+ * 租户默认通知模板（与 initializeDefaultNotificationTemplates 保持一致）
+ */
+const DEFAULT_NOTIFICATION_TEMPLATES = [
+  { notification_type: 'payment', notification_subtype: 'order_payment_required', title_template: '订单 {{order_number}} 需付款', content_template: '您的订单 {{order_number}} 需支付 {{amount}} JPY，请及时付款。', default_in_app: true, default_email: true },
+  { notification_type: 'payment', notification_subtype: 'order_supplement_required', title_template: '订单 {{order_number}} 需补款', content_template: '您的订单 {{order_number}} 需补款 {{amount}} JPY，请查看订单详情。', default_in_app: true, default_email: true },
+  { notification_type: 'payment', notification_subtype: 'shipping_fee_required', title_template: '发货申请需付运费', content_template: '您的发货申请需支付运费 {{amount}} {{currency}}，请及时付款。', default_in_app: true, default_email: true },
+  { notification_type: 'payment', notification_subtype: 'shipping_fee_supplement_required', title_template: '发货申请需补运费', content_template: '您的发货申请需补运费 {{amount}} {{currency}}，请查看。', default_in_app: true, default_email: true },
+  { notification_type: 'shipping_request', notification_subtype: 'shipping_request_sent', title_template: '发货申请已发出', content_template: '您的发货申请已提交，等待管理员处理。', default_in_app: true, default_email: false },
+  { notification_type: 'shipping_request', notification_subtype: 'shipping_request_arrived', title_template: '发货申请已送达中转地', content_template: '您的发货申请已送达中转地 {{transit_location_name}}，正在处理中。', default_in_app: true, default_email: true },
+  { notification_type: 'shipping_request', notification_subtype: 'transit_shipped', title_template: '中转地已发货', content_template: '您的货物已从中转地发出，运单号：{{tracking_number}}', default_in_app: true, default_email: true },
+  { notification_type: 'order_status', notification_subtype: 'order_created', title_template: '订单 {{order_number}} 已创建', content_template: '您的订单 {{order_number}} 已创建成功，等待管理员确认。', default_in_app: false, default_email: false },
+  { notification_type: 'order_status', notification_subtype: 'order_payment_confirmed', title_template: '订单 {{order_number}} 付款已确认', content_template: '您的订单 {{order_number}} 付款已确认，我们将尽快处理。', default_in_app: true, default_email: false },
+  { notification_type: 'order_status', notification_subtype: 'order_purchased', title_template: '订单 {{order_number}} 已下单', content_template: '您的订单 {{order_number}} 已成功下单，预计 {{estimated_days}} 天内入库。', default_in_app: true, default_email: false },
+  { notification_type: 'order_status', notification_subtype: 'order_in_warehouse', title_template: '订单 {{order_number}} 已入库', content_template: '您的订单 {{order_number}} 已入库，可以提交发货申请了。', default_in_app: true, default_email: false },
+  { notification_type: 'order_status', notification_subtype: 'order_added_to_pool', title_template: '订单已添加至发货申请', content_template: '您的订单 {{order_number}} 已添加到发货申请 {{pool_code}}。', default_in_app: false, default_email: false },
+  { notification_type: 'message', notification_subtype: 'new_reply', title_template: '订单/发货申请有新回复', content_template: '您的订单 {{order_number}} 或发货申请有新回复，请查看。', default_in_app: true, default_email: true },
+  { notification_type: 'other', notification_subtype: 'store_template_pending_review', title_template: '店铺模板待审核', content_template: '您有新的店铺模板提交，等待审核。', default_in_app: true, default_email: false },
+  { notification_type: 'other', notification_subtype: 'store_template_reviewed', title_template: '店铺模板审核结果', content_template: '您的店铺模板 {{template_name}} 审核{{review_result}}，请查看。', default_in_app: true, default_email: true },
+];
+
+/**
+ * 联动初始化新租户的默认设置：通知模板 + 仓储设置（幂等：已存在则跳过）
+ */
+async function initTenantDefaultSettings(base44, tenantId, adminEmail) {
+  const result = { notification_templates: 0, storage_settings: false };
+
+  // 1. 默认通知模板（批量创建，已存在的子类型跳过）
+  const existingTpls = await base44.asServiceRole.entities.NotificationTemplate.filter({ tenant_id: tenantId });
+  const existingKeys = new Set((existingTpls || []).map(t => `${t.notification_type}:${t.notification_subtype}`));
+  const toCreate = DEFAULT_NOTIFICATION_TEMPLATES
+    .filter(t => !existingKeys.has(`${t.notification_type}:${t.notification_subtype}`))
+    .map(t => ({ ...t, tenant_id: tenantId, is_active: true, updated_by: adminEmail }));
+  if (toCreate.length > 0) {
+    await base44.asServiceRole.entities.NotificationTemplate.bulkCreate(toCreate);
+    result.notification_templates = toCreate.length;
+  }
+
+  // 2. 默认仓储设置（与 manageStorageSettings 默认值一致）
+  const existingStorage = await base44.asServiceRole.entities.StorageSettings.filter({ tenant_id: tenantId });
+  if (!existingStorage || existingStorage.length === 0) {
+    await base44.asServiceRole.entities.StorageSettings.create({
+      tenant_id: tenantId,
+      storage_enabled: false,
+      default_storage_days: 90,
+      default_reminder_days: 60,
+      default_storage_fee_per_day: 0,
+      storage_fee_currency: 'JPY',
+      on_deadline_action: 'change_status',
+      deadline_status: 'expired',
+      updated_by: adminEmail,
+      updated_at: new Date().toISOString(),
+    });
+    result.storage_settings = true;
+  }
+
+  console.log(`[initTenantDefaultSettings] tenant ${tenantId}: ${result.notification_templates} templates, storage=${result.storage_settings}`);
+  return result;
+}
 
 /**
  * 克隆全局服务费规则模板为指定租户的草稿规则（字段白名单与 serviceFeeRuleEngine 保持一致）

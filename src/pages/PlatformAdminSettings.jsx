@@ -136,7 +136,8 @@ export default function PlatformAdminSettings() {
       setTenantMsg({ type: 'error', text: r.data.error });
     } else {
       const ruleNote = r.data.applied_fee_rule ? `，已套用规则模板「${r.data.applied_fee_rule.name}」（草稿）` : '';
-      setTenantMsg({ type: 'success', text: `租户 "${r.data.tenant.name}" 创建成功！${ruleNote}` });
+      const initNote = r.data.initialized ? `，已初始化 ${r.data.initialized.notification_templates} 个通知模板和默认仓储设置` : '';
+      setTenantMsg({ type: 'success', text: `租户 "${r.data.tenant.name}" 创建成功！${ruleNote}${initNote}` });
       setNewTenant({ name: "", code: "", branding_name: "", timezone: "Asia/Tokyo", login_title: "", login_subtitle: "", logo_url: "", favicon_url: "", theme_color: "#dc2626", contact_info: "", initial_fee_rule_template_id: "none" });
       await loadTenants();
     }
