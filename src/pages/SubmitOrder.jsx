@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
+import { toast } from "sonner";
 
 // Default prepay rate fallback
 const DEFAULT_PREPAY_RATE = 0.80;
@@ -250,6 +251,14 @@ export default function SubmitOrder() {
       return;
     }
 
+    // 记账订单：账目已直接记入记账系统，无需前往付款页
+    if (isCredit) {
+      setSubmitting(false);
+      toast.success("提交成功，本单已记账，无需付款");
+      navigate(createPageUrl("MyOrders"));
+      return;
+    }
+
     const selectedMethodObj = paymentMethods.find((m) => (m.provider_key || m.name) === paymentMethod);
     const selectedCurrency = selectedMethodObj?.payment_currency || "JPY";
     navigate(`/Payment?order_id=${order.id}&method=${paymentMethod || "other"}&pay_currency=${selectedCurrency}`);
@@ -429,13 +438,33 @@ export default function SubmitOrder() {
             {/* 图片上传 */}
             <div className="border-t border-gray-100 pt-3">
               <Label className="text-sm font-medium mb-2 block">商品图片（可选）</Label>
-              <div className={`border-2 rounded-lg transition-colors ${
+              <div
+                className={`border-2 rounded-lg transition-colors ${
                 form.product_image_url ? "border-green-300 bg-green-50" :
                 uploading ? "border-blue-200 bg-blue-50" :
                 "border-gray-200 hover:border-blue-300"
-              }`}>
+              }`}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const f = e.dataTransfer.files?.[0];
+                  if (f && f.type.startsWith("image/")) handleProductImageUpload(f);
+                }}
+                onPaste={(e) => {
+                  const items = e.clipboardData?.items;
+                  if (!items) return;
+                  for (const it of items) {
+                    if (it.type.startsWith("image/")) {
+                      e.preventDefault();
+                      handleProductImageUpload(it.getAsFile());
+                      break;
+                    }
+                  }
+                }}
+              >
                 <div
                   className="p-3 cursor-text"
+                  tabIndex={0}
                   onClick={() => document.getElementById("product-image-input")?.click()}
                 >
                   {form.product_image_url ? (
@@ -449,7 +478,7 @@ export default function SubmitOrder() {
                       <span>上传中...</span>
                     </div>
                   ) : (
-                    <div className="text-sm text-gray-500">点击上传或粘贴图片</div>
+                    <div className="text-sm text-gray-500">点击上传、拖拽图片到此 或 Ctrl+V 粘贴剪切板图片</div>
                   )}
                 </div>
                 <div className="border-t border-dashed border-gray-200 px-3 py-2">

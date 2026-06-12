@@ -164,6 +164,11 @@ export const PERMISSIONS_PRESET = [
             name: "message:send_image",
             display_name: "可传送图片",
             description: "取消则不可在留言中传送图片"
+          },
+          {
+            name: "message:send_profile_comment",
+            display_name: "可在个人资料页留言",
+            description: "关闭则不可在他人公开资料页留言"
           }
         ]
       }

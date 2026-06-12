@@ -30,6 +30,12 @@ import PreferenceSettingsCard from "@/components/profile/PreferenceSettingsCard"
 import NotificationGlobalSettingsCard from "@/components/profile/NotificationGlobalSettingsCard";
 import RolePermissionsTab from "@/components/profile/RolePermissionsTab";
 import PrivacySettingsTab from "@/components/profile/PrivacySettingsTab";
+import CustomerOrderDetailModal from "@/components/customer360/CustomerOrderDetailModal";
+
+const PAYMENT_METHOD_LABELS = {
+  alipay: "支付宝", wechatpay: "微信支付", paypay: "PayPay", paypal: "PayPal",
+  credit_card: "信用卡", bank_transfer: "银行转账", credit: "记账", other: "其他",
+};
 
 const SYSTEM_ROLE_CONFIG = {
   platform_admin: { label: "平台管理员", color: "bg-red-100 text-red-700" },
@@ -119,6 +125,7 @@ export default function AdminUserDetail() {
   const [noteType, setNoteType] = useState("internal"); // internal or customer_visible
   const [savingNote, setSavingNote] = useState(false);
   const [showEditProfile, setShowEditProfile] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState(null);
   
   const loadData = useCallback(async (silent = false) => {
     // Determine which user ID to load
@@ -490,18 +497,33 @@ export default function AdminUserDetail() {
                 {recentOrders && recentOrders.length > 0 ? (
                   <div className="space-y-2">
                     {recentOrders.slice(0, 5).map(order => (
-                      <div key={order.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-sm">{order.product_name}</span>
+                      <button
+                        key={order.id}
+                        type="button"
+                        onClick={() => setSelectedOrder(order)}
+                        className="w-full text-left flex items-center gap-3 p-3 border rounded-lg hover:bg-blue-50/50 hover:border-blue-200 transition-colors cursor-pointer"
+                      >
+                        {order.product_image_url ? (
+                          <img src={order.product_image_url} alt="" className="w-10 h-10 rounded object-cover border flex-shrink-0" />
+                        ) : (
+                          <div className="w-10 h-10 rounded bg-gray-100 flex items-center justify-center flex-shrink-0">
+                            <Package className="w-4 h-4 text-gray-400" />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-medium text-sm truncate">{order.product_name}</span>
                             <OrderStatusBadge status={order.order_status} />
+                            {order.payment_mode === 'credit' && (
+                              <Badge className="bg-indigo-100 text-indigo-700 text-xs">记账</Badge>
+                            )}
                           </div>
                           <p className="text-xs text-gray-500 mt-1">
-                            {formatDate(order.created_date)} · {formatCurrency(order.paid_amount)}
+                            {formatDate(order.created_date)} · {order.order_number || "-"} · {formatCurrency(order.paid_amount)}
                           </p>
                         </div>
-                        <ChevronRight className="w-4 h-4 text-gray-400" />
-                      </div>
+                        <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                      </button>
                     ))}
                   </div>
                 ) : (
@@ -617,7 +639,7 @@ export default function AdminUserDetail() {
                     <div className="space-y-1">
                       {preferences.topPaymentMethods.slice(0, 3).map((method, idx) => (
                         <Badge key={idx} variant="outline" className="text-xs mb-1">
-                          {method.name} ({method.count})
+                          {PAYMENT_METHOD_LABELS[method.name] || method.name} ({method.count})
                         </Badge>
                       ))}
                     </div>
@@ -653,6 +675,7 @@ export default function AdminUserDetail() {
             formatDate={formatDate}
             OrderStatusBadge={OrderStatusBadge}
             PaymentStatusBadge={PaymentStatusBadge}
+            onOrderClick={setSelectedOrder}
           />
         </TabsContent>
         
@@ -708,7 +731,7 @@ export default function AdminUserDetail() {
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                     {preferences.topPaymentMethods.map((method, idx) => (
                       <div key={idx} className="p-3 border rounded-lg flex items-center justify-between">
-                        <span className="text-sm">{method.name}</span>
+                        <span className="text-sm">{PAYMENT_METHOD_LABELS[method.name] || method.name}</span>
                         <Badge variant="outline">{method.count} 次</Badge>
                       </div>
                     ))}
@@ -807,6 +830,18 @@ export default function AdminUserDetail() {
           </Card>
         </TabsContent>
       </Tabs>
+      
+      {/* Order Detail Modal */}
+      {selectedOrder && (
+        <CustomerOrderDetailModal
+          order={selectedOrder}
+          onClose={() => setSelectedOrder(null)}
+          formatCurrency={formatCurrency}
+          formatDate={formatDate}
+          OrderStatusBadge={OrderStatusBadge}
+          PaymentStatusBadge={PaymentStatusBadge}
+        />
+      )}
       
       {/* Edit Profile Modal */}
       {showEditProfile && (

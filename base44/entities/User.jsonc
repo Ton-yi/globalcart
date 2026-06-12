@@ -126,6 +126,11 @@
       "type": "string",
       "description": "\u6700\u8fd1\u88ab\u8bbf\u95ee\u65f6\u95f4\uff08ISO \u65f6\u95f4\u6233\uff09"
     },
+    "profile_comments_enabled": {
+      "type": "boolean",
+      "default": true,
+      "description": "\u516c\u5f00\u8d44\u6599\u9875\u662f\u5426\u5f00\u542f\u7559\u8a00\u533a\uff08\u9ed8\u8ba4\u5f00\u542f\uff09"
+    },
     "privacy_show_registered_date": {
       "type": "boolean",
       "default": true,

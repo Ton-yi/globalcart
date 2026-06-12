@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import ReactMarkdown from "react-markdown";
+import ProfileCommentSection from "@/components/profile/ProfileCommentSection";
 
 export default function PublicProfile() {
   const { handle } = useParams();
@@ -98,6 +99,12 @@ export default function PublicProfile() {
                 {profile.roles && profile.roles.map(role => (
                   <Badge key={role} className="bg-gray-100 text-gray-700">
                     {role === 'platform_admin' ? '平台管理员' : role === 'tenant_admin' ? '租户管理员' : role === 'staff' ? '工作人员' : '用户'}
+                  </Badge>
+                ))}
+                {/* 租户自定义角色标签 */}
+                {(profile.custom_roles || []).map((r, idx) => (
+                  <Badge key={`cr-${idx}`} variant="outline" className="text-xs" style={{ borderColor: r.color, color: r.color }}>
+                    {r.name}
                   </Badge>
                 ))}
               </div>
@@ -204,6 +211,9 @@ export default function PublicProfile() {
           </CardContent>
         </Card>
       )}
+
+      {/* 留言板 */}
+      <ProfileCommentSection handle={handle} />
     </div>
   );
 }

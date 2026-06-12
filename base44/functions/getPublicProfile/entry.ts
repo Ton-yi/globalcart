@@ -164,6 +164,19 @@ Deno.serve(async (req) => {
       }
     }
 
+    // 租户自定义角色标签（仅在允许显示角色标签时返回）
+    let customRoles = null;
+    if (targetUser.privacy_show_role_badges !== false && (targetUser.assigned_role_ids || []).length > 0) {
+      const tenantRoles = await base44.asServiceRole.entities.Role.filter({
+        tenant_id: targetUser.tenant_id,
+        is_archived: false
+      });
+      customRoles = (targetUser.assigned_role_ids || [])
+        .map(id => (tenantRoles || []).find(r => r.id === id))
+        .filter(r => r && !r.is_predefined)
+        .map(r => ({ name: r.name, color: r.color || '#9ca3af' }));
+    }
+
     let country = null;
     if (showCountry) {
       const prefs = await base44.asServiceRole.entities.UserPreference.filter({
@@ -187,6 +200,8 @@ Deno.serve(async (req) => {
       bio: targetUser.privacy_show_bio !== false ? (targetUser.public_profile_bio || null) : null,
       bio_image_url: targetUser.privacy_show_bio !== false ? (targetUser.public_profile_bio_image_url || null) : null,
       last_login_at: targetUser.privacy_show_last_login === true ? (targetUser.last_login_at || null) : null,
+      custom_roles: customRoles,
+      comments_enabled: targetUser.profile_comments_enabled !== false,
       country,
       stats,
       recentOrders

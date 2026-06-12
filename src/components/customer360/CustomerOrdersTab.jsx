@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { ChevronRight, Package } from "lucide-react";
 
 const ORDER_STATUS_LABELS = {
   pending_confirmation: "待确认", payment_pending: "待付款", paid: "已付款",
@@ -22,7 +24,7 @@ const PAYMENT_STATUS_LABELS = {
 
 const SHIPPED_STATUSES = ["transit_shipped", "shipped", "delivered"];
 
-export default function CustomerOrdersTab({ orders, formatCurrency, formatDate, OrderStatusBadge, PaymentStatusBadge }) {
+export default function CustomerOrdersTab({ orders, formatCurrency, formatDate, OrderStatusBadge, PaymentStatusBadge, onOrderClick }) {
   const [orderStatus, setOrderStatus] = useState("all");
   const [paymentStatus, setPaymentStatus] = useState("all");
   const [shipState, setShipState] = useState("all");
@@ -107,12 +109,30 @@ export default function CustomerOrdersTab({ orders, formatCurrency, formatDate, 
         {filtered.length > 0 ? (
           <div className="space-y-2">
             {filtered.map(order => (
-              <div key={order.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50">
-                <div className="flex-1">
+              <button
+                key={order.id}
+                type="button"
+                onClick={() => onOrderClick?.(order)}
+                className="w-full text-left flex items-center gap-3 p-3 border rounded-lg hover:bg-blue-50/50 hover:border-blue-200 transition-colors cursor-pointer"
+              >
+                {order.product_image_url ? (
+                  <img src={order.product_image_url} alt="" className="w-10 h-10 rounded object-cover border flex-shrink-0" />
+                ) : (
+                  <div className="w-10 h-10 rounded bg-gray-100 flex items-center justify-center flex-shrink-0">
+                    <Package className="w-4 h-4 text-gray-400" />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-medium text-sm">{order.product_name}</span>
+                    <span className="font-medium text-sm truncate">{order.product_name}</span>
                     <OrderStatusBadge status={order.order_status} />
                     <PaymentStatusBadge status={order.payment_status} />
+                    {order.payment_mode === 'credit' && (
+                      <Badge className="bg-indigo-100 text-indigo-700 text-xs">记账</Badge>
+                    )}
+                    {order.online_store_tag && (
+                      <Badge variant="outline" className="text-xs">{order.online_store_tag}</Badge>
+                    )}
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
                     {formatDate(order.created_date)} · 订单号：{order.order_number || "-"} · {formatCurrency(order.paid_amount)}
@@ -120,7 +140,8 @@ export default function CustomerOrdersTab({ orders, formatCurrency, formatDate, 
                     {order.destination_country && ` · ${order.destination_country}`}
                   </p>
                 </div>
-              </div>
+                <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
+              </button>
             ))}
           </div>
         ) : (

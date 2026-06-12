@@ -33,7 +33,8 @@ Deno.serve(async (req) => {
       privacy_show_stats,
       privacy_show_orders,
       privacy_show_country,
-      privacy_show_last_login
+      privacy_show_last_login,
+      profile_comments_enabled
     } = await req.json();
 
     const updateData = {};
@@ -64,6 +65,7 @@ Deno.serve(async (req) => {
     if (privacy_show_orders !== undefined) updateData.privacy_show_orders = privacy_show_orders;
     if (privacy_show_country !== undefined) updateData.privacy_show_country = privacy_show_country;
     if (privacy_show_last_login !== undefined) updateData.privacy_show_last_login = privacy_show_last_login;
+    if (profile_comments_enabled !== undefined) updateData.profile_comments_enabled = profile_comments_enabled;
 
     await base44.entities.User.update(user.id, updateData);
 

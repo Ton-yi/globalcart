@@ -136,9 +136,10 @@ Deno.serve(async (req) => {
         shippingMethods[order.shipping_method] = (shippingMethods[order.shipping_method] || 0) + 1;
       }
       
-      // Payment methods
-      if (order.payment_method) {
-        paymentMethods[order.payment_method] = (paymentMethods[order.payment_method] || 0) + 1;
+      // Payment methods（记账订单统一计为 credit）
+      const pmKey = order.payment_mode === 'credit' ? 'credit' : order.payment_method;
+      if (pmKey) {
+        paymentMethods[pmKey] = (paymentMethods[pmKey] || 0) + 1;
       }
       
       // Destination countries
@@ -377,11 +378,21 @@ Deno.serve(async (req) => {
         id: o.id,
         order_number: o.order_number,
         product_name: o.product_name,
+        product_image_url: o.product_image_url || null,
+        product_url: o.product_url || null,
         created_date: o.created_date,
         order_status: o.order_status,
         payment_status: o.payment_status,
+        payment_mode: o.payment_mode || null,
+        payment_method: o.payment_method || null,
+        online_store_tag: o.online_store_tag || null,
+        service_fee_amount: o.service_fee_amount || 0,
         paid_amount: o.paid_amount || 0,
         estimated_jpy: o.estimated_jpy || 0,
+        shipping_method: o.shipping_method || null,
+        destination_country: o.destination_country || null,
+        shipped_date: o.shipped_date || null,
+        tracking_number: o.tracking_number || null,
       })),
       pendingTasks: {
         unpaidOrders: unpaidOrders.map(o => ({
@@ -409,14 +420,21 @@ Deno.serve(async (req) => {
         id: o.id,
         order_number: o.order_number,
         product_name: o.product_name,
+        product_image_url: o.product_image_url || null,
+        product_url: o.product_url || null,
         created_date: o.created_date,
         order_status: o.order_status,
         payment_status: o.payment_status,
+        payment_mode: o.payment_mode || null,
+        payment_method: o.payment_method || null,
+        online_store_tag: o.online_store_tag || null,
+        service_fee_amount: o.service_fee_amount || 0,
         paid_amount: o.order_stage_payment_jpy || o.paid_amount || 0,
         estimated_jpy: o.estimated_jpy || 0,
         shipping_method: o.shipping_method || null,
         destination_country: o.destination_country || null,
         shipped_date: o.shipped_date || null,
+        tracking_number: o.tracking_number || null,
       })),
       finance: {
         receivableJpy,

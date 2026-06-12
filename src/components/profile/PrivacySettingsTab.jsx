@@ -5,6 +5,7 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useAuth } from "@/lib/AuthContext";
 import { useUserPref } from "@/hooks/useUserPref";
 import { Eye, Shield, Link as LinkIcon, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,7 @@ import ImageUploader from "@/components/common/ImageUploader";
 
 export default function PrivacySettingsTab() {
   const { user } = useCurrentUser();
+  const { setUser } = useAuth();
   const { pref, savePref } = useUserPref();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -37,6 +39,7 @@ export default function PrivacySettingsTab() {
     privacy_show_orders: false,
     privacy_show_country: false,
     privacy_show_last_login: false,
+    profile_comments_enabled: true,
     public_profile_views_total: 0,
     public_profile_views_unique: 0
   });
@@ -56,11 +59,13 @@ export default function PrivacySettingsTab() {
       privacy_show_orders: user.privacy_show_orders ?? false,
       privacy_show_country: user.privacy_show_country ?? false,
       privacy_show_last_login: user.privacy_show_last_login ?? false,
+      profile_comments_enabled: user.profile_comments_enabled ?? true,
       public_profile_views_total: user.public_profile_views_total || 0,
       public_profile_views_unique: user.public_profile_views_unique || 0
     }));
     setLoading(false);
-  }, [user?.id]); // eslint-disable-line
+    // 依赖整个 user 对象：编辑个人资料弹窗保存后会更新 AuthContext user，此处自动同步（避免简介两处冲突）
+  }, [user]); // eslint-disable-line
 
   useEffect(() => {
     if (pref) setOrderInfoPublic(pref.order_info_public === true);
@@ -103,10 +108,14 @@ export default function PrivacySettingsTab() {
         privacy_show_stats: settings.privacy_show_stats,
         privacy_show_orders: settings.privacy_show_orders,
         privacy_show_country: settings.privacy_show_country,
-        privacy_show_last_login: settings.privacy_show_last_login
+        privacy_show_last_login: settings.privacy_show_last_login,
+        profile_comments_enabled: settings.profile_comments_enabled
       });
       // 站内订单信息公开开关（UserPreference）
       await savePref({ order_info_public: orderInfoPublic });
+      // 刷新全局用户对象，保证与"编辑个人资料"弹窗等处的简介保持同步
+      const updatedUser = await base44.auth.me();
+      setUser(updatedUser);
       toast.success('设置已保存');
     } catch (e) {
       toast.error(e.response?.data?.error || '保存失败，请重试');
@@ -290,7 +299,8 @@ export default function PrivacySettingsTab() {
             { key: 'privacy_show_stats', label: '订单简要', desc: '显示累计消费、订单数、货款总计、服务费、最近下单' },
             { key: 'privacy_show_orders', label: '订单记录', desc: '向资料页访问者显示最近 10 笔订单（默认关闭）' },
             { key: 'privacy_show_country', label: '所在国家/地区', desc: '显示您的默认地址国家（默认关闭）' },
-            { key: 'privacy_show_last_login', label: '最近登录时间', desc: '显示您最后一次登录的时间（默认关闭）' }
+            { key: 'privacy_show_last_login', label: '最近登录时间', desc: '显示您最后一次登录的时间（默认关闭）' },
+            { key: 'profile_comments_enabled', label: '开启留言区', desc: '允许其他用户在您的公开资料页留言（默认开启）' }
           ].map(item => (
             <div key={item.key} className="flex items-center justify-between">
               <div>

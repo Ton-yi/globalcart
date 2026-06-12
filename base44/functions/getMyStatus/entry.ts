@@ -36,22 +36,23 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
+    const records = await base44.asServiceRole.entities.User.filter({ email: user.email });
+    const userRecord = records?.[0];
+    if (!userRecord) return Response.json({ is_active: true, permissions: [] });
+
+    // 记录最近登录时间（1 小时节流，供公开资料页「最近登录时间」展示）
+    // 注意：必须在 platform_admin 提前返回之前执行，否则管理员的登录时间永远不会被记录
+    const lastLogin = userRecord.last_login_at ? new Date(userRecord.last_login_at).getTime() : 0;
+    if (Date.now() - lastLogin > 60 * 60 * 1000) {
+      await base44.asServiceRole.entities.User.update(userRecord.id, { last_login_at: new Date().toISOString() });
+    }
+
     // platform_admin bypasses all granular permission checks — return early
     if (user.role === 'platform_admin') {
       return Response.json({ is_active: true, permissions: [] });
     }
 
-    const records = await base44.asServiceRole.entities.User.filter({ email: user.email });
-    const userRecord = records?.[0];
-    if (!userRecord) return Response.json({ is_active: true, permissions: [] });
-
     const isActive = userRecord.is_active !== false;
-
-    // 记录最近登录时间（1 小时节流，供公开资料页「最近登录时间」展示）
-    const lastLogin = userRecord.last_login_at ? new Date(userRecord.last_login_at).getTime() : 0;
-    if (Date.now() - lastLogin > 60 * 60 * 1000) {
-      await base44.asServiceRole.entities.User.update(userRecord.id, { last_login_at: new Date().toISOString() });
-    }
 
     // Only compute granular permissions if the user has assigned roles or overrides
     let permissions = [];

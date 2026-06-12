@@ -124,6 +124,13 @@ Deno.serve(async (req) => {
 
       // Credit within limit — update balance
       if (totalJpy > 0) {
+        // 记账订单：记录支付方式与下单阶段账面金额（供偏好统计与财务报表正确展示）
+        await base44.asServiceRole.entities.Order.update(order.id, {
+          payment_method: 'credit',
+          order_stage_payment_jpy: totalJpy,
+          paid_amount: totalJpy,
+        });
+
         const newBalance = currentBalance + totalJpy;
         const balanceUpdate = { credit_balance_jpy: newBalance };
 
