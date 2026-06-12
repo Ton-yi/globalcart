@@ -53,6 +53,7 @@ function MetricCard({ icon: Icon, label, value, subValue, color = "blue" }) {
     red: "bg-red-50 text-red-700 border-red-200",
     purple: "bg-purple-50 text-purple-700 border-purple-200",
     orange: "bg-orange-50 text-orange-700 border-orange-200",
+    gray: "bg-gray-50 text-gray-700 border-gray-200",
   };
   
   return (
@@ -127,6 +128,8 @@ export default function AdminUserDetail() {
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
   
+  const canReadOthers = isAdmin || can("user:read");
+  
   const loadData = useCallback(async (silent = false) => {
     // Determine which user ID to load
     const targetUserId = userId === 'me' ? currentUser?.id : userId;
@@ -138,7 +141,7 @@ export default function AdminUserDetail() {
     
     // Check if user is viewing their own profile or has admin permissions
     const isOwnProfile = targetUserId === currentUser?.id;
-    const hasAdminPermission = isAdmin || can("user:read");
+    const hasAdminPermission = canReadOthers;
     
     if (!isOwnProfile && !hasAdminPermission) {
       setError('Forbidden: You do not have permission to view this profile');
@@ -157,7 +160,8 @@ export default function AdminUserDetail() {
       setError(err.response?.data?.error || err.message);
     }
     setLoading(false);
-  }, [userId, currentUser?.id]);
+    // 包含 canReadOthers：权限数据晚于页面加载到达时自动重试，避免管理员被误判 Forbidden
+  }, [userId, currentUser?.id, canReadOthers]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -224,8 +228,8 @@ export default function AdminUserDetail() {
   const { userProfile, metrics, recentOrders, pendingTasks, riskFlags, preferences, timeline, orders, finance, logistics, notes, roles } = data;
   const pinnedNotes = (notes || []).filter(n => n.is_pinned);
   
-  // Calculate refund count from timeline
-  const refundCount = timeline?.filter(e => e.type === 'refund').length || 0;
+  // 退款次数：使用后端精确统计（timeline 仅取前 50 条事件，会漏算）
+  const refundCount = metrics.refundCount || 0;
   
   const formatCurrency = (amount) => {
     return `¥${Math.round(amount).toLocaleString()}`;

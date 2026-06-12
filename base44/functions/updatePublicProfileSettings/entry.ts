@@ -55,17 +55,24 @@ Deno.serve(async (req) => {
       updateData.handle = normalizedHandle;
     }
 
-    if (public_profile_enabled !== undefined) updateData.public_profile_enabled = public_profile_enabled;
-    if (public_profile_bio !== undefined) updateData.public_profile_bio = public_profile_bio;
-    if (public_profile_bio_image_url !== undefined) updateData.public_profile_bio_image_url = public_profile_bio_image_url;
-    if (privacy_show_registered_date !== undefined) updateData.privacy_show_registered_date = privacy_show_registered_date;
-    if (privacy_show_role_badges !== undefined) updateData.privacy_show_role_badges = privacy_show_role_badges;
-    if (privacy_show_bio !== undefined) updateData.privacy_show_bio = privacy_show_bio;
-    if (privacy_show_stats !== undefined) updateData.privacy_show_stats = privacy_show_stats;
-    if (privacy_show_orders !== undefined) updateData.privacy_show_orders = privacy_show_orders;
-    if (privacy_show_country !== undefined) updateData.privacy_show_country = privacy_show_country;
-    if (privacy_show_last_login !== undefined) updateData.privacy_show_last_login = privacy_show_last_login;
-    if (profile_comments_enabled !== undefined) updateData.profile_comments_enabled = profile_comments_enabled;
+    // 类型校验：布尔字段强制转为布尔；bio 限制长度；图片 URL 必须为字符串
+    if (public_profile_enabled !== undefined) updateData.public_profile_enabled = !!public_profile_enabled;
+    if (public_profile_bio !== undefined) {
+      const bio = String(public_profile_bio || '');
+      if (bio.length > 2000) {
+        return Response.json({ error: '简介内容过长（最多 2000 字符）' }, { status: 400 });
+      }
+      updateData.public_profile_bio = bio;
+    }
+    if (public_profile_bio_image_url !== undefined) updateData.public_profile_bio_image_url = String(public_profile_bio_image_url || '');
+    if (privacy_show_registered_date !== undefined) updateData.privacy_show_registered_date = !!privacy_show_registered_date;
+    if (privacy_show_role_badges !== undefined) updateData.privacy_show_role_badges = !!privacy_show_role_badges;
+    if (privacy_show_bio !== undefined) updateData.privacy_show_bio = !!privacy_show_bio;
+    if (privacy_show_stats !== undefined) updateData.privacy_show_stats = !!privacy_show_stats;
+    if (privacy_show_orders !== undefined) updateData.privacy_show_orders = !!privacy_show_orders;
+    if (privacy_show_country !== undefined) updateData.privacy_show_country = !!privacy_show_country;
+    if (privacy_show_last_login !== undefined) updateData.privacy_show_last_login = !!privacy_show_last_login;
+    if (profile_comments_enabled !== undefined) updateData.profile_comments_enabled = !!profile_comments_enabled;
 
     await base44.entities.User.update(user.id, updateData);
 

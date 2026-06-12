@@ -27,6 +27,7 @@ export default function CustomerFinanceTab({ finance, userProfile, formatCurrenc
   const items = [
     { label: "应收金额", value: f.receivableJpy || 0, cls: "bg-blue-50 border-blue-200 text-blue-800" },
     { label: "实收金额", value: f.receivedJpy || 0, cls: "bg-green-50 border-green-200 text-green-800" },
+    { label: "记账挂账（未还）", value: f.creditOutstandingJpy || 0, cls: "bg-indigo-50 border-indigo-200 text-indigo-800" },
     { label: "未收金额", value: f.outstandingJpy || 0, cls: "bg-red-50 border-red-200 text-red-800" },
     { label: "退款金额", value: f.totalRefundJpy || 0, cls: "bg-red-50 border-red-200 text-red-800" },
     { label: "商品货款", value: f.totalGoodsJpy || 0, cls: "bg-gray-50 border-gray-200 text-gray-800" },

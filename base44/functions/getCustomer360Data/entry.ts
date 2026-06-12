@@ -54,10 +54,33 @@ Deno.serve(async (req) => {
       userId = user.id;
     }
     
-    // 普通用户只能查看自己的档案；查看他人需要管理员/员工权限
+    // 普通用户只能查看自己的档案；查看他人需要管理员/员工权限 或 细粒度 user:read 权限（与前端判断一致）
     const isSelf = userId === user.id;
     if (!isSelf && !isAdminViewer) {
-      return Response.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
+      let hasUserRead = false;
+      const viewerRecords = await base44.asServiceRole.entities.User.filter({ email: user.email });
+      const viewer = viewerRecords?.[0];
+      if (viewer?.tenant_id) {
+        const [tRoles, gRoles] = await Promise.all([
+          base44.asServiceRole.entities.Role.filter({ tenant_id: viewer.tenant_id, is_archived: false }),
+          base44.asServiceRole.entities.Role.filter({ is_global: true, is_archived: false }),
+        ]);
+        const rolesArr = [...(tRoles || []), ...(gRoles || [])];
+        const perms = new Set();
+        (viewer.assigned_role_ids || []).forEach(rid => {
+          const role = rolesArr.find(r => r.id === rid)
+            || rolesArr.find(r => r.predefined_key === `builtin_${rid}` || r.name === rid);
+          (role?.direct_permissions || []).forEach(p => perms.add(p));
+        });
+        Object.entries(viewer.permission_overrides || {}).forEach(([p, a]) => {
+          if (a === 'add') perms.add(p);
+          else if (a === 'remove') perms.delete(p);
+        });
+        hasUserRead = perms.has('user:read');
+      }
+      if (!hasUserRead) {
+        return Response.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
+      }
     }
     
     // Get target user record by ID (not email)
@@ -191,7 +214,9 @@ Deno.serve(async (req) => {
     const goodsJpyActive = activeOrders.reduce((s, o) => s + (o.estimated_jpy || 0), 0);
     const serviceFeeJpyActive = activeOrders.reduce((s, o) => s + (o.service_fee_amount || 0), 0);
     const receivableJpy = goodsJpyActive + serviceFeeJpyActive + addonFeeJpy + storageFeeJpy + rewarehouseFeeJpy + shippingStageReceivableJpy;
-    const receivedJpy = totalPaidJpy + shippingStagePaidJpy;
+    // 记账挂账：未还清的记账金额不能算作实收（记账订单创建时 paid_amount 记入账面，但实际欠款在 credit_balance_jpy 追踪）
+    const creditOutstandingJpy = targetUser.credit_enabled ? (targetUser.credit_balance_jpy || 0) : 0;
+    const receivedJpy = Math.max(0, totalPaidJpy + shippingStagePaidJpy - creditOutstandingJpy);
     const outstandingJpy = Math.max(0, receivableJpy - receivedJpy - totalRefundJpy);
     
     // ===== 物流地址 =====
@@ -398,7 +423,8 @@ Deno.serve(async (req) => {
         unpaidOrders: unpaidOrders.map(o => ({
           id: o.id,
           order_number: o.order_number,
-          amount: o.paid_amount || 0,
+          // 未付款订单应显示应付金额（预付款金额，或货款+服务费），而非 paid_amount（未付款时恒为 0）
+          amount: o.prepayment_amount_jpy || ((o.estimated_jpy || 0) + (o.service_fee_amount || 0)),
           due_date: o.payment_due_date,
         })),
         pendingShipOrders: pendingShipOrders.map(o => ({
@@ -439,6 +465,7 @@ Deno.serve(async (req) => {
       finance: {
         receivableJpy,
         receivedJpy,
+        creditOutstandingJpy,
         outstandingJpy,
         totalRefundJpy,
         totalGoodsJpy,
