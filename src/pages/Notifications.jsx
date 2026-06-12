@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { zhCN } from "date-fns/locale";
+import { createPageUrl } from "@/utils";
 
 const iconMap = { Bell, DollarSign, Package, MessageSquare, Info, AlertCircle };
 
@@ -81,7 +82,7 @@ export default function NotificationsPage() {
           <p className="text-sm text-gray-500 mt-1">查看和管理您的所有通知</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => window.location.href = '/UserNotificationSettings'}>
+          <Button variant="outline" size="sm" onClick={() => window.location.href = createPageUrl('UserNotificationSettings')}>
             <Settings className="w-4 h-4 mr-2" />
             通知设置
           </Button>

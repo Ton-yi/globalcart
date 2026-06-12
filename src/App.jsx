@@ -44,7 +44,7 @@ const AuthenticatedApp = () => {
   // 例如 /Notifications → /ja/Notifications，/u/handle → /ja/u/handle
   const firstSegment = location.pathname.split('/').filter(Boolean)[0];
   if (firstSegment && !isValidLocale(firstSegment)) {
-    return <Navigate to={`/${getPreferredLocale()}${location.pathname}${location.search}`} replace />;
+    return <Navigate to={`/${getPreferredLocale()}${location.pathname}${location.search}${location.hash}`} replace />;
   }
 
   if (isLoadingPublicSettings || isLoadingAuth) {
