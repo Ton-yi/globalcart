@@ -5,6 +5,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { X, ExternalLink, Package, CreditCard, Truck, Calendar } from "lucide-react";
+import { ImageWithViewer } from "@/components/common/ImageViewer";
 
 const PAYMENT_MODE_LABELS = {
   prepay: "预付款", deferred: "后付款", fullpay_once: "一次付全款", credit: "记账",
@@ -34,9 +35,9 @@ export default function CustomerOrderDetailModal({ order, onClose, formatCurrenc
           {/* 商品信息 */}
           <div className="flex gap-3">
             {order.product_image_url && (
-              <a href={order.product_image_url} target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
-                <img src={order.product_image_url} alt="" className="w-20 h-20 rounded-lg object-cover border" />
-              </a>
+              <div className="flex-shrink-0">
+                <ImageWithViewer src={order.product_image_url} thumbClassName="w-20 h-20 rounded-lg object-cover border" />
+              </div>
             )}
             <div className="flex-1 min-w-0">
               <p className="font-semibold text-gray-900">{order.product_name}</p>

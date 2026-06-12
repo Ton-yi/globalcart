@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import ReactMarkdown from "react-markdown";
 import ProfileCommentSection from "@/components/profile/ProfileCommentSection";
+import { ImageWithViewer } from "@/components/common/ImageViewer";
 
 export default function PublicProfile() {
   const { handle } = useParams();
@@ -84,7 +85,9 @@ export default function PublicProfile() {
         <CardContent className="p-6">
           <div className="flex items-start gap-4">
             {profile.avatar_url ? (
-              <img src={profile.avatar_url} alt={profile.display_name || profile.handle} className="w-20 h-20 rounded-full object-cover flex-shrink-0" />
+              <ImageWithViewer src={profile.avatar_url} alt={profile.display_name || profile.handle}>
+                <img src={profile.avatar_url} alt={profile.display_name || profile.handle} className="w-20 h-20 rounded-full object-cover flex-shrink-0" />
+              </ImageWithViewer>
             ) : (
               <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-3xl font-bold flex-shrink-0">
                 {(profile.display_name || profile.handle)[0]?.toUpperCase()}
@@ -122,7 +125,9 @@ export default function PublicProfile() {
                 </div>
               )}
               {profile.bio_image_url && (
-                <img src={profile.bio_image_url} alt="Bio" className="mt-3 rounded-lg max-h-48 object-cover" />
+                <div className="mt-3">
+                  <ImageWithViewer src={profile.bio_image_url} alt="Bio" thumbClassName="rounded-lg max-h-48 object-cover" />
+                </div>
               )}
             </div>
           </div>

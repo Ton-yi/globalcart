@@ -12,10 +12,13 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { MessageSquare, Bell, BellOff, ImagePlus, X, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { ImageWithViewer } from "@/components/common/ImageViewer";
 
 function formatTime(dateStr) {
   if (!dateStr) return "";
-  const d = new Date(dateStr);
+  // 后端存储的是 UTC 时间但不带时区标记，直接 new Date() 会被当作本地时间解析（东京时区会偏差 9 小时）
+  const normalized = /Z|[+-]\d{2}:?\d{2}$/.test(dateStr) ? dateStr : dateStr + "Z";
+  const d = new Date(normalized);
   const diff = Date.now() - d.getTime();
   if (diff < 60 * 1000) return "刚刚";
   if (diff < 60 * 60 * 1000) return `${Math.floor(diff / 60000)} 分钟前`;
@@ -172,10 +175,16 @@ export default function ProfileCommentSection({ handle }) {
           >
             <Textarea
               rows={3}
-              placeholder="发布一条留言... 可拖拽或 Ctrl+V 粘贴图片"
+              placeholder="发布一条留言... 可拖拽或 Ctrl+V 粘贴图片，Ctrl+Enter 发送"
               value={content}
               onChange={(e) => setContent(e.target.value)}
               onPaste={handlePaste}
+              onKeyDown={(e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+                  e.preventDefault();
+                  handlePost();
+                }
+              }}
               className="bg-white text-sm"
             />
             {imageUrls.length > 0 && (
@@ -234,7 +243,9 @@ export default function ProfileCommentSection({ handle }) {
               return (
                 <div key={c.id} className="py-3 flex gap-3 group">
                   {c.author_avatar_url ? (
-                    <img src={c.author_avatar_url} alt="" className="w-9 h-9 rounded-full object-cover flex-shrink-0" />
+                    <ImageWithViewer src={c.author_avatar_url}>
+                      <img src={c.author_avatar_url} alt="" className="w-9 h-9 rounded-full object-cover flex-shrink-0" />
+                    </ImageWithViewer>
                   ) : (
                     <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
                       {(c.author_name || c.author_email)[0]?.toUpperCase()}
@@ -264,9 +275,7 @@ export default function ProfileCommentSection({ handle }) {
                     {(c.image_urls || []).length > 0 && (
                       <div className="flex gap-2 mt-2 flex-wrap">
                         {c.image_urls.map((url, idx) => (
-                          <a key={idx} href={url} target="_blank" rel="noopener noreferrer">
-                            <img src={url} alt="" className="h-20 max-w-[160px] rounded object-cover border hover:opacity-90" />
-                          </a>
+                          <ImageWithViewer key={idx} src={url} thumbClassName="h-20 max-w-[160px] rounded object-cover border hover:opacity-90" />
                         ))}
                       </div>
                     )}
