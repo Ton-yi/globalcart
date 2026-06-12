@@ -14,6 +14,15 @@ export const SUPPORTED_LOCALES = [
 
 export const DEFAULT_LOCALE = 'ja';
 
+export function isValidLocale(code) {
+  return SUPPORTED_LOCALES.some(loc => loc.code === code);
+}
+
+export function getPreferredLocale() {
+  const saved = localStorage.getItem('preferred_locale');
+  return saved && isValidLocale(saved) ? saved : DEFAULT_LOCALE;
+}
+
 export function LocaleProvider({ children }) {
   const [currentLocale, setCurrentLocale] = useState(DEFAULT_LOCALE);
   const navigate = useNavigate();
@@ -32,6 +41,12 @@ export function LocaleProvider({ children }) {
     }
   }, [location.pathname]);
 
+  // 同步 <html lang> 属性（利于 SEO 与无障碍）
+  useEffect(() => {
+    const langMap = { zhcn: 'zh-CN', zhtw: 'zh-TW' };
+    document.documentElement.lang = langMap[currentLocale] || currentLocale;
+  }, [currentLocale]);
+
   const changeLocale = useCallback((localeCode) => {
     if (!SUPPORTED_LOCALES.some(loc => loc.code === localeCode)) {
       localeCode = DEFAULT_LOCALE;
@@ -47,8 +62,9 @@ export function LocaleProvider({ children }) {
       newPath = `/${localeCode}${location.pathname}`;
     }
     
-    navigate(newPath);
-  }, [location.pathname, navigate]);
+    localStorage.setItem('preferred_locale', localeCode);
+    navigate(`${newPath}${location.search}${location.hash}`);
+  }, [location.pathname, location.search, location.hash, navigate]);
 
   const value = {
     locale: currentLocale,

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { zhCN } from "date-fns/locale";
+import { createPageUrl } from "@/utils";
 
 const iconMap = {
   Bell: Bell,
@@ -77,7 +78,7 @@ export default function NotificationBellComponent() {
 
   const handleViewAll = () => {
     setIsOpen(false);
-    window.location.href = '/Notifications';
+    window.location.href = createPageUrl('Notifications');
   };
 
   return (
@@ -116,11 +117,11 @@ export default function NotificationBellComponent() {
             </div>
 
             <div className="px-3 py-2 border-b border-gray-100 flex gap-2">
-              <Button variant="outline" size="sm" className="h-7 text-xs flex-1" onClick={() => { setIsOpen(false); window.location.href = '/Notifications?type=payment'; }}>
+              <Button variant="outline" size="sm" className="h-7 text-xs flex-1" onClick={() => { setIsOpen(false); window.location.href = createPageUrl('Notifications') + '?type=payment'; }}>
                 <DollarSign className="w-3 h-3 mr-1" />
                 付款通知
               </Button>
-              <Button variant="outline" size="sm" className="h-7 text-xs flex-1" onClick={() => { setIsOpen(false); window.location.href = '/Notifications'; }}>
+              <Button variant="outline" size="sm" className="h-7 text-xs flex-1" onClick={() => { setIsOpen(false); window.location.href = createPageUrl('Notifications'); }}>
                 全部通知
               </Button>
             </div>
@@ -164,7 +165,7 @@ export default function NotificationBellComponent() {
             </div>
 
             <div className="px-4 py-3 border-t border-gray-100 bg-gray-50">
-              <Button variant="outline" size="sm" className="w-full" onClick={() => { setIsOpen(false); window.location.href = '/Notifications'; }}>
+              <Button variant="outline" size="sm" className="w-full" onClick={() => { setIsOpen(false); window.location.href = createPageUrl('Notifications'); }}>
                 <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
                 查看全部通知
               </Button>

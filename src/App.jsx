@@ -2,10 +2,10 @@ import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
 import { pagesConfig } from './pages.config'
-import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, Navigate, useLocation } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
-import { LocaleProvider } from '@/lib/LocaleContext';
+import { LocaleProvider, isValidLocale, getPreferredLocale } from '@/lib/LocaleContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import PlatformAdminSettings from '@/pages/PlatformAdminSettings';
 import AdminFeeRules from '@/pages/AdminFeeRules';
@@ -38,6 +38,14 @@ const LayoutWrapper = ({ children, currentPageName }) => Layout ?
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
+  const location = useLocation();
+
+  // 旧链接兼容：首段不是合法语言代码时，自动加上用户偏好语言前缀
+  // 例如 /Notifications → /ja/Notifications，/u/handle → /ja/u/handle
+  const firstSegment = location.pathname.split('/').filter(Boolean)[0];
+  if (firstSegment && !isValidLocale(firstSegment)) {
+    return <Navigate to={`/${getPreferredLocale()}${location.pathname}${location.search}`} replace />;
+  }
 
   if (isLoadingPublicSettings || isLoadingAuth) {
     return (
@@ -58,7 +66,7 @@ const AuthenticatedApp = () => {
 
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/ja" replace />} />
+      <Route path="/" element={<Navigate to={`/${getPreferredLocale()}`} replace />} />
       
       <Route path="/:locale" element={
         <LayoutWrapper currentPageName={mainPageKey}>
@@ -179,7 +187,7 @@ const AuthenticatedApp = () => {
         </LayoutWrapper>
       } />
       
-      <Route path="*" element={<Navigate to="/ja" replace />} />
+      <Route path="*" element={<Navigate to={`/${getPreferredLocale()}`} replace />} />
     </Routes>
   );
 };

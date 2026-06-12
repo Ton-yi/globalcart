@@ -123,7 +123,8 @@ export default function UserPrivacySettings() {
     );
   }
 
-  const publicProfileUrl = settings.handle ? `${window.location.origin}/ja/u/${settings.handle}` : null;
+  const currentLocale = window.location.pathname.split('/')[1] || 'ja';
+  const publicProfileUrl = settings.handle ? `${window.location.origin}/${currentLocale}/u/${settings.handle}` : null;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 py-8 px-4">
@@ -155,7 +156,7 @@ export default function UserPrivacySettings() {
                 <Label>Handle（唯一标识符）</Label>
                 <div className="flex gap-2 mt-2">
                   <div className="relative flex-1">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">/ja/u/</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">/{currentLocale}/u/</span>
                     <Input
                       className="pl-16"
                       placeholder="nekoyume"
