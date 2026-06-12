@@ -120,7 +120,15 @@ Deno.serve(async (req) => {
         };
       }
     }
-    
+
+    // Supplement (补款): admin requested an additional payment — that's the amount due now
+    const supplementAmount = parseFloat(order.supplement_amount) || 0;
+    const isSupplement = !isFullPayOnce && !!order.supplement_requested && supplementAmount > 0;
+    if (isSupplement) {
+      paymentAmountJpy = supplementAmount;
+      paymentBreakdown = { product_fee: 0, service_fee: 0, shipping_fee: 0, total: supplementAmount };
+    }
+
     console.log('[DIAG][getPaymentPageData] One-time payment:', { 
       isFullPayOnce, 
       estimatedShippingFee, 
@@ -138,7 +146,8 @@ Deno.serve(async (req) => {
       isFullPayOnce,
       estimatedShippingFee,
       paymentAmountJpy,
-      paymentBreakdown
+      paymentBreakdown,
+      isSupplement
     });
 
   } catch (error) {

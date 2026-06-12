@@ -51,6 +51,7 @@ export default function Payment() {
           estimatedShippingFee: data.estimatedShippingFee || 0,
           paymentAmountJpy: data.paymentAmountJpy ?? null,
           paymentBreakdown: data.paymentBreakdown || null,
+          isSupplement: data.isSupplement || false,
         });
         setLoading(false);
       });
@@ -84,8 +85,9 @@ export default function Payment() {
       payment_proof_url: file_url,
       payment_method: method,
       payment_status: "paid",
-      order_status: "pending_purchase",
-      paid_amount: amountJpy,
+      // Supplement payment must not regress order_status; clear the supplement flag instead
+      ...(isSupplement ? { supplement_requested: false } : { order_status: "pending_purchase" }),
+      paid_amount: newPaidAmount,
     });
     setSubmitted(true);
     setTimeout(() => navigate(createPageUrl("MyOrders")), 2000);
@@ -99,6 +101,10 @@ export default function Payment() {
   // paymentAmountJpy from server; fallback to prepayment_amount for normal mode
   const amountJpy = serverPaymentData?.paymentAmountJpy ?? (order?.prepayment_amount || 0);
   const amountJpyDisplay = Math.round(amountJpy).toLocaleString();
+  const isSupplement = serverPaymentData?.isSupplement || false;
+  // Shipping-only second payment (fullpay-once) and supplements add to what's already paid
+  const isShippingOnlyPayment = isFullPayOnce && paymentBreakdown && paymentBreakdown.product_fee === 0 && paymentBreakdown.shipping_fee > 0;
+  const newPaidAmount = (isShippingOnlyPayment || isSupplement) ? (order?.paid_amount || 0) + amountJpy : amountJpy;
 
   // Find the configured payment method for current selection
   const activeMethod = paymentMethods.find(m => (m.provider_key || m.name) === method);
@@ -151,7 +157,13 @@ export default function Payment() {
                 <div className={`font-bold text-red-600 ${convertedAmount ? "text-lg" : "text-2xl"}`}>¥{amountJpyDisplay} JPY</div>
               </div>
             </div>
-            
+
+            {isSupplement && (
+              <div className="bg-orange-50 border border-orange-200 rounded-lg px-3 py-2 text-xs text-orange-700">
+                本次为补款：管理员已确认需补差额，付款后将累计入订单已付金额
+              </div>
+            )}
+
             {/* One-time payment breakdown */}
             {isFullPayOnce && paymentBreakdown && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 space-y-2">
@@ -298,8 +310,8 @@ export default function Payment() {
                 order_id: order.id,
                 payment_method: method,
                 payment_status: "paid",
-                order_status: "pending_purchase",
-                paid_amount: amountJpy,
+                ...(isSupplement ? { supplement_requested: false } : { order_status: "pending_purchase" }),
+                paid_amount: newPaidAmount,
               });
               navigate(createPageUrl("MyOrders"));
             }}

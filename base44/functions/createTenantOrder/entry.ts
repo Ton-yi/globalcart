@@ -38,6 +38,105 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Cannot determine tenant for order creation' }, { status: 400 });
     }
 
+    // === Server-side fee recomputation (never trust client-submitted amounts) ===
+    const estimatedJpy = parseFloat(body.estimated_jpy) || 0;
+
+    const [siteSettings, feeRules, addonOptions] = await Promise.all([
+      base44.asServiceRole.entities.SiteSettings.filter({ tenant_id: assignedTenantId }),
+      base44.asServiceRole.entities.ServiceFeeRule.filter({ tenant_id: assignedTenantId }),
+      base44.asServiceRole.entities.AddonOption.filter({ tenant_id: assignedTenantId }),
+    ]);
+    const settingsMap = {};
+    (siteSettings || []).forEach(s => { settingsMap[s.key] = s.value; });
+
+    // Validate addons against DB records (clamp customizable fees to min/max)
+    let liveRates = null;
+    const fetchLiveRates = async () => {
+      try {
+        const res = await fetch('https://open.er-api.com/v6/latest/JPY');
+        if (!res.ok) return null;
+        const data = await res.json();
+        return data?.rates || null;
+      } catch { return null; }
+    };
+    let addonTotalJpy = 0;
+    const validatedAddons = [];
+    for (const a of (body.selected_addons || [])) {
+      const opt = (addonOptions || []).find(o => o.id === a.id);
+      if (!opt || opt.is_active === false) continue;
+      let fee = parseFloat(opt.fee) || 0;
+      if (opt.is_user_customizable) {
+        const custom = parseFloat(a.fee);
+        if (!isNaN(custom)) {
+          const minFee = parseFloat(opt.min_fee) || 0;
+          const maxFee = parseFloat(opt.max_fee) || 0;
+          fee = custom;
+          if (maxFee > 0 && fee > maxFee) fee = maxFee;
+          if (fee < minFee) fee = minFee;
+        }
+      }
+      const feeCur = opt.fee_currency || 'JPY';
+      validatedAddons.push({ id: opt.id, name: opt.name, fee, fee_currency: feeCur });
+      if (feeCur === 'JPY') {
+        addonTotalJpy += fee;
+      } else {
+        if (!liveRates) liveRates = await fetchLiveRates();
+        const baseRate = liveRates?.[feeCur] || null;
+        const increment = parseFloat(settingsMap[`jpy_${feeCur.toLowerCase()}_increment`]) || 0;
+        const rate = baseRate ? baseRate + increment : null;
+        addonTotalJpy += rate ? fee / rate : fee;
+      }
+    }
+
+    // Pick active order-phase fee rule (same logic as getSubmitOrderPageData)
+    const today = new Date().toISOString().slice(0, 10);
+    const activeRule = (feeRules || [])
+      .filter(r => !r.is_archived && r.status === 'active' && r.fee_phase !== 'shipping')
+      .filter(r => !r.effective_from || r.effective_from <= today)
+      .filter(r => !r.effective_until || r.effective_until >= today)
+      .sort((a, b) => (parseFloat(b.priority) || 0) - (parseFloat(a.priority) || 0))[0] || null;
+
+    let serviceFeeJpy = 0;
+    if (activeRule) {
+      const evalRes = await base44.functions.invoke('serviceFeeRuleEngine', {
+        action: 'evaluate',
+        variables: {
+          goodsAmount: estimatedJpy,
+          orderAmount: estimatedJpy,
+          itemCount: 1,
+          sourceSite: '其它',
+          customerLevel: '',
+          valueAddedServiceAmount: addonTotalJpy,
+        },
+        rule: activeRule,
+      });
+      serviceFeeJpy = evalRes.data?.fee ?? 0;
+    } else {
+      const feeRatePct = parseFloat(settingsMap.service_fee_rate);
+      serviceFeeJpy = estimatedJpy * ((isNaN(feeRatePct) ? 10 : feeRatePct) / 100);
+    }
+
+    // Prepay rate: valid range (0, 100]; invalid values fall back to 80%
+    const prepayEnabled = settingsMap.prepay_enabled !== 'false';
+    let prepayRatePct = parseFloat(settingsMap.prepay_rate);
+    if (isNaN(prepayRatePct) || prepayRatePct <= 0 || prepayRatePct > 100) prepayRatePct = 80;
+    const prepayRate = prepayEnabled ? prepayRatePct / 100 : 1.0;
+
+    const orderTotalJpy = estimatedJpy + serviceFeeJpy + addonTotalJpy;
+    const serverPrepayment = Math.round(orderTotalJpy * prepayRate);
+
+    // Override client-submitted amounts with server-computed canonical values (JPY)
+    body.estimated_jpy = estimatedJpy;
+    body.service_fee_amount = Math.round(serviceFeeJpy);
+    body.prepayment_amount = serverPrepayment;
+    body.selected_addons = validatedAddons;
+    body.selected_addon_ids = validatedAddons.map(a => a.id);
+    body.service_fee_rule_id = activeRule?.id || null;
+    body.service_fee_rule_name = activeRule?.name || null;
+    body.service_fee_rule_version = activeRule?.version || null;
+    // Enforce payment mode consistency with prepay setting
+    if (body.payment_mode === 'prepay' && !prepayEnabled) body.payment_mode = 'fullpay_once';
+
     // Generate a unique order number server-side to avoid frontend race conditions
     // Format: TY{YYYYMMDD}{4-digit seq}, e.g. TY202605130001
     const now = new Date();
@@ -80,23 +179,8 @@ Deno.serve(async (req) => {
 
     // === Credit accounting: if order uses credit payment, check limit and update balance ===
     if (body.payment_mode === 'credit') {
-      const creditAmount = parseFloat(body.estimated_jpy) || 0;
-      const addonTotal = (body.selected_addons || []).reduce((sum, a) => {
-        return sum + (parseFloat(a.fee) || 0);
-      }, 0);
-      // Use service_fee_amount from the frontend (rule-engine computed) if provided,
-      // otherwise fall back to the submitted service_fee_rate (legacy path)
-      let serviceFeeJpy = 0;
-      const submittedServiceFee = parseFloat(body.service_fee_amount);
-      if (!isNaN(submittedServiceFee) && submittedServiceFee >= 0) {
-        serviceFeeJpy = submittedServiceFee;
-      } else if (order.service_fee_amount != null && order.service_fee_amount > 0) {
-        serviceFeeJpy = parseFloat(order.service_fee_amount) || 0;
-      } else {
-        const serviceFeeRate = parseFloat(body.service_fee_rate) || 10;
-        serviceFeeJpy = creditAmount * (serviceFeeRate / 100);
-      }
-      const totalJpy = Math.round(creditAmount + serviceFeeJpy + addonTotal);
+      // Use server-recomputed total (goods + service fee + addons, all JPY)
+      const totalJpy = Math.round(orderTotalJpy);
 
       const currentUser = userRecord[0];
       const currentBalance = parseFloat(currentUser.credit_balance_jpy) || 0;

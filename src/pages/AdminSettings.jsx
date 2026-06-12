@@ -232,20 +232,31 @@ export default function AdminSettings() {
     setSettings(prev => prev.map(s => s.id === id ? { ...s, value } : s));
   };
 
-  // Toggle a boolean setting in local state only
+  // Metadata lookup for creating missing settings when toggled
+  const settingMeta = (key) => DEFAULT_SETTINGS.find(d => d.key === key);
+
+  // Toggle a boolean setting in local state; if the record doesn't exist yet,
+  // add it locally so it gets created on save (fixes silent no-op for missing keys)
   const toggleSetting = (key) => {
-    setSettings(prev => prev.map(s => {
-      if (s.key !== key) return s;
-      return { ...s, value: s.value === 'true' ? 'false' : 'true' };
-    }));
+    setSettings(prev => {
+      if (!prev.some(s => s.key === key)) {
+        const meta = settingMeta(key);
+        return [...prev, { key, value: 'true', description: meta?.description || '', category: meta?.category || 'general' }];
+      }
+      return prev.map(s => s.key !== key ? s : { ...s, value: s.value === 'true' ? 'false' : 'true' });
+    });
   };
 
   // For boolean settings that default to 'true' when missing (value !== 'false')
   const toggleSettingDefaultTrue = (key) => {
-    setSettings(prev => prev.map(s => {
-      if (s.key !== key) return s;
-      return { ...s, value: s.value === 'false' ? 'true' : 'false' };
-    }));
+    setSettings(prev => {
+      if (!prev.some(s => s.key === key)) {
+        // Missing means currently "true" — toggling creates it as "false"
+        const meta = settingMeta(key);
+        return [...prev, { key, value: 'false', description: meta?.description || '', category: meta?.category || 'general' }];
+      }
+      return prev.map(s => s.key !== key ? s : { ...s, value: s.value === 'false' ? 'true' : 'false' });
+    });
   };
 
   // Save all settings to backend
@@ -256,10 +267,14 @@ export default function AdminSettings() {
         s.key === 'default_rewarehouse_fee_jpy' ? { ...s, value: rewarehouseFeeInput || '0' } : s
       );
       await Promise.all(
-        settingsToSave.filter(s => s.id).map(s =>
-          tenantEntity.update('SiteSettings', s.id, { value: s.value, description: s.description })
+        settingsToSave.map(s =>
+          s.id
+            ? tenantEntity.update('SiteSettings', s.id, { value: s.value, description: s.description })
+            : tenantEntity.create('SiteSettings', { key: s.key, value: s.value, description: s.description || '', category: s.category || 'general' })
         )
       );
+      // Reload so newly created settings get ids (prevents duplicate creation on next save)
+      if (settingsToSave.some(s => !s.id)) await load();
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } finally {
@@ -918,16 +933,25 @@ export default function AdminSettings() {
 
               {/* Service & Prepay Rates (numeric inputs) */}
               <div className="grid grid-cols-2 gap-3">
-                {(grouped.fee || []).filter(s => !s.key.includes("increment") && s.key !== 'prepay_enabled').map(s => (
-                  <div key={s.id}>
-                    <Label className="text-xs text-gray-500 block mb-1">{s.description || s.key}</Label>
-                    <div className="flex items-center gap-1">
-                      <Input type="number" step="0.1" className="h-8 text-sm flex-1" value={s.value}
-                        onChange={e => updateSetting(s.id, e.target.value)} />
-                      <span className="text-xs text-gray-400 px-2">%</span>
-                    </div>
-                  </div>
-                ))}
+                {(grouped.fee || [])
+                  .filter(s => !s.key.includes("increment") && s.key !== 'prepay_enabled' && s.key !== 'transit_location_fee_split_enabled')
+                  .map(s => {
+                    const isPercent = s.key === 'service_fee_rate' || s.key === 'prepay_rate';
+                    return (
+                      <div key={s.id || s.key}>
+                        <Label className="text-xs text-gray-500 block mb-1">{s.description || s.key}</Label>
+                        <div className="flex items-center gap-1">
+                          <Input type="number" step="0.1" className="h-8 text-sm flex-1" value={s.value}
+                            {...(s.key === 'prepay_rate' ? { min: 1, max: 100 } : {})}
+                            onChange={e => updateSetting(s.id, e.target.value)} />
+                          <span className="text-xs text-gray-400 px-2">{isPercent ? '%' : 'JPY'}</span>
+                        </div>
+                        {s.key === 'prepay_rate' && (parseFloat(s.value) <= 0 || parseFloat(s.value) > 100) && (
+                          <p className="text-xs text-red-500 mt-0.5">有效范围 1–100，无效值将按 80% 处理</p>
+                        )}
+                      </div>
+                    );
+                  })}
               </div>
 
               {/* Exchange Rate Increments */}

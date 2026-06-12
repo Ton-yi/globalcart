@@ -103,9 +103,10 @@ export default function SubmitOrder() {
     if (!jpy || jpy <= 0) { setCalculated(null); return; }
     
     const prepayEnabled = settings.prepay_enabled !== 'false';
-    const prepayRate = prepayEnabled
-      ? (parseFloat(settings.prepay_rate) || (DEFAULT_PREPAY_RATE * 100)) / 100
-      : 1.0;
+    // Valid range (0, 100]; invalid values (incl. 0/negative/>100) fall back to default
+    let prepayRatePct = parseFloat(settings.prepay_rate);
+    if (isNaN(prepayRatePct) || prepayRatePct <= 0 || prepayRatePct > 100) prepayRatePct = DEFAULT_PREPAY_RATE * 100;
+    const prepayRate = prepayEnabled ? prepayRatePct / 100 : 1.0;
     const addonTotalJpy = getAddonTotal();
 
     let serviceFeeJpy = 0;
@@ -235,8 +236,8 @@ export default function SubmitOrder() {
       online_store_tag_color: tagResult.tag_color,
       payment_mode: isCredit ? "credit" : isDeferred ? "deferred" : (settings.prepay_enabled === 'false' ? "fullpay_once" : "prepay"),
       credit_cycle: isCredit ? (paymentMode === "credit_weekly" ? "weekly" : "monthly") : null,
-      order_status: isDeferred || isCredit ? "paid" : "payment_pending",
-      payment_status: isDeferred || isCredit ? "paid" : "awaiting_payment",
+      order_status: isCredit ? "paid" : "payment_pending",
+      payment_status: isCredit ? "paid" : "awaiting_payment",
       user_note: form.user_note || "",
       selected_addon_ids: selectedAddons,
       selected_addons: selectedAddonObjects.map((a) => ({ id: a.id, name: a.name, fee: parseFloat(a.fee) || 0, fee_currency: a.fee_currency || "JPY" }))
@@ -285,7 +286,7 @@ export default function SubmitOrder() {
         <Alert className="border-blue-200 bg-blue-50">
           <Info className="w-4 h-4 text-blue-600" />
           <AlertDescription className="text-blue-800 text-sm">
-            预付款 = (日元货款总价 + 服务费 + 增值费用) × {parseFloat(settings.prepay_rate) || Math.round(DEFAULT_PREPAY_RATE * 100)}%。订单确认后可补款或抵扣余额。
+            预付款 = (日元货款总价 + 服务费 + 增值费用) × {(() => { const p = parseFloat(settings.prepay_rate); return (isNaN(p) || p <= 0 || p > 100) ? Math.round(DEFAULT_PREPAY_RATE * 100) : p; })()}%。订单确认后可补款或抵扣余额。
           </AlertDescription>
         </Alert>
       )}
@@ -563,7 +564,7 @@ export default function SubmitOrder() {
                   prepayment_currency: "JPY",
                   online_store_tag: tagResult.tag_label,
                   online_store_tag_color: tagResult.tag_color,
-                  payment_mode: "prepay",
+                  payment_mode: settings.prepay_enabled === 'false' ? "fullpay_once" : "prepay",
                   order_status: "payment_pending",
                   payment_status: "awaiting_payment",
                   user_note: form.user_note || "",
