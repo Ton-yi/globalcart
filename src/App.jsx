@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
 import { pagesConfig } from './pages.config'
-import { BrowserRouter as Router, Route, Routes, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, Navigate, useLocation, useParams } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import { LocaleProvider, isValidLocale, getPreferredLocale } from '@/lib/LocaleContext';
@@ -35,6 +35,12 @@ const MainPage = mainPageKey ? Pages[mainPageKey] : <></>;
 const LayoutWrapper = ({ children, currentPageName }) => Layout ?
   <Layout currentPageName={currentPageName}>{children}</Layout>
   : <>{children}</>;
+
+// /{locale}/mypage/me → 个人中心（AdminUserDetail/me 的别名路由）
+const MypageRedirect = () => {
+  const { locale } = useParams();
+  return <Navigate to={`/${locale}/AdminUserDetail/me`} replace />;
+};
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -181,6 +187,7 @@ const AuthenticatedApp = () => {
           <UserPrivacySettings />
         </LayoutWrapper>
       } />
+      <Route path="/:locale/mypage/me" element={<MypageRedirect />} />
       <Route path="/:locale/u/:handle" element={
         <LayoutWrapper currentPageName="PublicProfile">
           <PublicProfile />

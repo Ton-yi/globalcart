@@ -80,9 +80,13 @@ export default function PublicProfile() {
       <Card>
         <CardContent className="p-6">
           <div className="flex items-start gap-4">
-            <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-3xl font-bold flex-shrink-0">
-              {(profile.display_name || profile.handle)[0]?.toUpperCase()}
-            </div>
+            {profile.avatar_url ? (
+              <img src={profile.avatar_url} alt={profile.display_name || profile.handle} className="w-20 h-20 rounded-full object-cover flex-shrink-0" />
+            ) : (
+              <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-3xl font-bold flex-shrink-0">
+                {(profile.display_name || profile.handle)[0]?.toUpperCase()}
+              </div>
+            )}
             <div className="flex-1">
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-2xl font-bold">{profile.display_name || profile.handle}</h1>
@@ -95,7 +99,14 @@ export default function PublicProfile() {
                   </Badge>
                 ))}
               </div>
-              <p className="text-sm text-gray-500 mt-1">@{profile.handle}</p>
+              <p className="text-sm text-gray-500 mt-1">
+                @{profile.handle}
+                {profile.country && (
+                  <span className="inline-flex items-center gap-1 ml-3">
+                    <MapPin className="w-3.5 h-3.5" />{profile.country}
+                  </span>
+                )}
+              </p>
               {profile.bio && (
                 <p className="text-sm text-gray-600 mt-3">{profile.bio}</p>
               )}
@@ -138,7 +149,7 @@ export default function PublicProfile() {
       )}
 
       {/* Meta Info */}
-      {(profile.created_date || profile.last_login_at) && (
+      {(profile.created_date || profile.last_login_at || profile.stats?.lastOrderDate) && (
         <Card>
           <CardHeader>
             <CardTitle className="text-sm font-semibold">账户信息</CardTitle>
@@ -154,6 +165,12 @@ export default function PublicProfile() {
               <div className="flex items-center gap-2 text-sm">
                 <Clock className="w-4 h-4 text-gray-400" />
                 <span className="text-gray-600">最近登录：{formatDate(profile.last_login_at)}</span>
+              </div>
+            )}
+            {profile.stats?.lastOrderDate && (
+              <div className="flex items-center gap-2 text-sm">
+                <ShoppingCart className="w-4 h-4 text-gray-400" />
+                <span className="text-gray-600">最近下单：{formatDate(profile.stats.lastOrderDate)}</span>
               </div>
             )}
           </CardContent>

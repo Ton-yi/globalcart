@@ -86,32 +86,31 @@ export default function UserPrivacySettings() {
   };
 
   const handleSave = async () => {
-    if (settings.public_profile_enabled && settings.handle) {
-      const valid = await validateHandle(settings.handle);
-      if (!valid) {
-        toast.error('Handle 验证失败');
-        return;
-      }
-      
-      // Save handle
-      await base44.entities.User.update(user.id, { handle: settings.handle.toLowerCase().trim() });
+    if (settings.public_profile_enabled && !settings.handle) {
+      toast.error('请先设置 Handle');
+      return;
     }
-    
-    // Save privacy settings
-    await base44.functions.invoke('updatePublicProfileSettings', {
-      public_profile_enabled: settings.public_profile_enabled,
-      public_profile_bio: settings.public_profile_bio,
-      public_profile_bio_image_url: settings.public_profile_bio_image_url,
-      privacy_show_registered_date: settings.privacy_show_registered_date,
-      privacy_show_role_badges: settings.privacy_show_role_badges,
-      privacy_show_bio: settings.privacy_show_bio,
-      privacy_show_stats: settings.privacy_show_stats,
-      privacy_show_orders: settings.privacy_show_orders,
-      privacy_show_country: settings.privacy_show_country,
-      privacy_show_last_login: settings.privacy_show_last_login
-    });
-    
-    toast.success('设置已保存');
+
+    setSaving(true);
+    try {
+      // handle 与隐私设置统一通过后端函数保存（后端校验格式、保留词、唯一性）
+      await base44.functions.invoke('updatePublicProfileSettings', {
+        handle: settings.handle ? settings.handle.toLowerCase().trim() : undefined,
+        public_profile_enabled: settings.public_profile_enabled,
+        public_profile_bio: settings.public_profile_bio,
+        public_profile_bio_image_url: settings.public_profile_bio_image_url,
+        privacy_show_registered_date: settings.privacy_show_registered_date,
+        privacy_show_role_badges: settings.privacy_show_role_badges,
+        privacy_show_bio: settings.privacy_show_bio,
+        privacy_show_stats: settings.privacy_show_stats,
+        privacy_show_orders: settings.privacy_show_orders,
+        privacy_show_country: settings.privacy_show_country,
+        privacy_show_last_login: settings.privacy_show_last_login
+      });
+      toast.success('设置已保存');
+    } catch (e) {
+      toast.error(e.response?.data?.error || '保存失败，请重试');
+    }
     setSaving(false);
   };
 
