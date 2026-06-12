@@ -35,7 +35,8 @@ export default function PublicProfile() {
         setLoading(false);
       })
       .catch((err) => {
-        setError(err.message);
+        // 后端对不存在/未公开/被风控统一返回 404，限速返回 429
+        setError(err.response?.data?.error || "用户不存在或不可访问");
         setLoading(false);
       });
   }, [handle]);

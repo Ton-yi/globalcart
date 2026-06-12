@@ -47,6 +47,12 @@ Deno.serve(async (req) => {
 
     const isActive = userRecord.is_active !== false;
 
+    // 记录最近登录时间（1 小时节流，供公开资料页「最近登录时间」展示）
+    const lastLogin = userRecord.last_login_at ? new Date(userRecord.last_login_at).getTime() : 0;
+    if (Date.now() - lastLogin > 60 * 60 * 1000) {
+      await base44.asServiceRole.entities.User.update(userRecord.id, { last_login_at: new Date().toISOString() });
+    }
+
     // Only compute granular permissions if the user has assigned roles or overrides
     let permissions = [];
     const hasGranularPerms = (userRecord.assigned_role_ids?.length > 0) ||

@@ -273,7 +273,7 @@ export default function UserPrivacySettings() {
             { key: 'privacy_show_registered_date', label: '注册时间', desc: '显示您的账户注册日期' },
             { key: 'privacy_show_role_badges', label: '角色标签', desc: '显示您的角色和会员等级' },
             { key: 'privacy_show_stats', label: '订单统计', desc: '显示累计消费、订单数、货款总计、服务费' },
-            { key: 'privacy_show_orders', label: '订单记录', desc: '显示最近 10 笔订单（仅自己和管理员可见）' },
+            { key: 'privacy_show_orders', label: '订单记录', desc: '向资料页访问者显示最近 10 笔订单（默认关闭）' },
             { key: 'privacy_show_country', label: '所在国家/地区', desc: '显示您的默认地址国家' },
             { key: 'privacy_show_last_login', label: '最近登录时间', desc: '显示您最后一次登录的时间' }
           ].map(item => (
