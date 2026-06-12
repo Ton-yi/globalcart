@@ -39,10 +39,7 @@ Deno.serve(async (req) => {
     const isPlatformAdmin = user.role === 'platform_admin';
     const isTenantAdmin = user.role === 'admin' || user.role === 'tenant_admin';
     const isStaff = user.role === 'staff';
-    
-    if (!isPlatformAdmin && !isTenantAdmin && !isStaff) {
-      return Response.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
-    }
+    const isAdminViewer = isPlatformAdmin || isTenantAdmin || isStaff;
     
     // Parse request body
     const body = await req.json().catch(() => ({}));
@@ -55,6 +52,12 @@ Deno.serve(async (req) => {
     // Handle 'me' case - user can only view their own profile
     if (userId === 'me') {
       userId = user.id;
+    }
+    
+    // 普通用户只能查看自己的档案；查看他人需要管理员/员工权限
+    const isSelf = userId === user.id;
+    if (!isSelf && !isAdminViewer) {
+      return Response.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
     }
     
     // Get target user record by ID (not email)
@@ -85,9 +88,12 @@ Deno.serve(async (req) => {
     const t1 = Date.now();
     
     // Parallel fetch all data - CRITICAL: Always filter by tenant_id
-    const [allOrders, creditApps] = await Promise.all([
+    const [allOrders, creditApps, userPrefs, tenantPools, customerNotes] = await Promise.all([
       base44.asServiceRole.entities.Order.filter({ tenant_id: tenantId, user_email: targetEmail }),
-      base44.asServiceRole.entities.CreditApplication.filter({ tenant_id: tenantId, user_email: targetEmail })
+      base44.asServiceRole.entities.CreditApplication.filter({ tenant_id: tenantId, user_email: targetEmail }),
+      base44.asServiceRole.entities.UserPreference.filter({ tenant_id: tenantId, user_email: targetEmail }),
+      base44.asServiceRole.entities.ShippingPool.filter({ tenant_id: tenantId }, '-created_date', 500),
+      base44.asServiceRole.entities.CustomerNote.filter({ tenant_id: tenantId, customer_email: targetEmail }, '-created_date', 100)
     ]);
     
     console.log(`[TIMING] getCustomer360Data | parallel fetches: ${Date.now() - t1}ms`);
@@ -139,6 +145,73 @@ Deno.serve(async (req) => {
         countries[order.destination_country] = (countries[order.destination_country] || 0) + 1;
       }
     });
+    
+    // ===== 财务账目 =====
+    const activeOrders = (allOrders || []).filter(o => !['cancelled', 'expired'].includes(o.order_status));
+    const addonFeeJpy = activeOrders.reduce((sum, o) =>
+      sum + (o.selected_addons || []).reduce((s, a) => s + ((a.fee_currency || 'JPY') === 'JPY' ? (a.fee || 0) : 0), 0), 0);
+    const storageFeeJpy = activeOrders.reduce((sum, o) => sum + (o.accrued_storage_fee_jpy || 0), 0);
+    const rewarehouseFeeJpy = activeOrders.reduce((sum, o) => sum + (o.rewarehouse_fee_jpy || 0), 0);
+    
+    // 发货阶段费用：从该用户参与的发货池费用明细汇总
+    const userPools = (tenantPools || []).filter(p =>
+      p.creator_email === targetEmail ||
+      (p.fee_breakdown_per_user || []).some(f => f.user_email === targetEmail) ||
+      (p.per_user_payments || []).some(f => f.user_email === targetEmail)
+    );
+    let shippingStageReceivableJpy = 0;
+    let shippingStagePaidJpy = 0;
+    const ledger = [];
+    userPools.forEach(p => {
+      const fb = (p.fee_breakdown_per_user || []).find(f => f.user_email === targetEmail);
+      const userFeeJpy = fb
+        ? (fb.total_jpy || 0)
+        : (p.creator_email === targetEmail && !(p.fee_breakdown_per_user || []).length
+          ? (p.shipping_fee_jpy || 0) + (p.box_price_jpy || 0) + (p.packing_fee_jpy || 0)
+          : 0);
+      shippingStageReceivableJpy += userFeeJpy;
+      const pay = (p.per_user_payments || []).find(f => f.user_email === targetEmail);
+      const paidConfirmed = pay
+        ? pay.payment_status === 'paid'
+        : (p.creator_email === targetEmail && p.payment_status === 'paid');
+      if (paidConfirmed && userFeeJpy > 0) {
+        shippingStagePaidJpy += userFeeJpy;
+        ledger.push({ date: p.shipped_date || p.updated_date || p.created_date, type: 'shipping_payment', title: `发货收款 ${p.pool_code || ''}`, amount_jpy: userFeeJpy });
+      }
+    });
+    (allOrders || []).forEach(o => {
+      const paid = o.order_stage_payment_jpy || o.paid_amount || 0;
+      if (paid > 0) ledger.push({ date: o.submit_date || o.created_date, type: 'order_payment', title: `订单收款 ${o.order_number || ''}`, amount_jpy: paid });
+      if ((o.refund_amount_jpy || 0) > 0) ledger.push({ date: o.updated_date || o.created_date, type: 'refund', title: `退款 ${o.order_number || ''}`, amount_jpy: -o.refund_amount_jpy });
+    });
+    ledger.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    
+    const goodsJpyActive = activeOrders.reduce((s, o) => s + (o.estimated_jpy || 0), 0);
+    const serviceFeeJpyActive = activeOrders.reduce((s, o) => s + (o.service_fee_amount || 0), 0);
+    const receivableJpy = goodsJpyActive + serviceFeeJpyActive + addonFeeJpy + storageFeeJpy + rewarehouseFeeJpy + shippingStageReceivableJpy;
+    const receivedJpy = totalPaidJpy + shippingStagePaidJpy;
+    const outstandingJpy = Math.max(0, receivableJpy - receivedJpy - totalRefundJpy);
+    
+    // ===== 物流地址 =====
+    const pref = (userPrefs || [])[0] || null;
+    const savedAddresses = pref?.saved_addresses || [];
+    const defaultAddress = savedAddresses.find(a => a.id === pref?.default_address_id) || savedAddresses[0] || null;
+    const transitUsage = {};
+    (allOrders || []).forEach(o => {
+      const name = o.transit_location_name || o.pre_shipment?.transit_location_name;
+      if (name) transitUsage[name] = (transitUsage[name] || 0) + 1;
+    });
+    userPools.forEach(p => {
+      if (p.transit_location_name) transitUsage[p.transit_location_name] = (transitUsage[p.transit_location_name] || 0) + 1;
+    });
+    
+    // ===== 备注（普通用户只能看到客户可见备注） =====
+    const visibleNotes = (customerNotes || [])
+      .filter(n => isAdminViewer || n.note_type === 'customer_visible')
+      .sort((a, b) =>
+        ((b.is_pinned === true) - (a.is_pinned === true)) ||
+        (new Date(b.created_date).getTime() - new Date(a.created_date).getTime())
+      );
     
     // Risk flags
     const riskFlags = [];
@@ -242,6 +315,16 @@ Deno.serve(async (req) => {
       });
     });
     
+    // Note events
+    visibleNotes.forEach(n => {
+      timelineEvents.push({
+        type: 'note_added',
+        date: n.created_date,
+        title: '添加备注',
+        description: `${n.created_by_name || n.created_by_email || ''}：${(n.content || '').slice(0, 50)}`
+      });
+    });
+    
     // Sort timeline
     timelineEvents.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     
@@ -275,6 +358,7 @@ Deno.serve(async (req) => {
         unpaidOrderCount: unpaidOrders.length,
         pendingShipOrderCount: pendingShipOrders.length,
         lastOrderDate,
+        unpaidAmountJpy: outstandingJpy,
       },
       recentOrders: sortedOrders.slice(0, 10).map(o => ({
         id: o.id,
@@ -307,6 +391,39 @@ Deno.serve(async (req) => {
         topCountries: Object.entries(countries).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, count]) => ({ name, count })),
       },
       timeline: timelineEvents.slice(0, 50),
+      orders: sortedOrders.slice(0, 200).map(o => ({
+        id: o.id,
+        order_number: o.order_number,
+        product_name: o.product_name,
+        created_date: o.created_date,
+        order_status: o.order_status,
+        payment_status: o.payment_status,
+        paid_amount: o.order_stage_payment_jpy || o.paid_amount || 0,
+        estimated_jpy: o.estimated_jpy || 0,
+        shipping_method: o.shipping_method || null,
+        destination_country: o.destination_country || null,
+        shipped_date: o.shipped_date || null,
+      })),
+      finance: {
+        receivableJpy,
+        receivedJpy,
+        outstandingJpy,
+        totalRefundJpy,
+        totalGoodsJpy,
+        totalServiceFeeJpy,
+        shippingStageReceivableJpy,
+        addonFeeJpy,
+        storageFeeJpy,
+        rewarehouseFeeJpy,
+        ledger: ledger.slice(0, 100),
+      },
+      logistics: {
+        defaultAddress,
+        savedAddresses,
+        usesTransit: Object.keys(transitUsage).length > 0,
+        topTransit: Object.entries(transitUsage).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, count]) => ({ name, count })),
+      },
+      notes: visibleNotes,
     });
     
   } catch (error) {

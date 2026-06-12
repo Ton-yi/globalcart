@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -18,6 +18,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
+import CustomerOrdersTab from "@/components/customer360/CustomerOrdersTab";
+import CustomerFinanceTab from "@/components/customer360/CustomerFinanceTab";
+import CustomerLogisticsTab from "@/components/customer360/CustomerLogisticsTab";
+import CustomerNotesPanel from "@/components/customer360/CustomerNotesPanel";
 
 // Metric Card Component
 function MetricCard({ icon: Icon, label, value, subValue, color = "blue" }) {
@@ -99,13 +104,13 @@ export default function AdminUserDetail() {
   const [noteType, setNoteType] = useState("internal"); // internal or customer_visible
   const [savingNote, setSavingNote] = useState(false);
   
-  useEffect(() => {
+  const loadData = useCallback(async (silent = false) => {
     // Determine which user ID to load
     const targetUserId = userId === 'me' ? currentUser?.id : userId;
     
     if (!targetUserId) return;
     
-    setLoading(true);
+    if (!silent) setLoading(true);
     setError(null);
     
     // Check if user is viewing their own profile or has admin permissions
@@ -118,20 +123,40 @@ export default function AdminUserDetail() {
       return;
     }
     
-    base44.functions.invoke('getCustomer360Data', { userId: targetUserId })
-      .then((res) => {
-        if (res.data?.error) {
-          setError(res.data.error);
-        } else {
-          setData(res.data);
-        }
-        setLoading(false);
-      })
-      .catch((err) => {
-        setError(err.message);
-        setLoading(false);
-      });
+    try {
+      const res = await base44.functions.invoke('getCustomer360Data', { userId: targetUserId });
+      if (res.data?.error) {
+        setError(res.data.error);
+      } else {
+        setData(res.data);
+      }
+    } catch (err) {
+      setError(err.response?.data?.error || err.message);
+    }
+    setLoading(false);
   }, [userId, currentUser?.id]);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  const handleSaveNote = async () => {
+    if (!noteContent.trim() || !data?.userProfile?.id) return;
+    setSavingNote(true);
+    try {
+      await base44.functions.invoke('manageCustomerNote', {
+        action: 'create',
+        userId: data.userProfile.id,
+        content: noteContent,
+        note_type: noteType
+      });
+      toast.success('备注已添加');
+      setNoteContent("");
+      setShowNoteModal(false);
+      await loadData(true);
+    } catch (e) {
+      toast.error(e.response?.data?.error || '添加备注失败');
+    }
+    setSavingNote(false);
+  };
   
   // Check permissions
   const isOwnProfile = userId === 'me' || (data && data.userProfile?.id === currentUser?.id);
@@ -173,7 +198,8 @@ export default function AdminUserDetail() {
     );
   }
   
-  const { userProfile, metrics, recentOrders, pendingTasks, riskFlags, preferences, timeline } = data;
+  const { userProfile, metrics, recentOrders, pendingTasks, riskFlags, preferences, timeline, orders, finance, logistics, notes } = data;
+  const pinnedNotes = (notes || []).filter(n => n.is_pinned);
   
   // Calculate refund count from timeline
   const refundCount = timeline?.filter(e => e.type === 'refund').length || 0;
@@ -200,12 +226,12 @@ export default function AdminUserDetail() {
           {isOwnProfile || !userId ? '返回首页' : '返回用户列表'}
         </Button>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={() => setActiveTab('orders')}>
             <ExternalLink className="w-4 h-4 mr-2" />
             查看订单
           </Button>
           {canManageNotes && (
-            <Button size="sm" className="bg-gray-900 hover:bg-gray-800">
+            <Button size="sm" className="bg-gray-900 hover:bg-gray-800" onClick={() => navigate(createPageUrl("SubmitOrder"))}>
               <Plus className="w-4 h-4 mr-2" />
               新建订单
             </Button>
@@ -318,8 +344,8 @@ export default function AdminUserDetail() {
         <MetricCard 
           icon={CreditCard} 
           label="未付款" 
-          value={metrics.unpaidOrderCount} 
-          subValue="订单"
+          value={formatCurrency(metrics.unpaidAmountJpy || 0)} 
+          subValue={`${metrics.unpaidOrderCount} 笔订单`}
           color="red"
         />
         <MetricCard 
@@ -468,6 +494,25 @@ export default function AdminUserDetail() {
             </Card>
           </div>
           
+          {/* Pinned Notes */}
+          {pinnedNotes.length > 0 && (
+            <Card className="border-yellow-300">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-yellow-600" />重要备注
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {pinnedNotes.map(note => (
+                  <div key={note.id} className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <p className="text-sm text-gray-800 whitespace-pre-wrap">{note.content}</p>
+                    <p className="text-xs text-gray-400 mt-1">{note.created_by_name || note.created_by_email} · {formatDate(note.created_date)}</p>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+          
           {/* Preferences Summary */}
           <Card>
             <CardHeader className="pb-3">
@@ -541,135 +586,28 @@ export default function AdminUserDetail() {
         
         {/* Orders Tab */}
         <TabsContent value="orders">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold">订单记录</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {recentOrders && recentOrders.length > 0 ? (
-                <div className="space-y-2">
-                  {recentOrders.map(order => (
-                    <div key={order.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-medium text-sm">{order.product_name}</span>
-                          <OrderStatusBadge status={order.order_status} />
-                          <PaymentStatusBadge status={order.payment_status} />
-                        </div>
-                        <p className="text-xs text-gray-500 mt-1">
-                          {formatDate(order.created_date)} · 订单号：{order.order_number} · {formatCurrency(order.paid_amount)}
-                        </p>
-                      </div>
-                      <Button variant="outline" size="sm">
-                        查看
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-gray-400 text-center py-8">暂无订单</p>
-              )}
-            </CardContent>
-          </Card>
+          <CustomerOrdersTab
+            orders={orders || recentOrders || []}
+            formatCurrency={formatCurrency}
+            formatDate={formatDate}
+            OrderStatusBadge={OrderStatusBadge}
+            PaymentStatusBadge={PaymentStatusBadge}
+          />
         </TabsContent>
         
         {/* Finance Tab */}
         <TabsContent value="finance">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold">财务汇总</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                  <p className="text-xs text-green-700 font-medium">实收金额</p>
-                  <p className="text-2xl font-bold text-green-800 mt-2">{formatCurrency(metrics.totalPaidJpy)}</p>
-                </div>
-                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                  <p className="text-xs text-blue-700 font-medium">商品货款</p>
-                  <p className="text-2xl font-bold text-blue-800 mt-2">{formatCurrency(metrics.totalGoodsJpy)}</p>
-                </div>
-                <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
-                  <p className="text-xs text-purple-700 font-medium">服务费</p>
-                  <p className="text-2xl font-bold text-purple-800 mt-2">{formatCurrency(metrics.totalServiceFeeJpy)}</p>
-                </div>
-                <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-                  <p className="text-xs text-red-700 font-medium">退款金额</p>
-                  <p className="text-2xl font-bold text-red-800 mt-2">{formatCurrency(metrics.totalRefundJpy)}</p>
-                </div>
-              </div>
-              
-              <div className="border-t pt-4">
-                <h3 className="text-sm font-semibold mb-3">记账状态</h3>
-                {userProfile.credit_enabled ? (
-                  <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-lg space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-sm text-indigo-700">记账额度</span>
-                      <span className="text-sm font-medium text-indigo-900">{formatCurrency(userProfile.credit_limit_jpy)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-indigo-700">已用额度</span>
-                      <span className="text-sm font-medium text-indigo-900">{formatCurrency(userProfile.credit_balance_jpy)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-indigo-700">剩余额度</span>
-                      <span className="text-sm font-medium text-indigo-900">{formatCurrency(Math.max(0, userProfile.credit_limit_jpy - userProfile.credit_balance_jpy))}</span>
-                    </div>
-                    {userProfile.credit_cycle && (
-                      <div className="flex justify-between pt-2 border-t border-indigo-200">
-                        <span className="text-sm text-indigo-700">结帐周期</span>
-                        <span className="text-sm font-medium text-indigo-900">{userProfile.credit_cycle === 'weekly' ? '周结' : '月结'}</span>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <p className="text-sm text-gray-400">未开启记账功能</p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          <CustomerFinanceTab
+            finance={finance}
+            userProfile={userProfile}
+            formatCurrency={formatCurrency}
+            formatDate={formatDate}
+          />
         </TabsContent>
         
         {/* Logistics Tab */}
         <TabsContent value="logistics">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold">物流偏好</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <h3 className="text-sm font-semibold mb-2">常用发货方式</h3>
-                {preferences?.topShippingMethods && preferences.topShippingMethods.length > 0 ? (
-                  <div className="space-y-1">
-                    {preferences.topShippingMethods.map((method, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-2 border rounded">
-                        <span className="text-sm">{method.name}</span>
-                        <Badge variant="outline">{method.count} 次</Badge>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-gray-400">无数据</p>
-                )}
-              </div>
-              
-              <div>
-                <h3 className="text-sm font-semibold mb-2">目的国家/地区</h3>
-                {preferences?.topCountries && preferences.topCountries.length > 0 ? (
-                  <div className="space-y-1">
-                    {preferences.topCountries.map((country, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-2 border rounded">
-                        <span className="text-sm">{country.name}</span>
-                        <Badge variant="outline">{country.count} 次</Badge>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-gray-400">无数据</p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          <CustomerLogisticsTab logistics={logistics} preferences={preferences} />
         </TabsContent>
         
         {/* Preferences Tab */}
@@ -722,20 +660,15 @@ export default function AdminUserDetail() {
           </Card>
         </TabsContent>
         
-        {/* Notes Tab - Placeholder for Phase 3 */}
+        {/* Notes Tab */}
         <TabsContent value="notes">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold">客户备注</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-12 text-gray-400">
-                <FileText className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                <p className="text-sm">备注功能即将上线（阶段三）</p>
-                <p className="text-xs mt-1">将支持内部备注和客户可见备注</p>
-              </div>
-            </CardContent>
-          </Card>
+          <CustomerNotesPanel
+            notes={notes || []}
+            customerUserId={userProfile.id}
+            canManage={canManageNotes}
+            formatDate={formatDate}
+            onReload={() => loadData(true)}
+          />
         </TabsContent>
         
         {/* Timeline Tab */}
@@ -831,7 +764,7 @@ export default function AdminUserDetail() {
               </div>
               <div className="flex gap-2 justify-end pt-3">
                 <Button variant="outline" size="sm" onClick={() => setShowNoteModal(false)}>取消</Button>
-                <Button size="sm" disabled={savingNote || !noteContent}>
+                <Button size="sm" disabled={savingNote || !noteContent} onClick={handleSaveNote}>
                   {savingNote ? "保存中..." : "保存"}
                 </Button>
               </div>
