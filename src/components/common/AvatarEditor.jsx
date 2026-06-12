@@ -1,6 +1,6 @@
 /**
  * AvatarEditor — 统一的用户头像模块
- * 头像预览 + 选择图片 + 裁剪（AvatarCropModal）+ 上传
+ * 头像预览 + 选择图片/拖拽图片 + 裁剪（AvatarCropModal）+ 上传
  * 用于 UserPreferences 和 EditProfileModal
  */
 import { useState } from "react";
@@ -11,14 +11,19 @@ import { User, Camera, Lock } from "lucide-react";
 export default function AvatarEditor({ value, onChange, size = 64, disabled = false }) {
   const [cropSrc, setCropSrc] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
 
-  const handleFileSelect = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    e.target.value = "";
+  const readImageFile = (file) => {
+    if (!file || !file.type?.startsWith("image/")) return;
     const reader = new FileReader();
     reader.onload = () => setCropSrc(reader.result);
     reader.readAsDataURL(file);
+  };
+
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    e.target.value = "";
+    readImageFile(file);
   };
 
   const handleCropConfirm = async (blob) => {
@@ -28,6 +33,18 @@ export default function AvatarEditor({ value, onChange, size = 64, disabled = fa
     onChange(file_url);
     setCropSrc(null);
     setUploading(false);
+  };
+
+  const dragProps = disabled ? {} : {
+    onDragOver: (e) => { e.preventDefault(); e.stopPropagation(); setDragOver(true); },
+    onDragEnter: (e) => { e.preventDefault(); e.stopPropagation(); setDragOver(true); },
+    onDragLeave: (e) => { e.preventDefault(); e.stopPropagation(); setDragOver(false); },
+    onDrop: (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setDragOver(false);
+      readImageFile(e.dataTransfer.files?.[0]);
+    },
   };
 
   return (
@@ -40,15 +57,18 @@ export default function AvatarEditor({ value, onChange, size = 64, disabled = fa
           onCancel={() => setCropSrc(null)}
         />
       )}
-      <div className="relative inline-block flex-shrink-0">
+      <div className="relative inline-block flex-shrink-0" {...dragProps}>
         <div
-          className="rounded-full bg-gray-100 border border-gray-200 overflow-hidden flex items-center justify-center"
+          className={`rounded-full bg-gray-100 border overflow-hidden flex items-center justify-center transition-all ${
+            dragOver ? "border-red-400 ring-2 ring-red-200 scale-105" : "border-gray-200"
+          }`}
           style={{ width: size, height: size }}
+          title={disabled ? undefined : "点击相机图标或拖拽图片到此处"}
         >
           {value ? (
-            <img src={value} alt="头像" className="w-full h-full object-cover" />
+            <img src={value} alt="头像" className="w-full h-full object-cover pointer-events-none" />
           ) : (
-            <User className="text-gray-400" style={{ width: size / 2, height: size / 2 }} />
+            <User className="text-gray-400 pointer-events-none" style={{ width: size / 2, height: size / 2 }} />
           )}
         </div>
         {disabled ? (

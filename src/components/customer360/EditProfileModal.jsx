@@ -115,11 +115,11 @@ export default function EditProfileModal({ userProfile, onClose, onSaved }) {
 
           {/* 简介 */}
           <div>
-            <Label className="text-sm font-medium">个人简介（用于公开资料页展示）</Label>
+            <Label className="text-sm font-medium">个人简介（用于公开资料页展示，支持 Markdown）</Label>
             <Textarea
               className="mt-1"
               rows={4}
-              placeholder="介绍一下自己..."
+              placeholder="介绍一下自己... 支持 Markdown 语法（**加粗**、列表、链接等）"
               value={bio}
               onChange={e => setBio(e.target.value)}
             />

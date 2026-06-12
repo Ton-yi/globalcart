@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import ReactMarkdown from "react-markdown";
 
 export default function PublicProfile() {
   const { handle } = useParams();
@@ -109,7 +110,9 @@ export default function PublicProfile() {
                 )}
               </p>
               {profile.bio && (
-                <p className="text-sm text-gray-600 mt-3">{profile.bio}</p>
+                <div className="text-sm text-gray-600 mt-3 [&_p]:my-1 [&_ul]:list-disc [&_ul]:ml-4 [&_ol]:list-decimal [&_ol]:ml-4 [&_a]:text-blue-600 [&_a]:underline [&_h1]:text-base [&_h1]:font-bold [&_h2]:text-sm [&_h2]:font-bold [&_h3]:text-sm [&_h3]:font-semibold [&_code]:bg-gray-100 [&_code]:px-1 [&_code]:rounded [&_blockquote]:border-l-2 [&_blockquote]:border-gray-300 [&_blockquote]:pl-3">
+                  <ReactMarkdown>{profile.bio}</ReactMarkdown>
+                </div>
               )}
               {profile.bio_image_url && (
                 <img src={profile.bio_image_url} alt="Bio" className="mt-3 rounded-lg max-h-48 object-cover" />

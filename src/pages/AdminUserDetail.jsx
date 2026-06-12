@@ -8,8 +8,9 @@ import {
   User, Package, CreditCard, MapPin, Clock, AlertTriangle, 
   TrendingUp, DollarSign, ShoppingCart, Truck, Calendar,
   FileText, Settings, Shield, CheckCircle, X, ChevronRight,
-  ArrowLeft, ExternalLink, Plus, Edit2, MessageSquare
+  ArrowLeft, ExternalLink, Plus, Edit2, MessageSquare, Bell
 } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,6 +25,18 @@ import CustomerFinanceTab from "@/components/customer360/CustomerFinanceTab";
 import CustomerLogisticsTab from "@/components/customer360/CustomerLogisticsTab";
 import CustomerNotesPanel from "@/components/customer360/CustomerNotesPanel";
 import EditProfileModal from "@/components/customer360/EditProfileModal";
+import ContactInfoCard from "@/components/profile/ContactInfoCard";
+import PreferenceSettingsCard from "@/components/profile/PreferenceSettingsCard";
+import NotificationGlobalSettingsCard from "@/components/profile/NotificationGlobalSettingsCard";
+import RolePermissionsTab from "@/components/profile/RolePermissionsTab";
+
+const SYSTEM_ROLE_CONFIG = {
+  platform_admin: { label: "平台管理员", color: "bg-red-100 text-red-700" },
+  tenant_admin: { label: "管理员", color: "bg-red-100 text-red-700" },
+  admin: { label: "管理员", color: "bg-red-100 text-red-700" },
+  staff: { label: "员工", color: "bg-orange-100 text-orange-700" },
+  user: { label: "用户", color: "bg-gray-100 text-gray-600" },
+};
 
 // Metric Card Component
 function MetricCard({ icon: Icon, label, value, subValue, color = "blue" }) {
@@ -270,6 +283,11 @@ export default function AdminUserDetail() {
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <h1 className="text-xl font-bold text-gray-900">{userProfile.display_name || userProfile.full_name || "未设置昵称"}</h1>
+                  {/* 系统角色 */}
+                  <Badge className={(SYSTEM_ROLE_CONFIG[userProfile.role] || SYSTEM_ROLE_CONFIG.user).color + " text-xs"}>
+                    <Shield className="w-3 h-3 mr-1" />
+                    {(SYSTEM_ROLE_CONFIG[userProfile.role] || { label: userProfile.role }).label}
+                  </Badge>
                   {userProfile.credit_enabled && (
                     <Badge className="bg-indigo-100 text-indigo-700">
                       <CreditCard className="w-3 h-3 mr-1" />记账
@@ -288,7 +306,12 @@ export default function AdminUserDetail() {
                   ))}
                 </div>
                 <p className="text-sm text-gray-500 mt-1">{userProfile.email}</p>
-                <div className="flex items-center gap-2 mt-2">
+                {userProfile.public_profile_bio && (
+                  <div className="text-sm text-gray-600 mt-2 [&_p]:my-0.5 [&_ul]:list-disc [&_ul]:ml-4 [&_ol]:list-decimal [&_ol]:ml-4 [&_a]:text-blue-600 [&_a]:underline [&_h1]:text-sm [&_h1]:font-bold [&_h2]:text-sm [&_h2]:font-semibold [&_code]:bg-gray-100 [&_code]:px-1 [&_code]:rounded">
+                    <ReactMarkdown>{userProfile.public_profile_bio}</ReactMarkdown>
+                  </div>
+                )}
+                <div className="flex items-center gap-2 mt-2 flex-wrap">
                   <Badge className="bg-gray-100 text-gray-700 text-xs">
                     <User className="w-3 h-3 mr-1" />
                     ID: {userProfile.id.slice(-6)}
@@ -405,7 +428,7 @@ export default function AdminUserDetail() {
       
       {/* Tabs Section */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="bg-white border">
+        <TabsList className="bg-white border flex-wrap h-auto justify-start">
           <TabsTrigger value="overview" className="data-[state=active]:bg-gray-100">
             <User className="w-4 h-4 mr-2" />
             概览
@@ -426,6 +449,18 @@ export default function AdminUserDetail() {
             <Settings className="w-4 h-4 mr-2" />
             偏好
           </TabsTrigger>
+          {isOwnProfile && (
+            <TabsTrigger value="notifications" className="data-[state=active]:bg-gray-100">
+              <Bell className="w-4 h-4 mr-2" />
+              通知
+            </TabsTrigger>
+          )}
+          {isOwnProfile && (
+            <TabsTrigger value="permissions" className="data-[state=active]:bg-gray-100">
+              <Shield className="w-4 h-4 mr-2" />
+              角色权限
+            </TabsTrigger>
+          )}
           <TabsTrigger value="notes" className="data-[state=active]:bg-gray-100">
             <FileText className="w-4 h-4 mr-2" />
             备注
@@ -631,17 +666,17 @@ export default function AdminUserDetail() {
         </TabsContent>
         
         {/* Preferences Tab */}
-        <TabsContent value="preferences">
+        <TabsContent value="preferences" className="space-y-4">
+          {/* 本人可编辑：偏好设置 + 联系方式 */}
+          {isOwnProfile && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+              <PreferenceSettingsCard />
+              <ContactInfoCard />
+            </div>
+          )}
           <Card>
             <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-semibold">下单偏好</CardTitle>
-                {isOwnProfile && (
-                  <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => navigate(createPageUrl("UserPreferences"))}>
-                    <Settings className="w-3.5 h-3.5 mr-1" />编辑偏好设定
-                  </Button>
-                )}
-              </div>
+              <CardTitle className="text-sm font-semibold">下单偏好统计</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
@@ -686,6 +721,20 @@ export default function AdminUserDetail() {
             </CardContent>
           </Card>
         </TabsContent>
+        
+        {/* Notifications Tab（仅本人） */}
+        {isOwnProfile && (
+          <TabsContent value="notifications">
+            <NotificationGlobalSettingsCard />
+          </TabsContent>
+        )}
+        
+        {/* Role Permissions Tab（仅本人） */}
+        {isOwnProfile && (
+          <TabsContent value="permissions">
+            <RolePermissionsTab />
+          </TabsContent>
+        )}
         
         {/* Notes Tab */}
         <TabsContent value="notes">

@@ -11,6 +11,10 @@ import AvatarEditor from "@/components/common/AvatarEditor";
 import ThemeSelector from "@/components/common/ThemeSelector";
 import CreditPanel from "@/components/user/CreditPanel";
 import UserRolePermissionsCard from "@/components/user/UserRolePermissionsCard";
+import ContactInfoCard from "@/components/profile/ContactInfoCard";
+import PreferenceSettingsCard from "@/components/profile/PreferenceSettingsCard";
+import AddressManagerCard from "@/components/profile/AddressManagerCard";
+import NotificationGlobalSettingsCard from "@/components/profile/NotificationGlobalSettingsCard";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -106,9 +110,9 @@ export default function UserPreferences() {
         <p className="text-sm text-gray-500 mt-0.5">设置您的偏好，提升代购体验</p>
       </div>
 
-      {/* 模块迁移提示 */}
+      {/* 个人档案入口提示 */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2.5 text-xs text-blue-700 flex items-center justify-between gap-2">
-        <span>联系方式、收货地址与偏好设置已迁移至个人档案页</span>
+        <span>联系方式、收货地址与偏好设置也可在个人档案页中管理</span>
         <Link to={createPageUrl("AdminUserDetail/me")} className="flex items-center gap-1 font-medium hover:underline flex-shrink-0">
           <ExternalLink className="w-3 h-3" />前往个人档案
         </Link>
@@ -160,24 +164,14 @@ export default function UserPreferences() {
       {/* 等级与权限 */}
       <UserRolePermissionsCard />
 
-      {/* 通知设置入口 */}
-      <Card className="border-blue-200">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-            <Bell className="w-4 h-4 text-blue-500" />通知设置
-          </CardTitle>
-          <p className="text-xs text-gray-400 mt-1">管理您的通知接收偏好</p>
-        </CardHeader>
-        <CardContent>
-          <Button
-            className="w-full bg-blue-600 hover:bg-blue-700"
-            onClick={() => window.location.href = '/UserNotificationSettings'}
-          >
-            <Bell className="w-4 h-4 mr-2" />
-            管理通知偏好
-          </Button>
-        </CardContent>
-      </Card>
+      {/* 联系方式 */}
+      <ContactInfoCard />
+
+      {/* 偏好设置 */}
+      <PreferenceSettingsCard />
+
+      {/* 通知管理（全局开关 + 详细设置入口） */}
+      <NotificationGlobalSettingsCard />
 
       {/* 界面主题 */}
       <Card className="border-gray-200">
@@ -190,6 +184,9 @@ export default function UserPreferences() {
           <ThemeSelector />
         </CardContent>
       </Card>
+
+      {/* 收货地址管理 */}
+      <AddressManagerCard />
 
       {/* 自动存档设置 */}
       <Card className="border-gray-200">

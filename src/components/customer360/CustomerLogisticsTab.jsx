@@ -1,13 +1,12 @@
 /**
  * CustomerLogisticsTab - 客户物流地址 Tab
- * 默认收货地址 / 历史地址 / 常用发货方式 / 目的国家 / 中转地使用情况
+ * 本人：完整收货地址管理；管理员查看他人：只读地址展示
+ * 常用发货方式 / 目的国家 / 中转地使用情况
  */
-import { Link } from "react-router-dom";
-import { createPageUrl } from "@/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { MapPin, Star, Settings } from "lucide-react";
+import { MapPin, Star } from "lucide-react";
+import AddressManagerCard from "@/components/profile/AddressManagerCard";
 
 function AddressBlock({ addr, isDefault }) {
   if (!addr) return null;
@@ -34,37 +33,33 @@ export default function CustomerLogisticsTab({ logistics, preferences, isOwnProf
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
+      {isOwnProfile ? (
+        // 本人查看：完整地址管理（增删改、设为默认）
+        <AddressManagerCard />
+      ) : (
+        <Card>
+          <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <MapPin className="w-4 h-4 text-blue-500" />收货地址
             </CardTitle>
-            {isOwnProfile && (
-              <Button variant="outline" size="sm" className="h-7 text-xs" asChild>
-                <Link to={createPageUrl("UserPreferences")}>
-                  <Settings className="w-3.5 h-3.5 mr-1" />管理收货地址
-                </Link>
-              </Button>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {l.defaultAddress ? (
+              <AddressBlock addr={l.defaultAddress} isDefault />
+            ) : (
+              <p className="text-sm text-gray-400">未设置默认地址</p>
             )}
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {l.defaultAddress ? (
-            <AddressBlock addr={l.defaultAddress} isDefault />
-          ) : (
-            <p className="text-sm text-gray-400">未设置默认地址</p>
-          )}
-          {historyAddresses.length > 0 && (
-            <div>
-              <p className="text-xs font-medium text-gray-500 mb-2">历史地址（{historyAddresses.length}）</p>
-              <div className="space-y-2">
-                {historyAddresses.map((addr, idx) => <AddressBlock key={idx} addr={addr} />)}
+            {historyAddresses.length > 0 && (
+              <div>
+                <p className="text-xs font-medium text-gray-500 mb-2">历史地址（{historyAddresses.length}）</p>
+                <div className="space-y-2">
+                  {historyAddresses.map((addr, idx) => <AddressBlock key={idx} addr={addr} />)}
+                </div>
               </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader className="pb-3">
