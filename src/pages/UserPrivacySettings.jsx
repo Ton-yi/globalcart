@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import ImageUploader from "@/components/common/ImageUploader";
 
 export default function UserPrivacySettings() {
   const { user } = useCurrentUser();
@@ -249,16 +250,11 @@ export default function UserPrivacySettings() {
                   disabled={!settings.public_profile_enabled}
                 />
               </div>
-              <div>
-                <Label>简介图片 URL（可选）</Label>
-                <Input
-                  className="mt-2"
-                  placeholder="https://..."
-                  value={settings.public_profile_bio_image_url}
-                  onChange={(e) => setSettings(prev => ({ ...prev, public_profile_bio_image_url: e.target.value }))}
-                  disabled={!settings.public_profile_enabled}
-                />
-              </div>
+              <ImageUploader
+                label="简介图片（可选）"
+                value={settings.public_profile_bio_image_url}
+                onChange={(url) => setSettings(prev => ({ ...prev, public_profile_bio_image_url: url }))}
+              />
             </>
           )}
         </CardContent>

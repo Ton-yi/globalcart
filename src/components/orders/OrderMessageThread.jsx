@@ -11,6 +11,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { updateOrder } from "@/lib/tenantApi";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import UserProfileLink from "@/components/common/UserProfileLink";
 
 function formatTime(ts) {
   if (!ts) return "";
@@ -138,7 +139,11 @@ export default function OrderMessageThread({ order, currentUser, isAdmin, onMess
                 <div className={`flex flex-col max-w-[75%] ${isMine ? "items-end" : "items-start"}`}>
                   {/* Sender info row */}
                   <div className={`flex items-center gap-1.5 mb-1 ${isMine ? "flex-row-reverse" : "flex-row"}`}>
-                    <span className="text-xs font-medium text-gray-700">{senderName}</span>
+                    {!isAdminMsg && msg.from_email ? (
+                      <UserProfileLink email={msg.from_email} name={senderName} className="text-xs font-medium text-gray-700" />
+                    ) : (
+                      <span className="text-xs font-medium text-gray-700">{senderName}</span>
+                    )}
                     <span className="text-xs text-gray-400">{formatTime(msg.timestamp)}</span>
                   </div>
 

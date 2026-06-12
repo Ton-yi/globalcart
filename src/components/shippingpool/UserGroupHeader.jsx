@@ -5,6 +5,7 @@
 import { Star, Truck, Edit2, RotateCcw } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
+import UserProfileLink from "@/components/common/UserProfileLink";
 
 export default function UserGroupHeader({
   userData,
@@ -39,7 +40,7 @@ export default function UserGroupHeader({
             {displayName[0]?.toUpperCase()}
           </div>
         )}
-        <span className="text-xs font-medium text-gray-600">{displayName}</span>
+        <UserProfileLink email={userData.email || userData.user_email} name={displayName} className="text-xs font-medium text-gray-600" />
         <span className="text-xs text-gray-400">{groupOrders.length} 件 · {groupWeight}g</span>
       </div>
       <div className="flex flex-wrap items-center gap-1 flex-1 min-w-0">

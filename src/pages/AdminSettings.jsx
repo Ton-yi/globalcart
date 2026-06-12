@@ -335,6 +335,17 @@ export default function AdminSettings() {
     await load();
   };
 
+  // Instant-save for public_profile_count_self_views
+  const handleSelfViewCountToggle = async (s) => {
+    const newVal = s?.value === 'true' ? 'false' : 'true';
+    if (s) {
+      await tenantEntity.update('SiteSettings', s.id, { value: newVal });
+    } else {
+      await tenantEntity.create('SiteSettings', { key: 'public_profile_count_self_views', value: newVal, description: '本人访问自己的公开资料页是否计入展示次数', category: 'general' });
+    }
+    await load();
+  };
+
   // Instant-save for allow_user_customs_declaration
   const handleCustomsDeclarationToggle = async (s) => {
     const newVal = s?.value === 'true' ? 'false' : 'true';
@@ -1020,6 +1031,28 @@ export default function AdminSettings() {
 
           {/* ─── Customs Hazmat Text ─── */}
           <CustomsHazmatTextEditor settings={flat} onReload={load} />
+
+          {/* ─── Public Profile Settings ─── */}
+          {(() => {
+            const s = getSetting('public_profile_count_self_views');
+            return (
+              <Card className="border-indigo-200">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-semibold text-gray-700">公开资料页设置</CardTitle>
+                  <p className="text-xs text-gray-400 mt-1">配置用户公开资料页的展示次数统计规则。</p>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-sm">本人访问计入展示次数</Label>
+                      <p className="text-xs text-gray-400 mt-0.5">开启后，用户访问自己的公开资料页也计入展示次数（默认不计入；管理员访问始终不计入）</p>
+                    </div>
+                    <Toggle enabled={s?.value === 'true'} onToggle={() => handleSelfViewCountToggle(s)} color="bg-indigo-600" />
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })()}
 
           {/* ─── Addon Options ─── */}
           <Card className="border-gray-200">

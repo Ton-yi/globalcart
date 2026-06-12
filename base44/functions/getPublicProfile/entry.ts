@@ -3,6 +3,42 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 // 同一访问者 1 小时内重复访问不重复计数（防刷）
 const VIEW_DEDUP_WINDOW_MS = 60 * 60 * 1000;
 
+// ===== 基础防护：访问限速 + 不存在 handle 风控（内存级，按访问者邮箱） =====
+const RATE_LIMIT = 30;                    // 每分钟最多 30 次资料页请求
+const RATE_WINDOW_MS = 60 * 1000;
+const MISS_LIMIT = 10;                    // 10 分钟内访问 10 个不存在的 handle 触发风控
+const MISS_WINDOW_MS = 10 * 60 * 1000;
+const MISS_BLOCK_MS = 10 * 60 * 1000;     // 触发后封锁 10 分钟（对访问者表现为统一 404）
+const rateMap = new Map();
+const missMap = new Map();
+
+function checkRateLimit(email) {
+  const now = Date.now();
+  const rec = rateMap.get(email);
+  if (!rec || now - rec.windowStart > RATE_WINDOW_MS) {
+    rateMap.set(email, { count: 1, windowStart: now });
+    return true;
+  }
+  rec.count++;
+  return rec.count <= RATE_LIMIT;
+}
+
+function isMissBlocked(email) {
+  const rec = missMap.get(email);
+  return !!(rec && rec.blockedUntil && Date.now() < rec.blockedUntil);
+}
+
+function recordMiss(email) {
+  const now = Date.now();
+  const rec = missMap.get(email);
+  if (!rec || now - rec.windowStart > MISS_WINDOW_MS) {
+    missMap.set(email, { count: 1, windowStart: now });
+    return;
+  }
+  rec.count++;
+  if (rec.count >= MISS_LIMIT) rec.blockedUntil = now + MISS_BLOCK_MS;
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -12,16 +48,27 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // 访问限速
+    if (!checkRateLimit(currentUser.email)) {
+      return Response.json({ error: '请求过于频繁，请稍后再试' }, { status: 429 });
+    }
+
     const { handle } = await req.json();
     if (!handle) return Response.json({ error: 'Handle is required' }, { status: 400 });
+
+    // 统一返回：不存在 / 未公开 / 无权限 / 被风控 均为同一结果，不区分
+    const notFound = () => Response.json({ error: '用户不存在或不可访问' }, { status: 404 });
+
+    // 风控：短时间内大量访问不存在的 handle → 暂时封锁（表现与正常未命中完全一致）
+    if (isMissBlocked(currentUser.email)) return notFound();
 
     const normalizedHandle = String(handle).toLowerCase().trim();
     const targetUsers = await base44.asServiceRole.entities.User.filter({ handle: normalizedHandle });
 
-    // 统一返回：不存在 / 未公开 / 无权限 均为同一结果，不区分
-    const notFound = () => Response.json({ error: '用户不存在或不可访问' }, { status: 404 });
-
-    if (!targetUsers || targetUsers.length === 0) return notFound();
+    if (!targetUsers || targetUsers.length === 0) {
+      recordMiss(currentUser.email);
+      return notFound();
+    }
 
     const targetUser = targetUsers[0];
     if (!targetUser.public_profile_enabled) return notFound();
@@ -34,8 +81,16 @@ Deno.serve(async (req) => {
     if (!isViewerAdmin && !isOwner && !isSameTenant) return notFound();
 
     // ===== 展示次数统计 =====
-    // 规则：本人访问不计入、管理员访问不计入、同一访问者 1 小时内去重
-    if (!isOwner && !isViewerAdmin) {
+    // 规则：管理员访问不计入；本人访问默认不计入（可由租户设置 public_profile_count_self_views 开启）；同一访问者 1 小时内去重
+    let shouldCount = !isViewerAdmin && !isOwner;
+    if (!isViewerAdmin && isOwner) {
+      const selfViewSettings = await base44.asServiceRole.entities.SiteSettings.filter({
+        tenant_id: targetUser.tenant_id,
+        key: 'public_profile_count_self_views'
+      });
+      shouldCount = selfViewSettings[0]?.value === 'true';
+    }
+    if (shouldCount) {
       const logs = await base44.asServiceRole.entities.ProfileViewLog.filter({
         profile_user_id: targetUser.id,
         viewer_email: currentUser.email
