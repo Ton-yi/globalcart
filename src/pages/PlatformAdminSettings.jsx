@@ -14,6 +14,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import TenantRoleManager from "@/components/admin/TenantRoleManager";
 import GlobalRoleManager from "@/components/admin/GlobalRoleManager";
 import PermissionViewer from "@/components/admin/PermissionViewer";
+import ExchangeRateApiSettings from "@/components/platform/ExchangeRateApiSettings";
+import GlobalFeeRuleTemplates from "@/components/platform/GlobalFeeRuleTemplates";
 
 export default function PlatformAdminSettings() {
   const { user } = useCurrentUser();
@@ -42,15 +44,20 @@ export default function PlatformAdminSettings() {
   const [liveRates, setLiveRates] = useState(null);
   const [platformSettings, setPlatformSettings] = useState([]);
   const [savingRates, setSavingRates] = useState(false);
-  const [activeTab, setActiveTab] = useState("platform");
+  const [activeTab, setActiveTab] = useState("create_tenant");
 
-  const PLATFORM_TABS = [
-    { key: "platform", label: "平台设置" },
+  const PLATFORM_NAV = [
+    { key: "create_tenant", label: "新建租户" },
     { key: "tenants", label: "租户管理" },
-    { key: "roles", label: "全局角色" },
     { key: "tenant_roles", label: "租户角色" },
+    { group: "全局设定", children: [
+      { key: "roles", label: "全局角色" },
+      { key: "exchange_rates", label: "汇率设置" },
+      { key: "fee_templates", label: "服务费规则模板" },
+      { key: "reports", label: "数据报表" },
+      { key: "notification_templates", label: "通知模板" },
+    ]},
     { key: "notifications", label: "通知管理" },
-    { key: "exchange_rates", label: "汇率设置" },
     { key: "permissions", label: "权限一览" },
   ];
 
@@ -180,15 +187,28 @@ export default function PlatformAdminSettings() {
         <h1 className="text-xl font-bold text-gray-900">平台管理员设置</h1>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 border-b border-gray-200 overflow-x-auto">
-        {PLATFORM_TABS.map(tab => (
-          <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px whitespace-nowrap ${activeTab === tab.key ? "border-red-600 text-red-600" : "border-transparent text-gray-500 hover:text-gray-800"}`}>
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      {/* Left vertical nav + content */}
+      <div className="flex flex-col md:flex-row gap-5 items-start">
+        <aside className="w-full md:w-52 flex-shrink-0 bg-white border border-gray-200 rounded-lg p-2 space-y-0.5 md:sticky md:top-20">
+          {PLATFORM_NAV.map(item => item.children ? (
+            <div key={item.group} className="pt-1.5">
+              <p className="px-3 py-1 text-xs font-semibold text-gray-400">{item.group}</p>
+              {item.children.map(c => (
+                <button key={c.key} onClick={() => setActiveTab(c.key)}
+                  className={`w-full text-left pl-6 pr-3 py-1.5 rounded-md text-sm transition-colors ${activeTab === c.key ? "bg-red-50 text-red-700 font-medium" : "text-gray-600 hover:bg-gray-50"}`}>
+                  {c.label}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <button key={item.key} onClick={() => setActiveTab(item.key)}
+              className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${activeTab === item.key ? "bg-red-50 text-red-700 font-medium" : "text-gray-600 hover:bg-gray-50"}`}>
+              {item.label}
+            </button>
+          ))}
+        </aside>
+
+        <div className="flex-1 min-w-0 space-y-5">
 
       {/* Permissions tab */}
       {activeTab === "permissions" && (
@@ -203,9 +223,8 @@ export default function PlatformAdminSettings() {
         </Card>
       )}
 
-      {(activeTab === "platform" || activeTab === "tenants") && (
+      {activeTab === "tenants" && (
       <>
-
       {/* Tenant Assignment Diagnostics */}
       <div className="bg-amber-50 border border-amber-200 rounded-xl overflow-hidden">
         <button
@@ -265,7 +284,11 @@ export default function PlatformAdminSettings() {
           </div>
         )}
       </div>
+      </>
+      )}
 
+      {activeTab === "create_tenant" && (
+      <>
       {/* Platform base domain */}
       <Card className="border-purple-200">
         <CardHeader className="pb-3">
@@ -365,7 +388,11 @@ export default function PlatformAdminSettings() {
           </Button>
         </CardContent>
       </Card>
+      </>
+      )}
 
+      {activeTab === "tenants" && (
+      <>
       {/* Tenant list */}
        <Card className="border-gray-200">
         <CardHeader className="pb-3">
@@ -542,7 +569,10 @@ export default function PlatformAdminSettings() {
 
 
       {/* Exchange Rates (Platform-level) */}
-      {activeTab === "exchange_rates" && liveRates && (
+      {activeTab === "exchange_rates" && (
+        <div className="space-y-4">
+          <ExchangeRateApiSettings />
+          {liveRates && (
         <Card className="border-green-200">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
@@ -585,6 +615,29 @@ export default function PlatformAdminSettings() {
             </Button>
           </CardContent>
         </Card>
+          )}
+        </div>
+      )}
+
+      {/* Global fee rule templates */}
+      {activeTab === "fee_templates" && <GlobalFeeRuleTemplates />}
+
+      {/* Global reports placeholder */}
+      {activeTab === "reports" && (
+        <Card className="border-dashed border-gray-300">
+          <CardContent className="py-12 text-center text-sm text-gray-400">
+            全局自定义看板功能开发中，敬请期待。
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Global notification templates placeholder */}
+      {activeTab === "notification_templates" && (
+        <Card className="border-dashed border-gray-300">
+          <CardContent className="py-12 text-center text-sm text-gray-400">
+            全局通知模板功能开发中，敬请期待。
+          </CardContent>
+        </Card>
       )}
 
       {/* Notifications Management */}
@@ -623,6 +676,9 @@ export default function PlatformAdminSettings() {
           </Card>
         </div>
       )}
+
+        </div>
+      </div>
     </div>
   );
 }

@@ -674,6 +674,78 @@ Deno.serve(async (req) => {
       return Response.json({ success: true });
     }
 
+    // ── 全局服务费规则模板 ─────────────────────────────────────────────────────
+    const TEMPLATE_COPY_FIELDS = [
+      'name', 'description', 'fee_phase', 'priority', 'effective_from', 'effective_until',
+      'mode', 'formula', 'simple_rate', 'simple_fixed_fee', 'customer_level_filter',
+      'store_filter', 'tiered_config', 'shipping_fee_simple_config', 'shipping_fee_tiered_config',
+      'min_fee', 'max_fee', 'round_mode', 'round_unit',
+    ];
+
+    // 列出全局模板（所有租户管理员可读，用于套用）
+    if (action === 'list_global_templates') {
+      if (!isAdmin) return Response.json({ error: 'Forbidden' }, { status: 403 });
+      const templates = await base44.asServiceRole.entities.ServiceFeeRule.filter({ is_global_template: true });
+      return Response.json({ templates: (templates || []).filter(t => !t.is_archived) });
+    }
+
+    // 保存全局模板（仅平台管理员）
+    if (action === 'save_global_template') {
+      if (user.role !== 'platform_admin') return Response.json({ error: 'Forbidden: 仅平台管理员可管理全局模板' }, { status: 403 });
+      const { rule } = body;
+      if (!rule?.name || !rule?.mode) return Response.json({ error: '缺少必填字段' }, { status: 400 });
+      if (rule.mode === 'formula' && rule.formula) {
+        const v = validateFormula(rule.formula);
+        if (!v.valid && rule.status === 'active') {
+          return Response.json({ error: `公式错误: ${v.error}` }, { status: 400 });
+        }
+      }
+      const data = {};
+      TEMPLATE_COPY_FIELDS.forEach(f => { if (rule[f] !== undefined) data[f] = rule[f]; });
+      data.status = rule.status || 'draft';
+      data.tenant_id = '';
+      data.is_global_template = true;
+      if (rule.id) {
+        const existing = await base44.asServiceRole.entities.ServiceFeeRule.filter({ id: rule.id });
+        const cur = existing?.[0];
+        if (!cur || !cur.is_global_template) return Response.json({ error: 'Template not found' }, { status: 404 });
+        const saved = await base44.asServiceRole.entities.ServiceFeeRule.update(rule.id, { ...data, version: (parseFloat(cur.version) || 1) + 1 });
+        return Response.json({ success: true, rule: saved });
+      }
+      const saved = await base44.asServiceRole.entities.ServiceFeeRule.create({ ...data, version: 1 });
+      return Response.json({ success: true, rule: saved });
+    }
+
+    // 删除全局模板（仅平台管理员，软删除）
+    if (action === 'delete_global_template') {
+      if (user.role !== 'platform_admin') return Response.json({ error: 'Forbidden' }, { status: 403 });
+      const existing = await base44.asServiceRole.entities.ServiceFeeRule.filter({ id: body.template_id });
+      const cur = existing?.[0];
+      if (!cur || !cur.is_global_template) return Response.json({ error: 'Not found' }, { status: 404 });
+      await base44.asServiceRole.entities.ServiceFeeRule.update(body.template_id, { is_archived: true, status: 'inactive' });
+      return Response.json({ success: true });
+    }
+
+    // 套用全局模板：复制为当前租户的草稿规则，可再自定义
+    if (action === 'apply_global_template') {
+      if (!isAdmin) return Response.json({ error: 'Forbidden' }, { status: 403 });
+      if (!tenantId) return Response.json({ error: 'No tenant' }, { status: 403 });
+      const found = await base44.asServiceRole.entities.ServiceFeeRule.filter({ id: body.template_id });
+      const tpl = found?.[0];
+      if (!tpl || !tpl.is_global_template || tpl.is_archived) return Response.json({ error: 'Template not found' }, { status: 404 });
+      const data = {};
+      TEMPLATE_COPY_FIELDS.forEach(f => { if (tpl[f] !== undefined) data[f] = tpl[f]; });
+      const saved = await base44.asServiceRole.entities.ServiceFeeRule.create({
+        ...data,
+        status: 'draft',
+        tenant_id: tenantId,
+        is_global_template: false,
+        source_template_id: tpl.id,
+        version: 1,
+      });
+      return Response.json({ success: true, rule: saved });
+    }
+
     return Response.json({ error: `未知操作: ${action}` }, { status: 400 });
 
   } catch (error) {

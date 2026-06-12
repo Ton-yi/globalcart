@@ -4,7 +4,16 @@
   "properties": {
     "tenant_id": {
       "type": "string",
-      "description": "\u6240\u5c5e\u79df\u6237ID"
+      "description": "\u6240\u5c5e\u79df\u6237ID\uff08\u5168\u5c40\u6a21\u677f\u4e3a\u7a7a\u5b57\u7b26\u4e32\uff09"
+    },
+    "is_global_template": {
+      "type": "boolean",
+      "default": false,
+      "description": "\u662f\u5426\u4e3a\u5e73\u53f0\u7ea7\u5168\u5c40\u89c4\u5219\u6a21\u677f\uff08\u4ec5\u5e73\u53f0\u7ba1\u7406\u5458\u53ef\u7ba1\u7406\uff09"
+    },
+    "source_template_id": {
+      "type": "string",
+      "description": "\u5957\u7528\u6765\u6e90\u7684\u5168\u5c40\u6a21\u677f ID\uff08\u7531\u5168\u5c40\u6a21\u677f\u590d\u5236\u751f\u6210\u7684\u79df\u6237\u89c4\u5219\uff09"
     },
     "name": {
       "type": "string",

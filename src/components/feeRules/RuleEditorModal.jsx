@@ -39,7 +39,7 @@ const STATUS_COLORS = { active: 'bg-green-100 text-green-700', inactive: 'bg-gra
 const ORDER_MODES = { simple: '简单比例', tiered: '阶梯费率', formula: '高级公式' };
 const SHIPPING_MODES = { simple: '简单比例', tiered: '阶梯费率', formula: '高级公式' };
 
-export default function RuleEditorModal({ rule: initialRule, onClose, onSaved }) {
+export default function RuleEditorModal({ rule: initialRule, onClose, onSaved, saveAction = 'save_rule' }) {
   const [rule, setRule] = useState(initialRule ? { ...EMPTY_RULE, ...initialRule } : { ...EMPTY_RULE });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -67,7 +67,7 @@ export default function RuleEditorModal({ rule: initialRule, onClose, onSaved })
     }
     setSaving(true);
     setError(null);
-    const res = await base44.functions.invoke('serviceFeeRuleEngine', { action: 'save_rule', rule });
+    const res = await base44.functions.invoke('serviceFeeRuleEngine', { action: saveAction, rule });
     if (res.data?.error) { setError(res.data.error); setSaving(false); return; }
     onSaved(res.data?.rule);
     onClose();

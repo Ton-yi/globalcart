@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import RuleEditorModal from "@/components/feeRules/RuleEditorModal";
+import GlobalTemplatePicker from "@/components/feeRules/GlobalTemplatePicker";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -119,6 +120,9 @@ export default function AdminFeeRules() {
           <Plus className="w-4 h-4 mr-1.5" />新建规则
         </Button>
       </div>
+
+      {/* Global template picker */}
+      <GlobalTemplatePicker onApplied={load} />
 
       {/* Active rule banner */}
       {activeRules.length === 0 && !loading && (
