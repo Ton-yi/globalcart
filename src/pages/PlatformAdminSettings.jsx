@@ -28,7 +28,8 @@ export default function PlatformAdminSettings() {
 
   const [tenants, setTenants] = useState([]);
   const [tenantsLoading, setTenantsLoading] = useState(false);
-  const [newTenant, setNewTenant] = useState({ name: "", code: "", branding_name: "", timezone: "Asia/Tokyo", login_title: "", login_subtitle: "", logo_url: "", favicon_url: "", theme_color: "#dc2626", contact_info: "" });
+  const [newTenant, setNewTenant] = useState({ name: "", code: "", branding_name: "", timezone: "Asia/Tokyo", login_title: "", login_subtitle: "", logo_url: "", favicon_url: "", theme_color: "#dc2626", contact_info: "", initial_fee_rule_template_id: "none" });
+  const [feeTemplates, setFeeTemplates] = useState([]);
   const [creatingTenant, setCreatingTenant] = useState(false);
   const [tenantMsg, setTenantMsg] = useState(null);
   const [assigningAll, setAssigningAll] = useState(false);
@@ -92,11 +93,13 @@ export default function PlatformAdminSettings() {
 
   const loadTenants = async () => {
     setTenantsLoading(true);
-    const [tenantsRes, domainRes, ratesRes] = await Promise.all([
+    const [tenantsRes, domainRes, ratesRes, tplRes] = await Promise.all([
       base44.functions.invoke('manageTenants', { action: 'list' }),
       base44.functions.invoke('manageTenants', { action: 'get_platform_domain' }),
       base44.functions.invoke('fetchExchangeRates', {}),
+      base44.functions.invoke('serviceFeeRuleEngine', { action: 'list_global_templates' }),
     ]);
+    setFeeTemplates(tplRes.data?.templates || []);
     setTenants(tenantsRes.data?.tenants || []);
     const domain = domainRes.data?.platform_base_domain || "";
     setPlatformBaseDomain(domain);
@@ -123,12 +126,18 @@ export default function PlatformAdminSettings() {
     if (!newTenant.name || !newTenant.code) return;
     setCreatingTenant(true);
     setTenantMsg(null);
-    const r = await base44.functions.invoke('manageTenants', { action: 'create', ...newTenant });
+    const { initial_fee_rule_template_id, ...rest } = newTenant;
+    const payload = { action: 'create', ...rest };
+    if (initial_fee_rule_template_id && initial_fee_rule_template_id !== "none") {
+      payload.initial_fee_rule_template_id = initial_fee_rule_template_id;
+    }
+    const r = await base44.functions.invoke('manageTenants', payload);
     if (r.data?.error) {
       setTenantMsg({ type: 'error', text: r.data.error });
     } else {
-      setTenantMsg({ type: 'success', text: `租户 "${r.data.tenant.name}" 创建成功！` });
-      setNewTenant({ name: "", code: "", branding_name: "", timezone: "Asia/Tokyo", login_title: "", login_subtitle: "", logo_url: "", favicon_url: "", theme_color: "#dc2626", contact_info: "" });
+      const ruleNote = r.data.applied_fee_rule ? `，已套用规则模板「${r.data.applied_fee_rule.name}」（草稿）` : '';
+      setTenantMsg({ type: 'success', text: `租户 "${r.data.tenant.name}" 创建成功！${ruleNote}` });
+      setNewTenant({ name: "", code: "", branding_name: "", timezone: "Asia/Tokyo", login_title: "", login_subtitle: "", logo_url: "", favicon_url: "", theme_color: "#dc2626", contact_info: "", initial_fee_rule_template_id: "none" });
       await loadTenants();
     }
     setCreatingTenant(false);
@@ -375,6 +384,20 @@ export default function PlatformAdminSettings() {
               <Label className="text-xs text-gray-500">联系方式</Label>
               <Input className="mt-0.5 h-8 text-sm" placeholder="微信/WhatsApp/邮箱等" value={newTenant.contact_info}
                 onChange={e => setNewTenant(p => ({ ...p, contact_info: e.target.value }))} />
+            </div>
+            <div className="col-span-2">
+              <Label className="text-xs text-gray-500">服务费规则模板（可选）</Label>
+              <Select value={newTenant.initial_fee_rule_template_id}
+                onValueChange={v => setNewTenant(p => ({ ...p, initial_fee_rule_template_id: v }))}>
+                <SelectTrigger className="mt-0.5 h-8 text-sm"><SelectValue placeholder="不套用" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">不套用</SelectItem>
+                  {feeTemplates.map(t => (
+                    <SelectItem key={t.id} value={t.id}>{t.name}{t.description ? ` — ${t.description}` : ''}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-gray-400 mt-0.5">选择后将自动克隆为该租户的草稿规则，租户管理员可再自定义并启用</p>
             </div>
           </div>
           {tenantMsg && !editingTenant && (

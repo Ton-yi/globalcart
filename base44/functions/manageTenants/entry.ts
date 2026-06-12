@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
     if (action === 'create') {
       if (!isPlatformAdmin) return Response.json({ error: 'Forbidden: only platform_admin can create tenants' }, { status: 403 });
 
-      const { name, code, branding_name, timezone, subdomain, login_title, login_subtitle, logo_url, favicon_url, theme_color, contact_info } = body;
+      const { name, code, branding_name, timezone, subdomain, login_title, login_subtitle, logo_url, favicon_url, theme_color, contact_info, initial_fee_rule_template_id, allowed_features } = body;
       if (!name || !code) return Response.json({ error: 'name and code are required' }, { status: 400 });
 
       const normalizedCode = code.toUpperCase();
@@ -57,12 +57,21 @@ Deno.serve(async (req) => {
         theme_color: theme_color || '#dc2626',
         contact_info: contact_info || '',
         is_active: true,
+        // 功能模块化付费预留：开通的功能模块标识列表（后续付费开关均基于此字段）
+        allowed_features: Array.isArray(allowed_features) ? allowed_features : [],
+        initial_fee_rule_template_id: initial_fee_rule_template_id || '',
       });
 
       // 为新租户自动创建内置预定义角色
       await initTenantBuiltinRoles(base44, tenant.id);
 
-      return Response.json({ tenant });
+      // 套用全局服务费规则模板（克隆为该租户的草稿规则）
+      let appliedFeeRule = null;
+      if (initial_fee_rule_template_id) {
+        appliedFeeRule = await cloneFeeRuleTemplateToTenant(base44, initial_fee_rule_template_id, tenant.id);
+      }
+
+      return Response.json({ tenant, applied_fee_rule: appliedFeeRule });
     }
 
     // ── get_platform_domain (any admin) ─────────────────────────────────────
@@ -174,6 +183,37 @@ Deno.serve(async (req) => {
     return Response.json({ error: error.message }, { status: 500 });
   }
 });
+
+/**
+ * 克隆全局服务费规则模板为指定租户的草稿规则（字段白名单与 serviceFeeRuleEngine 保持一致）
+ */
+const FEE_TEMPLATE_COPY_FIELDS = [
+  'name', 'description', 'fee_phase', 'priority', 'effective_from', 'effective_until',
+  'mode', 'formula', 'simple_rate', 'simple_fixed_fee', 'customer_level_filter',
+  'store_filter', 'tiered_config', 'shipping_fee_simple_config', 'shipping_fee_tiered_config',
+  'min_fee', 'max_fee', 'round_mode', 'round_unit',
+];
+
+async function cloneFeeRuleTemplateToTenant(base44, templateId, tenantId) {
+  const found = await base44.asServiceRole.entities.ServiceFeeRule.filter({ id: templateId });
+  const tpl = found?.[0];
+  if (!tpl || !tpl.is_global_template || tpl.is_archived) {
+    console.warn(`[cloneFeeRuleTemplateToTenant] Template ${templateId} not found or invalid, skipped`);
+    return null;
+  }
+  const data = {};
+  FEE_TEMPLATE_COPY_FIELDS.forEach(f => { if (tpl[f] !== undefined) data[f] = tpl[f]; });
+  const rule = await base44.asServiceRole.entities.ServiceFeeRule.create({
+    ...data,
+    status: 'draft',
+    tenant_id: tenantId,
+    is_global_template: false,
+    source_template_id: tpl.id,
+    version: 1,
+  });
+  console.log(`[cloneFeeRuleTemplateToTenant] Cloned template ${templateId} → rule ${rule.id} for tenant ${tenantId}`);
+  return rule;
+}
 
 /**
  * 为租户创建两个内置预定义角色：用户（builtin_user）和管理员（builtin_admin）
