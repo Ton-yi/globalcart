@@ -89,7 +89,6 @@ export default function Layout({ children, currentPageName }) {
   const tenantAdminNav = [
     { label: "管理总览", icon: BarChart3, page: "AdminDashboard", canAccess: canAccessAdminDashboard },
     { label: "订单管理", icon: Package, page: "AdminOrders", canAccess: canAccessAdminOrders },
-    { label: "中转发货", icon: Truck, page: "AdminTransitWork", canAccess: canAccessTransitWork },
     { label: "发货池", icon: Send, page: "AdminShippingPool", canAccess: canAccessAdminShippingPool, subItems: [
       { label: "中转地工作面板", icon: Layers, page: "AdminTransitWork" },
     ]},
