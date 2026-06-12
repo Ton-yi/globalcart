@@ -579,6 +579,9 @@ Deno.serve(async (req) => {
             timeSeries = buildTimeSeries(orders, pools, granularity);
         }
         
+        // 后付款笔数：跳过付款先发货、事后确认收款的发货池数量（始终基于原始数据计算）
+        summary.post_shipment_paid_count = pools.filter(p => p.post_shipment_paid).length;
+
         const topCustomers = buildTopCustomers(orders, 10);
         const storeTagCounts = {};
         orders.forEach(o => {

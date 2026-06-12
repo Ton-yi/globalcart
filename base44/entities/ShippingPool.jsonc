@@ -287,6 +287,15 @@
       "default": false,
       "description": "\u7ba1\u7406\u5458\u662f\u5426\u5df2\u786e\u8ba4\u6536\u6b3e"
     },
+    "post_shipment_paid": {
+      "type": "boolean",
+      "default": false,
+      "description": "\u662f\u5426\u4e3a\u53d1\u8d27\u540e\u8865\u4ed8\uff08\u8df3\u8fc7\u4ed8\u6b3e\u5148\u53d1\u8d27/\u5f85\u53d1\u8d27\uff0c\u4e8b\u540e\u786e\u8ba4\u6536\u6b3e\uff09"
+    },
+    "post_shipment_paid_at": {
+      "type": "string",
+      "description": "\u53d1\u8d27\u540e\u8865\u4ed8\u786e\u8ba4\u6536\u6b3e\u65f6\u95f4\uff08ISO \u65f6\u95f4\u6233\uff09"
+    },
     "tracking_number": {
       "type": "string",
       "description": "\u8fd0\u5355\u53f7"

@@ -401,6 +401,13 @@ export default function AdminUserDetail() {
           color="red"
         />
         <MetricCard 
+          icon={Truck} 
+          label="后付款" 
+          value={metrics.postShipmentPaidCount || 0} 
+          subValue="次（发货后补付）"
+          color="orange"
+        />
+        <MetricCard 
           icon={DollarSign} 
           label="退款金额" 
           value={formatCurrency(metrics.totalRefundJpy)} 

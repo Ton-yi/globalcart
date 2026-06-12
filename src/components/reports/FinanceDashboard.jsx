@@ -66,6 +66,9 @@ export default function FinanceDashboard({ data, dimension, compare }) {
                     subtitle={`收 ${formatCurrency(summary.box_charge_jpy)} - 成本 ${formatCurrency(summary.box_actual_cost_jpy)}`} />
                 <MetricCard title="综合总利润" value={summary.total_profit_jpy} icon={TrendingUp}
                     colorClass={summary.total_profit_jpy >= 0 ? 'text-green-600' : 'text-red-600'} />
+                <MetricCard title="后付款笔数" value={summary.post_shipment_paid_count || 0} icon={Package} isCount
+                    subtitle="发货后补付确认收款的发货池"
+                    description="跳过付款先发货/待发货，事后确认收款的发货池数量。其收入在收款确认后才计入报表。" />
             </div>
 
             {/* 利润趋势（含累计） */}

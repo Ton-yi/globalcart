@@ -145,7 +145,7 @@ Deno.serve(async (req) => {
         // Payment fields that any tenant user (participant) is allowed to write
         const PAYMENT_FIELDS = new Set([
           'payment_status', 'payment_method', 'payment_proof_url', 'status',
-          'alipay_trade_no', 'alipay_transaction_id',
+          'alipay_trade_no', 'alipay_transaction_id', 'per_user_payments',
         ]);
         // Fields that a user is allowed to write when joining an existing pool
         const JOIN_POOL_FIELDS = new Set([
@@ -189,6 +189,15 @@ Deno.serve(async (req) => {
             p.payment_status === 'paid' && !prevPaid.has(p.user_email));
           if (forging) {
             return Response.json({ error: 'Forbidden: cannot self-confirm payment' }, { status: 403 });
+          }
+          // users may only modify their OWN payment entry — other users' entries must stay unchanged
+          const normalize = arr => JSON.stringify(
+            (arr || [])
+              .filter(p => p.user_email !== user.email)
+              .sort((a, b) => (a.user_email || '').localeCompare(b.user_email || ''))
+          );
+          if (normalize(data.per_user_payments) !== normalize(record.per_user_payments)) {
+            return Response.json({ error: "Forbidden: cannot modify other users' payment records" }, { status: 403 });
           }
         }
       }

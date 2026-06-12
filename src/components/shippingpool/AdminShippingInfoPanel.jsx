@@ -420,6 +420,9 @@ export default function AdminShippingInfoPanel({
       admin_confirmed_payment: true,
       supplement_amount_per_user: [],
       per_user_payments: updatedPerUserPayments,
+      // 后付款标记：用于个人档案与财务报表的后付款次数统计
+      post_shipment_paid: true,
+      post_shipment_paid_at: new Date().toISOString(),
     };
     await shippingPoolApi.update(pool.id, payload);
     // 标记订单尾款已结算，但不改变订单状态

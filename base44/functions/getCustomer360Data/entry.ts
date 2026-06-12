@@ -201,9 +201,11 @@ Deno.serve(async (req) => {
         : (p.creator_email === targetEmail && p.payment_status === 'paid');
       if (paidConfirmed && userFeeJpy > 0) {
         shippingStagePaidJpy += userFeeJpy;
-        ledger.push({ date: p.shipped_date || p.updated_date || p.created_date, type: 'shipping_payment', title: `发货收款 ${p.pool_code || ''}`, amount_jpy: userFeeJpy });
+        ledger.push({ date: p.shipped_date || p.updated_date || p.created_date, type: 'shipping_payment', title: `发货收款${p.post_shipment_paid ? '（后付款）' : ''} ${p.pool_code || ''}`, amount_jpy: userFeeJpy });
       }
     });
+    // 后付款次数：该用户参与的、跳过付款先发货后补付确认收款的发货池数
+    const postShipmentPaidCount = userPools.filter(p => p.post_shipment_paid).length;
     (allOrders || []).forEach(o => {
       const paid = o.order_stage_payment_jpy || o.paid_amount || 0;
       if (paid > 0) ledger.push({ date: o.submit_date || o.created_date, type: 'order_payment', title: `订单收款 ${o.order_number || ''}`, amount_jpy: paid });
@@ -391,6 +393,7 @@ Deno.serve(async (req) => {
         totalServiceFeeJpy,
         totalRefundJpy,
         refundCount,
+        postShipmentPaidCount,
         avgOrderValue,
         unpaidOrderCount: unpaidOrders.length,
         pendingShipOrderCount: pendingShipOrders.length,
