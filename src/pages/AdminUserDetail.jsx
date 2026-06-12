@@ -8,7 +8,7 @@ import {
   User, Package, CreditCard, MapPin, Clock, AlertTriangle, 
   TrendingUp, DollarSign, ShoppingCart, Truck, Calendar,
   FileText, Settings, Shield, CheckCircle, X, ChevronRight,
-  ArrowLeft, ExternalLink, Plus, Edit2, MessageSquare, Bell
+  ArrowLeft, ExternalLink, Plus, Edit2, MessageSquare, Bell, Eye
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,7 @@ import ContactInfoCard from "@/components/profile/ContactInfoCard";
 import PreferenceSettingsCard from "@/components/profile/PreferenceSettingsCard";
 import NotificationGlobalSettingsCard from "@/components/profile/NotificationGlobalSettingsCard";
 import RolePermissionsTab from "@/components/profile/RolePermissionsTab";
+import PrivacySettingsTab from "@/components/profile/PrivacySettingsTab";
 
 const SYSTEM_ROLE_CONFIG = {
   platform_admin: { label: "平台管理员", color: "bg-red-100 text-red-700" },
@@ -461,6 +462,12 @@ export default function AdminUserDetail() {
               角色权限
             </TabsTrigger>
           )}
+          {isOwnProfile && (
+            <TabsTrigger value="privacy" className="data-[state=active]:bg-gray-100">
+              <Eye className="w-4 h-4 mr-2" />
+              隐私设置
+            </TabsTrigger>
+          )}
           <TabsTrigger value="notes" className="data-[state=active]:bg-gray-100">
             <FileText className="w-4 h-4 mr-2" />
             备注
@@ -733,6 +740,13 @@ export default function AdminUserDetail() {
         {isOwnProfile && (
           <TabsContent value="permissions">
             <RolePermissionsTab />
+          </TabsContent>
+        )}
+        
+        {/* Privacy Settings Tab（仅本人） */}
+        {isOwnProfile && (
+          <TabsContent value="privacy">
+            <PrivacySettingsTab />
           </TabsContent>
         )}
         

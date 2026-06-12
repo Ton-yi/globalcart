@@ -21,7 +21,6 @@ export default function PreferenceSettingsCard() {
     preferred_shipping: "EMS",
     preferred_transit_shipping_id: "",
     prefer_consolidation: false,
-    order_info_public: false,
   });
   const [transitMethods, setTransitMethods] = useState([]);
   const [saving, setSaving] = useState(false);
@@ -40,7 +39,6 @@ export default function PreferenceSettingsCard() {
       preferred_shipping: pref.preferred_shipping || "EMS",
       preferred_transit_shipping_id: pref.preferred_transit_shipping_id || "",
       prefer_consolidation: pref.prefer_consolidation || false,
-      order_info_public: pref.order_info_public === true,
     });
   }, [pref?.id]); // eslint-disable-line
 
@@ -119,14 +117,6 @@ export default function PreferenceSettingsCard() {
           </div>
           <Switch checked={form.prefer_consolidation} onCheckedChange={v => f("prefer_consolidation", v)} />
         </div>
-        <div className="flex items-center justify-between py-1 border-t border-gray-100 pt-3">
-          <div>
-            <Label className="text-sm">公开显示我的订单信息</Label>
-            <p className="text-xs text-gray-400 mt-0.5">开启后其他用户可以看到您的商品名称等订单详情</p>
-          </div>
-          <Switch checked={form.order_info_public} onCheckedChange={v => f("order_info_public", v)} />
-        </div>
-
         <div className="flex justify-end pt-1 border-t border-gray-100">
           <Button size="sm" className="mt-3" onClick={handleSave} disabled={saving}>
             <Save className="w-3.5 h-3.5 mr-1.5" />{saving ? "保存中..." : "保存偏好"}
