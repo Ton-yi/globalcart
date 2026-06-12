@@ -306,7 +306,10 @@ Deno.serve(async (req) => {
       if (!pool || pool.tenant_id !== tenantId) {
         return Response.json({ error: 'Pool not found' }, { status: 404 });
       }
-      if (pool.status !== 'awaiting_payment' && pool.status !== 'awaiting_payment_confirmation') {
+      // 发货后补付：已进入发货流程但未确认收款的池子也允许记账付款
+      const isPostShipment = ['ready_to_ship', 'shipped', 'delivered'].includes(pool.status);
+      const isAwaitingStage = pool.status === 'awaiting_payment' || pool.status === 'awaiting_payment_confirmation';
+      if (!isAwaitingStage && !(isPostShipment && pool.payment_status !== 'paid')) {
         return Response.json({ error: 'Pool is not in a payment-pending status' }, { status: 400 });
       }
 
@@ -366,13 +369,13 @@ Deno.serve(async (req) => {
         await base44.asServiceRole.entities.ShippingPool.update(pool_id, {
           per_user_payments: updatedPayments,
           payment_status: allSubmitted ? 'awaiting_confirmation' : 'partial',
-          status: allSubmitted ? 'awaiting_payment_confirmation' : pool.status,
+          status: (allSubmitted && !isPostShipment) ? 'awaiting_payment_confirmation' : pool.status,
         });
       } else {
         await base44.asServiceRole.entities.ShippingPool.update(pool_id, {
           payment_status: 'awaiting_confirmation',
           payment_method: 'credit',
-          status: 'awaiting_payment_confirmation',
+          ...(isPostShipment ? {} : { status: 'awaiting_payment_confirmation' }),
         });
       }
 

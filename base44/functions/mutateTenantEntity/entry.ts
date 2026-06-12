@@ -165,8 +165,12 @@ Deno.serve(async (req) => {
         // status: users may only move a pool into "awaiting_payment_confirmation"
         // (payment proof submitted), or cancel their own un-notified pool
         if ('status' in data && data.status !== record.status) {
-          const allowedStatuses = ['awaiting_payment_confirmation'];
+          const allowedStatuses = [];
+          // 提交付款：仅限待付款/待确认阶段（已发货的池子补付时不改变状态）
+          if (['awaiting_payment', 'awaiting_payment_confirmation'].includes(record.status)) allowedStatuses.push('awaiting_payment_confirmation');
           if (record.status === 'pending') allowedStatuses.push('cancelled');
+          // 用户确认收货
+          if (record.status === 'shipped') allowedStatuses.push('delivered');
           if (!allowedStatuses.includes(data.status)) {
             return Response.json({ error: 'Forbidden: status change not allowed for users' }, { status: 403 });
           }

@@ -391,12 +391,14 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
     setGeneratingAlipay(false);
     if (url) {
       window.open(url, "_blank");
+      // 已发货的池子补付时不改变发货状态
+      const keepStatus = ["ready_to_ship", "shipped", "delivered"].includes(pool.status);
       await shippingPoolApi.update(pool.id, {
         payment_status: "awaiting_confirmation",
         payment_method: "alipay",
-        status: "awaiting_payment_confirmation",
+        ...(keepStatus ? {} : { status: "awaiting_payment_confirmation" }),
       });
-      setPool((p) => ({ ...p, payment_status: "awaiting_confirmation", payment_method: "alipay", status: "awaiting_payment_confirmation" }));
+      setPool((p) => ({ ...p, payment_status: "awaiting_confirmation", payment_method: "alipay", ...(keepStatus ? {} : { status: "awaiting_payment_confirmation" }) }));
     }
   };
 
@@ -409,6 +411,8 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
     const isConsolidationPool = pool.consolidation_type && pool.consolidation_type !== "";
     const participantEmails = [...new Set((pool.fee_breakdown_per_user || []).map(b => b.user_email))];
     const isMultiUser = isConsolidationPool && participantEmails.length > 1;
+    // 已发货的池子补付时不改变发货状态
+    const keepStatus = ["ready_to_ship", "shipped", "delivered"].includes(pool.status);
 
     if (isMultiUser) {
       // Per-user payment: only update this user's entry in per_user_payments
@@ -429,7 +433,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
         email === currentUser.email || updatedPayments.find(p => p.user_email === email && p.payment_status === "awaiting_confirmation")
       );
       const newPaymentStatus = allSubmitted ? "awaiting_confirmation" : "partial";
-      const newStatus = allSubmitted ? "awaiting_payment_confirmation" : pool.status;
+      const newStatus = (allSubmitted && !keepStatus) ? "awaiting_payment_confirmation" : pool.status;
       await shippingPoolApi.update(pool.id, {
         per_user_payments: updatedPayments,
         payment_status: newPaymentStatus,
@@ -442,9 +446,9 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
         payment_status: "awaiting_confirmation",
         payment_method: method,
         payment_proof_url: file_url,
-        status: "awaiting_payment_confirmation",
+        ...(keepStatus ? {} : { status: "awaiting_payment_confirmation" }),
       });
-      setPool(p => ({ ...p, payment_status: "awaiting_confirmation", payment_method: method, payment_proof_url: file_url, status: "awaiting_payment_confirmation" }));
+      setPool(p => ({ ...p, payment_status: "awaiting_confirmation", payment_method: method, payment_proof_url: file_url, ...(keepStatus ? {} : { status: "awaiting_payment_confirmation" }) }));
     }
     setUploadingProof(false);
   };
@@ -622,6 +626,11 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
   }])).values()].filter((u) => u.name);
 
   const status = STATUS_CONFIG[pool.status] || STATUS_CONFIG.pending;
+
+  // 发货后补付：池子已进入发货流程但运费未确认收款，用户仍可付款（付款只更新付款状态，不影响发货状态）
+  const feeNotified = (pool.fee_breakdown_per_user || []).length > 0 || (parseFloat(pool.shipping_fee_jpy) || 0) > 0;
+  const postShipmentUnpaid = !isAdmin && ["ready_to_ship", "shipped", "delivered"].includes(pool.status) &&
+    pool.payment_status !== "paid" && feeNotified;
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onMouseDown={onClose}>
@@ -1401,13 +1410,18 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
           )}
 
           {/* User payment panel — shown when pool is awaiting_payment */}
-          {!isAdmin && (pool.status === "awaiting_payment" || pool.status === "awaiting_payment_confirmation") &&
+          {!isAdmin && (pool.status === "awaiting_payment" || pool.status === "awaiting_payment_confirmation" || postShipmentUnpaid) &&
           <div className="border border-orange-200 rounded-xl overflow-hidden">
               <div className="bg-orange-50 px-4 py-2.5 border-b border-orange-200 flex items-center gap-2">
                 <CreditCard className="w-4 h-4 text-orange-600" />
-                <span className="text-sm font-medium text-orange-700">运费待付款</span>
+                <span className="text-sm font-medium text-orange-700">{postShipmentUnpaid ? "包裹已发货 · 运费待补付" : "运费待付款"}</span>
               </div>
               <div className="p-4 space-y-3">
+                {postShipmentUnpaid && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-700">
+                    ⚠️ 包裹已先行发出，运费尚未支付，请尽快补付。补付不影响发货/收货状态。
+                  </div>
+                )}
                 {/* Shipping info filled by admin */}
                 <div className="bg-gray-50 border border-gray-100 rounded-lg p-3 space-y-2.5 text-sm">
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">发货信息</p>

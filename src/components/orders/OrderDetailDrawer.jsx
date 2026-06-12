@@ -17,6 +17,7 @@ import OrderMessageThread from "./OrderMessageThread";
 import PaymentModal from "./PaymentModal";
 import UserNotifyShipmentModal from "./UserNotifyShipmentModal";
 import ShippingEditModal from "@/components/shippingpool/ShippingEditModal";
+import ShippingPoolDetailModal from "@/components/shippingpool/ShippingPoolDetailModal";
 import SplitAfterWarehouseModal from "./SplitAfterWarehouseModal";
 
 export default function OrderDetailDrawer({ order, currentUser, initialUserPreference, initialPaidOrderReminder, initialUserProfileMap = {}, allowSplitAfterWarehouse = false, onClose, onAction }) {
@@ -33,6 +34,7 @@ export default function OrderDetailDrawer({ order, currentUser, initialUserPrefe
   const [loadingPool, setLoadingPool] = useState(false);
   const [userProfileMap, setUserProfileMap] = useState(initialUserProfileMap);
   const [showSplitModal, setShowSplitModal] = useState(false);
+  const [payPool, setPayPool] = useState(null); // 发货池详情/补付运费
 
   useEffect(() => {
     // Clear user unread on open
@@ -407,6 +409,18 @@ export default function OrderDetailDrawer({ order, currentUser, initialUserPrefe
                 {confirmingDelivered ? "确认中..." : "确认已收货"}
               </Button>
             )}
+            {(status === "shipped" || status === "transit_shipped" || status === "delivered") && (
+              <Button variant="outline" className="w-full text-sm" disabled={loadingPool}
+                onClick={async () => {
+                  setLoadingPool(true);
+                  const pools = await fetchShippingPools();
+                  const found = pools.find(p => (p.order_ids || []).includes(order.id));
+                  setPayPool(found || null);
+                  setLoadingPool(false);
+                }}>
+                <Package className="w-4 h-4 mr-2" />{loadingPool ? "加载中..." : "发货详情 / 补付运费"}
+              </Button>
+            )}
           </div>
 
           {/* Message thread - always visible at bottom */}
@@ -491,6 +505,16 @@ export default function OrderDetailDrawer({ order, currentUser, initialUserPrefe
             onClose();
             onAction?.("edit_ship");
           }}
+        />
+      )}
+
+      {payPool && (
+        <ShippingPoolDetailModal
+          pool={payPool}
+          isAdmin={false}
+          currentUser={currentUser}
+          onClose={() => setPayPool(null)}
+          onUpdated={() => { setPayPool(null); onAction?.("pool_updated"); }}
         />
       )}
 

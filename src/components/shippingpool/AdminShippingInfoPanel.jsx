@@ -407,6 +407,30 @@ export default function AdminShippingInfoPanel({
     onPoolUpdated?.({ ...pool, ...payload });
   };
 
+  // 发货后补付：确认收款但不改变发货/订单状态（用于跳过付款发货的池子）
+  const handleConfirmPostShipmentPayment = async () => {
+    setConfirmingSaving(true);
+    const updatedPerUserPayments = (pool.per_user_payments || []).map(p => ({
+      ...p,
+      payment_status: "paid",
+      confirmed_at: p.confirmed_at || new Date().toISOString(),
+    }));
+    const payload = {
+      payment_status: "paid",
+      admin_confirmed_payment: true,
+      supplement_amount_per_user: [],
+      per_user_payments: updatedPerUserPayments,
+    };
+    await shippingPoolApi.update(pool.id, payload);
+    // 标记订单尾款已结算，但不改变订单状态
+    await Promise.all(
+      (pool.order_ids || []).map(id => updateOrder(id, { order_balance_settled: true }))
+    );
+    setPool(p => ({ ...p, ...payload }));
+    setConfirmingSaving(false);
+    onPoolUpdated?.({ ...pool, ...payload });
+  };
+
   // Notify user of fee update (for awaiting_payment pools)
   const handleNotifyFeeUpdate = async () => {
     setSaving(true);
@@ -663,9 +687,42 @@ export default function AdminShippingInfoPanel({
       </div>
 
       {isDone && (
-        <div className="p-4 text-sm text-gray-500 text-center">
-          {pool.status === "shipped" ? "📦 已发货" : "✅ 已签收"}
-          {pool.tracking_number && <span className="ml-2 font-mono text-gray-700">{pool.tracking_number}</span>}
+        <div className="p-4 space-y-3">
+          <div className="text-sm text-gray-500 text-center">
+            {pool.status === "shipped" ? "📦 已发货" : "✅ 已签收"}
+            {pool.tracking_number && <span className="ml-2 font-mono text-gray-700">{pool.tracking_number}</span>}
+          </div>
+          {pool.payment_status !== "paid" && ((pool.fee_breakdown_per_user || []).length > 0 || (parseFloat(pool.shipping_fee_jpy) || 0) > 0) && (
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 space-y-2">
+              <p className="text-xs text-orange-700 font-medium">
+                ⚠️ 此发货池为未付款发货，运费尚未确认收款（应收合计 ¥{savedGrandTotalJpy.toLocaleString()} JPY）。
+              </p>
+              {pool.payment_status === "awaiting_confirmation" && (
+                <p className="text-xs text-blue-700">用户已提交补付，请核实凭证后确认收款。</p>
+              )}
+              {pool.payment_proof_url && <PaymentProofImage url={pool.payment_proof_url} />}
+              {(pool.per_user_payments || []).map(up => {
+                const profile = userProfileMap[up.user_email] || {};
+                const displayName = profile.display_name || profile.full_name || up.user_email;
+                return (
+                  <div key={up.user_email} className="bg-white border border-orange-100 rounded px-2 py-1.5 space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-gray-700">{displayName}</span>
+                      <span className={up.payment_status === "paid" ? "text-green-600" : "text-orange-600"}>
+                        {up.payment_status === "paid" ? "已确认" : up.payment_status === "awaiting_confirmation" ? "已提交待确认" : "未付款"}
+                      </span>
+                    </div>
+                    {up.payment_proof_url && <PaymentProofImage url={up.payment_proof_url} />}
+                  </div>
+                );
+              })}
+              <Button size="sm" className="bg-green-600 hover:bg-green-700 w-full"
+                onClick={handleConfirmPostShipmentPayment} disabled={confirmingSaving}>
+                <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
+                {confirmingSaving ? "确认中..." : "确认收款（不改变发货状态）"}
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
@@ -1212,9 +1269,36 @@ export default function AdminShippingInfoPanel({
 
             {isStep2 && (
               <>
-                <div className="bg-green-50 border border-green-100 rounded-lg px-3 py-2 text-sm text-green-700">
-                  ✅ 用户已付款，请填写运单号确认发货。
-                </div>
+                {pool.payment_status === "paid" ? (
+                  <div className="bg-green-50 border border-green-100 rounded-lg px-3 py-2 text-sm text-green-700">
+                    ✅ 用户已付款，请填写运单号确认发货。
+                  </div>
+                ) : (
+                  <div className="bg-orange-50 border border-orange-200 rounded-lg px-3 py-2.5 space-y-2">
+                    <p className="text-xs text-orange-700 font-medium">⚠️ 此发货池尚未确认收款（跳过付款进入待发货）。可先确认发货，运费可后续补付。</p>
+                    {pool.payment_proof_url && <PaymentProofImage url={pool.payment_proof_url} />}
+                    {(pool.per_user_payments || []).map(up => {
+                      const profile = userProfileMap[up.user_email] || {};
+                      const displayName = profile.display_name || profile.full_name || up.user_email;
+                      return (
+                        <div key={up.user_email} className="bg-white border border-orange-100 rounded px-2 py-1.5 space-y-1">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-gray-700">{displayName}</span>
+                            <span className={up.payment_status === "paid" ? "text-green-600" : "text-orange-600"}>
+                              {up.payment_status === "paid" ? "已确认" : up.payment_status === "awaiting_confirmation" ? "已提交待确认" : "未付款"}
+                            </span>
+                          </div>
+                          {up.payment_proof_url && <PaymentProofImage url={up.payment_proof_url} />}
+                        </div>
+                      );
+                    })}
+                    <Button size="sm" className="bg-green-600 hover:bg-green-700 w-full"
+                      onClick={handleConfirmPostShipmentPayment} disabled={confirmingSaving}>
+                      <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
+                      {confirmingSaving ? "确认中..." : "确认收款（保持待发货）"}
+                    </Button>
+                  </div>
+                )}
                 {hasPerUserFeeChanged && (() => {
                   const prevJpy = savedGrandTotalJpy;
                   const newJpy = Math.round(grandTotalJpy);

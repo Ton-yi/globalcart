@@ -603,6 +603,18 @@ export default function MyOrders() {
                             {pool.pool_code || pool.id.slice(-6).toUpperCase()}
                           </button>
                         )}
+                        {(() => {
+                          if (!pool) return null;
+                          const feeNotified = (pool.fee_breakdown_per_user || []).length > 0 || (pool.shipping_fee_jpy || 0) > 0;
+                          const myPay = (pool.per_user_payments || []).find(p => p.user_email === user?.email);
+                          const unpaid = pool.payment_status !== "paid" && !(myPay && myPay.payment_status === "paid") && feeNotified;
+                          return unpaid ? (
+                            <Button size="sm" className="h-7 text-xs bg-orange-600 hover:bg-orange-700"
+                              onClick={(e) => { e.stopPropagation(); setViewPool(pool); }}>
+                              <CreditCard className="w-3 h-3 mr-1" />补付运费
+                            </Button>
+                          ) : null;
+                        })()}
                       </div>
                     );
                   })()}
@@ -697,6 +709,18 @@ export default function MyOrders() {
                             <Package className="w-3 h-3 mr-1" />发货详情
                           </Button>
                         )}
+                        {(() => {
+                          if (!pool) return null;
+                          const feeNotified = (pool.fee_breakdown_per_user || []).length > 0 || (pool.shipping_fee_jpy || 0) > 0;
+                          const myPay = (pool.per_user_payments || []).find(p => p.user_email === user?.email);
+                          const unpaid = pool.payment_status !== "paid" && !(myPay && myPay.payment_status === "paid") && feeNotified;
+                          return unpaid ? (
+                            <Button size="sm" className="h-7 text-xs bg-orange-600 hover:bg-orange-700"
+                              onClick={() => setViewPool(pool)}>
+                              <CreditCard className="w-3 h-3 mr-1" />补付运费
+                            </Button>
+                          ) : null;
+                        })()}
                         <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700"
                           onClick={() => handleConfirmDelivered(order)}>
                           <CheckCircle className="w-3 h-3 mr-1" />收货
