@@ -174,6 +174,37 @@ Deno.serve(async (req) => {
         return new Response('success', { status: 200 });
       }
       const fromTier = (tiers || []).find(t => t.id === userRec.member_tier_id) || null;
+
+      // 金额校验：实付 CNY 必须与生成链接时的应付金额一致（防篡改/部分支付）
+      const actualCny = total_amount ? parseFloat(total_amount) : null;
+      if (purchase.amount_cny && actualCny !== null && Math.abs(actualCny - purchase.amount_cny) > 0.01) {
+        console.error(`[DIAG][handleAlipayPaymentCallback] tier purchase AMOUNT MISMATCH: expected ${purchase.amount_cny} CNY, got ${actualCny} CNY — NOT upgrading`);
+        return new Response('success', { status: 200 });
+      }
+
+      // 防降级：目标阶级必须高于用户当前阶级（防止支付过期的低阶级链接覆盖高阶级）
+      const callbackCurrentSort = fromTier ? (fromTier.sort_order || 0) : -Infinity;
+      if (fromTier && fromTier.id !== toTier.id && (toTier.sort_order || 0) <= callbackCurrentSort) {
+        console.error(`[DIAG][handleAlipayPaymentCallback] tier purchase would DOWNGRADE (${fromTier.name} -> ${toTier.name}) — payment recorded, tier NOT changed`);
+        await base44.asServiceRole.entities.TierPurchase.update(purchase.id, {
+          status: 'paid',
+          alipay_transaction_id: trade_no,
+          paid_at: new Date().toISOString(),
+        });
+        await base44.asServiceRole.entities.Notification.create({
+          tenant_id: purchase.tenant_id,
+          user_email: purchase.user_email,
+          notification_type: 'other',
+          notification_subtype: 'member_tier_purchased',
+          icon: 'Crown',
+          title: '会员购买支付已收到',
+          content: `您支付的「${toTier.name}」不高于您当前的阶级「${fromTier.name}」，阶级未变更。如有疑问请联系管理员处理退款。`,
+          is_system: true,
+          priority: 'normal',
+        });
+        return new Response('success', { status: 200 });
+      }
+
       // 升级用户阶级 + 同步角色标签
       const oldRoleIds = fromTier?.associated_role_ids || [];
       const newRoleIds = toTier.associated_role_ids || [];

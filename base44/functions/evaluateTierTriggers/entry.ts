@@ -71,6 +71,11 @@ async function evaluateUserTier(base44, tenantId, email) {
   if (!isUpgrade && currentTier) {
     if (currentTier.is_permanent) return { user_email: email, changed: false, reason: 'current tier is permanent' };
     if (!currentTier.trigger_enabled) return { user_email: email, changed: false, reason: 'current tier manually assigned' };
+    // 付费购买保护：用户花钱买到的阶级不被自动降级
+    const paidPurchases = await base44.asServiceRole.entities.TierPurchase.filter({
+      tenant_id: tenantId, user_email: email, to_tier_id: currentTier.id, status: 'paid',
+    });
+    if (paidPurchases?.length > 0) return { user_email: email, changed: false, reason: 'current tier was purchased' };
   }
 
   // 同步角色标签：移除旧阶级关联角色（不在新阶级中的），追加新阶级关联角色

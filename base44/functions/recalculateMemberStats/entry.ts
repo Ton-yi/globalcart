@@ -147,11 +147,14 @@ Deno.serve(async (req) => {
       if (!['Order', 'ShippingPool'].includes(entity_name)) {
         return Response.json({ skipped: true, reason: 'unsupported entity' });
       }
-      // 不信任载荷数据：优先回查真实实体（delete 事件实体已不存在，使用平台提供的快照）
-      let record = payload.data || null;
-      if (!record && entity_id) {
+      // 不信任载荷数据：优先回查真实实体（仅 delete 事件实体已不存在时，才退回平台提供的快照）
+      let record = null;
+      if (entity_id) {
         const found = await base44.asServiceRole.entities[entity_name].filter({ id: entity_id });
         record = found?.[0] || null;
+      }
+      if (!record && payload.event?.type === 'delete') {
+        record = payload.data || null;
       }
       const oldRecord = payload.old_data || null;
       const eventTenantId = record?.tenant_id || oldRecord?.tenant_id;
