@@ -62,6 +62,9 @@ Deno.serve(async (req) => {
     const jpyAmounts = divideJpy(order.estimated_jpy);
     const prepayAmounts = divideJpy(order.prepayment_amount_jpy || order.prepayment_amount);
     const paidAmounts = divideJpy(order.paid_amount);
+    // 尾款继承：按比例分配到子订单，父订单清零防止重复收取
+    const balanceAmounts = divideJpy(order.order_balance_settled ? 0 : order.order_balance_due_jpy);
+    const surchargeAmounts = divideJpy(order.order_balance_settled ? 0 : order.order_balance_surcharge_jpy);
 
     const today = new Date().toISOString().split('T')[0];
 
@@ -75,6 +78,10 @@ Deno.serve(async (req) => {
     };
     if (purchaseScreenshotUrl) parentUpdates.purchase_screenshot_url = purchaseScreenshotUrl;
     if (adminNote !== undefined) parentUpdates.admin_note = adminNote;
+    // 尾款已转移至子订单，父订单（合并采购记录）清零并标记已结，防止重复收取
+    parentUpdates.order_balance_due_jpy = 0;
+    parentUpdates.order_balance_surcharge_jpy = 0;
+    parentUpdates.order_balance_settled = true;
 
     await base44.asServiceRole.entities.Order.update(orderId, parentUpdates);
 
@@ -110,6 +117,11 @@ Deno.serve(async (req) => {
         prepayment_amount_jpy: prepayAmounts[i],
         prepayment_currency: order.prepayment_currency || 'JPY',
         paid_amount: paidAmounts[i],
+        // 尾款继承（随运费收取）
+        order_balance_due_jpy: balanceAmounts[i],
+        order_balance_surcharge_jpy: surchargeAmounts[i],
+        order_balance_surcharge_rate: order.order_balance_surcharge_rate || 0,
+        order_balance_settled: false,
         quantity: 1,
         weight_g: 100,
         // Split section URL

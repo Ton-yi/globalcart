@@ -23,6 +23,14 @@ Deno.serve(async (req) => {
     // Security: never allow changing tenant_id from client
     delete updateData.tenant_id;
 
+    // Security: balance (尾款) fields are server-managed — regular users must not modify them
+    if (user.role === 'user') {
+      delete updateData.order_balance_due_jpy;
+      delete updateData.order_balance_surcharge_jpy;
+      delete updateData.order_balance_surcharge_rate;
+      delete updateData.order_balance_settled;
+    }
+
     // Get user record and tenant_id
     const userRecord = await base44.asServiceRole.entities.User.filter({ email: user.email });
     if (!userRecord || userRecord.length === 0) {
