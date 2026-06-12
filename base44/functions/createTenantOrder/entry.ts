@@ -152,6 +152,26 @@ Deno.serve(async (req) => {
       : 0;
     body.order_balance_settled = false;
 
+    // 后付款（deferred）：下单阶段不付货款，货款（100% + 加算比例）随运费一并收取
+    let deferredRatePct = parseFloat(settingsMap.deferred_payment_surcharge_rate);
+    if (isNaN(deferredRatePct) || deferredRatePct < 0) deferredRatePct = 0;
+    if (body.payment_mode === 'deferred') {
+      const deferredEnabled = settingsMap.deferred_payment_enabled !== 'false';
+      if (!deferredEnabled) {
+        return Response.json({ error: '后付款功能未开启' }, { status: 400 });
+      }
+      body.prepayment_amount = 0;
+      body.order_balance_due_jpy = Math.round(orderTotalJpy);
+      body.order_balance_surcharge_rate = deferredRatePct;
+      body.order_balance_surcharge_jpy = deferredRatePct > 0
+        ? Math.round(orderTotalJpy * deferredRatePct / 100)
+        : 0;
+      body.order_balance_settled = false;
+      // 无需下单阶段付款，直接进入待下单
+      body.order_status = 'paid';
+      body.payment_status = 'pending';
+    }
+
     // Generate a unique order number server-side to avoid frontend race conditions
     // Format: TY{YYYYMMDD}{4-digit seq}, e.g. TY202605130001
     const now = new Date();
@@ -204,18 +224,25 @@ Deno.serve(async (req) => {
 
       // If this order would exceed the credit limit, downgrade to deferred payment
       if (totalJpy > availableCredit) {
-        // Update the order to deferred payment mode
-        await base44.asServiceRole.entities.Order.update(order.id, {
+        // Downgrade to deferred payment: goods balance is collected with the shipping fee
+        const downgradeUpdates = {
           payment_mode: 'deferred',
-          order_status: 'payment_pending',
-          payment_status: 'awaiting_payment',
-        });
-        const updatedOrder = { ...order, payment_mode: 'deferred', order_status: 'payment_pending', payment_status: 'awaiting_payment' };
+          order_status: 'paid',
+          payment_status: 'pending',
+          prepayment_amount: 0,
+          prepayment_amount_jpy: 0,
+          order_balance_due_jpy: totalJpy,
+          order_balance_surcharge_rate: deferredRatePct,
+          order_balance_surcharge_jpy: deferredRatePct > 0 ? Math.round(orderTotalJpy * deferredRatePct / 100) : 0,
+          order_balance_settled: false,
+        };
+        await base44.asServiceRole.entities.Order.update(order.id, downgradeUpdates);
+        const updatedOrder = { ...order, ...downgradeUpdates };
         return Response.json({
           success: true,
           order: updatedOrder,
           credit_downgraded: true,
-          credit_downgrade_reason: `记账额度不足：本次需记账 ¥${totalJpy.toLocaleString()} JPY，剩余可用额度仅 ¥${availableCredit.toLocaleString()} JPY，订单已自动改为后付款方式。`,
+          credit_downgrade_reason: `记账额度不足：本次需记账 ¥${totalJpy.toLocaleString()} JPY，剩余可用额度仅 ¥${availableCredit.toLocaleString()} JPY，订单已自动改为后付款方式，货款将在支付运费时一并收取。`,
           required_jpy: totalJpy,
           available_credit_jpy: availableCredit,
         });

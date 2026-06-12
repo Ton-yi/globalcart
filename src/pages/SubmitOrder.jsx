@@ -260,6 +260,14 @@ export default function SubmitOrder() {
       return;
     }
 
+    // 后付款订单：下单阶段无需付款，货款将在支付运费时一并收取
+    if (isDeferred) {
+      setSubmitting(false);
+      toast.success("提交成功，货款将在支付运费时一并支付");
+      navigate(createPageUrl("MyOrders"));
+      return;
+    }
+
     const selectedMethodObj = paymentMethods.find((m) => (m.provider_key || m.name) === paymentMethod);
     const selectedCurrency = selectedMethodObj?.payment_currency || "JPY";
     navigate(`/Payment?order_id=${order.id}&method=${paymentMethod || "other"}&pay_currency=${selectedCurrency}`);
@@ -277,7 +285,7 @@ export default function SubmitOrder() {
           <AlertTriangle className="w-4 h-4 text-orange-600" />
           <AlertDescription className="text-orange-800 text-sm font-medium">
             {creditDowngradeMsg}
-            <p className="text-xs mt-1 font-normal text-orange-700">正在跳转到订单列表，请前往付款页完成支付…</p>
+            <p className="text-xs mt-1 font-normal text-orange-700">正在跳转到订单列表…</p>
           </AlertDescription>
         </Alert>
       )}

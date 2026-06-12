@@ -32,6 +32,7 @@ import GmailSettingsManager from "@/components/admin/GmailSettingsManager";
 import SMTPSettingsManager from "@/components/admin/SMTPSettingsManager";
 import GoogleSheetsSettingsManager from "@/components/admin/GoogleSheetsSettingsManager";
 import StorageSettingsManager from "@/components/admin/StorageSettingsManager";
+import PaymentModeSettings from "@/components/admin/PaymentModeSettings";
 
 // Standalone editor with its own local save button (textarea content is large, better kept isolated)
 function CustomsHazmatTextEditor({ settings, onReload }) {
@@ -438,15 +439,18 @@ export default function AdminSettings() {
       )}
 
       {activeTab === "payment_methods" && (
-        <Card className="border-gray-200">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold text-gray-700">支付方式管理</CardTitle>
-            <p className="text-xs text-gray-400 mt-1">支付宝自动支付的密钥可在添加后点击「密钥」按钮配置。</p>
-          </CardHeader>
-          <CardContent>
-            <PaymentMethodManager onReload={load} />
-          </CardContent>
-        </Card>
+        <div className="space-y-4">
+          {!loading && <PaymentModeSettings settings={settings} onReload={load} />}
+          <Card className="border-gray-200">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold text-gray-700">支付方式管理</CardTitle>
+              <p className="text-xs text-gray-400 mt-1">支付宝自动支付的密钥可在添加后点击「密钥」按钮配置。</p>
+            </CardHeader>
+            <CardContent>
+              <PaymentMethodManager onReload={load} />
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       {activeTab === "member_tiers" && (
@@ -736,14 +740,7 @@ export default function AdminSettings() {
             </CardHeader>
             <CardContent className="space-y-4">
 
-              {/* prepay_enabled */}
-              <div className="flex items-center justify-between pb-1 border-b border-gray-100">
-                <div>
-                  <Label className="text-sm">开启预付款</Label>
-                  <p className="text-xs text-gray-400 mt-0.5">关闭后，用户提交订单时不再需要预付款，提交即按全额计算</p>
-                </div>
-                <Toggle enabled={getBoolDefaultTrue('prepay_enabled')} onToggle={() => toggleSettingDefaultTrue('prepay_enabled')} color="bg-yellow-500" />
-              </div>
+              {/* 预付款/后付款设置已移至「支付方式」tab 的付款模式设置区块 */}
 
               {/* allow_ship_without_payment */}
               {(() => {
@@ -938,9 +935,10 @@ export default function AdminSettings() {
               {/* Service & Prepay Rates (numeric inputs) */}
               <div className="grid grid-cols-2 gap-3">
                 {(grouped.fee || [])
-                  .filter(s => !s.key.includes("increment") && s.key !== 'prepay_enabled' && s.key !== 'transit_location_fee_split_enabled')
+                  .filter(s => !s.key.includes("increment")
+                    && !['prepay_enabled', 'prepay_rate', 'pre_shipment_balance_surcharge_rate', 'deferred_payment_enabled', 'deferred_payment_surcharge_rate', 'transit_location_fee_split_enabled'].includes(s.key))
                   .map(s => {
-                    const isPercent = s.key === 'service_fee_rate' || s.key === 'prepay_rate';
+                    const isPercent = s.key === 'service_fee_rate';
                     return (
                       <div key={s.id || s.key}>
                         <Label className="text-xs text-gray-500 block mb-1">{s.description || s.key}</Label>

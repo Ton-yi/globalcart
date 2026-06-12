@@ -54,7 +54,7 @@ export default function PaymentSection({
             </button>
           )}
           
-          {canDeferredPay && (
+          {canDeferredPay && settings.deferred_payment_enabled !== 'false' && (
             <button
               type="button"
               onClick={() => setPaymentMode("deferred")}
@@ -65,7 +65,10 @@ export default function PaymentSection({
               }`}
             >
               <div className="font-semibold">后付款</div>
-              <div className="text-xs mt-0.5 opacity-70">提交后等待客服确认报价</div>
+              <div className="text-xs mt-0.5 opacity-70">
+                货款在支付运费时一并支付
+                {(parseFloat(settings.deferred_payment_surcharge_rate) || 0) > 0 && `（加算 ${parseFloat(settings.deferred_payment_surcharge_rate)}%）`}
+              </div>
             </button>
           )}
 

@@ -117,7 +117,7 @@ export function calcFeeBreakdownPerUser({
     const items = [];
 
     if (balanceDueJpy > 0) {
-      items.push({ label: "货款尾款（预付款剩余差额）", amount_jpy: balanceDueJpy });
+      items.push({ label: "货款尾款（未付货款差额）", amount_jpy: balanceDueJpy });
     }
     if (balanceSurchargeJpy > 0) {
       const rateLabel = surchargeRateSet.size === 1 ? `（${[...surchargeRateSet][0]}%）` : "";
