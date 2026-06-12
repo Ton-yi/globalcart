@@ -8,7 +8,7 @@ import { getTenantConfigCache } from "@/lib/configCache";
 import { 
   ShoppingBag, Package, Truck, User, Settings, 
   Bell, LogOut, Menu, X, Shield, Globe,
-  Home, Users, BarChart3, Store, Send, Zap, UserPlus, ChevronDown, Layers, FileText
+  Home, Users, BarChart3, Store, Send, Zap, UserPlus, ChevronDown, ChevronRight, Layers, FileText
 } from "lucide-react";
 import NotificationBell from "@/components/common/NotificationBell.jsx";
 import { MidnightToggle } from "@/components/common/ThemeSelector";
@@ -180,26 +180,37 @@ export default function Layout({ children, currentPageName }) {
                     </Link>
                     <div className="absolute left-0 top-full pt-1 hidden group-hover:block z-50">
                       <div className="bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[150px]">
-                        {item.children.map((child) => (
-                          <div key={child.key}>
-                            <Link to={createPageUrl(child.page)}
-                              className={`flex items-center gap-2 px-3 py-2 text-sm transition-colors ${
-                                currentPageName === child.page ? "bg-gray-50 text-gray-900 font-medium" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                              }`}>
-                              <child.icon className="w-3.5 h-3.5" />
-                              {child.label}
-                            </Link>
-                            {(child.children || []).map((grand) => (
-                              <Link key={grand.key} to={createPageUrl(grand.page)}
-                                className={`flex items-center gap-2 pl-8 pr-3 py-1.5 text-sm transition-colors ${
-                                  currentPageName === grand.page ? "bg-gray-50 text-gray-900 font-medium" : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+                        {item.children.map((child) => {
+                          const hasGrand = child.children && child.children.length > 0;
+                          const childActive = currentPageName === child.page || (hasGrand && navTreeHasPage(child.children, currentPageName));
+                          return (
+                            <div key={child.key} className="relative group/sub">
+                              <Link to={createPageUrl(child.page)}
+                                className={`flex items-center gap-2 px-3 py-2 text-sm transition-colors ${
+                                  childActive ? "bg-gray-50 text-gray-900 font-medium" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                                 }`}>
-                                <grand.icon className="w-3 h-3" />
-                                {grand.label}
+                                <child.icon className="w-3.5 h-3.5" />
+                                <span className="flex-1 whitespace-nowrap">{child.label}</span>
+                                {hasGrand && <ChevronRight className="w-3 h-3 opacity-50 flex-shrink-0" />}
                               </Link>
-                            ))}
-                          </div>
-                        ))}
+                              {hasGrand && (
+                                <div className="absolute left-full top-0 pl-1 hidden group-hover/sub:block z-50">
+                                  <div className="bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[150px]">
+                                    {child.children.map((grand) => (
+                                      <Link key={grand.key} to={createPageUrl(grand.page)}
+                                        className={`flex items-center gap-2 px-3 py-2 text-sm transition-colors whitespace-nowrap ${
+                                          currentPageName === grand.page ? "bg-gray-50 text-gray-900 font-medium" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                                        }`}>
+                                        <grand.icon className="w-3.5 h-3.5" />
+                                        {grand.label}
+                                      </Link>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   </div>
