@@ -8,7 +8,7 @@ import {
   User, Package, CreditCard, MapPin, Clock, AlertTriangle, 
   TrendingUp, DollarSign, ShoppingCart, Truck, Calendar,
   FileText, Settings, Shield, CheckCircle, X, ChevronRight,
-  ArrowLeft, ExternalLink, Plus, Edit2, MessageSquare, Tag
+  ArrowLeft, ExternalLink, Plus, Edit2, MessageSquare
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +23,7 @@ import CustomerOrdersTab from "@/components/customer360/CustomerOrdersTab";
 import CustomerFinanceTab from "@/components/customer360/CustomerFinanceTab";
 import CustomerLogisticsTab from "@/components/customer360/CustomerLogisticsTab";
 import CustomerNotesPanel from "@/components/customer360/CustomerNotesPanel";
+import EditProfileModal from "@/components/customer360/EditProfileModal";
 
 // Metric Card Component
 function MetricCard({ icon: Icon, label, value, subValue, color = "blue" }) {
@@ -103,6 +104,7 @@ export default function AdminUserDetail() {
   const [noteContent, setNoteContent] = useState("");
   const [noteType, setNoteType] = useState("internal"); // internal or customer_visible
   const [savingNote, setSavingNote] = useState(false);
+  const [showEditProfile, setShowEditProfile] = useState(false);
   
   const loadData = useCallback(async (silent = false) => {
     // Determine which user ID to load
@@ -198,7 +200,7 @@ export default function AdminUserDetail() {
     );
   }
   
-  const { userProfile, metrics, recentOrders, pendingTasks, riskFlags, preferences, timeline, orders, finance, logistics, notes } = data;
+  const { userProfile, metrics, recentOrders, pendingTasks, riskFlags, preferences, timeline, orders, finance, logistics, notes, roles } = data;
   const pinnedNotes = (notes || []).filter(n => n.is_pinned);
   
   // Calculate refund count from timeline
@@ -258,12 +260,16 @@ export default function AdminUserDetail() {
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-2xl font-bold">
-                {(userProfile.full_name || userProfile.email)[0].toUpperCase()}
+              <div className="w-16 h-16 rounded-full overflow-hidden bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold flex-shrink-0">
+                {userProfile.avatar_url ? (
+                  <img src={userProfile.avatar_url} alt="头像" className="w-full h-full object-cover" />
+                ) : (
+                  (userProfile.display_name || userProfile.full_name || userProfile.email)[0].toUpperCase()
+                )}
               </div>
               <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="text-xl font-bold text-gray-900">{userProfile.full_name || "未设置昵称"}</h1>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1 className="text-xl font-bold text-gray-900">{userProfile.display_name || userProfile.full_name || "未设置昵称"}</h1>
                   {userProfile.credit_enabled && (
                     <Badge className="bg-indigo-100 text-indigo-700">
                       <CreditCard className="w-3 h-3 mr-1" />记账
@@ -274,6 +280,12 @@ export default function AdminUserDetail() {
                       {userProfile.member_tier_name}
                     </Badge>
                   )}
+                  {/* 角色标签（来自角色权限系统，仅管理员可在用户管理中变更） */}
+                  {(roles || []).map(r => (
+                    <Badge key={r.id} variant="outline" className="text-xs" style={{ borderColor: r.color, color: r.color }}>
+                      {r.name}
+                    </Badge>
+                  ))}
                 </div>
                 <p className="text-sm text-gray-500 mt-1">{userProfile.email}</p>
                 <div className="flex items-center gap-2 mt-2">
@@ -298,14 +310,12 @@ export default function AdminUserDetail() {
                   添加备注
                 </Button>
               )}
-              <Button variant="outline" size="sm">
-                <Tag className="w-4 h-4 mr-2" />
-                添加标签
-              </Button>
-              <Button size="sm">
-                <Settings className="w-4 h-4 mr-2" />
-                编辑资料
-              </Button>
+              {isOwnProfile && (
+                <Button size="sm" onClick={() => setShowEditProfile(true)}>
+                  <Settings className="w-4 h-4 mr-2" />
+                  编辑资料
+                </Button>
+              )}
             </div>
           </div>
         </CardHeader>
@@ -376,6 +386,15 @@ export default function AdminUserDetail() {
           subValue="JPY"
           color="purple"
         />
+        {metrics.totalProfitJpy !== undefined && (
+          <MetricCard 
+            icon={TrendingUp} 
+            label="累计利润" 
+            value={formatCurrency(metrics.totalProfitJpy)} 
+            subValue="实收−货款−退款"
+            color="green"
+          />
+        )}
         <MetricCard 
           icon={Clock} 
           label="最近下单" 
@@ -602,19 +621,27 @@ export default function AdminUserDetail() {
             userProfile={userProfile}
             formatCurrency={formatCurrency}
             formatDate={formatDate}
+            isOwnProfile={isOwnProfile}
           />
         </TabsContent>
         
         {/* Logistics Tab */}
         <TabsContent value="logistics">
-          <CustomerLogisticsTab logistics={logistics} preferences={preferences} />
+          <CustomerLogisticsTab logistics={logistics} preferences={preferences} isOwnProfile={isOwnProfile} />
         </TabsContent>
         
         {/* Preferences Tab */}
         <TabsContent value="preferences">
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold">下单偏好</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-semibold">下单偏好</CardTitle>
+                {isOwnProfile && (
+                  <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => navigate(createPageUrl("UserPreferences"))}>
+                    <Settings className="w-3.5 h-3.5 mr-1" />编辑偏好设定
+                  </Button>
+                )}
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
@@ -717,6 +744,15 @@ export default function AdminUserDetail() {
           </Card>
         </TabsContent>
       </Tabs>
+      
+      {/* Edit Profile Modal */}
+      {showEditProfile && (
+        <EditProfileModal
+          userProfile={userProfile}
+          onClose={() => setShowEditProfile(false)}
+          onSaved={() => loadData(true)}
+        />
+      )}
       
       {/* Note Modal - Placeholder */}
       {showNoteModal && (

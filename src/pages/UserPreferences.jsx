@@ -4,8 +4,8 @@ import { tenantEntity, userPrefApi } from "@/lib/tenantApi";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAuth } from "@/lib/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
-import { User, Save, Camera, Plus, Trash2, MapPin, Edit2, Check, Star, Palette, Archive, Lock, Bell } from "lucide-react";
-import AvatarCropModal from "@/components/common/AvatarCropModal";
+import { User, Save, Plus, Trash2, MapPin, Edit2, Check, Star, Palette, Archive, Lock, Bell } from "lucide-react";
+import AvatarEditor from "@/components/common/AvatarEditor";
 import ThemeSelector from "@/components/common/ThemeSelector";
 import CreditPanel from "@/components/user/CreditPanel";
 import UserRolePermissionsCard from "@/components/user/UserRolePermissionsCard";
@@ -31,8 +31,6 @@ export default function UserPreferences() {
   const [pref, setPref] = useState(null);
   const [displayName, setDisplayName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
-  const [uploadingAvatar, setUploadingAvatar] = useState(false);
-  const [cropSrc, setCropSrc] = useState(null); // base64 src for crop modal
   const [form, setForm] = useState({
     contact_info: "",
     contact_public: true,
@@ -113,25 +111,6 @@ export default function UserPreferences() {
     }).catch(() => {});
   }, [user?.email]);  // eslint-disable-line
 
-  const handleAvatarFileSelect = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    // Reset input so same file can be re-selected
-    e.target.value = "";
-    const reader = new FileReader();
-    reader.onload = () => setCropSrc(reader.result);
-    reader.readAsDataURL(file);
-  };
-
-  const handleCropConfirm = async (blob) => {
-    setUploadingAvatar(true);
-    const file = new File([blob], "avatar.jpg", { type: "image/jpeg" });
-    const { file_url } = await base44.integrations.Core.UploadFile({ file });
-    setAvatarUrl(file_url);
-    setCropSrc(null);
-    setUploadingAvatar(false);
-  };
-
   const handleSave = async () => {
     setSaving(true);
     await base44.auth.updateMe({ display_name: displayName, avatar_url: avatarUrl });
@@ -211,14 +190,6 @@ export default function UserPreferences() {
 
   return (
     <>
-    {cropSrc && (
-      <AvatarCropModal
-        imageSrc={cropSrc}
-        uploading={uploadingAvatar}
-        onConfirm={handleCropConfirm}
-        onCancel={() => setCropSrc(null)}
-      />
-    )}
     <div className="max-w-lg mx-auto space-y-5">
       <div>
         <h1 className="text-xl font-bold text-gray-900">个人偏好设定</h1>
@@ -235,21 +206,7 @@ export default function UserPreferences() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center gap-4">
-              <div className="relative">
-                  <div className="w-16 h-16 rounded-full bg-gray-100 border border-gray-200 overflow-hidden flex items-center justify-center">
-                    {avatarUrl ? <img src={avatarUrl} alt="头像" className="w-full h-full object-cover" /> : <User className="w-8 h-8 text-gray-400" />}
-                  </div>
-                  {canChangeAvatar ? (
-                    <label className="absolute -bottom-1 -right-1 w-6 h-6 bg-red-600 rounded-full flex items-center justify-center cursor-pointer hover:bg-red-700">
-                      <Camera className="w-3 h-3 text-white" />
-                      <input type="file" accept="image/*" className="hidden" onChange={handleAvatarFileSelect} disabled={uploadingAvatar} />
-                    </label>
-                  ) : (
-                    <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-gray-400 rounded-full flex items-center justify-center">
-                      <Lock className="w-3 h-3 text-white" />
-                    </div>
-                  )}
-                </div>
+              <AvatarEditor value={avatarUrl} onChange={setAvatarUrl} size={64} disabled={!canChangeAvatar} />
               <div className="flex-1">
                 <Label className="text-sm">显示名称</Label>
                 <Input
@@ -266,7 +223,6 @@ export default function UserPreferences() {
                 {!canChangeDisplayName && (
                   <p className="text-xs text-gray-400 mt-1 flex items-center gap-1"><Lock className="w-3 h-3" />无权更改</p>
                 )}
-                {uploadingAvatar && <p className="text-xs text-gray-400 mt-1">上传中...</p>}
               </div>
             </div>
             <div className="space-y-2 text-sm pt-1 border-t border-gray-100">

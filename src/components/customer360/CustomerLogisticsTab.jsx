@@ -2,9 +2,12 @@
  * CustomerLogisticsTab - 客户物流地址 Tab
  * 默认收货地址 / 历史地址 / 常用发货方式 / 目的国家 / 中转地使用情况
  */
+import { Link } from "react-router-dom";
+import { createPageUrl } from "@/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Star } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { MapPin, Star, Settings } from "lucide-react";
 
 function AddressBlock({ addr, isDefault }) {
   if (!addr) return null;
@@ -25,7 +28,7 @@ function AddressBlock({ addr, isDefault }) {
   );
 }
 
-export default function CustomerLogisticsTab({ logistics, preferences }) {
+export default function CustomerLogisticsTab({ logistics, preferences, isOwnProfile = false }) {
   const l = logistics || {};
   const historyAddresses = (l.savedAddresses || []).filter(a => a !== l.defaultAddress);
 
@@ -33,9 +36,18 @@ export default function CustomerLogisticsTab({ logistics, preferences }) {
     <div className="space-y-4">
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            <MapPin className="w-4 h-4 text-blue-500" />收货地址
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-blue-500" />收货地址
+            </CardTitle>
+            {isOwnProfile && (
+              <Button variant="outline" size="sm" className="h-7 text-xs" asChild>
+                <Link to={createPageUrl("UserPreferences")}>
+                  <Settings className="w-3.5 h-3.5 mr-1" />管理收货地址
+                </Link>
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="space-y-3">
           {l.defaultAddress ? (

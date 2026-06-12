@@ -2,8 +2,11 @@
  * CustomerFinanceTab - 客户财务账目 Tab
  * 应收/实收/未收/退款/货款/服务费/运费/增值服务费/仓储费 + 流水明细 + 记账状态
  */
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { tenantEntity } from "@/lib/tenantApi";
+import CreditPanel from "@/components/user/CreditPanel";
 
 const LEDGER_TYPE_LABELS = {
   order_payment: { label: "订单收款", color: "bg-green-100 text-green-700" },
@@ -11,8 +14,16 @@ const LEDGER_TYPE_LABELS = {
   refund: { label: "退款", color: "bg-red-100 text-red-700" },
 };
 
-export default function CustomerFinanceTab({ finance, userProfile, formatCurrency, formatDate }) {
+export default function CustomerFinanceTab({ finance, userProfile, formatCurrency, formatDate, isOwnProfile = false }) {
   const f = finance || {};
+  const [creditAppEnabled, setCreditAppEnabled] = useState(false);
+
+  useEffect(() => {
+    if (!isOwnProfile) return;
+    tenantEntity.list('SiteSettings', { key: 'credit_application_enabled' })
+      .then(rows => setCreditAppEnabled(rows?.[0]?.value === 'true'))
+      .catch(() => {});
+  }, [isOwnProfile]);
   const items = [
     { label: "应收金额", value: f.receivableJpy || 0, cls: "bg-blue-50 border-blue-200 text-blue-800" },
     { label: "实收金额", value: f.receivedJpy || 0, cls: "bg-green-50 border-green-200 text-green-800" },
@@ -43,38 +54,60 @@ export default function CustomerFinanceTab({ finance, userProfile, formatCurrenc
         </CardContent>
       </Card>
 
-      {/* 记账状态 */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-semibold">记账状态</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {userProfile?.credit_enabled ? (
-            <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-lg space-y-2">
-              <div className="flex justify-between">
-                <span className="text-sm text-indigo-700">记账额度</span>
-                <span className="text-sm font-medium text-indigo-900">{formatCurrency(userProfile.credit_limit_jpy)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-indigo-700">已用额度</span>
-                <span className="text-sm font-medium text-indigo-900">{formatCurrency(userProfile.credit_balance_jpy)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-indigo-700">剩余额度</span>
-                <span className="text-sm font-medium text-indigo-900">{formatCurrency(Math.max(0, userProfile.credit_limit_jpy - userProfile.credit_balance_jpy))}</span>
-              </div>
-              {userProfile.credit_cycle && (
-                <div className="flex justify-between pt-2 border-t border-indigo-200">
-                  <span className="text-sm text-indigo-700">结帐周期</span>
-                  <span className="text-sm font-medium text-indigo-900">{userProfile.credit_cycle === 'weekly' ? '周结' : '月结'}</span>
+      {/* 记账状态 / 记账结算 */}
+      {isOwnProfile ? (
+        // 本人查看：完整记账结算面板（申请开通记账、申请提升额度/调整、还款等）
+        <CreditPanel creditApplicationEnabled={creditAppEnabled} />
+      ) : (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold">记账状态</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {userProfile?.credit_enabled ? (() => {
+              const limit = userProfile.credit_limit_jpy || 0;
+              const balance = userProfile.credit_balance_jpy || 0;
+              const usagePct = limit > 0 ? Math.min(100, (balance / limit) * 100) : 0;
+              return (
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-blue-600 font-medium">当前欠款余额</p>
+                      <p className="text-2xl font-bold text-blue-800 mt-0.5">{formatCurrency(balance)} <span className="text-sm font-normal">JPY</span></p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-blue-500">欠款上限</p>
+                      <p className="text-sm font-semibold text-blue-700">{formatCurrency(limit)}</p>
+                    </div>
+                  </div>
+                  {limit > 0 && (
+                    <div>
+                      <div className="flex justify-between text-xs text-blue-500 mb-1">
+                        <span>已用 {usagePct.toFixed(0)}%</span>
+                        <span>剩余额度 {formatCurrency(Math.max(0, limit - balance))}</span>
+                      </div>
+                      <div className="h-2 bg-blue-100 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all ${usagePct >= 90 ? 'bg-red-500' : usagePct >= 70 ? 'bg-orange-400' : 'bg-blue-500'}`}
+                          style={{ width: `${usagePct}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {userProfile.credit_cycle && (
+                    <div className="pt-2 border-t border-blue-100 text-xs">
+                      <span className="text-blue-500">结帐周期：</span>
+                      <span className="font-medium text-blue-800">{userProfile.credit_cycle === 'weekly' ? '周结' : '月结'}</span>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          ) : (
-            <p className="text-sm text-gray-400">未开启记账功能</p>
-          )}
-        </CardContent>
-      </Card>
+              );
+            })() : (
+              <p className="text-sm text-gray-400">未开启记账功能</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* 流水明细 */}
       <Card>

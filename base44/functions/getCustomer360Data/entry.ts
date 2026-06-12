@@ -88,12 +88,13 @@ Deno.serve(async (req) => {
     const t1 = Date.now();
     
     // Parallel fetch all data - CRITICAL: Always filter by tenant_id
-    const [allOrders, creditApps, userPrefs, tenantPools, customerNotes] = await Promise.all([
+    const [allOrders, creditApps, userPrefs, tenantPools, customerNotes, tenantRoles] = await Promise.all([
       base44.asServiceRole.entities.Order.filter({ tenant_id: tenantId, user_email: targetEmail }),
       base44.asServiceRole.entities.CreditApplication.filter({ tenant_id: tenantId, user_email: targetEmail }),
       base44.asServiceRole.entities.UserPreference.filter({ tenant_id: tenantId, user_email: targetEmail }),
       base44.asServiceRole.entities.ShippingPool.filter({ tenant_id: tenantId }, '-created_date', 500),
-      base44.asServiceRole.entities.CustomerNote.filter({ tenant_id: tenantId, customer_email: targetEmail }, '-created_date', 100)
+      base44.asServiceRole.entities.CustomerNote.filter({ tenant_id: tenantId, customer_email: targetEmail }, '-created_date', 100),
+      base44.asServiceRole.entities.Role.filter({ tenant_id: tenantId }).catch(() => [])
     ]);
     
     console.log(`[TIMING] getCustomer360Data | parallel fetches: ${Date.now() - t1}ms`);
@@ -212,6 +213,12 @@ Deno.serve(async (req) => {
         ((b.is_pinned === true) - (a.is_pinned === true)) ||
         (new Date(b.created_date).getTime() - new Date(a.created_date).getTime())
       );
+    
+    // ===== 角色标签（来自用户管理的角色权限系统，仅展示，由管理员管理） =====
+    const assignedRoleIds = targetUser.assigned_role_ids || [];
+    const assignedRoles = (tenantRoles || [])
+      .filter(r => assignedRoleIds.includes(r.id) && !r.is_archived)
+      .map(r => ({ id: r.id, name: r.name, color: r.color || '#9ca3af' }));
     
     // Risk flags
     const riskFlags = [];
@@ -335,6 +342,10 @@ Deno.serve(async (req) => {
         id: targetUser.id,
         email: targetUser.email,
         full_name: targetUser.full_name || '',
+        display_name: targetUser.display_name || '',
+        avatar_url: targetUser.avatar_url || '',
+        handle: targetUser.handle || '',
+        public_profile_bio: targetUser.public_profile_bio || '',
         role: targetUser.role || 'user',
         tenant_id: tenantId,
         created_date: targetUser.created_date,
@@ -359,6 +370,8 @@ Deno.serve(async (req) => {
         pendingShipOrderCount: pendingShipOrders.length,
         lastOrderDate,
         unpaidAmountJpy: outstandingJpy,
+        // 累计利润 = 实收 − 商品货款成本（下单时填写的日元货款）− 退款，仅管理员可见
+        ...(isAdminViewer ? { totalProfitJpy: receivedJpy - goodsJpyActive - totalRefundJpy } : {}),
       },
       recentOrders: sortedOrders.slice(0, 10).map(o => ({
         id: o.id,
@@ -384,6 +397,7 @@ Deno.serve(async (req) => {
         })),
       },
       riskFlags,
+      roles: assignedRoles,
       preferences: {
         topStores: Object.entries(storeTags).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, count]) => ({ name, count })),
         topShippingMethods: Object.entries(shippingMethods).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, count]) => ({ name, count })),
