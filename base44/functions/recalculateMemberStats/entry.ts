@@ -121,11 +121,61 @@ async function upsertStats(base44, tenantId, statsData, existingMap) {
   }
 }
 
+/** 重算单个用户的统计并写入缓存 */
+async function recomputeUser(base44, tenantId, email, nowIso, source) {
+  const [targetRecords, orders, pools, existingStats] = await Promise.all([
+    base44.asServiceRole.entities.User.filter({ email }),
+    base44.asServiceRole.entities.Order.filter({ tenant_id: tenantId, user_email: email }),
+    base44.asServiceRole.entities.ShippingPool.filter({ tenant_id: tenantId }),
+    base44.asServiceRole.entities.UserMemberStats.filter({ tenant_id: tenantId, user_email: email }),
+  ]);
+  const stats = computeStats(email, orders || [], pools || [], targetRecords?.[0], nowIso, source);
+  const existingMap = new Map((existingStats || []).map(s => [s.user_email, s]));
+  await upsertStats(base44, tenantId, stats, existingMap);
+  return { stats, targetRecord: targetRecords?.[0] };
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     let payload = {};
     try { payload = await req.json(); } catch { /* empty body */ }
+
+    // ---- 实体自动化事件路径（Order / ShippingPool 变更时由平台自动调用） ----
+    if (payload?.event?.entity_name) {
+      const { entity_name, entity_id } = payload.event;
+      if (!['Order', 'ShippingPool'].includes(entity_name)) {
+        return Response.json({ skipped: true, reason: 'unsupported entity' });
+      }
+      // 不信任载荷数据：优先回查真实实体（delete 事件实体已不存在，使用平台提供的快照）
+      let record = payload.data || null;
+      if (!record && entity_id) {
+        const found = await base44.asServiceRole.entities[entity_name].filter({ id: entity_id });
+        record = found?.[0] || null;
+      }
+      const oldRecord = payload.old_data || null;
+      const eventTenantId = record?.tenant_id || oldRecord?.tenant_id;
+      if (!eventTenantId) {
+        return Response.json({ skipped: true, reason: 'no tenant context in event' });
+      }
+      const emails = new Set();
+      if (entity_name === 'Order') {
+        if (record?.user_email) emails.add(record.user_email);
+        if (oldRecord?.user_email) emails.add(oldRecord.user_email);
+      } else {
+        [record, oldRecord].forEach(r => {
+          if (!r) return;
+          if (r.creator_email) emails.add(r.creator_email);
+          (r.per_user_groups || []).forEach(g => { if (g.user_email) emails.add(g.user_email); });
+        });
+      }
+      const eventNowIso = new Date().toISOString();
+      for (const email of emails) {
+        await recomputeUser(base44, eventTenantId, email, eventNowIso, 'event');
+      }
+      console.log(`[recalculateMemberStats] event ${entity_name}/${payload.event.type} updated=${emails.size}`);
+      return Response.json({ success: true, updated: [...emails] });
+    }
 
     const user = await base44.auth.me();
     if (!user) {
@@ -168,20 +218,12 @@ Deno.serve(async (req) => {
     // ---- 单用户重算 ----
     if (action === 'scan_user') {
       const targetEmail = isAdmin ? (payload.user_email || user.email) : user.email;
-      const [targetRecords, orders, pools, existingStats] = await Promise.all([
-        base44.asServiceRole.entities.User.filter({ email: targetEmail }),
-        base44.asServiceRole.entities.Order.filter({ tenant_id: tenantId, user_email: targetEmail }),
-        base44.asServiceRole.entities.ShippingPool.filter({ tenant_id: tenantId }),
-        base44.asServiceRole.entities.UserMemberStats.filter({ tenant_id: tenantId, user_email: targetEmail }),
-      ]);
-      const targetRecord = targetRecords?.[0];
       // 租户归属校验：目标用户必须属于当前租户
-      if (targetRecord && targetRecord.tenant_id !== tenantId && !isPlatformAdmin) {
+      const targetCheck = await base44.asServiceRole.entities.User.filter({ email: targetEmail });
+      if (targetCheck?.[0] && targetCheck[0].tenant_id !== tenantId && !isPlatformAdmin) {
         return Response.json({ error: 'Target user not in your tenant' }, { status: 403 });
       }
-      const stats = computeStats(targetEmail, orders || [], pools || [], targetRecord, nowIso, 'event');
-      const existingMap = new Map((existingStats || []).map(s => [s.user_email, s]));
-      await upsertStats(base44, tenantId, stats, existingMap);
+      const { stats } = await recomputeUser(base44, tenantId, targetEmail, nowIso, 'event');
       return Response.json({ success: true, user_email: targetEmail, stats });
     }
 
