@@ -45,7 +45,8 @@ Deno.serve(async (req) => {
       console.log(`[TIMING] getTenantConfigData | TOTAL: ${Date.now()-t0}ms | no tenant`);
       return Response.json({
         itemSizeTemplates: [], storeTagRules: [], shippingMethods: [],
-        transitMethods: [], transitLocations: [], addons: [], announcements: []
+        transitMethods: [], transitLocations: [], addons: [], announcements: [],
+        navbarSettings: null
       });
     }
 
@@ -60,7 +61,8 @@ Deno.serve(async (req) => {
       transitLocations,
       addons,
       announcements,
-      siteSettings
+      siteSettings,
+      navbarSettingsArr
     ] = await Promise.all([
       base44.asServiceRole.entities.ItemSizeTemplate.filter(filter),
       base44.asServiceRole.entities.OnlineStoreTagRule.filter(filter),
@@ -70,6 +72,9 @@ Deno.serve(async (req) => {
       base44.asServiceRole.entities.AddonOption.filter({ ...filter, addon_type: 'shipping' }),
       base44.asServiceRole.entities.Announcement.filter({ ...filter, is_active: true }),
       base44.asServiceRole.entities.SiteSettings.filter(filter),
+      tenantId
+        ? base44.asServiceRole.entities.NavbarSettings.filter({ tenant_id: tenantId })
+        : Promise.resolve([]),
     ]);
     console.log(`[TIMING] getTenantConfigData | 8x parallel entity queries: ${Date.now()-t3}ms`);
 
@@ -103,6 +108,7 @@ Deno.serve(async (req) => {
       addons: addons || [],
       announcements: announcements || [],
       countriesConfig,
+      navbarSettings: navbarSettingsArr?.[0] || null,
     });
 
   } catch (error) {

@@ -16,6 +16,7 @@ import LocaleSwitcher from "@/components/common/LocaleSwitcher";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { usePermissions } from "@/hooks/usePermissions";
+import { mergeNavTree, buildNav, navTreeHasPage } from "@/lib/navRegistry";
 
 export default function Layout({ children, currentPageName }) {
   const { user, tenantBranding, authError } = useAuth();
@@ -24,6 +25,7 @@ export default function Layout({ children, currentPageName }) {
   const tenant = tenantBranding?.tenant || null;
   const [mobileOpen, setMobileOpen] = useState(false);
   const [announcements, setAnnouncements] = useState([]);
+  const [navbarSettings, setNavbarSettings] = useState(null);
   const [isTransitManager, setIsTransitManager] = useState(false);
   const location = useLocation();
 
@@ -52,11 +54,15 @@ export default function Layout({ children, currentPageName }) {
     const cached = getTenantConfigCache();
     if (cached) {
       setAnnouncements(cached.announcements || []);
+      setNavbarSettings(cached.navbarSettings || null);
       return;
     }
     if (SELF_CONFIG_PAGES.has(currentPageName)) return;
     fetchTenantConfig()
-      .then(cfg => setAnnouncements(cfg.announcements || []))
+      .then(cfg => {
+        setAnnouncements(cfg.announcements || []);
+        setNavbarSettings(cfg.navbarSettings || null);
+      })
       .catch(() => {});
   }, [user?.email, currentPageName]);
 
@@ -75,55 +81,38 @@ export default function Layout({ children, currentPageName }) {
   const canViewMyOrders = isAdmin || isTenantUser || can("view:my_orders_module");
   const canAccessTransitWork = isAdmin || can("shipping:view_transit_panel");
 
-  const userNav = [
-    { label: "首页", icon: Home, page: "Home" },
-    { label: "提交需求", icon: ShoppingBag, page: "SubmitOrder", requiredRole: "user", subItems: [
-      { label: "普通下单", icon: ShoppingBag, page: "SubmitOrder" },
-      { label: "拼下单", icon: UserPlus, page: "GroupBuy" },
-    ]},
-    { label: "我的订单", icon: Package, page: "MyOrders", requiredRole: "user", hidden: !canViewMyOrders },
-    { label: isTransitManager ? "发货池" : "发货 & 拼邮", icon: Send, page: "ShippingPool", requiredRole: "user" },
-    { label: "个人档案", icon: User, page: "AdminUserDetail/me" },
-  ];
+  const userNavBuilt = buildNav(mergeNavTree(navbarSettings?.user_nav, "user"), "user", {
+    access: { MyOrders: canViewMyOrders },
+    labelOverrides: { ShippingPool: isTransitManager ? "发货池" : "发货 & 拼邮" },
+  });
 
-  const tenantAdminNav = [
-    { label: "管理总览", icon: BarChart3, page: "AdminDashboard", canAccess: canAccessAdminDashboard },
-    { label: "订单管理", icon: Package, page: "AdminOrders", canAccess: canAccessAdminOrders },
-    { label: "发货池", icon: Send, page: "AdminShippingPool", canAccess: canAccessAdminShippingPool, subItems: [
-      { label: "中转地工作面板", icon: Layers, page: "AdminTransitWork" },
-    ]},
-    { label: "用户管理", icon: Users, page: "AdminUsers", canAccess: canAccessAdminUsers },
-    { label: "网站设置", icon: Settings, page: "AdminSettings", canAccess: canAccessAdminSettings, subItems: [
-    ...(canAccessAdminAnnouncements ? [{ label: "公告管理", icon: Bell, page: "AdminAnnouncements" }] : []),
-    ...(canAccessAdminSettings ? [{ label: "服务费规则", icon: Zap, page: "AdminFeeRules" }] : []),
-    { label: "财务报表", icon: BarChart3, page: "AdminReports" },
-    { label: "通知模板", icon: FileText, page: "AdminNotificationTemplates" },
-    { label: "通知默认设置", icon: Settings, page: "AdminNotificationDefaults" },
-    { label: "网站设置", icon: Settings, page: "AdminSettings" },
-    ]},
-  ];
+  const adminNavBuilt = buildNav(mergeNavTree(navbarSettings?.admin_nav, "admin"), "admin", {
+    access: {
+      AdminDashboard: canAccessAdminDashboard,
+      AdminOrders: canAccessAdminOrders,
+      AdminShippingPool: canAccessAdminShippingPool,
+      AdminTransitWork: canAccessTransitWork,
+      AdminUsers: canAccessAdminUsers,
+      AdminSettings: canAccessAdminSettings,
+      AdminAnnouncements: canAccessAdminAnnouncements,
+      AdminFeeRules: canAccessAdminSettings,
+      AdminSettingsHome: canAccessAdminSettings,
+      AdminNavbarSettings: canAccessAdminSettings,
+    },
+  });
 
   const platformAdminNav = [
-    { label: "平台设置", icon: Settings, page: "PlatformAdminSettings", requiredRole: "platform_admin", subItems: [
-      { label: "跨租户通知", icon: Bell, page: "PlatformNotificationManager" },
-      { label: "租户管理", icon: Globe, page: "PlatformAdminSettings" },
+    { key: "PlatformAdminSettings", label: "平台设置", icon: Settings, page: "PlatformAdminSettings", children: [
+      { key: "PlatformNotificationManager", label: "跨租户通知", icon: Bell, page: "PlatformNotificationManager", children: [] },
+      { key: "PlatformTenantManager", label: "租户管理", icon: Globe, page: "PlatformAdminSettings", children: [] },
     ]},
   ];
 
-  const visibleUserNav = userNav.filter(item => !item.hidden);
-  let navItems = [visibleUserNav[0]];
-  
+  let navItems = userNavBuilt;
   if (isPlatformAdmin) {
-    navItems = [...navItems, ...visibleUserNav.slice(1), ...platformAdminNav, ...tenantAdminNav.filter(item => item.canAccess)];
-  } else if (isTenantAdmin) {
-    navItems = [...navItems, ...visibleUserNav.slice(1), ...tenantAdminNav.filter(item => item.canAccess)];
-  } else if (isStaff) {
-    const staffAdminItems = tenantAdminNav.filter(item => item.canAccess);
-    navItems = [...navItems, ...visibleUserNav.slice(1), ...staffAdminItems];
-  } else if (isTenantUser) {
-    navItems = [...navItems, ...visibleUserNav.slice(1)];
-  } else {
-    navItems = visibleUserNav;
+    navItems = [...userNavBuilt, ...platformAdminNav, ...adminNavBuilt];
+  } else if (isTenantAdmin || isStaff) {
+    navItems = [...userNavBuilt, ...adminNavBuilt];
   }
 
   const activeAnnouncement = announcements.find(a => 
@@ -175,29 +164,41 @@ export default function Layout({ children, currentPageName }) {
           </div>
 
           <nav className="hidden md:flex items-center gap-1">
-            {navItems.map(({ label, icon: NavIcon, page, subItems }) => {
-              const isActive = currentPageName === page || (subItems && subItems.some(s => s.page === currentPageName));
-              if (subItems) {
+            {navItems.map((item) => {
+              const hasChildren = item.children && item.children.length > 0;
+              const isActive = currentPageName === item.page || (hasChildren && navTreeHasPage(item.children, currentPageName));
+              if (hasChildren) {
                 return (
-                  <div key={page} className="relative group">
-                    <Link to={createPageUrl(page)}
+                  <div key={item.key} className="relative group">
+                    <Link to={createPageUrl(item.page)}
                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm transition-colors ${
                         isActive ? "bg-gray-100 text-gray-900 font-medium" : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
                       }`}>
-                      <NavIcon className="w-3.5 h-3.5" />
-                      {label}
+                      <item.icon className="w-3.5 h-3.5" />
+                      {item.label}
                       <ChevronDown className="w-3 h-3 ml-0.5 opacity-50" />
                     </Link>
                     <div className="absolute left-0 top-full pt-1 hidden group-hover:block z-50">
-                      <div className="bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[130px]">
-                        {subItems.map(({ label: subLabel, icon: SubIcon, page: subPage }) => (
-                          <Link key={subPage} to={createPageUrl(subPage)}
-                            className={`flex items-center gap-2 px-3 py-2 text-sm transition-colors ${
-                              currentPageName === subPage ? "bg-gray-50 text-gray-900 font-medium" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                            }`}>
-                            <SubIcon className="w-3.5 h-3.5" />
-                            {subLabel}
-                          </Link>
+                      <div className="bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[150px]">
+                        {item.children.map((child) => (
+                          <div key={child.key}>
+                            <Link to={createPageUrl(child.page)}
+                              className={`flex items-center gap-2 px-3 py-2 text-sm transition-colors ${
+                                currentPageName === child.page ? "bg-gray-50 text-gray-900 font-medium" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                              }`}>
+                              <child.icon className="w-3.5 h-3.5" />
+                              {child.label}
+                            </Link>
+                            {(child.children || []).map((grand) => (
+                              <Link key={grand.key} to={createPageUrl(grand.page)}
+                                className={`flex items-center gap-2 pl-8 pr-3 py-1.5 text-sm transition-colors ${
+                                  currentPageName === grand.page ? "bg-gray-50 text-gray-900 font-medium" : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+                                }`}>
+                                <grand.icon className="w-3 h-3" />
+                                {grand.label}
+                              </Link>
+                            ))}
+                          </div>
                         ))}
                       </div>
                     </div>
@@ -205,12 +206,12 @@ export default function Layout({ children, currentPageName }) {
                 );
               }
               return (
-                <Link key={page} to={createPageUrl(page)}
+                <Link key={item.key} to={createPageUrl(item.page)}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm transition-colors ${
                     isActive ? "bg-gray-100 text-gray-900 font-medium" : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
                   }`}>
-                  <NavIcon className="w-3.5 h-3.5" />
-                  {label}
+                  <item.icon className="w-3.5 h-3.5" />
+                  {item.label}
                 </Link>
               );
             })}
@@ -248,25 +249,36 @@ export default function Layout({ children, currentPageName }) {
 
         {mobileOpen && (
           <div className="md:hidden border-t bg-white px-4 py-3 space-y-1">
-            {navItems.map(({ label, icon: NavIcon, page, subItems }) => (
-              <div key={page}>
-                <Link to={createPageUrl(page)} onClick={() => setMobileOpen(false)}
+            {navItems.map((item) => (
+              <div key={item.key}>
+                <Link to={createPageUrl(item.page)} onClick={() => setMobileOpen(false)}
                   className={`flex items-center gap-2 px-3 py-2 rounded text-sm ${
-                    currentPageName === page ? "bg-gray-100 font-medium" : "text-gray-600"
+                    currentPageName === item.page ? "bg-gray-100 font-medium" : "text-gray-600"
                   }`}>
-                  <NavIcon className="w-4 h-4" />
-                  {label}
+                  <item.icon className="w-4 h-4" />
+                  {item.label}
                 </Link>
-                {subItems && (
+                {item.children && item.children.length > 0 && (
                   <div className="ml-6 mt-0.5 space-y-0.5">
-                    {subItems.map(({ label: subLabel, icon: SubIcon, page: subPage }) => (
-                      <Link key={subPage} to={createPageUrl(subPage)} onClick={() => setMobileOpen(false)}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded text-sm ${
-                          currentPageName === subPage ? "bg-gray-100 font-medium" : "text-gray-500"
-                        }`}>
-                        <SubIcon className="w-3.5 h-3.5" />
-                        {subLabel}
-                      </Link>
+                    {item.children.map((child) => (
+                      <div key={child.key}>
+                        <Link to={createPageUrl(child.page)} onClick={() => setMobileOpen(false)}
+                          className={`flex items-center gap-2 px-3 py-1.5 rounded text-sm ${
+                            currentPageName === child.page ? "bg-gray-100 font-medium" : "text-gray-500"
+                          }`}>
+                          <child.icon className="w-3.5 h-3.5" />
+                          {child.label}
+                        </Link>
+                        {(child.children || []).map((grand) => (
+                          <Link key={grand.key} to={createPageUrl(grand.page)} onClick={() => setMobileOpen(false)}
+                            className={`flex items-center gap-2 ml-6 px-3 py-1.5 rounded text-sm ${
+                              currentPageName === grand.page ? "bg-gray-100 font-medium" : "text-gray-500"
+                            }`}>
+                            <grand.icon className="w-3 h-3" />
+                            {grand.label}
+                          </Link>
+                        ))}
+                      </div>
                     ))}
                   </div>
                 )}
