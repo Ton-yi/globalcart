@@ -111,6 +111,7 @@ const CAT_COLORS = { fee: "bg-yellow-100 text-yellow-700", payment: "bg-green-10
 
 const ADMIN_NAV = [
   { group: "基本设置", children: [
+    { key: "home_customize", label: "主页自定义" },
     { key: "countries", label: "国家设置" },
     { key: "exchange_rates", label: "汇率设置" },
     { key: "notifications", label: "通知设置" },
