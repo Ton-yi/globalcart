@@ -597,7 +597,7 @@ function MethodCard({ method, onSave, onDelete, itemSizeTemplates = [] }) {
   );
 }
 
-function EstimateRateGlobalSetting() {
+export function EstimateRateGlobalSetting() {
   const [rows, setRows] = useState([{ country: "", rate_per_unit: "", unit_g: "100" }]);
   const [settingId, setSettingId] = useState(null);
   const [saving, setSaving] = useState(false);

@@ -35,6 +35,7 @@ import StorageSettingsManager from "@/components/admin/StorageSettingsManager";
 import PaymentModeSettings from "@/components/admin/PaymentModeSettings";
 import OrderSplitSettings from "@/components/admin/OrderSplitSettings";
 import ShipWithoutPaymentSettings from "@/components/admin/ShipWithoutPaymentSettings";
+import OfficialPoolSettings from "@/components/admin/OfficialPoolSettings";
 
 // Standalone editor with its own local save button (textarea content is large, better kept isolated)
 function CustomsHazmatTextEditor({ settings, onReload }) {
@@ -107,6 +108,7 @@ const TABS = [
   { key: "member_tiers", label: "会员阶级" },
   { key: "shipping_methods", label: "运输方式" },
   { key: "shipping_settings", label: "发货设置" },
+  { key: "official_pool", label: "官方拼邮" },
   { key: "transit_methods", label: "中转运输" },
   { key: "item_sizes", label: "物品尺寸" },
   { key: "box_templates", label: "外箱模板" },
@@ -366,17 +368,6 @@ export default function AdminSettings() {
     await load();
   };
 
-  // Instant-save for allow_user_customs_declaration
-  const handleCustomsDeclarationToggle = async (s) => {
-    const newVal = s?.value === 'true' ? 'false' : 'true';
-    if (s) {
-      await tenantEntity.update('SiteSettings', s.id, { value: newVal });
-    } else {
-      await tenantEntity.create('SiteSettings', { key: 'allow_user_customs_declaration', value: newVal, description: '允许用户自行填写报关单', category: 'shipping' });
-    }
-    await load();
-  };
-
   const flat = settings; // flat alias for clarity
   const getSetting = (key) => flat.find(s => s.key === key);
   const getVal = (key) => getSetting(key)?.value;
@@ -548,6 +539,10 @@ export default function AdminSettings() {
 
       {activeTab === "shipping_settings" && !loading && (
         <ShipWithoutPaymentSettings settings={settings} onReload={load} />
+      )}
+
+      {activeTab === "official_pool" && (
+        <OfficialPoolSettings />
       )}
 
       {activeTab === "transit_methods" && (
@@ -848,6 +843,7 @@ export default function AdminSettings() {
               'pre_shipment_enabled', 'fullpay_once_enabled', 'fullpay_once_tolerance_jpy',
               'allow_user_pool_edit_instant',
               'allow_user_rewarehouse_from_fee_pending', 'default_rewarehouse_fee_jpy',
+              'allow_user_customs_declaration',
             ]);
             const filteredGrouped = Object.fromEntries(
               Object.entries(grouped)
@@ -897,27 +893,7 @@ export default function AdminSettings() {
             });
           })()}
 
-          {/* ─── Customs Declaration Toggle (instant-save, separate card) ─── */}
-          {(() => {
-            const s = getSetting('allow_user_customs_declaration');
-            return (
-              <Card className="border-orange-200">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-semibold text-gray-700">报关单设置</CardTitle>
-                  <p className="text-xs text-gray-400 mt-1">配置用户是否可自行填写报关单信息。</p>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex items-center justify-between pb-1 border-b border-gray-100">
-                    <div>
-                      <Label className="text-sm">允许用户自行填写报关单</Label>
-                      <p className="text-xs text-gray-400 mt-0.5">开启后，用户在通知发货时可选择填写报关单信息；关闭后，仅管理员可填写</p>
-                    </div>
-                    <Toggle enabled={s?.value === 'true'} onToggle={() => handleCustomsDeclarationToggle(s)} color="bg-orange-600" />
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })()}
+          {/* allow_user_customs_declaration 已移至「发货设置」tab */}
 
           {/* ─── Customs Hazmat Text ─── */}
           <CustomsHazmatTextEditor settings={flat} onReload={load} />

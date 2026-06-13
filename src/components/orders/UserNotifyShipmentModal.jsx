@@ -697,8 +697,8 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
             />
           )}
 
-          {/* Customs declaration — single shipment only */}
-          {consType === "" && !joinDirectPool && (
+          {/* Customs declaration — single shipment only, shown only when allowed by settings */}
+          {consType === "" && !joinDirectPool && (initialData?.allowUserCustomsDeclaration !== false) && (
             <CustomsDeclarationForm
               value={customsData}
               onChange={setCustomsData}

@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Save, Truck, RotateCcw } from "lucide-react";
+import { Save, Truck, RotateCcw, FileText } from "lucide-react";
 
 function Toggle({ enabled, onToggle, color = "bg-blue-600", size = "md" }) {
   const sizes = size === "sm"
@@ -232,6 +232,40 @@ export default function ShipWithoutPaymentSettings({ settings, onReload }) {
           )}
         </CardContent>
       </Card>
+
+      {/* Customs declaration */}
+      {(() => {
+        const s = get('allow_user_customs_declaration');
+        const enabled = s?.value === 'true';
+        const handleToggle = async () => {
+          const newVal = enabled ? 'false' : 'true';
+          if (s?.id) {
+            await tenantEntity.update('SiteSettings', s.id, { value: newVal });
+          } else {
+            await tenantEntity.create('SiteSettings', { key: 'allow_user_customs_declaration', value: newVal, description: '允许用户自行填写报关单', category: 'shipping' });
+          }
+          await onReload();
+        };
+        return (
+          <Card className="border-orange-200">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                <FileText className="w-4 h-4 text-orange-500" />报关单设置
+              </CardTitle>
+              <p className="text-xs text-gray-400 mt-1">配置用户是否可在通知发货时自行填写报关单信息</p>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-sm">允许用户自行填写报关单</Label>
+                  <p className="text-xs text-gray-400 mt-0.5">开启后，用户在通知发货时可展开并填写报关单信息；关闭后，报关单入口对用户隐藏</p>
+                </div>
+                <Toggle enabled={enabled} onToggle={handleToggle} color="bg-orange-600" />
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* Ship without payment */}
       <Card className="border-blue-200">
