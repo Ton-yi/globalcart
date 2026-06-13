@@ -114,6 +114,7 @@ const ADMIN_NAV = [
   ]},
   { group: "订单管理", children: [
     { key: "order_management", label: "商城标签规则" },
+    { key: "order_management_split", label: "订单管理" },
   ]},
   { key: "payment_methods", label: "支付方式" },
   { key: "fee_rules", label: "服务费规则" },
@@ -440,10 +441,18 @@ export default function AdminSettings() {
       )}
       {activeTab === "home_customize" && loading && <p className="text-gray-400 text-sm">加载中...</p>}
 
-      {activeTab === "order_management" && !loading && (
+      {activeTab === "order_management" && (
+        <Card className="border-gray-200">
+          <CardContent className="pt-5">
+            <OnlineStoreTagManager initialData={storeTagRules} />
+          </CardContent>
+        </Card>
+      )}
+
+      {activeTab === "order_management_split" && !loading && (
         <OrderSplitSettings settings={settings} onReload={load} />
       )}
-      {activeTab === "order_management" && loading && <p className="text-gray-400 text-sm">加载中...</p>}
+      {activeTab === "order_management_split" && loading && <p className="text-gray-400 text-sm">加载中...</p>}
 
       {activeTab === "fee_rules" && (
         <div className="space-y-4">
