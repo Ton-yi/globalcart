@@ -41,77 +41,118 @@ function evalCondition(node, stats) {
   return fn(stats[node.field], node.value);
 }
 
-/** 评估单个用户的阶级，必要时执行升降级 */
+/** 评估单个用户：阶级内嵌触发器 + 独立触发规则（可变更阶级 和/或 增删角色标签） */
 async function evaluateUserTier(base44, tenantId, email) {
-  const [users, statsList, tiers] = await Promise.all([
+  const [users, statsList, tiers, rules] = await Promise.all([
     base44.asServiceRole.entities.User.filter({ email, tenant_id: tenantId }),
     base44.asServiceRole.entities.UserMemberStats.filter({ tenant_id: tenantId, user_email: email }),
     base44.asServiceRole.entities.MemberTier.filter({ tenant_id: tenantId, is_active: true }),
+    base44.asServiceRole.entities.TierTriggerRule.filter({ tenant_id: tenantId, is_active: true }).catch(() => []),
   ]);
   const userRec = users?.[0];
   const stats = statsList?.[0];
   if (!userRec || !stats) return { user_email: email, changed: false, reason: 'missing user or stats' };
 
-  const triggerTiers = (tiers || [])
-    .filter(t => t.trigger_enabled && t.trigger_condition && Array.isArray(t.trigger_condition.conditions) && t.trigger_condition.conditions.length > 0)
-    .sort((a, b) => (b.sort_order || 0) - (a.sort_order || 0));
-  if (triggerTiers.length === 0) return { user_email: email, changed: false, reason: 'no trigger tiers' };
+  const hasCond = (c) => c && Array.isArray(c.conditions) && c.conditions.length > 0;
 
-  // 命中的最高阶级
-  const matched = triggerTiers.find(t => evalCondition(t.trigger_condition, stats)) || null;
-  if (!matched) return { user_email: email, changed: false, reason: 'no condition matched' };
+  // 1) 阶级内嵌触发器（兼容原有配置）：命中的最高阶级
+  const triggerTiers = (tiers || [])
+    .filter(t => t.trigger_enabled && hasCond(t.trigger_condition))
+    .sort((a, b) => (b.sort_order || 0) - (a.sort_order || 0));
+  const matchedTierTrigger = triggerTiers.find(t => evalCondition(t.trigger_condition, stats)) || null;
+
+  // 2) 独立触发规则：条件命中的规则（可指定目标阶级、添加/移除角色标签）
+  const matchedRules = (rules || []).filter(r => hasCond(r.trigger_condition) && evalCondition(r.trigger_condition, stats));
+
+  // 阶级候选：内嵌触发命中 + 规则目标阶级，取排序最高者
+  const ruleTierCandidates = matchedRules
+    .map(r => r.target_tier_id ? (tiers || []).find(t => t.id === r.target_tier_id) : null)
+    .filter(Boolean);
+  const matched = [matchedTierTrigger, ...ruleTierCandidates]
+    .filter(Boolean)
+    .sort((a, b) => (b.sort_order || 0) - (a.sort_order || 0))[0] || null;
+
+  // 规则角色增删集合（多条规则命中时合并，添加优先于移除）
+  const addRoleIds = new Set();
+  const removeRoleIds = new Set();
+  matchedRules.forEach(r => {
+    (r.add_role_ids || []).forEach(x => addRoleIds.add(x));
+    (r.remove_role_ids || []).forEach(x => removeRoleIds.add(x));
+  });
+
+  if (!matched && matchedRules.length === 0) {
+    return { user_email: email, changed: false, reason: 'no condition matched' };
+  }
 
   const currentTier = (tiers || []).find(t => t.id === userRec.member_tier_id) || null;
-  if (currentTier && matched.id === currentTier.id) {
-    return { user_email: email, changed: false, reason: 'already in tier' };
+
+  // 判定阶级变更（沿用保护规则：永久阶级 / 手动指定 / 付费购买不自动降级）
+  let tierChange = null;
+  let isUpgrade = false;
+  if (matched && (!currentTier || matched.id !== currentTier.id)) {
+    const currentSort = currentTier ? (currentTier.sort_order || 0) : -Infinity;
+    isUpgrade = (matched.sort_order || 0) > currentSort;
+    let blocked = false;
+    if (!isUpgrade && currentTier) {
+      if (currentTier.is_permanent) blocked = true; // 永久阶级保护
+      else if (!currentTier.trigger_enabled) blocked = true; // 手动指定阶级保护
+      else {
+        // 付费购买保护：用户花钱买到的阶级不被自动降级
+        const paidPurchases = await base44.asServiceRole.entities.TierPurchase.filter({
+          tenant_id: tenantId, user_email: email, to_tier_id: currentTier.id, status: 'paid',
+        });
+        if (paidPurchases?.length > 0) blocked = true;
+      }
+    }
+    if (!blocked) tierChange = matched;
   }
 
-  const currentSort = currentTier ? (currentTier.sort_order || 0) : -Infinity;
-  const isUpgrade = (matched.sort_order || 0) > currentSort;
-  if (!isUpgrade && currentTier) {
-    if (currentTier.is_permanent) return { user_email: email, changed: false, reason: 'current tier is permanent' };
-    if (!currentTier.trigger_enabled) return { user_email: email, changed: false, reason: 'current tier manually assigned' };
-    // 付费购买保护：用户花钱买到的阶级不被自动降级
-    const paidPurchases = await base44.asServiceRole.entities.TierPurchase.filter({
-      tenant_id: tenantId, user_email: email, to_tier_id: currentTier.id, status: 'paid',
-    });
-    if (paidPurchases?.length > 0) return { user_email: email, changed: false, reason: 'current tier was purchased' };
-  }
-
-  // 同步角色标签：移除旧阶级关联角色（不在新阶级中的），追加新阶级关联角色
-  const oldRoleIds = currentTier?.associated_role_ids || [];
-  const newRoleIds = matched.associated_role_ids || [];
+  // 组装角色标签：阶级变更时同步阶级关联角色 + 规则增删（先移除后添加）
   const assigned = new Set(userRec.assigned_role_ids || []);
-  oldRoleIds.forEach(r => { if (!newRoleIds.includes(r)) assigned.delete(r); });
-  newRoleIds.forEach(r => assigned.add(r));
+  const beforeRoles = JSON.stringify([...assigned].sort());
+  if (tierChange) {
+    const oldRoleIds = currentTier?.associated_role_ids || [];
+    const newRoleIds = tierChange.associated_role_ids || [];
+    oldRoleIds.forEach(r => { if (!newRoleIds.includes(r)) assigned.delete(r); });
+    newRoleIds.forEach(r => assigned.add(r));
+  }
+  removeRoleIds.forEach(r => assigned.delete(r));
+  addRoleIds.forEach(r => assigned.add(r));
+  const rolesChanged = JSON.stringify([...assigned].sort()) !== beforeRoles;
+
+  if (!tierChange && !rolesChanged) {
+    return { user_email: email, changed: false, reason: matched ? 'tier change blocked or already in tier' : 'no effective change' };
+  }
 
   await base44.asServiceRole.entities.User.update(userRec.id, {
-    member_tier_id: matched.id,
-    member_tier_name: matched.name,
-    assigned_role_ids: [...assigned],
+    ...(tierChange ? { member_tier_id: tierChange.id, member_tier_name: tierChange.name } : {}),
+    ...(rolesChanged ? { assigned_role_ids: [...assigned] } : {}),
   });
 
-  await base44.asServiceRole.entities.Notification.create({
-    tenant_id: tenantId,
-    user_email: email,
-    notification_type: 'other',
-    notification_subtype: isUpgrade ? 'member_tier_upgraded' : 'member_tier_changed',
-    icon: 'Crown',
-    title: isUpgrade ? `🎉 会员升级：${matched.name}` : `会员阶级变更：${matched.name}`,
-    content: isUpgrade
-      ? `恭喜！您已自动升级为「${matched.name}」会员。${matched.description || ''}`
-      : `您的会员阶级已调整为「${matched.name}」。${matched.description || ''}`,
-    is_system: true,
-    priority: 'normal',
-  });
+  if (tierChange) {
+    await base44.asServiceRole.entities.Notification.create({
+      tenant_id: tenantId,
+      user_email: email,
+      notification_type: 'other',
+      notification_subtype: isUpgrade ? 'member_tier_upgraded' : 'member_tier_changed',
+      icon: 'Crown',
+      title: isUpgrade ? `🎉 会员升级：${tierChange.name}` : `会员阶级变更：${tierChange.name}`,
+      content: isUpgrade
+        ? `恭喜！您已自动升级为「${tierChange.name}」会员。${tierChange.description || ''}`
+        : `您的会员阶级已调整为「${tierChange.name}」。${tierChange.description || ''}`,
+      is_system: true,
+      priority: 'normal',
+    });
+  }
 
-  console.log(`[evaluateTierTriggers] ${email}: ${currentTier?.name || '(无)'} -> ${matched.name} (${isUpgrade ? 'upgrade' : 'downgrade'})`);
+  console.log(`[evaluateTierTriggers] ${email}: tier ${currentTier?.name || '(无)'} -> ${tierChange ? tierChange.name : '(不变)'} | rolesChanged=${rolesChanged}`);
   return {
     user_email: email,
     changed: true,
     from: currentTier?.name || null,
-    to: matched.name,
-    direction: isUpgrade ? 'upgrade' : 'downgrade',
+    to: tierChange ? tierChange.name : (currentTier?.name || null),
+    direction: tierChange ? (isUpgrade ? 'upgrade' : 'downgrade') : 'roles_only',
+    roles_changed: rolesChanged,
   };
 }
 

@@ -16,6 +16,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import MemberStatsScanCard from "@/components/admin/MemberStatsScanCard";
 import TierEvaluateCard from "@/components/admin/TierEvaluateCard";
 import TierTriggerConditionEditor from "@/components/admin/TierTriggerConditionEditor";
+import TierTriggerRuleManager from "@/components/admin/TierTriggerRuleManager";
 
 const CYCLE_LABELS = { weekly: "周结", monthly: "月结" };
 
@@ -403,6 +404,9 @@ export default function MemberTierManager({ initialData = [], onReload }) {
           ))}
         </div>
       )}
+
+      {/* 独立触发规则：变更阶级 或 增删角色权限标签 */}
+      <TierTriggerRuleManager tiers={tiers} roles={roles} />
     </div>
   );
 }

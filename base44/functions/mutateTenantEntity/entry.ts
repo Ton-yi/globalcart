@@ -22,14 +22,14 @@ const ALLOWED_ENTITIES = [
   'UserPreference', 'ItemSizeTemplate', 'OnlineStoreTagRule',
   'ShippingMethod', 'TransitShippingMethod', 'TransitLocation',
   'AddonOption', 'SiteSettings', 'Announcement', 'BoxTemplate',
-  'MemberTier', 'CreditApplication', 'Role',
+  'MemberTier', 'CreditApplication', 'Role', 'TierTriggerRule',
 ];
 
 const ADMIN_ONLY_WRITE = [
   'ItemSizeTemplate', 'OnlineStoreTagRule', 'ShippingMethod',
   'TransitShippingMethod', 'TransitLocation', 'AddonOption',
   'SiteSettings', 'Announcement', 'BoxTemplate',
-  'MemberTier', 'Role',
+  'MemberTier', 'Role', 'TierTriggerRule',
 ];
 
 const ADMIN_ONLY_DELETE = ['Order'];
