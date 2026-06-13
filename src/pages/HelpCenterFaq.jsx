@@ -44,6 +44,7 @@ export default function HelpCenterFaq() {
   const { user } = useCurrentUser();
   const location = useLocation();
   const [categories, setCategories] = useState([]);
+  const [allActiveCategories, setAllActiveCategories] = useState([]); // for AskQuestionForm (no items filter)
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState(null);
@@ -56,7 +57,9 @@ export default function HelpCenterFaq() {
       base44.functions.invoke('getPublicHomeConfig', { hostname: window.location.hostname }),
       user ? base44.functions.invoke('manageFaqQuestions', { action: 'get_setting' }) : Promise.resolve({ data: { allowed: false } }),
     ]).then(([r, settingR]) => {
-      const cats = (r.data?.faqCategories || []).filter(c => c.is_active !== false && (c.items || []).length > 0);
+      const allActive = (r.data?.faqCategories || []).filter(c => c.is_active !== false);
+      const cats = allActive.filter(c => (c.items || []).length > 0);
+      setAllActiveCategories(allActive);
       setCategories(cats);
       const params = new URLSearchParams(location.search);
       const catParam = params.get('cat');
@@ -117,7 +120,7 @@ export default function HelpCenterFaq() {
 
       {/* Ask question form — show for logged-in non-admin users when enabled */}
       {!loading && allowUserQuestions && user && !isAdmin && (
-        <AskQuestionForm categories={categories} />
+        <AskQuestionForm categories={allActiveCategories} />
       )}
 
       {!loading && categories.length > 0 && (

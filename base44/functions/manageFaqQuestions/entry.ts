@@ -26,6 +26,7 @@ Deno.serve(async (req) => {
 
     // --- get_setting ---
     if (action === 'get_setting') {
+      if (!tenantId) return Response.json({ allowed: false });
       const settings = await base44.asServiceRole.entities.SiteSettings.filter({
         tenant_id: tenantId, key: 'faq_allow_user_questions'
       });
@@ -126,7 +127,7 @@ Deno.serve(async (req) => {
           content: `${user.full_name || user.email} 提交了一个新问题，请前往帮助中心管理回复。`,
           related_entity_type: 'FaqQuestion',
           related_entity_id: record.id,
-          related_url: `/AdminFaq`,
+          related_url: `/ja/AdminFaq`,
           is_system: true,
           sender_email: user.email,
           priority: 'normal',
@@ -206,7 +207,7 @@ Deno.serve(async (req) => {
         content: `管理员已回复您的问题：${q.question.slice(0, 60)}`,
         related_entity_type: 'FaqQuestion',
         related_entity_id: id,
-        related_url: `/helpcenter/faq`,
+        related_url: `/ja/helpcenter/faq`,
         is_system: true,
         sender_email: user.email,
         priority: 'normal',

@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
-import { tenantEntity } from "@/lib/tenantApi";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -251,13 +250,16 @@ export default function AdminFaq() {
     setSavingAllow(true);
     const strVal = val ? 'true' : 'false';
     if (allowSettingId) {
-      await tenantEntity.update("SiteSettings", allowSettingId, { value: strVal });
-    } else {
-      const created = await tenantEntity.create("SiteSettings", {
-        key: 'faq_allow_user_questions', value: strVal,
-        description: '是否允许用户在帮助中心提问', category: 'general'
+      await base44.functions.invoke('mutateTenantEntity', {
+        entity: 'SiteSettings', action: 'update', id: allowSettingId,
+        data: { value: strVal },
       });
-      setAllowSettingId(created?.id || null);
+    } else {
+      const r = await base44.functions.invoke('mutateTenantEntity', {
+        entity: 'SiteSettings', action: 'create',
+        data: { key: 'faq_allow_user_questions', value: strVal, description: '是否允许用户在帮助中心提问', category: 'general' },
+      });
+      setAllowSettingId(r.data?.result?.id || null);
     }
     setSavingAllow(false);
   };
