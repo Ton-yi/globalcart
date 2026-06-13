@@ -19,7 +19,7 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'pool_id is required' }, { status: 400 });
     }
 
-    const pool = await base44.entities.ShippingPool.get(pool_id);
+    const pool = await base44.asServiceRole.entities.ShippingPool.get(pool_id);
     if (!pool) {
       return Response.json({ error: 'Pool not found' }, { status: 404 });
     }
@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
     
     let isManager = false;
     if (pool.transit_location_id) {
-      const location = await base44.entities.TransitLocation.get(pool.transit_location_id);
+      const location = await base44.asServiceRole.entities.TransitLocation.get(pool.transit_location_id);
       isManager = location && user.email === location.manager_email;
     }
 
@@ -80,7 +80,7 @@ Deno.serve(async (req) => {
       };
     }
 
-    await base44.entities.ShippingPool.update(pool_id, updateData);
+    await base44.asServiceRole.entities.ShippingPool.update(pool_id, updateData);
 
     return Response.json({ success: true });
   } catch (error) {

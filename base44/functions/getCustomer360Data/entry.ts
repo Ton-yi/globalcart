@@ -258,12 +258,26 @@ Deno.serve(async (req) => {
     const savedAddresses = pref?.saved_addresses || [];
     const defaultAddress = savedAddresses.find(a => a.id === pref?.default_address_id) || savedAddresses[0] || null;
     const transitUsage = {};
+    let transitStorageCount = 0, transitPickupCount = 0;
     (allOrders || []).forEach(o => {
       const name = o.transit_location_name || o.pre_shipment?.transit_location_name;
       if (name) transitUsage[name] = (transitUsage[name] || 0) + 1;
+      if (o.transit_storage_enabled) transitStorageCount++;
     });
     userPools.forEach(p => {
       if (p.transit_location_name) transitUsage[p.transit_location_name] = (transitUsage[p.transit_location_name] || 0) + 1;
+      // Count storage and pickup from per_user_groups
+      const userGroups = (p.per_user_groups || []).filter(g => g.user_email === targetEmail);
+      userGroups.forEach(g => {
+        const mid = g.transit_shipping_method_id || '';
+        if (mid === '__storage__' || mid === 'storage') transitStorageCount++;
+        if (mid === '__pickup__' || mid === 'pickup') transitPickupCount++;
+      });
+      // Creator with no per_user_groups (single-user pools)
+      if (p.creator_email === targetEmail && userGroups.length === 0) {
+        if (p.transit_pickup_enabled) transitPickupCount++;
+        if (p.transit_storage_enabled && !p.transit_pickup_enabled) transitStorageCount++;
+      }
     });
     
     // ===== 备注（普通用户只能看到客户可见备注） =====
@@ -517,6 +531,8 @@ Deno.serve(async (req) => {
         savedAddresses,
         usesTransit: Object.keys(transitUsage).length > 0,
         topTransit: Object.entries(transitUsage).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, count]) => ({ name, count })),
+        transitStorageCount,
+        transitPickupCount,
       },
       notes: visibleNotes,
     });

@@ -28,6 +28,7 @@ function computeStats(email, orders, pools, userRec, nowIso, source) {
   const methodCounts = {}, countryCounts = {};
   let firstDate = null, lastDate = null;
   let activeCount = 0, cancelledCount = 0;
+  let transitStorageCount = 0, transitPickupCount = 0;
 
   orders.forEach(o => {
     const st = o.order_status;
@@ -70,6 +71,23 @@ function computeStats(email, orders, pools, userRec, nowIso, source) {
   );
   const consolidationCount = userPools.filter(p => p.consolidation_type && p.consolidation_type !== '').length;
 
+  // Count transit storage and pickup pools for this user
+  userPools.forEach(p => {
+    const userGroups = (p.per_user_groups || []).filter(g => g.user_email === email);
+    userGroups.forEach(g => {
+      const methodId = g.transit_shipping_method_id || '';
+      const normId = methodId === 'storage' ? '__storage__' : methodId === 'pickup' ? '__pickup__' : methodId;
+      if (normId === '__storage__') transitStorageCount++;
+      if (normId === '__pickup__') transitPickupCount++;
+    });
+    // Also check creator's own selection (single-user pools without per_user_groups)
+    if (p.creator_email === email && (p.per_user_groups || []).length === 0) {
+      const sid = p.transit_shipping_method_id || '';
+      if (sid === '__storage__' || sid === 'storage') transitStorageCount++;
+      if (sid === '__pickup__' || sid === 'pickup') transitPickupCount++;
+    }
+  });
+
   const total = orders.length;
   const accountCreated = userRec?.created_date ? new Date(userRec.created_date) : null;
 
@@ -103,6 +121,8 @@ function computeStats(email, orders, pools, userRec, nowIso, source) {
     deferred_order_count: deferredCount,
     credit_order_count: creditCount,
     storage_overdue_count: storageOverdueCount,
+    transit_storage_count: transitStorageCount,
+    transit_pickup_count: transitPickupCount,
     top_shipping_method: topKey(methodCounts),
     distinct_shipping_method_count: Object.keys(methodCounts).length,
     top_destination_country: topKey(countryCounts),

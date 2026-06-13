@@ -126,6 +126,16 @@
       "default": 0,
       "description": "\u53c2\u4e0e\u62fc\u90ae\u6b21\u6570"
     },
+    "transit_storage_count": {
+      "type": "number",
+      "default": 0,
+      "description": "\u4e2d\u8f6c\u5730\u6682\u5b58\u6b21\u6570"
+    },
+    "transit_pickup_count": {
+      "type": "number",
+      "default": 0,
+      "description": "\u4e2d\u8f6c\u5730\u81ea\u53d6\u6b21\u6570"
+    },
     "group_buy_order_count": {
       "type": "number",
       "default": 0,

@@ -65,12 +65,18 @@ export default function CustomerLogisticsTab({ logistics, preferences, isOwnProf
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-semibold">中转地使用情况</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-2 mb-3">
+        <CardContent className="space-y-3">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm text-gray-600">是否使用中转地：</span>
             <Badge className={l.usesTransit ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}>
               {l.usesTransit ? "是" : "否"}
             </Badge>
+            {(l.transitStorageCount > 0) && (
+              <Badge className="bg-indigo-100 text-indigo-700">暂存 {l.transitStorageCount} 次</Badge>
+            )}
+            {(l.transitPickupCount > 0) && (
+              <Badge className="bg-teal-100 text-teal-700">自取 {l.transitPickupCount} 次</Badge>
+            )}
           </div>
           {l.topTransit && l.topTransit.length > 0 ? (
             <div className="space-y-1">

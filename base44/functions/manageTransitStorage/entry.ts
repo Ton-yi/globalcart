@@ -37,6 +37,7 @@ Deno.serve(async (req) => {
     }
 
     // Verify transit location manager or admin
+    let location = null;
     if (pool.transit_location_id) {
       location = await base44.asServiceRole.entities.TransitLocation.get(pool.transit_location_id);
       if (location && user.email !== location.manager_email && user.role !== 'admin' && user.role !== 'platform_admin') {

@@ -77,6 +77,31 @@ Deno.serve(async (req) => {
           transit_storage_enabled: true,
           transit_storage_until: storage_until || null,
         }).catch(() => {});
+
+        // 发送暂存确认通知
+        if (targetUserEmail) {
+          try {
+            await base44.asServiceRole.functions.invoke('createNotificationWithEmail', {
+              user_email: targetUserEmail,
+              notification_type: 'order',
+              notification_subtype: 'transit_storage_confirmed',
+              title: '您的包裹已在中转地暂存',
+              content: `您的包裹（共 ${batchOrderIds.length} 件）已在中转地 ${pool.transit_location_name || '中转地'} 完成暂存${storage_until ? `，暂存期限至 ${storage_until}` : ''}。如需发出请在订单页操作。`,
+              icon: 'Package',
+              priority: 'normal',
+              related_entity_type: entityName,
+              related_entity_id: targetId,
+              metadata: {
+                pool_code: pool.pool_code || targetId,
+                transit_location: pool.transit_location_name || '',
+                storage_until: storage_until || '',
+                order_count: batchOrderIds.length,
+              }
+            }).catch(e => console.error('Failed to send storage notification:', e));
+          } catch (notifErr) {
+            console.error('Storage notification error (non-fatal):', notifErr);
+          }
+        }
         return Response.json({ success: true });
       }
 
@@ -87,6 +112,30 @@ Deno.serve(async (req) => {
           transit_pickup_time_slot: pickup_time_slot || null,
           transit_pickup_admin_confirmed: true,
         }).catch(() => {});
+
+        // 发送自取时间通知给用户
+        if (targetUserEmail && pickup_time_slot) {
+          try {
+            await base44.asServiceRole.functions.invoke('createNotificationWithEmail', {
+              user_email: targetUserEmail,
+              notification_type: 'order',
+              notification_subtype: 'transit_pickup_scheduled',
+              title: '自取时间已约定',
+              content: `中转地 ${pool.transit_location_name || '中转地'} 已为您约定自取时间：${pickup_time_slot}。请按时前往自取，并在系统中确认。`,
+              icon: 'Calendar',
+              priority: 'high',
+              related_entity_type: entityName,
+              related_entity_id: targetId,
+              metadata: {
+                pool_code: pool.pool_code || targetId,
+                transit_location: pool.transit_location_name || '',
+                pickup_time_slot: pickup_time_slot,
+              }
+            }).catch(e => console.error('Failed to send pickup notification:', e));
+          } catch (notifErr) {
+            console.error('Pickup notification error (non-fatal):', notifErr);
+          }
+        }
         return Response.json({ success: true });
       }
     }
