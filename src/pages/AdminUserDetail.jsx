@@ -708,6 +708,7 @@ export default function AdminUserDetail() {
           <CustomerFinanceTab
             finance={finance}
             userProfile={userProfile}
+            metrics={metrics}
             formatCurrency={formatCurrency}
             formatDate={formatDate}
             isOwnProfile={isOwnProfile}

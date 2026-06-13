@@ -155,6 +155,24 @@ Deno.serve(async (req) => {
         default_in_app: true,
         default_email: true,
       },
+      // 付款超时提醒
+      {
+        notification_type: 'payment',
+        notification_subtype: 'order_payment_timeout',
+        title_template: '订单 {{order_number}} 待付款提醒',
+        content_template: '您有一笔订单 {{order_number}} 已超过 {{hours}} 小时未付款，请及时完成支付，避免订单被取消。',
+        default_in_app: true,
+        default_email: true,
+      },
+      // 付款超时自动取消通知
+      {
+        notification_type: 'payment',
+        notification_subtype: 'order_payment_cancel',
+        title_template: '订单 {{order_number}} 因未付款被取消',
+        content_template: '您的订单 {{order_number}} 因超过 {{hours}} 小时未完成付款，已被系统自动取消。如有疑问请联系客服。',
+        default_in_app: true,
+        default_email: true,
+      },
     ];
 
     const created = [];

@@ -5,7 +5,7 @@ import PieDistribution from "./PieDistribution";
 import DimensionTable from "./DimensionTable";
 import CompareBar from "./CompareBar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DollarSign, TrendingUp, TrendingDown, Package } from "lucide-react";
+import { DollarSign, TrendingUp, TrendingDown, Package, Clock, XCircle } from "lucide-react";
 
 export default function FinanceDashboard({ data, dimension, compare }) {
     if (!data) return null;
@@ -74,6 +74,18 @@ export default function FinanceDashboard({ data, dimension, compare }) {
                 <MetricCard title="后付款笔数" value={summary.post_shipment_paid_count || 0} icon={Package} isCount
                     subtitle="发货后补付确认收款的发货池"
                     description="跳过付款先发货/待发货，事后确认收款的发货池数量。其收入在收款确认后才计入报表。" />
+                <MetricCard title="超时取消订单" value={summary.timeout_cancelled_count || 0} icon={XCircle} isCount
+                    subtitle="因付款超时被自动取消"
+                    description="因超过设定付款时限被系统自动取消的订单数量。" />
+                {summary.avg_goods_pay_hours !== null && summary.avg_goods_pay_hours !== undefined && (
+                  <MetricCard title="平均付货款时间"
+                    value={summary.avg_goods_pay_hours < 24
+                      ? `${summary.avg_goods_pay_hours.toFixed(1)}h`
+                      : `${(summary.avg_goods_pay_hours / 24).toFixed(1)}天`}
+                    icon={Clock} isCount
+                    subtitle="从下单到完成付货款"
+                    description="所有已付款订单的平均付货款时间（下单到付款时点）。" />
+                )}
             </div>
 
             {/* 利润趋势（含累计） */}

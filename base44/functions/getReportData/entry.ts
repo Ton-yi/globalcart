@@ -313,6 +313,26 @@ function calcSummary(orders, pools, allPools, allOrders, tierPurchases = []) {
     s.avg_ship_days = shipDays.length > 0
         ? Math.round(shipDays.reduce((a, b) => a + b, 0) / shipDays.length) : null;
 
+    // 付货款时间统计（从 created_date 到 submit_date/purchased_date）
+    const goodsPayTimes = [];
+    let timeoutCancelledCount = 0;
+    orders.forEach(o => {
+        const created = o.created_date ? new Date(o.created_date) : null;
+        const paid = o.submit_date ? new Date(o.submit_date)
+            : (o.purchased_date ? new Date(o.purchased_date) : null);
+        if (created && paid && paid > created) {
+            const h = (paid.getTime() - created.getTime()) / 3600000;
+            if (h >= 0 && h < 8760) goodsPayTimes.push(h);
+        }
+        if (o.order_status === 'cancelled' && (o.cancel_reason || '').includes('付款超时')) {
+            timeoutCancelledCount++;
+        }
+    });
+    s.avg_goods_pay_hours = goodsPayTimes.length > 0
+        ? Math.round(goodsPayTimes.reduce((a, b) => a + b, 0) / goodsPayTimes.length * 10) / 10
+        : null;
+    s.timeout_cancelled_count = timeoutCancelledCount;
+
     return s;
 }
 

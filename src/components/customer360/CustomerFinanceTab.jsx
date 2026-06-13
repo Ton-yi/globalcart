@@ -22,7 +22,7 @@ const PAYMENT_MODE_LABELS = {
   prepay: "预付款",
 };
 
-export default function CustomerFinanceTab({ finance, userProfile, formatCurrency, formatDate, isOwnProfile = false }) {
+export default function CustomerFinanceTab({ finance, userProfile, metrics, formatCurrency, formatDate, isOwnProfile = false }) {
   const f = finance || {};
   const [creditAppEnabled, setCreditAppEnabled] = useState(false);
 
@@ -45,8 +45,44 @@ export default function CustomerFinanceTab({ finance, userProfile, formatCurrenc
     { label: "仓储费", value: f.storageFeeJpy || 0, cls: "bg-orange-50 border-orange-200 text-orange-800" },
   ];
 
+  // 付款时间格式化
+  const fmtHours = (h) => {
+    if (h === null || h === undefined) return "—";
+    if (h < 1) return `${Math.round(h * 60)} 分钟`;
+    if (h < 24) return `${h.toFixed(1)} 小时`;
+    return `${(h / 24).toFixed(1)} 天`;
+  };
+
   return (
     <div className="space-y-4">
+      {/* 付款时间统计 */}
+      {(metrics?.avgGoodsPayHours !== null || metrics?.avgShippingPayHours !== null || metrics?.timeoutCancelledCount > 0) && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold">付款行为分析</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              <div className="p-3 border rounded-lg bg-blue-50 border-blue-200">
+                <p className="text-xs text-blue-600 font-medium">平均付货款时间</p>
+                <p className="text-xl font-bold text-blue-800 mt-1">{fmtHours(metrics?.avgGoodsPayHours)}</p>
+                <p className="text-xs text-blue-500 mt-0.5">从下单到完成付货款</p>
+              </div>
+              <div className="p-3 border rounded-lg bg-purple-50 border-purple-200">
+                <p className="text-xs text-purple-600 font-medium">平均付运费时间</p>
+                <p className="text-xl font-bold text-purple-800 mt-1">{fmtHours(metrics?.avgShippingPayHours)}</p>
+                <p className="text-xs text-purple-500 mt-0.5">从创建发货申请到付运费</p>
+              </div>
+              <div className={`p-3 border rounded-lg ${(metrics?.timeoutCancelledCount || 0) > 0 ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'}`}>
+                <p className={`text-xs font-medium ${(metrics?.timeoutCancelledCount || 0) > 0 ? 'text-red-600' : 'text-gray-500'}`}>超时取消订单数</p>
+                <p className={`text-xl font-bold mt-1 ${(metrics?.timeoutCancelledCount || 0) > 0 ? 'text-red-700' : 'text-gray-700'}`}>{metrics?.timeoutCancelledCount ?? 0}</p>
+                <p className="text-xs text-gray-400 mt-0.5">因付款超时被自动取消</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-semibold">财务汇总（JPY）</CardTitle>

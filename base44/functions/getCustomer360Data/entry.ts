@@ -308,6 +308,49 @@ Deno.serve(async (req) => {
     }
     // Add refund count for frontend display
     const refundCount = allOrders.filter(o => (o.refund_amount_jpy || 0) > 0).length;
+
+    // ===== 付款时间统计 =====
+    // 付货款时间：从 created_date 到 payment_status 变为 paid（近似用 submit_date，若无则用 in_warehouse_date）
+    // 付运费时间：发货池 created_date 到 payment_status=paid（用 shipped_date 近似）
+    const goodsPayTimes = []; // 付货款耗时（小时）
+    const shippingPayTimes = []; // 付运费耗时（小时）
+    let timeoutCancelledCount = 0; // 因付款超时被取消的订单数
+
+    (allOrders || []).forEach(o => {
+      // 付货款时间：订单创建到付款（使用 submit_date 或 purchased_date 作为付款时间点）
+      const createdAt = o.created_date ? new Date(o.created_date) : null;
+      const paidAt = o.submit_date ? new Date(o.submit_date)
+        : (o.purchased_date ? new Date(o.purchased_date) : null);
+      if (createdAt && paidAt && paidAt > createdAt) {
+        const hours = (paidAt.getTime() - createdAt.getTime()) / 3600000;
+        if (hours >= 0 && hours < 8760) goodsPayTimes.push(hours);
+      }
+      // 超时取消统计
+      if (o.order_status === 'cancelled' && (o.cancel_reason || '').includes('付款超时')) {
+        timeoutCancelledCount++;
+      }
+    });
+
+    // 付运费时间：发货池 created_date 到 shipped_date（有付款且有发货日期的发货池）
+    userPools.forEach(p => {
+      if (p.payment_status !== 'paid') return;
+      const createdAt = p.created_date ? new Date(p.created_date) : null;
+      // 该用户的付款时间点：per_user_payments 或 shipped_date
+      const pay = (p.per_user_payments || []).find(f => f.user_email === targetEmail);
+      const paidAt = pay?.paid_at ? new Date(pay.paid_at)
+        : (p.admin_confirmed_payment && p.shipped_date ? new Date(p.shipped_date) : null);
+      if (createdAt && paidAt && paidAt > createdAt) {
+        const hours = (paidAt.getTime() - createdAt.getTime()) / 3600000;
+        if (hours >= 0 && hours < 8760) shippingPayTimes.push(hours);
+      }
+    });
+
+    const avgGoodsPayHours = goodsPayTimes.length > 0
+      ? Math.round(goodsPayTimes.reduce((a, b) => a + b, 0) / goodsPayTimes.length * 10) / 10
+      : null;
+    const avgShippingPayHours = shippingPayTimes.length > 0
+      ? Math.round(shippingPayTimes.reduce((a, b) => a + b, 0) / shippingPayTimes.length * 10) / 10
+      : null;
     
     // Build timeline events (enhanced for phase 2)
     const timelineEvents = [];
@@ -446,6 +489,10 @@ Deno.serve(async (req) => {
         pendingShipOrderCount: pendingShipOrders.length,
         lastOrderDate,
         unpaidAmountJpy: outstandingJpy,
+        // 付款时间统计
+        avgGoodsPayHours,
+        avgShippingPayHours,
+        timeoutCancelledCount,
         // 累计利润 = 实收 − 商品货款成本（下单时填写的日元货款）− 退款，仅管理员可见
         ...(isAdminViewer ? { totalProfitJpy: receivedJpy - goodsJpyActive - totalRefundJpy } : {}),
       },
