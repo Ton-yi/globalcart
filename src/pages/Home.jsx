@@ -14,6 +14,7 @@ import { getStatusLabel, getStatusColor } from "@/lib/orderStatus";
 // Badge/getStatus* kept for future use; LogisticsStatusBoard handles order display now
 import QuickActionsGrid from "@/components/home/QuickActionsGrid";
 import LogisticsStatusBoard from "@/components/home/LogisticsStatusBoard";
+import AnnouncementTicker from "@/components/home/AnnouncementTicker";
 
 export default function Home() {
   const { user } = useCurrentUser();
@@ -21,6 +22,7 @@ export default function Home() {
   const [recentOrders, setRecentOrders] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
   const [quickActions, setQuickActions] = useState([]);
+  const [boardConfig, setBoardConfig] = useState({});
 
   useEffect(() => {
     const t = timePage('Home');
@@ -31,14 +33,18 @@ export default function Home() {
       t.timeCall('getTenantSettings', () => base44.functions.invoke('getTenantSettings', {})
         .then(r => {
           const raw = r.data?.raw || [];
-          const item = raw.find(s => s.key === 'home_quick_actions');
-          if (item?.value) { try { return JSON.parse(item.value); } catch { return []; } }
-          return [];
-        }).catch(() => [])),
-    ]).then(([orders, ann, actions]) => {
+          const parseJson = (key) => {
+            const item = raw.find(s => s.key === key);
+            if (item?.value) { try { return JSON.parse(item.value); } catch { return null; } }
+            return null;
+          };
+          return { quickActions: parseJson('home_quick_actions') || [], boardConfig: parseJson('home_status_board') || {} };
+        }).catch(() => ({ quickActions: [], boardConfig: {} }))),
+    ]).then(([orders, ann, { quickActions, boardConfig }]) => {
       setRecentOrders(orders);
       setAnnouncements(ann);
-      setQuickActions(actions);
+      setQuickActions(quickActions);
+      setBoardConfig(boardConfig);
       t.done('data ready');
     });
   }, []);
@@ -52,21 +58,9 @@ export default function Home() {
 
   return (
     <div className="space-y-8">
-      {/* Announcements */}
+      {/* Announcements - scrolling ticker */}
       {announcements.length > 0 && (
-        <div className="space-y-2">
-          {announcements.map(a => (
-            <div key={a.id} className={`flex items-start gap-2 p-3 rounded-lg border text-sm ${
-              a.type === "urgent" ? "bg-red-50 border-red-200 text-red-800" :
-              a.type === "warning" ? "bg-yellow-50 border-yellow-200 text-yellow-800" :
-              a.type === "success" ? "bg-green-50 border-green-200 text-green-800" :
-              "bg-blue-50 border-blue-200 text-blue-800"
-            }`}>
-              <Bell className="w-4 h-4 mt-0.5 flex-shrink-0" />
-              <div><strong>{a.title}</strong>：{a.content}</div>
-            </div>
-          ))}
-        </div>
+        <AnnouncementTicker announcements={announcements} />
       )}
 
       {/* Hero */}
@@ -125,7 +119,7 @@ export default function Home() {
 
       {/* Logistics Status Board */}
       {user && recentOrders.length > 0 && (
-        <LogisticsStatusBoard orders={recentOrders} />
+        <LogisticsStatusBoard orders={recentOrders} boardConfig={boardConfig} />
       )}
     </div>
   );

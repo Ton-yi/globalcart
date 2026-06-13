@@ -142,7 +142,11 @@ export default function QuickActionsManager({ settings, onReload }) {
             <Save className="w-3 h-3 mr-1" />{saved ? "已保存 ✓" : saving ? "保存中..." : "保存"}
           </Button>
         </div>
-        <p className="text-xs text-gray-400 mt-1">配置主页快捷入口。图标可选 Lucide 图标或直接输入 Emoji（如 🚀 📦 🎁）。</p>
+        <p className="text-xs text-gray-400 mt-1">
+          配置主页快捷入口。图标可选 Lucide 图标或直接输入 Emoji（如 🚀 📦 🎁）。
+          跳转路径：填写页面名如 <code className="bg-gray-100 px-1 rounded">SubmitOrder</code> 自动拼接站内路由；
+          或填写完整网址如 <code className="bg-gray-100 px-1 rounded">https://example.com</code> 将在新标签页打开。
+        </p>
       </CardHeader>
       <CardContent className="space-y-3">
         {actions.length === 0 && (
