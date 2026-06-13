@@ -893,7 +893,10 @@ export default function AdminSettings() {
       )}
 
       {activeTab === "reminder_texts" && !loading && (
-        <NotificationTextSettings settings={settings} onReload={load} />
+        <div className="space-y-5">
+          <NotificationTextSettings settings={settings} onReload={load} />
+          <CustomsHazmatTextEditor settings={flat} onReload={load} />
+        </div>
       )}
       {activeTab === "reminder_texts" && loading && <p className="text-gray-400 text-sm">加载中...</p>}
 
@@ -921,7 +924,7 @@ export default function AdminSettings() {
           {(() => {
             const filteredGrouped = Object.fromEntries(
               Object.entries(grouped)
-                .filter(([cat]) => cat !== "fee" && cat !== "shipping")
+                .filter(([cat]) => cat !== "fee" && cat !== "shipping" && cat !== "payment")
                 .filter(([, items]) => items.length > 0)
             );
             return Object.entries(filteredGrouped).map(([cat, items]) => {
@@ -968,8 +971,7 @@ export default function AdminSettings() {
 
           {/* allow_user_customs_declaration 已移至「发货设置」tab */}
 
-          {/* ─── Customs Hazmat Text ─── */}
-          <CustomsHazmatTextEditor settings={flat} onReload={load} />
+          {/* Customs Hazmat Text moved to reminder_texts tab */}
 
           {/* Hero / Steps / QuickActions / LogisticsBoard → moved to "主页自定义" tab */}
 
