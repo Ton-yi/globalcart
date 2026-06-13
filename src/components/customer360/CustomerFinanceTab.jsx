@@ -14,6 +14,14 @@ const LEDGER_TYPE_LABELS = {
   refund: { label: "退款", color: "bg-red-100 text-red-700" },
 };
 
+// 支付方式标签（用于偏好统计显示）
+const PAYMENT_MODE_LABELS = {
+  fullpay_once: "一次付款",
+  credit: "记账",
+  deferred: "后付款",
+  prepay: "预付款",
+};
+
 export default function CustomerFinanceTab({ finance, userProfile, formatCurrency, formatDate, isOwnProfile = false }) {
   const f = finance || {};
   const [creditAppEnabled, setCreditAppEnabled] = useState(false);

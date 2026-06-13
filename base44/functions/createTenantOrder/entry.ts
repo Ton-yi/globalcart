@@ -167,6 +167,26 @@ Deno.serve(async (req) => {
     // Enforce payment mode consistency with prepay setting
     if (body.payment_mode === 'prepay' && !prepayEnabled) body.payment_mode = 'fullpay_once';
 
+    // fullpay_once: 全额一次性付款（货款 + 服务费 + 预估运费）
+    // 预估运费已包含在 pre_shipment.fullpay_once_config.estimated_shipping_fee_jpy 中，但
+    // order_stage_payment_jpy 只记录下单阶段收取的部分（货款 + 服务费 + 预估运费）
+    // 下单时若存在 fullpay_once_config，则以 total_paid_jpy 作为下单阶段收款额
+    if (body.payment_mode === 'fullpay_once') {
+      const fpo = body.pre_shipment?.fullpay_once_config || body.fullpay_once_config;
+      if (fpo && fpo.estimated_shipping_fee_jpy > 0) {
+        const fullpayTotal = Math.round((parseFloat(body.estimated_jpy) || 0) + (parseFloat(body.service_fee_amount) || 0) + (parseFloat(fpo.estimated_shipping_fee_jpy) || 0));
+        body.order_stage_payment_jpy = fullpayTotal;
+        body.paid_amount = fullpayTotal;
+        // 同步到 fullpay_once_config.total_paid_jpy（服务端权威值）
+        if (fpo) {
+          fpo.total_paid_jpy = fullpayTotal;
+          fpo.settlement_status = fpo.settlement_status || 'pending';
+          if (body.pre_shipment?.fullpay_once_config) body.pre_shipment.fullpay_once_config = fpo;
+          if (body.fullpay_once_config) body.fullpay_once_config = fpo;
+        }
+      }
+    }
+
     // Remaining goods balance (尾款) after prepayment — collected at the shipping-fee stage.
     // Only applies to prepay mode with partial prepayment; fullpay/credit/deferred have no balance.
     const hasBalance = body.payment_mode === 'prepay' && prepayRate < 1;

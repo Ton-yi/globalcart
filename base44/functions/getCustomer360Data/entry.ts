@@ -174,8 +174,10 @@ Deno.serve(async (req) => {
         shippingMethods[order.shipping_method] = (shippingMethods[order.shipping_method] || 0) + 1;
       }
       
-      // Payment methods（记账订单统一计为 credit）
-      const pmKey = order.payment_mode === 'credit' ? 'credit' : order.payment_method;
+      // Payment methods（记账订单统一计为 credit；一次付款订单统一计为 fullpay_once）
+      const pmKey = order.payment_mode === 'credit' ? 'credit'
+        : order.payment_mode === 'fullpay_once' ? 'fullpay_once'
+        : order.payment_method;
       if (pmKey) {
         paymentMethods[pmKey] = (paymentMethods[pmKey] || 0) + 1;
       }
@@ -223,7 +225,22 @@ Deno.serve(async (req) => {
     const postShipmentPaidCount = userPools.filter(p => p.post_shipment_paid).length;
     (allOrders || []).forEach(o => {
       const paid = o.order_stage_payment_jpy || o.paid_amount || 0;
-      if (paid > 0) ledger.push({ date: o.submit_date || o.created_date, type: 'order_payment', title: `订单收款 ${o.order_number || ''}`, amount_jpy: paid });
+      const modeLabel = o.payment_mode === 'fullpay_once' ? '（一次付款）'
+        : o.payment_mode === 'credit' ? '（记账）'
+        : o.payment_mode === 'deferred' ? '（后付款）' : '';
+      if (paid > 0) ledger.push({ date: o.submit_date || o.created_date, type: 'order_payment', title: `订单收款${modeLabel} ${o.order_number || ''}`, amount_jpy: paid });
+      // fullpay_once 结算退款/补款单独显示
+      if (o.payment_mode === 'fullpay_once') {
+        const fpo = o.fullpay_once_config || o.pre_shipment?.fullpay_once_config;
+        if (fpo && fpo.settlement_status === 'settled' && fpo.fee_difference_jpy) {
+          const diff = parseFloat(fpo.fee_difference_jpy) || 0;
+          if (diff < 0) {
+            ledger.push({ date: fpo.settled_at || o.updated_date, type: 'refund', title: `一次付款运费退差 ${o.order_number || ''}`, amount_jpy: diff });
+          } else if (diff > 0) {
+            ledger.push({ date: fpo.settled_at || o.updated_date, type: 'order_payment', title: `一次付款运费补差 ${o.order_number || ''}`, amount_jpy: diff });
+          }
+        }
+      }
       if ((o.refund_amount_jpy || 0) > 0) ledger.push({ date: o.updated_date || o.created_date, type: 'refund', title: `退款 ${o.order_number || ''}`, amount_jpy: -o.refund_amount_jpy });
     });
     ledger.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());

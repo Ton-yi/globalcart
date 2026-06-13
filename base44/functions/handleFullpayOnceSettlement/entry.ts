@@ -115,6 +115,7 @@ Deno.serve(async (req) => {
 
     if (action === 'settle') {
       // Mark the order as settled after user pays supplement or receives refund
+      // Also update refund_amount_jpy if there was a refund, or order_stage_payment_jpy if supplement was collected
       const order = await base44.asServiceRole.entities.Order.get(order_id);
       
       if (!order || order.payment_mode !== 'fullpay_once') {
@@ -126,17 +127,35 @@ Deno.serve(async (req) => {
         return Response.json({ error: 'One-time payment config not found' }, { status: 404 });
       }
 
-      const updatedOrder = await base44.asServiceRole.entities.Order.update(order_id, {
+      const feeDiff = config.fee_difference_jpy || 0;
+      const settleUpdates = {
         fullpay_once_config: {
           ...config,
           settlement_status: 'settled',
           settled_at: new Date().toISOString()
         }
-      });
+      };
+
+      // 退款情形：实际运费 < 预估运费 → 记录退款金额
+      if (feeDiff < 0) {
+        const existingRefund = parseFloat(order.refund_amount_jpy) || 0;
+        settleUpdates.refund_amount_jpy = Math.round(existingRefund + Math.abs(feeDiff));
+      }
+      // 补款情形：实际运费 > 预估运费 → 累加到 order_stage_payment_jpy（下单阶段总收款）
+      if (feeDiff > 0) {
+        const existing = parseFloat(order.order_stage_payment_jpy) || parseFloat(order.paid_amount) || 0;
+        const newTotal = Math.round(existing + feeDiff);
+        settleUpdates.order_stage_payment_jpy = newTotal;
+        settleUpdates.paid_amount = newTotal;
+      }
+
+      const updatedOrder = await base44.asServiceRole.entities.Order.update(order_id, settleUpdates);
 
       return Response.json({
         success: true,
-        order: updatedOrder
+        order: updatedOrder,
+        fee_difference_jpy: feeDiff,
+        settlement_type: feeDiff < 0 ? 'refund' : feeDiff > 0 ? 'supplement' : 'exact',
       });
     }
 
