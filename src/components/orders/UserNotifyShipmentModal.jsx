@@ -317,7 +317,7 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
       setCurrentUser(u);
       const [prefs, allLocs, usersRes, allPools, addons, tMethods, shippingMethods] = await Promise.all([
         userPrefApi.list({ user_email: u.email }),
-        tenantEntity.list('TransitLocation'),
+        tenantEntity.list('TransitLocation', { is_active: true }),
         base44.functions.invoke("listNonAdminUsers", {}).catch(() => ({ data: { users: [] } })),
         fetchShippingPools(),
         tenantEntity.list('AddonOption', { addon_type: "shipping", is_active: true }),
