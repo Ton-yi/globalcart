@@ -77,22 +77,42 @@ export function mergeNavTree(configTree, group) {
   if (!Array.isArray(configTree) || !configTree.length) {
     return JSON.parse(JSON.stringify(DEFAULT_NAV_TREES[group]));
   }
-  const present = collectKeys(configTree);
-  const additions = [];
-  const addMissing = (nodes) => {
-    for (const n of nodes) {
+  const merged = JSON.parse(JSON.stringify(configTree));
+  const present = collectKeys(merged);
+
+  const findNode = (nodes, key) => {
+    for (const n of nodes || []) {
+      if (n.key === key) return n;
+      const f = findNode(n.children, key);
+      if (f) return f;
+    }
+    return null;
+  };
+
+  // 缺失的注册项按默认树的位置插入：父级已存在则挂到父级子节点末尾，否则追加到根级
+  const addMissing = (defNodes, defParentKey) => {
+    for (const n of defNodes) {
       if (!present.has(n.key)) {
-        additions.push({
+        const newNode = {
           key: n.key,
           children: (n.children || []).filter(c => !present.has(c.key)).map(c => ({ key: c.key })),
-        });
+        };
+        newNode.children.forEach(c => present.add(c.key));
+        present.add(n.key);
+        const parent = defParentKey ? findNode(merged, defParentKey) : null;
+        if (parent) {
+          parent.children = parent.children || [];
+          parent.children.push(newNode);
+        } else {
+          merged.push(newNode);
+        }
       } else if (n.children) {
-        addMissing(n.children);
+        addMissing(n.children, n.key);
       }
     }
   };
-  addMissing(DEFAULT_NAV_TREES[group]);
-  return [...JSON.parse(JSON.stringify(configTree)), ...additions];
+  addMissing(DEFAULT_NAV_TREES[group], null);
+  return merged;
 }
 
 /**
