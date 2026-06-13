@@ -535,12 +535,16 @@ export default function MyOrders() {
                       <span className="w-1.5 h-1.5 rounded-full bg-red-500" />新消息
                     </span>
                   )}
-                  {order.order_status === "payment_pending" && order.payment_status !== "awaiting_confirmation" && (
-                    <Button size="sm" className="h-7 text-xs bg-red-600 hover:bg-red-700"
-                      onClick={() => setPaymentOrder(order)}>
-                      <CreditCard className="w-3 h-3 mr-1" />付款
-                    </Button>
-                  )}
+                  {order.order_status === "payment_pending" && order.payment_status !== "awaiting_confirmation" && (() => {
+                    const fpo = order.pre_shipment?.fullpay_once_config;
+                    const isFullPayOnce = fpo && (fpo.user_estimated_weight_g || 0) > 0 && (fpo.estimated_shipping_fee_jpy || 0) > 0;
+                    return (
+                      <Button size="sm" className="h-7 text-xs bg-red-600 hover:bg-red-700"
+                        onClick={() => setPaymentOrder(order)}>
+                        <CreditCard className="w-3 h-3 mr-1" />{isFullPayOnce ? "一次付货款和运费" : "付款"}
+                      </Button>
+                    );
+                  })()}
                   {order.order_status === "in_warehouse" && canNotifyShipment && (
                     <Button size="sm" className="h-7 text-xs bg-teal-600 hover:bg-teal-700"
                       onClick={() => setShipmentOrder(order)}>
