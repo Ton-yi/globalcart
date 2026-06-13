@@ -121,6 +121,7 @@ const ADMIN_NAV = [
     { key: "order_management_split", label: "订单管理" },
   ]},
   { key: "payment_methods", label: "支付方式" },
+  { key: "addons", label: "增值服务" },
   { key: "fee_rules", label: "服务费规则" },
   { key: "member_tiers", label: "会员阶级" },
   { group: "发货设置", children: [
@@ -497,6 +498,25 @@ export default function AdminSettings() {
         </div>
       )}
       {activeTab === "order_management_split" && loading && <p className="text-gray-400 text-sm">加载中...</p>}
+
+      {activeTab === "addons" && (
+        <Card className="border-gray-200">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+              <Star className="w-4 h-4 text-yellow-500" />增值服务设置
+            </CardTitle>
+            <p className="text-xs text-gray-400 mt-1">下单增值服务在提交订单时展示，发货增值服务在通知发货/预出货时展示。</p>
+          </CardHeader>
+          <CardContent>
+            <AddonManager
+              addons={addons} editingAddon={editingAddon} editAddonFields={editAddonFields}
+              newAddon={newAddon} setEditAddonFields={setEditAddonFields} setNewAddon={setNewAddon}
+              onEdit={handleEditAddon} onCancelEdit={() => setEditingAddon(null)}
+              onSave={handleSaveAddon} onToggle={toggleAddon} onDelete={handleDeleteAddon} onAdd={handleAddAddon}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       {activeTab === "fee_rules" && (
         <div className="space-y-4">
@@ -974,23 +994,6 @@ export default function AdminSettings() {
           {/* Customs Hazmat Text moved to reminder_texts tab */}
 
           {/* Hero / Steps / QuickActions / LogisticsBoard → moved to "主页自定义" tab */}
-
-          {/* ─── Addon Options ─── */}
-          <Card className="border-gray-200">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                <Star className="w-4 h-4 text-yellow-500" />增值服务设置
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <AddonManager
-                addons={addons} editingAddon={editingAddon} editAddonFields={editAddonFields}
-                newAddon={newAddon} setEditAddonFields={setEditAddonFields} setNewAddon={setNewAddon}
-                onEdit={handleEditAddon} onCancelEdit={() => setEditingAddon(null)}
-                onSave={handleSaveAddon} onToggle={toggleAddon} onDelete={handleDeleteAddon} onAdd={handleAddAddon}
-              />
-            </CardContent>
-          </Card>
 
           {/* ─── Add New Setting ─── */}
           <Card className="border-dashed border-gray-300">
