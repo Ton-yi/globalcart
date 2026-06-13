@@ -23,6 +23,7 @@ import OrderDetailDrawer from "@/components/orders/OrderDetailDrawer";
 import OfficialPoolUserGroupModal from "@/components/shippingpool/OfficialPoolUserGroupModal";
 import OfficialPoolOrderDetailModal from "@/components/shippingpool/OfficialPoolOrderDetailModal";
 import CreateOfficialPoolModal from "@/components/shippingpool/CreateOfficialPoolModal";
+import PendingPoolManager from "@/components/shippingpool/PendingPoolManager";
 import PrivacyAwareOrderInfo from "@/components/shippingpool/PrivacyAwareOrderInfo";
 
 const STATUS_COLORS = {
@@ -379,9 +380,12 @@ function AddToStagingModal({ allOrders, officialPools, currentUser, stagedOrderI
   const [selectedPoolId, setSelectedPoolId] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  // Only show real (non-pending) pools as join targets
+  const realOfficialPools = officialPools.filter(p => !p.is_pending_pool);
+
   const eligibleOrders = allOrders.filter(o => {
     if (["shipped", "delivered", "cancelled"].includes(o.order_status)) return false;
-    const alreadyInPool = officialPools.some(p => (p.order_ids || []).includes(o.id));
+    const alreadyInPool = officialPools.some(p => !p.is_pending_pool && (p.order_ids || []).includes(o.id));
     if (alreadyInPool) return false;
     if (stagedOrderIds.has(o.id)) return false;
     return true;
@@ -429,7 +433,7 @@ function AddToStagingModal({ allOrders, officialPools, currentUser, stagedOrderI
                 <input type="radio" checked={!selectedPoolId} onChange={() => setSelectedPoolId("")} className="accent-blue-600" />
                 <span className="text-sm text-gray-600">未指定（入库后由系统自动匹配）</span>
               </label>
-              {officialPools.map(pool => (
+              {realOfficialPools.map(pool => (
                 <label key={pool.id} className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${selectedPoolId === pool.id ? "border-blue-300 bg-blue-50" : "border-gray-200 hover:bg-gray-50"}`}>
                   <input type="radio" checked={selectedPoolId === pool.id} onChange={() => setSelectedPoolId(pool.id)} className="accent-blue-600" />
                   <div className="flex-1 min-w-0">
@@ -649,16 +653,8 @@ function PoolColumn({ pool, allOrders, currentUser, isAdmin, shippingAddons, sav
 // The staging column acts as the "待拼邮" (pending pool) area — it collects all
 // pre-shipment orders awaiting admin assignment to an official pool.
 // Orders are grouped by intended shipping method for easy batch assignment.
-function StagingColumn({ allOrders, officialPools, pendingPools, currentUser, isAdmin, onRefresh, selectedIds, onSelectItem, shippingMethods }) {
+function StagingColumn({ allOrders, officialPools, pendingPools, currentUser, isAdmin, onRefresh, onManagePendingPools, selectedIds, onSelectItem, shippingMethods }) {
   const [addModalOpen, setAddModalOpen] = useState(false);
-  const [creatingStaging, setCreatingStaging] = useState(false);
-
-  const handleCreateStagingPool = async () => {
-    setCreatingStaging(true);
-    await base44.functions.invoke('managePendingPools', { action: 'create', title: '待拼邮' });
-    setCreatingStaging(false);
-    onRefresh?.();
-  };
 
   // Collect order IDs already in real (non-pending) official pools
   const realPoolOrderIds = new Set(officialPools.filter(p => !p.is_pending_pool).flatMap(p => p.order_ids || []));
@@ -744,6 +740,9 @@ function StagingColumn({ allOrders, officialPools, pendingPools, currentUser, is
           <div className="flex items-center gap-1 flex-shrink-0">
             <button onClick={() => setAddModalOpen(true)} className="p-1.5 rounded-lg hover:bg-amber-50 text-gray-400 hover:text-amber-600 transition-colors" title="手动添加任务">
               <Plus className="w-3.5 h-3.5" />
+            </button>
+            <button onClick={onManagePendingPools} className="p-1.5 rounded-lg hover:bg-amber-50 text-gray-400 hover:text-amber-600 transition-colors" title="管理待拼邮看板">
+              <Settings2 className="w-3.5 h-3.5" />
             </button>
           </div>
         )}
@@ -842,22 +841,12 @@ function StagingColumn({ allOrders, officialPools, pendingPools, currentUser, is
       </Droppable>
 
       {isAdmin && (
-        <div className="mt-2 space-y-1.5">
-          <button
-            onClick={() => setAddModalOpen(true)}
-            className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border-2 border-dashed border-amber-200 text-xs text-amber-500 hover:border-amber-400 hover:bg-amber-50 transition-colors"
-          >
-            <Plus className="w-3.5 h-3.5" />手动添加待拼邮任务
-          </button>
-          <button
-            onClick={handleCreateStagingPool}
-            disabled={creatingStaging}
-            className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border-2 border-dashed border-gray-200 text-xs text-gray-400 hover:border-blue-300 hover:text-blue-500 hover:bg-blue-50 transition-colors disabled:opacity-50"
-          >
-            {creatingStaging ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
-            新增待拼邮看板
-          </button>
-        </div>
+        <button
+          onClick={() => setAddModalOpen(true)}
+          className="mt-2 w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border-2 border-dashed border-amber-200 text-xs text-amber-500 hover:border-amber-400 hover:bg-amber-50 transition-colors"
+        >
+          <Plus className="w-3.5 h-3.5" />手动添加待拼邮任务
+        </button>
       )}
 
       {addModalOpen && (
@@ -880,6 +869,7 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
   const [savedAddresses, setSavedAddresses] = useState([]);
   const [userPrefsMap, setUserPrefsMap] = useState({});
   const [createPoolOpen, setCreatePoolOpen] = useState(false);
+  const [pendingPoolManagerOpen, setPendingPoolManagerOpen] = useState(false);
   // Separate pending pools (staging) from regular official pool columns
   const pendingPools = pools.filter(p => p.is_pending_pool);
   // Regular (non-pending) pools only for kanban columns
@@ -1201,6 +1191,7 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
               currentUser={currentUser}
               isAdmin={isAdmin}
               onRefresh={onRefresh}
+              onManagePendingPools={isAdmin ? () => setPendingPoolManagerOpen(true) : undefined}
               selectedIds={selectedIds}
               onSelectItem={handleSelectItem}
               shippingMethods={shippingMethods || []}
@@ -1290,6 +1281,14 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
         <CreateOfficialPoolModal
           onClose={() => setCreatePoolOpen(false)}
           onSuccess={() => { setCreatePoolOpen(false); onRefresh?.(); }}
+        />
+      )}
+
+      {pendingPoolManagerOpen && (
+        <PendingPoolManager
+          shippingMethods={shippingMethods || []}
+          onClose={() => setPendingPoolManagerOpen(false)}
+          onSuccess={() => { setPendingPoolManagerOpen(false); onRefresh?.(); }}
         />
       )}
 
