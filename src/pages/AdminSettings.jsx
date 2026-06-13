@@ -86,6 +86,8 @@ const DEFAULT_SETTINGS = [
   { key: "official_pool_merge_same_user", value: "true", description: "自动合并同用户同预出货状态的订单", category: "shipping" },
   { key: "official_pool_separate_columns", value: "false", description: "分离多个预发货订单列", category: "shipping" },
   { key: "official_pool_separate_methods", value: "", description: "单独成列的运输方式（逗号分隔）", category: "shipping" },
+  { key: "fullpay_once_enabled", value: "false", description: "开启一次付款功能", category: "shipping" },
+  { key: "fullpay_once_tolerance_jpy", value: "500", description: "一次付款运费误差容忍值（JPY）", category: "shipping" },
   { key: "site_name", value: "同一物流", description: "网站名称", category: "general" },
   { key: "contact_email", value: "", description: "联系邮箱", category: "general" },
   { key: "whatsapp", value: "", description: "WhatsApp", category: "general" },
@@ -759,15 +761,6 @@ export default function AdminSettings() {
 
               {/* 拆单设置已移至「订单管理」tab 的拆单区块 */}
 
-              {/* pre_shipment_enabled */}
-              <div className="flex items-center justify-between pb-1 border-b border-gray-100">
-                <div>
-                  <Label className="text-sm">开启预出货功能</Label>
-                  <p className="text-xs text-gray-400 mt-0.5">开启后，用户提交订单后可预先填写发货信息，入库后自动生成发货申请</p>
-                </div>
-                <Toggle enabled={getBoolDefaultTrue('pre_shipment_enabled')} onToggle={() => toggleSettingDefaultTrue('pre_shipment_enabled')} color="bg-purple-500" />
-              </div>
-
               {/* allow_user_pool_edit_instant */}
               <div className="flex items-center justify-between pb-1 border-b border-gray-100">
                 <div>
@@ -785,27 +778,6 @@ export default function AdminSettings() {
                 </div>
                 <Toggle enabled={getBool('transit_location_fee_split_enabled')} onToggle={() => toggleSetting('transit_location_fee_split_enabled')} color="bg-blue-600" />
               </div>
-
-              {/* pre_shipment_allowed_methods (sub-option) */}
-              {getBoolDefaultTrue('pre_shipment_enabled') && (
-                <div className="pb-1 border-b border-gray-100 pl-4 border-l-2 border-l-purple-200">
-                  <Label className="text-sm text-purple-700">允许的预出货发货方式</Label>
-                  <p className="text-xs text-gray-400 mt-0.5 mb-2">填写允许用户预出货的运输方式代码，用逗号分隔（如：EMS,SAL,DHL）。留空则允许所有运输方式</p>
-                  <Input
-                    className="h-8 text-sm"
-                    placeholder="EMS,SAL,DHL,FedEx"
-                    value={getVal('pre_shipment_allowed_methods') || ''}
-                    onChange={e => updateSettingByKey('pre_shipment_allowed_methods', e.target.value, '允许的预出货运输方式（逗号分隔，留空=全部）', 'shipping')}
-                  />
-                  {(getVal('pre_shipment_allowed_methods') || '') && (
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {(getVal('pre_shipment_allowed_methods') || '').split(',').map(m => m.trim()).filter(Boolean).map((m, i) => (
-                        <Badge key={i} variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">{m}</Badge>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
 
               {/* Official Pool Pre-Shipment Settings */}
               {(() => {

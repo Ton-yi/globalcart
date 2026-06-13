@@ -89,6 +89,7 @@ export default function AdminShippingInfoPanel({
   allowShipWithoutPaymentSingle = false,
   allowShipWithoutPaymentUserPool = false,
   allowShipWithoutPaymentOfficialPool = false,
+  fullpayOnceToleranceJpy = 500,
   transitLocations = [],
   transitShippingMethods = [],
   userProfileMap = {},
@@ -1253,13 +1254,26 @@ export default function AdminShippingInfoPanel({
                         <CreditCard className="w-3.5 h-3.5 mr-1.5" />
                         {saving ? "处理中..." : diff > 0 ? "通知用户补交差额" : "确认退款差额，进入待发货"}
                       </Button>
-                      {diff > 0 && (
-                        <Button size="sm" className="bg-green-600 hover:bg-green-700 w-full"
-                          onClick={handleNotifyFeeUpdateAndReadyToShip} disabled={saving}>
-                          <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
-                          {saving ? "处理中..." : "通知用户补交差额 + 进入待发货"}
-                        </Button>
-                      )}
+                      {diff > 0 && (() => {
+                        // 「先发货后补款」按钮：仅在实际运费超出预付金额的差值在容差范围内时可用
+                        // fullpayOnceToleranceJpy = 0 表示完全禁用此功能
+                        const withinTolerance = fullpayOnceToleranceJpy > 0 && diff <= fullpayOnceToleranceJpy;
+                        return (
+                          <Button size="sm" className="bg-green-600 hover:bg-green-700 w-full"
+                            onClick={handleNotifyFeeUpdateAndReadyToShip}
+                            disabled={saving || !withinTolerance}
+                            title={!withinTolerance
+                              ? fullpayOnceToleranceJpy === 0
+                                ? "已禁用（容差设为 0）"
+                                : `差额 ¥${diff} 超出允许容差 ¥${fullpayOnceToleranceJpy} JPY`
+                              : ""}>
+                            <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
+                            {saving ? "处理中..." : withinTolerance
+                              ? `通知用户补交差额 + 进入待发货`
+                              : `差额超出容差（¥${fullpayOnceToleranceJpy} JPY），不可用`}
+                          </Button>
+                        );
+                      })()}
                     </div>
                   );
                 })()}
@@ -1316,13 +1330,24 @@ export default function AdminShippingInfoPanel({
                         <CreditCard className="w-3.5 h-3.5 mr-1.5" />
                         {saving ? "处理中..." : diff > 0 ? "通知用户补交差额" : "确认退款差额，更新金额"}
                       </Button>
-                      {diff > 0 && (
-                        <Button size="sm" className="bg-green-600 hover:bg-green-700 w-full"
-                          onClick={handleNotifyFeeUpdateAndReadyToShip} disabled={saving}>
-                          <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
-                          {saving ? "处理中..." : "通知用户补交差额 + 进入待发货"}
-                        </Button>
-                      )}
+                      {diff > 0 && (() => {
+                        const withinTolerance = fullpayOnceToleranceJpy > 0 && diff <= fullpayOnceToleranceJpy;
+                        return (
+                          <Button size="sm" className="bg-green-600 hover:bg-green-700 w-full"
+                            onClick={handleNotifyFeeUpdateAndReadyToShip}
+                            disabled={saving || !withinTolerance}
+                            title={!withinTolerance
+                              ? fullpayOnceToleranceJpy === 0
+                                ? "已禁用（容差设为 0）"
+                                : `差额 ¥${diff} 超出允许容差 ¥${fullpayOnceToleranceJpy} JPY`
+                              : ""}>
+                            <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
+                            {saving ? "处理中..." : withinTolerance
+                              ? `通知用户补交差额 + 进入待发货`
+                              : `差额超出容差（¥${fullpayOnceToleranceJpy} JPY），不可用`}
+                          </Button>
+                        );
+                      })()}
                     </div>
                   );
                 })()}

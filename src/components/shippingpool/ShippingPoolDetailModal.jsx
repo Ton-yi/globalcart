@@ -30,7 +30,7 @@ import UserGroupHeader from "@/components/shippingpool/UserGroupHeader";
 import { STATUS_CONFIG, METHOD_LABELS } from "./shippingFormConstants";
 import AddressForm, { EMPTY_ADDRESS_FORM, serializeAddressToText, isAddressFormValid } from "@/components/common/AddressForm";
 
-export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, currentUser, pendingEditRequests: initialPendingEdits = [], boxTemplates = [], shippingMethods = [], defaultPackingFeeSingle = 0, defaultPackingFeeConsolidation = 0, allowReadyToShipWithoutPayment = false, allowShipWithoutPaymentSingle = false, allowShipWithoutPaymentUserPool = false, allowShipWithoutPaymentOfficialPool = false, transitLocations = [], transitShippingMethods = [], availableAddons = [], allowUserRewarehouse = false, onClose, onUpdated }) {
+export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, currentUser, pendingEditRequests: initialPendingEdits = [], boxTemplates = [], shippingMethods = [], defaultPackingFeeSingle = 0, defaultPackingFeeConsolidation = 0, allowReadyToShipWithoutPayment = false, allowShipWithoutPaymentSingle = false, allowShipWithoutPaymentUserPool = false, allowShipWithoutPaymentOfficialPool = false, fullpayOnceToleranceJpy = 500, transitLocations = [], transitShippingMethods = [], availableAddons = [], allowUserRewarehouse = false, onClose, onUpdated }) {
   const { can } = usePermissions();
   const canDeleteShipment = isAdmin && can("shipping:delete_shipment_request");
   const canEditPackage = isAdmin && can("shipping:edit_package");
@@ -1502,6 +1502,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
             allowShipWithoutPaymentSingle={allowShipWithoutPaymentSingle}
             allowShipWithoutPaymentUserPool={allowShipWithoutPaymentUserPool}
             allowShipWithoutPaymentOfficialPool={allowShipWithoutPaymentOfficialPool}
+            fullpayOnceToleranceJpy={fullpayOnceToleranceJpy}
             transitLocations={transitLocations}
             transitShippingMethods={transitShippingMethods}
             userProfileMap={tenantUserMap}

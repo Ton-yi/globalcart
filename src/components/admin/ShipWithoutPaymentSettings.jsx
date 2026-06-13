@@ -2,6 +2,7 @@ import { useState } from "react";
 import { tenantEntity } from "@/lib/tenantApi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Save, Truck } from "lucide-react";
 
@@ -28,6 +29,9 @@ const DESCRIPTIONS = {
   allow_ship_without_payment_single: '单独发货 - 允许未付款直接发货',
   allow_ship_without_payment_user_pool: '用户拼邮发货 - 允许未付款直接发货',
   allow_ship_without_payment_official_pool: '官方拼邮发货 - 允许未付款直接发货',
+  pre_shipment_enabled: '开启预出货功能',
+  fullpay_once_enabled: '开启一次付款功能',
+  fullpay_once_tolerance_jpy: '一次付款运费误差容忍值（JPY）',
 };
 
 /**
@@ -35,13 +39,27 @@ const DESCRIPTIONS = {
  */
 export default function ShipWithoutPaymentSettings({ settings, onReload }) {
   const get = (key) => settings.find(s => s.key === key);
+
+  const BOOL_KEYS = ['allow_ship_without_payment', ...SUB_KEYS.map(s => s.key), 'pre_shipment_enabled', 'fullpay_once_enabled'];
+
   const [values, setValues] = useState(() => {
     const init = {};
-    ['allow_ship_without_payment', ...SUB_KEYS.map(s => s.key)].forEach(k => {
-      init[k] = get(k)?.value === 'true';
+    BOOL_KEYS.forEach(k => {
+      // pre_shipment_enabled defaults to true when missing
+      if (k === 'pre_shipment_enabled') {
+        init[k] = get(k)?.value !== 'false';
+      } else {
+        init[k] = get(k)?.value === 'true';
+      }
     });
     return init;
   });
+
+  const [toleranceInput, setToleranceInput] = useState(() => {
+    const raw = get('fullpay_once_tolerance_jpy')?.value;
+    return raw !== undefined && raw !== null ? raw : '500';
+  });
+
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -49,13 +67,24 @@ export default function ShipWithoutPaymentSettings({ settings, onReload }) {
 
   const handleSave = async () => {
     setSaving(true);
-    await Promise.all(Object.entries(values).map(([key, enabled]) => {
+    const ops = BOOL_KEYS.map(key => {
       const s = get(key);
-      const value = enabled ? 'true' : 'false';
+      const value = values[key] ? 'true' : 'false';
       return s?.id
         ? tenantEntity.update('SiteSettings', s.id, { value })
         : tenantEntity.create('SiteSettings', { key, value, description: DESCRIPTIONS[key] || '', category: 'shipping' });
-    }));
+    });
+
+    // Save tolerance value
+    const tolSetting = get('fullpay_once_tolerance_jpy');
+    const tolValue = String(parseInt(toleranceInput, 10) || 0);
+    ops.push(
+      tolSetting?.id
+        ? tenantEntity.update('SiteSettings', tolSetting.id, { value: tolValue })
+        : tenantEntity.create('SiteSettings', { key: 'fullpay_once_tolerance_jpy', value: tolValue, description: DESCRIPTIONS.fullpay_once_tolerance_jpy, category: 'shipping' })
+    );
+
+    await Promise.all(ops);
     await onReload();
     setSaving(false);
     setSaved(true);
@@ -63,43 +92,104 @@ export default function ShipWithoutPaymentSettings({ settings, onReload }) {
   };
 
   return (
-    <Card className="border-blue-200">
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
+    <div className="space-y-4">
+      {/* Pre-shipment & fullpay settings */}
+      <Card className="border-purple-200">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+              <Truck className="w-4 h-4 text-purple-500" />预出货功能设置
+            </CardTitle>
+            <Button size="sm" className="h-7 text-xs bg-purple-600 hover:bg-purple-700" onClick={handleSave} disabled={saving}>
+              <Save className="w-3 h-3 mr-1" />{saved ? "已保存 ✓" : saving ? "保存中..." : "保存"}
+            </Button>
+          </div>
+          <p className="text-xs text-gray-400 mt-1">用户提交订单后预先填写发货信息，入库后自动生成发货申请</p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {/* pre_shipment_enabled */}
+          <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+            <div>
+              <Label className="text-sm">开启预出货功能</Label>
+              <p className="text-xs text-gray-400 mt-0.5">开启后，用户提交订单后可预先填写发货信息，入库后自动生成发货申请</p>
+            </div>
+            <Toggle enabled={values.pre_shipment_enabled} onToggle={() => toggle('pre_shipment_enabled')} color="bg-purple-500" />
+          </div>
+
+          {/* fullpay_once_enabled */}
+          {values.pre_shipment_enabled && (
+            <div className="pl-4 border-l-2 border-l-purple-200 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-sm text-purple-700">开启一次付款功能</Label>
+                  <p className="text-xs text-gray-400 mt-0.5">开启后，用户在预出货时可选择一次性预付商品费 + 估算运费，入库后直接进入发货流程</p>
+                </div>
+                <Toggle enabled={values.fullpay_once_enabled} onToggle={() => toggle('fullpay_once_enabled')} color="bg-purple-500" size="sm" />
+              </div>
+
+              {/* tolerance sub-option */}
+              {values.fullpay_once_enabled && (
+                <div className="pl-4 border-l-2 border-l-purple-100 space-y-2">
+                  <div>
+                    <Label className="text-xs text-gray-600">允许的运费误差（JPY）</Label>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      当实际运费超出用户预付运费的金额在此范围内时，管理员操作面板中的「先发货后补款」按钮将可用，管理员可选择先发货再请求用户补差款。
+                      设为 0 表示完全禁用该功能（按钮始终不可用）。
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min="0"
+                      step="100"
+                      className="h-8 text-sm w-32"
+                      value={toleranceInput}
+                      onChange={e => setToleranceInput(e.target.value)}
+                    />
+                    <span className="text-xs text-gray-500">JPY</span>
+                  </div>
+                  <p className="text-xs text-gray-400">默认值：500 JPY</p>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Ship without payment */}
+      <Card className="border-blue-200">
+        <CardHeader className="pb-3">
           <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
             <Truck className="w-4 h-4 text-blue-500" />发货付款控制
           </CardTitle>
-          <Button size="sm" className="h-7 text-xs bg-blue-600 hover:bg-blue-700" onClick={handleSave} disabled={saving}>
-            <Save className="w-3 h-3 mr-1" />{saved ? "已保存 ✓" : saving ? "保存中..." : "保存"}
-          </Button>
-        </div>
-        <p className="text-xs text-gray-400 mt-1">控制管理员是否可在用户未付运费的情况下直接发货</p>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="flex items-center justify-between pb-2 border-b border-gray-100">
-          <div>
-            <Label className="text-sm">允许未付款时进入已发货状态</Label>
-            <p className="text-xs text-gray-400 mt-0.5">开启后，管理员可在用户未付款情况下直接将发货申请进入已发货状态</p>
+          <p className="text-xs text-gray-400 mt-1">控制管理员是否可在用户未付运费的情况下直接发货</p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+            <div>
+              <Label className="text-sm">允许未付款时进入已发货状态</Label>
+              <p className="text-xs text-gray-400 mt-0.5">开启后，管理员可在用户未付款情况下直接将发货申请进入已发货状态</p>
+            </div>
+            <Toggle enabled={values.allow_ship_without_payment} onToggle={() => toggle('allow_ship_without_payment')} color="bg-blue-600" />
           </div>
-          <Toggle enabled={values.allow_ship_without_payment} onToggle={() => toggle('allow_ship_without_payment')} color="bg-blue-600" />
-        </div>
-        {values.allow_ship_without_payment && (
-          <div className="pl-4 space-y-2 border-l-2 border-l-blue-200">
-            {SUB_KEYS.map(({ key, label, desc }) => (
-              <div key={key} className="flex items-center justify-between">
-                <div>
-                  <Label className="text-xs text-gray-600">{label}</Label>
-                  <p className="text-xs text-gray-400 mt-0.5">{desc}</p>
+          {values.allow_ship_without_payment && (
+            <div className="pl-4 space-y-2 border-l-2 border-l-blue-200">
+              {SUB_KEYS.map(({ key, label, desc }) => (
+                <div key={key} className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-xs text-gray-600">{label}</Label>
+                    <p className="text-xs text-gray-400 mt-0.5">{desc}</p>
+                  </div>
+                  <Toggle enabled={values[key]} onToggle={() => toggle(key)} color="bg-blue-600" size="sm" />
                 </div>
-                <Toggle enabled={values[key]} onToggle={() => toggle(key)} color="bg-blue-600" size="sm" />
-              </div>
-            ))}
+              ))}
+            </div>
+          )}
+          <div className="bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 text-xs text-amber-700">
+            注意：跳过付款发货的订单不会标记货款尾款已结算，且该发货池收入不计入财务报表（未实际收款）。
           </div>
-        )}
-        <div className="bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 text-xs text-amber-700">
-          注意：跳过付款发货的订单不会标记货款尾款已结算，且该发货池收入不计入财务报表（未实际收款）。
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
