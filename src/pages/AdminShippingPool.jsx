@@ -147,9 +147,10 @@ export default function AdminShippingPool() {
     (statusFilter === "all" || p.status === statusFilter)
   );
 
-  // "官方拼邮看板" tab: admin-created consolidation pools + pending pools (both shown in kanban)
+  // "官方拼邮看板" tab: admin-created consolidation pools only (staging is derived from allOrders)
   const officialConsPools = pools.filter(p =>
-    (p.is_pending_pool || (p.consolidation_type && p.consolidation_type !== "" && !!p.is_admin_created)) &&
+    p.consolidation_type && p.consolidation_type !== "" && !!p.is_admin_created &&
+    !p.is_pending_pool &&
     !p.is_archived
   );
 

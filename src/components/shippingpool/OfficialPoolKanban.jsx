@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import {
   Users, Package, Scale, Plus, ChevronDown, ChevronRight,
   Settings2, Edit2, MapPin, Layers, Calendar, ArrowUpDown,
-  Inbox, GripVertical, Clock, Warehouse, ArrowRight, X, CheckCircle2, Loader2, CheckSquare, MessageSquare, User, AlertCircle
+  Inbox, GripVertical, Clock, Warehouse, ArrowRight, X, CheckCircle2, Loader2, CheckSquare, MessageSquare, User
 } from "lucide-react";
 import JoinOfficialPoolModal from "@/components/shippingpool/JoinOfficialPoolModal";
 import OrderDetailDrawer from "@/components/orders/OrderDetailDrawer";
@@ -24,7 +24,6 @@ import OfficialPoolUserGroupModal from "@/components/shippingpool/OfficialPoolUs
 import OfficialPoolOrderDetailModal from "@/components/shippingpool/OfficialPoolOrderDetailModal";
 import CreateOfficialPoolModal from "@/components/shippingpool/CreateOfficialPoolModal";
 import PrivacyAwareOrderInfo from "@/components/shippingpool/PrivacyAwareOrderInfo";
-import PendingPoolManager from "@/components/shippingpool/PendingPoolManager";
 
 const STATUS_COLORS = {
   pending: "bg-gray-100 text-gray-600",
@@ -479,126 +478,6 @@ function AddToStagingModal({ allOrders, officialPools, currentUser, stagedOrderI
   );
 }
 
-// ─── Pending Pool Column (Droppable) ─────────────────────────────────────────
-function PendingPoolColumn({ pool, allOrders, currentUser, isAdmin, shippingAddons, savedAddresses, onPoolClick, onRefresh, columnDragHandleProps, selectedIds, onSelectItem, lastDropTarget, userPrefsMap, shippingMethods }) {
-  const perUserGroups = pool.per_user_groups || [];
-  const totalWeight = pool.total_weight_g || 0;
-
-  const enhancedGroups = (perUserGroups || []).map(group => {
-    if (group.user_name) return group;
-    const firstOrderId = (group.order_entries || [])[0]?.order_id;
-    const firstOrder = firstOrderId ? allOrders.find(o => o.id === firstOrderId) : null;
-    return { ...group, user_name: group.user_name || firstOrder?.user_name || group.user_email?.split('@')[0] || '未知用户' };
-  });
-
-  const draggableItems = [];
-  enhancedGroups.forEach(group => {
-    const entries = group.order_entries || [];
-    if (entries.length >= 2) {
-      draggableItems.push({ type: "group", group });
-    } else if (entries.length === 1) {
-      draggableItems.push({ type: "entry", group, entry: entries[0] });
-    }
-  });
-
-  const methodName = pool.pending_pool_shipping_method
-    ? (shippingMethods || []).find(m => (m.code || m.id) === pool.pending_pool_shipping_method)?.name || pool.pending_pool_shipping_method
-    : null;
-
-  return (
-    <div className="flex-shrink-0 w-72 flex flex-col">
-      <div
-        className="flex items-center justify-between px-3 py-3 bg-white border-2 border-dashed border-amber-300 bg-amber-50/40 rounded-xl cursor-pointer hover:border-amber-400 hover:bg-amber-50/60 transition-colors mb-2"
-        onClick={() => onPoolClick?.(pool)}
-        {...(columnDragHandleProps || {})}
-      >
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <Inbox className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
-            <span className="text-sm font-semibold text-gray-800 truncate">{pool.title || "待拼邮"}</span>
-            <span className="text-xs font-mono text-gray-400">{pool.pool_code}</span>
-            {methodName ? (
-              <Badge className="text-xs bg-blue-100 text-blue-700">{methodName}</Badge>
-            ) : (
-              <Badge className="text-xs bg-amber-100 text-amber-700">默认</Badge>
-            )}
-          </div>
-          <div className="flex items-center gap-3 mt-1 text-xs text-gray-400 ml-5">
-            <span className="flex items-center gap-1"><Users className="w-3 h-3" />{perUserGroups.length}人</span>
-            <span className="flex items-center gap-1"><Scale className="w-3 h-3" />{totalWeight}g</span>
-          </div>
-        </div>
-      </div>
-
-      <Droppable droppableId={`pool-${pool.id}`}>
-        {(provided, snapshot) => (
-          <div
-            ref={provided.innerRef}
-            {...provided.droppableProps}
-            className={`flex-1 space-y-2 min-h-[60px] rounded-xl transition-colors p-1 ${snapshot.isDraggingOver ? "bg-amber-50 ring-2 ring-amber-200" : ""}`}
-          >
-            {draggableItems.map(({ type, group, entry }, idx) => {
-              if (type === "group") {
-                const groupDraggableId = `pool-${pool.id}-group-${group.user_email}`;
-                const shouldExpand = lastDropTarget?.userEmail === group.user_email;
-                return (
-                  <DraggableGroupCard
-                    key={group.user_email}
-                    draggableId={groupDraggableId}
-                    index={idx}
-                    group={group}
-                    allOrders={allOrders}
-                    pool={pool}
-                    currentUser={currentUser}
-                    isAdmin={isAdmin}
-                    shippingAddons={shippingAddons}
-                    savedAddresses={savedAddresses}
-                    onRefresh={onRefresh}
-                    selected={selectedIds?.has(groupDraggableId)}
-                    onSelect={onSelectItem}
-                    selectedIds={selectedIds}
-                    onSelectEntry={onSelectItem}
-                    autoExpandOnDrop={shouldExpand}
-                    userPrefsMap={userPrefsMap}
-                  />
-                );
-              } else {
-                const entryDraggableId = `pool-${pool.id}-order-${entry.order_id}`;
-                const order = allOrders.find(o => o.id === entry.order_id) || null;
-                return (
-                  <DraggableTaskCard
-                    key={entry.order_id}
-                    draggableId={entryDraggableId}
-                    index={idx}
-                    entry={entry}
-                    order={order}
-                    group={group}
-                    pool={pool}
-                    currentUser={currentUser}
-                    isAdmin={isAdmin}
-                    shippingAddons={shippingAddons}
-                    savedAddresses={savedAddresses}
-                    onRefresh={onRefresh}
-                    selected={selectedIds?.has(entryDraggableId)}
-                    onSelect={onSelectItem}
-                    userPrefsMap={userPrefsMap}
-                  />
-                );
-              }
-            })}
-            {draggableItems.length === 0 && !snapshot.isDraggingOver && (
-              <div className="text-center py-6 text-gray-300 text-xs">
-                <Inbox className="w-6 h-6 mx-auto mb-1 opacity-30" />等待预出货订单匹配
-              </div>
-            )}
-            {provided.placeholder}
-          </div>
-        )}
-      </Droppable>
-    </div>
-  );
-}
-
 // ─── Pool Column (Droppable) ──────────────────────────────────────────────────
 function PoolColumn({ pool, allOrders, currentUser, isAdmin, shippingAddons, savedAddresses, onPoolClick, onRefresh, columnDragHandleProps, selectedIds, onSelectItem, lastDropTarget, userPrefsMap }) {
   const [joinOpen, setJoinOpen] = useState(false);
@@ -901,9 +780,7 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
   const [savedAddresses, setSavedAddresses] = useState([]);
   const [userPrefsMap, setUserPrefsMap] = useState({});
   const [createPoolOpen, setCreatePoolOpen] = useState(false);
-  const [pendingPoolManagerOpen, setPendingPoolManagerOpen] = useState(false);
-  // Separate pending pools from regular pools
-  const pendingPools = pools.filter(p => p.is_pending_pool);
+  // Regular (non-pending) pools only for kanban columns
   const regularPools = pools.filter(p => !p.is_pending_pool);
   const [columnOrder, setColumnOrder] = useState(() => regularPools.map(p => p.id));
   // Multi-select: Set of draggableIds
@@ -999,20 +876,6 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
     const dstId = destination.droppableId;
     const destPool = dstId.startsWith("pool-") ? pools.find(p => p.id === dstId.slice("pool-".length)) : null;
     const toStaging = dstId === "staging";
-    const destIsPendingPool = destPool?.is_pending_pool === true;
-    const destIsRegularPool = destPool && !destPool.is_pending_pool;
-
-    // Pre-shipment orders (from staging or pending pools) CANNOT be dragged into regular pools.
-    // They can only be moved between pending pools (future feature) or to staging.
-    if (destIsRegularPool) {
-      const srcIsPendingPool = source.droppableId.startsWith("pool-") &&
-        pools.find(p => p.id === source.droppableId.slice("pool-".length))?.is_pending_pool === true;
-      const srcIsStaging = source.droppableId === "staging";
-      if (srcIsPendingPool || srcIsStaging) {
-        // Block: pre-shipment orders cannot enter regular pools via drag before warehouse entry
-        return;
-      }
-    }
 
     // Collect all draggableIds to move
     const idsToMove = selectedIds.has(draggableId) ? [...selectedIds] : [draggableId];
@@ -1189,43 +1052,7 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
     });
   };
 
-  if (pendingPools.length === 0 && regularPools.length === 0) {
-    return (
-      <>
-        {isAdmin ? (
-          <div className="flex flex-col items-center py-16 text-gray-400 gap-3">
-            <Layers className="w-12 h-12 mb-1 opacity-20" />
-            <p className="text-sm">尚无待拼邮看板及官方拼邮需求</p>
-            <div className="flex items-center gap-2 bg-yellow-50 border border-yellow-200 rounded-xl px-4 py-2.5 text-sm text-yellow-700">
-              <AlertCircle className="w-4 h-4 flex-shrink-0" />
-              <span>请先创建待拼邮看板，以便接收预出货订单。</span>
-              <Button variant="outline" size="sm" className="ml-2 h-6 text-xs border-yellow-400 text-yellow-700 hover:bg-yellow-100" onClick={() => setPendingPoolManagerOpen(true)}>
-                立即创建
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center py-20 text-gray-400">
-            <Layers className="w-12 h-12 mb-3 opacity-20" />
-            <p className="text-sm">暂无官方拼邮需求</p>
-          </div>
-        )}
-        {pendingPoolManagerOpen && (
-          <PendingPoolManager
-            shippingMethods={shippingMethods || []}
-            onClose={() => setPendingPoolManagerOpen(false)}
-            onSuccess={() => { setPendingPoolManagerOpen(false); onRefresh?.(); }}
-          />
-        )}
-        {createPoolOpen && (
-          <CreateOfficialPoolModal
-            onClose={() => setCreatePoolOpen(false)}
-            onSuccess={() => { setCreatePoolOpen(false); onRefresh?.(); }}
-          />
-        )}
-      </>
-    );
-  }
+  // No empty-state early return — StagingColumn always renders as the left-most column
 
   return (
     <>
@@ -1239,17 +1066,6 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
             </div>
           )}
           
-          {/* Warning if no pending pools */}
-          {isAdmin && pendingPools.length === 0 && (
-            <div className="flex items-center gap-2 bg-yellow-50 border border-yellow-200 rounded-xl px-4 py-2.5 text-sm text-yellow-700">
-              <AlertCircle className="w-4 h-4 flex-shrink-0" />
-              <span>尚无待拼邮看板，预出货订单将无法自动匹配。请先创建待拼邮看板。</span>
-              <Button variant="outline" size="sm" className="ml-auto h-6 text-xs border-yellow-400 text-yellow-700 hover:bg-yellow-100" onClick={() => setPendingPoolManagerOpen(true)}>
-                立即创建
-              </Button>
-            </div>
-          )}
-
           {selectedIds.size > 0 && (
             <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-xl px-4 py-2.5 text-sm text-blue-700">
               <CheckSquare className="w-4 h-4" />
@@ -1269,45 +1085,6 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
               selectedIds={selectedIds}
               onSelectItem={handleSelectItem}
             />
-
-            {/* Pending Pool columns — fixed before regular pools, not draggable by column */}
-            {pendingPools.map(pool => (
-              <PendingPoolColumn
-                key={pool.id}
-                pool={pool}
-                allOrders={allOrders}
-                currentUser={currentUser}
-                isAdmin={isAdmin}
-                shippingAddons={shippingAddons}
-                savedAddresses={savedAddresses}
-                onPoolClick={onPoolClick}
-                onRefresh={onRefresh}
-                selectedIds={selectedIds}
-                onSelectItem={handleSelectItem}
-                lastDropTarget={lastDropTarget}
-                userPrefsMap={userPrefsMap}
-                shippingMethods={shippingMethods || []}
-              />
-            ))}
-
-            {/* Manage Pending Pools button — between pending and regular pools */}
-            {isAdmin && (
-              <div className="flex-shrink-0 flex items-stretch group/pendingbtn">
-                <button
-                  onClick={() => setPendingPoolManagerOpen(true)}
-                  title="管理待拼邮看板"
-                  className="flex flex-col items-center justify-center w-6 relative"
-                >
-                  <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-px bg-transparent group-hover/pendingbtn:bg-amber-400 transition-colors duration-200" />
-                  <span
-                    className="relative z-10 bg-white border border-transparent group-hover/pendingbtn:border-amber-400 group-hover/pendingbtn:text-amber-600 text-transparent transition-colors duration-200 rounded-full px-1.5 py-0.5 whitespace-nowrap select-none"
-                    style={{ writingMode: "vertical-lr", fontSize: "10px", letterSpacing: "0.05em" }}
-                  >
-                    管理待拼邮
-                  </span>
-                </button>
-              </div>
-            )}
 
             {/* Add section button */}
             {isAdmin && (
@@ -1396,13 +1173,6 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
         />
       )}
 
-      {pendingPoolManagerOpen && (
-        <PendingPoolManager
-          shippingMethods={shippingMethods || []}
-          onClose={() => setPendingPoolManagerOpen(false)}
-          onSuccess={() => { setPendingPoolManagerOpen(false); onRefresh?.(); }}
-        />
-      )}
     </>
   );
 }
