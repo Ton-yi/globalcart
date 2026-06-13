@@ -210,8 +210,8 @@ export default function ShippingPool() {
       setSelectedAddressId("");
     }
     // Auto-fill shipping method from user preference
-    if (pref?.preferred_shipping_method) {
-      f("shipping_method", pref.preferred_shipping_method);
+    if (pref?.preferred_shipping) {
+      f("shipping_method", pref.preferred_shipping);
     }
     // Auto-fill transit final address from preference
     if (pref?.default_address_id && addrs.find(a => a.id === pref.default_address_id)) {
