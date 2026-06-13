@@ -651,6 +651,14 @@ function PoolColumn({ pool, allOrders, currentUser, isAdmin, shippingAddons, sav
 // Orders are grouped by intended shipping method for easy batch assignment.
 function StagingColumn({ allOrders, officialPools, pendingPools, currentUser, isAdmin, onRefresh, selectedIds, onSelectItem, shippingMethods }) {
   const [addModalOpen, setAddModalOpen] = useState(false);
+  const [creatingStaging, setCreatingStaging] = useState(false);
+
+  const handleCreateStagingPool = async () => {
+    setCreatingStaging(true);
+    await base44.functions.invoke('managePendingPools', { action: 'create', title: '待拼邮' });
+    setCreatingStaging(false);
+    onRefresh?.();
+  };
 
   // Collect order IDs already in real (non-pending) official pools
   const realPoolOrderIds = new Set(officialPools.filter(p => !p.is_pending_pool).flatMap(p => p.order_ids || []));
@@ -733,9 +741,11 @@ function StagingColumn({ allOrders, officialPools, pendingPools, currentUser, is
           <p className="text-xs text-gray-400 mt-0.5 ml-6">预出货订单按运输方式分组，拖入右侧拼邮列完成分配</p>
         </div>
         {isAdmin && (
-          <button onClick={() => setAddModalOpen(true)} className="p-1.5 rounded-lg hover:bg-amber-50 text-gray-400 hover:text-amber-600 transition-colors flex-shrink-0" title="手动添加任务">
-            <Plus className="w-3.5 h-3.5" />
-          </button>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <button onClick={() => setAddModalOpen(true)} className="p-1.5 rounded-lg hover:bg-amber-50 text-gray-400 hover:text-amber-600 transition-colors" title="手动添加任务">
+              <Plus className="w-3.5 h-3.5" />
+            </button>
+          </div>
         )}
       </div>
 
@@ -832,12 +842,22 @@ function StagingColumn({ allOrders, officialPools, pendingPools, currentUser, is
       </Droppable>
 
       {isAdmin && (
-        <button
-          onClick={() => setAddModalOpen(true)}
-          className="mt-2 w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border-2 border-dashed border-amber-200 text-xs text-amber-500 hover:border-amber-400 hover:bg-amber-50 transition-colors"
-        >
-          <Plus className="w-3.5 h-3.5" />手动添加待拼邮任务
-        </button>
+        <div className="mt-2 space-y-1.5">
+          <button
+            onClick={() => setAddModalOpen(true)}
+            className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border-2 border-dashed border-amber-200 text-xs text-amber-500 hover:border-amber-400 hover:bg-amber-50 transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5" />手动添加待拼邮任务
+          </button>
+          <button
+            onClick={handleCreateStagingPool}
+            disabled={creatingStaging}
+            className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border-2 border-dashed border-gray-200 text-xs text-gray-400 hover:border-blue-300 hover:text-blue-500 hover:bg-blue-50 transition-colors disabled:opacity-50"
+          >
+            {creatingStaging ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+            新增待拼邮看板
+          </button>
+        </div>
       )}
 
       {addModalOpen && (
