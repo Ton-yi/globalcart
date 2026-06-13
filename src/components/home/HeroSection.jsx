@@ -29,6 +29,8 @@ function resolveAudienceConfig(config, user) {
   if (!config) return null;
   // 新版多受众结构：只要有 guest/user/admin 任意一个 key 就视为新版
   if ("guest" in config || "user" in config || "admin" in config) {
+    // 统一模式：所有人看同一套
+    if (config.unified) return config.guest || {};
     const isAdmin = user?.role === "admin" || user?.role === "tenant_admin" || user?.role === "platform_admin" || user?.role === "staff";
     if (isAdmin && config.admin) return config.admin;
     if (user && config.user) return config.user;

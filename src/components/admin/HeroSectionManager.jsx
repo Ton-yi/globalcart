@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Save, Layout, Upload, X, ImageIcon, Plus, Trash2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { DEFAULT_HERO } from "@/components/home/HeroSection";
 
 const VARIANT_OPTIONS = [
@@ -365,20 +366,21 @@ function AudiencePanel({ form, onChange }) {
   );
 }
 
-// 新版数据结构：{ guest: {...}, user: {...}, admin: {...} }
+// 新版数据结构：{ unified?: bool, guest: {...}, user: {...}, admin: {...} }
 // 兼容旧版（直接是 DEFAULT_HERO 展开的对象）
 function migrateConfig(raw) {
-  if (!raw) return { guest: { ...DEFAULT_HERO }, user: { ...DEFAULT_HERO }, admin: { ...DEFAULT_HERO } };
+  if (!raw) return { unified: true, guest: { ...DEFAULT_HERO }, user: { ...DEFAULT_HERO }, admin: { ...DEFAULT_HERO } };
   // 如果已经是新版结构
-  if (raw.guest || raw.user || raw.admin) {
+  if ("guest" in raw || "user" in raw || "admin" in raw) {
     return {
+      unified: raw.unified ?? false,
       guest: { ...DEFAULT_HERO, ...(raw.guest || {}) },
       user:  { ...DEFAULT_HERO, ...(raw.user  || {}) },
       admin: { ...DEFAULT_HERO, ...(raw.admin || {}) },
     };
   }
-  // 旧版：单一配置，迁移到三个 audience 共用
-  return { guest: { ...DEFAULT_HERO, ...raw }, user: { ...DEFAULT_HERO, ...raw }, admin: { ...DEFAULT_HERO, ...raw } };
+  // 旧版：单一配置，迁移为 unified 模式
+  return { unified: true, guest: { ...DEFAULT_HERO, ...raw }, user: { ...DEFAULT_HERO, ...raw }, admin: { ...DEFAULT_HERO, ...raw } };
 }
 
 // ─── Main Manager ─────────────────────────────────────────
@@ -397,8 +399,12 @@ export default function HeroSectionManager({ settings, onReload }) {
 
   const handleSave = async () => {
     setSaving(true);
+    // 若统一模式，保存前将 guest 配置同步到 user 和 admin
+    const saveForm = form.unified
+      ? { ...form, user: { ...form.guest }, admin: { ...form.guest } }
+      : form;
     const existing = (settings || []).find(s => s.key === "home_hero_config");
-    const value = JSON.stringify(form);
+    const value = JSON.stringify(saveForm);
     if (existing?.id) {
       await tenantEntity.update("SiteSettings", existing.id, { value });
     } else {
@@ -408,6 +414,15 @@ export default function HeroSectionManager({ settings, onReload }) {
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+  };
+
+  const toggleUnified = (checked) => {
+    if (checked) {
+      // 切换为统一模式：将 guest 配置复制到其他受众
+      setForm(prev => ({ ...prev, unified: true, user: { ...prev.guest }, admin: { ...prev.guest } }));
+    } else {
+      setForm(prev => ({ ...prev, unified: false }));
+    }
   };
 
   return (
@@ -423,28 +438,50 @@ export default function HeroSectionManager({ settings, onReload }) {
           </Button>
         </div>
         <p className="text-xs text-gray-400 mt-1">为不同受众单独配置横幅外观，留空则使用租户品牌默认值。</p>
+
+        {/* 统一模式开关 */}
+        <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-100">
+          <Checkbox
+            id="unified-mode"
+            checked={!!form.unified}
+            onCheckedChange={toggleUnified}
+          />
+          <label htmlFor="unified-mode" className="text-xs text-gray-600 cursor-pointer select-none">
+            所有用户显示同一套配置（不区分登录状态与角色）
+          </label>
+        </div>
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {/* Audience tabs */}
-        <div className="flex gap-1 border-b border-gray-200 pb-0">
-          {AUDIENCE_TABS.map(tab => (
-            <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-              className={`px-3 py-1.5 text-xs rounded-t-lg transition-colors -mb-px border ${
-                activeTab === tab.key
-                  ? "bg-white border-gray-200 border-b-white text-purple-700 font-semibold"
-                  : "text-gray-500 border-transparent hover:text-gray-700"
-              }`}>
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        {/* Audience tabs — 仅分离模式显示 */}
+        {!form.unified && (
+          <div className="flex gap-1 border-b border-gray-200 pb-0">
+            {AUDIENCE_TABS.map(tab => (
+              <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+                className={`px-3 py-1.5 text-xs rounded-t-lg transition-colors -mb-px border ${
+                  activeTab === tab.key
+                    ? "bg-white border-gray-200 border-b-white text-purple-700 font-semibold"
+                    : "text-gray-500 border-transparent hover:text-gray-700"
+                }`}>
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        )}
 
-        <AudiencePanel
-          key={activeTab}
-          form={form[activeTab]}
-          onChange={val => setForm(prev => ({ ...prev, [activeTab]: val }))}
-        />
+        {form.unified ? (
+          <AudiencePanel
+            key="unified"
+            form={form.guest}
+            onChange={val => setForm(prev => ({ ...prev, guest: val }))}
+          />
+        ) : (
+          <AudiencePanel
+            key={activeTab}
+            form={form[activeTab]}
+            onChange={val => setForm(prev => ({ ...prev, [activeTab]: val }))}
+          />
+        )}
       </CardContent>
     </Card>
   );
