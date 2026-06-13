@@ -60,9 +60,10 @@ Deno.serve(async (req) => {
 
         // 获取租户所有订单和发货池
         const baseFilter = tenantId ? { tenant_id: tenantId } : {};
-        const [allOrders, allPools] = await Promise.all([
+        const [allOrders, allPools, allTierPurchases] = await Promise.all([
             base44.asServiceRole.entities.Order.filter(baseFilter),
             base44.asServiceRole.entities.ShippingPool.filter(baseFilter),
+            base44.asServiceRole.entities.TierPurchase.filter({ ...baseFilter, status: 'paid' }),
         ]);
 
         // 过滤出目标日期的数据
@@ -76,7 +77,13 @@ Deno.serve(async (req) => {
             return d >= start && d <= end;
         });
 
-        if (orders.length === 0 && pools.length === 0) {
+        // 当日已支付的会员阶级购买（按支付完成时间归属）
+        const tierPurchases = allTierPurchases.filter(tp => {
+            const d = new Date(tp.paid_at || tp.created_date);
+            return d >= start && d <= end;
+        });
+
+        if (orders.length === 0 && pools.length === 0 && tierPurchases.length === 0) {
             console.log(`[aggregateDailyReport] no data for ${targetDate}`);
             return Response.json({ 
                 success: true, 
@@ -86,7 +93,7 @@ Deno.serve(async (req) => {
         }
 
         // 计算汇总数据
-        const summary = calculateDailySummary(orders, pools, allOrders);
+        const summary = calculateDailySummary(orders, pools, allOrders, tierPurchases);
 
         // 检查是否已存在该日期的汇总
         const existing = await base44.asServiceRole.entities.DailyReportSummary.filter({
@@ -113,6 +120,8 @@ Deno.serve(async (req) => {
             box_charge_jpy: summary.box_charge_jpy,
             box_actual_cost_jpy: summary.box_actual_cost_jpy,
             shipping_stage_profit_jpy: summary.shipping_stage_profit_jpy,
+            tier_purchase_revenue_jpy: summary.tier_purchase_revenue_jpy,
+            tier_purchase_count: summary.tier_purchase_count,
             total_profit_jpy: summary.total_profit_jpy,
             unpaid_amount_jpy: summary.unpaid_amount_jpy,
             pending_payment_count: summary.pending_payment_count,
@@ -152,7 +161,7 @@ Deno.serve(async (req) => {
 /**
  * 计算每日汇总数据
  */
-function calculateDailySummary(orders, pools, allOrders) {
+function calculateDailySummary(orders, pools, allOrders, tierPurchases = []) {
     const summary = {
         order_count: orders.length,
         customer_count: 0,
@@ -169,6 +178,8 @@ function calculateDailySummary(orders, pools, allOrders) {
         box_charge_jpy: 0,
         box_actual_cost_jpy: 0,
         shipping_stage_profit_jpy: 0,
+        tier_purchase_revenue_jpy: 0,
+        tier_purchase_count: 0,
         total_profit_jpy: 0,
         unpaid_amount_jpy: 0,
         pending_payment_count: 0,
@@ -261,8 +272,14 @@ function calculateDailySummary(orders, pools, allOrders) {
         summary.shipping_stage_profit_jpy += income - intlCost - boxCost;
     });
 
+    // 会员阶级购买收入（已支付，纯收入无成本）
+    tierPurchases.forEach(tp => {
+        summary.tier_purchase_revenue_jpy += tp.payable_jpy || 0;
+        summary.tier_purchase_count += 1;
+    });
+
     // 总利润
-    summary.total_profit_jpy = summary.order_stage_profit_jpy + summary.shipping_stage_profit_jpy;
+    summary.total_profit_jpy = summary.order_stage_profit_jpy + summary.shipping_stage_profit_jpy + summary.tier_purchase_revenue_jpy;
 
     return summary;
 }

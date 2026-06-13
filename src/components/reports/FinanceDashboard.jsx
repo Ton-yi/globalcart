@@ -18,6 +18,7 @@ export default function FinanceDashboard({ data, dimension, compare }) {
         { name: '增值服务费',   value: summary.addon_revenue_jpy || 0 },
         { name: '尺寸追加费',   value: summary.item_size_extra_fee_jpy || 0 },
         { name: '外箱收费',     value: summary.box_charge_jpy || 0 },
+        { name: '会员阶级收入', value: summary.tier_purchase_revenue_jpy || 0 },
     ].filter(d => d.value > 0);
 
     const expensePieData = [
@@ -29,7 +30,8 @@ export default function FinanceDashboard({ data, dimension, compare }) {
 
     const totalIncome  = (summary.order_stage_payment_jpy || 0) + (summary.shipping_stage_income_jpy || 0)
         + (summary.addon_revenue_jpy || 0) + (summary.item_size_extra_fee_jpy || 0)
-        + (summary.box_charge_jpy || 0) + (summary.service_fee_revenue_jpy || 0);
+        + (summary.box_charge_jpy || 0) + (summary.service_fee_revenue_jpy || 0)
+        + (summary.tier_purchase_revenue_jpy || 0);
     const totalExpense = (summary.goods_cost_jpy || 0) + (summary.actual_international_shipping_cost_jpy || 0)
         + (summary.box_actual_cost_jpy || 0) + (summary.refund_amount_jpy || 0);
 
@@ -66,6 +68,9 @@ export default function FinanceDashboard({ data, dimension, compare }) {
                     subtitle={`收 ${formatCurrency(summary.box_charge_jpy)} - 成本 ${formatCurrency(summary.box_actual_cost_jpy)}`} />
                 <MetricCard title="综合总利润" value={summary.total_profit_jpy} icon={TrendingUp}
                     colorClass={summary.total_profit_jpy >= 0 ? 'text-green-600' : 'text-red-600'} />
+                <MetricCard title="会员阶级收入" value={summary.tier_purchase_revenue_jpy || 0} icon={DollarSign}
+                    subtitle={`已支付 ${summary.tier_purchase_count || 0} 笔`}
+                    description="用户购买/升级会员阶级的已支付金额（含支付宝自动确认与管理员手动确认）。" />
                 <MetricCard title="后付款笔数" value={summary.post_shipment_paid_count || 0} icon={Package} isCount
                     subtitle="发货后补付确认收款的发货池"
                     description="跳过付款先发货/待发货，事后确认收款的发货池数量。其收入在收款确认后才计入报表。" />
@@ -79,6 +84,7 @@ export default function FinanceDashboard({ data, dimension, compare }) {
                     { key: 'profit_jpy',      name: '利润',     color: '#10b981' },
                     { key: 'refund_jpy',      name: '退款',     color: '#ef4444' },
                     { key: 'service_fee_jpy', name: '服务费',   color: '#f59e0b' },
+                    { key: 'tier_revenue_jpy', name: '会员收入', color: '#8b5cf6' },
                 ]} />
 
             <TrendLineChart title="累计收入趋势"
@@ -104,7 +110,8 @@ export default function FinanceDashboard({ data, dimension, compare }) {
                     <p><strong>下单阶段利润</strong> = 用户下单实付金额 - 退款金额 - 日元货款成本</p>
                     <p><strong>运费结算利润</strong> = 运费收入 - 实际国际运费 - 外箱成本</p>
                     <p><strong>外箱利润</strong> = 外箱收取金额 - 外箱实际成本</p>
-                    <p><strong>综合总利润</strong> = 下单阶段利润 + 运费结算利润</p>
+                    <p><strong>综合总利润</strong> = 下单阶段利润 + 运费结算利润 + 会员阶级收入</p>
+                    <p><strong>会员阶级收入</strong> = 已支付的会员购买/升级差价（payable_jpy），按支付完成时间归属</p>
                     <p><strong>代购服务费</strong> = 订单计算快照中的 service_fee_amount（按规则自动计算）</p>
                 </CardContent>
             </Card>

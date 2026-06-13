@@ -110,13 +110,13 @@ function calcCumulative(series, fields) {
 }
 
 // ─── 时序构建 ─────────────────────────────────────────────────────────────
-function buildTimeSeries(orders, pools, granularity) {
+function buildTimeSeries(orders, pools, granularity, tierPurchases = []) {
     const buckets = {};
     const ensure = (key) => {
         if (!buckets[key]) buckets[key] = {
             period: key, order_count: 0, revenue_jpy: 0, profit_jpy: 0,
             refund_jpy: 0, shipping_income_jpy: 0, shipping_profit_jpy: 0,
-            addon_revenue_jpy: 0, service_fee_jpy: 0,
+            addon_revenue_jpy: 0, service_fee_jpy: 0, tier_revenue_jpy: 0,
         };
     };
 
@@ -150,6 +150,15 @@ function buildTimeSeries(orders, pools, granularity) {
         buckets[key].profit_jpy          += income - intlCost - boxCost;
     });
 
+    tierPurchases.forEach(tp => {
+        const key = getPeriodKey(tp.paid_at || tp.created_date, granularity);
+        ensure(key);
+        const amount = tp.payable_jpy || 0;
+        buckets[key].revenue_jpy      += amount;
+        buckets[key].profit_jpy       += amount;
+        buckets[key].tier_revenue_jpy += amount;
+    });
+
     let series = Object.values(buckets).sort((a, b) => a.period.localeCompare(b.period));
     series = calcMovingAverage(series, 'revenue_jpy', 7);
     series = calcMovingAverage(series, 'order_count', 7);
@@ -158,7 +167,7 @@ function buildTimeSeries(orders, pools, granularity) {
 }
 
 // ─── 汇总计算 ────────────────────────────────────────────────────────────
-function calcSummary(orders, pools, allPools, allOrders) {
+function calcSummary(orders, pools, allPools, allOrders, tierPurchases = []) {
     const s = {
         total_orders: orders.length,
         total_shipping_pools: pools.length,
@@ -178,6 +187,8 @@ function calcSummary(orders, pools, allPools, allOrders) {
         box_actual_cost_jpy: 0,
         box_profit_jpy: 0,
         shipping_stage_profit_jpy: 0,
+        tier_purchase_revenue_jpy: 0,
+        tier_purchase_count: 0,
         total_profit_jpy: 0,
         avg_order_value_jpy: 0,
         orders_missing_cost_data: 0,
@@ -290,7 +301,13 @@ function calcSummary(orders, pools, allPools, allOrders) {
         s.transit_location_distribution[transit] = (s.transit_location_distribution[transit] || 0) + 1;
     });
 
-    s.total_profit_jpy  = s.order_stage_profit_jpy + s.shipping_stage_profit_jpy;
+    // 会员阶级购买收入（已支付，纯收入无成本）
+    tierPurchases.forEach(tp => {
+        s.tier_purchase_revenue_jpy += tp.payable_jpy || 0;
+        s.tier_purchase_count += 1;
+    });
+
+    s.total_profit_jpy  = s.order_stage_profit_jpy + s.shipping_stage_profit_jpy + s.tier_purchase_revenue_jpy;
     s.avg_order_value_jpy = s.total_orders > 0
         ? Math.round(s.order_stage_payment_jpy / s.total_orders) : 0;
     s.avg_ship_days = shipDays.length > 0
@@ -368,13 +385,14 @@ function buildDimensions(orders, pools, dimension, allOrderMap) {
 }
 
 // ─── 对比期计算 ─────────────────────────────────────────────────────────────
-function calcCompareSummary(orders, pools) {
+function calcCompareSummary(orders, pools, tierPurchases = []) {
     const payment = orders.reduce((s, o) => s + (o.order_stage_payment_jpy || o.paid_amount || 0), 0);
     const refund  = orders.reduce((s, o) => s + (o.refund_amount_jpy || 0), 0);
     const cost    = orders.reduce((s, o) => s + (o.estimated_jpy || 0), 0);
     const income  = pools.reduce((s, p) => s + (p.payment_status === 'paid' ? (p.shipping_stage_income_jpy || p.shipping_fee_jpy || 0) : 0), 0);
     const intlCost = pools.reduce((s, p) => s + (p.actual_international_shipping_cost_jpy || 0), 0);
     const boxCost  = pools.reduce((s, p) => s + (p.box_actual_cost_jpy_snapshot || 0), 0);
+    const tierRevenue = tierPurchases.reduce((s, tp) => s + (tp.payable_jpy || 0), 0);
     return {
         total_orders: orders.length,
         total_customers: new Set(orders.map(o => o.user_email).filter(Boolean)).size,
@@ -384,7 +402,8 @@ function calcCompareSummary(orders, pools) {
         order_stage_profit_jpy: payment - refund - cost,
         shipping_stage_income_jpy: income,
         shipping_stage_profit_jpy: income - intlCost - boxCost,
-        total_profit_jpy: (payment - refund - cost) + (income - intlCost - boxCost),
+        tier_purchase_revenue_jpy: tierRevenue,
+        total_profit_jpy: (payment - refund - cost) + (income - intlCost - boxCost) + tierRevenue,
     };
 }
 
@@ -481,9 +500,10 @@ Deno.serve(async (req) => {
         }
 
         // 并行拉取全量数据
-        const [allOrders, allPools] = await Promise.all([
+        const [allOrders, allPools, allTierPurchases] = await Promise.all([
             base44.asServiceRole.entities.Order.filter(baseFilter),
             base44.asServiceRole.entities.ShippingPool.filter(baseFilter),
+            base44.asServiceRole.entities.TierPurchase.filter({ ...baseFilter, status: 'paid' }),
         ]);
 
         // 时间过滤 + 筛选条件
@@ -501,6 +521,12 @@ Deno.serve(async (req) => {
         
         const pools = allPools.filter(p => {
             const d = new Date(p.created_date);
+            return d >= start && d <= end;
+        });
+
+        // 已支付的会员阶级购买（按支付完成时间归属）
+        const tierPurchases = allTierPurchases.filter(tp => {
+            const d = new Date(tp.paid_at || tp.created_date);
             return d >= start && d <= end;
         });
 
@@ -534,6 +560,8 @@ Deno.serve(async (req) => {
                 box_actual_cost_jpy: 0,
                 box_profit_jpy: 0,
                 shipping_stage_profit_jpy: dailySummaries.reduce((s, d) => s + (d.shipping_stage_profit_jpy || 0), 0),
+                tier_purchase_revenue_jpy: dailySummaries.reduce((s, d) => s + (d.tier_purchase_revenue_jpy || 0), 0),
+                tier_purchase_count: dailySummaries.reduce((s, d) => s + (d.tier_purchase_count || 0), 0),
                 total_profit_jpy: dailySummaries.reduce((s, d) => s + (d.total_profit_jpy || 0), 0),
                 avg_order_value_jpy: 0,
                 orders_missing_cost_data: 0,
@@ -569,14 +597,14 @@ Deno.serve(async (req) => {
             
             // 维度分析和时序图仍使用原始数据（保证准确性）
             byDimension = buildDimensions(orders, pools, dimension, allOrderMap);
-            timeSeries = buildTimeSeries(orders, pools, granularity);
+            timeSeries = buildTimeSeries(orders, pools, granularity, tierPurchases);
             
             console.log(`[getReportData] 使用汇总数据，days=${queryDays}, summaries=${dailySummaries.length}`);
         } else {
             // 使用原始数据计算
-            summary = calcSummary(orders, pools, allPools, allOrders);
+            summary = calcSummary(orders, pools, allPools, allOrders, tierPurchases);
             byDimension = buildDimensions(orders, pools, dimension, allOrderMap);
-            timeSeries = buildTimeSeries(orders, pools, granularity);
+            timeSeries = buildTimeSeries(orders, pools, granularity, tierPurchases);
         }
         
         // 后付款笔数：跳过付款先发货、事后确认收款的发货池数量（始终基于原始数据计算）
@@ -604,7 +632,11 @@ Deno.serve(async (req) => {
                 const d = new Date(p.created_date);
                 return d >= cStartDate && d <= cEndDate;
             });
-            compareSummary = calcCompareSummary(cOrders, cPools);
+            const cTierPurchases = allTierPurchases.filter(tp => {
+                const d = new Date(tp.paid_at || tp.created_date);
+                return d >= cStartDate && d <= cEndDate;
+            });
+            compareSummary = calcCompareSummary(cOrders, cPools, cTierPurchases);
             comparePeriod  = { startDate: cStart, endDate: cEnd };
         }
 
