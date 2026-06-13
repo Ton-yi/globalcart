@@ -544,8 +544,7 @@ export default function ShippingPool() {
                     <div className="space-y-2">
                       {[
                 { key: "", label: "直接发货（单独发往收货地址）", desc: "", needPerm: "shipping:direct_shipment" },
-                { key: "transit", label: "申请拼邮到中转地", desc: "与其他包裹合并，发往中转地", needPerm: "shipping:consolidate_to_transit" },
-                { key: "other", label: "申请拼邮到其它地址", desc: "与其他包裹合并，发往自选地址", needPerm: "shipping:consolidate_to_other_address" }].
+                { key: "transit", label: "申请拼邮到中转地", desc: "与其他包裹合并，发往中转地", needPerm: "shipping:consolidate_to_transit" }].
                 map((opt) => {
                   const hasPerm = opt.key === "" ? canDirectShipment : opt.key === "transit" ? canConsolidateTransit : canConsolidateOther;
                   return (

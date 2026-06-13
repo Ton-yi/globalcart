@@ -28,6 +28,7 @@ import TransitShippedPanel from "@/components/shippingpool/TransitShippedPanel";
 import UserGroupHeader from "@/components/shippingpool/UserGroupHeader";
 
 import { STATUS_CONFIG, METHOD_LABELS } from "./shippingFormConstants";
+import AddressForm, { EMPTY_ADDRESS_FORM, serializeAddressToText, isAddressFormValid } from "@/components/common/AddressForm";
 
 export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, currentUser, pendingEditRequests: initialPendingEdits = [], boxTemplates = [], shippingMethods = [], defaultPackingFeeSingle = 0, defaultPackingFeeConsolidation = 0, allowReadyToShipWithoutPayment = false, allowShipWithoutPaymentSingle = false, allowShipWithoutPaymentUserPool = false, allowShipWithoutPaymentOfficialPool = false, transitLocations = [], transitShippingMethods = [], availableAddons = [], allowUserRewarehouse = false, onClose, onUpdated }) {
   const { can } = usePermissions();
@@ -101,6 +102,74 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
   const [rewarehouseNote, setRewarehouseNote] = useState("");
   const [showBulkRewarehouse, setShowBulkRewarehouse] = useState(false);
   const [submittingBulkRewarehouse, setSubmittingBulkRewarehouse] = useState(false);
+
+  // Convert to "other address" consolidation (for direct shipment pools)
+  const [showConvertToOther, setShowConvertToOther] = useState(false);
+  const [convertAddressMode, setConvertAddressMode] = useState("saved"); // "saved" | "new"
+  const [convertSelectedAddressId, setConvertSelectedAddressId] = useState("");
+  const [convertNewAddress, setConvertNewAddress] = useState({ label: "", ...EMPTY_ADDRESS_FORM });
+  const [convertSavedAddresses, setConvertSavedAddresses] = useState([]);
+  const [convertSaveAddress, setConvertSaveAddress] = useState(false);
+  const [submittingConvert, setSubmittingConvert] = useState(false);
+
+  const openConvertToOther = async () => {
+    setShowConvertToOther(true);
+    setConvertAddressMode("saved");
+    setConvertSelectedAddressId("");
+    setConvertNewAddress({ label: "", ...EMPTY_ADDRESS_FORM });
+    setConvertSaveAddress(false);
+    const prefs = await userPrefApi.list({ user_email: currentUser?.email }).catch(() => []);
+    const addrs = (prefs[0]?.saved_addresses || []).map(a => ({ ...EMPTY_ADDRESS_FORM, ...a }));
+    setConvertSavedAddresses(addrs);
+    if (addrs.length === 0) setConvertAddressMode("new");
+  };
+
+  const handleConvertToOther = async () => {
+    const isNew = convertAddressMode === "new";
+    if (isNew && !isAddressFormValid(convertNewAddress)) return;
+    if (!isNew && !convertSelectedAddressId) return;
+    setSubmittingConvert(true);
+
+    const addr = isNew
+      ? convertNewAddress
+      : convertSavedAddresses.find(a => a.id === convertSelectedAddressId) || {};
+
+    // Optionally save address
+    if (isNew && convertSaveAddress && isAddressFormValid(convertNewAddress)) {
+      const prefs = await userPrefApi.list({ user_email: currentUser?.email }).catch(() => []);
+      const existing = prefs[0]?.saved_addresses || [];
+      const newEntry = { id: `addr_${Date.now()}`, label: convertNewAddress.label || "新地址", full_text: serializeAddressToText(convertNewAddress), ...convertNewAddress };
+      if (prefs[0]) {
+        await userPrefApi.update(prefs[0].id, { saved_addresses: [...existing, newEntry] });
+      } else {
+        await userPrefApi.create({ user_email: currentUser?.email, saved_addresses: [newEntry] });
+      }
+    }
+
+    await shippingPoolApi.update(pool.id, {
+      consolidation_type: "other",
+      recipient_name: addr.recipient_name || "",
+      address_line1: addr.addr1 || "",
+      address_line2: addr.addr2 || "",
+      city: addr.addr3 || "",
+      state: addr.state || "",
+      destination_country: addr.country || "",
+    });
+
+    setPool(p => ({
+      ...p,
+      consolidation_type: "other",
+      recipient_name: addr.recipient_name || "",
+      address_line1: addr.addr1 || "",
+      address_line2: addr.addr2 || "",
+      city: addr.addr3 || "",
+      state: addr.state || "",
+      destination_country: addr.country || "",
+    }));
+    setShowConvertToOther(false);
+    setSubmittingConvert(false);
+    onUpdated?.();
+  };
 
   const openUserPrefsEditor = async () => {
     const myOrders = orders.filter(o => o.user_email === currentUser?.email);
@@ -1207,6 +1276,81 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                       </div>
                     )}
 
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Convert direct shipment to "other address" consolidation — user-initiated, only for pending direct pools they created */}
+          {!isAdmin && !pool.consolidation_type && pool.creator_email === currentUser?.email && pool.status === "pending" && (
+            <div>
+              {!showConvertToOther ? (
+                <button
+                  onClick={openConvertToOther}
+                  className="flex items-center gap-1.5 text-xs text-purple-600 hover:text-purple-800 border border-dashed border-purple-200 hover:border-purple-400 rounded-lg px-3 py-2 w-full justify-center transition-colors bg-purple-50/30 hover:bg-purple-50">
+                  <Layers className="w-3.5 h-3.5" />转为拼邮到其它地址
+                </button>
+              ) : (
+                <div className="border border-purple-200 rounded-xl overflow-hidden">
+                  <div className="flex items-center justify-between bg-purple-50 px-3 py-2 border-b border-purple-100">
+                    <span className="text-xs font-medium text-purple-700 flex items-center gap-1.5">
+                      <Layers className="w-3.5 h-3.5" />转为拼邮到其它地址
+                    </span>
+                    <button onClick={() => setShowConvertToOther(false)} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
+                  </div>
+                  <div className="p-3 space-y-3">
+                    <p className="text-xs text-gray-500">此操作将把当前单独发货申请转为"拼邮到其它地址"模式，其他用户可以申请加入。请先填写目标拼邮地址。</p>
+                    {/* Address selection */}
+                    {convertSavedAddresses.length > 0 && (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setConvertAddressMode("saved")}
+                          className={`flex-1 h-7 rounded-md border text-xs font-medium transition-colors ${convertAddressMode === "saved" ? "border-purple-400 bg-purple-50 text-purple-700" : "border-gray-200 text-gray-500 hover:bg-gray-50"}`}>
+                          从地址簿选择
+                        </button>
+                        <button
+                          onClick={() => setConvertAddressMode("new")}
+                          className={`flex-1 h-7 rounded-md border text-xs font-medium transition-colors ${convertAddressMode === "new" ? "border-purple-400 bg-purple-50 text-purple-700" : "border-gray-200 text-gray-500 hover:bg-gray-50"}`}>
+                          输入新地址
+                        </button>
+                      </div>
+                    )}
+                    {convertAddressMode === "saved" && convertSavedAddresses.length > 0 ? (
+                      <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                        {convertSavedAddresses.map(a => (
+                          <label key={a.id} className={`flex items-start gap-2 p-2 rounded-lg border cursor-pointer transition-colors text-xs ${convertSelectedAddressId === a.id ? "border-purple-400 bg-purple-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
+                            <input type="radio" checked={convertSelectedAddressId === a.id} onChange={() => setConvertSelectedAddressId(a.id)} className="mt-0.5 accent-purple-600 flex-shrink-0" />
+                            <div className="min-w-0">
+                              <p className="font-medium text-gray-700">{a.label}</p>
+                              <p className="text-gray-400 whitespace-pre-wrap mt-0.5">{a.full_text || serializeAddressToText(a)}</p>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <div>
+                          <label className="text-xs text-gray-500 font-medium block mb-1">地址标签</label>
+                          <Input className="h-7 text-xs" placeholder="如：家、公司"
+                            value={convertNewAddress.label}
+                            onChange={e => setConvertNewAddress(p => ({ ...p, label: e.target.value }))} />
+                        </div>
+                        <AddressForm value={convertNewAddress} onChange={v => setConvertNewAddress(p => ({ ...p, ...v }))} />
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <Checkbox checked={convertSaveAddress} onCheckedChange={v => setConvertSaveAddress(!!v)} />
+                          <span className="text-xs text-gray-600">保存此地址到地址簿</span>
+                        </label>
+                      </div>
+                    )}
+                    <div className="flex gap-2 justify-end">
+                      <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setShowConvertToOther(false)}>取消</Button>
+                      <Button size="sm" className="h-7 text-xs bg-purple-600 hover:bg-purple-700"
+                        disabled={submittingConvert || (convertAddressMode === "saved" ? !convertSelectedAddressId : !isAddressFormValid(convertNewAddress))}
+                        onClick={handleConvertToOther}>
+                        {submittingConvert ? "提交中..." : "确认转换"}
+                      </Button>
+                    </div>
                   </div>
                 </div>
               )}
