@@ -1189,14 +1189,34 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
     });
   };
 
-  if (pools.length === 0) {
+  if (pendingPools.length === 0 && regularPools.length === 0) {
     return (
       <>
-        <div className="flex flex-col items-center py-20 text-gray-400">
-          <Layers className="w-12 h-12 mb-3 opacity-20" />
-          <p className="text-sm">暂无官方拼邮需求</p>
-          {isAdmin && <p className="text-xs mt-1">点击"创建发货申请"并选择拼邮类型即可创建</p>}
-        </div>
+        {isAdmin ? (
+          <div className="flex flex-col items-center py-16 text-gray-400 gap-3">
+            <Layers className="w-12 h-12 mb-1 opacity-20" />
+            <p className="text-sm">尚无待拼邮看板及官方拼邮需求</p>
+            <div className="flex items-center gap-2 bg-yellow-50 border border-yellow-200 rounded-xl px-4 py-2.5 text-sm text-yellow-700">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              <span>请先创建待拼邮看板，以便接收预出货订单。</span>
+              <Button variant="outline" size="sm" className="ml-2 h-6 text-xs border-yellow-400 text-yellow-700 hover:bg-yellow-100" onClick={() => setPendingPoolManagerOpen(true)}>
+                立即创建
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center py-20 text-gray-400">
+            <Layers className="w-12 h-12 mb-3 opacity-20" />
+            <p className="text-sm">暂无官方拼邮需求</p>
+          </div>
+        )}
+        {pendingPoolManagerOpen && (
+          <PendingPoolManager
+            shippingMethods={shippingMethods || []}
+            onClose={() => setPendingPoolManagerOpen(false)}
+            onSuccess={() => { setPendingPoolManagerOpen(false); onRefresh?.(); }}
+          />
+        )}
         {createPoolOpen && (
           <CreateOfficialPoolModal
             onClose={() => setCreatePoolOpen(false)}

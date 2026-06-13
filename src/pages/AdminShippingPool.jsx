@@ -132,8 +132,9 @@ export default function AdminShippingPool() {
     fetchPageData();
   };
 
-  // "发货申请" tab: direct (non-consolidation) pools
+  // "发货申请" tab: direct (non-consolidation) pools, excluding pending pools
   const directPools = pools.filter(p =>
+    !p.is_pending_pool &&
     (!p.consolidation_type || p.consolidation_type === "") &&
     (showArchived ? !!p.is_archived : !p.is_archived) &&
     (statusFilter === "all" || p.status === statusFilter)
