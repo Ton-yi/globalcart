@@ -17,7 +17,7 @@ const VARIANT_OPTIONS = [
 ];
 
 const ICON_OPTIONS = [
-  { value: "", label: "无图标" },
+  { value: "none", label: "无图标" },
   { value: "ShoppingBag", label: "🛍 购物袋" },
 ];
 
@@ -138,7 +138,7 @@ function ButtonEditor({ buttons, onChange }) {
             </div>
             <div>
               <Label className="text-xs text-gray-500">图标</Label>
-              <Select value={btn.icon || ""} onValueChange={v => update(idx, "icon", v)}>
+              <Select value={btn.icon || "none"} onValueChange={v => update(idx, "icon", v === "none" ? "" : v)}>
                 <SelectTrigger className="h-7 text-xs mt-0.5"><SelectValue /></SelectTrigger>
                 <SelectContent>{ICON_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
               </Select>
