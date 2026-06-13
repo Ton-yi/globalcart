@@ -6,7 +6,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 const SECTIONS = [
   {
     key: "faq",
-    page: "HelpCenterFaq",
+    path: "helpcenter/faq",
     icon: HelpCircle,
     iconColor: "text-teal-500",
     bgColor: "bg-teal-50",
@@ -50,7 +50,7 @@ export default function HelpCenter() {
           return (
             <Link
               key={sec.key}
-              to={createPageUrl(sec.page)}
+              to={createPageUrl(sec.path)}
               className="flex items-start gap-4 p-5 bg-white border border-gray-200 rounded-xl hover:border-teal-300 hover:shadow-sm transition-all group"
             >
               <div className={`w-10 h-10 rounded-lg ${sec.bgColor} flex items-center justify-center flex-shrink-0`}>

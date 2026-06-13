@@ -76,7 +76,7 @@ export default function HelpCenterFaq() {
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <Link to={createPageUrl("HelpCenter")} className="text-gray-400 hover:text-gray-600 transition-colors">
+        <Link to={createPageUrl("helpcenter")} className="text-gray-400 hover:text-gray-600 transition-colors">
           <ArrowLeft className="w-4 h-4" />
         </Link>
         <div className="flex items-center gap-2 flex-1">

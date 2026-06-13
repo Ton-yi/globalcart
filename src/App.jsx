@@ -47,6 +47,26 @@ const MypageRedirect = () => {
   return <Navigate to={`/${locale}/AdminUserDetail/me`} replace />;
 };
 
+// /{locale}/faq → alias for /:locale/helpcenter/faq
+const FaqAliasRedirect = () => {
+  const { locale } = useParams();
+  const location = useLocation();
+  return <Navigate to={`/${locale}/helpcenter/faq${location.search}`} replace />;
+};
+
+// /{locale}/HelpCenter (old) → /:locale/helpcenter
+const HelpCenterOldRedirect = () => {
+  const { locale } = useParams();
+  return <Navigate to={`/${locale}/helpcenter`} replace />;
+};
+
+// /{locale}/HelpCenterFaq (old) → /:locale/helpcenter/faq
+const HelpCenterFaqOldRedirect = () => {
+  const { locale } = useParams();
+  const location = useLocation();
+  return <Navigate to={`/${locale}/helpcenter/faq${location.search}`} replace />;
+};
+
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
   const location = useLocation();
@@ -197,16 +217,22 @@ const AuthenticatedApp = () => {
           <MemberTiers />
         </LayoutWrapper>
       } />
-      <Route path="/:locale/HelpCenter" element={
+      {/* Help Center routes */}
+      <Route path="/:locale/helpcenter" element={
         <LayoutWrapper currentPageName="HelpCenter">
           <HelpCenter />
         </LayoutWrapper>
       } />
-      <Route path="/:locale/HelpCenterFaq" element={
+      <Route path="/:locale/helpcenter/faq" element={
         <LayoutWrapper currentPageName="HelpCenterFaq">
           <HelpCenterFaq />
         </LayoutWrapper>
       } />
+      {/* /faq alias → /helpcenter/faq */}
+      <Route path="/:locale/faq" element={<FaqAliasRedirect />} />
+      {/* Backward-compat redirects for old PascalCase URLs */}
+      <Route path="/:locale/HelpCenter" element={<HelpCenterOldRedirect />} />
+      <Route path="/:locale/HelpCenterFaq" element={<HelpCenterFaqOldRedirect />} />
       <Route path="/:locale/AdminFaq" element={
         <LayoutWrapper currentPageName="AdminFaq">
           <AdminFaq />

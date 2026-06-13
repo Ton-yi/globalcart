@@ -266,7 +266,7 @@ export default function AdminFaq() {
           <HelpCircle className="w-5 h-5 text-teal-500" />
           <h1 className="text-xl font-bold text-gray-900">帮助中心管理</h1>
         </div>
-        <Link to={createPageUrl("HelpCenter")} target="_blank">
+        <Link to={createPageUrl("helpcenter/faq")} target="_blank">
           <Button size="sm" variant="outline" className="h-7 text-xs">
             <Eye className="w-3.5 h-3.5 mr-1" />预览帮助中心
           </Button>
