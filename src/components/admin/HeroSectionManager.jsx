@@ -199,14 +199,27 @@ function ButtonEditor({ buttons, onChange }) {
 function AudiencePanel({ form, onChange }) {
   const fileInputRef = useRef();
   const [cropSrc, setCropSrc] = useState(null);
+  const [dragging, setDragging] = useState(false);
 
   const f = (k, v) => onChange({ ...form, [k]: v });
+
+  const openCrop = (file) => {
+    if (!file || !file.type.startsWith("image/")) return;
+    setCropSrc(URL.createObjectURL(file));
+  };
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
     e.target.value = "";
-    setCropSrc(URL.createObjectURL(file));
+    openCrop(file);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setDragging(false);
+    const file = e.dataTransfer.files[0];
+    openCrop(file);
   };
 
   const handleCropConfirm = (fileUrl) => {
@@ -282,10 +295,14 @@ function AudiencePanel({ form, onChange }) {
                   </div>
                 </div>
               ) : (
-                <button onClick={() => fileInputRef.current?.click()}
-                  className="w-full h-20 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center gap-1 text-gray-400 hover:border-purple-400 hover:text-purple-500 transition-colors">
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={e => { e.preventDefault(); setDragging(true); }}
+                  onDragLeave={() => setDragging(false)}
+                  onDrop={handleDrop}
+                  className={`w-full h-20 border-2 border-dashed rounded-lg flex flex-col items-center justify-center gap-1 transition-colors ${dragging ? "border-purple-400 bg-purple-50 text-purple-500" : "border-gray-300 text-gray-400 hover:border-purple-400 hover:text-purple-500"}`}>
                   <ImageIcon className="w-5 h-5" />
-                  <span className="text-xs">点击上传背景图片（将进入裁切步骤）</span>
+                  <span className="text-xs">点击或拖拽图片至此上传（将进入裁切步骤）</span>
                 </button>
               )}
               <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
