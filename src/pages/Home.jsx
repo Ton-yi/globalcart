@@ -25,19 +25,35 @@ export default function Home() {
 
   useEffect(() => {
     const t = timePage('Home');
-    Promise.all([
-      t.timeCall('getTenantOrders', () => base44.functions.invoke('getTenantOrders', {})
-        .then(r => (r.data?.orders || []).slice(0, 5)).catch(() => [])),
-      t.timeCall('getTenantSettings', () => base44.functions.invoke('getTenantSettings', {})
+
+    const parseJson = (raw, key) => {
+      const item = raw.find(s => s.key === key);
+      if (item?.value) { try { return JSON.parse(item.value); } catch { return null; } }
+      return null;
+    };
+
+    const loadSettings = () =>
+      base44.functions.invoke('getPublicHomeConfig', { hostname: window.location.hostname })
         .then(r => {
           const raw = r.data?.raw || [];
-          const parseJson = (key) => {
-            const item = raw.find(s => s.key === key);
-            if (item?.value) { try { return JSON.parse(item.value); } catch { return null; } }
-            return null;
+          return {
+            quickActions: parseJson(raw, 'home_quick_actions') || [],
+            boardConfig: parseJson(raw, 'home_status_board') || {},
+            heroConfig: parseJson(raw, 'home_hero_config') || null,
+            stepsConfig: parseJson(raw, 'home_steps_config') || null,
+            faqConfig: parseJson(raw, 'home_faq_config') || null,
           };
-          return { quickActions: parseJson('home_quick_actions') || [], boardConfig: parseJson('home_status_board') || {}, heroConfig: parseJson('home_hero_config') || null, stepsConfig: parseJson('home_steps_config') || null, faqConfig: parseJson('home_faq_config') || null };
-        }).catch(() => ({ quickActions: [], boardConfig: {}, heroConfig: null }))),
+        })
+        .catch(() => ({ quickActions: [], boardConfig: {}, heroConfig: null, stepsConfig: null, faqConfig: null }));
+
+    const loadOrders = () =>
+      base44.functions.invoke('getTenantOrders', {})
+        .then(r => (r.data?.orders || []).slice(0, 5))
+        .catch(() => []);
+
+    Promise.all([
+      t.timeCall('loadOrders', loadOrders),
+      t.timeCall('loadSettings', loadSettings),
     ]).then(([orders, { quickActions, boardConfig, heroConfig, stepsConfig, faqConfig }]) => {
       setRecentOrders(orders);
       setQuickActions(quickActions);
