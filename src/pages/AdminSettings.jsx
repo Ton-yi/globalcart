@@ -105,24 +105,27 @@ const DEFAULT_SETTINGS = [
 const CAT_LABELS = { fee: "费率设置", payment: "支付设置", shipping: "运输设置", general: "基本信息" };
 const CAT_COLORS = { fee: "bg-yellow-100 text-yellow-700", payment: "bg-green-100 text-green-700", shipping: "bg-blue-100 text-blue-700", general: "bg-gray-100 text-gray-600" };
 
-const TABS = [
-  { key: "general", label: "基本设置" },
-  { key: "home_customize", label: "主页自定义" },
-  { key: "order_management", label: "订单管理" },
-  { key: "fee_rules", label: "服务费规则" },
+const ADMIN_NAV = [
+  { group: "基本设置", children: [
+    { key: "general", label: "基本设置" },
+    { key: "countries", label: "国家设置" },
+    { key: "notifications", label: "通知设置" },
+    { key: "theme", label: "界面主题" },
+  ]},
+  { group: "订单管理", children: [
+    { key: "order_management", label: "商城标签规则" },
+  ]},
   { key: "payment_methods", label: "支付方式" },
+  { key: "fee_rules", label: "服务费规则" },
   { key: "member_tiers", label: "会员阶级" },
-  { key: "shipping_methods", label: "运输方式" },
-  { key: "shipping_settings", label: "发货设置" },
-  { key: "official_pool", label: "官方拼邮" },
-  { key: "transit_methods", label: "中转运输" },
-  { key: "item_sizes", label: "物品尺寸" },
-  { key: "box_templates", label: "外箱模板" },
-  { key: "store_tags", label: "商城标签规则" },
-  { key: "countries", label: "国家设置" },
-  { key: "storage", label: "库存存放" },
-  { key: "notifications", label: "通知设置" },
-  { key: "theme", label: "界面主题" },
+  { group: "发货设置", children: [
+    { key: "shipping_methods", label: "运输方式" },
+    { key: "transit_methods", label: "中转运输" },
+    { key: "item_sizes", label: "物品尺寸" },
+    { key: "box_templates", label: "外箱模板" },
+    { key: "storage", label: "库存存放" },
+    { key: "official_pool", label: "官方拼邮" },
+  ]},
   { key: "permissions", label: "权限一览" },
 ];
 
@@ -377,7 +380,7 @@ export default function AdminSettings() {
   }, {});
 
   return (
-    <div className="space-y-5 max-w-2xl">
+    <div className="space-y-5">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-gray-900">网站后台设置</h1>
         {activeTab === "general" && (
@@ -387,17 +390,29 @@ export default function AdminSettings() {
         )}
       </div>
 
-      {/* Tabs */}
-      <div className="w-full border-b border-gray-200">
-        <div className="flex gap-1">
-          {TABS.map(tab => (
-            <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-              className={`flex-1 px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px whitespace-nowrap ${activeTab === tab.key ? "border-red-600 text-red-600" : "border-transparent text-gray-500 hover:text-gray-800"}`}>
-              {tab.label}
+      <div className="flex flex-col md:flex-row gap-5 items-start">
+        {/* Left vertical nav */}
+        <aside className="w-full md:w-48 flex-shrink-0 bg-white border border-gray-200 rounded-lg p-2 space-y-0.5 md:sticky md:top-20">
+          {ADMIN_NAV.map(item => item.children ? (
+            <div key={item.group} className="pt-1.5">
+              <p className="px-3 py-1 text-xs font-semibold text-gray-400">{item.group}</p>
+              {item.children.map(c => (
+                <button key={c.key} onClick={() => setActiveTab(c.key)}
+                  className={`w-full text-left pl-6 pr-3 py-1.5 rounded-md text-sm transition-colors ${activeTab === c.key ? "bg-red-50 text-red-700 font-medium" : "text-gray-600 hover:bg-gray-50"}`}>
+                  {c.label}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <button key={item.key} onClick={() => setActiveTab(item.key)}
+              className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${activeTab === item.key ? "bg-red-50 text-red-700 font-medium" : "text-gray-600 hover:bg-gray-50"}`}>
+              {item.label}
             </button>
           ))}
-        </div>
-      </div>
+        </aside>
+
+        {/* Main content */}
+        <div className="flex-1 min-w-0 space-y-5 max-w-2xl">
 
       {activeTab === "home_customize" && !loading && (
         <div className="space-y-6">
@@ -928,6 +943,8 @@ export default function AdminSettings() {
           </Card>
         </>
       )}
+        </div>{/* end main content */}
+      </div>{/* end flex row */}
     </div>
   );
 }
