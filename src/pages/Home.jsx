@@ -11,12 +11,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { getStatusLabel, getStatusColor } from "@/lib/orderStatus";
+import QuickActionsGrid from "@/components/home/QuickActionsGrid";
 
 export default function Home() {
   const { user } = useCurrentUser();
   const { tenant } = useTenantBranding();
   const [recentOrders, setRecentOrders] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
+  const [quickActions, setQuickActions] = useState([]);
 
   useEffect(() => {
     const t = timePage('Home');
@@ -24,9 +26,17 @@ export default function Home() {
       t.timeCall('getTenantOrders', () => base44.functions.invoke('getTenantOrders', {})
         .then(r => (r.data?.orders || []).slice(0, 5)).catch(() => [])),
       t.timeCall('fetchAnnouncements (config cache)', () => fetchAnnouncements().catch(() => [])),
-    ]).then(([orders, ann]) => {
+      t.timeCall('getTenantSettings', () => base44.functions.invoke('getTenantSettings', {})
+        .then(r => {
+          const raw = r.data?.raw || [];
+          const item = raw.find(s => s.key === 'home_quick_actions');
+          if (item?.value) { try { return JSON.parse(item.value); } catch { return []; } }
+          return [];
+        }).catch(() => [])),
+    ]).then(([orders, ann, actions]) => {
       setRecentOrders(orders);
       setAnnouncements(ann);
+      setQuickActions(actions);
       t.done('data ready');
     });
   }, []);
@@ -84,6 +94,11 @@ export default function Home() {
           </Button>
         )}
       </div>
+
+      {/* Quick Actions */}
+      {user && quickActions.length > 0 && (
+        <QuickActionsGrid actions={quickActions} userRole={user.role} />
+      )}
 
       {/* Steps */}
       <div>

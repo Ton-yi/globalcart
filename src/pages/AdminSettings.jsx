@@ -36,6 +36,7 @@ import PaymentModeSettings from "@/components/admin/PaymentModeSettings";
 import OrderSplitSettings from "@/components/admin/OrderSplitSettings";
 import ShipWithoutPaymentSettings from "@/components/admin/ShipWithoutPaymentSettings";
 import OfficialPoolSettings from "@/components/admin/OfficialPoolSettings";
+import QuickActionsManager from "@/components/admin/QuickActionsManager";
 
 // Standalone editor with its own local save button (textarea content is large, better kept isolated)
 function CustomsHazmatTextEditor({ settings, onReload }) {
@@ -871,6 +872,9 @@ export default function AdminSettings() {
               </Card>
             );
           })()}
+
+          {/* ─── Quick Actions ─── */}
+          <QuickActionsManager settings={settings} onReload={load} />
 
           {/* ─── Addon Options ─── */}
           <Card className="border-gray-200">
