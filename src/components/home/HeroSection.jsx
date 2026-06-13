@@ -24,8 +24,22 @@ export const DEFAULT_HERO = {
   ],
 };
 
+// 根据用户身份从多受众配置中选出对应的 hero 配置
+function resolveAudienceConfig(config, user) {
+  if (!config) return null;
+  // 新版多受众结构
+  if (config.guest || config.user || config.admin) {
+    const isAdmin = user?.role === "admin" || user?.role === "tenant_admin" || user?.role === "platform_admin" || user?.role === "staff";
+    if (isAdmin && config.admin) return config.admin;
+    if (user && config.user) return config.user;
+    return config.guest || null;
+  }
+  // 旧版单一配置
+  return config;
+}
+
 export default function HeroSection({ config, user, tenant }) {
-  const c = { ...DEFAULT_HERO, ...(config || {}) };
+  const c = { ...DEFAULT_HERO, ...resolveAudienceConfig(config, user) };
 
   const buttons = (c.buttons || []).filter(b => {
     if (b.loggedInOnly && !user) return false;
