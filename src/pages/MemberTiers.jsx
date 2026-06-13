@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Crown, Star, Gem, Medal, Award, Trophy, Sparkles, Zap, Heart,
-  Loader2, CheckCircle2, Clock, ShieldCheck, ArrowUpCircle,
+  Loader2, CheckCircle2, Clock, ShieldCheck, ArrowUpCircle, Wallet, Tags,
 } from "lucide-react";
 
 import TierPaymentModal from "@/components/membertiers/TierPaymentModal";
@@ -87,7 +87,7 @@ export default function MemberTiers() {
         <p className="text-sm text-gray-500 mt-1">
           当前阶级：
           {currentTier ? <span className="font-medium text-gray-800">{currentTier.name}</span> : "普通用户（无阶级）"}
-          。购买更高阶级时只需支付与当前阶级的差价。
+          。以下为各会员阶级的介绍与权益说明。
         </p>
       </div>
 
@@ -107,7 +107,7 @@ export default function MemberTiers() {
               {tier.is_current && (
                 <Badge className="absolute -top-2 right-3 bg-amber-500 text-white border-0 text-xs">当前阶级</Badge>
               )}
-              <CardContent className="pt-5 space-y-3">
+              <CardContent className="pt-5 space-y-3 flex flex-col h-full">
                 <div className="flex items-center gap-2">
                   <span className={`inline-flex items-center justify-center w-9 h-9 rounded-full ${tier.color || "bg-gray-100 text-gray-700"}`}>
                     <Icon className="w-5 h-5" />
@@ -116,33 +116,71 @@ export default function MemberTiers() {
                     <div className="font-semibold text-gray-900" style={tier.name_font_color ? { color: tier.name_font_color } : undefined}>
                       {tier.name}
                     </div>
-                    <div className="text-xs text-gray-400">
-                      {tier.price_jpy > 0 ? `标价 ¥${tier.price_jpy.toLocaleString()} JPY` : "免费"}
-                      {tier.is_permanent && <span className="ml-1.5 inline-flex items-center gap-0.5"><ShieldCheck className="w-3 h-3" />不再降级</span>}
-                    </div>
+                    {tier.purchasable && (
+                      <div className="text-xs text-gray-400">
+                        {tier.price_jpy > 0 ? `标价 ¥${tier.price_jpy.toLocaleString()} JPY` : "免费"}
+                      </div>
+                    )}
                   </div>
                 </div>
+
                 {tier.description && (
                   <p className="text-xs text-gray-500 leading-relaxed whitespace-pre-wrap">{tier.description}</p>
                 )}
-                <div className="pt-1">
-                  {tier.is_current ? (
-                    <Button size="sm" variant="outline" disabled className="w-full">
-                      <CheckCircle2 className="w-3.5 h-3.5 mr-1" />已拥有
-                    </Button>
-                  ) : tier.can_buy ? (
-                    <Button size="sm" className="w-full" disabled={payingId === tier.id} onClick={() => handleBuy(tier)}>
-                      {payingId === tier.id
-                        ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
-                        : <ArrowUpCircle className="w-3.5 h-3.5 mr-1" />}
-                      {tier.payable_jpy > 0 ? `补差价升级 ¥${tier.payable_jpy.toLocaleString()} JPY` : "免费升级"}
-                    </Button>
-                  ) : (
-                    <Button size="sm" variant="outline" disabled className="w-full text-gray-400">
-                      {tier.purchasable ? "低于当前阶级" : "不开放购买"}
-                    </Button>
+
+                <ul className="space-y-1.5 flex-1">
+                  {tier.is_permanent && (
+                    <li className="flex items-start gap-1.5 text-xs text-gray-600">
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 mt-0.5 flex-shrink-0" />
+                      达到后永久保留，不会被自动降级
+                    </li>
                   )}
-                </div>
+                  {tier.credit_enabled && (
+                    <li className="flex items-start gap-1.5 text-xs text-gray-600">
+                      <Wallet className="w-3.5 h-3.5 text-blue-500 mt-0.5 flex-shrink-0" />
+                      <span>
+                        支持记账消费
+                        {tier.credit_limit_jpy > 0 && `，额度 ¥${tier.credit_limit_jpy.toLocaleString()} JPY`}
+                        {tier.credit_cycle && `（${tier.credit_cycle === "weekly" ? "周结" : "月结"}）`}
+                      </span>
+                    </li>
+                  )}
+                  {(tier.role_names || []).length > 0 && (
+                    <li className="flex items-start gap-1.5 text-xs text-gray-600">
+                      <Tags className="w-3.5 h-3.5 text-purple-500 mt-0.5 flex-shrink-0" />
+                      <span className="flex flex-wrap gap-1">
+                        专属标签：
+                        {tier.role_names.map((n) => (
+                          <Badge key={n} variant="outline" className="text-[10px] px-1.5 py-0 font-normal">{n}</Badge>
+                        ))}
+                      </span>
+                    </li>
+                  )}
+                  {!tier.is_permanent && !tier.credit_enabled && (tier.role_names || []).length === 0 && !tier.description && (
+                    <li className="text-xs text-gray-400">暂无权益说明</li>
+                  )}
+                </ul>
+
+                {tier.purchasable && (
+                  <div className="pt-1">
+                    {tier.is_current ? (
+                      <Button size="sm" variant="outline" disabled className="w-full">
+                        <CheckCircle2 className="w-3.5 h-3.5 mr-1" />已拥有
+                      </Button>
+                    ) : tier.can_buy ? (
+                      <Button size="sm" className="w-full" disabled={payingId === tier.id} onClick={() => handleBuy(tier)}>
+                        {payingId === tier.id
+                          ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+                          : <ArrowUpCircle className="w-3.5 h-3.5 mr-1" />}
+                        {tier.payable_jpy > 0 ? `补差价升级 ¥${tier.payable_jpy.toLocaleString()} JPY` : "免费升级"}
+                      </Button>
+                    ) : (
+                      <Button size="sm" variant="outline" disabled className="w-full text-gray-400">
+                        低于当前阶级
+                      </Button>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           );

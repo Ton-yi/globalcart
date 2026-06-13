@@ -142,9 +142,10 @@ Deno.serve(async (req) => {
 
     // ── 阶级列表 + 我的购买记录 ──────────────────────────────────────────────
     if (action === 'list') {
-      const [tiers, purchases] = await Promise.all([
+      const [tiers, purchases, roles] = await Promise.all([
         base44.asServiceRole.entities.MemberTier.filter({ tenant_id: tenantId, is_active: true }),
         base44.asServiceRole.entities.TierPurchase.filter({ tenant_id: tenantId, user_email: user.email }),
+        base44.asServiceRole.entities.Role.filter({ tenant_id: tenantId, is_archived: false }),
       ]);
       const currentTier = (tiers || []).find(t => t.id === userRec.member_tier_id) || null;
       const currentPrice = currentTier?.price_jpy || 0;
@@ -167,6 +168,12 @@ Deno.serve(async (req) => {
           // 仅更高阶级且开放购买时可买，差价最低 0
           can_buy: !!t.purchasable && (t.sort_order || 0) > currentSort && currentTier?.id !== t.id,
           payable_jpy: Math.max(0, (t.price_jpy || 0) - currentPrice),
+          role_names: (t.associated_role_ids || [])
+            .map(id => (roles || []).find(r => r.id === id)?.name)
+            .filter(Boolean),
+          credit_enabled: !!t.credit_enabled,
+          credit_limit_jpy: t.default_credit_limit_jpy || 0,
+          credit_cycle: t.credit_cycle || '',
         }));
 
       const myPurchases = (purchases || [])
