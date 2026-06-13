@@ -256,7 +256,7 @@ export default function MyOrders() {
     setAllowUserRewarehouse(data.allowUserRewarehouse || false);
     setAllowSplitAfterWarehouse(data.allowSplitAfterWarehouse || false);
     setStoreTagRules(data.storeTagRules || []);
-    setPageData(data); // includes userProfileMap
+    setPageData(data); // includes userProfileMap, otherPaymentName
     setPendingEditRequests(data.pendingEditRequests || []);
     // Keep selectedOrder in sync with latest data after refresh
     setSelectedOrder(prev => prev ? (freshOrders.find(o => o.id === prev.id) || prev) : null);
@@ -758,6 +758,7 @@ export default function MyOrders() {
           initialPaidOrderReminder={pageData.paidOrderReminder}
           initialShippedReminder={pageData.shippedReminder}
           initialUserProfileMap={pageData.userProfileMap || {}}
+          otherPaymentName={pageData.otherPaymentName || '其它支付方式'}
           allowSplitAfterWarehouse={allowSplitAfterWarehouse}
           onClose={() => setSelectedOrder(null)}
           onAction={(action) => {

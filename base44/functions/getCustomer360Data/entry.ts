@@ -111,7 +111,7 @@ Deno.serve(async (req) => {
     const t1 = Date.now();
     
     // Parallel fetch all data - CRITICAL: Always filter by tenant_id
-    const [allOrders, creditApps, userPrefs, tenantPools, customerNotes, tenantRoles, memberTiers] = await Promise.all([
+    const [allOrders, creditApps, userPrefs, tenantPools, customerNotes, tenantRoles, memberTiers, tenantSiteSettings] = await Promise.all([
       base44.asServiceRole.entities.Order.filter({ tenant_id: tenantId, user_email: targetEmail }),
       base44.asServiceRole.entities.CreditApplication.filter({ tenant_id: tenantId, user_email: targetEmail }),
       base44.asServiceRole.entities.UserPreference.filter({ tenant_id: tenantId, user_email: targetEmail }),
@@ -121,7 +121,13 @@ Deno.serve(async (req) => {
       targetUser.member_tier_id
         ? base44.asServiceRole.entities.MemberTier.filter({ tenant_id: tenantId }).catch(() => [])
         : Promise.resolve([]),
+      base44.asServiceRole.entities.SiteSettings.filter({ tenant_id: tenantId }).catch(() => []),
     ]);
+
+    // Build settings map for tenant-specific display names
+    const settingsMap = {};
+    (tenantSiteSettings || []).forEach(s => { settingsMap[s.key] = s.value; });
+    const otherPaymentName = settingsMap['other_payment_name'] || '其它支付方式';
     
     // 会员阶级完整配置（颜色/图标/字体色等，用于用户端展示）
     const tierRec = (memberTiers || []).find(t => t.id === targetUser.member_tier_id) || null;
@@ -175,10 +181,11 @@ Deno.serve(async (req) => {
         shippingMethods[order.shipping_method] = (shippingMethods[order.shipping_method] || 0) + 1;
       }
       
-      // Payment methods（记账订单统一计为 credit；一次付款订单统一计为 fullpay_once）
-      const pmKey = order.payment_mode === 'credit' ? 'credit'
+      // Payment methods（记账订单统一计为 credit；一次付款订单统一计为 fullpay_once；other 用租户自定义名称）
+      const rawPm = order.payment_mode === 'credit' ? 'credit'
         : order.payment_mode === 'fullpay_once' ? 'fullpay_once'
         : order.payment_method;
+      const pmKey = rawPm === 'other' ? otherPaymentName : rawPm;
       if (pmKey) {
         paymentMethods[pmKey] = (paymentMethods[pmKey] || 0) + 1;
       }

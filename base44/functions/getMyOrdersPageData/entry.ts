@@ -155,6 +155,7 @@ Deno.serve(async (req) => {
       allowSplitAfterWarehouse: settingsMap['allow_order_split'] === 'true' && settingsMap['allow_order_split_after_warehouse'] === 'true',
       hazmatText: settingsMap['customs_hazmat_text'] || null,
       allowUserCustomsDeclaration: settingsMap['allow_user_customs_declaration'] !== 'false',
+      otherPaymentName: settingsMap['other_payment_name'] || '其它支付方式',
       nonAdminUsers,
       pendingEditRequests: myEditRequests || [],
       userProfileMap,

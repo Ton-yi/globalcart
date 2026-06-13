@@ -531,12 +531,18 @@ Deno.serve(async (req) => {
             });
         }
 
-        // 并行拉取全量数据
-        const [allOrders, allPools, allTierPurchases] = await Promise.all([
+        // 并行拉取全量数据 + 租户设置（用于 payment_method 维度的自定义名称映射）
+        const [allOrders, allPools, allTierPurchases, tenantSettings] = await Promise.all([
             base44.asServiceRole.entities.Order.filter(baseFilter),
             base44.asServiceRole.entities.ShippingPool.filter(baseFilter),
             base44.asServiceRole.entities.TierPurchase.filter({ ...baseFilter, status: 'paid' }),
+            tenantId ? base44.asServiceRole.entities.SiteSettings.filter({ tenant_id: tenantId }) : Promise.resolve([]),
         ]);
+
+        // 租户支付方式自定义名称（仅用于前端展示维度，后端存储仍为 "other"）
+        const tenantSettingsMap = {};
+        (tenantSettings || []).forEach(s => { tenantSettingsMap[s.key] = s.value; });
+        const otherPaymentDisplayName = tenantSettingsMap['other_payment_name'] || '其它支付方式';
 
         // 时间过滤 + 筛选条件
         const orders = allOrders.filter(o => {
@@ -641,6 +647,12 @@ Deno.serve(async (req) => {
         
         // 后付款笔数：跳过付款先发货、事后确认收款的发货池数量（始终基于原始数据计算）
         summary.post_shipment_paid_count = pools.filter(p => p.post_shipment_paid).length;
+
+        // payment_method 维度：将 "other" key 替换为租户自定义名称（仅展示，不影响存储）
+        if (dimension === 'payment_method' && byDimension['other']) {
+            byDimension[otherPaymentDisplayName] = byDimension['other'];
+            delete byDimension['other'];
+        }
 
         const topCustomers = buildTopCustomers(orders, 10);
         const storeTagCounts = {};

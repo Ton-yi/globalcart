@@ -101,6 +101,43 @@ Deno.serve(async (req) => {
       return Response.json({ success: true });
     }
 
+    // === get_other_config ===
+    if (action === 'get_other_config') {
+      const settings = await base44.asServiceRole.entities.SiteSettings.filter({ tenant_id: tenantId });
+      const map = {};
+      (settings || []).forEach(s => { map[s.key] = s.value; });
+      return Response.json({
+        config: {
+          other_payment_name: map['other_payment_name'] || '其它支付方式',
+          other_payment_note: map['other_payment_note'] || '',
+          other_payment_image_url: map['other_payment_image_url'] || '',
+          other_payment_proof_enabled: map['other_payment_proof_enabled'] ?? 'true',
+          other_payment_skip_proof_override: map['other_payment_skip_proof_override'] ?? 'false',
+        }
+      });
+    }
+
+    // === save_other_config ===
+    if (action === 'save_other_config') {
+      const fields = {
+        other_payment_name: body.other_payment_name ?? '其它支付方式',
+        other_payment_note: body.other_payment_note ?? '',
+        other_payment_image_url: body.other_payment_image_url ?? '',
+        other_payment_proof_enabled: body.other_payment_proof_enabled ?? 'true',
+        other_payment_skip_proof_override: body.other_payment_skip_proof_override ?? 'false',
+      };
+      const settings = await base44.asServiceRole.entities.SiteSettings.filter({ tenant_id: tenantId });
+      await Promise.all(Object.entries(fields).map(async ([key, value]) => {
+        const existing = settings.find(s => s.key === key);
+        if (existing) {
+          await base44.asServiceRole.entities.SiteSettings.update(existing.id, { value });
+        } else {
+          await base44.asServiceRole.entities.SiteSettings.create({ tenant_id: tenantId, key, value, category: 'payment' });
+        }
+      }));
+      return Response.json({ success: true });
+    }
+
     return Response.json({ error: 'Unknown action' }, { status: 400 });
   } catch (error) {
     console.error('managePaymentMethod error:', error);

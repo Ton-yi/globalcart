@@ -20,7 +20,7 @@ import ShippingEditModal from "@/components/shippingpool/ShippingEditModal";
 import ShippingPoolDetailModal from "@/components/shippingpool/ShippingPoolDetailModal";
 import SplitAfterWarehouseModal from "./SplitAfterWarehouseModal";
 
-export default function OrderDetailDrawer({ order, currentUser, initialUserPreference, initialPaidOrderReminder, initialShippedReminder, initialUserProfileMap = {}, allowSplitAfterWarehouse = false, onClose, onAction }) {
+export default function OrderDetailDrawer({ order, currentUser, initialUserPreference, initialPaidOrderReminder, initialShippedReminder, initialUserProfileMap = {}, otherPaymentName = '其它支付方式', allowSplitAfterWarehouse = false, onClose, onAction }) {
   const { can } = usePermissions();
   const canNotifyShipment = can("shipping:notify_shipment");
   const canEditShipmentRequest = can("shipping:edit_shipment_request");
@@ -147,7 +147,7 @@ export default function OrderDetailDrawer({ order, currentUser, initialUserPrefe
             {order.payment_method && (
               <div className="bg-gray-50 rounded-lg p-3">
                 <div className="text-xs text-gray-400">付款方式</div>
-                <div className="font-medium text-gray-800">{{ alipay: "支付宝", wechatpay: "微信支付", paypay: "PayPay", paypal: "PayPal", credit_card: "信用卡", bank_transfer: "银行转账", other: "其他" }[order.payment_method] || order.payment_method}</div>
+                <div className="font-medium text-gray-800">{{ alipay: "支付宝", wechatpay: "微信支付", paypay: "PayPay", paypal: "PayPal", credit_card: "信用卡", bank_transfer: "银行转账", other: otherPaymentName }[order.payment_method] || order.payment_method}</div>
               </div>
             )}
             {order.estimated_jpy > 0 && (
