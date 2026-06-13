@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Save, List } from "lucide-react";
+import { Save, List, Plus, Trash2, GripVertical, ChevronDown, ChevronUp } from "lucide-react";
 
 const AUDIENCE_TABS = [
   { key: "guest", label: "未登录用户可见" },
@@ -13,68 +13,107 @@ const AUDIENCE_TABS = [
   { key: "admin", label: "仅管理员可见" },
 ];
 
-const DEFAULT_STEPS = [
-  { title: "提交购买需求", desc: "填写商品链接、数量，系统自动估算预付款" },
-  { title: "确认付款",     desc: "选择支付方式完成预付款，管理员审核确认" },
-  { title: "采购进行中",   desc: "我们在日本为您采购商品，实时更新状态" },
-  { title: "提交发货需求", desc: "填写收货地址，选运输方式，余额自动抵扣运费" },
-];
+const DEFAULT_SECTION = {
+  heading: "代购流程",
+  steps: [
+    { title: "提交购买需求", desc: "填写商品链接、数量，系统自动估算预付款" },
+    { title: "确认付款",     desc: "选择支付方式完成预付款，管理员审核确认" },
+    { title: "采购进行中",   desc: "我们在日本为您采购商品，实时更新状态" },
+    { title: "提交发货需求", desc: "填写收货地址，选运输方式，余额自动抵扣运费" },
+  ],
+};
 
 const DEFAULT_AUDIENCE = {
   visible: true,
-  heading: "代购流程",
-  steps: DEFAULT_STEPS.map(s => ({ ...s })),
+  sections: [{ ...DEFAULT_SECTION, steps: DEFAULT_SECTION.steps.map(s => ({ ...s })) }],
 };
+
+// Migrate old format { heading, steps } → new format { sections: [...] }
+function migrateAudience(raw) {
+  if (!raw) return { ...DEFAULT_AUDIENCE, sections: [{ ...DEFAULT_SECTION, steps: DEFAULT_SECTION.steps.map(s => ({ ...s })) }] };
+  // Already new format
+  if (Array.isArray(raw.sections)) return { visible: raw.visible !== false, sections: raw.sections };
+  // Old format with single heading+steps
+  return {
+    visible: raw.visible !== false,
+    sections: [{ heading: raw.heading || DEFAULT_SECTION.heading, steps: Array.isArray(raw.steps) ? raw.steps : DEFAULT_SECTION.steps.map(s => ({ ...s })) }],
+  };
+}
 
 function migrateConfig(raw) {
   const def = () => ({
     unified: true,
-    guest: { ...DEFAULT_AUDIENCE, steps: DEFAULT_STEPS.map(s => ({ ...s })) },
-    user:  { ...DEFAULT_AUDIENCE, steps: DEFAULT_STEPS.map(s => ({ ...s })) },
-    admin: { ...DEFAULT_AUDIENCE, steps: DEFAULT_STEPS.map(s => ({ ...s })) },
+    guest: migrateAudience(null),
+    user:  migrateAudience(null),
+    admin: migrateAudience(null),
   });
   if (!raw) return def();
   if ("guest" in raw || "user" in raw || "admin" in raw) {
     return {
       unified: raw.unified ?? false,
-      guest: { ...DEFAULT_AUDIENCE, ...(raw.guest || {}) },
-      user:  { ...DEFAULT_AUDIENCE, ...(raw.user  || {}) },
-      admin: { ...DEFAULT_AUDIENCE, ...(raw.admin || {}) },
+      guest: migrateAudience(raw.guest),
+      user:  migrateAudience(raw.user),
+      admin: migrateAudience(raw.admin),
     };
   }
   return def();
 }
 
-function AudiencePanel({ form, onChange }) {
-  const f = (k, v) => onChange({ ...form, [k]: v });
+// ─── SectionEditor: edit one section (heading + steps) ───
+function SectionEditor({ section, sectionIdx, total, onChange, onDelete, onMoveUp, onMoveDown }) {
+  const [collapsed, setCollapsed] = useState(false);
+
   const updateStep = (i, field, val) => {
-    const steps = form.steps.map((s, idx) => idx === i ? { ...s, [field]: val } : s);
-    f("steps", steps);
+    const steps = section.steps.map((s, idx) => idx === i ? { ...s, [field]: val } : s);
+    onChange({ ...section, steps });
   };
+  const addStep = () => onChange({ ...section, steps: [...section.steps, { title: "新步骤", desc: "" }] });
+  const removeStep = (i) => onChange({ ...section, steps: section.steps.filter((_, idx) => idx !== i) });
 
   return (
-    <div className="space-y-4">
-      {/* Visibility */}
-      <div className="flex items-center gap-2">
-        <Checkbox id="step-visible" checked={!!form.visible} onCheckedChange={v => f("visible", !!v)} />
-        <label htmlFor="step-visible" className="text-xs text-gray-600 cursor-pointer select-none">显示此区块</label>
+    <div className="border border-gray-200 rounded-lg bg-white">
+      {/* Section header bar */}
+      <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-t-lg border-b border-gray-200">
+        <GripVertical className="w-3.5 h-3.5 text-gray-300 flex-shrink-0" />
+        <span className="text-xs font-semibold text-gray-500 flex-1 truncate">区块 {sectionIdx + 1}：{section.heading || "（无标题）"}</span>
+        <div className="flex items-center gap-1">
+          <button onClick={onMoveUp} disabled={sectionIdx === 0} className="p-0.5 text-gray-400 hover:text-gray-600 disabled:opacity-30">
+            <ChevronUp className="w-3.5 h-3.5" />
+          </button>
+          <button onClick={onMoveDown} disabled={sectionIdx === total - 1} className="p-0.5 text-gray-400 hover:text-gray-600 disabled:opacity-30">
+            <ChevronDown className="w-3.5 h-3.5" />
+          </button>
+          <button onClick={() => setCollapsed(c => !c)} className="p-0.5 text-gray-400 hover:text-gray-600">
+            {collapsed ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
+          </button>
+          {total > 1 && (
+            <button onClick={onDelete} className="p-0.5 text-red-400 hover:text-red-600 ml-1">
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
       </div>
 
-      {form.visible && (
-        <>
-          {/* Section heading */}
+      {!collapsed && (
+        <div className="p-3 space-y-3">
+          {/* Heading */}
           <div>
             <Label className="text-xs text-gray-500">区块标题</Label>
-            <Input className="mt-0.5 h-8 text-sm" value={form.heading || ""} onChange={e => f("heading", e.target.value)} placeholder="代购流程" />
+            <Input className="mt-0.5 h-8 text-sm" value={section.heading || ""} onChange={e => onChange({ ...section, heading: e.target.value })} placeholder="代购流程" />
           </div>
 
           {/* Steps */}
           <div className="space-y-2">
-            <Label className="text-xs text-gray-500">步骤列表（4 步）</Label>
-            {(form.steps || []).map((step, i) => (
+            <div className="flex items-center justify-between">
+              <Label className="text-xs text-gray-500">卡片列表（{section.steps.length} 张）</Label>
+            </div>
+            {section.steps.map((step, i) => (
               <div key={i} className="grid grid-cols-1 gap-1.5 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                <div className="flex items-center gap-1.5 mb-0.5">
+                <div className="flex items-center justify-between mb-0.5">
                   <span className="text-xs font-semibold text-gray-400">Step {i + 1}</span>
+                  <button onClick={() => removeStep(i)} className="text-red-400 hover:text-red-600">
+                    <Trash2 className="w-3 h-3" />
+                  </button>
                 </div>
                 <div>
                   <Label className="text-xs text-gray-400">标题</Label>
@@ -86,13 +125,66 @@ function AudiencePanel({ form, onChange }) {
                 </div>
               </div>
             ))}
+            <Button size="sm" variant="outline" onClick={addStep} className="w-full h-7 text-xs border-dashed">
+              <Plus className="w-3 h-3 mr-1" />新增卡片
+            </Button>
           </div>
-        </>
+        </div>
       )}
     </div>
   );
 }
 
+// ─── AudiencePanel ────────────────────────────────────────
+function AudiencePanel({ form, onChange }) {
+  const f = (k, v) => onChange({ ...form, [k]: v });
+
+  const updateSection = (i, val) => {
+    const sections = form.sections.map((s, idx) => idx === i ? val : s);
+    f("sections", sections);
+  };
+  const addSection = () => f("sections", [...(form.sections || []), { heading: "新区块", steps: [{ title: "新步骤", desc: "" }] }]);
+  const removeSection = (i) => f("sections", form.sections.filter((_, idx) => idx !== i));
+  const moveSection = (i, dir) => {
+    const arr = [...(form.sections || [])];
+    const j = i + dir;
+    if (j < 0 || j >= arr.length) return;
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+    f("sections", arr);
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Visibility */}
+      <div className="flex items-center gap-2">
+        <Checkbox id="step-visible" checked={!!form.visible} onCheckedChange={v => f("visible", !!v)} />
+        <label htmlFor="step-visible" className="text-xs text-gray-600 cursor-pointer select-none">显示此区块</label>
+      </div>
+
+      {form.visible && (
+        <div className="space-y-3">
+          {(form.sections || []).map((section, i) => (
+            <SectionEditor
+              key={i}
+              section={section}
+              sectionIdx={i}
+              total={form.sections.length}
+              onChange={val => updateSection(i, val)}
+              onDelete={() => removeSection(i)}
+              onMoveUp={() => moveSection(i, -1)}
+              onMoveDown={() => moveSection(i, 1)}
+            />
+          ))}
+          <Button size="sm" variant="outline" onClick={addSection} className="w-full h-8 text-xs border-dashed border-indigo-300 text-indigo-600 hover:bg-indigo-50">
+            <Plus className="w-3.5 h-3.5 mr-1" />追加整个区块
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Main Manager ────────────────────────────────────────
 export default function StepsSectionManager({ settings, onReload }) {
   const [form, setForm] = useState(migrateConfig(null));
   const [activeTab, setActiveTab] = useState("guest");
@@ -132,6 +224,8 @@ export default function StepsSectionManager({ settings, onReload }) {
     }
   };
 
+  const currentAudience = form.unified ? "guest" : activeTab;
+
   return (
     <Card className="border-indigo-200">
       <CardHeader className="pb-3">
@@ -144,9 +238,8 @@ export default function StepsSectionManager({ settings, onReload }) {
             <Save className="w-3 h-3 mr-1" />{saved ? "已保存 ✓" : saving ? "保存中..." : "保存"}
           </Button>
         </div>
-        <p className="text-xs text-gray-400 mt-1">为不同受众配置代购流程区块的显示内容与可见性。</p>
+        <p className="text-xs text-gray-400 mt-1">为不同受众配置代购流程区块，支持多区块、增删卡片、调整顺序。</p>
 
-        {/* 统一模式开关 */}
         <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-100">
           <Checkbox id="steps-unified" checked={!!form.unified} onCheckedChange={toggleUnified} />
           <label htmlFor="steps-unified" className="text-xs text-gray-600 cursor-pointer select-none">
@@ -156,7 +249,6 @@ export default function StepsSectionManager({ settings, onReload }) {
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {/* Audience tabs */}
         {!form.unified && (
           <div className="flex gap-1 border-b border-gray-200 pb-0">
             {AUDIENCE_TABS.map(tab => (
@@ -172,19 +264,11 @@ export default function StepsSectionManager({ settings, onReload }) {
           </div>
         )}
 
-        {form.unified ? (
-          <AudiencePanel
-            key="unified"
-            form={form.guest}
-            onChange={val => setForm(prev => ({ ...prev, guest: val }))}
-          />
-        ) : (
-          <AudiencePanel
-            key={activeTab}
-            form={form[activeTab]}
-            onChange={val => setForm(prev => ({ ...prev, [activeTab]: val }))}
-          />
-        )}
+        <AudiencePanel
+          key={currentAudience}
+          form={form[currentAudience]}
+          onChange={val => setForm(prev => ({ ...prev, [currentAudience]: val }))}
+        />
       </CardContent>
     </Card>
   );

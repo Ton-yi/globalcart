@@ -46,17 +46,20 @@ export default function Home() {
     });
   }, []);
 
-  const DEFAULT_STEPS = [
-    { title: "提交购买需求", desc: "填写商品链接、数量，系统自动估算预付款" },
-    { title: "确认付款",     desc: "选择支付方式完成预付款，管理员审核确认" },
-    { title: "采购进行中",   desc: "我们在日本为您采购商品，实时更新状态" },
-    { title: "提交发货需求", desc: "填写收货地址，选运输方式，余额自动抵扣运费" },
-  ];
+  const DEFAULT_SECTIONS = [{
+    heading: "代购流程",
+    steps: [
+      { title: "提交购买需求", desc: "填写商品链接、数量，系统自动估算预付款" },
+      { title: "确认付款",     desc: "选择支付方式完成预付款，管理员审核确认" },
+      { title: "采购进行中",   desc: "我们在日本为您采购商品，实时更新状态" },
+      { title: "提交发货需求", desc: "填写收货地址，选运输方式，余额自动抵扣运费" },
+    ],
+  }];
   const STEP_ICONS = [Package, CheckCircle, Package, Truck];
 
-  // resolve steps audience config
+  // resolve steps audience config — supports both old {heading,steps} and new {sections:[]}
   const resolveSteps = () => {
-    if (!stepsConfig) return { visible: true, heading: "代购流程", steps: DEFAULT_STEPS };
+    if (!stepsConfig) return { visible: true, sections: DEFAULT_SECTIONS };
     let cfg;
     if (stepsConfig.unified) {
       cfg = stepsConfig.guest;
@@ -66,7 +69,17 @@ export default function Home() {
       else if (user && stepsConfig.user) cfg = stepsConfig.user;
       else cfg = stepsConfig.guest;
     }
-    return { visible: cfg?.visible !== false, heading: cfg?.heading || "代购流程", steps: cfg?.steps || DEFAULT_STEPS };
+    const visible = cfg?.visible !== false;
+    // Normalise: old format has heading+steps, new has sections[]
+    let sections;
+    if (Array.isArray(cfg?.sections)) {
+      sections = cfg.sections;
+    } else if (cfg?.steps) {
+      sections = [{ heading: cfg.heading || "代购流程", steps: cfg.steps }];
+    } else {
+      sections = DEFAULT_SECTIONS;
+    }
+    return { visible, sections };
   };
   const stepsResolved = resolveSteps();
 
@@ -80,12 +93,14 @@ export default function Home() {
         <QuickActionsGrid actions={quickActions} userRole={user.role} />
       )}
 
-      {/* Steps */}
-      {stepsResolved.visible && (
-        <div>
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">{stepsResolved.heading}</h2>
+      {/* Steps — multi-section */}
+      {stepsResolved.visible && stepsResolved.sections.map((section, si) => (
+        <div key={si}>
+          {section.heading && (
+            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">{section.heading}</h2>
+          )}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {stepsResolved.steps.map((step, i) => {
+            {(section.steps || []).map((step, i) => {
               const Icon = STEP_ICONS[i] || Package;
               return (
                 <Card key={i} className="border-gray-200">
@@ -104,7 +119,7 @@ export default function Home() {
             })}
           </div>
         </div>
-      )}
+      ))}
 
       {/* Logistics Status Board */}
       {user && recentOrders.length > 0 && (
