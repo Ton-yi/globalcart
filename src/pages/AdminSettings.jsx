@@ -110,7 +110,6 @@ const CAT_COLORS = { fee: "bg-yellow-100 text-yellow-700", payment: "bg-green-10
 
 const ADMIN_NAV = [
   { group: "基本设置", children: [
-    { key: "general", label: "基本设置" },
     { key: "countries", label: "国家设置" },
     { key: "notifications", label: "通知设置" },
     { key: "reminder_texts", label: "提醒文案" },
@@ -156,7 +155,7 @@ function Toggle({ enabled, onToggle, color = "bg-blue-600", size = "md" }) {
 
 export default function AdminSettings() {
   const { user } = useCurrentUser();
-  const [activeTab, setActiveTab] = useState("general");
+  const [activeTab, setActiveTab] = useState("countries");
   const [settings, setSettings] = useState([]);
   const [addons, setAddons] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -395,11 +394,7 @@ export default function AdminSettings() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-gray-900">网站后台设置</h1>
-        {activeTab === "general" && (
-          <Button className="bg-gray-900 hover:bg-gray-800" size="sm" onClick={handleSaveAll} disabled={saving}>
-            <Save className="w-4 h-4 mr-1.5" />{saved ? "已保存 ✓" : saving ? "保存中..." : "保存全部"}
-          </Button>
-        )}
+
       </div>
 
       <div className="flex flex-col md:flex-row gap-5 items-start">
@@ -826,19 +821,7 @@ export default function AdminSettings() {
         </div>
       )}
 
-      {activeTab === "general" && isTenantAdmin && user?.tenant_id && (
-        <Card className="border-blue-200">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-              <Users className="w-4 h-4 text-blue-500" />租户内角色管理
-            </CardTitle>
-            <p className="text-xs text-gray-400 mt-1">为当前租户创建和管理角色，分配相应权限给用户</p>
-          </CardHeader>
-          <CardContent>
-            <TenantRoleManagerForUsers tenantId={user.tenant_id} tenantName={user.tenant_name || ""} />
-          </CardContent>
-        </Card>
-      )}
+
 
       {activeTab === "permissions" && (
         <Card className="border-gray-200">
@@ -932,107 +915,7 @@ export default function AdminSettings() {
         </Card>
       )}
 
-      {activeTab === "general" && loading && <p className="text-gray-400 text-sm">加载中...</p>}
-      {activeTab === "general" && !loading && loadError && (
-        <div className="text-red-600 text-sm bg-red-50 border border-red-200 rounded p-3">{loadError}</div>
-      )}
 
-      {activeTab === "general" && !loading && (
-        <>
-          {/* ─── Other Settings (general / payment) ─── */}
-          {/* fee and shipping categories are managed in dedicated tabs */}
-          {(() => {
-            const filteredGrouped = Object.fromEntries(
-              Object.entries(grouped)
-                .filter(([cat]) => cat !== "fee" && cat !== "shipping" && cat !== "payment")
-                .filter(([, items]) => items.length > 0)
-            );
-            return Object.entries(filteredGrouped).map(([cat, items]) => {
-            const isPayment = cat === "payment";
-            const isUnlocked = !isPayment || showPayment;
-            return (
-              <Card key={cat} className={`border-gray-200 ${isPayment ? "border-green-200" : ""}`}>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                      <Badge className={`text-xs ${CAT_COLORS[cat]}`}>{CAT_LABELS[cat] || cat}</Badge>
-                      {isPayment && <Lock className="w-3.5 h-3.5 text-green-600" />}
-                    </CardTitle>
-                    {isPayment && (
-                      <Button variant="ghost" size="sm" className="h-7 text-xs text-green-600" onClick={() => setShowPayment(p => !p)}>
-                        {showPayment ? <><EyeOff className="w-3.5 h-3.5 mr-1" />隐藏</> : <><Eye className="w-3.5 h-3.5 mr-1" />显示</>}
-                      </Button>
-                    )}
-                  </div>
-                  {isPayment && !showPayment && (
-                    <p className="text-xs text-green-600 mt-1">⚠ 支付网关配置仅限超级管理员操作，点击「显示」展开</p>
-                  )}
-                </CardHeader>
-                {isUnlocked && (
-                  <CardContent className="space-y-3">
-                    {items.map(s => (
-                      <div key={s.id} className="flex items-center gap-3">
-                        <div className="flex-1">
-                          <Label className="text-xs text-gray-500">{s.description || s.key}</Label>
-                          <Input className="mt-0.5 h-8 text-sm" value={s.value}
-                            onChange={e => updateSetting(s.id, e.target.value)} />
-                        </div>
-                        <Button variant="ghost" size="sm" className="h-7 text-xs text-red-400 mt-4" onClick={() => handleDelete(s.id)}>
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
-                      </div>
-                    ))}
-                  </CardContent>
-                )}
-              </Card>
-            );
-            });
-          })()}
-
-          {/* allow_user_customs_declaration 已移至「发货设置」tab */}
-
-          {/* Customs Hazmat Text moved to reminder_texts tab */}
-
-          {/* Hero / Steps / QuickActions / LogisticsBoard → moved to "主页自定义" tab */}
-
-          {/* ─── Add New Setting ─── */}
-          <Card className="border-dashed border-gray-300">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold text-gray-500 flex items-center gap-2">
-                <Plus className="w-4 h-4" />新增设置项
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs text-gray-500">键名 (key)</Label>
-                  <Input className="mt-0.5 h-8 text-sm" value={newKey} onChange={e => setNewKey(e.target.value)} placeholder="my_setting_key" />
-                </div>
-                <div>
-                  <Label className="text-xs text-gray-500">值 (value)</Label>
-                  <Input className="mt-0.5 h-8 text-sm" value={newVal} onChange={e => setNewVal(e.target.value)} />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs text-gray-500">说明</Label>
-                  <Input className="mt-0.5 h-8 text-sm" value={newDesc} onChange={e => setNewDesc(e.target.value)} />
-                </div>
-                <div>
-                  <Label className="text-xs text-gray-500">分类</Label>
-                  <Select value={newCat} onValueChange={setNewCat}>
-                    <SelectTrigger className="mt-0.5 h-8 text-sm"><SelectValue /></SelectTrigger>
-                    <SelectContent>{Object.entries(CAT_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <Button size="sm" variant="outline" onClick={handleAdd} disabled={!newKey || !newVal}>
-                <Plus className="w-3.5 h-3.5 mr-1" />新增
-              </Button>
-            </CardContent>
-          </Card>
-        </>
-      )}
         </div>{/* end main content */}
       </div>{/* end flex row */}
     </div>
