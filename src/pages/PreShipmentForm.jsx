@@ -242,9 +242,22 @@ export default function PreShipmentForm() {
         // If editing and order has a saved address, restore it
         const existingAddress = ord?.pre_shipment?.address;
         if (existingAddress && existingAddress.recipient_name) {
-          setAddress({ label: existingAddress.label || "", ...existingAddress });
-          setUseNewAddress(true);
-          setSelectedAddressId("");
+          // Prefer matching the saved address back to an address-book entry (by id or content)
+          const matched = addrs.find((a) =>
+            (existingAddress.id && a.id === existingAddress.id) ||
+            (a.recipient_name === existingAddress.recipient_name &&
+             a.country === existingAddress.country &&
+             a.addr1 === existingAddress.addr1)
+          );
+          if (matched) {
+            setSelectedAddressId(matched.id);
+            setAddress({ label: matched.label || "", ...matched });
+            setUseNewAddress(false);
+          } else {
+            setAddress({ label: existingAddress.label || "", ...existingAddress });
+            setUseNewAddress(true);
+            setSelectedAddressId("");
+          }
         } else {
           const defaultId = pref?.default_address_id || "";
           const defaultAddr = addrs.find((a) => a.id === defaultId);
