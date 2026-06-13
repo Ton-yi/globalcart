@@ -205,6 +205,9 @@ export default function ShippingPool() {
     if (defaultAddr) {
       setSelectedAddressId(defaultAddr.id);
       setUseNewAddress(false);
+      // Pre-fill newAddress with country from default address, so CountrySelect shows value if user switches to new address
+      setNewAddress(p => ({ ...p, country: defaultAddr.country || "" }));
+      setTransitNewAddress(p => ({ ...p, country: defaultAddr.country || "" }));
     } else {
       setUseNewAddress(true);
       setSelectedAddressId("");
@@ -316,7 +319,13 @@ export default function ShippingPool() {
 
     // Determine destination_country
     let destinationCountry = "";
-    if (useNewAddress) {
+    if (consType === "transit") {
+      // For transit shipments, destination is the final address after transit
+      const finalAddrForCountry = transitUseNewAddress
+        ? transitNewAddress
+        : savedAddresses.find((a) => a.id === transitFinalAddressId) || {};
+      destinationCountry = finalAddrForCountry.country || "";
+    } else if (useNewAddress) {
       destinationCountry = newAddress.country || "";
     } else {
       const addr = savedAddresses.find((a) => a.id === selectedAddressId);
