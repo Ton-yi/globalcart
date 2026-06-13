@@ -1,4 +1,5 @@
 import { base44 } from '@/api/base44Client';
+// Note: getRatesWithIncrements delegates to getExchangeRates — increments applied server-side
 
 // Default rates (fallback)
 const DEFAULT_RATES = {
@@ -43,29 +44,11 @@ export async function getExchangeRates() {
 }
 
 /**
- * Get settings and merge with live rates
- * Returns: { jpy_usd: base_rate, jpy_cny: base_rate, ... }
- * Plus increments from settings: jpy_usd_increment, jpy_cny_increment
+ * Get rates with tenant increments already applied (increments are applied server-side by fetchExchangeRates).
+ * This is now an alias for getExchangeRates() since the backend handles increment application.
  */
 export async function getRatesWithIncrements() {
-  const [liveRates, settings] = await Promise.all([
-    getExchangeRates(),
-    base44.entities.SiteSettings.list()
-  ]);
-
-  const settingsMap = {};
-  settings.forEach(s => { settingsMap[s.key] = parseFloat(s.value) || 0; });
-
-  return {
-    jpy_usd: (liveRates.jpy_usd || DEFAULT_RATES.jpy_usd) + (settingsMap.jpy_usd_increment || 0),
-    jpy_cny: (liveRates.jpy_cny || DEFAULT_RATES.jpy_cny) + (settingsMap.jpy_cny_increment || 0),
-    jpy_eur: (liveRates.jpy_eur || DEFAULT_RATES.jpy_eur) + (settingsMap.jpy_eur_increment || 0),
-    jpy_gbp: (liveRates.jpy_gbp || DEFAULT_RATES.jpy_gbp) + (settingsMap.jpy_gbp_increment || 0),
-    jpy_aud: (liveRates.jpy_aud || DEFAULT_RATES.jpy_aud) + (settingsMap.jpy_aud_increment || 0),
-    jpy_sgd: (liveRates.jpy_sgd || DEFAULT_RATES.jpy_sgd) + (settingsMap.jpy_sgd_increment || 0),
-    jpy_hkd: (liveRates.jpy_hkd || DEFAULT_RATES.jpy_hkd) + (settingsMap.jpy_hkd_increment || 0),
-    jpy_twd: (liveRates.jpy_twd || DEFAULT_RATES.jpy_twd) + (settingsMap.jpy_twd_increment || 0),
-  };
+  return getExchangeRates();
 }
 
 /**

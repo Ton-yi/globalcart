@@ -70,11 +70,27 @@ export default function PaymentModal({ order, mode = "prepay", onClose, onSucces
   const [surchargeJpy, setSurchargeJpy] = useState(0);
   const [finalAmountJpy, setFinalAmountJpy] = useState(defaultAmount);
 
-  // Fetch exchange rates once on mount (for non-JPY currency display)
+  // Fetch exchange rates once on mount (via backend, includes tenant increments)
   useEffect(() => {
-    fetch('https://v6.exchangerate-api.com/v6/89e2f91c758d92aa2c06667b/latest/JPY')
-      .then(r => r.json())
-      .then(d => { if (d?.result === 'success') setRates(d.conversion_rates); })
+    base44.functions.invoke('fetchExchangeRates', {})
+      .then(r => {
+        const d = r.data;
+        if (d && d.jpy_usd) {
+          // Build a conversion_rates-style map for display (1 JPY → X foreign)
+          // rates returned are already increment-adjusted
+          setRates({
+            JPY: 1,
+            CNY: d.jpy_cny,
+            USD: d.jpy_usd,
+            EUR: d.jpy_eur,
+            GBP: d.jpy_gbp,
+            AUD: d.jpy_aud,
+            SGD: d.jpy_sgd,
+            HKD: d.jpy_hkd,
+            TWD: d.jpy_twd,
+          });
+        }
+      })
       .catch(() => {});
   }, []);
 

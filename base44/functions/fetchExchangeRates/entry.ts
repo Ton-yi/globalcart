@@ -30,7 +30,21 @@ Deno.serve(async (req) => {
         const cached = JSON.parse(cacheRecord.value);
         const ageMs = Date.now() - new Date(cached.fetched_at).getTime();
         if (cached.rates && ageMs >= 0 && ageMs < refreshMinutes * 60 * 1000) {
-          return Response.json({ ...cached.rates, rates: cached.rates, cached: true });
+          // 缓存命中，但仍需叠加租户增量
+          const rawRates = cached.rates;
+          const rates = { ...rawRates };
+          const userRecord = await base44.asServiceRole.entities.User.filter({ email: user.email });
+          const tenantId = userRecord?.[0]?.tenant_id || '';
+          if (tenantId) {
+            const incrementSettings = await base44.asServiceRole.entities.SiteSettings.filter({ tenant_id: tenantId });
+            const incMap = {};
+            (incrementSettings || []).forEach(s => { incMap[s.key] = parseFloat(s.value) || 0; });
+            Object.values(RATE_KEYS).forEach(key => {
+              const inc = incMap[`${key}_increment`] || 0;
+              if (inc !== 0) rates[key] = (rawRates[key] || 0) + inc;
+            });
+          }
+          return Response.json({ ...rates, rates, raw_rates: rawRates, cached: true });
         }
       } catch { /* 缓存损坏则忽略，继续实时查询 */ }
     }
@@ -46,11 +60,11 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'API returned error: ' + (data['error-type'] || 'unexpected format') }, { status: 500 });
     }
 
-    const rates = { timestamp: new Date().toISOString() };
-    Object.entries(RATE_KEYS).forEach(([cur, key]) => { rates[key] = conversion[cur] || FALLBACKS[key]; });
+    const rawRates = { timestamp: new Date().toISOString() };
+    Object.entries(RATE_KEYS).forEach(([cur, key]) => { rawRates[key] = conversion[cur] || FALLBACKS[key]; });
 
-    // 写入平台级缓存
-    const cacheValue = JSON.stringify({ rates, fetched_at: new Date().toISOString() });
+    // 写入平台级缓存（原始汇率，不含增量）
+    const cacheValue = JSON.stringify({ rates: rawRates, fetched_at: new Date().toISOString() });
     if (cacheRecord) {
       await base44.asServiceRole.entities.SiteSettings.update(cacheRecord.id, { value: cacheValue });
     } else {
@@ -63,7 +77,22 @@ Deno.serve(async (req) => {
       });
     }
 
-    return Response.json({ ...rates, rates });
+    // 读取租户级增量设置并叠加
+    const userRecord = await base44.asServiceRole.entities.User.filter({ email: user.email });
+    const tenantId = userRecord?.[0]?.tenant_id || '';
+    const rates = { ...rawRates };
+    if (tenantId) {
+      const incrementKeys = Object.values(RATE_KEYS).map(k => `${k}_increment`);
+      const incrementSettings = await base44.asServiceRole.entities.SiteSettings.filter({ tenant_id: tenantId });
+      const incMap = {};
+      (incrementSettings || []).forEach(s => { incMap[s.key] = parseFloat(s.value) || 0; });
+      Object.values(RATE_KEYS).forEach(key => {
+        const inc = incMap[`${key}_increment`] || 0;
+        if (inc !== 0) rates[key] = (rawRates[key] || 0) + inc;
+      });
+    }
+
+    return Response.json({ ...rates, rates, raw_rates: rawRates });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }
