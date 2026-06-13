@@ -25,6 +25,7 @@ export const ALLOWED_VARIABLES = [
   'storageDays',       // 仓储天数
   'shippingFee',       // 实际国际运费 (JPY) — 发货阶段主要基数
   'valueAddedServiceAmount', // 增值服务金额 (JPY)
+  'paymentSurcharge',        // 支付方式服务费 (JPY)
 ];
 
 // ─── 变量中文名 ────────────────────────────────────────────────────────────────
@@ -44,6 +45,7 @@ export const VARIABLE_LABELS = {
   storageDays: '仓储天数',
   shippingFee: '实际运费 (JPY)',
   valueAddedServiceAmount: '增值服务金额 (JPY)',
+  paymentSurcharge: '支付方式服务费 (JPY)',
 };
 
 // ─── 白名单函数 ────────────────────────────────────────────────────────────────
@@ -666,5 +668,6 @@ export function buildOrderVariables(order, userRecord = null) {
     storageDays: 0,
     shippingFee: parseFloat(order.shipping_fee_amount) || 0, // 发货阶段服务费基数
     valueAddedServiceAmount: (order.selected_addons || []).reduce((sum, a) => sum + (parseFloat(a.fee) || 0), 0),
+    paymentSurcharge: parseFloat(order.payment_surcharge_jpy) || 0,
   };
 }
