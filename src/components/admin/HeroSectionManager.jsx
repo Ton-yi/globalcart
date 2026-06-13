@@ -104,7 +104,7 @@ function SliderField({ label, value, min, max, unit, onChange }) {
 
 // 常用内页选项（与 QuickActionsGrid 相同的 createPageUrl 路由逻辑）
 const PAGE_OPTIONS = [
-  { value: "", label: "（留空 → 登录页）" },
+  { value: "__empty__", label: "（留空 → 登录页）" },
   { value: "Home", label: "主页" },
   { value: "SubmitOrder", label: "提交订单" },
   { value: "MyOrders", label: "我的订单" },
@@ -121,7 +121,7 @@ function isCustomUrl(page) {
 }
 
 function getSelectValue(page) {
-  if (!page) return "";
+  if (!page) return "__empty__";
   if (isCustomUrl(page)) return "__custom__";
   return page;
 }
@@ -147,6 +147,7 @@ function ButtonEditor({ buttons, onChange }) {
                 value={getSelectValue(btn.page)}
                 onValueChange={v => {
                   if (v === "__custom__") update(idx, "page", "https://");
+                  else if (v === "__empty__") update(idx, "page", "");
                   else update(idx, "page", v);
                 }}
               >
