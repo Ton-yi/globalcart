@@ -128,18 +128,19 @@ export default function Layout({ children, currentPageName }) {
             onClick={() => base44.auth.logout()}>退出登录</Button>
         </div>
       )}
-      {/* above_nav announcements */}
-      <AnnouncementPositionRenderer
-        announcements={announcements} position="above_nav"
-        currentPageName={currentPageName} userRole={user?.role}
-      />
       {/* modal announcements */}
       <AnnouncementPositionRenderer
         announcements={announcements} position="modal"
         currentPageName={currentPageName} userRole={user?.role}
       />
 
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
+      {/* Sticky top zone: above_nav + header stack together */}
+      <div className="sticky top-0 z-50">
+        <AnnouncementPositionRenderer
+          announcements={announcements} position="above_nav"
+          currentPageName={currentPageName} userRole={user?.role}
+        />
+      <header className="bg-white border-b border-gray-200">
         <div className="w-full px-4 sm:px-6 flex items-center justify-between h-14">
           <div className="flex items-center gap-3">
             <button className="md:hidden p-1" onClick={() => setMobileOpen(!mobileOpen)}>
@@ -293,6 +294,7 @@ export default function Layout({ children, currentPageName }) {
           </div>
         )}
       </header>
+      </div>{/* end sticky top zone */}
 
       {/* below_nav announcements */}
       <AnnouncementPositionRenderer

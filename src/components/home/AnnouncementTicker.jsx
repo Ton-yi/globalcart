@@ -50,10 +50,9 @@ export default function AnnouncementTicker({ announcements = [] }) {
     setLocalDismissed(getDismissed());
   }, []);
 
-  const active = announcements.filter(a =>
-    a.is_active !== false && !isDismissed({ ...a, dismissible: a.dismissible })
-  ).filter(a => {
-    // Re-filter using localDismissed state for reactivity
+  // announcements are already filtered by position/active in AnnouncementPositionRenderer
+  // Only filter out locally-dismissed ones (using localDismissed state for reactivity)
+  const active = announcements.filter(a => {
     if (!a.dismissible) return true;
     const version = a.dismissed_version || "1";
     return localDismissed[a.id] !== version;

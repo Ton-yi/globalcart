@@ -35,9 +35,8 @@ export default function AnnouncementModal({ announcements = [] }) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    const pending = announcements.filter(a =>
-      a.is_active !== false && a.display_position === "modal" && !isDismissed(a)
-    );
+    // announcements are already filtered by position/active in AnnouncementPositionRenderer
+    const pending = announcements.filter(a => !isDismissed(a));
     if (pending.length > 0) {
       setQueue(pending);
       setCurrent(0);
