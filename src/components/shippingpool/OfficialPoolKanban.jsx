@@ -132,8 +132,9 @@ function DraggableStagingCard({ draggableId, index, order, officialPools, isAdmi
   const [detailOpen, setDetailOpen] = useState(false);
   const pre = order?.pre_shipment;
   const targetPoolId = pre?.target_pool_id;
-  const targetPool = officialPools.find(p => p.id === targetPoolId);
-  const targetLabel = targetPool ? (targetPool.title || targetPool.pool_code) : "待匹配";
+  // Only show target pool if it's a real pool (not a pending pool used as staging)
+  const realTargetPool = officialPools.find(p => p.id === targetPoolId && !p.is_pending_pool);
+  const targetLabel = realTargetPool ? (realTargetPool.title || realTargetPool.pool_code) : null;
   const isInWarehouse = order?.order_status === "in_warehouse";
 
   const handleClick = (e) => {
@@ -177,10 +178,12 @@ function DraggableStagingCard({ draggableId, index, order, officialPools, isAdmi
                     {ORDER_STATUS_LABELS[order?.order_status] || order?.order_status}
                   </Badge>
                 </div>
-                <div className="flex items-center gap-1 mt-1">
-                  <ArrowRight className="w-3 h-3 text-gray-300 flex-shrink-0" />
-                  <span className="text-xs text-gray-400 truncate">→ {targetLabel}</span>
-                </div>
+                {targetLabel && (
+                  <div className="flex items-center gap-1 mt-1">
+                    <ArrowRight className="w-3 h-3 text-blue-300 flex-shrink-0" />
+                    <span className="text-xs text-blue-500 truncate font-medium">→ {targetLabel}</span>
+                  </div>
+                )}
               </div>
               {isAdmin && (
                 <button
@@ -643,48 +646,94 @@ function PoolColumn({ pool, allOrders, currentUser, isAdmin, shippingAddons, sav
 }
 
 // ─── Staging Column (Droppable) ───────────────────────────────────────────────
-function StagingColumn({ allOrders, officialPools, currentUser, isAdmin, onRefresh, selectedIds, onSelectItem }) {
+// The staging column acts as the "待拼邮" (pending pool) area — it collects all
+// pre-shipment orders awaiting admin assignment to an official pool.
+// Orders are grouped by intended shipping method for easy batch assignment.
+function StagingColumn({ allOrders, officialPools, pendingPools, currentUser, isAdmin, onRefresh, selectedIds, onSelectItem, shippingMethods }) {
   const [addModalOpen, setAddModalOpen] = useState(false);
 
-  const allOfficialPoolOrderIds = new Set(officialPools.flatMap(p => p.order_ids || []));
+  // Collect order IDs already in real (non-pending) official pools
+  const realPoolOrderIds = new Set(officialPools.filter(p => !p.is_pending_pool).flatMap(p => p.order_ids || []));
+  // Orders in pending pools are also shown in staging (they're awaiting admin assignment)
+  const pendingPoolOrderIds = new Set(pendingPools.flatMap(p => p.order_ids || []));
+
   const stagedOrders = allOrders.filter(o => {
-    // Skip if already in an official pool
-    if (allOfficialPoolOrderIds.has(o.id)) return false;
+    // Skip if already in a real official pool
+    if (realPoolOrderIds.has(o.id)) return false;
     const pre = o.pre_shipment;
-    // Must have pre_shipment with official_pool type
-    if (!pre || pre.consType !== "official_pool") return false;
-    // Include orders where pool_created is false OR not set (default match case)
-    // This ensures orders waiting for admin assignment appear in staging
-    if (pre.pool_created === true && pre.target_pool_id) return false;
-    return true;
+    // Include if in a pending pool (auto-routed by shipping method)
+    if (pendingPoolOrderIds.has(o.id)) return true;
+    // Include if has pre_shipment with official_pool type and not yet assigned
+    if (pre && pre.consType === "official_pool") {
+      if (pre.pool_created === true && pre.target_pool_id && !pendingPoolOrderIds.has(o.id)) return false;
+      return true;
+    }
+    return false;
   });
 
-  const inWarehouseOrders = stagedOrders.filter(o => o.order_status === "in_warehouse");
-  const pendingOrders = stagedOrders.filter(o => o.order_status !== "in_warehouse");
   const stagedOrderIds = new Set(stagedOrders.map(o => o.id));
 
-  const handleRemove = async (order) => {
-    const pre = order.pre_shipment || {};
-    await base44.functions.invoke('updateTenantOrder', {
-      order_id: order.id,
-      pre_shipment: { ...pre, consType: "", target_pool_id: "", target_pool_code: "" },
+  // Group staged orders by shipping method (core pending-pool feature)
+  const groupByShippingMethod = (orders) => {
+    const groups = new Map(); // methodCode -> { label, orders }
+    orders.forEach(o => {
+      const method = o.pre_shipment?.shipping_method || "";
+      if (!groups.has(method)) {
+        const methodObj = shippingMethods?.find(m => m.code === method || m.name === method);
+        groups.set(method, {
+          methodCode: method,
+          label: methodObj?.name || method || "未指定运输方式",
+          orders: [],
+        });
+      }
+      groups.get(method).orders.push(o);
     });
+    // Sort: non-empty methods first, then default
+    return [...groups.values()].sort((a, b) => {
+      if (!a.methodCode && b.methodCode) return 1;
+      if (a.methodCode && !b.methodCode) return -1;
+      return a.label.localeCompare(b.label);
+    });
+  };
+
+  // Within each method group, split by warehouse status
+  const methodGroups = groupByShippingMethod(stagedOrders);
+
+  const handleRemove = async (order) => {
+    // If order is in a pending pool, remove from that pool first
+    const pendingPool = pendingPools.find(p => (p.order_ids || []).includes(order.id));
+    if (pendingPool) {
+      await base44.functions.invoke('updateTenantOrder', {
+        order_id: order.id,
+        consolidation_pool_id: "",
+        pre_shipment: { ...(order.pre_shipment || {}), consType: "", target_pool_id: "", target_pool_code: "", pool_created: false, pool_id: "" },
+      });
+    } else {
+      const pre = order.pre_shipment || {};
+      await base44.functions.invoke('updateTenantOrder', {
+        order_id: order.id,
+        pre_shipment: { ...pre, consType: "", target_pool_id: "", target_pool_code: "" },
+      });
+    }
     onRefresh?.();
   };
 
+  // Flat index counter for Draggable indices (must be sequential across groups)
+  let flatIdx = 0;
+
   return (
     <div className="flex-shrink-0 w-72 flex flex-col">
-      <div className="flex items-center justify-between px-3 py-3 bg-white border border-dashed border-gray-300 rounded-xl mb-2">
+      <div className="flex items-center justify-between px-3 py-3 bg-white border border-dashed border-amber-300 rounded-xl mb-2">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <Inbox className="w-4 h-4 text-gray-400 flex-shrink-0" />
-            <span className="text-sm font-semibold text-gray-700">待发货暂存区</span>
-            <Badge className="text-xs bg-gray-100 text-gray-500">{stagedOrders.length}</Badge>
+            <Inbox className="w-4 h-4 text-amber-500 flex-shrink-0" />
+            <span className="text-sm font-semibold text-gray-700">待拼邮暂存区</span>
+            <Badge className="text-xs bg-amber-100 text-amber-700">{stagedOrders.length}</Badge>
           </div>
-          <p className="text-xs text-gray-400 mt-0.5 ml-6">预计加入官方拼邮的订单</p>
+          <p className="text-xs text-gray-400 mt-0.5 ml-6">预出货订单按运输方式分组，拖入右侧拼邮列完成分配</p>
         </div>
         {isAdmin && (
-          <button onClick={() => setAddModalOpen(true)} className="p-1.5 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-blue-600 transition-colors flex-shrink-0" title="手动添加任务">
+          <button onClick={() => setAddModalOpen(true)} className="p-1.5 rounded-lg hover:bg-amber-50 text-gray-400 hover:text-amber-600 transition-colors flex-shrink-0" title="手动添加任务">
             <Plus className="w-3.5 h-3.5" />
           </button>
         )}
@@ -695,56 +744,85 @@ function StagingColumn({ allOrders, officialPools, currentUser, isAdmin, onRefre
           <div
             ref={provided.innerRef}
             {...provided.droppableProps}
-            className={`flex-1 min-h-[60px] rounded-xl transition-colors p-1 ${snapshot.isDraggingOver ? "bg-blue-50 ring-2 ring-blue-200" : ""}`}
+            className={`flex-1 min-h-[60px] rounded-xl transition-colors p-1 ${snapshot.isDraggingOver ? "bg-amber-50 ring-2 ring-amber-200" : ""}`}
           >
-            <div className="space-y-2">
-              {inWarehouseOrders.length > 0 && (
-                <div className="flex items-center gap-1.5 px-2 py-1">
-                  <Warehouse className="w-3 h-3 text-green-500" />
-                  <span className="text-xs font-medium text-green-700">已入库</span>
-                  <Badge className="text-xs bg-green-100 text-green-700 ml-auto">{inWarehouseOrders.length}</Badge>
-                </div>
-              )}
-              {inWarehouseOrders.map((order, idx) => (
-                <DraggableStagingCard
-                  key={order.id}
-                  draggableId={`staging-${order.id}`}
-                  index={idx}
-                  order={order}
-                  officialPools={officialPools}
-                  isAdmin={isAdmin}
-                  currentUser={currentUser}
-                  onRemove={handleRemove}
-                  selected={selectedIds?.has(`staging-${order.id}`)}
-                  onSelect={onSelectItem}
-                />
-              ))}
+            <div className="space-y-3">
+              {methodGroups.map(({ methodCode, label, orders: groupOrders }) => {
+                const inWarehouse = groupOrders.filter(o => o.order_status === "in_warehouse");
+                const notInWarehouse = groupOrders.filter(o => o.order_status !== "in_warehouse");
+                return (
+                  <div key={methodCode || "__none__"}>
+                    {/* Method group header */}
+                    <div className="flex items-center gap-1.5 px-2 py-1 mb-1">
+                      <Package className="w-3 h-3 text-amber-500 flex-shrink-0" />
+                      <span className="text-xs font-semibold text-amber-700 truncate flex-1">{label}</span>
+                      <Badge className="text-xs bg-amber-50 text-amber-600 flex-shrink-0">{groupOrders.length}</Badge>
+                    </div>
 
-              {pendingOrders.length > 0 && (
-                <div className="flex items-center gap-1.5 px-2 py-1 mt-1">
-                  <Clock className="w-3 h-3 text-gray-400" />
-                  <span className="text-xs font-medium text-gray-500">未入库</span>
-                  <Badge className="text-xs bg-gray-100 text-gray-500 ml-auto">{pendingOrders.length}</Badge>
-                </div>
-              )}
-              {pendingOrders.map((order, idx) => (
-                <DraggableStagingCard
-                  key={order.id}
-                  draggableId={`staging-${order.id}`}
-                  index={inWarehouseOrders.length + idx}
-                  order={order}
-                  officialPools={officialPools}
-                  isAdmin={isAdmin}
-                  currentUser={currentUser}
-                  onRemove={handleRemove}
-                  selected={selectedIds?.has(`staging-${order.id}`)}
-                  onSelect={onSelectItem}
-                />
-              ))}
+                    {/* In-warehouse sub-group */}
+                    {inWarehouse.length > 0 && (
+                      <div className="ml-2 mb-1">
+                        <div className="flex items-center gap-1 px-1 mb-1">
+                          <Warehouse className="w-2.5 h-2.5 text-green-500" />
+                          <span className="text-xs text-green-600">已入库 {inWarehouse.length}</span>
+                        </div>
+                        <div className="space-y-1.5">
+                          {inWarehouse.map(order => {
+                            const idx = flatIdx++;
+                            return (
+                              <DraggableStagingCard
+                                key={order.id}
+                                draggableId={`staging-${order.id}`}
+                                index={idx}
+                                order={order}
+                                officialPools={officialPools}
+                                isAdmin={isAdmin}
+                                currentUser={currentUser}
+                                onRemove={handleRemove}
+                                selected={selectedIds?.has(`staging-${order.id}`)}
+                                onSelect={onSelectItem}
+                              />
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Not-in-warehouse sub-group */}
+                    {notInWarehouse.length > 0 && (
+                      <div className="ml-2">
+                        <div className="flex items-center gap-1 px-1 mb-1">
+                          <Clock className="w-2.5 h-2.5 text-gray-400" />
+                          <span className="text-xs text-gray-400">未入库 {notInWarehouse.length}</span>
+                        </div>
+                        <div className="space-y-1.5">
+                          {notInWarehouse.map(order => {
+                            const idx = flatIdx++;
+                            return (
+                              <DraggableStagingCard
+                                key={order.id}
+                                draggableId={`staging-${order.id}`}
+                                index={idx}
+                                order={order}
+                                officialPools={officialPools}
+                                isAdmin={isAdmin}
+                                currentUser={currentUser}
+                                onRemove={handleRemove}
+                                selected={selectedIds?.has(`staging-${order.id}`)}
+                                onSelect={onSelectItem}
+                              />
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
 
               {stagedOrders.length === 0 && !snapshot.isDraggingOver && (
                 <div className="text-center py-6 text-gray-300 text-xs">
-                  <Inbox className="w-6 h-6 mx-auto mb-1 opacity-30" />暂无待发货任务
+                  <Inbox className="w-6 h-6 mx-auto mb-1 opacity-30" />暂无待拼邮任务
                 </div>
               )}
               {provided.placeholder}
@@ -753,12 +831,14 @@ function StagingColumn({ allOrders, officialPools, currentUser, isAdmin, onRefre
         )}
       </Droppable>
 
-      <button
-        onClick={() => setAddModalOpen(true)}
-        className="mt-2 w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border-2 border-dashed border-gray-200 text-xs text-gray-400 hover:border-blue-300 hover:text-blue-500 hover:bg-blue-50 transition-colors"
-      >
-        <Plus className="w-3.5 h-3.5" />添加待发货任务
-      </button>
+      {isAdmin && (
+        <button
+          onClick={() => setAddModalOpen(true)}
+          className="mt-2 w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border-2 border-dashed border-amber-200 text-xs text-amber-500 hover:border-amber-400 hover:bg-amber-50 transition-colors"
+        >
+          <Plus className="w-3.5 h-3.5" />手动添加待拼邮任务
+        </button>
+      )}
 
       {addModalOpen && (
         <AddToStagingModal
@@ -780,6 +860,8 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
   const [savedAddresses, setSavedAddresses] = useState([]);
   const [userPrefsMap, setUserPrefsMap] = useState({});
   const [createPoolOpen, setCreatePoolOpen] = useState(false);
+  // Separate pending pools (staging) from regular official pool columns
+  const pendingPools = pools.filter(p => p.is_pending_pool);
   // Regular (non-pending) pools only for kanban columns
   const regularPools = pools.filter(p => !p.is_pending_pool);
   const [columnOrder, setColumnOrder] = useState(() => regularPools.map(p => p.id));
@@ -874,7 +956,8 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
     if (source.droppableId === destination.droppableId) return;
 
     const dstId = destination.droppableId;
-    const destPool = dstId.startsWith("pool-") ? pools.find(p => p.id === dstId.slice("pool-".length)) : null;
+    // Only route to real (non-pending) pools; pending pools are absorbed into staging
+    const destPool = dstId.startsWith("pool-") ? regularPools.find(p => p.id === dstId.slice("pool-".length)) : null;
     const toStaging = dstId === "staging";
 
     // Collect all draggableIds to move
@@ -888,6 +971,7 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
         const parsed = parseDraggableId(did);
         if (!parsed) continue;
         if (parsed.type === "staging") {
+          // srcPool is null for staging items (pending pool cleanup handled separately in order update)
           items.push({ orderId: parsed.orderId, srcPool: null, originalEntry: null });
         } else if (parsed.type === "pool-order") {
           const srcPool = pools.find(p => p.id === parsed.srcPoolId);
@@ -1025,14 +1109,28 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
     const orderUpdatePromises = orderItems.map(({ orderId, srcPool }) => {
       const order = allOrders.find(o => o.id === orderId);
       if (!order) return Promise.resolve();
+      // Check if this order was in a pending pool (for proper cleanup)
+      const srcPendingPool = !srcPool ? pendingPools.find(p => (p.order_ids || []).includes(orderId)) : null;
       if (destPool) {
+        // Moving from staging (or pending pool) → real pool
+        // If the order was in a pending pool, also remove it from the pending pool via pool update
+        if (srcPendingPool) {
+          shippingPoolApi.update(srcPendingPool.id, {
+            order_ids: (srcPendingPool.order_ids || []).filter(id => id !== orderId),
+            total_weight_g: Math.max(0, (srcPendingPool.total_weight_g || 0) - (order.weight_g || 0)),
+            per_user_groups: (srcPendingPool.per_user_groups || [])
+              .map(g => ({ ...g, order_entries: (g.order_entries || []).filter(e => e.order_id !== orderId) }))
+              .filter(g => (g.order_entries || []).length > 0),
+          }).catch(() => {});
+        }
         return base44.functions.invoke('updateTenantOrder', {
           order_id: orderId,
-          order_status: (!srcPool && order.order_status === "in_warehouse") ? "notified_shipment" : order.order_status,
+          order_status: ((!srcPool || srcPendingPool) && order.order_status === "in_warehouse") ? "notified_shipment" : order.order_status,
           consolidation_pool_id: destPool.id,
           pre_shipment: { ...(order.pre_shipment || {}), pool_created: true, pool_id: destPool.id, consType: "official_pool", target_pool_id: destPool.id },
         });
       } else if (toStaging) {
+        // Moving from real pool → staging (back to pending)
         const sPool = srcPool || pools.find(p => (p.order_ids || []).includes(orderId));
         return base44.functions.invoke('updateTenantOrder', {
           order_id: orderId,
@@ -1075,15 +1173,17 @@ export default function OfficialPoolKanban({ pools, allOrders, currentUser, isAd
           )}
 
           <div className="flex gap-4 overflow-x-auto pb-4">
-            {/* Staging column — always fixed at the left, not draggable */}
+            {/* Staging column — always fixed at the left, acts as 待拼邮 area */}
             <StagingColumn
               allOrders={allOrders}
               officialPools={pools}
+              pendingPools={pendingPools}
               currentUser={currentUser}
               isAdmin={isAdmin}
               onRefresh={onRefresh}
               selectedIds={selectedIds}
               onSelectItem={handleSelectItem}
+              shippingMethods={shippingMethods || []}
             />
 
             {/* Add section button */}

@@ -353,7 +353,7 @@ export default function AdminShippingPool() {
             <div className="text-center py-16 text-gray-400 text-sm">加载中...</div>
           ) : (
             <OfficialPoolKanban
-              pools={officialConsPools}
+              pools={[...pools.filter(p => p.is_pending_pool && !p.is_archived), ...officialConsPools]}
               allOrders={allOrders}
               currentUser={user}
               isAdmin={true}
