@@ -280,21 +280,49 @@ function AudiencePanel({ form, onChange }) {
         {/* Image mode */}
         {form.bgMode === "image" && (
           <div className="space-y-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
-            <div>
-              <Label className="text-xs text-gray-500 mb-1.5 block">背景图片</Label>
-              {form.bgImageUrl ? (
-                <div className="relative rounded-lg overflow-hidden h-24 border border-gray-200">
-                  <img src={form.bgImageUrl} className="w-full h-full object-cover" alt="hero bg" />
-                  <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/30 opacity-0 hover:opacity-100 transition-opacity">
-                    <Button size="sm" className="h-7 text-xs" onClick={() => fileInputRef.current?.click()}>
-                      <Upload className="w-3 h-3 mr-1" />更换
-                    </Button>
-                    <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={() => onChange({ ...form, bgImageUrl: "", bgMode: "white" })}>
-                      <X className="w-3 h-3 mr-1" />移除
-                    </Button>
-                  </div>
+            {/* 实时预览区 */}
+            {form.bgImageUrl && (
+              <div className="relative rounded-lg overflow-hidden h-28 border border-gray-300 shadow-sm">
+                {/* 背景图 */}
+                <div
+                  className="absolute inset-0 bg-cover bg-center"
+                  style={{
+                    backgroundImage: `url(${form.bgImageUrl})`,
+                    filter: `blur(${form.blurAmount ?? 0}px) brightness(${(form.brightness ?? 100) / 100})`,
+                    transform: (form.blurAmount ?? 0) > 0 ? "scale(1.05)" : undefined,
+                  }}
+                />
+                {/* 遮罩 */}
+                {(form.overlayOpacity ?? 0) > 0 && (
+                  <div
+                    className="absolute inset-0"
+                    style={{
+                      backgroundColor: form.overlayColor || "#000000",
+                      opacity: (form.overlayOpacity ?? 0) / 100,
+                    }}
+                  />
+                )}
+                {/* 示意文字 */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 pointer-events-none">
+                  <span className="text-white text-sm font-bold drop-shadow">{form.title || "标题预览"}</span>
+                  {form.subtitle && <span className="text-white/80 text-xs drop-shadow">{form.subtitle}</span>}
                 </div>
-              ) : (
+                {/* 更换 / 移除按钮 */}
+                <div className="absolute top-2 right-2 flex gap-1">
+                  <Button size="sm" className="h-6 text-xs px-2 bg-white/80 text-gray-700 hover:bg-white" onClick={() => fileInputRef.current?.click()}>
+                    <Upload className="w-3 h-3 mr-1" />更换
+                  </Button>
+                  <Button size="sm" variant="destructive" className="h-6 text-xs px-2 bg-red-500/80 hover:bg-red-600" onClick={() => onChange({ ...form, bgImageUrl: "", bgMode: "white" })}>
+                    <X className="w-3 h-3" />
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* 上传区（无图时显示） */}
+            {!form.bgImageUrl && (
+              <div>
+                <Label className="text-xs text-gray-500 mb-1.5 block">背景图片</Label>
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   onDragOver={e => { e.preventDefault(); setDragging(true); }}
@@ -304,9 +332,10 @@ function AudiencePanel({ form, onChange }) {
                   <ImageIcon className="w-5 h-5" />
                   <span className="text-xs">点击或拖拽图片至此上传（将进入裁切步骤）</span>
                 </button>
-              )}
-              <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
-            </div>
+              </div>
+            )}
+            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+
             <SliderField label="模糊度（雾化）" value={form.blurAmount ?? 0} min={0} max={20} unit="px" onChange={v => f("blurAmount", v)} />
             <SliderField label="明度" value={form.brightness ?? 100} min={30} max={150} unit="%" onChange={v => f("brightness", v)} />
             <div>
