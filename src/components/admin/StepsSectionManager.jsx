@@ -65,17 +65,24 @@ function DescEditor({ desc, imageUrl, onDescChange, onUpload, onRemove }) {
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef();
+  const dragCounter = useRef(0); // fix: dragLeave fires on child elements
 
   const uploadFile = async (file) => {
     if (!file || !file.type.startsWith("image/")) return;
     setUploading(true);
-    const { file_url } = await base44.integrations.Core.UploadFile({ file });
-    onUpload(file_url);
-    setUploading(false);
+    try {
+      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      onUpload(file_url);
+    } finally {
+      setUploading(false);
+    }
   };
 
+  const handleDragEnter = (e) => { e.preventDefault(); dragCounter.current++; setDragging(true); };
+  const handleDragLeave = (e) => { e.preventDefault(); dragCounter.current--; if (dragCounter.current === 0) setDragging(false); };
   const handleDrop = (e) => {
     e.preventDefault();
+    dragCounter.current = 0;
     setDragging(false);
     const file = e.dataTransfer.files[0];
     if (file) uploadFile(file);
@@ -89,8 +96,9 @@ function DescEditor({ desc, imageUrl, onDescChange, onUpload, onRemove }) {
   return (
     <div
       className={`mt-0.5 rounded-md border bg-background shadow-sm transition-colors ${dragging ? "border-indigo-400 ring-1 ring-indigo-300" : "border-input"}`}
-      onDragOver={e => { e.preventDefault(); setDragging(true); }}
-      onDragLeave={() => setDragging(false)}
+      onDragOver={e => e.preventDefault()}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
       {/* Textarea */}
@@ -144,7 +152,7 @@ function SectionEditor({ section, sectionIdx, total, onChange, onDelete, onMoveU
     const steps = section.steps.map((s, idx) => idx === i ? { ...s, [field]: val } : s);
     onChange({ ...section, steps });
   };
-  const addStep = () => onChange({ ...section, steps: [...section.steps, { title: "新步骤", desc: "" }] });
+  const addStep = () => onChange({ ...section, steps: [...section.steps, { _id: Date.now().toString(), title: "新步骤", desc: "" }] });
   const removeStep = (i) => onChange({ ...section, steps: section.steps.filter((_, idx) => idx !== i) });
 
   return (
@@ -185,7 +193,7 @@ function SectionEditor({ section, sectionIdx, total, onChange, onDelete, onMoveU
               <Label className="text-xs text-gray-500">卡片列表（{section.steps.length} 张）</Label>
             </div>
             {section.steps.map((step, i) => (
-              <div key={i} className="grid grid-cols-1 gap-1.5 p-3 bg-gray-50 rounded-lg border border-gray-200">
+              <div key={step._id || i} className="grid grid-cols-1 gap-1.5 p-3 bg-gray-50 rounded-lg border border-gray-200">
                 <div className="flex items-center justify-between mb-0.5">
                   <span className="text-xs font-semibold text-gray-400">Step {i + 1}</span>
                   <button onClick={() => removeStep(i)} className="text-red-400 hover:text-red-600">
@@ -226,7 +234,7 @@ function AudiencePanel({ form, onChange }) {
     const sections = form.sections.map((s, idx) => idx === i ? val : s);
     f("sections", sections);
   };
-  const addSection = () => f("sections", [...(form.sections || []), { heading: "新区块", steps: [{ title: "新步骤", desc: "" }] }]);
+  const addSection = () => f("sections", [...(form.sections || []), { _id: Date.now().toString(), heading: "新区块", steps: [{ _id: (Date.now()+1).toString(), title: "新步骤", desc: "" }] }]);
   const removeSection = (i) => f("sections", form.sections.filter((_, idx) => idx !== i));
   const moveSection = (i, dir) => {
     const arr = [...(form.sections || [])];
@@ -239,16 +247,16 @@ function AudiencePanel({ form, onChange }) {
   return (
     <div className="space-y-4">
       {/* Visibility */}
-      <div className="flex items-center gap-2">
-        <Checkbox id="step-visible" checked={!!form.visible} onCheckedChange={v => f("visible", !!v)} />
-        <label htmlFor="step-visible" className="text-xs text-gray-600 cursor-pointer select-none">显示此区块</label>
+      <div className="flex items-center gap-2 cursor-pointer" onClick={() => f("visible", !form.visible)}>
+        <Checkbox checked={!!form.visible} onCheckedChange={v => f("visible", !!v)} />
+        <span className="text-xs text-gray-600 select-none">显示此区块</span>
       </div>
 
       {form.visible && (
         <div className="space-y-3">
           {(form.sections || []).map((section, i) => (
             <SectionEditor
-              key={i}
+              key={section._id || i}
               section={section}
               sectionIdx={i}
               total={form.sections.length}
@@ -283,8 +291,10 @@ export default function StepsSectionManager({ settings, onReload }) {
 
   const handleSave = async () => {
     setSaving(true);
+    // Deep-clone guest sections to avoid shared reference pollution between user/admin copies
+    const cloneAudience = (a) => ({ ...a, sections: a.sections.map(s => ({ ...s, steps: s.steps.map(st => ({ ...st })) })) });
     const saveForm = form.unified
-      ? { ...form, user: { ...form.guest }, admin: { ...form.guest } }
+      ? { ...form, user: cloneAudience(form.guest), admin: cloneAudience(form.guest) }
       : form;
     const existing = (settings || []).find(s => s.key === "home_steps_config");
     const value = JSON.stringify(saveForm);
