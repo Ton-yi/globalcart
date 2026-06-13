@@ -66,6 +66,9 @@ export default function PaymentModal({ order, mode = "prepay", onClose, onSucces
   const [rates, setRates] = useState(null);
   // Store as state so async handlers (handleProofUploaded) capture the latest value
   const [snapshotRate, setSnapshotRate] = useState(null); // { payCurrency, rate } when non-JPY method selected
+  // Surcharge from backend (computed per selected payment method)
+  const [surchargeJpy, setSurchargeJpy] = useState(0);
+  const [finalAmountJpy, setFinalAmountJpy] = useState(defaultAmount);
 
   // Fetch exchange rates once on mount (for non-JPY currency display)
   useEffect(() => {
@@ -74,6 +77,26 @@ export default function PaymentModal({ order, mode = "prepay", onClose, onSucces
       .then(d => { if (d?.result === 'success') setRates(d.conversion_rates); })
       .catch(() => {});
   }, []);
+
+  // When method changes (for prepay mode), reload surcharge from backend
+  useEffect(() => {
+    if (!isShipping && !isSupp && order?.id && method) {
+      base44.functions.invoke('getPaymentPageData', { order_id: order.id, payment_method_key: method })
+        .then(r => {
+          const d = r.data || {};
+          const sc = d.surchargeJpy ?? 0;
+          const total = d.paymentAmountWithSurcharge ?? defaultAmount;
+          setSurchargeJpy(sc);
+          setFinalAmountJpy(total);
+          setPaidAmount(String(Math.round(total)));
+        })
+        .catch(() => {});
+    } else if (!method) {
+      setSurchargeJpy(0);
+      setFinalAmountJpy(defaultAmount);
+      setPaidAmount(String(defaultAmount));
+    }
+  }, [method]);
 
   // Currency conversion helpers
   const CURRENCY_SYMBOLS = { JPY: "¥", CNY: "¥", USD: "$", TWD: "NT$", HKD: "HK$", EUR: "€", SGD: "S$" };
@@ -233,6 +256,24 @@ export default function PaymentModal({ order, mode = "prepay", onClose, onSucces
              <CreditCard className="w-4 h-4 text-yellow-600" />
              <AlertDescription className="text-yellow-800 text-sm font-medium">{amountLabel}</AlertDescription>
            </Alert>
+
+           {/* Surcharge breakdown — only for prepay mode when a surcharge applies */}
+           {!isShipping && !isSupp && surchargeJpy > 0 && method && (
+             <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2 text-xs space-y-1">
+               <div className="flex justify-between text-yellow-700">
+                 <span>订单金额</span>
+                 <span>¥{defaultAmount.toLocaleString()} JPY</span>
+               </div>
+               <div className="flex justify-between text-yellow-700">
+                 <span>支付手续费（{selectedMethodMeta?.surcharge_rate > 0 ? `${selectedMethodMeta.surcharge_rate}%` : ''}{selectedMethodMeta?.surcharge_rate > 0 && selectedMethodMeta?.surcharge_fixed_jpy > 0 ? ' + ' : ''}{selectedMethodMeta?.surcharge_fixed_jpy > 0 ? `¥${selectedMethodMeta.surcharge_fixed_jpy}` : ''}）</span>
+                 <span>+¥{Math.round(surchargeJpy).toLocaleString()} JPY</span>
+               </div>
+               <div className="flex justify-between font-semibold text-yellow-800 border-t border-yellow-200 pt-1">
+                 <span>实付合计</span>
+                 <span>¥{Math.round(finalAmountJpy).toLocaleString()} JPY</span>
+               </div>
+             </div>
+           )}
 
            {/* Non-JPY currency conversion notice — only show when a method is selected */}
            {convertedDisplay && method && (

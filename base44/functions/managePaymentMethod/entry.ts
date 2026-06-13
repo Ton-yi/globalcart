@@ -37,7 +37,7 @@ Deno.serve(async (req) => {
 
     // === create ===
     if (action === 'create') {
-      const { name, description, icon, color, image_url, payment_note, provider_key, sort_order } = body;
+      const { name, description, icon, color, image_url, payment_note, provider_key, sort_order, payment_currency, surcharge_rate, surcharge_fixed_jpy } = body;
       if (!name) return Response.json({ error: 'name is required' }, { status: 400 });
       const record = await base44.asServiceRole.entities.PaymentMethod.create({
         tenant_id: tenantId,
@@ -48,18 +48,35 @@ Deno.serve(async (req) => {
         image_url: image_url || '',
         payment_note: payment_note || '',
         provider_key: provider_key || '',
+        payment_currency: payment_currency || 'JPY',
+        surcharge_rate: parseFloat(surcharge_rate) || 0,
+        surcharge_fixed_jpy: parseFloat(surcharge_fixed_jpy) || 0,
         is_active: true,
         sort_order: sort_order || 0,
       });
       return Response.json({ method: record });
     }
 
+    // Helper: verify a record belongs to this tenant
+    const verifyOwnership = async (id) => {
+      const records = await base44.asServiceRole.entities.PaymentMethod.filter({ id });
+      if (!records || records.length === 0) return null;
+      const rec = records[0];
+      if (rec.tenant_id !== tenantId) return null;
+      return rec;
+    };
+
     // === update ===
     if (action === 'update') {
       const { id, ...fields } = body;
       if (!id) return Response.json({ error: 'id required' }, { status: 400 });
+      const existing = await verifyOwnership(id);
+      if (!existing) return Response.json({ error: 'Not found or forbidden' }, { status: 404 });
       delete fields.action;
       delete fields.tenant_id; // never trust from client
+      // Ensure numeric types for surcharge fields
+      if (fields.surcharge_rate !== undefined) fields.surcharge_rate = parseFloat(fields.surcharge_rate) || 0;
+      if (fields.surcharge_fixed_jpy !== undefined) fields.surcharge_fixed_jpy = parseFloat(fields.surcharge_fixed_jpy) || 0;
       await base44.asServiceRole.entities.PaymentMethod.update(id, fields);
       return Response.json({ success: true });
     }
@@ -68,9 +85,9 @@ Deno.serve(async (req) => {
     if (action === 'toggle') {
       const { id } = body;
       if (!id) return Response.json({ error: 'id required' }, { status: 400 });
-      const records = await base44.asServiceRole.entities.PaymentMethod.filter({ id });
-      if (!records || records.length === 0) return Response.json({ error: 'Not found' }, { status: 404 });
-      await base44.asServiceRole.entities.PaymentMethod.update(id, { is_active: !records[0].is_active });
+      const existing = await verifyOwnership(id);
+      if (!existing) return Response.json({ error: 'Not found or forbidden' }, { status: 404 });
+      await base44.asServiceRole.entities.PaymentMethod.update(id, { is_active: !existing.is_active });
       return Response.json({ success: true });
     }
 
@@ -78,6 +95,8 @@ Deno.serve(async (req) => {
     if (action === 'delete') {
       const { id } = body;
       if (!id) return Response.json({ error: 'id required' }, { status: 400 });
+      const existing = await verifyOwnership(id);
+      if (!existing) return Response.json({ error: 'Not found or forbidden' }, { status: 404 });
       await base44.asServiceRole.entities.PaymentMethod.delete(id);
       return Response.json({ success: true });
     }

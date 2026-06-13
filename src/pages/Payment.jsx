@@ -39,7 +39,8 @@ export default function Payment() {
 
   const loadPaymentData = (payMethodKey = null) => {
     if (!orderId) { navigate(createPageUrl("MyOrders")); return; }
-    base44.functions.invoke('getPaymentPageData', { order_id: orderId, payment_method_key: payMethodKey || method })
+    // Only pass payment_method_key when explicitly provided (don't use URL `method` as surcharge key on first load)
+    base44.functions.invoke('getPaymentPageData', { order_id: orderId, ...(payMethodKey ? { payment_method_key: payMethodKey } : {}) })
       .then(r => {
         const data = r.data || {};
         if (!data.order) { navigate(createPageUrl("MyOrders")); return; }
