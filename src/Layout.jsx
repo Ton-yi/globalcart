@@ -11,6 +11,7 @@ import {
   Home, Users, BarChart3, Store, Send, Zap, UserPlus, ChevronDown, ChevronRight, Layers, FileText
 } from "lucide-react";
 import NotificationBell from "@/components/common/NotificationBell.jsx";
+import AnnouncementPositionRenderer from "@/components/home/AnnouncementPositionRenderer";
 import { MidnightToggle } from "@/components/common/ThemeSelector";
 import LocaleSwitcher from "@/components/common/LocaleSwitcher";
 import { Badge } from "@/components/ui/badge";
@@ -115,17 +116,7 @@ export default function Layout({ children, currentPageName }) {
     navItems = [...userNavBuilt, ...adminNavBuilt];
   }
 
-  const activeAnnouncement = announcements.find(a => 
-    a.target_audience === "all" || 
-    (isAdmin ? a.target_audience === "admins" : a.target_audience === "users")
-  );
 
-  const typeColors = {
-    info: "bg-blue-50 border-blue-200 text-blue-800",
-    warning: "bg-yellow-50 border-yellow-200 text-yellow-800",
-    success: "bg-green-50 border-green-200 text-green-800",
-    urgent: "bg-red-50 border-red-200 text-red-800",
-  };
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
@@ -137,12 +128,16 @@ export default function Layout({ children, currentPageName }) {
             onClick={() => base44.auth.logout()}>退出登录</Button>
         </div>
       )}
-      {activeAnnouncement && (
-        <div className={`border-b px-4 py-2 text-sm text-center ${typeColors[activeAnnouncement.type] || typeColors.info}`}>
-          <Bell className="inline w-3.5 h-3.5 mr-1" />
-          <strong>{activeAnnouncement.title}：</strong> {activeAnnouncement.content}
-        </div>
-      )}
+      {/* above_nav announcements */}
+      <AnnouncementPositionRenderer
+        announcements={announcements} position="above_nav"
+        currentPageName={currentPageName} userRole={user?.role}
+      />
+      {/* modal announcements */}
+      <AnnouncementPositionRenderer
+        announcements={announcements} position="modal"
+        currentPageName={currentPageName} userRole={user?.role}
+      />
 
       <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
         <div className="w-full px-4 sm:px-6 flex items-center justify-between h-14">
@@ -299,6 +294,12 @@ export default function Layout({ children, currentPageName }) {
         )}
       </header>
 
+      {/* below_nav announcements */}
+      <AnnouncementPositionRenderer
+        announcements={announcements} position="below_nav"
+        currentPageName={currentPageName} userRole={user?.role}
+      />
+
       <main className="w-full max-w-[1600px] mx-auto px-4 sm:px-6 py-6 relative">
         {isSuspended && (
           <div className="absolute inset-0 z-40 bg-white/70 backdrop-blur-sm flex items-center justify-center rounded-lg">
@@ -312,6 +313,12 @@ export default function Layout({ children, currentPageName }) {
         )}
         {children}
       </main>
+
+      {/* page_footer announcements */}
+      <AnnouncementPositionRenderer
+        announcements={announcements} position="page_footer"
+        currentPageName={currentPageName} userRole={user?.role}
+      />
 
       <footer className="border-t bg-white mt-10 py-6 text-center text-xs text-gray-400">
         © 2026 同一物流 Tongyi Express · 日本 → 全球 · 安心・信頼・快捷

@@ -44,6 +44,40 @@
       "type": "string",
       "format": "date",
       "description": "\u8fc7\u671f\u65e5\u671f"
+    },
+    "display_position": {
+      "type": "string",
+      "enum": [
+        "above_nav",
+        "below_nav",
+        "page_footer",
+        "modal"
+      ],
+      "default": "below_nav",
+      "description": "\u663e\u793a\u4f4d\u7f6e\uff1aabove_nav=\u5bfc\u822a\u680f\u4e0a\u90e8, below_nav=\u5bfc\u822a\u680f\u4e0b\u90e8, page_footer=\u9875\u9762\u5c3e\u90e8, modal=\u5f39\u7a97\u516c\u544a"
+    },
+    "ticker_interval": {
+      "type": "number",
+      "default": 5,
+      "description": "\u591a\u6761\u516c\u544a\u8f6e\u64ad\u95f4\u9694\uff08\u79d2\uff09\uff0c\u4ec5\u5f53\u540c\u4f4d\u7f6e\u6709\u591a\u6761\u516c\u544a\u65f6\u751f\u6548"
+    },
+    "allowed_pages": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [],
+      "description": "\u4ec5\u5728\u6307\u5b9a\u9875\u9762\u663e\u793a\uff0c\u7a7a\u6570\u7ec4=\u6240\u6709\u9875\u9762"
+    },
+    "dismissible": {
+      "type": "boolean",
+      "default": false,
+      "description": "\u662f\u5426\u5141\u8bb8\u7528\u6237\u70b9\u51fb\u786e\u8ba4\u540e\u4e0d\u518d\u663e\u793a\uff08\u76f4\u5230\u7ba1\u7406\u5458\u91cd\u65b0\u53d1\u5e03\uff09"
+    },
+    "dismissed_version": {
+      "type": "string",
+      "default": "",
+      "description": "\u6bcf\u6b21\u7ba1\u7406\u5458\u91cd\u65b0\u542f\u7528\u65f6\u66f4\u65b0\u6b64\u7248\u672c\u53f7\uff0c\u4f7f\u5df2\u786e\u8ba4\u7684\u7528\u6237\u91cd\u65b0\u770b\u5230\u516c\u544a"
     }
   },
   "required": [

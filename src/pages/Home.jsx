@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
-import { fetchAnnouncements } from "@/lib/tenantApi";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useTenantBranding } from "@/hooks/useTenantBranding";
 import { timePage } from "@/lib/timing";
@@ -14,13 +13,11 @@ import { getStatusLabel, getStatusColor } from "@/lib/orderStatus";
 // Badge/getStatus* kept for future use; LogisticsStatusBoard handles order display now
 import QuickActionsGrid from "@/components/home/QuickActionsGrid";
 import LogisticsStatusBoard from "@/components/home/LogisticsStatusBoard";
-import AnnouncementTicker from "@/components/home/AnnouncementTicker";
 
 export default function Home() {
   const { user } = useCurrentUser();
   const { tenant } = useTenantBranding();
   const [recentOrders, setRecentOrders] = useState([]);
-  const [announcements, setAnnouncements] = useState([]);
   const [quickActions, setQuickActions] = useState([]);
   const [boardConfig, setBoardConfig] = useState({});
 
@@ -29,7 +26,6 @@ export default function Home() {
     Promise.all([
       t.timeCall('getTenantOrders', () => base44.functions.invoke('getTenantOrders', {})
         .then(r => (r.data?.orders || []).slice(0, 5)).catch(() => [])),
-      t.timeCall('fetchAnnouncements (config cache)', () => fetchAnnouncements().catch(() => [])),
       t.timeCall('getTenantSettings', () => base44.functions.invoke('getTenantSettings', {})
         .then(r => {
           const raw = r.data?.raw || [];
@@ -40,9 +36,8 @@ export default function Home() {
           };
           return { quickActions: parseJson('home_quick_actions') || [], boardConfig: parseJson('home_status_board') || {} };
         }).catch(() => ({ quickActions: [], boardConfig: {} }))),
-    ]).then(([orders, ann, { quickActions, boardConfig }]) => {
+    ]).then(([orders, { quickActions, boardConfig }]) => {
       setRecentOrders(orders);
-      setAnnouncements(ann);
       setQuickActions(quickActions);
       setBoardConfig(boardConfig);
       t.done('data ready');
@@ -58,11 +53,6 @@ export default function Home() {
 
   return (
     <div className="space-y-8">
-      {/* Announcements - scrolling ticker */}
-      {announcements.length > 0 && (
-        <AnnouncementTicker announcements={announcements} />
-      )}
-
       {/* Hero */}
       <div className="bg-white border border-gray-200 rounded-xl p-8 text-center">
         <div className="flex items-center justify-center gap-2 mb-3">
