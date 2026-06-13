@@ -3,14 +3,15 @@ import { base44 } from "@/api/base44Client";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import {
-  Users, Bell, MessageSquare, HelpCircle, ShoppingBag,
+  Users, Bell, ShoppingBag,
   Package, Truck, CreditCard, RefreshCw, Inbox,
-  CheckSquare, Layers, AlertCircle, ArrowRight, LayoutDashboard
+  Layers, ArrowRight, LayoutDashboard
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import TodoSection from "@/components/todo/TodoSection";
 import TodoItem from "@/components/todo/TodoItem";
+import AdminOrderEditModal from "@/components/admin/AdminOrderEditModal";
+import ShippingPoolDetailModal from "@/components/shippingpool/ShippingPoolDetailModal";
 
 function fmtJpy(v) {
   if (v == null || isNaN(v)) return null;
@@ -37,13 +38,19 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [orderModal, setOrderModal] = useState(null);  // order object
+  const [poolModal, setPoolModal] = useState(null);    // pool object
 
   const load = () => {
     setLoading(true);
-    base44.functions.invoke("getAdminTodoData", {})
-      .then(r => setData(r.data || {}))
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    Promise.all([
+      base44.functions.invoke("getAdminTodoData", {}),
+      base44.auth.me().catch(() => null),
+    ]).then(([r, me]) => {
+      setData(r.data || {});
+      setCurrentUser(me);
+    }).catch(() => {}).finally(() => setLoading(false));
   };
 
   useEffect(() => { load(); }, []);
@@ -137,7 +144,7 @@ export default function AdminDashboard() {
             label={o.product_name}
             sub={`用户留言 · ${o.user_name || o.user_email} · ${o.order_number || ""}`}
             badge={{ text: "新留言", className: "bg-purple-100 text-purple-700" }}
-            onClick={() => navigate(createPageUrl("AdminOrders"))}
+            onClick={() => setOrderModal(o)}
             actionLabel="回复"
           />
         ))}
@@ -148,7 +155,7 @@ export default function AdminDashboard() {
             label={p.pool_code || p.title || "发货申请"}
             sub={`用户留言 · ${p.creator_name || p.creator_email || ""}`}
             badge={{ text: "新留言", className: "bg-purple-100 text-purple-700" }}
-            onClick={() => navigate(createPageUrl("AdminShippingPool"))}
+            onClick={() => setPoolModal(p)}
             actionLabel="回复"
           />
         ))}
@@ -183,7 +190,7 @@ export default function AdminDashboard() {
                 label={o.product_name}
                 sub={`${o.user_name || o.user_email} · ${o.order_number || ""}`}
                 badge={fmtJpy(o.paid_amount || o.prepayment_amount) ? { text: fmtJpy(o.paid_amount || o.prepayment_amount), className: "bg-orange-100 text-orange-700 font-semibold" } : undefined}
-                onClick={() => navigate(createPageUrl("AdminOrders"))}
+                onClick={() => setOrderModal(o)}
                 actionLabel="确认"
               />
             ))}
@@ -213,7 +220,7 @@ export default function AdminDashboard() {
                 label={o.product_name}
                 sub={`${o.user_name || o.user_email} · ${o.order_number || ""}`}
                 badge={{ text: "待采购", className: "bg-blue-100 text-blue-700" }}
-                onClick={() => navigate(createPageUrl("AdminOrders"))}
+                onClick={() => setOrderModal(o)}
                 actionLabel="去采购"
               />
             ))}
@@ -243,7 +250,7 @@ export default function AdminDashboard() {
                 label={o.product_name}
                 sub={`${o.user_name || o.user_email} · ${o.order_number || ""}`}
                 badge={{ text: "已入库", className: "bg-green-100 text-green-700" }}
-                onClick={() => navigate(createPageUrl("AdminOrders"))}
+                onClick={() => setOrderModal(o)}
                 actionLabel="安排"
               />
             ))}
@@ -273,7 +280,7 @@ export default function AdminDashboard() {
                 label={o.product_name}
                 sub={`${o.user_name || o.user_email} · ${o.order_number || ""}`}
                 badge={{ text: "待填运费", className: "bg-yellow-100 text-yellow-700" }}
-                onClick={() => navigate(createPageUrl("AdminShippingPool"))}
+                onClick={() => setOrderModal(o)}
                 actionLabel="处理"
               />
             ))}
@@ -296,7 +303,7 @@ export default function AdminDashboard() {
                 label={o.product_name}
                 sub={`${o.user_name || o.user_email} · ${o.order_number || ""}`}
                 badge={{ text: "待发货", className: "bg-purple-100 text-purple-700" }}
-                onClick={() => navigate(createPageUrl("AdminShippingPool"))}
+                onClick={() => setOrderModal(o)}
                 actionLabel="发货"
               />
             ))}
@@ -322,7 +329,7 @@ export default function AdminDashboard() {
                 label={p.pool_code || p.title || "发货申请"}
                 sub={`${p.creator_name || p.creator_email || ""} · ${(p.order_ids || []).length} 个订单`}
                 badge={{ text: "待处理", className: "bg-blue-100 text-blue-700" }}
-                onClick={() => navigate(createPageUrl("AdminShippingPool"))}
+                onClick={() => setPoolModal(p)}
                 actionLabel="处理"
               />
             ))}
@@ -352,7 +359,7 @@ export default function AdminDashboard() {
                 label={p.pool_code || p.title || "发货申请"}
                 sub={`${p.creator_name || p.creator_email || ""}`}
                 badge={fmtJpy(p.shipping_fee_jpy) ? { text: fmtJpy(p.shipping_fee_jpy), className: "bg-orange-100 text-orange-700 font-semibold" } : { text: "待确认", className: "bg-orange-100 text-orange-700" }}
-                onClick={() => navigate(createPageUrl("AdminShippingPool"))}
+                onClick={() => setPoolModal(p)}
                 actionLabel="确认"
               />
             ))}
@@ -375,7 +382,7 @@ export default function AdminDashboard() {
                 label={p.pool_code || p.title || "发货申请"}
                 sub={`${p.creator_name || p.creator_email || ""} · ${(p.order_ids || []).length} 个订单`}
                 badge={{ text: "待发货", className: "bg-purple-100 text-purple-700" }}
-                onClick={() => navigate(createPageUrl("AdminShippingPool"))}
+                onClick={() => setPoolModal(p)}
                 actionLabel="发货"
               />
             ))}
@@ -416,6 +423,30 @@ export default function AdminDashboard() {
           </Link>
         ))}
       </div>
+
+      {/* Detail modals */}
+      {orderModal && currentUser && (
+        <AdminOrderEditModal
+          order={orderModal}
+          currentUser={currentUser}
+          shippingPools={[
+            ...data?.poolsPendingInit || [],
+            ...data?.poolsAwaitingPaymentConfirm || [],
+            ...data?.poolsReadyToShip || [],
+          ]}
+          onClose={() => setOrderModal(null)}
+          onSaved={() => { setOrderModal(null); load(); }}
+        />
+      )}
+      {poolModal && currentUser && (
+        <ShippingPoolDetailModal
+          pool={poolModal}
+          isAdmin={true}
+          currentUser={currentUser}
+          onClose={() => setPoolModal(null)}
+          onUpdated={() => { setPoolModal(null); load(); }}
+        />
+      )}
     </div>
   );
 }

@@ -232,8 +232,11 @@ export default function PaymentModal({ order, mode = "prepay", onClose, onSucces
     }
     await updateOrder(order.id, updates);
     setSubmitting(false);
-    onSuccess?.();
-    navigate(createPageUrl("MyOrders"));
+    if (onSuccess) {
+      onSuccess();
+    } else {
+      navigate(createPageUrl("MyOrders"));
+    }
   };
 
   return (

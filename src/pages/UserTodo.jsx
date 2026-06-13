@@ -5,11 +5,13 @@ import { createPageUrl } from "@/utils";
 import {
   Bell, CreditCard, Truck, Package,
   ClipboardList, RefreshCw, ArrowRight, MessageSquare,
-  HelpCircle, Megaphone, CheckCircle2, AlertCircle, Inbox
+  HelpCircle, Megaphone, CheckCircle2, Inbox
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import PaymentModal from "@/components/orders/PaymentModal";
 import UserNotifyShipmentModal from "@/components/orders/UserNotifyShipmentModal";
+import OrderDetailModal from "@/components/orders/OrderDetailModal";
+import ShippingPoolDetailModal from "@/components/shippingpool/ShippingPoolDetailModal";
 
 const STATUS_LABEL = {
   pending_confirmation: "待确认", payment_pending: "待付款", paid: "已付款",
@@ -74,9 +76,12 @@ function Section({ icon: Icon, title, count, color, children, emptyText }) {
 }
 
 // ─── Item row ──────────────────────────────────────────────────────────────
-function Item({ icon: Icon, iconCls, label, sub, badge, action, onAction, checkbox, checked, onCheck, dimmed }) {
+function Item({ icon: Icon, iconCls, label, sub, badge, action, onAction, onRowClick, checkbox, checked, onCheck, dimmed }) {
   return (
-    <div className={`flex items-center gap-3 px-4 py-3 hover:bg-gray-50/80 transition-colors group ${checked ? "bg-blue-50/60" : ""} ${dimmed ? "opacity-60" : ""}`}>
+    <div
+      className={`flex items-center gap-3 px-4 py-3 transition-colors group ${onRowClick ? "cursor-pointer hover:bg-gray-50/80" : "hover:bg-gray-50/50"} ${checked ? "bg-blue-50/60" : ""} ${dimmed ? "opacity-60" : ""}`}
+      onClick={onRowClick}
+    >
       {checkbox && (
         <input type="checkbox" checked={!!checked} onChange={e => onCheck?.(e.target.checked)}
           className="w-4 h-4 rounded border-gray-300 accent-blue-600 flex-shrink-0 cursor-pointer"
@@ -93,7 +98,7 @@ function Item({ icon: Icon, iconCls, label, sub, badge, action, onAction, checkb
         </span>
       )}
       {action && (
-        <button onClick={onAction}
+        <button onClick={e => { e.stopPropagation(); onAction?.(); }}
           className="flex-shrink-0 flex items-center gap-0.5 text-xs text-blue-600 hover:text-blue-800 font-medium opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
           {action}<ArrowRight className="w-3 h-3" />
         </button>
@@ -122,10 +127,13 @@ export default function UserTodo() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [initialData, setInitialData] = useState(null); // for notify modal
+  const [currentUser, setCurrentUser] = useState(null);
 
   // Modal state
-  const [payModal, setPayModal] = useState(null);   // { order, mode }
-  const [notifyModal, setNotifyModal] = useState(null); // { orders: [] }
+  const [payModal, setPayModal] = useState(null);        // { order, mode }
+  const [notifyModal, setNotifyModal] = useState(null);  // { orders: [] }
+  const [orderDetailModal, setOrderDetailModal] = useState(null); // order object
+  const [poolDetailModal, setPoolDetailModal] = useState(null);   // pool object
 
   // Selections
   const [selPayOrders, setSelPayOrders] = useState([]);
@@ -136,8 +144,10 @@ export default function UserTodo() {
     Promise.all([
       base44.functions.invoke("getUserTodoData", {}),
       base44.functions.invoke("getMyOrdersPageData", {}).catch(() => ({ data: {} })),
-    ]).then(([todoRes, pageRes]) => {
+      base44.auth.me().catch(() => null),
+    ]).then(([todoRes, pageRes, me]) => {
       setData(todoRes.data || {});
+      setCurrentUser(me);
       // Extract initialData needed by UserNotifyShipmentModal
       const pd = pageRes.data || {};
       setInitialData({
@@ -148,8 +158,9 @@ export default function UserTodo() {
         transitMethods: pd.transitMethods || [],
         shippingMethods: pd.shippingMethods || [],
         userPreference: pd.userPreference || null,
-        allowUserCustomsDeclaration: pd.siteSettings?.allow_user_customs_declaration !== false,
-        hazmatText: pd.siteSettings?.hazmat_text || null,
+        // Fix: these are top-level fields from getMyOrdersPageData, not nested under siteSettings
+        allowUserCustomsDeclaration: pd.allowUserCustomsDeclaration !== false,
+        hazmatText: pd.hazmatText || null,
       });
     }).finally(() => setLoading(false));
   };
@@ -269,6 +280,7 @@ export default function UserTodo() {
                 badge={fmtJpy(o.prepayment_amount) ? { text: fmtJpy(o.prepayment_amount), cls: "bg-red-100 text-red-700 font-semibold" } : undefined}
                 checkbox selected={selPayOrders.includes(o.id)}
                 onCheck={c => toggleSel(setSelPayOrders, o.id, c)}
+                onRowClick={() => setOrderDetailModal(o)}
                 action="去付款"
                 onAction={() => handleSinglePay(o)}
               />
@@ -278,8 +290,9 @@ export default function UserTodo() {
                 label={p.pool_code || p.title || "发货申请"}
                 sub="发货运费待支付"
                 badge={fmtJpy(p.shipping_fee_jpy) ? { text: fmtJpy(p.shipping_fee_jpy), cls: "bg-red-100 text-red-700 font-semibold" } : undefined}
-                action="查看运费"
-                onAction={() => navigate(createPageUrl("ShippingPool"))}
+                onRowClick={() => setPoolDetailModal(p)}
+                action="查看详情"
+                onAction={() => setPoolDetailModal(p)}
               />
             ))}
           </Section>
@@ -295,6 +308,7 @@ export default function UserTodo() {
                 badge={{ text: "已入库", cls: "bg-green-100 text-green-700" }}
                 checkbox selected={selNotifyOrders.includes(o.id)}
                 onCheck={c => toggleSel(setSelNotifyOrders, o.id, c)}
+                onRowClick={() => setOrderDetailModal(o)}
                 action="通知出货"
                 onAction={() => handleSingleNotify(o)}
               />
@@ -309,8 +323,9 @@ export default function UserTodo() {
                   label={o.product_name}
                   sub="请完善商品链接或图片等信息"
                   badge={{ text: "信息不完整", cls: "bg-yellow-100 text-yellow-700" }}
-                  action="去完善"
-                  onAction={() => navigate(createPageUrl("MyOrders"))}
+                  onRowClick={() => setOrderDetailModal(o)}
+                  action="查看详情"
+                  onAction={() => setOrderDetailModal(o)}
                 />
               ))}
             </Section>
@@ -327,8 +342,9 @@ export default function UserTodo() {
                 label={o.product_name}
                 sub={o.tracking_number ? `运单号: ${o.tracking_number}` : (o.order_number || "")}
                 badge={{ text: STATUS_LABEL[o.order_status] || "运输中", cls: "bg-teal-100 text-teal-700" }}
-                action="查看"
-                onAction={() => navigate(createPageUrl("MyOrders"))}
+                onRowClick={() => setOrderDetailModal(o)}
+                action="查看详情"
+                onAction={() => setOrderDetailModal(o)}
               />
             ))}
             {pendingReceivePools.map(p => (
@@ -336,8 +352,9 @@ export default function UserTodo() {
                 label={p.pool_code || p.title || "发货申请"}
                 sub={p.tracking_number ? `运单号: ${p.tracking_number}` : "发货申请已发出"}
                 badge={{ text: "已发货", cls: "bg-teal-100 text-teal-700" }}
-                action="查看"
-                onAction={() => navigate(createPageUrl("ShippingPool"))}
+                onRowClick={() => setPoolDetailModal(p)}
+                action="查看详情"
+                onAction={() => setPoolDetailModal(p)}
               />
             ))}
           </Section>
@@ -370,8 +387,9 @@ export default function UserTodo() {
                 label={o.product_name}
                 sub={`管理员回复了留言 · ${o.order_number || ""}`}
                 badge={{ text: "新留言", cls: "bg-purple-100 text-purple-700" }}
-                action="查看"
-                onAction={() => navigate(createPageUrl("MyOrders"))}
+                onRowClick={() => setOrderDetailModal(o)}
+                action="查看详情"
+                onAction={() => setOrderDetailModal(o)}
               />
             ))}
             {poolsWithAdminMsg.map(p => (
@@ -380,8 +398,9 @@ export default function UserTodo() {
                 label={p.pool_code || p.title || "发货申请"}
                 sub="管理员回复了留言"
                 badge={{ text: "新留言", cls: "bg-purple-100 text-purple-700" }}
-                action="查看"
-                onAction={() => navigate(createPageUrl("ShippingPool"))}
+                onRowClick={() => setPoolDetailModal(p)}
+                action="查看详情"
+                onAction={() => setPoolDetailModal(p)}
               />
             ))}
             {faqQuestions.map(q => (
@@ -428,6 +447,22 @@ export default function UserTodo() {
           initialData={initialData}
           onClose={() => setNotifyModal(null)}
           onSuccess={() => { setNotifyModal(null); setSelNotifyOrders([]); load(); }}
+        />
+      )}
+      {orderDetailModal && (
+        <OrderDetailModal
+          order={orderDetailModal}
+          onClose={() => setOrderDetailModal(null)}
+          onRefresh={() => { setOrderDetailModal(null); load(); }}
+        />
+      )}
+      {poolDetailModal && currentUser && (
+        <ShippingPoolDetailModal
+          pool={poolDetailModal}
+          isAdmin={false}
+          currentUser={currentUser}
+          onClose={() => setPoolDetailModal(null)}
+          onUpdated={() => { setPoolDetailModal(null); load(); }}
         />
       )}
     </div>
