@@ -103,6 +103,25 @@ async function applyTierUpgrade(base44, tenantId, userRec, fromTier, toTier) {
   });
 }
 
+// ── 通知所有租户管理员 ────────────────────────────────────────────────────────
+async function notifyTenantAdmins(base44, tenantId, { title, content }) {
+  const tenantUsers = await base44.asServiceRole.entities.User.filter({ tenant_id: tenantId });
+  const admins = (tenantUsers || []).filter(u =>
+    ['admin', 'tenant_admin'].includes(u.role) && u.is_active !== false
+  );
+  await Promise.all(admins.map(a => base44.asServiceRole.entities.Notification.create({
+    tenant_id: tenantId,
+    user_email: a.email,
+    notification_type: 'other',
+    notification_subtype: 'member_tier_admin',
+    icon: 'Crown',
+    title,
+    content,
+    is_system: true,
+    priority: 'high',
+  })));
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -156,6 +175,7 @@ Deno.serve(async (req) => {
         .map(p => ({
           id: p.id, to_tier_name: p.to_tier_name, payable_jpy: p.payable_jpy,
           status: p.status, created_date: p.created_date, paid_at: p.paid_at || null,
+          payment_method: p.payment_method || '',
         }));
 
       return Response.json({
@@ -165,8 +185,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ── 创建支付 ─────────────────────────────────────────────────────────────
-    if (action === 'create_payment') {
+    // ── 创建支付（支付宝自动确认）/ 手动确认提交 ─────────────────────────────
+    if (action === 'create_payment' || action === 'submit_manual') {
       const { tier_id } = body;
       if (!tier_id) return Response.json({ error: 'tier_id required' }, { status: 400 });
 
@@ -213,6 +233,36 @@ Deno.serve(async (req) => {
         });
         if (dup) await base44.asServiceRole.entities.TierPurchase.update(dup.id, { status: 'cancelled' });
         return Response.json({ upgraded: true, tier_name: targetTier.name });
+      }
+
+      // ── 手动确认方式：记录待确认购买单 + 通知管理员人工处理 ────────────────
+      if (action === 'submit_manual') {
+        const paymentMethod = (body.payment_method || '').trim();
+        if (!paymentMethod) return Response.json({ error: 'payment_method required' }, { status: 400 });
+
+        if (dup) await base44.asServiceRole.entities.TierPurchase.update(dup.id, { status: 'cancelled' });
+        await base44.asServiceRole.entities.TierPurchase.create({
+          tenant_id: tenantId,
+          user_email: user.email,
+          user_name: userRec.display_name || user.full_name || '',
+          from_tier_id: currentTier?.id || '',
+          from_tier_name: currentTier?.name || '',
+          to_tier_id: targetTier.id,
+          to_tier_name: targetTier.name,
+          tier_price_jpy: targetTier.price_jpy || 0,
+          payable_jpy: payableJpy,
+          payment_method: paymentMethod,
+          payment_proof_url: body.payment_proof_url || '',
+          status: 'pending',
+        });
+
+        await notifyTenantAdmins(base44, tenantId, {
+          title: `💴 会员购买待确认：${userRec.display_name || user.full_name || user.email}`,
+          content: `用户 ${user.email} 申请购买会员阶级「${targetTier.name}」（当前：${currentTier?.name || '无阶级'}），应付差价 ¥${payableJpy.toLocaleString()} JPY，支付方式：${paymentMethod}${body.payment_proof_url ? '，已上传付款凭证' : '，未上传凭证'}。请核实收款后在用户管理中手动调整该用户阶级。`,
+        });
+
+        console.log(`[purchaseMemberTier] manual submit: ${user.email} -> ${targetTier.name} via ${paymentMethod}`);
+        return Response.json({ submitted: true, tier_name: targetTier.name });
       }
 
       // 汇率 + 支付宝配置

@@ -8,6 +8,8 @@ import {
   Loader2, CheckCircle2, Clock, ShieldCheck, ArrowUpCircle,
 } from "lucide-react";
 
+import TierPaymentModal from "@/components/membertiers/TierPaymentModal";
+
 const TIER_ICONS = { Crown, Star, Gem, Medal, Award, Trophy, Sparkles, Zap, Heart };
 
 const STATUS_LABEL = {
@@ -22,6 +24,7 @@ export default function MemberTiers() {
   const [currentTier, setCurrentTier] = useState(null);
   const [purchases, setPurchases] = useState([]);
   const [payingId, setPayingId] = useState(null);
+  const [payTier, setPayTier] = useState(null);
   const [message, setMessage] = useState(null);
 
   const load = async () => {
@@ -37,8 +40,13 @@ export default function MemberTiers() {
   }, []);
 
   const handleBuy = async (tier) => {
-    setPayingId(tier.id);
     setMessage(null);
+    // 有差价 → 打开支付方式选择弹窗；免费升级 → 直接升级
+    if ((tier.payable_jpy || 0) > 0) {
+      setPayTier(tier);
+      return;
+    }
+    setPayingId(tier.id);
     try {
       const res = await base44.functions.invoke("purchaseMemberTier", {
         action: "create_payment",
@@ -49,14 +57,17 @@ export default function MemberTiers() {
       } else if (res.data?.upgraded) {
         setMessage({ type: "success", text: `升级成功！您已成为「${res.data.tier_name}」会员。` });
         await load();
-      } else if (res.data?.paymentUrl) {
-        window.location.href = res.data.paymentUrl;
-        return;
       }
     } catch (e) {
       setMessage({ type: "error", text: e.response?.data?.error || e.message });
     }
     setPayingId(null);
+  };
+
+  const handleManualSubmitted = async () => {
+    setPayTier(null);
+    setMessage({ type: "success", text: "购买申请已提交，管理员确认收款后将为您升级阶级。" });
+    await load();
   };
 
   if (loading) {
@@ -149,7 +160,10 @@ export default function MemberTiers() {
             </h2>
             <div className="divide-y divide-gray-100">
               {purchases.map((p) => {
-                const st = STATUS_LABEL[p.status] || STATUS_LABEL.pending;
+                const isManualPending = p.status === "pending" && p.payment_method && p.payment_method !== "alipay";
+                const st = isManualPending
+                  ? { text: "待管理员确认", cls: "bg-blue-100 text-blue-700" }
+                  : (STATUS_LABEL[p.status] || STATUS_LABEL.pending);
                 return (
                   <div key={p.id} className="flex items-center justify-between py-2 text-sm">
                     <div>
@@ -168,6 +182,14 @@ export default function MemberTiers() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {payTier && (
+        <TierPaymentModal
+          tier={payTier}
+          onClose={() => setPayTier(null)}
+          onSuccess={handleManualSubmitted}
+        />
       )}
     </div>
   );

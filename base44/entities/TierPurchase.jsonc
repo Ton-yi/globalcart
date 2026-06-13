@@ -56,6 +56,14 @@
       "type": "string",
       "description": "\u652f\u4ed8\u5b9d\u4ea4\u6613\u6d41\u6c34\u53f7"
     },
+    "payment_method": {
+      "type": "string",
+      "description": "\u652f\u4ed8\u65b9\u5f0f\uff08alipay=\u81ea\u52a8\u786e\u8ba4\uff0c\u5176\u5b83=\u624b\u52a8\u786e\u8ba4\u65b9\u5f0f\u540d\u79f0\uff09"
+    },
+    "payment_proof_url": {
+      "type": "string",
+      "description": "\u624b\u52a8\u652f\u4ed8\u51ed\u8bc1\u56fe\u7247 URL"
+    },
     "status": {
       "type": "string",
       "enum": [

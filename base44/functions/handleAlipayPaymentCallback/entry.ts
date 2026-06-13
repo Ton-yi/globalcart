@@ -228,6 +228,23 @@ Deno.serve(async (req) => {
         is_system: true,
         priority: 'normal',
       });
+      // 通知所有租户管理员：自动确认支付完成并已升级
+      const tenantUsersForNotify = await base44.asServiceRole.entities.User.filter({ tenant_id: purchase.tenant_id });
+      const tenantAdmins = (tenantUsersForNotify || []).filter(u =>
+        ['admin', 'tenant_admin'].includes(u.role) && u.is_active !== false
+      );
+      await Promise.all(tenantAdmins.map(a => base44.asServiceRole.entities.Notification.create({
+        tenant_id: purchase.tenant_id,
+        user_email: a.email,
+        notification_type: 'other',
+        notification_subtype: 'member_tier_admin',
+        icon: 'Crown',
+        title: `💴 会员购买已自动完成：${purchase.user_name || purchase.user_email}`,
+        content: `用户 ${purchase.user_email} 通过支付宝完成会员购买并已自动升级：${fromTier?.name || '无阶级'} → ${toTier.name}，支付差价 ¥${(purchase.payable_jpy || 0).toLocaleString()} JPY（实付 ${total_amount} CNY），交易号 ${trade_no}。`,
+        is_system: true,
+        priority: 'high',
+      })));
+
       console.log(`[DIAG][handleAlipayPaymentCallback] tier purchase SUCCESS: ${purchase.user_email} -> ${toTier.name}`);
       return new Response('success', { status: 200 });
     }
