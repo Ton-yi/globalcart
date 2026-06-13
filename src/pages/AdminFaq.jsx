@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
+import { tenantEntity } from "@/lib/tenantApi";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import {
   Plus, Trash2, Save, ChevronDown, ChevronUp, GripVertical,
   HelpCircle, FolderOpen, ArrowLeft, Eye, EyeOff, MessageCircleQuestion
@@ -222,20 +224,43 @@ export default function AdminFaq() {
   const [editingCategory, setEditingCategory] = useState(null);
   const [activeTab, setActiveTab] = useState("faq"); // "faq" | "questions"
   const [pendingCount, setPendingCount] = useState(0);
+  const [allowUserQuestions, setAllowUserQuestions] = useState(false);
+  const [allowSettingId, setAllowSettingId] = useState(null);
+  const [savingAllow, setSavingAllow] = useState(false);
 
   const isAdmin = user?.role === "admin" || user?.role === "tenant_admin" || user?.role === "platform_admin";
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [catR, qR] = await Promise.all([
+    const [catR, qR, settingR] = await Promise.all([
       base44.functions.invoke('manageFaqCategories', { action: 'list' }),
       base44.functions.invoke('manageFaqQuestions', { action: 'list' }),
+      base44.functions.invoke('getTenantSettings', { keys: ['faq_allow_user_questions'] }),
     ]);
     setCategories(catR.data?.categories || []);
     const pending = (qR.data?.questions || []).filter(q => q.status === 'pending').length;
     setPendingCount(pending);
+    const s = settingR.data?.settings?.find(x => x.key === 'faq_allow_user_questions');
+    setAllowUserQuestions(s?.value === 'true');
+    setAllowSettingId(s?.id || null);
     setLoading(false);
   }, []);
+
+  const handleToggleAllow = async (val) => {
+    setAllowUserQuestions(val);
+    setSavingAllow(true);
+    const strVal = val ? 'true' : 'false';
+    if (allowSettingId) {
+      await tenantEntity.update("SiteSettings", allowSettingId, { value: strVal });
+    } else {
+      const created = await tenantEntity.create("SiteSettings", {
+        key: 'faq_allow_user_questions', value: strVal,
+        description: '是否允许用户在帮助中心提问', category: 'general'
+      });
+      setAllowSettingId(created?.id || null);
+    }
+    setSavingAllow(false);
+  };
 
   useEffect(() => { load(); }, [load]);
 
@@ -306,7 +331,20 @@ export default function AdminFaq() {
 
       {/* User questions tab */}
       {activeTab === "questions" && (
-        <AdminFaqQuestionsPanel categories={categories} />
+        <>
+          <div className="flex items-center justify-between px-4 py-3 bg-white border border-gray-200 rounded-lg">
+            <div>
+              <p className="text-sm font-medium text-gray-800">允许用户提问</p>
+              <p className="text-xs text-gray-400 mt-0.5">开启后用户可在帮助中心 FAQ 页提交问题，管理员收到通知后可回复或整理入库</p>
+            </div>
+            <Switch
+              checked={allowUserQuestions}
+              onCheckedChange={handleToggleAllow}
+              disabled={savingAllow}
+            />
+          </div>
+          <AdminFaqQuestionsPanel categories={categories} />
+        </>
       )}
 
       {/* New / edit category editor */}
