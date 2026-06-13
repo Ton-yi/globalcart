@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Save, HelpCircle, ExternalLink, Settings } from "lucide-react";
+import { Save, HelpCircle, ExternalLink, Settings, MessageCirclePlus } from "lucide-react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 
@@ -109,8 +109,15 @@ export default function FaqManager({ settings, onReload }) {
 
   useEffect(() => {
     const setting = (settings || []).find(s => s.key === "home_faq_config");
+    const allowSetting = (settings || []).find(s => s.key === "faq_allow_user_questions");
+    const allowUserQuestions = allowSetting?.value === 'true';
     if (setting?.value) {
-      try { setForm(migrateConfig(JSON.parse(setting.value))); } catch { /* noop */ }
+      try {
+        const parsed = JSON.parse(setting.value);
+        setForm({ ...migrateConfig(parsed), allow_user_questions: allowUserQuestions });
+      } catch { setForm(prev => ({ ...prev, allow_user_questions: allowUserQuestions })); }
+    } else {
+      setForm(prev => ({ ...prev, allow_user_questions: allowUserQuestions }));
     }
   }, [settings]);
 
@@ -133,6 +140,14 @@ export default function FaqManager({ settings, onReload }) {
       await tenantEntity.update("SiteSettings", existing.id, { value });
     } else {
       await tenantEntity.create("SiteSettings", { key: "home_faq_config", value, description: "主页常见问题区块配置（JSON）", category: "general" });
+    }
+    // Sync allow_user_questions to separate setting key
+    const allowSetting = (settings || []).find(s => s.key === "faq_allow_user_questions");
+    const allowValue = form.allow_user_questions ? 'true' : 'false';
+    if (allowSetting?.id) {
+      await tenantEntity.update("SiteSettings", allowSetting.id, { value: allowValue });
+    } else {
+      await tenantEntity.create("SiteSettings", { key: "faq_allow_user_questions", value: allowValue, description: "是否允许用户在帮助中心提问", category: "general" });
     }
     await onReload();
     setSaving(false);
@@ -176,6 +191,12 @@ export default function FaqManager({ settings, onReload }) {
           onClick={() => toggleUnified(!form.unified)}>
           <Checkbox checked={!!form.unified} onCheckedChange={toggleUnified} />
           <span className="text-xs text-gray-600 select-none">所有用户显示同一套配置</span>
+        </div>
+        <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-100 cursor-pointer"
+          onClick={() => setForm(prev => ({ ...prev, allow_user_questions: !prev.allow_user_questions }))}>
+          <Checkbox checked={!!form.allow_user_questions} onCheckedChange={v => setForm(prev => ({ ...prev, allow_user_questions: !!v }))} />
+          <MessageCirclePlus className="w-3.5 h-3.5 text-teal-500" />
+          <span className="text-xs text-gray-600 select-none">允许用户在帮助中心提问（用户提问后通知管理员）</span>
         </div>
       </CardHeader>
 

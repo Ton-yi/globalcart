@@ -8,7 +8,7 @@ import {
   User, Package, CreditCard, MapPin, Clock, AlertTriangle, 
   TrendingUp, DollarSign, ShoppingCart, Truck, Calendar,
   FileText, Settings, Shield, CheckCircle, X, ChevronRight,
-  ArrowLeft, ExternalLink, Plus, Edit2, MessageSquare, Bell, Eye
+  ArrowLeft, ExternalLink, Plus, Edit2, MessageSquare, Bell, Eye, MessageCircleQuestion
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,7 @@ import RolePermissionsTab from "@/components/profile/RolePermissionsTab";
 import PrivacySettingsTab from "@/components/profile/PrivacySettingsTab";
 import CustomerOrderDetailModal from "@/components/customer360/CustomerOrderDetailModal";
 import MemberTierBadge from "@/components/profile/MemberTierBadge";
+import MyFaqQuestionsCard from "@/components/faq/MyFaqQuestionsCard";
 
 const PAYMENT_METHOD_LABELS = {
   alipay: "支付宝", wechatpay: "微信支付", paypay: "PayPay", paypal: "PayPal",
@@ -475,6 +476,12 @@ export default function AdminUserDetail() {
             偏好
           </TabsTrigger>
           {isOwnProfile && (
+            <TabsTrigger value="faq_questions" className="data-[state=active]:bg-gray-100">
+              <MessageCircleQuestion className="w-4 h-4 mr-2" />
+              我的提问
+            </TabsTrigger>
+          )}
+          {isOwnProfile && (
             <TabsTrigger value="notifications" className="data-[state=active]:bg-gray-100">
               <Bell className="w-4 h-4 mr-2" />
               通知
@@ -769,6 +776,13 @@ export default function AdminUserDetail() {
           </Card>
         </TabsContent>
         
+        {/* FAQ Questions Tab（仅本人） */}
+        {isOwnProfile && (
+          <TabsContent value="faq_questions">
+            <MyFaqQuestionsCard />
+          </TabsContent>
+        )}
+
         {/* Notifications Tab（仅本人） */}
         {isOwnProfile && (
           <TabsContent value="notifications">

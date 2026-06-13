@@ -8,11 +8,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Plus, Trash2, Save, ChevronDown, ChevronUp, GripVertical,
-  HelpCircle, FolderOpen, ArrowLeft, Eye, EyeOff
+  HelpCircle, FolderOpen, ArrowLeft, Eye, EyeOff, MessageCircleQuestion
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import ReactMarkdown from "react-markdown";
+import AdminFaqQuestionsPanel from "@/components/faq/AdminFaqQuestionsPanel";
 
 function genId() { return `faq_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`; }
 
@@ -219,13 +220,20 @@ export default function AdminFaq() {
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState(null); // null=list, "new"=create, id=edit
   const [editingCategory, setEditingCategory] = useState(null);
+  const [activeTab, setActiveTab] = useState("faq"); // "faq" | "questions"
+  const [pendingCount, setPendingCount] = useState(0);
 
   const isAdmin = user?.role === "admin" || user?.role === "tenant_admin" || user?.role === "platform_admin";
 
   const load = useCallback(async () => {
     setLoading(true);
-    const r = await base44.functions.invoke('manageFaqCategories', { action: 'list' });
-    setCategories(r.data?.categories || []);
+    const [catR, qR] = await Promise.all([
+      base44.functions.invoke('manageFaqCategories', { action: 'list' }),
+      base44.functions.invoke('manageFaqQuestions', { action: 'list' }),
+    ]);
+    setCategories(catR.data?.categories || []);
+    const pending = (qR.data?.questions || []).filter(q => q.status === 'pending').length;
+    setPendingCount(pending);
     setLoading(false);
   }, []);
 
@@ -271,7 +279,7 @@ export default function AdminFaq() {
             <Eye className="w-3.5 h-3.5 mr-1" />预览帮助中心
           </Button>
         </Link>
-        {editingId === null && (
+        {activeTab === "faq" && editingId === null && (
           <Button size="sm" className="h-7 text-xs bg-teal-600 hover:bg-teal-700"
             onClick={() => { setEditingId("new"); setEditingCategory(null); }}>
             <Plus className="w-3.5 h-3.5 mr-1" />新建分类
@@ -279,8 +287,30 @@ export default function AdminFaq() {
         )}
       </div>
 
-      {/* New category editor */}
-      {editingId === "new" && (
+      {/* Tabs */}
+      <div className="flex gap-1 border-b border-gray-200">
+        <button
+          onClick={() => setActiveTab("faq")}
+          className={`px-4 py-2 text-sm transition-colors -mb-px border-b-2 ${activeTab === "faq" ? "border-teal-600 text-teal-700 font-medium" : "border-transparent text-gray-500 hover:text-gray-700"}`}
+        >
+          <HelpCircle className="w-3.5 h-3.5 inline mr-1.5" />问答分类
+        </button>
+        <button
+          onClick={() => setActiveTab("questions")}
+          className={`px-4 py-2 text-sm transition-colors -mb-px border-b-2 flex items-center gap-1.5 ${activeTab === "questions" ? "border-teal-600 text-teal-700 font-medium" : "border-transparent text-gray-500 hover:text-gray-700"}`}
+        >
+          <MessageCircleQuestion className="w-3.5 h-3.5" />用户提问
+          {pendingCount > 0 && <span className="bg-red-500 text-white text-xs rounded-full px-1.5">{pendingCount}</span>}
+        </button>
+      </div>
+
+      {/* User questions tab */}
+      {activeTab === "questions" && (
+        <AdminFaqQuestionsPanel categories={categories} />
+      )}
+
+      {/* New / edit category editor */}
+      {activeTab === "faq" && editingId === "new" && (
         <CategoryEditor
           category={null}
           isNew={true}
@@ -290,7 +320,7 @@ export default function AdminFaq() {
       )}
 
       {/* Edit category */}
-      {editingId && editingId !== "new" && (
+      {activeTab === "faq" && editingId && editingId !== "new" && (
         <CategoryEditor
           category={editingCategory}
           isNew={false}
@@ -301,7 +331,7 @@ export default function AdminFaq() {
       )}
 
       {/* Category list */}
-      {editingId === null && (
+      {activeTab === "faq" && editingId === null && (
         <>
           {loading && <div className="text-center py-8 text-gray-400 text-sm">加载中…</div>}
           {!loading && categories.length === 0 && (

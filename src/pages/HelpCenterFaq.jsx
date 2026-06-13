@@ -6,6 +6,7 @@ import { HelpCircle, ChevronDown, ChevronUp, Search, ArrowLeft, Settings } from 
 import { Input } from "@/components/ui/input";
 import ReactMarkdown from "react-markdown";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import AskQuestionForm from "@/components/faq/AskQuestionForm";
 
 function FaqItemBlock({ item }) {
   const [open, setOpen] = useState(false);
@@ -46,22 +47,24 @@ export default function HelpCenterFaq() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState(null);
+  const [allowUserQuestions, setAllowUserQuestions] = useState(false);
 
   const isAdmin = user?.role === "admin" || user?.role === "tenant_admin" || user?.role === "platform_admin";
 
   useEffect(() => {
-    base44.functions.invoke('getPublicHomeConfig', { hostname: window.location.hostname })
-      .then(r => {
-        const cats = (r.data?.faqCategories || []).filter(c => c.is_active !== false && (c.items || []).length > 0);
-        setCategories(cats);
-        const params = new URLSearchParams(location.search);
-        const catParam = params.get('cat');
-        const target = catParam && cats.find(c => c.id === catParam);
-        setActiveCategory(target ? target.id : (cats[0]?.id || null));
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
+    Promise.all([
+      base44.functions.invoke('getPublicHomeConfig', { hostname: window.location.hostname }),
+      user ? base44.functions.invoke('manageFaqQuestions', { action: 'get_setting' }) : Promise.resolve({ data: { allowed: false } }),
+    ]).then(([r, settingR]) => {
+      const cats = (r.data?.faqCategories || []).filter(c => c.is_active !== false && (c.items || []).length > 0);
+      setCategories(cats);
+      const params = new URLSearchParams(location.search);
+      const catParam = params.get('cat');
+      const target = catParam && cats.find(c => c.id === catParam);
+      setActiveCategory(target ? target.id : (cats[0]?.id || null));
+      setAllowUserQuestions(settingR.data?.allowed === true);
+    }).catch(() => {}).finally(() => setLoading(false));
+  }, [user]);
 
   const filtered = categories.map(cat => ({
     ...cat,
@@ -110,6 +113,11 @@ export default function HelpCenterFaq() {
           <HelpCircle className="w-10 h-10 text-gray-300 mx-auto mb-3" />
           <p className="text-gray-400 text-sm">暂无帮助内容</p>
         </div>
+      )}
+
+      {/* Ask question form — show for logged-in non-admin users when enabled */}
+      {!loading && allowUserQuestions && user && !isAdmin && (
+        <AskQuestionForm categories={categories} />
       )}
 
       {!loading && categories.length > 0 && (

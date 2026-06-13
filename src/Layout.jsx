@@ -323,6 +323,11 @@ export default function Layout({ children, currentPageName }) {
       />
 
       <footer className="border-t bg-white mt-10 py-6 text-center text-xs text-gray-400">
+        <div className="flex items-center justify-center gap-4 mb-2">
+          <Link to={createPageUrl("helpcenter")} className="hover:text-teal-600 transition-colors">帮助中心</Link>
+          <span>·</span>
+          <Link to={createPageUrl("helpcenter/faq")} className="hover:text-teal-600 transition-colors">常见问题</Link>
+        </div>
         © 2026 同一物流 Tongyi Express · 日本 → 全球 · 安心・信頼・快捷
       </footer>
     </div>
