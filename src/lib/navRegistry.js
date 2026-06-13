@@ -4,7 +4,7 @@
  */
 import {
   Home, ShoppingBag, UserPlus, Package, Send, User,
-  BarChart3, Layers, Users, Settings, Bell, Zap, FileText, Navigation, Crown, HelpCircle, MessageCircleQuestion,
+  BarChart3, Layers, Users, Settings, Bell, Zap, FileText, Navigation, Crown, HelpCircle, MessageCircleQuestion, CheckSquare,
 } from "lucide-react";
 
 export const NAV_REGISTRY = {
@@ -19,6 +19,7 @@ export const NAV_REGISTRY = {
     MemberTiers: { label: "会员阶级", icon: Crown, page: "MemberTiers" },
     HelpCenter: { label: "帮助中心", icon: HelpCircle, page: "helpcenter", activePage: "HelpCenter" },
     HelpCenterFaq: { label: "常见问题", icon: MessageCircleQuestion, page: "helpcenter/faq", activePage: "HelpCenterFaq" },
+    UserTodo: { label: "我的待办", icon: CheckSquare, page: "UserTodo" },
   },
   admin: {
     AdminDashboard: { label: "管理总览", icon: BarChart3, page: "AdminDashboard" },
@@ -40,6 +41,7 @@ export const NAV_REGISTRY = {
 export const DEFAULT_NAV_TREES = {
   user: [
     { key: "Home" },
+    { key: "UserTodo" },
     { key: "SubmitOrder", children: [{ key: "SubmitOrderPlain" }, { key: "GroupBuy" }] },
     { key: "MyOrders" },
     { key: "ShippingPool" },

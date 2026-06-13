@@ -32,6 +32,7 @@ import MemberTiers from '@/pages/MemberTiers';
 import HelpCenter from '@/pages/HelpCenter';
 import HelpCenterFaq from '@/pages/HelpCenterFaq';
 import AdminFaq from '@/pages/AdminFaq';
+import UserTodo from '@/pages/UserTodo';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -236,6 +237,11 @@ const AuthenticatedApp = () => {
       <Route path="/:locale/AdminFaq" element={
         <LayoutWrapper currentPageName="AdminFaq">
           <AdminFaq />
+        </LayoutWrapper>
+      } />
+      <Route path="/:locale/UserTodo" element={
+        <LayoutWrapper currentPageName="UserTodo">
+          <UserTodo />
         </LayoutWrapper>
       } />
       <Route path="/:locale/UserPrivacySettings" element={
