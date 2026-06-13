@@ -40,6 +40,7 @@ import QuickActionsManager from "@/components/admin/QuickActionsManager";
 import LogisticsStatusBoardManager from "@/components/admin/LogisticsStatusBoardManager";
 import HeroSectionManager from "@/components/admin/HeroSectionManager";
 import StepsSectionManager from "@/components/admin/StepsSectionManager";
+import FaqManager from "@/components/admin/FaqManager";
 
 // Standalone editor with its own local save button (textarea content is large, better kept isolated)
 function CustomsHazmatTextEditor({ settings, onReload }) {
@@ -404,6 +405,7 @@ export default function AdminSettings() {
           <StepsSectionManager settings={settings} onReload={load} />
           <QuickActionsManager settings={settings} onReload={load} />
           <LogisticsStatusBoardManager settings={settings} onReload={load} />
+          <FaqManager settings={settings} onReload={load} />
         </div>
       )}
       {activeTab === "home_customize" && loading && <p className="text-gray-400 text-sm">加载中...</p>}

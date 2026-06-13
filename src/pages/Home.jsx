@@ -11,6 +11,7 @@ import { getStatusLabel, getStatusColor } from "@/lib/orderStatus";
 import QuickActionsGrid from "@/components/home/QuickActionsGrid";
 import LogisticsStatusBoard from "@/components/home/LogisticsStatusBoard";
 import HeroSection from "@/components/home/HeroSection";
+import FaqSection from "@/components/home/FaqSection";
 
 export default function Home() {
   const { user } = useCurrentUser();
@@ -20,6 +21,7 @@ export default function Home() {
   const [boardConfig, setBoardConfig] = useState({});
   const [heroConfig, setHeroConfig] = useState(null);
   const [stepsConfig, setStepsConfig] = useState(null);
+  const [faqConfig, setFaqConfig] = useState(null);
 
   useEffect(() => {
     const t = timePage('Home');
@@ -34,14 +36,15 @@ export default function Home() {
             if (item?.value) { try { return JSON.parse(item.value); } catch { return null; } }
             return null;
           };
-          return { quickActions: parseJson('home_quick_actions') || [], boardConfig: parseJson('home_status_board') || {}, heroConfig: parseJson('home_hero_config') || null, stepsConfig: parseJson('home_steps_config') || null };
+          return { quickActions: parseJson('home_quick_actions') || [], boardConfig: parseJson('home_status_board') || {}, heroConfig: parseJson('home_hero_config') || null, stepsConfig: parseJson('home_steps_config') || null, faqConfig: parseJson('home_faq_config') || null };
         }).catch(() => ({ quickActions: [], boardConfig: {}, heroConfig: null }))),
-    ]).then(([orders, { quickActions, boardConfig, heroConfig, stepsConfig }]) => {
+    ]).then(([orders, { quickActions, boardConfig, heroConfig, stepsConfig, faqConfig }]) => {
       setRecentOrders(orders);
       setQuickActions(quickActions);
       setBoardConfig(boardConfig);
       setHeroConfig(heroConfig);
       setStepsConfig(stepsConfig);
+      setFaqConfig(faqConfig);
       t.done('data ready');
     });
   }, []);
@@ -126,6 +129,9 @@ export default function Home() {
       {user && recentOrders.length > 0 && (
         <LogisticsStatusBoard orders={recentOrders} boardConfig={boardConfig} />
       )}
+
+      {/* FAQ */}
+      <FaqSection config={faqConfig} user={user} />
     </div>
   );
 }
