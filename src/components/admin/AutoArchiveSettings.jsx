@@ -71,8 +71,10 @@ export default function AutoArchiveSettings({ settings, onReload }) {
           </div>
         </div>
 
-        <div className="bg-gray-50 border border-gray-100 rounded px-3 py-2 text-xs text-gray-500">
-          系统每天自动扫描已收货且未归档的订单，超过设定天数则自动归档。用户设置中的个人归档偏好优先级低于此全局设置（若已配置全局设置）。
+        <div className="bg-gray-50 border border-gray-100 rounded px-3 py-2 text-xs text-gray-500 space-y-1">
+          <p>系统每天自动扫描已收货且未归档的订单，超过设定天数则自动归档。</p>
+          <p>· <strong>全局设置优先于用户个人偏好</strong>；设置 0 = 当天立即归档。</p>
+          <p>· 如需允许某些用户自行关闭自动归档，请删除此全局设置（用户可在个人设置中将天数设为 0 来单独关闭）。</p>
         </div>
 
         <Button size="sm" className="h-7 text-xs bg-gray-800 hover:bg-gray-700" onClick={handleSave} disabled={saving}>

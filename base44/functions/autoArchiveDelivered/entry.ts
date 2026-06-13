@@ -1,11 +1,31 @@
 /**
  * autoArchiveDelivered
  * Scheduled function: archives delivered orders and shipping pools.
- * Global tenant setting `auto_archive_delivered_days` (SiteSettings) takes priority.
- * Falls back to per-user UserPreference.auto_archive_order_days / auto_archive_pool_days.
+ *
+ * Priority logic:
+ *   1. Global tenant setting `auto_archive_delivered_days` (SiteSettings) — if set, overrides everything.
+ *      0 = archive immediately on same day as delivered.
+ *   2. Per-user UserPreference.auto_archive_order_days / auto_archive_pool_days — as fallback.
+ *      Per-user: 0 = opt-out (do NOT archive automatically). >0 = archive after N days.
+ *
  * Runs daily. Admin-only callable (for manual trigger); scheduled runs use service role.
  */
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
+
+const PAGE_SIZE = 200; // pagination guard for large datasets
+
+async function fetchAllPages(entityFilter, filterQuery) {
+  const results = [];
+  let skip = 0;
+  while (true) {
+    const page = await entityFilter(filterQuery, '-created_date', PAGE_SIZE, skip);
+    if (!page || page.length === 0) break;
+    results.push(...page);
+    if (page.length < PAGE_SIZE) break;
+    skip += PAGE_SIZE;
+  }
+  return results;
+}
 
 Deno.serve(async (req) => {
   try {
@@ -24,20 +44,33 @@ Deno.serve(async (req) => {
     const now = new Date();
 
     // ── Fetch all tenant-level global archive settings ──────────────────────
-    // key: tenant_id → global archive days (or null if not set)
+    // SiteSettings key=auto_archive_delivered_days, value=number string
+    // Semantics: 0 = archive immediately, >0 = archive after N days, absent = use per-user prefs
     const allSiteSettings = await base44.asServiceRole.entities.SiteSettings.filter({
       key: 'auto_archive_delivered_days',
     });
+    // tenantGlobalDays[tid] = number | null (null = not configured for this tenant)
     const tenantGlobalDays = {};
     for (const s of allSiteSettings) {
       if (s.tenant_id) {
         const v = parseInt(s.value);
-        tenantGlobalDays[s.tenant_id] = isNaN(v) ? null : v;
+        tenantGlobalDays[s.tenant_id] = isNaN(v) ? null : Math.max(0, v);
       }
     }
 
     // ── Fetch per-user preferences as fallback ───────────────────────────────
-    const allPrefs = await base44.asServiceRole.entities.UserPreference.list();
+    // Per-user semantics: 0 = opt-out (do NOT auto archive), >0 = archive after N days
+    // Default is 7 days per entity schema.
+    let allPrefs = [];
+    let prefSkip = 0;
+    while (true) {
+      const page = await base44.asServiceRole.entities.UserPreference.list('-created_date', PAGE_SIZE, prefSkip);
+      if (!page || page.length === 0) break;
+      allPrefs.push(...page);
+      if (page.length < PAGE_SIZE) break;
+      prefSkip += PAGE_SIZE;
+    }
+
     const prefMap = {};
     for (const pref of allPrefs) {
       if (pref.user_email) {
@@ -48,29 +81,50 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Helper: resolve archive days for an order/pool
-    const resolveOrderDays = (tenantId, userEmail) => {
-      const global = tenantId ? tenantGlobalDays[tenantId] : null;
-      if (global !== null && global !== undefined) return global;
-      return prefMap[userEmail]?.orderDays ?? 3; // default 3 days
-    };
-    const resolvePoolDays = (tenantId, creatorEmail) => {
-      const global = tenantId ? tenantGlobalDays[tenantId] : null;
-      if (global !== null && global !== undefined) return global;
-      return prefMap[creatorEmail]?.poolDays ?? 3; // default 3 days
+    /**
+     * Resolve how many days to wait before archiving.
+     * Returns:
+     *   null  → do NOT archive (user opted out)
+     *   0     → archive immediately
+     *   N>0   → archive after N days
+     */
+    const resolveArchiveDays = (tenantId, userEmail, type) => {
+      // Global tenant setting overrides per-user prefs
+      const globalDays = tenantId ? tenantGlobalDays[tenantId] : null;
+      if (globalDays !== null && globalDays !== undefined) {
+        // Global set: use it. 0 = immediately. No opt-out at global level.
+        return globalDays;
+      }
+      // Fall back to per-user preference
+      const prefs = prefMap[userEmail];
+      const days = type === 'pool'
+        ? (prefs?.poolDays ?? 7)
+        : (prefs?.orderDays ?? 7);
+      // Per-user: 0 means opt-out → return null
+      if (days === 0) return null;
+      return days;
     };
 
     // ── Archive delivered orders ──────────────────────────────────────────────
-    const deliveredOrders = await base44.asServiceRole.entities.Order.filter({
-      order_status: 'delivered',
-      is_archived: false,
-    });
+    let deliveredOrders = [];
+    let orderSkip = 0;
+    while (true) {
+      const page = await base44.asServiceRole.entities.Order.filter(
+        { order_status: 'delivered', is_archived: false },
+        '-created_date', PAGE_SIZE, orderSkip
+      );
+      if (!page || page.length === 0) break;
+      deliveredOrders.push(...page);
+      if (page.length < PAGE_SIZE) break;
+      orderSkip += PAGE_SIZE;
+    }
 
     let archivedOrders = 0;
     for (const order of deliveredOrders) {
-      const archiveDays = resolveOrderDays(order.tenant_id, order.user_email);
+      const archiveDays = resolveArchiveDays(order.tenant_id, order.user_email, 'order');
+      if (archiveDays === null) continue; // user opted out
 
-      // archiveDays === 0 → archive immediately (same day)
+      // Use shipped_date as delivery proxy; fall back to updated_date / created_date
       const deliveredDate = order.shipped_date
         ? new Date(order.shipped_date)
         : new Date(order.updated_date || order.created_date);
@@ -87,14 +141,23 @@ Deno.serve(async (req) => {
     }
 
     // ── Archive delivered shipping pools ──────────────────────────────────────
-    const deliveredPools = await base44.asServiceRole.entities.ShippingPool.filter({
-      status: 'delivered',
-      is_archived: false,
-    });
+    let deliveredPools = [];
+    let poolSkip = 0;
+    while (true) {
+      const page = await base44.asServiceRole.entities.ShippingPool.filter(
+        { status: 'delivered', is_archived: false },
+        '-created_date', PAGE_SIZE, poolSkip
+      );
+      if (!page || page.length === 0) break;
+      deliveredPools.push(...page);
+      if (page.length < PAGE_SIZE) break;
+      poolSkip += PAGE_SIZE;
+    }
 
     let archivedPools = 0;
     for (const pool of deliveredPools) {
-      const archiveDays = resolvePoolDays(pool.tenant_id, pool.creator_email);
+      const archiveDays = resolveArchiveDays(pool.tenant_id, pool.creator_email, 'pool');
+      if (archiveDays === null) continue; // user opted out
 
       const deliveredDate = pool.shipped_date
         ? new Date(pool.shipped_date)
