@@ -15,6 +15,8 @@ import { ImageWithViewer } from "@/components/common/ImageViewer";
 import ShippingPoolDetailModal from "@/components/shippingpool/ShippingPoolDetailModal";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { usePermissions } from "@/hooks/usePermissions";
+import { usePageSize } from "@/hooks/usePageSize";
+import PaginationBar from "@/components/common/PaginationBar";
 
 const STORAGE_KEY = "admin_orders_columns";
 
@@ -317,6 +319,7 @@ export default function AdminOrders() {
   const [defaultPackingFeeConsolidation, setDefaultPackingFeeConsolidation] = useState(0);
   const [selectedPool, setSelectedPool] = useState(null);
   const [showArchived, setShowArchived] = useState(false);
+  const { pageSize, setPageSize, currentPage, setCurrentPage, resetPage, PAGE_SIZES } = usePageSize("admin_orders_page_size", 20);
   const [showFullpaySettlement, setShowFullpaySettlement] = useState(false);
   const [selectedFullpayOrder, setSelectedFullpayOrder] = useState(null);
   const [settlementData, setSettlementData] = useState(null);
@@ -418,13 +421,16 @@ export default function AdminOrders() {
 
   const visibleCols = columns.filter(c => c.visible);
 
+  // Pagination: reset page when filter/sort changes
+  const pagedFiltered = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
   const toggleSelect = (id) => {
     setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   };
 
   const toggleAll = () => {
-    if (selectedIds.length === filtered.length) setSelectedIds([]);
-    else setSelectedIds(filtered.map(o => o.id));
+    if (selectedIds.length === pagedFiltered.length) setSelectedIds([]);
+    else setSelectedIds(pagedFiltered.map(o => o.id));
   };
 
   const handleBulkUpdate = async () => {
@@ -646,7 +652,7 @@ export default function AdminOrders() {
             <tr className="bg-gray-50 border-b border-gray-200">
               <th className="w-8 px-3 py-2 text-left">
                 {groupBy === "none" ? (
-                  <Checkbox checked={selectedIds.length === filtered.length && filtered.length > 0}
+                  <Checkbox checked={pagedFiltered.length > 0 && pagedFiltered.every(o => selectedIds.includes(o.id))}
                     onCheckedChange={toggleAll} />
                 ) : null}
               </th>
@@ -673,6 +679,7 @@ export default function AdminOrders() {
             ) : filtered.length === 0 ? (
               <tr><td colSpan={visibleCols.length + 2} className="text-center py-12 text-gray-400 text-sm">暂无订单</td></tr>
             ) : (() => {
+              const renderData = groupBy === "none" ? pagedFiltered : filtered;
               const renderOrderRow = (order) => {
                 const pendingEdit = pendingEditRequests.find(r => r.order_id === order.id);
                 return (
@@ -803,7 +810,7 @@ export default function AdminOrders() {
                 );
               };
 
-              if (groupBy === "none") return filtered.map(renderOrderRow);
+              if (groupBy === "none") return renderData.map(renderOrderRow);
 
               // Build groups
               const getGroupKey = (order) => {
@@ -891,7 +898,14 @@ export default function AdminOrders() {
         </table>
       </div>
 
-      <div className="text-xs text-gray-400 text-right">{showArchived ? `已存档订单：${filtered.length} 条` : `共 ${filtered.length} 条`}</div>
+      <PaginationBar
+        total={filtered.length}
+        pageSize={pageSize}
+        currentPage={currentPage}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={(s) => { setPageSize(s); resetPage(); }}
+        className="mt-1"
+      />
 
       {selectedOrder && canEditOrder && (
         <AdminOrderEditModal

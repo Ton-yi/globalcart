@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { usePageSize } from "@/hooks/usePageSize";
+import PaginationBar from "@/components/common/PaginationBar";
 import { base44 } from "@/api/base44Client";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Package, RefreshCw, Search, CreditCard, Truck, CheckCircle, ChevronUp, ChevronDown, ChevronsUpDown, Send, Archive, ArchiveRestore, RotateCcw, Zap, MapPin } from "lucide-react";
@@ -242,6 +244,7 @@ export default function MyOrders() {
   const [storeTagRules, setStoreTagRules] = useState([]);
 
   const [showArchived, setShowArchived] = useState(false);
+  const { pageSize, setPageSize, currentPage, setCurrentPage, resetPage, PAGE_SIZES } = usePageSize("my_orders_page_size", 20);
   const [pageData, setPageData] = useState({});
   const [pendingEditRequests, setPendingEditRequests] = useState([]);
 
@@ -360,7 +363,10 @@ export default function MyOrders() {
 
   const visibleCols = columns.filter(c => c.visible);
 
-  // Orders eligible for bulk notify (in_warehouse only)
+  // Pagination slice
+  const pagedFiltered = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  // Orders eligible for bulk notify (in_warehouse only) — operate on full filtered, not paged
   const inWarehouseOrders = filtered.filter(o => o.order_status === "in_warehouse");
   const selectedInWarehouse = filtered.filter(o => selectedIds.includes(o.id) && o.order_status === "in_warehouse");
 
@@ -512,7 +518,7 @@ export default function MyOrders() {
                   </div>
                 </td>
               </tr>
-            ) : filtered.map(order => (
+            ) : pagedFiltered.map(order => (
               <tr key={order.id} className={`hover:bg-gray-50 cursor-pointer ${selectedIds.includes(order.id) ? "bg-teal-50/50" : ""}`}
                 onClick={() => setSelectedOrder(order)}>
                 <td className="px-3 py-3" onClick={e => e.stopPropagation()}>
@@ -746,9 +752,14 @@ export default function MyOrders() {
         </table>
       </div>
 
-      <div className="text-xs text-gray-400 text-right">
-        {showArchived ? `已存档订单：${filtered.length} 条` : `共 ${filtered.length} 条`}
-      </div>
+      <PaginationBar
+        total={filtered.length}
+        pageSize={pageSize}
+        currentPage={currentPage}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={(s) => { setPageSize(s); resetPage(); }}
+        className="mt-1"
+      />
 
       {selectedOrder && user && (
         <OrderDetailDrawer

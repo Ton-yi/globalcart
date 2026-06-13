@@ -3,6 +3,8 @@
  * Shows all shipping pools + transit location management
  */
 import { useState, useEffect } from "react";
+import { usePageSize } from "@/hooks/usePageSize";
+import PaginationBar from "@/components/common/PaginationBar";
 import { base44 } from "@/api/base44Client";
 import { tenantEntity } from "@/lib/tenantApi";
 import { timePage } from "@/lib/timing";
@@ -74,6 +76,7 @@ export default function AdminShippingPool() {
   const [fullpayOnceToleranceJpy, setFullpayOnceToleranceJpy] = useState(500);
   const [transitHandlingFeeSplit, setTransitHandlingFeeSplit] = useState(false);
   const [allOrders, setAllOrders] = useState([]);
+  const { pageSize: poolPageSize, setPageSize: setPoolPageSize, currentPage: poolPage, setCurrentPage: setPoolPage, resetPage: resetPoolPage, PAGE_SIZES } = usePageSize("admin_shipping_pool_page_size", 20);
 
   const fetchPageData = async () => {
     setLoading(true);
@@ -288,9 +291,11 @@ export default function AdminShippingPool() {
           ) : (() => {
             const userProfileMap = {};
             (allUsers || []).forEach(u => { userProfileMap[u.email] = u; });
+            const pagedDirect = directPools.slice((poolPage - 1) * poolPageSize, poolPage * poolPageSize);
             return (
+              <>
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-              {directPools.map(pool => (
+              {pagedDirect.map(pool => (
                 <ShippingPoolCard
                   key={pool.id}
                   pool={pool}
@@ -304,6 +309,9 @@ export default function AdminShippingPool() {
                 />
               ))}
               </div>
+              <PaginationBar total={directPools.length} pageSize={poolPageSize} currentPage={poolPage}
+                onPageChange={setPoolPage} onPageSizeChange={s => { setPoolPageSize(s); resetPoolPage(); }} className="mt-3" />
+              </>
             );
           })()}
         </>
@@ -330,9 +338,11 @@ export default function AdminShippingPool() {
           ) : (() => {
             const userProfileMap = {};
             (allUsers || []).forEach(u => { userProfileMap[u.email] = u; });
+            const pagedCons = userConsPools.slice((poolPage - 1) * poolPageSize, poolPage * poolPageSize);
             return (
+              <>
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                {userConsPools.map(pool => (
+                {pagedCons.map(pool => (
                   <ShippingPoolCard
                     key={pool.id}
                     pool={pool}
@@ -345,6 +355,9 @@ export default function AdminShippingPool() {
                   />
                 ))}
               </div>
+              <PaginationBar total={userConsPools.length} pageSize={poolPageSize} currentPage={poolPage}
+                onPageChange={setPoolPage} onPageSizeChange={s => { setPoolPageSize(s); resetPoolPage(); }} className="mt-3" />
+              </>
             );
           })()}
         </>

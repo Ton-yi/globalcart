@@ -3,6 +3,8 @@
  * 创建表单为页面内嵌展开，不弹窗
  */
 import { useState, useEffect } from "react";
+import { usePageSize } from "@/hooks/usePageSize";
+import PaginationBar from "@/components/common/PaginationBar";
 import { base44 } from "@/api/base44Client";
 import { fetchShippingPools, tenantEntity, fetchTenantConfig, shippingPoolApi } from "@/lib/tenantApi";
 import { timePage } from "@/lib/timing";
@@ -110,6 +112,7 @@ export default function ShippingPool() {
   const [allOrders, setAllOrders] = useState([]);
   const [shippingMethods, setShippingMethods] = useState([]);
   const [methodError, setMethodError] = useState(null);
+  const { pageSize: poolPageSize, setPageSize: setPoolPageSize, currentPage: poolPage, setCurrentPage: setPoolPage, resetPage: resetPoolPage, PAGE_SIZES } = usePageSize("user_shipping_pool_page_size", 20);
 
   const f = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
@@ -1057,8 +1060,9 @@ export default function ShippingPool() {
               <p className="text-xs mt-1">点击右上角"新增发货申请"开始</p>
             </div> :
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-              {directPools.map((pool) =>
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+              {directPools.slice((poolPage - 1) * poolPageSize, poolPage * poolPageSize).map((pool) =>
           <ShippingPoolCard
             key={pool.id}
             pool={pool}
@@ -1066,9 +1070,11 @@ export default function ShippingPool() {
             pendingEditCount={pendingEditRequests.filter((r) => r.pool_id === pool.id).length}
             userProfileMap={userProfileMap}
             onArchive={!pool.is_archived && pool.status === "delivered" ? () => handleArchivePool(pool) : null} />
-
           )}
             </div>
+          <PaginationBar total={directPools.length} pageSize={poolPageSize} currentPage={poolPage}
+            onPageChange={setPoolPage} onPageSizeChange={s => { setPoolPageSize(s); resetPoolPage(); }} className="mt-3" />
+        </>
         }
         </>
       }
@@ -1108,7 +1114,7 @@ export default function ShippingPool() {
             </div> :
 
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-              {userConsPools.map((pool) => {
+              {userConsPools.slice((poolPage - 1) * poolPageSize, poolPage * poolPageSize).map((pool) => {
             // Use allOrders for users who have orders in this pool; fall back to pool-level data for others' pools
             const poolOrders = (pool.order_ids || []).
             map((id) => allOrders.find((o) => o.id === id)).
@@ -1222,10 +1228,12 @@ export default function ShippingPool() {
           }).filter(Boolean)}
             </div>
         }
+        <PaginationBar total={userConsPools.length} pageSize={poolPageSize} currentPage={poolPage}
+          onPageChange={setPoolPage} onPageSizeChange={s => { setPoolPageSize(s); resetPoolPage(); }} className="mt-3" />
         </>
-      }
+        }
 
-      {/* ---- TAB: OFFICIAL CONSOLIDATION KANBAN ---- */}
+        {/* ---- TAB: OFFICIAL CONSOLIDATION KANBAN ---- */}
       {activeTab === "official_kanban" &&
       <>
           <div className="flex items-center justify-between gap-2 mb-2">
