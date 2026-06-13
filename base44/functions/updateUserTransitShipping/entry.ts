@@ -15,8 +15,8 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'pool_id, user_email, and order_ids array are required' }, { status: 400 });
     }
 
-    // Fetch pool data
-    const pool = await base44.entities.ShippingPool.get(pool_id);
+    // Fetch pool data (use service role for reliable access regardless of caller role)
+    const pool = await base44.asServiceRole.entities.ShippingPool.get(pool_id);
     if (!pool) {
       return Response.json({ error: 'Pool not found' }, { status: 404 });
     }
@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'This pool is not assigned to a transit location' }, { status: 403 });
     }
 
-    const location = await base44.entities.TransitLocation.get(pool.transit_location_id);
+    const location = await base44.asServiceRole.entities.TransitLocation.get(pool.transit_location_id);
     if (!location) {
       return Response.json({ error: 'Transit location not found' }, { status: 404 });
     }
@@ -97,8 +97,8 @@ Deno.serve(async (req) => {
 
     transitShippingInfoPerUser[userShippingInfoIndex] = userShippingInfo;
 
-    // Update pool with new transit_shipping_info_per_user
-    await base44.entities.ShippingPool.update(pool_id, {
+    // Update pool with new transit_shipping_info_per_user (service role)
+    await base44.asServiceRole.entities.ShippingPool.update(pool_id, {
       transit_shipping_info_per_user: transitShippingInfoPerUser
     });
 
@@ -129,7 +129,35 @@ Deno.serve(async (req) => {
           : (o.order_status === 'transit_shipped' || o.order_status === 'delivered' || o.order_status === 'shipped')
       );
       if (allShipped && poolOrders.length > 0) {
-        await base44.entities.ShippingPool.update(pool_id, { status: 'shipped' }).catch(() => {});
+        await base44.asServiceRole.entities.ShippingPool.update(pool_id, { status: 'shipped' }).catch(() => {});
+      }
+
+      // ── 发送通知给受影响用户 ──────────────────────────────────────────────
+      // 获取受影响订单的用户邮箱（去重）
+      try {
+        const affectedOrders = poolOrders.filter(o => order_ids.includes(o.id));
+        const affectedEmails = [...new Set(affectedOrders.map(o => o.user_email).filter(Boolean))];
+        for (const recipientEmail of affectedEmails) {
+          await base44.asServiceRole.functions.invoke('createNotificationWithEmail', {
+            user_email: recipientEmail,
+            notification_type: 'order',
+            notification_subtype: 'transit_shipped',
+            title: '您的包裹已从中转地发出',
+            content: `您在中转地 ${pool.transit_location_name || '中转地'} 的包裹已由中转人发货，运单号：${shipping_data.transit_tracking_number || '待填写'}，运输方式：${shipping_data.transit_shipping_method || ''}。请留意最终收货。`,
+            icon: 'Truck',
+            priority: 'high',
+            related_entity_type: 'ShippingPool',
+            related_entity_id: pool_id,
+            metadata: {
+              pool_code: pool.pool_code || pool_id,
+              transit_location: pool.transit_location_name || '',
+              tracking_number: shipping_data.transit_tracking_number || '',
+              transit_method: shipping_data.transit_shipping_method || '',
+            }
+          }).catch(e => console.error('Failed to send transit shipped notification:', e));
+        }
+      } catch (notifErr) {
+        console.error('Notification send error (non-fatal):', notifErr);
       }
     }
 

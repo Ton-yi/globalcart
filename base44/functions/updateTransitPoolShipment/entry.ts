@@ -60,11 +60,11 @@ Deno.serve(async (req) => {
       }
 
       if (action === 'confirm_storage_batch') {
-        // Mark each order in this batch as in_storage (use a custom status stored in order)
+        // Mark each order in this batch as in_storage
         if (batchOrderIds && batchOrderIds.length > 0) {
           await Promise.all(batchOrderIds.map(orderId =>
             base44.asServiceRole.entities.Order.update(orderId, {
-              order_status: 'in_warehouse', // stays in_warehouse but we add a storage marker
+              order_status: 'in_storage',
               transit_storage_enabled: true,
               transit_storage_until: storage_until || null,
               transit_location_id: pool.transit_location_id,
@@ -153,16 +153,46 @@ Deno.serve(async (req) => {
         transit_shipped_by: user.email
       });
 
-      // Update all orders in this pool to mark them as transit shipped
+      // Update all orders in this pool to transit_shipped status
       if (pool.order_ids && pool.order_ids.length > 0) {
         const updatePromises = pool.order_ids.map(orderId => 
           base44.asServiceRole.entities.Order.update(orderId, {
-            transit_shipped_date: new Date().toISOString(),
-            transit_tracking_number,
-            transit_shipping_method
+            order_status: 'transit_shipped',
+            transit_shipped_date: transit_shipped_date || new Date().toISOString().split('T')[0],
+            transit_tracking_number: transit_tracking_number || '',
+            transit_shipping_method: transit_shipping_method || '',
           }).catch(e => console.error(`Failed to update order ${orderId}:`, e))
         );
         await Promise.all(updatePromises);
+
+        // 发送通知给受影响用户
+        try {
+          const fetchedOrders = await Promise.all(
+            pool.order_ids.map(id => base44.asServiceRole.entities.Order.get(id).catch(() => null))
+          );
+          const validOrders = fetchedOrders.filter(Boolean);
+          const affectedEmails = [...new Set(validOrders.map(o => o.user_email).filter(Boolean))];
+          for (const recipientEmail of affectedEmails) {
+            await base44.asServiceRole.functions.invoke('createNotificationWithEmail', {
+              user_email: recipientEmail,
+              notification_type: 'order',
+              notification_subtype: 'transit_shipped',
+              title: '您的包裹已从中转地发出',
+              content: `您在中转地的包裹已发货，运单号：${transit_tracking_number || '待填写'}，运输方式：${transit_shipping_method || ''}。请留意最终收货。`,
+              icon: 'Truck',
+              priority: 'high',
+              related_entity_type: 'ShippingPool',
+              related_entity_id: pool_id,
+              metadata: {
+                pool_code: pool.pool_code || pool_id,
+                tracking_number: transit_tracking_number || '',
+                transit_method: transit_shipping_method || '',
+              }
+            }).catch(e => console.error('Failed to send transit notification:', e));
+          }
+        } catch (notifErr) {
+          console.error('Notification error (non-fatal):', notifErr);
+        }
       }
 
       return Response.json({
