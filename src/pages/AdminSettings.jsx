@@ -38,6 +38,7 @@ import ShipWithoutPaymentSettings from "@/components/admin/ShipWithoutPaymentSet
 import OfficialPoolSettings from "@/components/admin/OfficialPoolSettings";
 import QuickActionsManager from "@/components/admin/QuickActionsManager";
 import LogisticsStatusBoardManager from "@/components/admin/LogisticsStatusBoardManager";
+import HeroSectionManager from "@/components/admin/HeroSectionManager";
 
 // Standalone editor with its own local save button (textarea content is large, better kept isolated)
 function CustomsHazmatTextEditor({ settings, onReload }) {
@@ -873,6 +874,9 @@ export default function AdminSettings() {
               </Card>
             );
           })()}
+
+          {/* ─── Hero Section ─── */}
+          <HeroSectionManager settings={settings} onReload={load} />
 
           {/* ─── Quick Actions ─── */}
           <QuickActionsManager settings={settings} onReload={load} />
