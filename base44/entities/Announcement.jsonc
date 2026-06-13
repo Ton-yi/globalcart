@@ -12,7 +12,15 @@
     },
     "content": {
       "type": "string",
-      "description": "\u516c\u544a\u5185\u5bb9"
+      "description": "\u516c\u544a\u5185\u5bb9\uff08\u652f\u6301Markdown\uff09"
+    },
+    "image_urls": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [],
+      "description": "\u5f39\u7a97\u516c\u544a\u56fe\u7247\u5217\u8868\uff08\u4ec5modal\u7c7b\u578b\u4f7f\u7528\uff09"
     },
     "type": {
       "type": "string",

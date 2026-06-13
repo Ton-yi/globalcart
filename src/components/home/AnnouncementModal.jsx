@@ -85,9 +85,17 @@ export default function AnnouncementModal({ announcements = [] }) {
         </div>
 
         {/* Body */}
-        <div className="px-5 py-5">
+        <div className="px-5 py-5 space-y-4">
+          {/* Images */}
+          {ann.image_urls && ann.image_urls.length > 0 && (
+            <div className="space-y-2">
+              {ann.image_urls.map((url, idx) => (
+                <img key={idx} src={url} alt="" className="w-full rounded-lg object-contain max-h-64" />
+              ))}
+            </div>
+          )}
           <ReactMarkdown
-            className="text-gray-700 text-sm leading-relaxed prose prose-sm max-w-none prose-a:text-blue-600 prose-a:underline"
+            className="text-gray-700 text-sm leading-relaxed prose prose-sm max-w-none prose-a:text-blue-600 prose-a:underline prose-img:rounded-lg prose-img:max-h-64 prose-img:object-contain"
           >
             {ann.content}
           </ReactMarkdown>

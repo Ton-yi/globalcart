@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { tenantEntity } from "@/lib/tenantApi";
 import { usePermissions } from "@/hooks/usePermissions";
-import { Plus, Edit2, Trash2, Bell, RefreshCw } from "lucide-react";
+import { Plus, Edit2, Trash2, Bell, RefreshCw, MonitorPlay } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import ModalAnnouncementForm from "@/components/admin/ModalAnnouncementForm";
 
 const TYPE_LABELS = { info: "一般", warning: "警告", success: "成功", urgent: "紧急" };
 const TYPE_COLORS = { info: "bg-blue-100 text-blue-700", warning: "bg-yellow-100 text-yellow-700", success: "bg-green-100 text-green-700", urgent: "bg-red-100 text-red-700" };
@@ -87,7 +88,9 @@ export default function AdminAnnouncements() {
 
   const [announcements, setAnnouncements] = useState([]);
   const [showForm, setShowForm] = useState(false);
+  const [showModalForm, setShowModalForm] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [editingModal, setEditingModal] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
 
@@ -99,6 +102,12 @@ export default function AdminAnnouncements() {
   useEffect(() => { load(); }, []);
 
   const openEdit = (a) => {
+    if (a.display_position === "modal") {
+      setEditingModal(a);
+      setShowModalForm(true);
+      setShowForm(false);
+      return;
+    }
     setEditing(a);
     setForm({
       title: a.title, content: a.content, type: a.type, is_active: a.is_active,
@@ -109,6 +118,20 @@ export default function AdminAnnouncements() {
       dismissible: a.dismissible || false,
     });
     setShowForm(true);
+  };
+
+  const handleSaveModal = async (formData) => {
+    setSaving(true);
+    const payload = { ...formData, display_position: "modal" };
+    if (editingModal) {
+      await tenantEntity.update('Announcement', editingModal.id, payload);
+    } else {
+      await tenantEntity.create('Announcement', payload);
+    }
+    await load();
+    setShowModalForm(false);
+    setEditingModal(null);
+    setSaving(false);
   };
 
   const handleSave = async () => {
@@ -157,11 +180,25 @@ export default function AdminAnnouncements() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-gray-900">公告管理</h1>
         {canCreate && (
-          <Button className="bg-red-600 hover:bg-red-700 text-sm" onClick={() => { setEditing(null); setForm(EMPTY_FORM); setShowForm(!showForm); }}>
-            <Plus className="w-4 h-4 mr-1" />新增公告
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" className="text-sm border-blue-300 text-blue-700 hover:bg-blue-50" onClick={() => { setEditingModal(null); setShowModalForm(!showModalForm); setShowForm(false); }}>
+              <MonitorPlay className="w-4 h-4 mr-1" />新增弹窗公告
+            </Button>
+            <Button className="bg-red-600 hover:bg-red-700 text-sm" onClick={() => { setEditing(null); setForm(EMPTY_FORM); setShowForm(!showForm); setShowModalForm(false); }}>
+              <Plus className="w-4 h-4 mr-1" />新增公告
+            </Button>
+          </div>
         )}
       </div>
+
+      {showModalForm && (
+        <ModalAnnouncementForm
+          editing={editingModal}
+          saving={saving}
+          onSave={handleSaveModal}
+          onCancel={() => { setShowModalForm(false); setEditingModal(null); }}
+        />
+      )}
 
       {showForm && (
         <Card className="border-gray-200">
