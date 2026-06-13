@@ -13,32 +13,51 @@ Deno.serve(async (req) => {
     }
     const body = await req.json().catch(() => ({}));
 
-    // 平台级设置：汇率查询 API 地址 + 查询频率（缓存时长，分钟）
-    const pick = arr => (arr || []).find(s => !s.tenant_id || s.tenant_id === '');
-    const [urlSettings, freqSettings, cacheSettings] = await Promise.all([
+    // 解析租户 ID
+    const pickPlat = arr => (arr || []).find(s => !s.tenant_id || s.tenant_id === '');
+    const userRecords = await base44.asServiceRole.entities.User.filter({ email: user.email });
+    const tenantId = userRecords?.[0]?.tenant_id || '';
+
+    // 平台级设置 + 租户级 API 覆盖（并行）
+    const [urlSettings, freqSettings, cacheSettings, tenantApiKeySettings, tenantFreqSettings] = await Promise.all([
       base44.asServiceRole.entities.SiteSettings.filter({ key: 'exchange_rate_api_url' }),
       base44.asServiceRole.entities.SiteSettings.filter({ key: 'exchange_rate_refresh_minutes' }),
       base44.asServiceRole.entities.SiteSettings.filter({ key: 'exchange_rate_cache' }),
+      tenantId ? base44.asServiceRole.entities.SiteSettings.filter({ key: 'tenant_exchange_rate_api_key', tenant_id: tenantId }) : Promise.resolve([]),
+      tenantId ? base44.asServiceRole.entities.SiteSettings.filter({ key: 'tenant_exchange_rate_refresh_minutes', tenant_id: tenantId }) : Promise.resolve([]),
     ]);
-    const apiUrl = pick(urlSettings)?.value || DEFAULT_API_URL;
-    const refreshMinutes = Math.max(5, parseFloat(pick(freqSettings)?.value) || 60);
-    const cacheRecord = pick(cacheSettings);
 
-    // 辅助函数：叠加平台增量 + 租户增量
-    const applyIncrements = async (rawRates, userEmail) => {
+    const platformApiUrl = pickPlat(urlSettings)?.value || DEFAULT_API_URL;
+    const platformRefreshMinutes = Math.max(5, parseFloat(pickPlat(freqSettings)?.value) || 60);
+
+    // 租户自定义 API key 时，生成租户专属 API URL
+    const tenantApiKey = tenantApiKeySettings?.[0]?.value?.trim() || '';
+    const tenantRefreshMin = tenantFreqSettings?.[0]?.value ? Math.max(5, parseInt(tenantFreqSettings[0].value) || platformRefreshMinutes) : null;
+
+    const apiUrl = tenantApiKey
+      ? `https://v6.exchangerate-api.com/v6/${tenantApiKey}/latest/JPY`
+      : platformApiUrl;
+    const refreshMinutes = tenantRefreshMin ?? platformRefreshMinutes;
+
+    // 租户有自己 API key 时，使用独立缓存；否则用平台共享缓存
+    const pick = arr => (arr || []).find(s => !s.tenant_id || s.tenant_id === '');
+    const cacheKey = tenantApiKey ? `exchange_rate_cache_${tenantId}` : 'exchange_rate_cache';
+    const allCacheSettings = tenantApiKey
+      ? await base44.asServiceRole.entities.SiteSettings.filter({ key: cacheKey, tenant_id: tenantId })
+      : cacheSettings;
+    const cacheRecord = tenantApiKey ? (allCacheSettings?.[0] || null) : pick(cacheSettings);
+
+    // 辅助函数：叠加平台增量 + 租户增量（tenantId 已解析，避免重复查询）
+    const applyIncrements = async (rawRates) => {
       const rates = { ...rawRates };
-      // 平台级增量（tenant_id = ''）
-      const platformSettings = await base44.asServiceRole.entities.SiteSettings.filter({ tenant_id: '' });
+      const [platformSettings, tenantSettings] = await Promise.all([
+        base44.asServiceRole.entities.SiteSettings.filter({ tenant_id: '' }),
+        tenantId ? base44.asServiceRole.entities.SiteSettings.filter({ tenant_id: tenantId }) : Promise.resolve([]),
+      ]);
       const platMap = {};
       (platformSettings || []).forEach(s => { platMap[s.key] = parseFloat(s.value) || 0; });
-      // 租户级增量
-      const userRecord = await base44.asServiceRole.entities.User.filter({ email: userEmail });
-      const tenantId = userRecord?.[0]?.tenant_id || '';
-      let tenantMap = {};
-      if (tenantId) {
-        const tenantSettings = await base44.asServiceRole.entities.SiteSettings.filter({ tenant_id: tenantId });
-        (tenantSettings || []).forEach(s => { tenantMap[s.key] = parseFloat(s.value) || 0; });
-      }
+      const tenantMap = {};
+      (tenantSettings || []).forEach(s => { tenantMap[s.key] = parseFloat(s.value) || 0; });
       Object.values(RATE_KEYS).forEach(key => {
         const platInc = platMap[`${key}_increment`] || 0;
         const tenantInc = tenantMap[`${key}_increment`] || 0;
@@ -55,7 +74,7 @@ Deno.serve(async (req) => {
         const ageMs = Date.now() - new Date(cached.fetched_at).getTime();
         if (cached.rates && ageMs >= 0 && ageMs < refreshMinutes * 60 * 1000) {
           const rawRates = cached.rates;
-          const rates = await applyIncrements(rawRates, user.email);
+          const rates = await applyIncrements(rawRates);
           return Response.json({ ...rates, rates, raw_rates: rawRates, cached: true });
         }
       } catch { /* 缓存损坏则忽略，继续实时查询 */ }
@@ -75,21 +94,21 @@ Deno.serve(async (req) => {
     const rawRates = { timestamp: new Date().toISOString() };
     Object.entries(RATE_KEYS).forEach(([cur, key]) => { rawRates[key] = conversion[cur] || FALLBACKS[key]; });
 
-    // 写入平台级缓存（原始汇率，不含增量）
+    // 写入缓存（租户有独立 key 时写租户缓存，否则写平台共享缓存）
     const cacheValue = JSON.stringify({ rates: rawRates, fetched_at: new Date().toISOString() });
     if (cacheRecord) {
       await base44.asServiceRole.entities.SiteSettings.update(cacheRecord.id, { value: cacheValue });
     } else {
       await base44.asServiceRole.entities.SiteSettings.create({
-        key: 'exchange_rate_cache',
+        key: cacheKey,
         value: cacheValue,
-        description: '全局汇率查询缓存（自动维护）',
+        description: tenantApiKey ? `租户汇率缓存（${tenantId}）` : '全局汇率查询缓存（自动维护）',
         category: 'general',
-        tenant_id: '',
+        tenant_id: tenantApiKey ? tenantId : '',
       });
     }
 
-    const rates = await applyIncrements(rawRates, user.email);
+    const rates = await applyIncrements(rawRates);
     return Response.json({ ...rates, rates, raw_rates: rawRates });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });

@@ -4,7 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { tenantEntity } from "@/lib/tenantApi";
 import { setTenantConfigCache } from "@/lib/configCache";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { Settings, Save, Plus, Trash2, Star, Lock, Eye, EyeOff, Palette, Zap, Users, ExternalLink, Bell, Mail, AlertCircle } from "lucide-react";
+import { Settings, Save, Plus, Trash2, Star, Lock, Eye, EyeOff, Palette, Zap, Users, ExternalLink, Bell, Mail, AlertCircle, TrendingUp } from "lucide-react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import ThemeSelector from "@/components/common/ThemeSelector";
@@ -44,6 +44,7 @@ import LogisticsStatusBoardManager from "@/components/admin/LogisticsStatusBoard
 import HeroSectionManager from "@/components/admin/HeroSectionManager";
 import StepsSectionManager from "@/components/admin/StepsSectionManager";
 import FaqManager from "@/components/admin/FaqManager";
+import TenantExchangeRateSettings from "@/components/admin/TenantExchangeRateSettings";
 
 // Standalone editor with its own local save button (textarea content is large, better kept isolated)
 function CustomsHazmatTextEditor({ settings, onReload }) {
@@ -111,6 +112,7 @@ const CAT_COLORS = { fee: "bg-yellow-100 text-yellow-700", payment: "bg-green-10
 const ADMIN_NAV = [
   { group: "基本设置", children: [
     { key: "countries", label: "国家设置" },
+    { key: "exchange_rates", label: "汇率设置" },
     { key: "notifications", label: "通知设置" },
     { key: "reminder_texts", label: "提醒文案" },
     { key: "theme", label: "界面主题" },
@@ -745,6 +747,11 @@ export default function AdminSettings() {
           </CardContent>
         </Card>
       )}
+
+      {activeTab === "exchange_rates" && !loading && (
+        <TenantExchangeRateSettings settings={settings} onReload={load} />
+      )}
+      {activeTab === "exchange_rates" && loading && <p className="text-gray-400 text-sm">加载中...</p>}
 
       {activeTab === "storage" && (
         <div className="space-y-4">
