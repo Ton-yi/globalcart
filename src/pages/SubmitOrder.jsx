@@ -114,13 +114,18 @@ export default function SubmitOrder() {
     let feeSteps = null;
 
     if (activeRule) {
+      const urlsForTag = urlMode === "textarea"
+        ? (productUrls[0] || "").split("\n").map(s => s.trim()).filter(Boolean).join("\n")
+        : productUrls.filter(u => u.trim()).join("\n");
+      const previewTagResult = await detectPrimaryStoreTagResult(urlsForTag);
       const variables = {
         goodsAmount: jpy,
         orderAmount: jpy,
         itemCount: 1,
-        sourceSite: '其它',
+        sourceSite: previewTagResult.tag_label || '其它',
         customerLevel: '',
-        valueAddedServiceAmount: addonTotalJpy
+        valueAddedServiceAmount: addonTotalJpy,
+        paymentSurcharge: 0,
       };
       const res = await base44.functions.invoke('serviceFeeRuleEngine', { action: 'evaluate', variables, rule: activeRule });
       serviceFeeJpy = res.data?.fee ?? 0;
@@ -569,6 +574,9 @@ export default function SubmitOrder() {
                   estimated_jpy: parseFloat(form.estimated_jpy) || 0,
                   service_fee_rate: parseFloat(settings.service_fee_rate) || 10,
                   service_fee_amount: calculated ? calculated.serviceFeeJpy : null,
+                  service_fee_rule_id: activeRule?.id || null,
+                  service_fee_rule_name: activeRule?.name || null,
+                  service_fee_rule_version: activeRule?.version || null,
                   prepayment_amount: prepaymentAmount,
                   prepayment_currency: "JPY",
                   online_store_tag: tagResult.tag_label,

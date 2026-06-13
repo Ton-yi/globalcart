@@ -10,11 +10,13 @@ const ALLOWED_DIMENSIONS = [
 ];
 
 // ─── 筛选条件白名单 ───────────────────────────────────────────────────────
+// online_store_tag 值来自租户自定义，使用 null 表示接受任意值（在过滤阶段动态处理）
 const FILTER_WHITELIST = {
     order_status: ['pending_confirmation', 'payment_pending', 'paid', 'pending_purchase', 'purchased', 'in_warehouse', 'in_storage', 'notified_shipment', 'ready_to_ship', 'shipped', 'transit_shipped', 'delivered', 'cancelled'],
     payment_status: ['pending', 'awaiting_payment', 'awaiting_confirmation', 'paid', 'underpaid', 'overpaid', 'confirmed'],
     shipping_method: ['EMS', 'DHL', 'FedEx', 'SAL', 'surface', 'other'],
     is_refunded: ['true', 'false'],
+    online_store_tag: null, // null = accept any string value (tenant-defined tags)
 };
 
 // ─── 维度取值 ────────────────────────────────────────────────────────────────
@@ -485,10 +487,15 @@ Deno.serve(async (req) => {
 
         // 筛选条件校验
         for (const [dim, values] of Object.entries(filters)) {
-            const allowed = FILTER_WHITELIST[dim] || [];
-            for (const v of values) {
-                if (!allowed.includes(v)) {
-                    return Response.json({ error: `无效的筛选值：${v}` }, { status: 400 });
+            if (!(dim in FILTER_WHITELIST)) {
+                return Response.json({ error: `不支持的筛选维度：${dim}` }, { status: 400 });
+            }
+            const allowed = FILTER_WHITELIST[dim]; // null = any value allowed
+            if (allowed !== null) {
+                for (const v of values) {
+                    if (!allowed.includes(v)) {
+                        return Response.json({ error: `无效的筛选值：${v}` }, { status: 400 });
+                    }
                 }
             }
         }
