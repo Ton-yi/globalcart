@@ -24,6 +24,8 @@ const SUB_KEYS = [
   { key: 'allow_ship_without_payment_official_pool', label: '官方拼邮发货', desc: '允许官方拼邮未付款直接发货' },
 ];
 
+const INSTANT_EDIT_KEY = 'allow_user_pool_edit_instant';
+
 const DESCRIPTIONS = {
   allow_ship_without_payment: '允许未付款时进入已发货状态（总开关）',
   allow_ship_without_payment_single: '单独发货 - 允许未付款直接发货',
@@ -32,6 +34,7 @@ const DESCRIPTIONS = {
   pre_shipment_enabled: '开启预出货功能',
   fullpay_once_enabled: '开启一次付款功能',
   fullpay_once_tolerance_jpy: '一次付款运费误差容忍值（JPY）',
+  allow_user_pool_edit_instant: '自动同意用户移动/添加包裹',
 };
 
 /**
@@ -40,7 +43,7 @@ const DESCRIPTIONS = {
 export default function ShipWithoutPaymentSettings({ settings, onReload }) {
   const get = (key) => settings.find(s => s.key === key);
 
-  const BOOL_KEYS = ['allow_ship_without_payment', ...SUB_KEYS.map(s => s.key), 'pre_shipment_enabled', 'fullpay_once_enabled'];
+  const BOOL_KEYS = ['allow_ship_without_payment', ...SUB_KEYS.map(s => s.key), 'pre_shipment_enabled', 'fullpay_once_enabled', INSTANT_EDIT_KEY];
 
   const [values, setValues] = useState(() => {
     const init = {};
@@ -153,6 +156,30 @@ export default function ShipWithoutPaymentSettings({ settings, onReload }) {
               )}
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Instant edit approval */}
+      <Card className="border-teal-200">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+              <Truck className="w-4 h-4 text-teal-500" />用户包裹操作设置
+            </CardTitle>
+            <Button size="sm" className="h-7 text-xs bg-teal-600 hover:bg-teal-700" onClick={handleSave} disabled={saving}>
+              <Save className="w-3 h-3 mr-1" />{saved ? "已保存 ✓" : saving ? "保存中..." : "保存"}
+            </Button>
+          </div>
+          <p className="text-xs text-gray-400 mt-1">控制用户在发货申请中移动或添加包裹时是否需要管理员审批</p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="text-sm">自动同意用户移动/添加包裹</Label>
+              <p className="text-xs text-gray-400 mt-0.5">开启后，用户在发货申请中移动包裹或添加包裹将立即生效，无需管理员审批</p>
+            </div>
+            <Toggle enabled={values[INSTANT_EDIT_KEY]} onToggle={() => toggle(INSTANT_EDIT_KEY)} color="bg-teal-500" />
+          </div>
         </CardContent>
       </Card>
 

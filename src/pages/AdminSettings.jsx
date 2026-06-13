@@ -761,15 +761,6 @@ export default function AdminSettings() {
 
               {/* 拆单设置已移至「订单管理」tab 的拆单区块 */}
 
-              {/* allow_user_pool_edit_instant */}
-              <div className="flex items-center justify-between pb-1 border-b border-gray-100">
-                <div>
-                  <Label className="text-sm">自动同意用户移动/添加包裹</Label>
-                  <p className="text-xs text-gray-400 mt-0.5">开启后，用户在发货申请详情中移动包裹或添加包裹将立即生效，无需管理员审批</p>
-                </div>
-                <Toggle enabled={getBool('allow_user_pool_edit_instant')} onToggle={() => toggleSetting('allow_user_pool_edit_instant')} color="bg-teal-500" />
-              </div>
-
               {/* transit_location_fee_split_enabled */}
               <div className="flex items-center justify-between pb-1 border-b border-gray-100">
                 <div>
