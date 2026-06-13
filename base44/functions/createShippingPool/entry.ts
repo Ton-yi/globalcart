@@ -49,10 +49,19 @@ Deno.serve(async (req) => {
 
     // Support service-role calls (e.g. from autoCreatePreShipmentPool) that pass
     // service_user_email + service_user_name instead of a real user token.
+    // SECURITY: service_user_email is only trusted when the request carries a service-role
+    // authorization header (i.e., is_service_role is set by the SDK). Regular user tokens
+    // cannot set this field and have it trusted — they still go through auth.me().
     let user = null;
-    if (body.service_user_email) {
+    const authHeader = req.headers.get('authorization') || '';
+    const isServiceRoleCall = authHeader.includes('service_role') || authHeader.includes('SERVICE_ROLE');
+    if (body.service_user_email && isServiceRoleCall) {
       // Caller is a trusted backend function; skip auth.me()
       user = { email: body.service_user_email, full_name: body.service_user_name || body.service_user_email };
+    } else if (body.service_user_email && !isServiceRoleCall) {
+      // Untrusted: service_user_email provided but caller is a regular user token — treat as normal user call
+      user = await base44.auth.me();
+      if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
     } else {
       user = await base44.auth.me();
       if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });

@@ -69,6 +69,17 @@ Deno.serve(async (req) => {
       return Response.json({ skipped: true, reason: 'order_status_not_eligible', status: order.order_status });
     }
 
+    // Check tenant pre_shipment_enabled setting — skip if explicitly disabled
+    const tenantSettings = await base44.asServiceRole.entities.SiteSettings.filter({
+      tenant_id: order.tenant_id,
+      key: 'pre_shipment_enabled',
+    }).catch(() => []);
+    const preShipmentEnabled = tenantSettings?.[0]?.value;
+    if (preShipmentEnabled === 'false') {
+      console.log('[autoCreatePreShipmentPool] Skipped: pre_shipment_enabled is false for tenant', order.tenant_id);
+      return Response.json({ skipped: true, reason: 'pre_shipment_disabled' });
+    }
+
     const pre = order.pre_shipment;
 
     // Translate pre_shipment → standard shipment_payload for the engine

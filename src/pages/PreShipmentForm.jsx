@@ -93,35 +93,29 @@ export default function PreShipmentForm() {
 
     const loadData = async () => {
       try {
-        const [ord, cfg, prefs, methods, poolsRes, rateSettings] = await Promise.all([
+        const [ord, cfg, prefs, methods, poolsRes, tenantSettingsRes] = await Promise.all([
         base44.functions.invoke('getTenantOrders', {}).then((r) => (r.data?.orders || []).find((o) => o.id === orderId)),
         fetchTenantConfig(),
         tenantEntity.list('UserPreference', { user_email: user.email }).catch(() => []),
         base44.functions.invoke('managePaymentMethod', { action: 'list' }).then((r) => r.data?.methods || []).catch(() => []),
         base44.functions.invoke('getTenantShippingPools', { status: 'pending' }).catch(() => ({ data: { pools: [] } })),
-        Promise.all([
-          tenantEntity.list('SiteSettings', { key: 'default_estimate_rates' }).catch(() => []),
-          tenantEntity.list('SiteSettings', { key: 'default_estimate_rate_per_100g' }).catch(() => []),
-          tenantEntity.list('SiteSettings', { key: 'default_estimate_unit_g' }).catch(() => []),
-          tenantEntity.list('SiteSettings', { key: 'pre_shipment_enabled' }).catch(() => []),
-          tenantEntity.list('SiteSettings', { key: 'pre_shipment_allowed_methods' }).catch(() => [])
-        ])]
-        );
-        const [newRatesList, rateList, unitList, enabledList, allowedList] = rateSettings || [[], [], [], [], []];
+        base44.functions.invoke('getTenantSettings', {}).catch(() => ({ data: { settings: {}, raw: [] } })),
+        ]);
+        const tenantSettings = tenantSettingsRes?.data?.settings || {};
         // Feature gate + allowed shipping methods whitelist
-        if (enabledList?.[0]?.value === 'false') setPreShipmentEnabled(false);
-        const allowedRaw = allowedList?.[0]?.value || '';
+        if (tenantSettings['pre_shipment_enabled'] === 'false') setPreShipmentEnabled(false);
+        const allowedRaw = tenantSettings['pre_shipment_allowed_methods'] || '';
         setAllowedMethodCodes(allowedRaw.split(',').map(x => x.trim()).filter(Boolean));
         // New array-style global rates
-        if (newRatesList?.[0]?.value) {
+        if (tenantSettings['default_estimate_rates']) {
           try {
-            const parsed = JSON.parse(newRatesList[0].value);
+            const parsed = JSON.parse(tenantSettings['default_estimate_rates']);
             if (Array.isArray(parsed) && parsed.length > 0) setGlobalEstimateRates(parsed);
           } catch { /* ignore */ }
         }
         // Legacy scalar fallback
-        const globalRate = rateList?.[0]?.value ? parseFloat(rateList[0].value) : null;
-        const globalUnit = unitList?.[0]?.value ? parseFloat(unitList[0].value) : null;
+        const globalRate = tenantSettings['default_estimate_rate_per_100g'] ? parseFloat(tenantSettings['default_estimate_rate_per_100g']) : null;
+        const globalUnit = tenantSettings['default_estimate_unit_g'] ? parseFloat(tenantSettings['default_estimate_unit_g']) : null;
         if (globalRate && globalRate > 0) setGlobalEstimateRate(globalRate);
         if (globalUnit && globalUnit > 0) setGlobalEstimateUnitG(globalUnit);
 
