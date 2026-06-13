@@ -133,10 +133,14 @@ Deno.serve(async (req) => {
         variables: {
           goodsAmount: estimatedJpy,
           orderAmount: estimatedJpy,
-          itemCount: 1,
-          sourceSite: '其它',
+          itemCount: body.quantity ? parseFloat(body.quantity) : 1,
+          sourceSite: body.online_store_tag || '其它',
           customerLevel: '',
+          currency: body.prepayment_currency || 'JPY',
+          country: body.destination_country || '',
+          weight: parseFloat(body.weight_g) || 0,
           valueAddedServiceAmount: addonTotalJpy,
+          paymentSurcharge: 0,
         },
         rule: activeRule,
       });

@@ -83,6 +83,7 @@ const DEFAULT_TEST_VALUES = {
   storageDays: 3,
   shippingFee: 3000,
   valueAddedServiceAmount: 0,
+  paymentSurcharge: 0,
 };
 
 export default function RuleTestPanel({ rule }) {
@@ -143,7 +144,7 @@ export default function RuleTestPanel({ rule }) {
     setVars(prev => ({
       ...prev,
       [key]: key === 'hasTransit' ? (val === 'true' || val === '1' || val === true ? 1 : 0) :
-              ['goodsAmount', 'orderAmount', 'itemCount', 'weight', 'storageDays', 'shippingFee', 'valueAddedServiceAmount'].includes(key)
+              ['goodsAmount', 'orderAmount', 'itemCount', 'weight', 'storageDays', 'shippingFee', 'valueAddedServiceAmount', 'paymentSurcharge'].includes(key)
                 ? (parseFloat(val) || 0) : val
     }));
   };

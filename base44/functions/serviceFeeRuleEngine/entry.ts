@@ -17,6 +17,7 @@ const ALLOWED_VARIABLES = [
   'goodsAmount', 'orderAmount', 'itemCount', 'sourceSite', 'customerLevel',
   'customerTags', 'currency', 'country', 'shippingMethod', 'hasTransit',
   'weight', 'storageSize', 'storageDays', 'shippingFee', 'valueAddedServiceAmount',
+  'paymentSurcharge',
 ];
 
 const ALLOWED_FUNCTIONS = new Set([
@@ -412,6 +413,7 @@ function validateFormula(formula) {
     ALLOWED_VARIABLES.forEach(v => { dv[v] = 0; });
     dv.sourceSite = 'test'; dv.customerLevel = 'regular'; dv.currency = 'JPY';
     dv.country = 'CN'; dv.shippingMethod = 'EMS'; dv.storageSize = 'small';
+    dv.paymentSurcharge = 0;
     const parser = new Parser(tokens, dv);
     parser.parse(0);
     if (parser.peek().type !== TT.EOF) return { valid: false, error: '公式末尾有多余内容' };
@@ -574,6 +576,7 @@ Deno.serve(async (req) => {
         storageSize: order.item_size_title || '',
         shippingFee: parseFloat(order.shipping_fee_amount) || 0,
         valueAddedServiceAmount: (order.selected_addons || []).reduce((s, a) => s + (parseFloat(a.fee) || 0), 0),
+        paymentSurcharge: parseFloat(order.payment_surcharge_jpy) || 0,
       };
 
       let fee, steps, ruleName, ruleId, ruleVersion, formulaSnapshot;
