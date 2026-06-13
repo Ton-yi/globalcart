@@ -149,7 +149,6 @@ export default function AdminSettings() {
   const [newVal, setNewVal] = useState("");
   const [newDesc, setNewDesc] = useState("");
   const [newCat, setNewCat] = useState("general");
-  const [rewarehouseFeeInput, setRewarehouseFeeInput] = useState("");
 
   // Tenant management state
   const [shippingMethods, setShippingMethods] = useState(null);
@@ -196,10 +195,6 @@ export default function AdminSettings() {
       setCountriesConfig(data.countriesConfig || null);
       const ccRecord = (data.settings || []).find(s => s.key === 'tenant_countries_config');
       setCountriesConfigId(ccRecord?.id || null);
-
-      // Sync rewarehouse fee input
-      const rwFee = settingsData.find(s => s.key === 'default_rewarehouse_fee_jpy');
-      if (rwFee?.value) setRewarehouseFeeInput(rwFee.value);
 
       if (data.announcements !== undefined) {
         setTenantConfigCache({
@@ -276,18 +271,15 @@ export default function AdminSettings() {
   const handleSaveAll = async () => {
     setSaving(true);
     try {
-      const settingsToSave = settings.map(s =>
-        s.key === 'default_rewarehouse_fee_jpy' ? { ...s, value: rewarehouseFeeInput || '0' } : s
-      );
       await Promise.all(
-        settingsToSave.map(s =>
+        settings.map(s =>
           s.id
             ? tenantEntity.update('SiteSettings', s.id, { value: s.value, description: s.description })
             : tenantEntity.create('SiteSettings', { key: s.key, value: s.value, description: s.description || '', category: s.category || 'general' })
         )
       );
       // Reload so newly created settings get ids (prevents duplicate creation on next save)
-      if (settingsToSave.some(s => !s.id)) await load();
+      if (settings.some(s => !s.id)) await load();
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } finally {
@@ -779,32 +771,6 @@ export default function AdminSettings() {
 
               {/* 拆单设置已移至「订单管理」tab 的拆单区块 */}
 
-              {/* allow_user_rewarehouse_from_fee_pending */}
-              {(() => {
-                const enabled = getBool('allow_user_rewarehouse_from_fee_pending');
-                return (
-                  <div className="space-y-3 pb-1 border-b border-gray-100">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <Label className="text-sm">允许用户从待付运费状态申请再入库</Label>
-                        <p className="text-xs text-gray-400 mt-0.5">开启后，待付运费订单的用户可申请取消发货并再入库，管理员审批后生效</p>
-                      </div>
-                      <Toggle enabled={enabled} onToggle={() => toggleSetting('allow_user_rewarehouse_from_fee_pending')} color="bg-orange-500" />
-                    </div>
-                    {enabled && (
-                      <div>
-                        <Label className="text-xs text-gray-500">默认再处理费用 (JPY)（管理员审批时可覆盖）</Label>
-                        <div className="flex items-center gap-2 mt-1">
-                          <Input type="text" inputMode="decimal" className="h-8 text-sm w-36" placeholder="0"
-                            value={rewarehouseFeeInput} onChange={e => setRewarehouseFeeInput(e.target.value)} />
-                        </div>
-                        <p className="text-xs text-gray-400 mt-1">此费用将在管理员同意申请后预存于订单，下次提交发货时自动计入运费明细</p>
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-
               {/* Service & Prepay Rates (numeric inputs) */}
               <div className="grid grid-cols-2 gap-3">
                 {(grouped.fee || [])
@@ -865,7 +831,22 @@ export default function AdminSettings() {
           </Card>
 
           {/* ─── Other Settings (general / shipping / payment) ─── */}
-          {Object.entries(grouped).filter(([cat]) => cat !== "fee").map(([cat, items]) => {
+          {/* shipping category keys managed by dedicated settings components are excluded here */}
+          {(() => {
+            const EXCLUDED_SHIPPING_KEYS = new Set([
+              'allow_ship_without_payment', 'allow_ship_without_payment_single',
+              'allow_ship_without_payment_user_pool', 'allow_ship_without_payment_official_pool',
+              'pre_shipment_enabled', 'fullpay_once_enabled', 'fullpay_once_tolerance_jpy',
+              'allow_user_pool_edit_instant',
+              'allow_user_rewarehouse_from_fee_pending', 'default_rewarehouse_fee_jpy',
+            ]);
+            const filteredGrouped = Object.fromEntries(
+              Object.entries(grouped)
+                .filter(([cat]) => cat !== "fee")
+                .map(([cat, items]) => [cat, cat === 'shipping' ? items.filter(s => !EXCLUDED_SHIPPING_KEYS.has(s.key)) : items])
+                .filter(([, items]) => items.length > 0)
+            );
+            return Object.entries(filteredGrouped).map(([cat, items]) => {
             const isPayment = cat === "payment";
             const isUnlocked = !isPayment || showPayment;
             return (
@@ -904,7 +885,8 @@ export default function AdminSettings() {
                 )}
               </Card>
             );
-          })}
+            });
+          })()}
 
           {/* ─── Customs Declaration Toggle (instant-save, separate card) ─── */}
           {(() => {

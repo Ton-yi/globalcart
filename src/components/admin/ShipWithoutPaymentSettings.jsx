@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Save, Truck } from "lucide-react";
+import { Save, Truck, RotateCcw } from "lucide-react";
 
 function Toggle({ enabled, onToggle, color = "bg-blue-600", size = "md" }) {
   const sizes = size === "sm"
@@ -25,6 +25,7 @@ const SUB_KEYS = [
 ];
 
 const INSTANT_EDIT_KEY = 'allow_user_pool_edit_instant';
+const REWAREHOUSE_KEY = 'allow_user_rewarehouse_from_fee_pending';
 
 const DESCRIPTIONS = {
   allow_ship_without_payment: '允许未付款时进入已发货状态（总开关）',
@@ -35,6 +36,7 @@ const DESCRIPTIONS = {
   fullpay_once_enabled: '开启一次付款功能',
   fullpay_once_tolerance_jpy: '一次付款运费误差容忍值（JPY）',
   allow_user_pool_edit_instant: '自动同意用户移动/添加包裹',
+  allow_user_rewarehouse_from_fee_pending: '允许用户从待付运费状态申请再入库',
 };
 
 /**
@@ -43,7 +45,7 @@ const DESCRIPTIONS = {
 export default function ShipWithoutPaymentSettings({ settings, onReload }) {
   const get = (key) => settings.find(s => s.key === key);
 
-  const BOOL_KEYS = ['allow_ship_without_payment', ...SUB_KEYS.map(s => s.key), 'pre_shipment_enabled', 'fullpay_once_enabled', INSTANT_EDIT_KEY];
+  const BOOL_KEYS = ['allow_ship_without_payment', ...SUB_KEYS.map(s => s.key), 'pre_shipment_enabled', 'fullpay_once_enabled', INSTANT_EDIT_KEY, REWAREHOUSE_KEY];
 
   const [values, setValues] = useState(() => {
     const init = {};
@@ -61,6 +63,10 @@ export default function ShipWithoutPaymentSettings({ settings, onReload }) {
   const [toleranceInput, setToleranceInput] = useState(() => {
     const raw = get('fullpay_once_tolerance_jpy')?.value;
     return raw !== undefined && raw !== null ? raw : '500';
+  });
+
+  const [rewarehouseFeeInput, setRewarehouseFeeInput] = useState(() => {
+    return get('default_rewarehouse_fee_jpy')?.value || '0';
   });
 
   const [saving, setSaving] = useState(false);
@@ -85,6 +91,15 @@ export default function ShipWithoutPaymentSettings({ settings, onReload }) {
       tolSetting?.id
         ? tenantEntity.update('SiteSettings', tolSetting.id, { value: tolValue })
         : tenantEntity.create('SiteSettings', { key: 'fullpay_once_tolerance_jpy', value: tolValue, description: DESCRIPTIONS.fullpay_once_tolerance_jpy, category: 'shipping' })
+    );
+
+    // Save rewarehouse default fee
+    const rwFeeSetting = get('default_rewarehouse_fee_jpy');
+    const rwFeeValue = String(parseInt(rewarehouseFeeInput, 10) || 0);
+    ops.push(
+      rwFeeSetting?.id
+        ? tenantEntity.update('SiteSettings', rwFeeSetting.id, { value: rwFeeValue })
+        : tenantEntity.create('SiteSettings', { key: 'default_rewarehouse_fee_jpy', value: rwFeeValue, description: '再入库默认处理费用（JPY）', category: 'shipping' })
     );
 
     await Promise.all(ops);
@@ -180,6 +195,41 @@ export default function ShipWithoutPaymentSettings({ settings, onReload }) {
             </div>
             <Toggle enabled={values[INSTANT_EDIT_KEY]} onToggle={() => toggle(INSTANT_EDIT_KEY)} color="bg-teal-500" />
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Rewarehouse from fee-pending */}
+      <Card className="border-orange-200">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+              <RotateCcw className="w-4 h-4 text-orange-500" />用户再入库申请设置
+            </CardTitle>
+            <Button size="sm" className="h-7 text-xs bg-orange-600 hover:bg-orange-700" onClick={handleSave} disabled={saving}>
+              <Save className="w-3 h-3 mr-1" />{saved ? "已保存 ✓" : saving ? "保存中..." : "保存"}
+            </Button>
+          </div>
+          <p className="text-xs text-gray-400 mt-1">允许用户在收到运费通知后申请取消发货并重新入库</p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+            <div>
+              <Label className="text-sm">允许用户从待付运费状态申请再入库</Label>
+              <p className="text-xs text-gray-400 mt-0.5">开启后，待付运费订单的用户可申请取消发货并再入库，管理员审批后生效</p>
+            </div>
+            <Toggle enabled={values[REWAREHOUSE_KEY]} onToggle={() => toggle(REWAREHOUSE_KEY)} color="bg-orange-500" />
+          </div>
+          {values[REWAREHOUSE_KEY] && (
+            <div>
+              <Label className="text-xs text-gray-500">默认再处理费用 (JPY)（管理员审批时可覆盖）</Label>
+              <div className="flex items-center gap-2 mt-1">
+                <Input type="text" inputMode="decimal" className="h-8 text-sm w-36" placeholder="0"
+                  value={rewarehouseFeeInput} onChange={e => setRewarehouseFeeInput(e.target.value)} />
+                <span className="text-xs text-gray-400">JPY</span>
+              </div>
+              <p className="text-xs text-gray-400 mt-1">此费用将在管理员同意申请后写入订单，下次提交发货时自动计入运费明细</p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
