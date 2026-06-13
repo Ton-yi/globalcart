@@ -33,6 +33,7 @@ import SMTPSettingsManager from "@/components/admin/SMTPSettingsManager";
 import GoogleSheetsSettingsManager from "@/components/admin/GoogleSheetsSettingsManager";
 import StorageSettingsManager from "@/components/admin/StorageSettingsManager";
 import PaymentModeSettings from "@/components/admin/PaymentModeSettings";
+import OrderSplitSettings from "@/components/admin/OrderSplitSettings";
 import ShipWithoutPaymentSettings from "@/components/admin/ShipWithoutPaymentSettings";
 
 // Standalone editor with its own local save button (textarea content is large, better kept isolated)
@@ -102,6 +103,7 @@ const CAT_COLORS = { fee: "bg-yellow-100 text-yellow-700", payment: "bg-green-10
 
 const TABS = [
   { key: "general", label: "基本设置" },
+  { key: "order_management", label: "订单管理" },
   { key: "fee_rules", label: "服务费规则" },
   { key: "payment_methods", label: "支付方式" },
   { key: "member_tiers", label: "会员阶级" },
@@ -420,6 +422,11 @@ export default function AdminSettings() {
           ))}
         </div>
       </div>
+
+      {activeTab === "order_management" && !loading && (
+        <OrderSplitSettings settings={settings} onReload={load} />
+      )}
+      {activeTab === "order_management" && loading && <p className="text-gray-400 text-sm">加载中...</p>}
 
       {activeTab === "fee_rules" && (
         <Card className="border-yellow-200">
@@ -750,31 +757,7 @@ export default function AdminSettings() {
 
               {/* 允许未付款发货设置已移至「发货设置」tab */}
 
-              {/* allow_order_split */}
-              {(() => {
-                const splitEnabled = getBool('allow_order_split');
-                const afterWarehouseEnabled = getBool('allow_order_split_after_warehouse');
-                return (
-                  <>
-                    <div className="flex items-center justify-between pb-1 border-b border-gray-100">
-                      <div>
-                        <Label className="text-sm">允许用户拆单</Label>
-                        <p className="text-xs text-gray-400 mt-0.5">开启后，用户在商品链接中用 <code className="bg-gray-100 px-1 rounded">---</code> 分隔多组链接，管理员下单后可自动拆分为多个子订单</p>
-                      </div>
-                      <Toggle enabled={splitEnabled} onToggle={() => toggleSetting('allow_order_split')} color="bg-indigo-600" />
-                    </div>
-                    {splitEnabled && (
-                      <div className="flex items-center justify-between pb-1 border-b border-gray-100 pl-4 border-l-2 border-l-indigo-200">
-                        <div>
-                          <Label className="text-sm text-indigo-700">允许入库后申请拆单</Label>
-                          <p className="text-xs text-gray-400 mt-0.5">开启后，已入库订单的用户可申请拆单（需管理员审批）</p>
-                        </div>
-                        <Toggle enabled={afterWarehouseEnabled} onToggle={() => toggleSetting('allow_order_split_after_warehouse')} color="bg-indigo-400" />
-                      </div>
-                    )}
-                  </>
-                );
-              })()}
+              {/* 拆单设置已移至「订单管理」tab 的拆单区块 */}
 
               {/* pre_shipment_enabled */}
               <div className="flex items-center justify-between pb-1 border-b border-gray-100">

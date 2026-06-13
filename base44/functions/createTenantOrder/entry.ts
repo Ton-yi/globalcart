@@ -222,9 +222,12 @@ Deno.serve(async (req) => {
     }, 0);
     const orderNumber = `${prefix}${String(maxSeq + 1).padStart(4, '0')}`;
 
-    // Detect --- split marker in product_url
+    // Detect --- split marker in product_url (only when 允许用户拆单 setting is enabled)
+    const splitAllowed = settingsMap.allow_order_split === 'true';
     const productUrl = body.product_url || '';
-    const splitSections = productUrl.split(/\n-{3,}\n/).map(s => s.trim()).filter(Boolean);
+    const splitSections = splitAllowed
+      ? productUrl.split(/\n-{3,}\n/).map(s => s.trim()).filter(Boolean)
+      : [];
     const hasSplitMarker = splitSections.length > 1;
 
     // Create order with tenant_id

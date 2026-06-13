@@ -65,6 +65,23 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Forbidden: You can only update your own orders' }, { status: 403 });
     }
 
+    // 拆单申请校验：普通用户新增拆单申请消息时，必须开启对应设置且订单已入库
+    if (user.role === 'user' && Array.isArray(updateData.messages)) {
+      const existingIds = new Set((order.messages || []).map(m => m.id));
+      const hasNewSplitRequest = updateData.messages.some(m => m?.split_request && !existingIds.has(m.id));
+      if (hasNewSplitRequest) {
+        const siteSettings = await base44.asServiceRole.entities.SiteSettings.filter({ tenant_id: order.tenant_id });
+        const settingsMap = {};
+        (siteSettings || []).forEach(s => { settingsMap[s.key] = s.value; });
+        if (settingsMap.allow_order_split !== 'true' || settingsMap.allow_order_split_after_warehouse !== 'true') {
+          return Response.json({ error: '拆单申请功能未开启' }, { status: 403 });
+        }
+        if (order.order_status !== 'in_warehouse') {
+          return Response.json({ error: '仅已入库订单可申请拆单' }, { status: 400 });
+        }
+      }
+    }
+
     // If admin is changing order_status away from notified_shipment, remove order from its shipping pool
     const isAdmin = user.role === 'admin' || user.role === 'platform_admin' || user.role === 'staff';
     const newStatus = updateData.order_status;
