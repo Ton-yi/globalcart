@@ -1,11 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { tenantEntity } from "@/lib/tenantApi";
+import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Save, List, Plus, Trash2, GripVertical, ChevronDown, ChevronUp } from "lucide-react";
+import { Save, List, Plus, Trash2, GripVertical, ChevronDown, ChevronUp, ImagePlus, X, Loader2 } from "lucide-react";
 
 const AUDIENCE_TABS = [
   { key: "guest", label: "未登录用户可见" },
@@ -57,6 +58,62 @@ function migrateConfig(raw) {
     };
   }
   return def();
+}
+
+// ─── ImageDropZone: paste or drag image, upload and return URL ───
+function ImageDropZone({ imageUrl, onUpload, onRemove }) {
+  const [dragging, setDragging] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const inputRef = useRef();
+
+  const uploadFile = async (file) => {
+    if (!file || !file.type.startsWith("image/")) return;
+    setUploading(true);
+    const { file_url } = await base44.integrations.Core.UploadFile({ file });
+    onUpload(file_url);
+    setUploading(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setDragging(false);
+    const file = e.dataTransfer.files[0];
+    uploadFile(file);
+  };
+
+  const handlePaste = (e) => {
+    const item = Array.from(e.clipboardData.items).find(it => it.type.startsWith("image/"));
+    if (item) uploadFile(item.getAsFile());
+  };
+
+  if (imageUrl) {
+    return (
+      <div className="relative inline-block mt-1">
+        <img src={imageUrl} alt="step" className="max-h-28 rounded border border-gray-200 object-contain" />
+        <button onClick={onRemove} className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600">
+          <X className="w-2.5 h-2.5" />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={`mt-1 flex flex-col items-center justify-center gap-1 border-2 border-dashed rounded-lg py-3 cursor-pointer transition-colors text-xs text-gray-400
+        ${dragging ? "border-indigo-400 bg-indigo-50" : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"}`}
+      onDragOver={e => { e.preventDefault(); setDragging(true); }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={handleDrop}
+      onPaste={handlePaste}
+      onClick={() => inputRef.current?.click()}
+      tabIndex={0}
+      onKeyDown={e => e.key === "Enter" && inputRef.current?.click()}
+    >
+      {uploading ? <Loader2 className="w-4 h-4 animate-spin text-indigo-400" /> : <ImagePlus className="w-4 h-4" />}
+      <span>{uploading ? "上传中…" : "拖拽 / 粘贴 / 点击上传图片"}</span>
+      <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={e => uploadFile(e.target.files[0])} />
+    </div>
+  );
 }
 
 // ─── SectionEditor: edit one section (heading + steps) ───
@@ -121,7 +178,18 @@ function SectionEditor({ section, sectionIdx, total, onChange, onDelete, onMoveU
                 </div>
                 <div>
                   <Label className="text-xs text-gray-400">描述</Label>
-                  <Input className="mt-0.5 h-7 text-xs" value={step.desc || ""} onChange={e => updateStep(i, "desc", e.target.value)} />
+                  <textarea
+                    className="mt-0.5 w-full text-xs rounded-md border border-input bg-background px-2 py-1.5 shadow-sm resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+                    rows={2}
+                    value={step.desc || ""}
+                    onChange={e => updateStep(i, "desc", e.target.value)}
+                  />
+                  <Label className="text-xs text-gray-400 mt-1 block">配图（可选）</Label>
+                  <ImageDropZone
+                    imageUrl={step.image_url || ""}
+                    onUpload={url => updateStep(i, "image_url", url)}
+                    onRemove={() => updateStep(i, "image_url", "")}
+                  />
                 </div>
               </div>
             ))}

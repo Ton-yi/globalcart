@@ -112,7 +112,8 @@ export default function Home() {
                       <span className="text-xs text-gray-400">Step {i + 1}</span>
                     </div>
                     <div className="font-medium text-sm text-gray-900 mb-1">{step.title}</div>
-                    <div className="text-xs text-gray-500">{step.desc}</div>
+                    {step.desc && <div className="text-xs text-gray-500">{step.desc}</div>}
+                    {step.image_url && <img src={step.image_url} alt={step.title} className="mt-2 w-full rounded object-contain max-h-32" />}
                   </CardContent>
                 </Card>
               );
