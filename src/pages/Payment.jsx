@@ -97,6 +97,8 @@ export default function Payment() {
       // Supplement payment must not regress order_status; clear the supplement flag instead
       ...(isSupplement ? { supplement_requested: false } : { order_status: "pending_purchase" }),
       paid_amount: newPaidAmount,
+      // Record surcharge for financial tracking
+      ...(surchargeJpy > 0 ? { payment_surcharge_jpy: Math.round(surchargeJpy) } : {}),
     });
     setSubmitted(true);
     setTimeout(() => navigate(createPageUrl("MyOrders")), 2000);
@@ -346,6 +348,7 @@ export default function Payment() {
                 payment_status: "paid",
                 ...(isSupplement ? { supplement_requested: false } : { order_status: "pending_purchase" }),
                 paid_amount: newPaidAmount,
+                ...(surchargeJpy > 0 ? { payment_surcharge_jpy: Math.round(surchargeJpy) } : {}),
               });
               navigate(createPageUrl("MyOrders"));
             }}

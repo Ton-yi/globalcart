@@ -40,6 +40,7 @@ export default function CustomerFinanceTab({ finance, userProfile, metrics, form
     { label: "退款金额", value: f.totalRefundJpy || 0, cls: "bg-red-50 border-red-200 text-red-800" },
     { label: "商品货款", value: f.totalGoodsJpy || 0, cls: "bg-gray-50 border-gray-200 text-gray-800" },
     { label: "服务费", value: f.totalServiceFeeJpy || 0, cls: "bg-purple-50 border-purple-200 text-purple-800" },
+    { label: "支付服务费", value: f.totalSurchargeJpy || 0, cls: "bg-yellow-50 border-yellow-200 text-yellow-800" },
     { label: "运费（发货阶段费用）", value: f.shippingStageReceivableJpy || 0, cls: "bg-orange-50 border-orange-200 text-orange-800" },
     { label: "增值服务费", value: f.addonFeeJpy || 0, cls: "bg-purple-50 border-purple-200 text-purple-800" },
     { label: "仓储费", value: f.storageFeeJpy || 0, cls: "bg-orange-50 border-orange-200 text-orange-800" },

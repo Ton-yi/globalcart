@@ -143,6 +143,7 @@ Deno.serve(async (req) => {
     const totalGoodsJpy = allOrders?.reduce((sum, o) => sum + (o.estimated_jpy || 0), 0) || 0;
     const totalServiceFeeJpy = allOrders?.reduce((sum, o) => sum + (o.service_fee_amount || 0), 0) || 0;
     const totalRefundJpy = allOrders?.reduce((sum, o) => sum + (o.refund_amount_jpy || 0), 0) || 0;
+    const totalSurchargeJpy = allOrders?.reduce((sum, o) => sum + (o.payment_surcharge_jpy || 0), 0) || 0;
     
     const paidOrders = allOrders?.filter(o => o.payment_status === 'paid' || o.payment_status === 'confirmed') || [];
     const unpaidOrders = allOrders?.filter(o => o.payment_status === 'pending' || o.payment_status === 'awaiting_payment' || o.payment_status === 'underpaid') || [];
@@ -567,6 +568,7 @@ Deno.serve(async (req) => {
         totalRefundJpy,
         totalGoodsJpy,
         totalServiceFeeJpy,
+        totalSurchargeJpy,
         shippingStageReceivableJpy,
         addonFeeJpy,
         storageFeeJpy,

@@ -116,7 +116,7 @@ function buildTimeSeries(orders, pools, granularity, tierPurchases = []) {
         if (!buckets[key]) buckets[key] = {
             period: key, order_count: 0, revenue_jpy: 0, profit_jpy: 0,
             refund_jpy: 0, shipping_income_jpy: 0, shipping_profit_jpy: 0,
-            addon_revenue_jpy: 0, service_fee_jpy: 0, tier_revenue_jpy: 0,
+            addon_revenue_jpy: 0, service_fee_jpy: 0, payment_surcharge_jpy: 0, tier_revenue_jpy: 0,
         };
     };
 
@@ -128,12 +128,14 @@ function buildTimeSeries(orders, pools, granularity, tierPurchases = []) {
         const cost     = order.estimated_jpy || 0;
         const addon    = (order.selected_addons || []).reduce((s, a) => s + (a.fee || 0), 0);
         const svcFee   = order.service_fee_amount || 0;
-        buckets[key].order_count     += 1;
-        buckets[key].revenue_jpy     += payment;
-        buckets[key].refund_jpy      += refund;
-        buckets[key].profit_jpy      += payment - refund - cost;
-        buckets[key].addon_revenue_jpy += addon;
-        buckets[key].service_fee_jpy += svcFee;
+        const surcharge = order.payment_surcharge_jpy || 0;
+        buckets[key].order_count          += 1;
+        buckets[key].revenue_jpy          += payment;
+        buckets[key].refund_jpy           += refund;
+        buckets[key].profit_jpy           += payment - refund - cost;
+        buckets[key].addon_revenue_jpy    += addon;
+        buckets[key].service_fee_jpy      += svcFee;
+        buckets[key].payment_surcharge_jpy += surcharge;
     });
 
     pools.forEach(pool => {
@@ -178,6 +180,7 @@ function calcSummary(orders, pools, allPools, allOrders, tierPurchases = []) {
         refund_amount_jpy: 0,
         goods_cost_jpy: 0,
         service_fee_revenue_jpy: 0,
+        payment_surcharge_jpy: 0,
         addon_revenue_jpy: 0,
         item_size_extra_fee_jpy: 0,
         order_stage_profit_jpy: 0,
@@ -238,10 +241,12 @@ function calcSummary(orders, pools, allPools, allOrders, tierPurchases = []) {
         const svcFee     = order.service_fee_amount || 0;
         const itemExtra  = order.item_size_extra_fee || 0;
 
+        const surcharge = order.payment_surcharge_jpy || 0;
         s.order_stage_payment_jpy  += payment;
         s.refund_amount_jpy        += refund;
         s.goods_cost_jpy           += cost;
         s.service_fee_revenue_jpy  += svcFee;
+        s.payment_surcharge_jpy    += surcharge;
         s.addon_revenue_jpy        += addon;
         s.item_size_extra_fee_jpy  += itemExtra;
         s.order_stage_profit_jpy   += payment - refund - cost;
