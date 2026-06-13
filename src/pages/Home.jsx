@@ -89,8 +89,8 @@ export default function Home() {
       <HeroSection config={heroConfig} user={user} tenant={tenant} />
 
       {/* Quick Actions */}
-      {user && quickActions.length > 0 && (
-        <QuickActionsGrid actions={quickActions} userRole={user.role} />
+      {quickActions && (Array.isArray(quickActions) ? quickActions.length > 0 : true) && (
+        <QuickActionsGrid actions={quickActions} userRole={user?.role} />
       )}
 
       {/* Steps — multi-section */}

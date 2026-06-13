@@ -41,7 +41,21 @@ function ActionIcon({ action }) {
 }
 
 export default function QuickActionsGrid({ actions = [], userRole }) {
-  const visible = actions.filter(a => isVisible(a, userRole));
+  // actions may be a flat array (old) or an audience-config object (new)
+  let resolvedActions = actions;
+  if (!Array.isArray(actions) && typeof actions === "object") {
+    const isAdmin = userRole === "admin" || userRole === "tenant_admin" || userRole === "platform_admin" || userRole === "staff";
+    if (actions.unified) {
+      resolvedActions = actions.guest?.actions || [];
+    } else if (isAdmin && actions.admin?.actions?.length) {
+      resolvedActions = actions.admin.actions;
+    } else if (userRole && actions.user?.actions?.length) {
+      resolvedActions = actions.user.actions;
+    } else {
+      resolvedActions = actions.guest?.actions || [];
+    }
+  }
+  const visible = resolvedActions.filter(a => isVisible(a, userRole));
   if (visible.length === 0) return null;
 
   return (
