@@ -43,15 +43,17 @@ function ActionIcon({ action }) {
 export default function QuickActionsGrid({ actions = [], userRole }) {
   // actions may be a flat array (old) or an audience-config object (new)
   let resolvedActions = actions;
-  if (!Array.isArray(actions) && typeof actions === "object") {
+  if (!Array.isArray(actions) && actions && typeof actions === "object") {
     const isAdmin = userRole === "admin" || userRole === "tenant_admin" || userRole === "platform_admin" || userRole === "staff";
+    const isLoggedIn = !!userRole;
     if (actions.unified) {
       resolvedActions = actions.guest?.actions || [];
-    } else if (isAdmin && actions.admin?.actions?.length) {
+    } else if (isAdmin && (actions.admin?.actions || []).length > 0) {
       resolvedActions = actions.admin.actions;
-    } else if (userRole && actions.user?.actions?.length) {
+    } else if (isLoggedIn && (actions.user?.actions || []).length > 0) {
       resolvedActions = actions.user.actions;
     } else {
+      // Guests (not logged in) or fallback
       resolvedActions = actions.guest?.actions || [];
     }
   }

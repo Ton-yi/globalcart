@@ -88,8 +88,8 @@ export default function Home() {
       {/* Hero */}
       <HeroSection config={heroConfig} user={user} tenant={tenant} />
 
-      {/* Quick Actions */}
-      {quickActions && (Array.isArray(quickActions) ? quickActions.length > 0 : true) && (
+      {/* Quick Actions — show for all visitors (guest actions visible without login) */}
+      {quickActions && (Array.isArray(quickActions) ? quickActions.length > 0 : Object.keys(quickActions).length > 0) && (
         <QuickActionsGrid actions={quickActions} userRole={user?.role} />
       )}
 

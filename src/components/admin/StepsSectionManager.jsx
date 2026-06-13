@@ -290,6 +290,11 @@ export default function StepsSectionManager({ settings, onReload }) {
     }
   }, [settings]);
 
+  const cloneAudience = (a) => ({
+    ...a,
+    sections: (a.sections || []).map(s => ({ ...s, steps: (s.steps || []).map(st => ({ ...st })) })),
+  });
+
   const handleSave = async () => {
     setSaving(true);
     const saveForm = form.unified
@@ -307,11 +312,6 @@ export default function StepsSectionManager({ settings, onReload }) {
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
-
-  const cloneAudience = (a) => ({
-    ...a,
-    sections: (a.sections || []).map(s => ({ ...s, steps: (s.steps || []).map(st => ({ ...st })) })),
-  });
 
   const toggleUnified = (checked) => {
     if (checked) {
