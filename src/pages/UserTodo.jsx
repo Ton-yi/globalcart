@@ -278,7 +278,7 @@ export default function UserTodo() {
                 label={o.product_name}
                 sub={`${o.order_number || ""} · ${STATUS_LABEL[o.order_status] || ""}`}
                 badge={fmtJpy(o.prepayment_amount) ? { text: fmtJpy(o.prepayment_amount), cls: "bg-red-100 text-red-700 font-semibold" } : undefined}
-                checkbox selected={selPayOrders.includes(o.id)}
+                checkbox={true} checked={selPayOrders.includes(o.id)}
                 onCheck={c => toggleSel(setSelPayOrders, o.id, c)}
                 onRowClick={() => setOrderDetailModal(o)}
                 action="去付款"
@@ -306,7 +306,7 @@ export default function UserTodo() {
                 label={o.product_name}
                 sub={`${o.order_number || ""} · 已入库，可通知发货`}
                 badge={{ text: "已入库", cls: "bg-green-100 text-green-700" }}
-                checkbox selected={selNotifyOrders.includes(o.id)}
+                checkbox={true} checked={selNotifyOrders.includes(o.id)}
                 onCheck={c => toggleSel(setSelNotifyOrders, o.id, c)}
                 onRowClick={() => setOrderDetailModal(o)}
                 action="通知出货"
