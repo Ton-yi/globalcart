@@ -336,16 +336,78 @@ Deno.serve(async (req) => {
     }
 
     // ----------------------------------------------------------------
-    // CASE 3: Official pool — default match (stage for admin assignment)
+    // CASE 3: Official pool — auto-match to a pending pool
+    // Pre-shipment orders are always routed to pending pools first.
+    // Matching priority:
+    //   1. Pending pool whose pending_pool_shipping_method === payload.shipping_method (exact match)
+    //   2. Earliest-created pending pool with empty pending_pool_shipping_method (default pool)
+    //   3. Earliest-created pending pool (absolute fallback)
     // ----------------------------------------------------------------
     if (consType === 'official_pool' && !target_pool_id) {
+      // Load all pending pools for this tenant, sorted by created_date ascending
+      const allPendingPools = await base44.asServiceRole.entities.ShippingPool.filter({
+        tenant_id: tenantId,
+        is_pending_pool: true,
+      });
+      allPendingPools.sort((a, b) => new Date(a.created_date) - new Date(b.created_date));
+
+      let targetPendingPool = null;
+      if (allPendingPools.length > 0) {
+        // 1. Exact shipping method match
+        const methodMatch = (shipping_method || '').trim();
+        if (methodMatch) {
+          targetPendingPool = allPendingPools.find(p => p.pending_pool_shipping_method === methodMatch) || null;
+        }
+        // 2. Earliest default pool (no method assigned)
+        if (!targetPendingPool) {
+          targetPendingPool = allPendingPools.find(p => !p.pending_pool_shipping_method) || null;
+        }
+        // 3. Absolute fallback: earliest created
+        if (!targetPendingPool) {
+          targetPendingPool = allPendingPools[0];
+        }
+      }
+
+      if (targetPendingPool) {
+        // Add orders to the matched pending pool
+        const updatedPerUserGroups = buildOfficialPoolPerUserGroups(targetPendingPool.per_user_groups, orders);
+        const totalAddedWeight = orders.reduce((s, o) => s + (o.weight_g || 0), 0);
+        const addedOrderIds = orders.map(o => o.id);
+        const addedOrderNames = orders.map(o => o.product_name).filter(Boolean);
+
+        await base44.asServiceRole.entities.ShippingPool.update(targetPendingPool.id, {
+          order_ids: [...new Set([...(targetPendingPool.order_ids || []), ...addedOrderIds])],
+          order_names: [...(targetPendingPool.order_names || []), ...addedOrderNames].filter(Boolean),
+          total_weight_g: (targetPendingPool.total_weight_g || 0) + totalAddedWeight,
+          per_user_groups: updatedPerUserGroups,
+        });
+
+        for (const order of orders) {
+          await base44.asServiceRole.entities.Order.update(order.id, {
+            order_status: 'notified_shipment',
+            consolidation_pool_id: targetPendingPool.id,
+            ...(customs_declaration ? { customs_declaration } : {}),
+          });
+        }
+
+        console.log(`[createShippingPool] Auto-matched to pending pool ${targetPendingPool.pool_code} | ${Date.now()-t0}ms`);
+        return Response.json({
+          success: true,
+          pool_id: targetPendingPool.id,
+          pool_code: targetPendingPool.pool_code,
+          is_pending_pool: true,
+          is_official_pool: true,
+        });
+      }
+
+      // No pending pools exist — fall back to bare staging (legacy behavior)
       for (const order of orders) {
         await base44.asServiceRole.entities.Order.update(order.id, {
           order_status: 'notified_shipment',
           ...(customs_declaration ? { customs_declaration } : {}),
         });
       }
-      console.log(`[createShippingPool] Staged for official pool default match | ${Date.now()-t0}ms`);
+      console.log(`[createShippingPool] No pending pools found, staged bare | ${Date.now()-t0}ms`);
       return Response.json({ success: true, is_staging: true, is_official_pool: true });
     }
 
