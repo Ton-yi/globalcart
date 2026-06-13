@@ -58,34 +58,55 @@ Deno.serve(async (req) => {
 
     const filter = isPlatformAdmin ? {} : { tenant_id: tenantId };
 
+    // Helper: retry on 429 with exponential backoff
+    const withRetry = async (fn, retries = 3) => {
+      for (let i = 0; i < retries; i++) {
+        try {
+          return await fn();
+        } catch (e) {
+          if (e?.status === 429 && i < retries - 1) {
+            await new Promise(r => setTimeout(r, 300 * (i + 1)));
+          } else {
+            throw e;
+          }
+        }
+      }
+    };
+
     const t1 = Date.now();
-    // Batch 1: primary data (pools, orders, users, edit requests)
-    const [pools, orders, allUsers, editRequests] = await Promise.all([
-      isPlatformAdmin
+    // Batch 1: pools + users + edit requests (3 parallel)
+    const [pools, allUsers, editRequests] = await Promise.all([
+      withRetry(() => isPlatformAdmin
         ? base44.asServiceRole.entities.ShippingPool.list()
-        : base44.asServiceRole.entities.ShippingPool.filter({ tenant_id: tenantId }),
-      isPlatformAdmin
-        ? base44.asServiceRole.entities.Order.list()
-        : base44.asServiceRole.entities.Order.filter({ tenant_id: tenantId }),
-      base44.asServiceRole.entities.User.filter(isPlatformAdmin ? {} : { tenant_id: tenantId }),
-      isPlatformAdmin
+        : base44.asServiceRole.entities.ShippingPool.filter({ tenant_id: tenantId })),
+      withRetry(() => base44.asServiceRole.entities.User.filter(isPlatformAdmin ? {} : { tenant_id: tenantId })),
+      withRetry(() => isPlatformAdmin
         ? base44.asServiceRole.entities.ShippingEditRequest.filter({ status: 'pending' })
-        : base44.asServiceRole.entities.ShippingEditRequest.filter({ tenant_id: tenantId, status: 'pending' }),
+        : base44.asServiceRole.entities.ShippingEditRequest.filter({ tenant_id: tenantId, status: 'pending' })),
     ]);
     console.log(`[TIMING] getAdminShippingPoolPageData | batch1: ${Date.now() - t1}ms`);
 
-    // Batch 2: config/settings data
+    // Batch 2: config/settings data (4 parallel)
     const t2 = Date.now();
-    const [locations, transitMethods, addonOptions, boxTemplates, siteSettings, shippingMethods, userPreferences] = await Promise.all([
-      base44.asServiceRole.entities.TransitLocation.filter(filter),
-      base44.asServiceRole.entities.TransitShippingMethod.filter(filter),
-      base44.asServiceRole.entities.AddonOption.filter(filter),
-      base44.asServiceRole.entities.BoxTemplate.filter(filter),
-      base44.asServiceRole.entities.SiteSettings.filter(filter),
-      base44.asServiceRole.entities.ShippingMethod.filter(filter),
-      base44.asServiceRole.entities.UserPreference.filter(filter),
+    const [locations, transitMethods, addonOptions, boxTemplates] = await Promise.all([
+      withRetry(() => base44.asServiceRole.entities.TransitLocation.filter(filter)),
+      withRetry(() => base44.asServiceRole.entities.TransitShippingMethod.filter(filter)),
+      withRetry(() => base44.asServiceRole.entities.AddonOption.filter(filter)),
+      withRetry(() => base44.asServiceRole.entities.BoxTemplate.filter(filter)),
     ]);
     console.log(`[TIMING] getAdminShippingPoolPageData | batch2: ${Date.now() - t2}ms`);
+
+    // Batch 3: remaining config + orders (3 parallel)
+    const t3 = Date.now();
+    const [siteSettings, shippingMethods, userPreferences, orders] = await Promise.all([
+      withRetry(() => base44.asServiceRole.entities.SiteSettings.filter(filter)),
+      withRetry(() => base44.asServiceRole.entities.ShippingMethod.filter(filter)),
+      withRetry(() => base44.asServiceRole.entities.UserPreference.filter(filter)),
+      withRetry(() => isPlatformAdmin
+        ? base44.asServiceRole.entities.Order.list()
+        : base44.asServiceRole.entities.Order.filter({ tenant_id: tenantId })),
+    ]);
+    console.log(`[TIMING] getAdminShippingPoolPageData | batch3: ${Date.now() - t3}ms`);
     console.log(`[DEBUG] getAdminShippingPoolPageData | pending edit requests count: ${editRequests?.length || 0}`);
     console.log(`[DEBUG] getAdminShippingPoolPageData | pending edit requests:`, editRequests?.map(r => ({ id: r.id, pool_id: r.pool_id, order_id: r.order_id, status: r.status, edit_type: r.edit_type })));
     console.log(`[TIMING] getAdminShippingPoolPageData | TOTAL: ${Date.now() - t0}ms`);
