@@ -82,10 +82,6 @@ const DEFAULT_SETTINGS = [
   { key: "allow_ship_without_payment_single", value: "false", description: "单独发货 - 允许未付款直接发货", category: "shipping" },
   { key: "allow_ship_without_payment_user_pool", value: "false", description: "用户拼邮发货 - 允许未付款直接发货", category: "shipping" },
   { key: "allow_ship_without_payment_official_pool", value: "false", description: "官方拼邮发货 - 允许未付款直接发货", category: "shipping" },
-  { key: "official_pool_auto_create_pending", value: "true", description: "预出货选择官方拼邮时自动创建预拼邮列", category: "shipping" },
-  { key: "official_pool_merge_same_user", value: "true", description: "自动合并同用户同预出货状态的订单", category: "shipping" },
-  { key: "official_pool_separate_columns", value: "false", description: "分离多个预发货订单列", category: "shipping" },
-  { key: "official_pool_separate_methods", value: "", description: "单独成列的运输方式（逗号分隔）", category: "shipping" },
   { key: "fullpay_once_enabled", value: "false", description: "开启一次付款功能", category: "shipping" },
   { key: "fullpay_once_tolerance_jpy", value: "500", description: "一次付款运费误差容忍值（JPY）", category: "shipping" },
   { key: "site_name", value: "同一物流", description: "网站名称", category: "general" },
@@ -782,63 +778,6 @@ export default function AdminSettings() {
               {/* 允许未付款发货设置已移至「发货设置」tab */}
 
               {/* 拆单设置已移至「订单管理」tab 的拆单区块 */}
-
-              {/* Official Pool Pre-Shipment Settings */}
-              {(() => {
-                const autoCreate = getBoolDefaultTrue('official_pool_auto_create_pending');
-                const merge = getBool('official_pool_merge_same_user');
-                const separate = getBool('official_pool_separate_columns');
-                const separateMethods = getVal('official_pool_separate_methods') || '';
-                return (
-                  <div className="space-y-3 pb-1 border-b border-gray-100">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <Label className="text-sm">预出货选择官方拼邮时自动创建预拼邮列</Label>
-                        <p className="text-xs text-gray-400 mt-0.5">开启后，用户下单时选择官方拼邮会自动在官方拼邮看板最左侧生成预拼邮订单列</p>
-                      </div>
-                      <Toggle enabled={autoCreate} onToggle={() => toggleSettingDefaultTrue('official_pool_auto_create_pending')} color="bg-purple-600" />
-                    </div>
-                    {autoCreate && (
-                      <>
-                        <div className="flex items-center justify-between pl-4 border-l-2 border-l-purple-200">
-                          <div>
-                            <Label className="text-sm text-purple-700">自动合并同用户同预出货状态的订单</Label>
-                            <p className="text-xs text-gray-400 mt-0.5">开启后，同一用户的相同预出货状态订单会自动合并到一个预拼邮列中</p>
-                          </div>
-                          <Toggle enabled={merge} onToggle={() => toggleSetting('official_pool_merge_same_user')} color="bg-purple-500" size="sm" />
-                        </div>
-                        <div className="pl-4 border-l-2 border-l-purple-200 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <Label className="text-sm text-purple-700">分离多个预发货订单列</Label>
-                              <p className="text-xs text-gray-400 mt-0.5">开启后，每个预发货项会单独创建一列预发货订单列</p>
-                            </div>
-                            <Toggle enabled={separate} onToggle={() => toggleSetting('official_pool_separate_columns')} color="bg-purple-500" size="sm" />
-                          </div>
-                          {separate && (
-                            <div>
-                              <Label className="text-xs text-gray-500">单独成列的运输方式（留空=全分离）</Label>
-                              <Input
-                                className="h-8 text-sm mt-1"
-                                placeholder="EMS,SAL,DHL"
-                                value={separateMethods}
-                                onChange={e => updateSettingByKey('official_pool_separate_methods', e.target.value, '单独成列的运输方式（逗号分隔）', 'shipping')}
-                              />
-                              {separateMethods && (
-                                <div className="mt-2 flex flex-wrap gap-1">
-                                  {separateMethods.split(',').map(m => m.trim()).filter(Boolean).map((m, i) => (
-                                    <Badge key={i} variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">{m}</Badge>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </>
-                    )}
-                  </div>
-                );
-              })()}
 
               {/* allow_user_rewarehouse_from_fee_pending */}
               {(() => {
