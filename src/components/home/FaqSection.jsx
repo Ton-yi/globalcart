@@ -21,7 +21,7 @@ function FaqItem({ item, categoryId }) {
   return (
     <div className="border border-gray-200 rounded-lg overflow-hidden">
       <Link
-        to={`${createPageUrl("HelpCenter")}${categoryId ? `?cat=${categoryId}` : ""}`}
+        to={`${createPageUrl("HelpCenterFaq")}${categoryId ? `?cat=${categoryId}` : ""}`}
         className="w-full flex items-center justify-between px-4 py-3 text-left bg-white hover:bg-gray-50 transition-colors group"
         onClick={e => { e.preventDefault(); setOpen(o => !o); }}
       >
@@ -44,10 +44,10 @@ function FaqItem({ item, categoryId }) {
             {item.answer}
           </ReactMarkdown>
           <Link
-            to={`${createPageUrl("HelpCenter")}${categoryId ? `?cat=${categoryId}` : ""}`}
+            to={`${createPageUrl("HelpCenterFaq")}${categoryId ? `?cat=${categoryId}` : ""}`}
             className="inline-flex items-center gap-1 text-xs text-teal-600 hover:text-teal-700 mt-2"
           >
-            在帮助中心查看 <ArrowRight className="w-3 h-3" />
+            查看更多 <ArrowRight className="w-3 h-3" />
           </Link>
         </div>
       )}
@@ -88,10 +88,10 @@ export default function FaqSection({ config, faqCategories, user }) {
           </h2>
         </div>
         <Link
-          to={createPageUrl("HelpCenter")}
+          to={createPageUrl("HelpCenterFaq")}
           className="flex items-center gap-1 text-xs text-teal-600 hover:text-teal-700 transition-colors"
         >
-          查看帮助中心 <ArrowRight className="w-3 h-3" />
+          查看全部 <ArrowRight className="w-3 h-3" />
         </Link>
       </div>
       <div className="space-y-2">

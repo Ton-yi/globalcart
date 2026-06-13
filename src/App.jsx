@@ -30,6 +30,7 @@ import UserPrivacySettings from '@/pages/UserPrivacySettings';
 import AdminNavbarSettings from '@/pages/AdminNavbarSettings';
 import MemberTiers from '@/pages/MemberTiers';
 import HelpCenter from '@/pages/HelpCenter';
+import HelpCenterFaq from '@/pages/HelpCenterFaq';
 import AdminFaq from '@/pages/AdminFaq';
 
 const { Pages, Layout, mainPage } = pagesConfig;
@@ -199,6 +200,11 @@ const AuthenticatedApp = () => {
       <Route path="/:locale/HelpCenter" element={
         <LayoutWrapper currentPageName="HelpCenter">
           <HelpCenter />
+        </LayoutWrapper>
+      } />
+      <Route path="/:locale/HelpCenterFaq" element={
+        <LayoutWrapper currentPageName="HelpCenterFaq">
+          <HelpCenterFaq />
         </LayoutWrapper>
       } />
       <Route path="/:locale/AdminFaq" element={
