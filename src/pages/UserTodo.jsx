@@ -201,14 +201,28 @@ export default function UserTodo() {
     setNotifyModal({ orders: orderList });
   };
 
+  // Bulk pay: open modal for the first selected order (payment modal handles one order at a time)
   const handleBulkPay = () => {
     const order = pendingPayOrders.find(o => selPayOrders.includes(o.id));
     if (order) openPayModal(order);
   };
 
+  // Bulk notify: pass all selected orders to the notify modal
   const handleBulkNotify = () => {
-    const orders = pendingNotifyOrders.filter(o => selNotifyOrders.includes(o.id));
-    if (orders.length > 0) openNotifyModal(orders);
+    const selected = pendingNotifyOrders.filter(o => selNotifyOrders.includes(o.id));
+    if (selected.length > 0) openNotifyModal(selected);
+  };
+
+  // Open pay for a single item and remove it from selection
+  const handleSinglePay = (order) => {
+    setSelPayOrders(prev => prev.filter(id => id !== order.id));
+    openPayModal(order);
+  };
+
+  // Open notify for a single item and remove it from selection
+  const handleSingleNotify = (order) => {
+    setSelNotifyOrders(prev => prev.filter(id => id !== order.id));
+    openNotifyModal([order]);
   };
 
   return (
@@ -256,7 +270,7 @@ export default function UserTodo() {
                 checkbox selected={selPayOrders.includes(o.id)}
                 onCheck={c => toggleSel(setSelPayOrders, o.id, c)}
                 action="去付款"
-                onAction={() => openPayModal(o)}
+                onAction={() => handleSinglePay(o)}
               />
             ))}
             {pendingPayPools.map(p => (
@@ -282,7 +296,7 @@ export default function UserTodo() {
                 checkbox selected={selNotifyOrders.includes(o.id)}
                 onCheck={c => toggleSel(setSelNotifyOrders, o.id, c)}
                 action="通知出货"
-                onAction={() => openNotifyModal([o])}
+                onAction={() => handleSingleNotify(o)}
               />
             ))}
           </Section>
