@@ -15,8 +15,11 @@ export default function AdminDashboard() {
       .then(r => {
         const { orders = [], users = [] } = r.data || {};
         setStats({ orders, shipping: [], users });
-        setLoading(false);
-      });
+      })
+      .catch(() => {
+        // 403: insufficient permissions, silently degrade
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   const { orders, shipping, users } = stats;
