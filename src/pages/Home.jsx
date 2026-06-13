@@ -11,7 +11,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { getStatusLabel, getStatusColor } from "@/lib/orderStatus";
+// Badge/getStatus* kept for future use; LogisticsStatusBoard handles order display now
 import QuickActionsGrid from "@/components/home/QuickActionsGrid";
+import LogisticsStatusBoard from "@/components/home/LogisticsStatusBoard";
 
 export default function Home() {
   const { user } = useCurrentUser();
@@ -121,46 +123,9 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Recent Orders */}
+      {/* Logistics Status Board */}
       {user && recentOrders.length > 0 && (
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">最近订单</h2>
-            <Link to={createPageUrl("MyOrders")} className="text-xs text-red-600 flex items-center gap-1 hover:underline">
-              查看全部 <ArrowRight className="w-3 h-3" />
-            </Link>
-          </div>
-          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b">
-                <tr>
-                  <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">订单</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500 hidden sm:table-cell">商品</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">状态</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500 hidden md:table-cell">预付款</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {recentOrders.map(order => (
-                  <tr key={order.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-mono text-xs text-gray-600">{order.order_number || order.id.slice(0,8)}</td>
-                    <td className="px-4 py-3 hidden sm:table-cell">
-                      <div className="max-w-xs truncate text-gray-800">{order.product_name}</div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge className={`text-xs ${getStatusColor(order.order_status, "user")}`}>
-                        {getStatusLabel(order.order_status, "user")}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3 hidden md:table-cell text-gray-700">
-                      {order.prepayment_amount ? `${order.prepayment_currency} ${order.prepayment_amount.toFixed(2)}` : "-"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <LogisticsStatusBoard orders={recentOrders} />
       )}
     </div>
   );
