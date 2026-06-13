@@ -145,6 +145,7 @@ Deno.serve(async (req) => {
     const allowShipWithoutPaymentUserPool = settingsMap['allow_ship_without_payment_user_pool'] === 'true';
     const allowShipWithoutPaymentOfficialPool = settingsMap['allow_ship_without_payment_official_pool'] === 'true';
     const fullpayOnceToleranceJpy = parseInt(settingsMap['fullpay_once_tolerance_jpy'] || '500', 10) || 0;
+    const transitHandlingFeeSplit = settingsMap['transit_location_fee_split_enabled'] === 'true';
 
     // Apply saved official pool order if present
     const officialPoolOrderSetting = (siteSettings || []).find(s => s.key === 'official_pool_order');
@@ -179,6 +180,7 @@ Deno.serve(async (req) => {
       allowShipWithoutPaymentUserPool,
       allowShipWithoutPaymentOfficialPool,
       fullpayOnceToleranceJpy,
+      transitHandlingFeeSplit,
       orders: orders || [],
     });
 

@@ -25,6 +25,7 @@
  * @param {object|null} params.transitLocation - TransitLocation record (for handling_fee)
  * @param {object|null} params.transitShippingMethod - TransitShippingMethod record (for fee)
  * @param {object} params.exchangeRates - {jpy_cny, jpy_usd, ...} for currency conversion
+ * @param {boolean} params.transitHandlingFeeSplit - when true, transit location handling fee is split proportionally by weight (shared pool) instead of charged per-user
  * @returns {Array} [{user_email, items: [{label, amount_jpy}], personal_total_jpy, shared_jpy, total_jpy}]
  */
 export function calcFeeBreakdownPerUser({
@@ -37,6 +38,7 @@ export function calcFeeBreakdownPerUser({
   transitLocation = null,
   transitShippingMethod = null,
   exchangeRates = null,
+  transitHandlingFeeSplit = false,
 }) {
   const isConsolidation = pool.consolidation_type === "transit" || pool.consolidation_type === "other";
   const totalWeightG = orders.reduce((s, o) => s + (o.weight_g || 0), 0);
@@ -132,8 +134,8 @@ export function calcFeeBreakdownPerUser({
       items.push({ label: "再入库再处理费", amount_jpy: rewarehouseFeeJpy });
     }
 
-    if (isConsolidation) {
-      // Personal: transit handling fee
+    if (isConsolidation && !transitHandlingFeeSplit) {
+      // Personal: transit handling fee charged per user
       if (transitHandlingFee > 0) {
         items.push({ label: `中转地手续费（${transitLocation?.name || "中转地"}）`, amount_jpy: transitHandlingFee });
       }
@@ -157,12 +159,15 @@ export function calcFeeBreakdownPerUser({
     let sharedJpy = 0;
     if (isConsolidation && totalWeightG > 0) {
       // Global packing fee joins shipping + box in the shared pool
-      const sharedBase = (parseFloat(shippingFeeJpy) || 0) + (parseFloat(boxPriceJpy) || 0) + (parseFloat(globalPackingFeeJpy) || 0);
+      // When transitHandlingFeeSplit=true, transit handling fee also joins the shared pool
+      const sharedTransitFee = (transitHandlingFeeSplit && transitHandlingFee > 0) ? transitHandlingFee : 0;
+      const sharedBase = (parseFloat(shippingFeeJpy) || 0) + (parseFloat(boxPriceJpy) || 0) + (parseFloat(globalPackingFeeJpy) || 0) + sharedTransitFee;
       sharedJpy = Math.round((userWeightG / totalWeightG) * sharedBase);
       if (sharedJpy > 0) {
         const packingPart = parseFloat(globalPackingFeeJpy) || 0;
         const labelParts = [`运费¥${Math.round(shippingFeeJpy || 0)}`, `外箱¥${Math.round(boxPriceJpy || 0)}`];
         if (packingPart > 0) labelParts.push(`手续费¥${Math.round(packingPart)}`);
+        if (sharedTransitFee > 0) labelParts.push(`中转手续费¥${Math.round(sharedTransitFee)}`);
         items.push({
           label: `平摊金额（${labelParts.join("+")} × ${userWeightG}g/${totalWeightG}g）`,
           amount_jpy: sharedJpy,

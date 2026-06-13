@@ -90,6 +90,7 @@ export default function AdminShippingInfoPanel({
   allowShipWithoutPaymentUserPool = false,
   allowShipWithoutPaymentOfficialPool = false,
   fullpayOnceToleranceJpy = 500,
+  transitHandlingFeeSplit = false,
   transitLocations = [],
   transitShippingMethods = [],
   userProfileMap = {},
@@ -256,8 +257,9 @@ export default function AdminShippingInfoPanel({
       transitLocation,
       transitShippingMethod,
       exchangeRates,
+      transitHandlingFeeSplit,
     });
-  }, [orders, shippingFeeJpy, boxPrice, basePackingFee, effectivePackingFeesPerUser, pool.selected_addons, pool.transit_location_id, pool.transit_shipping_method_id, exchangeRates]);
+  }, [orders, shippingFeeJpy, boxPrice, basePackingFee, effectivePackingFeesPerUser, pool.selected_addons, pool.transit_location_id, pool.transit_shipping_method_id, exchangeRates, transitHandlingFeeSplit]);
 
   // Grand total = sum of all users' total_jpy from the live breakdown
   const grandTotalJpy = feeBreakdowns.reduce((s, b) => s + (b.total_jpy || 0), 0);
@@ -299,6 +301,7 @@ export default function AdminShippingInfoPanel({
       transitLocation,
       transitShippingMethod,
       exchangeRates,
+      transitHandlingFeeSplit,
     });
     return {
       tracking_number: trackingNumber,

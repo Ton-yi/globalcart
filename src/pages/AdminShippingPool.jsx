@@ -72,6 +72,7 @@ export default function AdminShippingPool() {
   const [allowShipWithoutPaymentUserPool, setAllowShipWithoutPaymentUserPool] = useState(false);
   const [allowShipWithoutPaymentOfficialPool, setAllowShipWithoutPaymentOfficialPool] = useState(false);
   const [fullpayOnceToleranceJpy, setFullpayOnceToleranceJpy] = useState(500);
+  const [transitHandlingFeeSplit, setTransitHandlingFeeSplit] = useState(false);
   const [allOrders, setAllOrders] = useState([]);
 
   const fetchPageData = async () => {
@@ -94,6 +95,7 @@ export default function AdminShippingPool() {
     setAllowShipWithoutPaymentUserPool(data.allowShipWithoutPaymentUserPool || false);
     setAllowShipWithoutPaymentOfficialPool(data.allowShipWithoutPaymentOfficialPool || false);
     setFullpayOnceToleranceJpy(data.fullpayOnceToleranceJpy ?? 500);
+    setTransitHandlingFeeSplit(data.transitHandlingFeeSplit || false);
     setAllOrders(data.orders || []);
     setLoading(false);
     t.done('data ready');
@@ -659,6 +661,7 @@ export default function AdminShippingPool() {
           allowShipWithoutPaymentUserPool={allowShipWithoutPaymentUserPool}
           allowShipWithoutPaymentOfficialPool={allowShipWithoutPaymentOfficialPool}
           fullpayOnceToleranceJpy={fullpayOnceToleranceJpy}
+          transitHandlingFeeSplit={transitHandlingFeeSplit}
           transitLocations={locations}
           transitShippingMethods={transitMethods}
           onClose={() => setSelectedPool(null)}

@@ -111,7 +111,7 @@ const TABS = [
   { key: "member_tiers", label: "会员阶级" },
   { key: "shipping_methods", label: "运输方式" },
   { key: "shipping_settings", label: "发货设置" },
-  { key: "transit_methods", label: "中转运输方式" },
+  { key: "transit_methods", label: "中转运输" },
   { key: "item_sizes", label: "物品尺寸" },
   { key: "box_templates", label: "外箱模板" },
   { key: "store_tags", label: "商城标签规则" },
@@ -514,11 +514,33 @@ export default function AdminSettings() {
       )}
 
       {activeTab === "transit_methods" && (
-        <Card className="border-gray-200">
-          <CardContent className="pt-5">
-            <TransitShippingMethodManager initialData={transitMethods} />
-          </CardContent>
-        </Card>
+        <div className="space-y-4">
+          <Card className="border-blue-200">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-semibold text-gray-700">中转地手续费平分</CardTitle>
+                <Button size="sm" className="h-7 text-xs bg-blue-600 hover:bg-blue-700" onClick={handleSaveAll} disabled={saving}>
+                  <Save className="w-3 h-3 mr-1" />{saved ? "已保存 ✓" : saving ? "保存中..." : "保存"}
+                </Button>
+              </div>
+              <p className="text-xs text-gray-400 mt-1">控制中转地手续费的计算方式</p>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-sm">中转地手续费平分</Label>
+                  <p className="text-xs text-gray-400 mt-0.5">开启后，中转地的手续费将按重量比例平摊给参与拼邮的所有客户；关闭则每个客户单独计算一次中转地手续费</p>
+                </div>
+                <Toggle enabled={getBool('transit_location_fee_split_enabled')} onToggle={() => toggleSetting('transit_location_fee_split_enabled')} color="bg-blue-600" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-gray-200">
+            <CardContent className="pt-5">
+              <TransitShippingMethodManager initialData={transitMethods} />
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       {activeTab === "item_sizes" && (
@@ -760,15 +782,6 @@ export default function AdminSettings() {
               {/* 允许未付款发货设置已移至「发货设置」tab */}
 
               {/* 拆单设置已移至「订单管理」tab 的拆单区块 */}
-
-              {/* transit_location_fee_split_enabled */}
-              <div className="flex items-center justify-between pb-1 border-b border-gray-100">
-                <div>
-                  <Label className="text-sm">中转地手续费平分</Label>
-                  <p className="text-xs text-gray-400 mt-0.5">开启后，中转地的服务费将平分给参与拼邮的所有客户；关闭则每个客户单独计算一次中转地手续费</p>
-                </div>
-                <Toggle enabled={getBool('transit_location_fee_split_enabled')} onToggle={() => toggleSetting('transit_location_fee_split_enabled')} color="bg-blue-600" />
-              </div>
 
               {/* Official Pool Pre-Shipment Settings */}
               {(() => {
