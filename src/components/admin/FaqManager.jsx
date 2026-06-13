@@ -7,15 +7,15 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Save, HelpCircle, ExternalLink, Settings } from "lucide-react";
+import { Save, HelpCircle, ExternalLink, Settings, ChevronDown, ChevronUp } from "lucide-react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 
 const DEFAULT_FAQ = {
   unified: true,
-  guest:  { visible: true, title: "常见问题", selected_category_ids: [], display_limit: 6 },
-  user:   { visible: true, title: "常见问题", selected_category_ids: [], display_limit: 6 },
-  admin:  { visible: false, title: "常见问题", selected_category_ids: [], display_limit: 6 },
+  guest:  { visible: true, title: "常见问题", select_mode: "category", selected_category_ids: [], selected_item_ids: [], display_limit: 6 },
+  user:   { visible: true, title: "常见问题", select_mode: "category", selected_category_ids: [], selected_item_ids: [], display_limit: 6 },
+  admin:  { visible: false, title: "常见问题", select_mode: "category", selected_category_ids: [], selected_item_ids: [], display_limit: 6 },
 };
 
 const AUDIENCE_TABS = [
@@ -26,25 +26,45 @@ const AUDIENCE_TABS = [
 
 function migrateConfig(raw) {
   if (!raw) return DEFAULT_FAQ;
-  const base = {
+  const migrateAud = (def, src) => ({
+    ...def,
+    ...src,
+    select_mode: src?.select_mode || "category",
+    selected_item_ids: src?.selected_item_ids || [],
+  });
+  return {
     unified: raw.unified ?? true,
-    guest: { ...DEFAULT_FAQ.guest, ...(raw.guest || {}) },
-    user:  { ...DEFAULT_FAQ.user,  ...(raw.user  || {}) },
-    admin: { ...DEFAULT_FAQ.admin, ...(raw.admin || {}) },
+    guest: migrateAud(DEFAULT_FAQ.guest, raw.guest),
+    user:  migrateAud(DEFAULT_FAQ.user,  raw.user),
+    admin: migrateAud(DEFAULT_FAQ.admin, raw.admin),
   };
-  return base;
 }
 
 function AudiencePanel({ form, onChange, categories }) {
+  const [expandedCats, setExpandedCats] = useState({});
   const f = (k, v) => onChange({ ...form, [k]: v });
 
+  const selectMode = form.select_mode || "category";
+
+  // Category mode
   const toggleCategory = (id) => {
     const ids = form.selected_category_ids || [];
-    const next = ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id];
-    f("selected_category_ids", next);
+    f("selected_category_ids", ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]);
   };
 
-  const selectedIds = form.selected_category_ids || [];
+  // Item mode
+  const toggleItem = (itemId) => {
+    const ids = form.selected_item_ids || [];
+    f("selected_item_ids", ids.includes(itemId) ? ids.filter(x => x !== itemId) : [...ids, itemId]);
+  };
+
+  const toggleCatExpand = (catId) => setExpandedCats(prev => ({ ...prev, [catId]: !prev[catId] }));
+
+  const selectedCatIds = form.selected_category_ids || [];
+  const selectedItemIds = form.selected_item_ids || [];
+
+  // All items across all categories (for item mode)
+  const allItems = categories.flatMap(cat => (cat.items || []).map(item => ({ ...item, _catId: cat.id, _catTitle: cat.title, _catIcon: cat.icon })));
 
   return (
     <div className="space-y-4">
@@ -69,31 +89,98 @@ function AudiencePanel({ form, onChange, categories }) {
             </div>
           </div>
 
-          <div>
-            <Label className="text-xs text-gray-500 block mb-2">选择展示的问答分类</Label>
-            {categories.length === 0 ? (
-              <div className="text-xs text-gray-400 border border-dashed border-gray-200 rounded-lg px-3 py-3 text-center">
-                尚无问答分类，请先前往「帮助中心管理」创建
-              </div>
-            ) : (
+          {/* Mode toggle */}
+          <div className="flex gap-1 bg-gray-100 rounded-lg p-0.5 w-fit">
+            <button
+              onClick={() => f("select_mode", "category")}
+              className={`px-3 py-1 text-xs rounded-md transition-colors ${selectMode === "category" ? "bg-white text-teal-700 font-medium shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+            >
+              按分类选择
+            </button>
+            <button
+              onClick={() => f("select_mode", "item")}
+              className={`px-3 py-1 text-xs rounded-md transition-colors ${selectMode === "item" ? "bg-white text-teal-700 font-medium shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+            >
+              精选问题
+            </button>
+          </div>
+
+          {categories.length === 0 ? (
+            <div className="text-xs text-gray-400 border border-dashed border-gray-200 rounded-lg px-3 py-3 text-center">
+              尚无问答分类，请先前往「帮助中心管理」创建
+            </div>
+          ) : selectMode === "category" ? (
+            <div>
+              <Label className="text-xs text-gray-500 block mb-2">选择展示的问答分类</Label>
               <div className="space-y-1.5">
                 {categories.map(cat => (
                   <div key={cat.id}
                     className={`flex items-center justify-between px-3 py-2 rounded-lg border cursor-pointer transition-colors ${
-                      selectedIds.includes(cat.id) ? "border-teal-300 bg-teal-50" : "border-gray-200 hover:border-gray-300"
+                      selectedCatIds.includes(cat.id) ? "border-teal-300 bg-teal-50" : "border-gray-200 hover:border-gray-300"
                     }`}
                     onClick={() => toggleCategory(cat.id)}
                   >
                     <div className="flex items-center gap-2">
-                      <Checkbox checked={selectedIds.includes(cat.id)} onCheckedChange={() => toggleCategory(cat.id)} />
+                      <Checkbox checked={selectedCatIds.includes(cat.id)} onCheckedChange={() => toggleCategory(cat.id)} />
                       <span className="text-sm">{cat.icon && <span className="mr-1">{cat.icon}</span>}{cat.title}</span>
                     </div>
                     <Badge variant="outline" className="text-xs">{(cat.items || []).length} 条</Badge>
                   </div>
                 ))}
               </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div>
+              <Label className="text-xs text-gray-500 block mb-2">
+                精选问题
+                {selectedItemIds.length > 0 && <span className="ml-1.5 text-teal-600 font-medium">已选 {selectedItemIds.length} 条</span>}
+              </Label>
+              <div className="space-y-1.5">
+                {categories.map(cat => {
+                  const items = cat.items || [];
+                  if (items.length === 0) return null;
+                  const expanded = expandedCats[cat.id] !== false; // default expanded
+                  const catSelectedCount = items.filter(it => selectedItemIds.includes(it._id)).length;
+                  return (
+                    <div key={cat.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                      <div
+                        className="flex items-center justify-between px-3 py-2 bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors"
+                        onClick={() => toggleCatExpand(cat.id)}
+                      >
+                        <span className="text-xs font-medium text-gray-700">
+                          {cat.icon && <span className="mr-1">{cat.icon}</span>}{cat.title}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          {catSelectedCount > 0 && <Badge className="bg-teal-100 text-teal-700 text-xs border-0">{catSelectedCount} 已选</Badge>}
+                          {expanded ? <ChevronUp className="w-3.5 h-3.5 text-gray-400" /> : <ChevronDown className="w-3.5 h-3.5 text-gray-400" />}
+                        </div>
+                      </div>
+                      {expanded && (
+                        <div className="divide-y divide-gray-100">
+                          {items.map(item => (
+                            <div
+                              key={item._id}
+                              className={`flex items-start gap-2.5 px-3 py-2.5 cursor-pointer transition-colors ${
+                                selectedItemIds.includes(item._id) ? "bg-teal-50" : "bg-white hover:bg-gray-50"
+                              }`}
+                              onClick={() => toggleItem(item._id)}
+                            >
+                              <Checkbox
+                                className="mt-0.5 flex-shrink-0"
+                                checked={selectedItemIds.includes(item._id)}
+                                onCheckedChange={() => toggleItem(item._id)}
+                              />
+                              <span className="text-xs text-gray-700 leading-relaxed line-clamp-2">{item.question}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>

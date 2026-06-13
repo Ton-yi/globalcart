@@ -63,14 +63,20 @@ export default function FaqSection({ config, faqCategories, user }) {
   let displayItems = [];
   let categoryId = null;
 
-  if (cfg.selected_category_ids && faqCategories?.length) {
-    // New category-based mode
-    const selectedIds = cfg.selected_category_ids;
-    const selectedCats = (faqCategories || []).filter(c => selectedIds.includes(c.id));
-    displayItems = selectedCats.flatMap(c => (c.items || []).map(item => ({ ...item, _catId: c.id })));
-    // Limit display
-    const limit = cfg.display_limit || 6;
-    displayItems = displayItems.slice(0, limit);
+  const limit = cfg.display_limit || 6;
+  const allCatItems = (faqCategories || []).flatMap(c => (c.items || []).map(item => ({ ...item, _catId: c.id })));
+
+  if (cfg.select_mode === "item" && cfg.selected_item_ids?.length) {
+    // Item-level pick mode
+    const selectedIds = cfg.selected_item_ids;
+    displayItems = selectedIds
+      .map(id => allCatItems.find(it => it._id === id))
+      .filter(Boolean)
+      .slice(0, limit);
+  } else if (cfg.selected_category_ids?.length && faqCategories?.length) {
+    // Category-based mode
+    const selectedCats = faqCategories.filter(c => cfg.selected_category_ids.includes(c.id));
+    displayItems = selectedCats.flatMap(c => (c.items || []).map(item => ({ ...item, _catId: c.id }))).slice(0, limit);
   } else {
     // Legacy inline items
     displayItems = (cfg.items || []).filter(it => it.question);
