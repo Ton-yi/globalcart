@@ -4,7 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { tenantEntity } from "@/lib/tenantApi";
 import { setTenantConfigCache } from "@/lib/configCache";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { Settings, Save, Plus, Trash2, Star, Lock, Eye, EyeOff, Palette, TrendingUp, Zap, Users, ExternalLink, Bell, Mail, AlertCircle, Package } from "lucide-react";
+import { Settings, Save, Plus, Trash2, Star, Lock, Eye, EyeOff, Palette, Zap, Users, ExternalLink, Bell, Mail, AlertCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import ThemeSelector from "@/components/common/ThemeSelector";
@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+
 import ShippingMethodManager from "@/components/admin/ShippingMethodManager";
 import OnlineStoreTagManager from "@/components/admin/OnlineStoreTagManager";
 import TransitShippingMethodManager from "@/components/admin/TransitShippingMethodManager";
@@ -139,7 +139,7 @@ export default function AdminSettings() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
   const [showPayment, setShowPayment] = useState(false);
-  const [liveRates, setLiveRates] = useState(null);
+
   const [newAddon, setNewAddon] = useState({ name: "", description: "", fee: "", fee_currency: "JPY", addon_type: "order", is_user_customizable: false, min_fee: 0, max_fee: 0 });
   const [editingAddon, setEditingAddon] = useState(null);
   const [editAddonFields, setEditAddonFields] = useState({});
@@ -191,7 +191,7 @@ export default function AdminSettings() {
       setBoxTemplates(data.boxTemplates || []);
       setMemberTiers(data.memberTiers || []);
       setPaymentMethods(data.paymentMethods || []);
-      if (data.rates) setLiveRates(data.rates);
+
       setCountriesConfig(data.countriesConfig || null);
       const ccRecord = (data.settings || []).find(s => s.key === 'tenant_countries_config');
       setCountriesConfigId(ccRecord?.id || null);
@@ -419,22 +419,71 @@ export default function AdminSettings() {
       {activeTab === "order_management" && loading && <p className="text-gray-400 text-sm">加载中...</p>}
 
       {activeTab === "fee_rules" && (
-        <Card className="border-yellow-200">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-              <Zap className="w-4 h-4 text-yellow-500" />服务费规则引擎
-            </CardTitle>
-            <p className="text-xs text-gray-400 mt-1">设置灵活的服务费计算规则，支持固定比例、阶梯费率和高级公式。规则修改不影响历史订单。</p>
-          </CardHeader>
-          <CardContent>
-            <Link to={createPageUrl("AdminFeeRules")}>
-              <Button className="bg-yellow-600 hover:bg-yellow-700 w-full sm:w-auto">
-                <ExternalLink className="w-4 h-4 mr-2" />进入服务费规则中心
-              </Button>
-            </Link>
-            <p className="text-xs text-gray-400 mt-3">在规则中心可以创建多条规则、设置生效时间和优先级、使用高级公式，并在保存前进行实时测试预览。</p>
-          </CardContent>
-        </Card>
+        <div className="space-y-4">
+          {/* 兜底服务费设置（轻量用户简单配置） */}
+          <Card className="border-gray-200">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-semibold text-gray-700">默认服务费设置</CardTitle>
+                <Button size="sm" className="h-7 text-xs bg-gray-800 hover:bg-gray-700" onClick={handleSaveAll} disabled={saving}>
+                  <Save className="w-3 h-3 mr-1" />{saved ? "已保存 ✓" : saving ? "保存中..." : "保存"}
+                </Button>
+              </div>
+              <p className="text-xs text-gray-400 mt-1">作为兜底规则：当订单未命中任何服务费规则时使用此处设置。也适合不需要复杂规则的轻量场景。</p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {(() => {
+                const rateSetting = getSetting('service_fee_rate');
+                const fixedSetting = getSetting('default_order_fixed_fee_jpy');
+                return (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-xs text-gray-500 block mb-1">下单服务费率（%）</Label>
+                      <div className="flex items-center gap-1">
+                        <Input type="number" step="0.1" min="0" className="h-8 text-sm flex-1"
+                          value={rateSetting?.value || '10'}
+                          onChange={e => updateSetting(rateSetting?.id, e.target.value)} />
+                        <span className="text-xs text-gray-400 px-2">%</span>
+                      </div>
+                      <p className="text-xs text-gray-400 mt-1">基于商品货款金额的百分比</p>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-gray-500 block mb-1">下单固定手续费（JPY）</Label>
+                      <div className="flex items-center gap-1">
+                        <Input type="number" step="1" min="0" className="h-8 text-sm flex-1"
+                          value={fixedSetting?.value || '0'}
+                          onChange={e => updateSettingByKey('default_order_fixed_fee_jpy', e.target.value, '下单固定手续费（JPY）', 'fee')} />
+                        <span className="text-xs text-gray-400 px-2">JPY</span>
+                      </div>
+                      <p className="text-xs text-gray-400 mt-1">每笔订单额外收取的固定费用</p>
+                    </div>
+                  </div>
+                );
+              })()}
+              <div className="bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 text-xs text-gray-500">
+                最终服务费 = 货款 × 费率% + 固定手续费，再应用最低/封顶限制（如在规则中心配置）
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 高级规则引擎 */}
+          <Card className="border-yellow-200">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                <Zap className="w-4 h-4 text-yellow-500" />服务费规则引擎（高级）
+              </CardTitle>
+              <p className="text-xs text-gray-400 mt-1">支持按客户等级、下单网站、金额阶梯及自定义公式设置差异化服务费，优先级高于上方默认设置。</p>
+            </CardHeader>
+            <CardContent>
+              <Link to={createPageUrl("AdminFeeRules")}>
+                <Button className="bg-yellow-600 hover:bg-yellow-700 w-full sm:w-auto">
+                  <ExternalLink className="w-4 h-4 mr-2" />进入服务费规则中心
+                </Button>
+              </Link>
+              <p className="text-xs text-gray-400 mt-3">在规则中心可以创建多条规则、设置生效时间和优先级、使用高级公式，并在保存前进行实时测试预览。</p>
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       {activeTab === "payment_methods" && (
@@ -771,62 +820,22 @@ export default function AdminSettings() {
 
               {/* 拆单设置已移至「订单管理」tab 的拆单区块 */}
 
-              {/* Service & Prepay Rates (numeric inputs) */}
+              {/* Packing fees and other numeric fee settings (excluding service_fee_rate which is now in fee_rules tab) */}
               <div className="grid grid-cols-2 gap-3">
                 {(grouped.fee || [])
                   .filter(s => !s.key.includes("increment")
-                    && !['prepay_enabled', 'prepay_rate', 'pre_shipment_balance_surcharge_rate', 'deferred_payment_enabled', 'deferred_payment_surcharge_rate', 'transit_location_fee_split_enabled'].includes(s.key))
-                  .map(s => {
-                    const isPercent = s.key === 'service_fee_rate';
-                    return (
-                      <div key={s.id || s.key}>
-                        <Label className="text-xs text-gray-500 block mb-1">{s.description || s.key}</Label>
-                        <div className="flex items-center gap-1">
-                          <Input type="number" step="0.1" className="h-8 text-sm flex-1" value={s.value}
-                            {...(s.key === 'prepay_rate' ? { min: 1, max: 100 } : {})}
-                            onChange={e => updateSetting(s.id, e.target.value)} />
-                          <span className="text-xs text-gray-400 px-2">{isPercent ? '%' : 'JPY'}</span>
-                        </div>
-                        {s.key === 'prepay_rate' && (parseFloat(s.value) <= 0 || parseFloat(s.value) > 100) && (
-                          <p className="text-xs text-red-500 mt-0.5">有效范围 1–100，无效值将按 80% 处理</p>
-                        )}
+                    && !['service_fee_rate', 'default_order_fixed_fee_jpy', 'prepay_enabled', 'prepay_rate', 'pre_shipment_balance_surcharge_rate', 'deferred_payment_enabled', 'deferred_payment_surcharge_rate', 'transit_location_fee_split_enabled'].includes(s.key))
+                  .map(s => (
+                    <div key={s.id || s.key}>
+                      <Label className="text-xs text-gray-500 block mb-1">{s.description || s.key}</Label>
+                      <div className="flex items-center gap-1">
+                        <Input type="number" step="0.1" className="h-8 text-sm flex-1" value={s.value}
+                          onChange={e => updateSetting(s.id, e.target.value)} />
+                        <span className="text-xs text-gray-400 px-2">JPY</span>
                       </div>
-                    );
-                  })}
+                    </div>
+                  ))}
               </div>
-
-              {/* Exchange Rate Increments */}
-              {liveRates && (
-                <div className="border-t pt-3">
-                  <p className="text-xs font-medium text-gray-600 mb-3">实时汇率增量设置 (JPY) <span className="text-gray-400">仅平台级</span></p>
-                  <Alert className="mb-3 border-blue-200 bg-blue-50">
-                    <TrendingUp className="h-3 w-3 text-blue-600" />
-                    <AlertDescription className="text-xs text-blue-700 ml-1">
-                      此设置在平台管理页修改。基础汇率自动获取，可在平台设置中设定增量（正数=上浮，负数=下浮）
-                    </AlertDescription>
-                  </Alert>
-                  <div className="grid grid-cols-2 gap-3">
-                    {[
-                      { key: "jpy_usd_increment", label: "USD", live: liveRates.jpy_usd },
-                      { key: "jpy_cny_increment", label: "CNY", live: liveRates.jpy_cny }
-                    ].map(curr => {
-                      const s = (grouped.fee || []).find(s => s.key === curr.key);
-                      return s ? (
-                        <div key={curr.key}>
-                          <Label className="text-xs text-gray-500 block mb-1">
-                            {curr.label} <span className="text-gray-400">({(curr.live || 0).toFixed(6)})</span>
-                          </Label>
-                          <div className="flex items-center gap-1">
-                            <Input type="number" step="0.00001" className="h-8 text-sm flex-1" value={s.value}
-                              onChange={e => updateSetting(s.id, e.target.value)} placeholder="0" />
-                            <span className="text-xs text-gray-400 px-2">Δ</span>
-                          </div>
-                        </div>
-                      ) : null;
-                    })}
-                  </div>
-                </div>
-              )}
             </CardContent>
           </Card>
 

@@ -65,10 +65,6 @@ export default function ShipWithoutPaymentSettings({ settings, onReload }) {
     return raw !== undefined && raw !== null ? raw : '500';
   });
 
-  const [rewarehouseFeeInput, setRewarehouseFeeInput] = useState(() => {
-    return get('default_rewarehouse_fee_jpy')?.value || '0';
-  });
-
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -91,15 +87,6 @@ export default function ShipWithoutPaymentSettings({ settings, onReload }) {
       tolSetting?.id
         ? tenantEntity.update('SiteSettings', tolSetting.id, { value: tolValue })
         : tenantEntity.create('SiteSettings', { key: 'fullpay_once_tolerance_jpy', value: tolValue, description: DESCRIPTIONS.fullpay_once_tolerance_jpy, category: 'shipping' })
-    );
-
-    // Save rewarehouse default fee
-    const rwFeeSetting = get('default_rewarehouse_fee_jpy');
-    const rwFeeValue = String(parseInt(rewarehouseFeeInput, 10) || 0);
-    ops.push(
-      rwFeeSetting?.id
-        ? tenantEntity.update('SiteSettings', rwFeeSetting.id, { value: rwFeeValue })
-        : tenantEntity.create('SiteSettings', { key: 'default_rewarehouse_fee_jpy', value: rwFeeValue, description: '再入库默认处理费用（JPY）', category: 'shipping' })
     );
 
     await Promise.all(ops);
@@ -219,17 +206,7 @@ export default function ShipWithoutPaymentSettings({ settings, onReload }) {
             </div>
             <Toggle enabled={values[REWAREHOUSE_KEY]} onToggle={() => toggle(REWAREHOUSE_KEY)} color="bg-orange-500" />
           </div>
-          {values[REWAREHOUSE_KEY] && (
-            <div>
-              <Label className="text-xs text-gray-500">默认再处理费用 (JPY)（管理员审批时可覆盖）</Label>
-              <div className="flex items-center gap-2 mt-1">
-                <Input type="text" inputMode="decimal" className="h-8 text-sm w-36" placeholder="0"
-                  value={rewarehouseFeeInput} onChange={e => setRewarehouseFeeInput(e.target.value)} />
-                <span className="text-xs text-gray-400">JPY</span>
-              </div>
-              <p className="text-xs text-gray-400 mt-1">此费用将在管理员同意申请后写入订单，下次提交发货时自动计入运费明细</p>
-            </div>
-          )}
+
         </CardContent>
       </Card>
 
