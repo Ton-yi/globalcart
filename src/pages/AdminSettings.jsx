@@ -38,6 +38,7 @@ import ShipWithoutPaymentSettings from "@/components/admin/ShipWithoutPaymentSet
 import OfficialPoolSettings from "@/components/admin/OfficialPoolSettings";
 import PaymentTimeoutSettings from "@/components/admin/PaymentTimeoutSettings";
 import AutoArchiveSettings from "@/components/admin/AutoArchiveSettings";
+import NotificationTextSettings from "@/components/admin/NotificationTextSettings";
 import QuickActionsManager from "@/components/admin/QuickActionsManager";
 import LogisticsStatusBoardManager from "@/components/admin/LogisticsStatusBoardManager";
 import HeroSectionManager from "@/components/admin/HeroSectionManager";
@@ -812,6 +813,8 @@ export default function AdminSettings() {
           </Card>
 
           <GoogleSheetsSettingsManager onReload={load} />
+
+          {!loading && <NotificationTextSettings settings={settings} onReload={load} />}
 
           <Card className="border-cyan-200">
             <CardHeader className="pb-3">
