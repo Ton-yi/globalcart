@@ -15,12 +15,13 @@ const AUDIENCE_TABS = [
 ];
 
 const DEFAULT_SECTION = {
+  _id: "default-section",
   heading: "代购流程",
   steps: [
-    { title: "提交购买需求", desc: "填写商品链接、数量，系统自动估算预付款" },
-    { title: "确认付款",     desc: "选择支付方式完成预付款，管理员审核确认" },
-    { title: "采购进行中",   desc: "我们在日本为您采购商品，实时更新状态" },
-    { title: "提交发货需求", desc: "填写收货地址，选运输方式，余额自动抵扣运费" },
+    { _id: "ds-1", title: "提交购买需求", desc: "填写商品链接、数量，系统自动估算预付款" },
+    { _id: "ds-2", title: "确认付款",     desc: "选择支付方式完成预付款，管理员审核确认" },
+    { _id: "ds-3", title: "采购进行中",   desc: "我们在日本为您采购商品，实时更新状态" },
+    { _id: "ds-4", title: "提交发货需求", desc: "填写收货地址，选运输方式，余额自动抵扣运费" },
   ],
 };
 
@@ -291,8 +292,6 @@ export default function StepsSectionManager({ settings, onReload }) {
 
   const handleSave = async () => {
     setSaving(true);
-    // Deep-clone guest sections to avoid shared reference pollution between user/admin copies
-    const cloneAudience = (a) => ({ ...a, sections: a.sections.map(s => ({ ...s, steps: s.steps.map(st => ({ ...st })) })) });
     const saveForm = form.unified
       ? { ...form, user: cloneAudience(form.guest), admin: cloneAudience(form.guest) }
       : form;
@@ -309,9 +308,14 @@ export default function StepsSectionManager({ settings, onReload }) {
     setTimeout(() => setSaved(false), 2000);
   };
 
+  const cloneAudience = (a) => ({
+    ...a,
+    sections: (a.sections || []).map(s => ({ ...s, steps: (s.steps || []).map(st => ({ ...st })) })),
+  });
+
   const toggleUnified = (checked) => {
     if (checked) {
-      setForm(prev => ({ ...prev, unified: true, user: { ...prev.guest }, admin: { ...prev.guest } }));
+      setForm(prev => ({ ...prev, unified: true, user: cloneAudience(prev.guest), admin: cloneAudience(prev.guest) }));
     } else {
       setForm(prev => ({ ...prev, unified: false }));
     }
@@ -333,11 +337,11 @@ export default function StepsSectionManager({ settings, onReload }) {
         </div>
         <p className="text-xs text-gray-400 mt-1">为不同受众配置代购流程区块，支持多区块、增删卡片、调整顺序。</p>
 
-        <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-100">
-          <Checkbox id="steps-unified" checked={!!form.unified} onCheckedChange={toggleUnified} />
-          <label htmlFor="steps-unified" className="text-xs text-gray-600 cursor-pointer select-none">
+        <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-100 cursor-pointer" onClick={() => toggleUnified(!form.unified)}>
+          <Checkbox checked={!!form.unified} onCheckedChange={toggleUnified} />
+          <span className="text-xs text-gray-600 select-none">
             所有用户显示同一套配置（不区分登录状态与角色）
-          </label>
+          </span>
         </div>
       </CardHeader>
 
