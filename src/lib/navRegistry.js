@@ -4,7 +4,7 @@
  */
 import {
   Home, ShoppingBag, UserPlus, Package, Send, User,
-  BarChart3, Layers, Users, Settings, Bell, Zap, FileText, Navigation, Crown,
+  BarChart3, Layers, Users, Settings, Bell, Zap, FileText, Navigation, Crown, HelpCircle, MessageCircleQuestion,
 } from "lucide-react";
 
 export const NAV_REGISTRY = {
@@ -17,6 +17,8 @@ export const NAV_REGISTRY = {
     ShippingPool: { label: "发货 & 拼邮", icon: Send, page: "ShippingPool" },
     Profile: { label: "个人档案", icon: User, page: "AdminUserDetail/me" },
     MemberTiers: { label: "会员阶级", icon: Crown, page: "MemberTiers" },
+    HelpCenter: { label: "帮助中心", icon: HelpCircle, page: "helpcenter", activePage: "HelpCenter" },
+    HelpCenterFaq: { label: "常见问题", icon: MessageCircleQuestion, page: "helpcenter/faq", activePage: "HelpCenterFaq" },
   },
   admin: {
     AdminDashboard: { label: "管理总览", icon: BarChart3, page: "AdminDashboard" },
@@ -42,6 +44,7 @@ export const DEFAULT_NAV_TREES = {
     { key: "MyOrders" },
     { key: "ShippingPool" },
     { key: "Profile", children: [{ key: "MemberTiers" }] },
+    { key: "HelpCenter", hidden: true, children: [{ key: "HelpCenterFaq" }] },
   ],
   admin: [
     { key: "AdminDashboard" },
@@ -129,6 +132,7 @@ export function buildNav(tree, group, { access = {}, labelOverrides = {} } = {})
         label: n.label || labelOverrides[n.key] || reg.label,
         icon: reg.icon,
         page: reg.page,
+        activePage: reg.activePage || reg.page,
         children: walk(n.children, depth + 1),
       };
     });
@@ -136,5 +140,5 @@ export function buildNav(tree, group, { access = {}, labelOverrides = {} } = {})
 }
 
 export function navTreeHasPage(nodes, pageName) {
-  return (nodes || []).some(n => n.page === pageName || navTreeHasPage(n.children, pageName));
+  return (nodes || []).some(n => (n.activePage || n.page) === pageName || navTreeHasPage(n.children, pageName));
 }

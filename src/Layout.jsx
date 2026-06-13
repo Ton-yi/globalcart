@@ -162,7 +162,7 @@ export default function Layout({ children, currentPageName }) {
           <nav className="hidden md:flex items-center gap-1">
             {navItems.map((item) => {
               const hasChildren = item.children && item.children.length > 0;
-              const isActive = currentPageName === item.page || (hasChildren && navTreeHasPage(item.children, currentPageName));
+              const isActive = currentPageName === (item.activePage || item.page) || (hasChildren && navTreeHasPage(item.children, currentPageName));
               if (hasChildren) {
                 return (
                   <div key={item.key} className="relative group">
@@ -178,7 +178,7 @@ export default function Layout({ children, currentPageName }) {
                       <div className="bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[150px]">
                         {item.children.map((child) => {
                           const hasGrand = child.children && child.children.length > 0;
-                          const childActive = currentPageName === child.page || (hasGrand && navTreeHasPage(child.children, currentPageName));
+                          const childActive = currentPageName === (child.activePage || child.page) || (hasGrand && navTreeHasPage(child.children, currentPageName));
                           return (
                             <div key={child.key} className="relative group/sub">
                               <Link to={createPageUrl(child.page)}
@@ -195,7 +195,7 @@ export default function Layout({ children, currentPageName }) {
                                     {child.children.map((grand) => (
                                       <Link key={grand.key} to={createPageUrl(grand.page)}
                                         className={`flex items-center gap-2 px-3 py-2 text-sm transition-colors whitespace-nowrap ${
-                                          currentPageName === grand.page ? "bg-gray-50 text-gray-900 font-medium" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                                          currentPageName === (grand.activePage || grand.page) ? "bg-gray-50 text-gray-900 font-medium" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                                         }`}>
                                         <grand.icon className="w-3.5 h-3.5" />
                                         {grand.label}
@@ -260,7 +260,7 @@ export default function Layout({ children, currentPageName }) {
               <div key={item.key}>
                 <Link to={createPageUrl(item.page)} onClick={() => setMobileOpen(false)}
                   className={`flex items-center gap-2 px-3 py-2 rounded text-sm ${
-                    currentPageName === item.page ? "bg-gray-100 font-medium" : "text-gray-600"
+                    currentPageName === (item.activePage || item.page) ? "bg-gray-100 font-medium" : "text-gray-600"
                   }`}>
                   <item.icon className="w-4 h-4" />
                   {item.label}
@@ -271,7 +271,7 @@ export default function Layout({ children, currentPageName }) {
                       <div key={child.key}>
                         <Link to={createPageUrl(child.page)} onClick={() => setMobileOpen(false)}
                           className={`flex items-center gap-2 px-3 py-1.5 rounded text-sm ${
-                            currentPageName === child.page ? "bg-gray-100 font-medium" : "text-gray-500"
+                            currentPageName === (child.activePage || child.page) ? "bg-gray-100 font-medium" : "text-gray-500"
                           }`}>
                           <child.icon className="w-3.5 h-3.5" />
                           {child.label}
@@ -279,7 +279,7 @@ export default function Layout({ children, currentPageName }) {
                         {(child.children || []).map((grand) => (
                           <Link key={grand.key} to={createPageUrl(grand.page)} onClick={() => setMobileOpen(false)}
                             className={`flex items-center gap-2 ml-6 px-3 py-1.5 rounded text-sm ${
-                              currentPageName === grand.page ? "bg-gray-100 font-medium" : "text-gray-500"
+                              currentPageName === (grand.activePage || grand.page) ? "bg-gray-100 font-medium" : "text-gray-500"
                             }`}>
                             <grand.icon className="w-3 h-3" />
                             {grand.label}
