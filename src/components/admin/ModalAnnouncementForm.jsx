@@ -1,8 +1,7 @@
 import { useState, useRef, useCallback } from "react";
-import { X, Upload, Image as ImageIcon, Loader2 } from "lucide-react";
+import { X, Image as ImageIcon, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -18,98 +17,100 @@ const EMPTY_FORM = {
   display_position: "modal", image_urls: [],
 };
 
-function ImageDropZone({ images, onChange }) {
-  const [dragging, setDragging] = useState(false);
+// 内容输入框 + 图片上传集成
+function ContentEditor({ value, onChange, onImageUrlsChange }) {
   const [uploading, setUploading] = useState(false);
-  const inputRef = useRef();
+  const [dragging, setDragging] = useState(false);
+  const textareaRef = useRef();
+  const fileInputRef = useRef();
 
-  const uploadFile = async (file) => {
+  // 在光标位置插入文本
+  const insertAtCursor = (text) => {
+    const el = textareaRef.current;
+    if (!el) return;
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    const newVal = value.slice(0, start) + text + value.slice(end);
+    onChange(newVal);
+    // 恢复光标
+    requestAnimationFrame(() => {
+      el.selectionStart = el.selectionEnd = start + text.length;
+      el.focus();
+    });
+  };
+
+  const uploadAndInsert = async (file) => {
     if (!file.type.startsWith("image/")) return;
     setUploading(true);
     const { file_url } = await base44.integrations.Core.UploadFile({ file });
-    onChange(prev => [...prev, file_url]);
+    insertAtCursor(`![图片](${file_url})`);
+    onImageUrlsChange(prev => [...prev, file_url]);
     setUploading(false);
   };
+
+  const handlePaste = useCallback(async (e) => {
+    const items = Array.from(e.clipboardData.items);
+    const imageItem = items.find(i => i.type.startsWith("image/"));
+    if (imageItem) {
+      e.preventDefault();
+      const file = imageItem.getAsFile();
+      if (file) await uploadAndInsert(file);
+    }
+  }, [value]);
 
   const handleDrop = useCallback(async (e) => {
     e.preventDefault();
     setDragging(false);
     const files = Array.from(e.dataTransfer.files);
-    for (const f of files) await uploadFile(f);
-  }, []);
-
-  const handlePaste = useCallback(async (e) => {
-    const items = Array.from(e.clipboardData.items);
-    for (const item of items) {
-      if (item.type.startsWith("image/")) {
-        const file = item.getAsFile();
-        if (file) await uploadFile(file);
-      }
-    }
-  }, []);
+    for (const f of files) await uploadAndInsert(f);
+  }, [value]);
 
   const handleFileInput = async (e) => {
     const files = Array.from(e.target.files);
-    for (const f of files) await uploadFile(f);
+    for (const f of files) await uploadAndInsert(f);
     e.target.value = "";
   };
 
-  const removeImage = (idx) => {
-    onChange(prev => prev.filter((_, i) => i !== idx));
-  };
-
   return (
-    <div
-      className={`border-2 border-dashed rounded-lg p-4 transition-colors ${dragging ? "border-blue-400 bg-blue-50" : "border-gray-200"}`}
+    <div className={`border rounded-lg overflow-hidden transition-colors ${dragging ? "border-blue-400 ring-2 ring-blue-200" : "border-input"}`}
       onDrop={handleDrop}
       onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
       onDragLeave={() => setDragging(false)}
-      onPaste={handlePaste}
-      tabIndex={0}
     >
-      {/* Image previews */}
-      {images.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-3">
-          {images.map((url, idx) => (
-            <div key={idx} className="relative group w-24 h-24 rounded-lg overflow-hidden border border-gray-200">
-              <img src={url} alt="" className="w-full h-full object-cover" />
-              <button
-                onClick={() => removeImage(idx)}
-                className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            </div>
-          ))}
+      {/* Toolbar */}
+      <div className="flex items-center gap-1 px-2 py-1.5 bg-gray-50 border-b border-gray-200">
+        <span className="text-xs text-gray-400 mr-1">支持 Markdown</span>
+        <div className="flex-1" />
+        <button
+          type="button"
+          title="上传图片（将插入 Markdown 图片语法）"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading}
+          className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:bg-gray-200 rounded transition-colors disabled:opacity-50"
+        >
+          {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ImageIcon className="w-3.5 h-3.5" />}
+          {uploading ? "上传中..." : "插入图片"}
+        </button>
+        <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFileInput} />
+      </div>
+
+      {/* Textarea */}
+      <textarea
+        ref={textareaRef}
+        rows={6}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        onPaste={handlePaste}
+        placeholder={"支持 **加粗**、*斜体*、[链接](url) 等 Markdown 语法\n可直接粘贴截图或拖拽图片到此处自动上传插入"}
+        className="w-full px-3 py-2 text-sm font-mono bg-white resize-y outline-none min-h-[140px]"
+      />
+
+      {/* Drag hint */}
+      {dragging && (
+        <div className="absolute inset-0 flex items-center justify-center bg-blue-50/80 rounded-lg pointer-events-none">
+          <p className="text-blue-600 font-medium text-sm">松开以上传图片</p>
         </div>
       )}
-
-      <div className="flex flex-col items-center gap-2 py-2 text-gray-400">
-        {uploading ? (
-          <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
-        ) : (
-          <ImageIcon className="w-6 h-6" />
-        )}
-        <p className="text-xs text-center">拖拽图片到此处 · 粘贴截图 · 或点击上传</p>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="text-xs h-7"
-          onClick={() => inputRef.current?.click()}
-          disabled={uploading}
-        >
-          <Upload className="w-3 h-3 mr-1" />选择图片
-        </Button>
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/*"
-          multiple
-          className="hidden"
-          onChange={handleFileInput}
-        />
-      </div>
     </div>
   );
 }
@@ -139,9 +140,16 @@ export default function ModalAnnouncementForm({ editing, onSave, onCancel, savin
             <Label className="text-sm">标题 *</Label>
             <Input className="mt-1" value={form.title} onChange={e => f("title", e.target.value)} />
           </div>
+
           <div className="col-span-2">
-            <Label className="text-sm">内容（支持 Markdown，含图片语法）</Label>
-            <Textarea rows={4} className="mt-1 font-mono text-sm" value={form.content} onChange={e => f("content", e.target.value)} placeholder="支持 **加粗**、*斜体*、[链接](url)、![图片](url) 等 Markdown 语法" />
+            <Label className="text-sm">内容 *</Label>
+            <div className="mt-1 relative">
+              <ContentEditor
+                value={form.content}
+                onChange={v => f("content", v)}
+                onImageUrlsChange={(updater) => setForm(p => ({ ...p, image_urls: typeof updater === "function" ? updater(p.image_urls) : updater }))}
+              />
+            </div>
           </div>
 
           <div>
@@ -165,18 +173,6 @@ export default function ModalAnnouncementForm({ editing, onSave, onCancel, savin
           </div>
         </div>
 
-        {/* Image uploader */}
-        <div>
-          <Label className="text-sm">弹窗图片（可拖拽/粘贴/上传，将在弹窗中展示）</Label>
-          <div className="mt-1">
-            <ImageDropZone
-              images={form.image_urls}
-              onChange={(updater) => setForm(p => ({ ...p, image_urls: typeof updater === "function" ? updater(p.image_urls) : updater }))}
-            />
-          </div>
-        </div>
-
-        {/* Flags */}
         <div className="flex items-center gap-6">
           <label className="flex items-center gap-2 cursor-pointer">
             <Checkbox checked={form.is_active} onCheckedChange={v => f("is_active", !!v)} />
