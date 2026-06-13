@@ -83,6 +83,7 @@ export default function PreShipmentForm() {
   const [preShipmentEnabled, setPreShipmentEnabled] = useState(true);
   const [fullpayOnceFeatureEnabled, setFullpayOnceFeatureEnabled] = useState(false);
   const [allowedMethodCodes, setAllowedMethodCodes] = useState([]);
+  const [preShipmentSubmittedReminder, setPreShipmentSubmittedReminder] = useState("");
 
   // Payment after submit (direct to payment page if needed)
   const [paymentMethod, setPaymentMethod] = useState("");
@@ -107,6 +108,9 @@ export default function PreShipmentForm() {
         if (tenantSettings['pre_shipment_enabled'] === 'false') setPreShipmentEnabled(false);
         // fullpay_once_enabled defaults to false — only enabled when explicitly set to 'true'
         setFullpayOnceFeatureEnabled(tenantSettings['fullpay_once_enabled'] === 'true');
+        if (tenantSettings['pre_shipment_submitted_reminder']) {
+          setPreShipmentSubmittedReminder(tenantSettings['pre_shipment_submitted_reminder']);
+        }
         const allowedRaw = tenantSettings['pre_shipment_allowed_methods'] || '';
         setAllowedMethodCodes(allowedRaw.split(',').map(x => x.trim()).filter(Boolean));
         // New array-style global rates
@@ -588,7 +592,7 @@ export default function PreShipmentForm() {
           </div>
           <h2 className="text-xl font-bold text-gray-900 mb-2">预出货信息已保存</h2>
           <p className="text-sm text-gray-500 max-w-sm mx-auto">
-            订单入库后，系统将自动按照您填写的信息生成发货申请，无需再手动操作。
+            {preShipmentSubmittedReminder || "订单入库后，系统将自动按照您填写的信息生成发货申请，无需再手动操作。"}
           </p>
         </div>
 

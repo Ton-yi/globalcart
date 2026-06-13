@@ -8,11 +8,17 @@ import { useState } from "react";
 import { tenantEntity } from "@/lib/tenantApi";
 
 // 所有可自定义的提醒文案字段定义
+// 已确认实际使用位置：
+//  paid_order_reminder        → OrderDetailDrawer（付款成功后展示）
+//  pre_shipment_submitted_reminder → PreShipmentForm（提交成功页）
+//  payment_pending_reminder   → Payment 页（待付款提示横幅）
+//  shipped_reminder           → OrderDetailDrawer / 发货详情（已发货状态提示）
+//  contact_us_text            → 首页 / 帮助中心联系区块
 export const NOTIFICATION_TEXT_FIELDS = [
   {
     key: "paid_order_reminder",
     label: "感谢付款提示",
-    description: "用户完成付款后在支付页面显示的提示文字",
+    description: "用户完成付款后，在订单详情页展示的提示文字",
     placeholder: "感谢付款！我们会尽快开始处理您的订单。",
     type: "input",
     category: "general",
@@ -20,23 +26,15 @@ export const NOTIFICATION_TEXT_FIELDS = [
   {
     key: "pre_shipment_submitted_reminder",
     label: "已提交发货申请提示",
-    description: "用户提交发货申请成功后显示的提示文字",
-    placeholder: "发货申请已提交，我们将尽快处理并通知您。",
-    type: "input",
-    category: "general",
-  },
-  {
-    key: "order_submitted_reminder",
-    label: "订单提交成功提示",
-    description: "用户提交订单后在页面显示的提示文字",
-    placeholder: "订单已提交，请按提示完成付款。",
+    description: "用户在「预出货信息」页提交成功后显示的副标题提示文字",
+    placeholder: "订单入库后，系统将自动按照您填写的信息生成发货申请，无需再手动操作。",
     type: "input",
     category: "general",
   },
   {
     key: "payment_pending_reminder",
-    label: "待付款提示",
-    description: "订单进入待付款状态时的页面提示文字",
+    label: "待付款页面提示",
+    description: "付款页面顶部显示的提示文字（留空使用系统默认）",
     placeholder: "请在付款截止日期前完成支付，以免订单被取消。",
     type: "input",
     category: "general",
@@ -44,7 +42,7 @@ export const NOTIFICATION_TEXT_FIELDS = [
   {
     key: "shipped_reminder",
     label: "已发货提示",
-    description: "订单发货后在用户订单页面显示的提示文字",
+    description: "订单状态变为已发货时，在订单详情页显示的提示文字",
     placeholder: "您的包裹已发出，请耐心等待收货。",
     type: "input",
     category: "general",
@@ -52,18 +50,10 @@ export const NOTIFICATION_TEXT_FIELDS = [
   {
     key: "contact_us_text",
     label: "联系我们提示文字",
-    description: "页面底部或帮助区域显示的联系提示文字",
+    description: "帮助中心/页面底部等区域显示的联系提示文字",
     placeholder: "如有疑问，请通过微信/Line/WhatsApp 联系我们。",
     type: "input",
     category: "general",
-  },
-  {
-    key: "alipay_payment_note",
-    label: "支付宝付款备注提示",
-    description: "用户通过支付宝付款时显示的备注要求",
-    placeholder: "请在付款备注中填写您的订单号",
-    type: "input",
-    category: "payment",
   },
 ];
 

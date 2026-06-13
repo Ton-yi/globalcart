@@ -113,6 +113,7 @@ const ADMIN_NAV = [
     { key: "general", label: "基本设置" },
     { key: "countries", label: "国家设置" },
     { key: "notifications", label: "通知设置" },
+    { key: "reminder_texts", label: "提醒文案" },
     { key: "theme", label: "界面主题" },
   ]},
   { group: "订单管理", children: [
@@ -814,8 +815,6 @@ export default function AdminSettings() {
 
           <GoogleSheetsSettingsManager onReload={load} />
 
-          {!loading && <NotificationTextSettings settings={settings} onReload={load} />}
-
           <Card className="border-cyan-200">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
@@ -829,6 +828,11 @@ export default function AdminSettings() {
           </Card>
         </div>
       )}
+
+      {activeTab === "reminder_texts" && !loading && (
+        <NotificationTextSettings settings={settings} onReload={load} />
+      )}
+      {activeTab === "reminder_texts" && loading && <p className="text-gray-400 text-sm">加载中...</p>}
 
       {activeTab === "theme" && (
         <Card className="border-gray-200">
