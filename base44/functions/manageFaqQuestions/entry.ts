@@ -29,18 +29,66 @@ Deno.serve(async (req) => {
       const settings = await base44.asServiceRole.entities.SiteSettings.filter({
         tenant_id: tenantId, key: 'faq_allow_user_questions'
       });
-      const allowed = settings?.[0]?.value === 'true';
-      return Response.json({ allowed });
+      const globalAllowed = settings?.[0]?.value === 'true';
+
+      // Check role-based permission for non-admins
+      let roleAllowed = true;
+      if (!isAdmin && globalAllowed) {
+        const userRecord = userRecords[0];
+        const userRoleIds = userRecord.role_ids || [];
+        if (userRoleIds.length > 0) {
+          const roleRecords = await base44.asServiceRole.entities.Role.filter({ tenant_id: tenantId });
+          const userRoles = (roleRecords || []).filter(r => userRoleIds.includes(r.id));
+          const allPerms = userRoles.flatMap(r => r.permissions || []);
+          const explicitDeny = allPerms.some(p =>
+            p === 'block_faq:ask_question' || p === 'block_faq:*'
+          );
+          if (explicitDeny) roleAllowed = false;
+        }
+      }
+
+      return Response.json({ allowed: globalAllowed && roleAllowed });
     }
 
     // --- submit ---
     if (action === 'submit') {
-      // Check setting
+      // Check global setting
       const settings = await base44.asServiceRole.entities.SiteSettings.filter({
         tenant_id: tenantId, key: 'faq_allow_user_questions'
       });
       if (settings?.[0]?.value !== 'true') {
         return Response.json({ error: 'User questions not enabled' }, { status: 403 });
+      }
+
+      // Check role-based permission: faq:ask_question
+      // Admins always allowed; regular users need the permission granted (or not explicitly blocked)
+      if (!isAdmin) {
+        // Collect all role IDs assigned to this user
+        const userRecord = userRecords[0];
+        const userRoleIds = userRecord.role_ids || [];
+        let hasPermission = true; // default allow (permission is opt-in via role label, deny only if blocked)
+
+        if (userRoleIds.length > 0) {
+          const roleRecords = await base44.asServiceRole.entities.Role.filter({ tenant_id: tenantId });
+          const userRoles = (roleRecords || []).filter(r => userRoleIds.includes(r.id));
+
+          // Gather all permissions from user's roles
+          const allPerms = userRoles.flatMap(r => r.permissions || []);
+
+          // If any role explicitly has faq:ask_question = false (block), deny
+          // Convention: if a role has permissions list and faq:ask_question is listed as denied, block
+          // We use: if granted list is non-empty and faq:ask_question is absent AND any role has explicit deny -> deny
+          // Simpler: check for block_faq:ask_question pattern or explicit false entry
+          const explicitDeny = allPerms.some(p =>
+            p === 'block_faq:ask_question' ||
+            p === 'block_faq:*'
+          );
+          if (explicitDeny) hasPermission = false;
+        }
+
+        if (!hasPermission) {
+          return Response.json({ error: 'Permission denied: faq:ask_question' }, { status: 403 });
+        }
       }
 
       const { question, category_id, category_title } = data || {};

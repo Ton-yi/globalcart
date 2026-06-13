@@ -142,6 +142,17 @@ export const PERMISSIONS_PRESET = [
     ]
   },
   {
+    category: "常见问题",
+    color: "bg-teal-100 text-teal-700",
+    permissions: [
+      {
+        name: "faq:ask_question",
+        display_name: "可提问",
+        description: "可在帮助中心向管理员提交问题（仅在管理员开启「允许用户提问」后生效）"
+      }
+    ]
+  },
+  {
     category: "留言",
     color: "bg-purple-100 text-purple-700",
     permissions: [

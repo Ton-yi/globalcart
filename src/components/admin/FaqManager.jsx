@@ -192,11 +192,16 @@ export default function FaqManager({ settings, onReload }) {
           <Checkbox checked={!!form.unified} onCheckedChange={toggleUnified} />
           <span className="text-xs text-gray-600 select-none">所有用户显示同一套配置</span>
         </div>
-        <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-100 cursor-pointer"
+        <div className="flex items-start gap-2 mt-2 pt-2 border-t border-gray-100 cursor-pointer"
           onClick={() => setForm(prev => ({ ...prev, allow_user_questions: !prev.allow_user_questions }))}>
-          <Checkbox checked={!!form.allow_user_questions} onCheckedChange={v => setForm(prev => ({ ...prev, allow_user_questions: !!v }))} />
-          <MessageCirclePlus className="w-3.5 h-3.5 text-teal-500" />
-          <span className="text-xs text-gray-600 select-none">允许用户在帮助中心提问（用户提问后通知管理员）</span>
+          <Checkbox className="mt-0.5 flex-shrink-0" checked={!!form.allow_user_questions} onCheckedChange={v => setForm(prev => ({ ...prev, allow_user_questions: !!v }))} />
+          <div>
+            <div className="flex items-center gap-1.5">
+              <MessageCirclePlus className="w-3.5 h-3.5 text-teal-500" />
+              <span className="text-xs text-gray-600 select-none">允许用户在帮助中心提问（用户提问后通知管理员）</span>
+            </div>
+            <p className="text-xs text-gray-400 mt-0.5 select-none">可在角色标签中为特定角色添加「常见问题——可提问」权限进一步控制；或用阻断权限 <code className="bg-gray-100 px-1 rounded">block_faq:ask_question</code> 禁止特定角色提问。</p>
+          </div>
         </div>
       </CardHeader>
 
