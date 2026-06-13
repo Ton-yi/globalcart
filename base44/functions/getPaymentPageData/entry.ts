@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
     const body = await req.json();
-    const { order_id } = body;
+    const { order_id, payment_method_key } = body;
     console.log('[DIAG][getPaymentPageData] order_id requested:', order_id);
 
     if (!order_id) return Response.json({ error: 'Missing order_id' }, { status: 400 });
@@ -70,6 +70,15 @@ Deno.serve(async (req) => {
 
     // Sort payment methods by sort_order
     const sortedMethods = (paymentMethods || []).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+
+    // Helper: apply surcharge for a given payment method
+    const applySurcharge = (baseAmountJpy, method) => {
+      if (!method) return { surchargeJpy: 0, totalJpy: baseAmountJpy };
+      const rate = parseFloat(method.surcharge_rate || 0);
+      const fixed = parseFloat(method.surcharge_fixed_jpy || 0);
+      const surchargeJpy = Math.round(baseAmountJpy * rate / 100) + fixed;
+      return { surchargeJpy, totalJpy: baseAmountJpy + surchargeJpy };
+    };
 
     // Fetch exchange rates for currency conversion display
     const rates = await fetchRates();
@@ -129,10 +138,18 @@ Deno.serve(async (req) => {
       paymentBreakdown = { product_fee: 0, service_fee: 0, shipping_fee: 0, total: supplementAmount };
     }
 
+    // Calculate surcharge based on selected payment method
+    const selectedMethod = payment_method_key
+      ? sortedMethods.find(m => (m.provider_key || m.name) === payment_method_key)
+      : null;
+    const { surchargeJpy, totalJpy: paymentAmountWithSurcharge } = applySurcharge(paymentAmountJpy, selectedMethod);
+
     console.log('[DIAG][getPaymentPageData] One-time payment:', { 
       isFullPayOnce, 
       estimatedShippingFee, 
-      paymentAmountJpy, 
+      paymentAmountJpy,
+      surchargeJpy,
+      paymentAmountWithSurcharge,
       paymentBreakdown,
       orderPaymentStatus: order.payment_status,
       orderPaidAmount: order.paid_amount 
@@ -146,6 +163,8 @@ Deno.serve(async (req) => {
       isFullPayOnce,
       estimatedShippingFee,
       paymentAmountJpy,
+      surchargeJpy,
+      paymentAmountWithSurcharge,
       paymentBreakdown,
       isSupplement
     });

@@ -49,6 +49,16 @@
       "type": "string",
       "description": "\u5df2\u652f\u63f4\u652f\u4ed8\u65b9\u5f0f\u7684\u6807\u8bc6\u7b26\uff08\u5982 alipay\uff09\uff0c\u81ea\u5b9a\u4e49\u65b9\u5f0f\u4e3a\u7a7a"
     },
+    "surcharge_rate": {
+      "type": "number",
+      "default": 0,
+      "description": "\u652f\u4ed8\u670d\u52a1\u8d39\u6bd4\u4f8b (%)\uff0c\u5982\u586b 0.6 \u8868\u793a\u989d\u5916\u6536\u53d6 0.6% \u624b\u7eed\u8d39"
+    },
+    "surcharge_fixed_jpy": {
+      "type": "number",
+      "default": 0,
+      "description": "\u652f\u4ed8\u670d\u52a1\u56fa\u5b9a\u624b\u7eed\u8d39 (JPY)"
+    },
     "is_active": {
       "type": "boolean",
       "default": true,

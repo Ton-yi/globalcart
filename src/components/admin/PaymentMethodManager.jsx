@@ -29,6 +29,7 @@ const ALIPAY_KEY_FIELDS = [
 const EMPTY_MANUAL_FORM = {
   name: "", description: "", icon: "", color: "bg-gray-100 text-gray-700",
   image_url: "", payment_note: "", provider_key: "", payment_currency: "JPY",
+  surcharge_rate: 0, surcharge_fixed_jpy: 0,
 };
 
 // ── Alipay Keys inline form ────────────────────────────────────────────────
@@ -138,6 +139,11 @@ function MethodRow({ m, alipayKeySettings, alipayKeyIds, onEdit, onToggle, onDel
           {m.payment_currency && m.payment_currency !== 'JPY' && (
             <Badge className="text-[10px] bg-orange-50 text-orange-600 border-orange-100 mt-0.5">付款币种：{m.payment_currency}</Badge>
           )}
+          {((m.surcharge_rate > 0) || (m.surcharge_fixed_jpy > 0)) && (
+            <Badge className="text-[10px] bg-yellow-50 text-yellow-700 border-yellow-200 mt-0.5">
+              手续费：{m.surcharge_rate > 0 ? `+${m.surcharge_rate}%` : ''}{m.surcharge_rate > 0 && m.surcharge_fixed_jpy > 0 ? ' + ' : ''}{m.surcharge_fixed_jpy > 0 ? `+¥${m.surcharge_fixed_jpy}` : ''}
+            </Badge>
+          )}
         </div>
         {m.image_url && (
           <img src={m.image_url} alt="" className="h-8 w-8 rounded object-cover border border-gray-100 flex-shrink-0" />
@@ -227,6 +233,22 @@ function EditForm({ form, onChange, onSave, onCancel, saving, onUpload, uploadin
           <Label className="text-xs text-gray-500">付款时说明（显示给用户）</Label>
           <Textarea rows={2} className="mt-0.5 text-sm" value={form.payment_note}
             onChange={e => onChange('payment_note', e.target.value)} placeholder="请在付款备注中填写订单号..." />
+        </div>
+        <div>
+          <Label className="text-xs text-gray-500">支付服务费比例 (%)</Label>
+          <Input type="number" step="0.01" min="0" className="mt-0.5 h-8 text-sm"
+            value={form.surcharge_rate ?? 0}
+            onChange={e => onChange('surcharge_rate', parseFloat(e.target.value) || 0)}
+            placeholder="0" />
+          <p className="text-[10px] text-gray-400 mt-0.5">如填 0.6，则用户需支付金额 × 100.6%</p>
+        </div>
+        <div>
+          <Label className="text-xs text-gray-500">支付固定手续费 (JPY)</Label>
+          <Input type="number" step="1" min="0" className="mt-0.5 h-8 text-sm"
+            value={form.surcharge_fixed_jpy ?? 0}
+            onChange={e => onChange('surcharge_fixed_jpy', parseFloat(e.target.value) || 0)}
+            placeholder="0" />
+          <p className="text-[10px] text-gray-400 mt-0.5">每笔支付额外收取的固定手续费</p>
         </div>
       </div>
       {form.image_url && <img src={form.image_url} alt="" className="h-16 rounded object-contain border border-gray-200" />}
@@ -322,6 +344,7 @@ export default function PaymentMethodManager({ onReload }) {
       name: m.name, description: m.description || '', icon: m.icon || '',
       color: m.color || '', image_url: m.image_url || '',
       payment_note: m.payment_note || '', payment_currency: m.payment_currency || 'JPY',
+      surcharge_rate: m.surcharge_rate ?? 0, surcharge_fixed_jpy: m.surcharge_fixed_jpy ?? 0,
     });
   };
 
@@ -518,6 +541,22 @@ export default function PaymentMethodManager({ onReload }) {
                 <Textarea rows={2} className="mt-0.5 text-sm" value={manualForm.payment_note}
                   onChange={e => setManualForm(f => ({ ...f, payment_note: e.target.value }))}
                   placeholder="请扫码付款，付款后截图上传凭证，备注订单号" />
+              </div>
+              <div>
+                <Label className="text-xs text-gray-500">支付服务费比例 (%)</Label>
+                <Input type="number" step="0.01" min="0" className="mt-0.5 h-8 text-sm"
+                  value={manualForm.surcharge_rate ?? 0}
+                  onChange={e => setManualForm(f => ({ ...f, surcharge_rate: parseFloat(e.target.value) || 0 }))}
+                  placeholder="0" />
+                <p className="text-[10px] text-gray-400 mt-0.5">如填 0.6，则用户需支付金额 × 100.6%</p>
+              </div>
+              <div>
+                <Label className="text-xs text-gray-500">支付固定手续费 (JPY)</Label>
+                <Input type="number" step="1" min="0" className="mt-0.5 h-8 text-sm"
+                  value={manualForm.surcharge_fixed_jpy ?? 0}
+                  onChange={e => setManualForm(f => ({ ...f, surcharge_fixed_jpy: parseFloat(e.target.value) || 0 }))}
+                  placeholder="0" />
+                <p className="text-[10px] text-gray-400 mt-0.5">每笔支付额外收取的固定手续费</p>
               </div>
             </div>
             {manualForm.image_url && (

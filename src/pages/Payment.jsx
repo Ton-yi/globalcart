@@ -37,9 +37,9 @@ export default function Payment() {
   const [serverPaymentData, setServerPaymentData] = useState(null);
   const [paymentPendingReminder, setPaymentPendingReminder] = useState("");
 
-  useEffect(() => {
+  const loadPaymentData = (payMethodKey = null) => {
     if (!orderId) { navigate(createPageUrl("MyOrders")); return; }
-    base44.functions.invoke('getPaymentPageData', { order_id: orderId })
+    base44.functions.invoke('getPaymentPageData', { order_id: orderId, payment_method_key: payMethodKey || method })
       .then(r => {
         const data = r.data || {};
         if (!data.order) { navigate(createPageUrl("MyOrders")); return; }
@@ -54,18 +54,22 @@ export default function Payment() {
           isFullPayOnce: data.isFullPayOnce || false,
           estimatedShippingFee: data.estimatedShippingFee || 0,
           paymentAmountJpy: data.paymentAmountJpy ?? null,
+          surchargeJpy: data.surchargeJpy ?? 0,
+          paymentAmountWithSurcharge: data.paymentAmountWithSurcharge ?? null,
           paymentBreakdown: data.paymentBreakdown || null,
           isSupplement: data.isSupplement || false,
         });
         setLoading(false);
       });
-  }, [orderId]);
+  };
+
+  useEffect(() => { loadPaymentData(); }, [orderId]);
 
   const handleGenerateAlipayLink = async () => {
     setGeneratingLink(true);
     const res = await base44.functions.invoke('generateAlipayPaymentLink', {
       orderId: order.id,
-      amount: amountJpy,
+      amount: amountJpy, // already includes surcharge
       subject: `同一物流代购 - ${order.product_name}`,
     });
     setGeneratingLink(false);
@@ -102,13 +106,15 @@ export default function Payment() {
   // Use server-computed payment data (authoritative, avoids client-side re-derivation)
   const isFullPayOnce = serverPaymentData?.isFullPayOnce || false;
   const paymentBreakdown = serverPaymentData?.paymentBreakdown || null;
-  // paymentAmountJpy from server; fallback to prepayment_amount for normal mode
-  const amountJpy = serverPaymentData?.paymentAmountJpy ?? (order?.prepayment_amount || 0);
+  // paymentAmountJpy = base amount before surcharge; paymentAmountWithSurcharge = final amount user pays
+  const baseAmountJpy = serverPaymentData?.paymentAmountJpy ?? (order?.prepayment_amount || 0);
+  const surchargeJpy = serverPaymentData?.surchargeJpy ?? 0;
+  const amountJpy = serverPaymentData?.paymentAmountWithSurcharge ?? baseAmountJpy;
   const amountJpyDisplay = Math.round(amountJpy).toLocaleString();
   const isSupplement = serverPaymentData?.isSupplement || false;
   // Shipping-only second payment (fullpay-once) and supplements add to what's already paid
   const isShippingOnlyPayment = isFullPayOnce && paymentBreakdown && paymentBreakdown.product_fee === 0 && paymentBreakdown.shipping_fee > 0;
-  const newPaidAmount = (isShippingOnlyPayment || isSupplement) ? (order?.paid_amount || 0) + amountJpy : amountJpy;
+  const newPaidAmount = (isShippingOnlyPayment || isSupplement) ? (order?.paid_amount || 0) + baseAmountJpy : baseAmountJpy;
 
   // Find the configured payment method for current selection
   const activeMethod = paymentMethods.find(m => (m.provider_key || m.name) === method);
@@ -161,6 +167,23 @@ export default function Payment() {
                 <div className={`font-bold text-red-600 ${convertedAmount ? "text-lg" : "text-2xl"}`}>¥{amountJpyDisplay} JPY</div>
               </div>
             </div>
+
+            {surchargeJpy > 0 && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2 text-xs space-y-1">
+                <div className="flex justify-between text-yellow-700">
+                  <span>订单金额</span>
+                  <span>¥{Math.round(baseAmountJpy).toLocaleString()} JPY</span>
+                </div>
+                <div className="flex justify-between text-yellow-700">
+                  <span>支付手续费（{activeMethod?.surcharge_rate > 0 ? `${activeMethod.surcharge_rate}%` : ''}{activeMethod?.surcharge_rate > 0 && activeMethod?.surcharge_fixed_jpy > 0 ? ' + ' : ''}{activeMethod?.surcharge_fixed_jpy > 0 ? `¥${activeMethod.surcharge_fixed_jpy}` : ''}）</span>
+                  <span>+¥{Math.round(surchargeJpy).toLocaleString()} JPY</span>
+                </div>
+                <div className="flex justify-between font-semibold text-yellow-800 border-t border-yellow-200 pt-1">
+                  <span>实付合计</span>
+                  <span>¥{amountJpyDisplay} JPY</span>
+                </div>
+              </div>
+            )}
 
                   {paymentPendingReminder && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-xs text-blue-700">
