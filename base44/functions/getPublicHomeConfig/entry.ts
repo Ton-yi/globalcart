@@ -43,12 +43,17 @@ Deno.serve(async (req) => {
       return Response.json({ raw: [], settings: {} });
     }
 
-    const settings = await base44.asServiceRole.entities.SiteSettings.filter({ tenant_id: tenant.id });
+    const [settings, faqCategories] = await Promise.all([
+      base44.asServiceRole.entities.SiteSettings.filter({ tenant_id: tenant.id }),
+      base44.asServiceRole.entities.FaqCategory.filter({ tenant_id: tenant.id, is_active: true }),
+    ]);
 
     const settingsMap = {};
     (settings || []).forEach(s => { settingsMap[s.key] = s.value; });
 
-    return Response.json({ settings: settingsMap, raw: settings || [] });
+    const sortedCategories = (faqCategories || []).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+
+    return Response.json({ settings: settingsMap, raw: settings || [], faqCategories: sortedCategories });
 
   } catch (error) {
     console.error('getPublicHomeConfig error:', error);

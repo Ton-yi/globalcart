@@ -406,6 +406,21 @@ export default function AdminSettings() {
           <QuickActionsManager settings={settings} onReload={load} />
           <LogisticsStatusBoardManager settings={settings} onReload={load} />
           <FaqManager settings={settings} onReload={load} />
+          <Card className="border-teal-200">
+            <CardContent className="pt-4 pb-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-700">帮助中心 · 问答内容管理</p>
+                  <p className="text-xs text-gray-400 mt-0.5">创建分类、编写问答内容（支持 Markdown），供主页 FAQ 区块和帮助中心页使用</p>
+                </div>
+                <Link to={createPageUrl("AdminFaq")}>
+                  <Button size="sm" className="h-7 text-xs bg-teal-600 hover:bg-teal-700">
+                    <ExternalLink className="w-3.5 h-3.5 mr-1" />进入管理
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
       {activeTab === "home_customize" && loading && <p className="text-gray-400 text-sm">加载中...</p>}

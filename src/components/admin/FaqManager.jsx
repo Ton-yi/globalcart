@@ -1,20 +1,21 @@
 import { useState, useEffect } from "react";
+import { base44 } from "@/api/base44Client";
 import { tenantEntity } from "@/lib/tenantApi";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Save, HelpCircle, Plus, Trash2, GripVertical, ChevronDown, ChevronUp } from "lucide-react";
-
-function genId() { return `faq_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`; }
+import { Badge } from "@/components/ui/badge";
+import { Save, HelpCircle, ExternalLink, Settings } from "lucide-react";
+import { Link } from "react-router-dom";
+import { createPageUrl } from "@/utils";
 
 const DEFAULT_FAQ = {
   unified: true,
-  guest:  { visible: true, title: "常见问题", items: [] },
-  user:   { visible: true, title: "常见问题", items: [] },
-  admin:  { visible: false, title: "常见问题", items: [] },
+  guest:  { visible: true, title: "常见问题", selected_category_ids: [], display_limit: 6 },
+  user:   { visible: true, title: "常见问题", selected_category_ids: [], display_limit: 6 },
+  admin:  { visible: false, title: "常见问题", selected_category_ids: [], display_limit: 6 },
 };
 
 const AUDIENCE_TABS = [
@@ -25,77 +26,28 @@ const AUDIENCE_TABS = [
 
 function migrateConfig(raw) {
   if (!raw) return DEFAULT_FAQ;
-  if ("guest" in raw || "user" in raw || "admin" in raw) {
-    return {
-      unified: raw.unified ?? false,
-      guest: { ...DEFAULT_FAQ.guest, ...(raw.guest || {}) },
-      user:  { ...DEFAULT_FAQ.user,  ...(raw.user  || {}) },
-      admin: { ...DEFAULT_FAQ.admin, ...(raw.admin || {}) },
-    };
-  }
-  return DEFAULT_FAQ;
+  const base = {
+    unified: raw.unified ?? true,
+    guest: { ...DEFAULT_FAQ.guest, ...(raw.guest || {}) },
+    user:  { ...DEFAULT_FAQ.user,  ...(raw.user  || {}) },
+    admin: { ...DEFAULT_FAQ.admin, ...(raw.admin || {}) },
+  };
+  return base;
 }
 
-function FaqItemEditor({ item, idx, total, onChange, onDelete, onMoveUp, onMoveDown }) {
-  const [collapsed, setCollapsed] = useState(false);
-  return (
-    <div className="border border-gray-200 rounded-lg bg-white">
-      <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-t-lg border-b border-gray-200">
-        <GripVertical className="w-3.5 h-3.5 text-gray-300 flex-shrink-0" />
-        <span className="text-xs font-semibold text-gray-500 flex-1 truncate">Q{idx + 1}：{item.question || "（无问题）"}</span>
-        <div className="flex items-center gap-1">
-          <button onClick={onMoveUp} disabled={idx === 0} className="p-0.5 text-gray-400 hover:text-gray-600 disabled:opacity-30">
-            <ChevronUp className="w-3.5 h-3.5" />
-          </button>
-          <button onClick={onMoveDown} disabled={idx === total - 1} className="p-0.5 text-gray-400 hover:text-gray-600 disabled:opacity-30">
-            <ChevronDown className="w-3.5 h-3.5" />
-          </button>
-          <button onClick={() => setCollapsed(c => !c)} className="p-0.5 text-gray-400 hover:text-gray-600">
-            {collapsed ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
-          </button>
-          <button onClick={onDelete} className="p-0.5 text-red-400 hover:text-red-600 ml-1">
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      </div>
-      {!collapsed && (
-        <div className="p-3 space-y-2">
-          <div>
-            <Label className="text-xs text-gray-500">问题</Label>
-            <Input className="mt-0.5 h-8 text-sm" value={item.question || ""}
-              onChange={e => onChange({ ...item, question: e.target.value })} placeholder="用户常见的问题…" />
-          </div>
-          <div>
-            <Label className="text-xs text-gray-500">答案</Label>
-            <Textarea className="mt-0.5 text-sm" rows={3} value={item.answer || ""}
-              onChange={e => onChange({ ...item, answer: e.target.value })} placeholder="详细解答…" />
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function AudiencePanel({ form, onChange }) {
+function AudiencePanel({ form, onChange, categories }) {
   const f = (k, v) => onChange({ ...form, [k]: v });
 
-  const updateItem = (i, val) => {
-    const items = form.items.map((it, idx) => idx === i ? val : it);
-    f("items", items);
+  const toggleCategory = (id) => {
+    const ids = form.selected_category_ids || [];
+    const next = ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id];
+    f("selected_category_ids", next);
   };
-  const addItem = () => f("items", [...(form.items || []), { _id: genId(), question: "", answer: "" }]);
-  const removeItem = (i) => f("items", form.items.filter((_, idx) => idx !== i));
-  const moveItem = (i, dir) => {
-    const arr = [...(form.items || [])];
-    const j = i + dir;
-    if (j < 0 || j >= arr.length) return;
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-    f("items", arr);
-  };
+
+  const selectedIds = form.selected_category_ids || [];
 
   return (
     <div className="space-y-4">
-      {/* 显示开关 */}
       <div className="flex items-center gap-2 cursor-pointer" onClick={() => f("visible", !form.visible)}>
         <Checkbox checked={!!form.visible} onCheckedChange={v => f("visible", !!v)} />
         <span className="text-xs text-gray-600 select-none">显示此区块</span>
@@ -103,27 +55,44 @@ function AudiencePanel({ form, onChange }) {
 
       {form.visible && (
         <>
-          <div>
-            <Label className="text-xs text-gray-500">区块标题</Label>
-            <Input className="mt-0.5 h-8 text-sm" value={form.title || ""}
-              onChange={e => f("title", e.target.value)} placeholder="常见问题" />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs text-gray-500">区块标题</Label>
+              <Input className="mt-0.5 h-8 text-sm" value={form.title || ""}
+                onChange={e => f("title", e.target.value)} placeholder="常见问题" />
+            </div>
+            <div>
+              <Label className="text-xs text-gray-500">最多展示条数</Label>
+              <Input type="number" min="1" max="20" className="mt-0.5 h-8 text-sm"
+                value={form.display_limit || 6}
+                onChange={e => f("display_limit", Number(e.target.value))} />
+            </div>
           </div>
 
-          <div className="space-y-2">
-            {(form.items || []).map((item, i) => (
-              <FaqItemEditor
-                key={item._id || i}
-                item={item} idx={i} total={(form.items || []).length}
-                onChange={val => updateItem(i, val)}
-                onDelete={() => removeItem(i)}
-                onMoveUp={() => moveItem(i, -1)}
-                onMoveDown={() => moveItem(i, 1)}
-              />
-            ))}
-            <Button size="sm" variant="outline" onClick={addItem}
-              className="w-full h-8 text-xs border-dashed border-teal-300 text-teal-600 hover:bg-teal-50">
-              <Plus className="w-3.5 h-3.5 mr-1" />新增问答
-            </Button>
+          <div>
+            <Label className="text-xs text-gray-500 block mb-2">选择展示的问答分类</Label>
+            {categories.length === 0 ? (
+              <div className="text-xs text-gray-400 border border-dashed border-gray-200 rounded-lg px-3 py-3 text-center">
+                尚无问答分类，请先前往「帮助中心管理」创建
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                {categories.map(cat => (
+                  <div key={cat.id}
+                    className={`flex items-center justify-between px-3 py-2 rounded-lg border cursor-pointer transition-colors ${
+                      selectedIds.includes(cat.id) ? "border-teal-300 bg-teal-50" : "border-gray-200 hover:border-gray-300"
+                    }`}
+                    onClick={() => toggleCategory(cat.id)}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Checkbox checked={selectedIds.includes(cat.id)} onCheckedChange={() => toggleCategory(cat.id)} />
+                      <span className="text-sm">{cat.icon && <span className="mr-1">{cat.icon}</span>}{cat.title}</span>
+                    </div>
+                    <Badge variant="outline" className="text-xs">{(cat.items || []).length} 条</Badge>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </>
       )}
@@ -136,6 +105,7 @@ export default function FaqManager({ settings, onReload }) {
   const [activeTab, setActiveTab] = useState("guest");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [categories, setCategories] = useState([]);
 
   useEffect(() => {
     const setting = (settings || []).find(s => s.key === "home_faq_config");
@@ -144,7 +114,13 @@ export default function FaqManager({ settings, onReload }) {
     }
   }, [settings]);
 
-  const cloneAudience = (a) => ({ ...a, items: (a.items || []).map(it => ({ ...it })) });
+  useEffect(() => {
+    base44.functions.invoke('manageFaqCategories', { action: 'list' })
+      .then(r => setCategories((r.data?.categories || []).filter(c => c.is_active !== false)))
+      .catch(() => {});
+  }, []);
+
+  const cloneAudience = (a) => ({ ...a });
 
   const handleSave = async () => {
     setSaving(true);
@@ -182,11 +158,19 @@ export default function FaqManager({ settings, onReload }) {
             <HelpCircle className="w-4 h-4 text-teal-500" />
             <CardTitle className="text-sm font-semibold text-gray-700">常见问题（FAQ）自定义</CardTitle>
           </div>
-          <Button size="sm" className="h-7 text-xs bg-teal-600 hover:bg-teal-700" onClick={handleSave} disabled={saving}>
-            <Save className="w-3 h-3 mr-1" />{saved ? "已保存 ✓" : saving ? "保存中..." : "保存"}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Link to={createPageUrl("AdminFaq")}>
+              <Button size="sm" variant="outline" className="h-7 text-xs">
+                <Settings className="w-3 h-3 mr-1" />管理问答内容
+                <ExternalLink className="w-3 h-3 ml-1" />
+              </Button>
+            </Link>
+            <Button size="sm" className="h-7 text-xs bg-teal-600 hover:bg-teal-700" onClick={handleSave} disabled={saving}>
+              <Save className="w-3 h-3 mr-1" />{saved ? "已保存 ✓" : saving ? "保存中..." : "保存"}
+            </Button>
+          </div>
         </div>
-        <p className="text-xs text-gray-400 mt-1">为主页添加常见问题区块，支持按受众分别配置显示内容。</p>
+        <p className="text-xs text-gray-400 mt-1">选择要在主页展示的问答分类。在「管理问答内容」中维护分类和问题。</p>
 
         <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-100 cursor-pointer"
           onClick={() => toggleUnified(!form.unified)}>
@@ -214,6 +198,7 @@ export default function FaqManager({ settings, onReload }) {
         <AudiencePanel
           key={currentAudience}
           form={form[currentAudience]}
+          categories={categories}
           onChange={val => setForm(prev => ({ ...prev, [currentAudience]: val }))}
         />
       </CardContent>

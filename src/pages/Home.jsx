@@ -22,6 +22,7 @@ export default function Home() {
   const [heroConfig, setHeroConfig] = useState(null);
   const [stepsConfig, setStepsConfig] = useState(null);
   const [faqConfig, setFaqConfig] = useState(null);
+  const [faqCategories, setFaqCategories] = useState([]);
 
   useEffect(() => {
     const t = timePage('Home');
@@ -42,6 +43,7 @@ export default function Home() {
             heroConfig: parseJson(raw, 'home_hero_config') || null,
             stepsConfig: parseJson(raw, 'home_steps_config') || null,
             faqConfig: parseJson(raw, 'home_faq_config') || null,
+            faqCategories: r.data?.faqCategories || [],
           };
         })
         .catch(() => ({ quickActions: [], boardConfig: {}, heroConfig: null, stepsConfig: null, faqConfig: null }));
@@ -54,13 +56,14 @@ export default function Home() {
     Promise.all([
       t.timeCall('loadOrders', loadOrders),
       t.timeCall('loadSettings', loadSettings),
-    ]).then(([orders, { quickActions, boardConfig, heroConfig, stepsConfig, faqConfig }]) => {
+    ]).then(([orders, { quickActions, boardConfig, heroConfig, stepsConfig, faqConfig, faqCategories }]) => {
       setRecentOrders(orders);
       setQuickActions(quickActions);
       setBoardConfig(boardConfig);
       setHeroConfig(heroConfig);
       setStepsConfig(stepsConfig);
       setFaqConfig(faqConfig);
+      setFaqCategories(faqCategories);
       t.done('data ready');
     });
   }, []);
@@ -147,7 +150,7 @@ export default function Home() {
       )}
 
       {/* FAQ */}
-      <FaqSection config={faqConfig} user={user} />
+      <FaqSection config={faqConfig} faqCategories={faqCategories} user={user} />
     </div>
   );
 }

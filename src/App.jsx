@@ -29,6 +29,8 @@ import PublicProfile from '@/pages/PublicProfile';
 import UserPrivacySettings from '@/pages/UserPrivacySettings';
 import AdminNavbarSettings from '@/pages/AdminNavbarSettings';
 import MemberTiers from '@/pages/MemberTiers';
+import HelpCenter from '@/pages/HelpCenter';
+import AdminFaq from '@/pages/AdminFaq';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -192,6 +194,16 @@ const AuthenticatedApp = () => {
       <Route path="/:locale/MemberTiers" element={
         <LayoutWrapper currentPageName="MemberTiers">
           <MemberTiers />
+        </LayoutWrapper>
+      } />
+      <Route path="/:locale/HelpCenter" element={
+        <LayoutWrapper currentPageName="HelpCenter">
+          <HelpCenter />
+        </LayoutWrapper>
+      } />
+      <Route path="/:locale/AdminFaq" element={
+        <LayoutWrapper currentPageName="AdminFaq">
+          <AdminFaq />
         </LayoutWrapper>
       } />
       <Route path="/:locale/UserPrivacySettings" element={
