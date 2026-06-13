@@ -36,14 +36,15 @@ export default function AnnouncementModal({ announcements = [] }) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    // announcements are already filtered by position/active in AnnouncementPositionRenderer
+    // Only initialize once (or when announcement IDs/versions change), not on every re-render
     const pending = announcements.filter(a => !isDismissed(a));
     if (pending.length > 0) {
       setQueue(pending);
       setCurrent(0);
       setVisible(true);
     }
-  }, [announcements]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [announcements.map(a => `${a.id}:${a.dismissed_version || '1'}`).join(',')]);
 
   if (!visible || queue.length === 0) return null;
 

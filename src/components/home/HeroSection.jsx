@@ -24,8 +24,8 @@ export const DEFAULT_HERO = {
   ],
 };
 
-export default function HeroSection({ config = {}, user, tenant }) {
-  const c = { ...DEFAULT_HERO, ...config };
+export default function HeroSection({ config, user, tenant }) {
+  const c = { ...DEFAULT_HERO, ...(config || {}) };
 
   const buttons = (c.buttons || []).filter(b => {
     if (b.loggedInOnly && !user) return false;
@@ -37,16 +37,12 @@ export default function HeroSection({ config = {}, user, tenant }) {
   let bgStyle = {};
   if (c.bgMode === "color") {
     const hex = c.bgColor || "#ffffff";
-    const op = Math.round((c.bgOpacity ?? 100) * 2.55);
-    const r = parseInt(hex.slice(1, 3), 16);
-    const g = parseInt(hex.slice(3, 5), 16);
-    const b = parseInt(hex.slice(5, 7), 16);
+    const r = parseInt(hex.slice(1, 3), 16) || 0;
+    const g = parseInt(hex.slice(3, 5), 16) || 0;
+    const b = parseInt(hex.slice(5, 7), 16) || 0;
     bgStyle.backgroundColor = `rgba(${r},${g},${b},${(c.bgOpacity ?? 100) / 100})`;
-  } else if (c.bgMode === "image" && c.bgImageUrl) {
-    bgStyle.backgroundImage = `url(${c.bgImageUrl})`;
-    bgStyle.backgroundSize = "cover";
-    bgStyle.backgroundPosition = "center";
   }
+  // Image bg is applied only on the inner filter layer, not the outer container
 
   const hasImageBg = c.bgMode === "image" && c.bgImageUrl;
   const blurFilter = hasImageBg && c.blurAmount > 0 ? `blur(${c.blurAmount}px)` : undefined;
@@ -102,7 +98,21 @@ export default function HeroSection({ config = {}, user, tenant }) {
               ? { backgroundColor: btn.color, borderColor: btn.color, color: "#fff" }
               : {};
 
-            const inner = (
+            if (btn.page) {
+              return (
+                <Link key={btn.id || i} to={createPageUrl(btn.page)}>
+                  <Button
+                    variant={isOutline ? "outline" : "default"}
+                    style={btnStyle}
+                    className={!isOutline && !btn.color ? "bg-red-600 hover:bg-red-700" : ""}
+                  >
+                    {btn.icon === "ShoppingBag" && <ShoppingBag className="w-4 h-4 mr-2" />}
+                    {btn.label}
+                  </Button>
+                </Link>
+              );
+            }
+            return (
               <Button
                 key={btn.id || i}
                 variant={isOutline ? "outline" : "default"}
@@ -114,15 +124,6 @@ export default function HeroSection({ config = {}, user, tenant }) {
                 {btn.label}
               </Button>
             );
-
-            if (btn.page) {
-              return (
-                <Link key={btn.id || i} to={createPageUrl(btn.page)}>
-                  {inner}
-                </Link>
-              );
-            }
-            return inner;
           })}
         </div>
       </div>
