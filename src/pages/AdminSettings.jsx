@@ -106,6 +106,7 @@ const CAT_COLORS = { fee: "bg-yellow-100 text-yellow-700", payment: "bg-green-10
 
 const TABS = [
   { key: "general", label: "基本设置" },
+  { key: "home_customize", label: "主页自定义" },
   { key: "order_management", label: "订单管理" },
   { key: "fee_rules", label: "服务费规则" },
   { key: "payment_methods", label: "支付方式" },
@@ -396,6 +397,16 @@ export default function AdminSettings() {
           ))}
         </div>
       </div>
+
+      {activeTab === "home_customize" && !loading && (
+        <div className="space-y-6">
+          <HeroSectionManager settings={settings} onReload={load} />
+          <StepsSectionManager settings={settings} onReload={load} />
+          <QuickActionsManager settings={settings} onReload={load} />
+          <LogisticsStatusBoardManager settings={settings} onReload={load} />
+        </div>
+      )}
+      {activeTab === "home_customize" && loading && <p className="text-gray-400 text-sm">加载中...</p>}
 
       {activeTab === "order_management" && !loading && (
         <OrderSplitSettings settings={settings} onReload={load} />
@@ -843,17 +854,7 @@ export default function AdminSettings() {
           {/* ─── Customs Hazmat Text ─── */}
           <CustomsHazmatTextEditor settings={flat} onReload={load} />
 
-          {/* ─── Hero Section ─── */}
-          <HeroSectionManager settings={settings} onReload={load} />
-
-          {/* ─── Steps Section ─── */}
-          <StepsSectionManager settings={settings} onReload={load} />
-
-          {/* ─── Quick Actions ─── */}
-          <QuickActionsManager settings={settings} onReload={load} />
-
-          {/* ─── Logistics Status Board ─── */}
-          <LogisticsStatusBoardManager settings={settings} onReload={load} />
+          {/* Hero / Steps / QuickActions / LogisticsBoard → moved to "主页自定义" tab */}
 
           {/* ─── Addon Options ─── */}
           <Card className="border-gray-200">
