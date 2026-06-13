@@ -35,6 +35,7 @@ export default function Payment() {
   const [generatingLink, setGeneratingLink] = useState(false);
   // Server-computed payment data (avoids client-side re-derivation bugs)
   const [serverPaymentData, setServerPaymentData] = useState(null);
+  const [paymentPendingReminder, setPaymentPendingReminder] = useState("");
 
   useEffect(() => {
     if (!orderId) { navigate(createPageUrl("MyOrders")); return; }
@@ -44,6 +45,9 @@ export default function Payment() {
         if (!data.order) { navigate(createPageUrl("MyOrders")); return; }
         setOrder(data.order);
         setSettings(data.settings || {});
+        if (data.settings?.payment_pending_reminder) {
+          setPaymentPendingReminder(data.settings.payment_pending_reminder);
+        }
         setPaymentMethods(data.paymentMethods || []);
         setRates(data.rates || null);
         setServerPaymentData({
@@ -157,6 +161,12 @@ export default function Payment() {
                 <div className={`font-bold text-red-600 ${convertedAmount ? "text-lg" : "text-2xl"}`}>¥{amountJpyDisplay} JPY</div>
               </div>
             </div>
+
+                  {paymentPendingReminder && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-xs text-blue-700">
+                {paymentPendingReminder}
+              </div>
+            )}
 
             {isSupplement && (
               <div className="bg-orange-50 border border-orange-200 rounded-lg px-3 py-2 text-xs text-orange-700">

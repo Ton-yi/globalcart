@@ -756,6 +756,7 @@ export default function MyOrders() {
           currentUser={user}
           initialUserPreference={pageData.userPreference}
           initialPaidOrderReminder={pageData.paidOrderReminder}
+          initialShippedReminder={pageData.shippedReminder}
           initialUserProfileMap={pageData.userProfileMap || {}}
           allowSplitAfterWarehouse={allowSplitAfterWarehouse}
           onClose={() => setSelectedOrder(null)}

@@ -4,7 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
+import React from "react";
 import { tenantEntity } from "@/lib/tenantApi";
 
 // 所有可自定义的提醒文案字段定义
@@ -62,14 +63,24 @@ export default function NotificationTextSettings({ settings, onReload }) {
   const [saved, setSaved] = useState(false);
 
   // Local state: key → value
-  const [localValues, setLocalValues] = useState(() => {
+  const buildMap = (s) => {
     const map = {};
     for (const field of NOTIFICATION_TEXT_FIELDS) {
-      const s = settings.find(s => s.key === field.key);
-      map[field.key] = s?.value ?? "";
+      const found = s.find(x => x.key === field.key);
+      map[field.key] = found?.value ?? "";
     }
     return map;
-  });
+  };
+  const [localValues, setLocalValues] = useState(() => buildMap(settings));
+
+  // Re-sync when parent reloads settings (e.g. after save + onReload)
+  const prevSettingsRef = React.useRef(settings);
+  React.useEffect(() => {
+    if (prevSettingsRef.current !== settings) {
+      prevSettingsRef.current = settings;
+      setLocalValues(buildMap(settings));
+    }
+  }, [settings]);
 
   const handleSave = async () => {
     setSaving(true);

@@ -20,7 +20,7 @@ import ShippingEditModal from "@/components/shippingpool/ShippingEditModal";
 import ShippingPoolDetailModal from "@/components/shippingpool/ShippingPoolDetailModal";
 import SplitAfterWarehouseModal from "./SplitAfterWarehouseModal";
 
-export default function OrderDetailDrawer({ order, currentUser, initialUserPreference, initialPaidOrderReminder, initialUserProfileMap = {}, allowSplitAfterWarehouse = false, onClose, onAction }) {
+export default function OrderDetailDrawer({ order, currentUser, initialUserPreference, initialPaidOrderReminder, initialShippedReminder, initialUserProfileMap = {}, allowSplitAfterWarehouse = false, onClose, onAction }) {
   const { can } = usePermissions();
   const canNotifyShipment = can("shipping:notify_shipment");
   const canEditShipmentRequest = can("shipping:edit_shipment_request");
@@ -30,6 +30,7 @@ export default function OrderDetailDrawer({ order, currentUser, initialUserPrefe
   const [showPayment, setShowPayment] = useState(false);
   const [showShipment, setShowShipment] = useState(false);
   const [paidReminder, setPaidReminder] = useState(initialPaidOrderReminder || "");
+  const [shippedReminder, setShippedReminder] = useState(initialShippedReminder || "");
   const [editPool, setEditPool] = useState(null);
   const [loadingPool, setLoadingPool] = useState(false);
   const [userProfileMap, setUserProfileMap] = useState(initialUserProfileMap);
@@ -58,6 +59,14 @@ export default function OrderDetailDrawer({ order, currentUser, initialUserPrefe
       tenantEntity.list('SiteSettings', { key: "paid_order_reminder" })
         .then(settings => {
           if (settings.length > 0) setPaidReminder(settings[0].value);
+        })
+        .catch(() => {});
+    }
+
+    if (order.order_status === "shipped" && initialShippedReminder === undefined) {
+      tenantEntity.list('SiteSettings', { key: "shipped_reminder" })
+        .then(settings => {
+          if (settings.length > 0) setShippedReminder(settings[0].value);
         })
         .catch(() => {});
     }
@@ -280,6 +289,14 @@ export default function OrderDetailDrawer({ order, currentUser, initialUserPrefe
             <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2.5">
               <div className="text-xs text-blue-600 font-medium mb-0.5">提示</div>
               <p className="text-sm text-blue-800">{paidReminder}</p>
+            </div>
+          )}
+
+          {/* Shipped reminder */}
+          {status === "shipped" && shippedReminder && (
+            <div className="bg-teal-50 border border-teal-100 rounded-lg px-3 py-2.5">
+              <div className="text-xs text-teal-600 font-medium mb-0.5">提示</div>
+              <p className="text-sm text-teal-800">{shippedReminder}</p>
             </div>
           )}
 

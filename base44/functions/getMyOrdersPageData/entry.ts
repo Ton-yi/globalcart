@@ -149,6 +149,7 @@ Deno.serve(async (req) => {
       shippingMethods: shippingMethods || [],
       userPreference: userPrefs?.[0] || null,
       paidOrderReminder: settingsMap['paid_order_reminder'] || null,
+      shippedReminder: settingsMap['shipped_reminder'] || null,
       allowUserRewarehouse: settingsMap['allow_user_rewarehouse_from_fee_pending'] === 'true',
       defaultRewarehouseFee: parseFloat(settingsMap['default_rewarehouse_fee_jpy'] || '0') || 0,
       allowSplitAfterWarehouse: settingsMap['allow_order_split'] === 'true' && settingsMap['allow_order_split_after_warehouse'] === 'true',
