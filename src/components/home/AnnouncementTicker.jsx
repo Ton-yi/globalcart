@@ -112,7 +112,12 @@ export default function AnnouncementTicker({ announcements = [] }) {
           {ann.title && (
             <span className="font-semibold whitespace-nowrap flex-shrink-0">{ann.title}：</span>
           )}
-          <span className="truncate opacity-90">{ann.content}</span>
+          <span className="truncate opacity-90 [&_a]:underline [&_strong]:font-bold [&_em]:italic"
+            dangerouslySetInnerHTML={{ __html: ann.content
+              .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+              .replace(/\*(.*?)\*/g, '<em>$1</em>')
+              .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="underline">$1</a>')
+            }} />
         </div>
       </div>
 

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { X, Check, Megaphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import ReactMarkdown from "react-markdown";
 
 const TYPE_STYLES = {
   urgent:  { header: "bg-red-600",    icon: "text-red-100", title: "text-white" },
@@ -85,7 +86,11 @@ export default function AnnouncementModal({ announcements = [] }) {
 
         {/* Body */}
         <div className="px-5 py-5">
-          <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-line">{ann.content}</p>
+          <ReactMarkdown
+            className="text-gray-700 text-sm leading-relaxed prose prose-sm max-w-none prose-a:text-blue-600 prose-a:underline"
+          >
+            {ann.content}
+          </ReactMarkdown>
         </div>
 
         {/* Footer */}
