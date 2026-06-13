@@ -26,12 +26,14 @@ Deno.serve(async (req) => {
     ]);
 
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
-    if (user.role !== 'admin') return Response.json({ error: 'Forbidden' }, { status: 403 });
 
     const userRecords = earlyUserRecords ?? await base44.asServiceRole.entities.User.filter({ email: user.email });
     const userRecord = userRecords?.[0];
     const tenantId = userRecord?.tenant_id;
     const isPlatformAdmin = userRecord?.role === 'platform_admin';
+    const isAdmin = ['admin', 'tenant_admin', 'platform_admin', 'staff'].includes(userRecord?.role);
+
+    if (!isAdmin) return Response.json({ error: 'Forbidden' }, { status: 403 });
 
     const orderFilter = isPlatformAdmin ? {} : (tenantId ? { tenant_id: tenantId } : null);
     const userFilter = isPlatformAdmin ? {} : (tenantId ? { tenant_id: tenantId } : null);

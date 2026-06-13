@@ -24,22 +24,22 @@ export default function AdminDashboard() {
 
   const { orders, shipping, users } = stats;
 
+  // 待确认付款：awaiting_confirmation 状态
+  const pendingPaymentConfirm = orders.filter(o => o.payment_status === "awaiting_confirmation");
+  // 入库待发货
+  const inWarehouse = orders.filter(o => o.order_status === "in_warehouse");
+  // 待采购
+  const pendingPurchase = orders.filter(o => o.order_status === "pending_purchase");
+
   const statCards = [
     { title: "总订单数", value: orders.length, icon: Package, color: "text-blue-600 bg-blue-50", link: "AdminOrders" },
-    { title: "待审核付款", value: orders.filter(o => o.payment_status === "paid" && o.order_status === "payment_pending").length, icon: AlertCircle, color: "text-orange-600 bg-orange-50", link: "AdminOrders" },
-    { title: "入库待发货", value: orders.filter(o => o.order_status === "in_warehouse").length, icon: Truck, color: "text-purple-600 bg-purple-50", link: "AdminShippingPool" },
+    { title: "待确认付款", value: pendingPaymentConfirm.length, icon: AlertCircle, color: "text-orange-600 bg-orange-50", link: "AdminOrders" },
+    { title: "入库待发货", value: inWarehouse.length, icon: Truck, color: "text-purple-600 bg-purple-50", link: "AdminShippingPool" },
     { title: "注册用户", value: users.length, icon: Users, color: "text-green-600 bg-green-50", link: "AdminUsers" },
   ];
 
-  const pendingOrders = orders.filter(o => o.payment_status === "paid" && o.order_status === "payment_pending").slice(0, 5);
-  const pendingShipping = orders.filter(o => o.order_status === "in_warehouse").slice(0, 5);
-
-  const statusMap = {
-    draft: "草稿", submitted: "已提交", price_confirmed: "已报价",
-    payment_pending: "待付款", payment_confirmed: "已付款",
-    purchasing: "采购中", purchased: "已购买",
-    awaiting_shipment: "等待发货", shipped: "已发货", delivered: "已签收", cancelled: "已取消"
-  };
+  const pendingOrders = pendingPaymentConfirm.slice(0, 5);
+  const pendingShipping = inWarehouse.slice(0, 5);
 
   return (
     <div className="space-y-6">
