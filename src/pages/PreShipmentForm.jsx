@@ -81,6 +81,7 @@ export default function PreShipmentForm() {
 
   // Pre-shipment feature settings
   const [preShipmentEnabled, setPreShipmentEnabled] = useState(true);
+  const [fullpayOnceFeatureEnabled, setFullpayOnceFeatureEnabled] = useState(false);
   const [allowedMethodCodes, setAllowedMethodCodes] = useState([]);
 
   // Payment after submit (direct to payment page if needed)
@@ -104,6 +105,8 @@ export default function PreShipmentForm() {
         const tenantSettings = tenantSettingsRes?.data?.settings || {};
         // Feature gate + allowed shipping methods whitelist
         if (tenantSettings['pre_shipment_enabled'] === 'false') setPreShipmentEnabled(false);
+        // fullpay_once_enabled defaults to false — only enabled when explicitly set to 'true'
+        setFullpayOnceFeatureEnabled(tenantSettings['fullpay_once_enabled'] === 'true');
         const allowedRaw = tenantSettings['pre_shipment_allowed_methods'] || '';
         setAllowedMethodCodes(allowedRaw.split(',').map(x => x.trim()).filter(Boolean));
         // New array-style global rates
@@ -1475,26 +1478,28 @@ export default function PreShipmentForm() {
         </Card>
       }
 
-      {/* One-time payment configuration */}
-      <PreShipmentFormFullPayOnce
-        shippingMethods={shippingMethods}
-        consType={consType}
-        joinExistingPool={joinExistingPool}
-        selectedExistingPoolId={selectedExistingPoolId}
-        userEstimatedWeight={userEstimatedWeight}
-        setUserEstimatedWeight={setUserEstimatedWeight}
-        estimatedShippingFee={estimatedShippingFee}
-        setEstimatedShippingFee={setEstimatedShippingFee}
-        fullPayOnceEnabled={fullPayOnceEnabled}
-        setFullPayOnceEnabled={setFullPayOnceEnabled}
-        order={order}
-        shippingMethod={shippingMethod}
-        destinationCountry={address?.country || ""}
-        isRestoring={isRestoringData}
-        globalEstimateRatePer100g={globalEstimateRate}
-        globalEstimateUnitG={globalEstimateUnitG}
-        globalEstimateRates={globalEstimateRates}
-      />
+      {/* One-time payment configuration — only shown when admin has enabled the feature */}
+      {fullpayOnceFeatureEnabled && (
+        <PreShipmentFormFullPayOnce
+          shippingMethods={shippingMethods}
+          consType={consType}
+          joinExistingPool={joinExistingPool}
+          selectedExistingPoolId={selectedExistingPoolId}
+          userEstimatedWeight={userEstimatedWeight}
+          setUserEstimatedWeight={setUserEstimatedWeight}
+          estimatedShippingFee={estimatedShippingFee}
+          setEstimatedShippingFee={setEstimatedShippingFee}
+          fullPayOnceEnabled={fullPayOnceEnabled}
+          setFullPayOnceEnabled={setFullPayOnceEnabled}
+          order={order}
+          shippingMethod={shippingMethod}
+          destinationCountry={address?.country || ""}
+          isRestoring={isRestoringData}
+          globalEstimateRatePer100g={globalEstimateRate}
+          globalEstimateUnitG={globalEstimateUnitG}
+          globalEstimateRates={globalEstimateRates}
+        />
+      )}
 
       {/* Note */}
       <Card className="border-gray-200">
