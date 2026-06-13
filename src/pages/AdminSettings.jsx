@@ -824,7 +824,7 @@ export default function AdminSettings() {
               <div className="grid grid-cols-2 gap-3">
                 {(grouped.fee || [])
                   .filter(s => !s.key.includes("increment")
-                    && !['service_fee_rate', 'default_order_fixed_fee_jpy', 'prepay_enabled', 'prepay_rate', 'pre_shipment_balance_surcharge_rate', 'deferred_payment_enabled', 'deferred_payment_surcharge_rate', 'transit_location_fee_split_enabled'].includes(s.key))
+                    && !['service_fee_rate', 'default_order_fixed_fee_jpy', 'default_rewarehouse_fee_jpy', 'prepay_enabled', 'prepay_rate', 'pre_shipment_balance_surcharge_rate', 'deferred_payment_enabled', 'deferred_payment_surcharge_rate', 'transit_location_fee_split_enabled'].includes(s.key))
                   .map(s => (
                     <div key={s.id || s.key}>
                       <Label className="text-xs text-gray-500 block mb-1">{s.description || s.key}</Label>
