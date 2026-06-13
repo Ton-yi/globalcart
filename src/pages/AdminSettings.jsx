@@ -37,6 +37,7 @@ import OrderSplitSettings from "@/components/admin/OrderSplitSettings";
 import ShipWithoutPaymentSettings from "@/components/admin/ShipWithoutPaymentSettings";
 import OfficialPoolSettings from "@/components/admin/OfficialPoolSettings";
 import PaymentTimeoutSettings from "@/components/admin/PaymentTimeoutSettings";
+import AutoArchiveSettings from "@/components/admin/AutoArchiveSettings";
 import QuickActionsManager from "@/components/admin/QuickActionsManager";
 import LogisticsStatusBoardManager from "@/components/admin/LogisticsStatusBoardManager";
 import HeroSectionManager from "@/components/admin/HeroSectionManager";
@@ -454,6 +455,7 @@ export default function AdminSettings() {
         <div className="space-y-4">
           <OrderSplitSettings settings={settings} onReload={load} />
           <PaymentTimeoutSettings settings={settings} onReload={load} />
+          <AutoArchiveSettings settings={settings} onReload={load} />
         </div>
       )}
       {activeTab === "order_management_split" && loading && <p className="text-gray-400 text-sm">加载中...</p>}
