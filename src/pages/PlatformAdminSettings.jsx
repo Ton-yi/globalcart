@@ -47,6 +47,9 @@ export default function PlatformAdminSettings() {
   const [liveRates, setLiveRates] = useState(null);
   const [platformSettings, setPlatformSettings] = useState([]);
   const [savingRates, setSavingRates] = useState(false);
+  const [platformIncrements, setPlatformIncrements] = useState({
+    jpy_usd_increment: 0, jpy_cny_increment: 0,
+  });
   const [activeTab, setActiveTab] = useState("create_tenant");
 
   const PLATFORM_NAV = [
@@ -109,7 +112,11 @@ export default function PlatformAdminSettings() {
     const domain = domainRes.data?.platform_base_domain || "";
     setPlatformBaseDomain(domain);
     setEditingDomain(domain);
-    if (ratesRes.data?.rates) setLiveRates(ratesRes.data.rates);
+    if (ratesRes.data?.raw_rates) setLiveRates(ratesRes.data.raw_rates);
+    else if (ratesRes.data?.rates) setLiveRates(ratesRes.data.rates);
+    // 加载平台级增量
+    const incRes = await base44.functions.invoke('managePlatformSettings', { action: 'get_platform_rate_increments' });
+    if (incRes.data && !incRes.data.error) setPlatformIncrements(incRes.data);
     setTenantsLoading(false);
   };
 
@@ -640,34 +647,50 @@ export default function PlatformAdminSettings() {
             <Alert className="border-green-200 bg-green-50">
               <TrendingUp className="h-3 w-3 text-green-600" />
               <AlertDescription className="text-xs text-green-700 ml-1">
-                基础汇率自动从市场获取，可在此设定增量（正数=上浮，负数=下浮），对所有租户用户均适用
+                基础汇率自动从市场获取，可在此设定平台级增量（正数=上浮，负数=下浮）。租户可在此基础上再叠加各自的增量。最终汇率 = 市场汇率 + 平台增量 + 租户增量
               </AlertDescription>
             </Alert>
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label className="text-xs text-gray-500 block mb-1">
-                  日元→美元
-                  <span className="text-gray-400 ml-1">({(liveRates.jpy_usd || 0).toFixed(6)})</span>
-                </Label>
-                <div className="flex items-center gap-1">
-                  <Input type="number" step="0.00001" className="h-8 text-sm flex-1" placeholder="0" />
-                  <span className="text-xs text-gray-400 px-2">Δ</span>
+              {[
+                { key: 'jpy_usd', label: '日元→美元' },
+                { key: 'jpy_cny', label: '日元→人民币' },
+                { key: 'jpy_eur', label: '日元→欧元' },
+                { key: 'jpy_gbp', label: '日元→英镑' },
+                { key: 'jpy_aud', label: '日元→澳元' },
+                { key: 'jpy_sgd', label: '日元→新加坡元' },
+                { key: 'jpy_hkd', label: '日元→港元' },
+                { key: 'jpy_twd', label: '日元→新台币' },
+              ].map(({ key, label }) => (
+                <div key={key}>
+                  <Label className="text-xs text-gray-500 block mb-1">
+                    {label}
+                    <span className="text-gray-400 ml-1">({((liveRates[key] || 0)).toFixed(6)})</span>
+                  </Label>
+                  <div className="flex items-center gap-1">
+                    <Input type="number" step="0.00001" className="h-8 text-sm flex-1"
+                      placeholder="0"
+                      value={platformIncrements[`${key}_increment`] ?? 0}
+                      onChange={e => setPlatformIncrements(p => ({ ...p, [`${key}_increment`]: e.target.value }))}
+                    />
+                    <span className="text-xs text-gray-400 px-2">Δ</span>
+                  </div>
+                  {(parseFloat(platformIncrements[`${key}_increment`]) || 0) !== 0 && (
+                    <p className="text-xs text-green-600 mt-0.5">
+                      → {((liveRates[key] || 0) + (parseFloat(platformIncrements[`${key}_increment`]) || 0)).toFixed(6)}
+                    </p>
+                  )}
                 </div>
-              </div>
-              <div>
-                <Label className="text-xs text-gray-500 block mb-1">
-                  日元→人民币
-                  <span className="text-gray-400 ml-1">({(liveRates.jpy_cny || 0).toFixed(6)})</span>
-                </Label>
-                <div className="flex items-center gap-1">
-                  <Input type="number" step="0.00001" className="h-8 text-sm flex-1" placeholder="0" />
-                  <span className="text-xs text-gray-400 px-2">Δ</span>
-                </div>
-              </div>
+              ))}
             </div>
             <Button size="sm" className="bg-green-600 hover:bg-green-700" disabled={savingRates}
-              onClick={() => { setSavingRates(true); setTimeout(() => setSavingRates(false), 1000); }}>
-              <Save className="w-3.5 h-3.5 mr-1" />{savingRates ? "保存中..." : "保存汇率设置"}
+              onClick={async () => {
+                setSavingRates(true);
+                const payload = { action: 'set_platform_rate_increments' };
+                Object.entries(platformIncrements).forEach(([k, v]) => { payload[k] = parseFloat(v) || 0; });
+                await base44.functions.invoke('managePlatformSettings', payload);
+                setSavingRates(false);
+              }}>
+              <Save className="w-3.5 h-3.5 mr-1" />{savingRates ? "保存中..." : "保存平台增量设置"}
             </Button>
           </CardContent>
         </Card>

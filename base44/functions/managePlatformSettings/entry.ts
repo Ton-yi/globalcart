@@ -54,6 +54,41 @@ Deno.serve(async (req) => {
       return Response.json({ success: true, api_url: apiUrl, refresh_minutes: refresh });
     }
 
+    // 读取平台级增量设置
+    if (action === 'get_platform_rate_increments') {
+      const RATE_KEYS = ['jpy_usd', 'jpy_cny', 'jpy_eur', 'jpy_gbp', 'jpy_aud', 'jpy_sgd', 'jpy_hkd', 'jpy_twd'];
+      const allSettings = await base44.asServiceRole.entities.SiteSettings.filter({ tenant_id: '' });
+      const incMap = {};
+      (allSettings || []).forEach(s => { incMap[s.key] = s.value; });
+      const result = {};
+      RATE_KEYS.forEach(k => { result[`${k}_increment`] = parseFloat(incMap[`${k}_increment`]) || 0; });
+      return Response.json(result);
+    }
+
+    // 保存平台级增量设置（tenant_id = ''）
+    if (action === 'set_platform_rate_increments') {
+      const RATE_KEYS = ['jpy_usd', 'jpy_cny', 'jpy_eur', 'jpy_gbp', 'jpy_aud', 'jpy_sgd', 'jpy_hkd', 'jpy_twd'];
+      const upsertPlatform = async (key, value, description) => {
+        const all = await base44.asServiceRole.entities.SiteSettings.filter({ key });
+        const existing = pick(all);
+        if (existing) {
+          await base44.asServiceRole.entities.SiteSettings.update(existing.id, { value: String(value) });
+        } else {
+          await base44.asServiceRole.entities.SiteSettings.create({ key, value: String(value), description, category: 'fee', tenant_id: '' });
+        }
+      };
+      const updates = [];
+      for (const k of RATE_KEYS) {
+        const incKey = `${k}_increment`;
+        if (body[incKey] !== undefined) {
+          const val = parseFloat(body[incKey]) || 0;
+          updates.push(upsertPlatform(incKey, val, `平台级汇率增量 ${k}`));
+        }
+      }
+      await Promise.all(updates);
+      return Response.json({ success: true });
+    }
+
     return Response.json({ error: 'Unknown action' }, { status: 400 });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
