@@ -400,7 +400,7 @@ export default function PreShipmentForm() {
     return isAddressFormValid(address);
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (goToPayment = true) => {
     if (!canSubmit() || submitting) return;
 
     // Validate addon custom fees are within range
@@ -550,7 +550,7 @@ export default function PreShipmentForm() {
     // Needs payment if: awaiting payment OR fullpay_once just enabled (need to pay product+shipping together)
     const needsPayment = latestOrder.payment_status === "awaiting_payment" ||
                          latestOrder.order_status === "payment_pending";
-    if (needsPayment) {
+    if (goToPayment && needsPayment) {
       const m = paymentMethods.find((pm) => (pm.provider_key || pm.name) === paymentMethod || pm.value === paymentMethod);
       const cur = m?.payment_currency || "JPY";
       const method = paymentMethod || "other";
@@ -1584,15 +1584,18 @@ export default function PreShipmentForm() {
 
       {/* Actions */}
       <div className="flex gap-3 pb-4">
-        <Button variant="outline" className="flex-1" onClick={() => navigate(createPageUrl("MyOrders"))}>
-          跳过，稍后再说
+        <Button
+          variant="outline"
+          className="flex-1"
+          disabled={!canSubmit() || submitting}
+          onClick={() => handleSubmit(false)}>
+          {submitting ? "保存中..." : "保存预出货信息"}
         </Button>
         <Button
           className="flex-1 bg-red-600 hover:bg-red-700"
           disabled={!canSubmit() || submitting}
-          onClick={handleSubmit}>
-          
-          {submitting ? "保存中..." : "保存预出货信息"}
+          onClick={() => handleSubmit(true)}>
+          {submitting ? "保存中..." : "保存信息并付款"}
         </Button>
       </div>
     </div>);
