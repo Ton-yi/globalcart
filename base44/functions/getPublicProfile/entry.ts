@@ -81,15 +81,8 @@ Deno.serve(async (req) => {
     if (!isViewerAdmin && !isOwner && !isSameTenant) return notFound();
 
     // ===== 展示次数统计 =====
-    // 规则：管理员访问不计入；本人访问默认不计入（可由租户设置 public_profile_count_self_views 开启）；同一访问者 1 小时内去重
-    let shouldCount = !isViewerAdmin && !isOwner;
-    if (!isViewerAdmin && isOwner) {
-      const selfViewSettings = await base44.asServiceRole.entities.SiteSettings.filter({
-        tenant_id: targetUser.tenant_id,
-        key: 'public_profile_count_self_views'
-      });
-      shouldCount = selfViewSettings[0]?.value === 'true';
-    }
+    // 规则：管理员访问不计入；本人访问计入；同一访问者 1 小时内去重
+    const shouldCount = !isViewerAdmin;
     if (shouldCount) {
       const logs = await base44.asServiceRole.entities.ProfileViewLog.filter({
         profile_user_id: targetUser.id,
