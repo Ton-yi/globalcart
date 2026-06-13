@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { HelpCircle, ChevronDown, ChevronUp, Search, BookOpen, ArrowLeft } from "lucide-react";
+import { HelpCircle, ChevronDown, ChevronUp, Search, BookOpen, ArrowLeft, Settings } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import ReactMarkdown from "react-markdown";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 function FaqItemBlock({ item }) {
   const [open, setOpen] = useState(false);
@@ -39,17 +40,25 @@ function FaqItemBlock({ item }) {
 }
 
 export default function HelpCenter() {
+  const { user } = useCurrentUser();
+  const location = useLocation();
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState(null);
+
+  const isAdmin = user?.role === "admin" || user?.role === "tenant_admin" || user?.role === "platform_admin";
 
   useEffect(() => {
     base44.functions.invoke('getPublicHomeConfig', { hostname: window.location.hostname })
       .then(r => {
         const cats = (r.data?.faqCategories || []).filter(c => c.is_active !== false && (c.items || []).length > 0);
         setCategories(cats);
-        if (cats.length > 0) setActiveCategory(cats[0].id);
+        // 从 URL 参数中读取指定分类
+        const params = new URLSearchParams(location.search);
+        const catParam = params.get('cat');
+        const target = catParam && cats.find(c => c.id === catParam);
+        setActiveCategory(target ? target.id : (cats[0]?.id || null));
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -76,10 +85,17 @@ export default function HelpCenter() {
         <Link to={createPageUrl("Home")} className="text-gray-400 hover:text-gray-600 transition-colors">
           <ArrowLeft className="w-4 h-4" />
         </Link>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-1">
           <BookOpen className="w-5 h-5 text-teal-500" />
           <h1 className="text-xl font-bold text-gray-900">帮助中心</h1>
         </div>
+        {isAdmin && (
+          <Link to={createPageUrl("AdminFaq")}>
+            <button className="flex items-center gap-1 text-xs text-gray-400 hover:text-teal-600 transition-colors border border-gray-200 rounded-md px-2 py-1 hover:border-teal-300">
+              <Settings className="w-3.5 h-3.5" />管理问答
+            </button>
+          </Link>
+        )}
       </div>
 
       {/* Search */}
