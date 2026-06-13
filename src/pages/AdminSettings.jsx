@@ -795,60 +795,12 @@ export default function AdminSettings() {
 
       {activeTab === "general" && !loading && (
         <>
-          {/* ─── Fee Rate Settings ─── */}
-          <Card className="border-yellow-200">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-semibold text-gray-700">
-                  <Badge className="text-xs bg-yellow-100 text-yellow-700">费率设置</Badge>
-                </CardTitle>
-                <Button size="sm" className="h-7 text-xs bg-yellow-600 hover:bg-yellow-700" onClick={handleSaveAll} disabled={saving}>
-                  <Save className="w-3 h-3 mr-1" />{saved ? "已保存 ✓" : saving ? "保存中..." : "保存"}
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-
-              {/* 预付款/后付款设置已移至「支付方式」tab 的付款模式设置区块 */}
-
-              {/* 允许未付款发货设置已移至「发货设置」tab */}
-
-              {/* 拆单设置已移至「订单管理」tab 的拆单区块 */}
-
-              {/* Packing fees and other numeric fee settings (excluding service_fee_rate which is now in fee_rules tab) */}
-              <div className="grid grid-cols-2 gap-3">
-                {(grouped.fee || [])
-                  .filter(s => !s.key.includes("increment")
-                    && !['service_fee_rate', 'default_order_fixed_fee_jpy', 'default_rewarehouse_fee_jpy', 'prepay_enabled', 'prepay_rate', 'pre_shipment_balance_surcharge_rate', 'deferred_payment_enabled', 'deferred_payment_surcharge_rate', 'transit_location_fee_split_enabled'].includes(s.key))
-                  .map(s => (
-                    <div key={s.id || s.key}>
-                      <Label className="text-xs text-gray-500 block mb-1">{s.description || s.key}</Label>
-                      <div className="flex items-center gap-1">
-                        <Input type="number" step="0.1" className="h-8 text-sm flex-1" value={s.value}
-                          onChange={e => updateSetting(s.id, e.target.value)} />
-                        <span className="text-xs text-gray-400 px-2">JPY</span>
-                      </div>
-                    </div>
-                  ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* ─── Other Settings (general / shipping / payment) ─── */}
-          {/* shipping category keys managed by dedicated settings components are excluded here */}
+          {/* ─── Other Settings (general / payment) ─── */}
+          {/* fee and shipping categories are managed in dedicated tabs */}
           {(() => {
-            const EXCLUDED_SHIPPING_KEYS = new Set([
-              'allow_ship_without_payment', 'allow_ship_without_payment_single',
-              'allow_ship_without_payment_user_pool', 'allow_ship_without_payment_official_pool',
-              'pre_shipment_enabled', 'fullpay_once_enabled', 'fullpay_once_tolerance_jpy',
-              'allow_user_pool_edit_instant',
-              'allow_user_rewarehouse_from_fee_pending', 'default_rewarehouse_fee_jpy',
-              'allow_user_customs_declaration',
-            ]);
             const filteredGrouped = Object.fromEntries(
               Object.entries(grouped)
-                .filter(([cat]) => cat !== "fee")
-                .map(([cat, items]) => [cat, cat === 'shipping' ? items.filter(s => !EXCLUDED_SHIPPING_KEYS.has(s.key)) : items])
+                .filter(([cat]) => cat !== "fee" && cat !== "shipping")
                 .filter(([, items]) => items.length > 0)
             );
             return Object.entries(filteredGrouped).map(([cat, items]) => {
