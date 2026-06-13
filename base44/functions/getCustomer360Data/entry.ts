@@ -111,14 +111,29 @@ Deno.serve(async (req) => {
     const t1 = Date.now();
     
     // Parallel fetch all data - CRITICAL: Always filter by tenant_id
-    const [allOrders, creditApps, userPrefs, tenantPools, customerNotes, tenantRoles] = await Promise.all([
+    const [allOrders, creditApps, userPrefs, tenantPools, customerNotes, tenantRoles, memberTiers] = await Promise.all([
       base44.asServiceRole.entities.Order.filter({ tenant_id: tenantId, user_email: targetEmail }),
       base44.asServiceRole.entities.CreditApplication.filter({ tenant_id: tenantId, user_email: targetEmail }),
       base44.asServiceRole.entities.UserPreference.filter({ tenant_id: tenantId, user_email: targetEmail }),
       base44.asServiceRole.entities.ShippingPool.filter({ tenant_id: tenantId }, '-created_date', 500),
       base44.asServiceRole.entities.CustomerNote.filter({ tenant_id: tenantId, customer_email: targetEmail }, '-created_date', 100),
-      base44.asServiceRole.entities.Role.filter({ tenant_id: tenantId }).catch(() => [])
+      base44.asServiceRole.entities.Role.filter({ tenant_id: tenantId }).catch(() => []),
+      targetUser.member_tier_id
+        ? base44.asServiceRole.entities.MemberTier.filter({ tenant_id: tenantId }).catch(() => [])
+        : Promise.resolve([]),
     ]);
+    
+    // 会员阶级完整配置（颜色/图标/字体色等，用于用户端展示）
+    const tierRec = (memberTiers || []).find(t => t.id === targetUser.member_tier_id) || null;
+    const memberTier = tierRec ? {
+      id: tierRec.id,
+      name: tierRec.name,
+      color: tierRec.color || '',
+      icon: tierRec.icon || '',
+      name_font_color: tierRec.name_font_color || '',
+      description: tierRec.description || '',
+      is_permanent: !!tierRec.is_permanent,
+    } : null;
     
     console.log(`[TIMING] getCustomer360Data | parallel fetches: ${Date.now() - t1}ms`);
     
@@ -386,6 +401,7 @@ Deno.serve(async (req) => {
         member_tier_name: targetUser.member_tier_name || null,
         assigned_role_ids: targetUser.assigned_role_ids || [],
       },
+      memberTier,
       metrics: {
         totalOrders: orderCount,
         totalPaidJpy,

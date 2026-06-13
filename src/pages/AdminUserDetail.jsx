@@ -31,6 +31,7 @@ import NotificationGlobalSettingsCard from "@/components/profile/NotificationGlo
 import RolePermissionsTab from "@/components/profile/RolePermissionsTab";
 import PrivacySettingsTab from "@/components/profile/PrivacySettingsTab";
 import CustomerOrderDetailModal from "@/components/customer360/CustomerOrderDetailModal";
+import MemberTierBadge from "@/components/profile/MemberTierBadge";
 
 const PAYMENT_METHOD_LABELS = {
   alipay: "支付宝", wechatpay: "微信支付", paypay: "PayPay", paypal: "PayPal",
@@ -225,7 +226,7 @@ export default function AdminUserDetail() {
     );
   }
   
-  const { userProfile, metrics, recentOrders, pendingTasks, riskFlags, preferences, timeline, orders, finance, logistics, notes, roles } = data;
+  const { userProfile, memberTier, metrics, recentOrders, pendingTasks, riskFlags, preferences, timeline, orders, finance, logistics, notes, roles } = data;
   const pinnedNotes = (notes || []).filter(n => n.is_pinned);
   
   // 退款次数：使用后端精确统计（timeline 仅取前 50 条事件，会漏算）
@@ -294,7 +295,9 @@ export default function AdminUserDetail() {
               </div>
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h1 className="text-xl font-bold text-gray-900">{userProfile.display_name || userProfile.full_name || "未设置昵称"}</h1>
+                  <h1 className="text-xl font-bold text-gray-900" style={memberTier?.name_font_color ? { color: memberTier.name_font_color } : undefined}>
+                    {userProfile.display_name || userProfile.full_name || "未设置昵称"}
+                  </h1>
                   {/* 系统角色 */}
                   <Badge className={(SYSTEM_ROLE_CONFIG[userProfile.role] || SYSTEM_ROLE_CONFIG.user).color + " text-xs"}>
                     <Shield className="w-3 h-3 mr-1" />
@@ -305,11 +308,14 @@ export default function AdminUserDetail() {
                       <CreditCard className="w-3 h-3 mr-1" />记账
                     </Badge>
                   )}
-                  {userProfile.member_tier_name && (
-                    <Badge className="bg-blue-100 text-blue-700">
-                      {userProfile.member_tier_name}
-                    </Badge>
-                  )}
+                  {memberTier || userProfile.member_tier_name ? (
+                    <MemberTierBadge
+                      tier={memberTier || { name: userProfile.member_tier_name }}
+                      showUpgradeLink={isOwnProfile}
+                    />
+                  ) : isOwnProfile ? (
+                    <MemberTierBadge tier={{ name: "普通用户", color: "bg-gray-100 text-gray-500", icon: "Star" }} showUpgradeLink />
+                  ) : null}
                   {/* 角色标签（来自角色权限系统，仅管理员可在用户管理中变更） */}
                   {(roles || []).map(r => (
                     <Badge key={r.id} variant="outline" className="text-xs" style={{ borderColor: r.color, color: r.color }}>
