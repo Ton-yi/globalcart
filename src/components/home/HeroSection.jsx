@@ -66,7 +66,7 @@ export default function HeroSection({ config, user, tenant }) {
         <div
           className="absolute inset-0 rounded-xl"
           style={{
-            backgroundImage: bgStyle.backgroundImage,
+            backgroundImage: `url(${c.bgImageUrl})`,
             backgroundSize: "cover",
             backgroundPosition: "center",
             filter: combinedFilter,
@@ -99,18 +99,21 @@ export default function HeroSection({ config, user, tenant }) {
               : {};
 
             if (btn.page) {
-              return (
-                <Link key={btn.id || i} to={createPageUrl(btn.page)}>
-                  <Button
-                    variant={isOutline ? "outline" : "default"}
-                    style={btnStyle}
-                    className={!isOutline && !btn.color ? "bg-red-600 hover:bg-red-700" : ""}
-                  >
-                    {btn.icon === "ShoppingBag" && <ShoppingBag className="w-4 h-4 mr-2" />}
-                    {btn.label}
-                  </Button>
-                </Link>
+              const isExternal = btn.page.startsWith("http");
+              const btnEl = (
+                <Button
+                  variant={isOutline ? "outline" : "default"}
+                  style={btnStyle}
+                  className={!isOutline && !btn.color ? "bg-red-600 hover:bg-red-700" : ""}
+                >
+                  {btn.icon === "ShoppingBag" && <ShoppingBag className="w-4 h-4 mr-2" />}
+                  {btn.label}
+                </Button>
               );
+              if (isExternal) {
+                return <a key={btn.id || i} href={btn.page} target="_blank" rel="noopener noreferrer">{btnEl}</a>;
+              }
+              return <Link key={btn.id || i} to={createPageUrl(btn.page)}>{btnEl}</Link>;
             }
             return (
               <Button

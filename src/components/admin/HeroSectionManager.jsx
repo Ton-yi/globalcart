@@ -102,6 +102,30 @@ function SliderField({ label, value, min, max, unit, onChange }) {
   );
 }
 
+// 常用内页选项（与 QuickActionsGrid 相同的 createPageUrl 路由逻辑）
+const PAGE_OPTIONS = [
+  { value: "", label: "（留空 → 登录页）" },
+  { value: "Home", label: "主页" },
+  { value: "SubmitOrder", label: "提交订单" },
+  { value: "MyOrders", label: "我的订单" },
+  { value: "ShippingPool", label: "发货 & 拼邮" },
+  { value: "GroupBuy", label: "拼单" },
+  { value: "MemberTiers", label: "会员阶级" },
+  { value: "Notifications", label: "通知中心" },
+  { value: "UserPreferences", label: "个人设置" },
+  { value: "__custom__", label: "✏️ 自定义网址…" },
+];
+
+function isCustomUrl(page) {
+  return page && page.startsWith("http");
+}
+
+function getSelectValue(page) {
+  if (!page) return "";
+  if (isCustomUrl(page)) return "__custom__";
+  return page;
+}
+
 // ─── ButtonEditor ─────────────────────────────────────────
 function ButtonEditor({ buttons, onChange }) {
   const update = (idx, field, val) => onChange(buttons.map((b, i) => i === idx ? { ...b, [field]: val } : b));
@@ -118,8 +142,30 @@ function ButtonEditor({ buttons, onChange }) {
               <Input className="h-7 text-xs mt-0.5" value={btn.label} onChange={e => update(idx, "label", e.target.value)} />
             </div>
             <div>
-              <Label className="text-xs text-gray-500">跳转页面（留空=登录）</Label>
-              <Input className="h-7 text-xs mt-0.5 font-mono" value={btn.page || ""} onChange={e => update(idx, "page", e.target.value)} placeholder="SubmitOrder" />
+              <Label className="text-xs text-gray-500">跳转目标</Label>
+              <Select
+                value={getSelectValue(btn.page)}
+                onValueChange={v => {
+                  if (v === "__custom__") update(idx, "page", "https://");
+                  else update(idx, "page", v);
+                }}
+              >
+                <SelectTrigger className="h-7 text-xs mt-0.5"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {PAGE_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              {isCustomUrl(btn.page) && (
+                <div className="mt-1">
+                  <Input
+                    className="h-7 text-xs font-mono"
+                    value={btn.page}
+                    onChange={e => update(idx, "page", e.target.value)}
+                    placeholder="https://example.com"
+                  />
+                  <p className="text-xs text-blue-500 mt-0.5">外部链接将在新标签页打开</p>
+                </div>
+              )}
             </div>
             <div>
               <Label className="text-xs text-gray-500">样式</Label>
