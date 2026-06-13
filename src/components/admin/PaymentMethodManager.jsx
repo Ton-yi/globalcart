@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
   Plus, Pencil, Trash2, CheckCircle, XCircle, Upload,
-  ChevronDown, ChevronUp, Eye, EyeOff, Save, AlertCircle, Zap, ImageIcon
+  ChevronDown, ChevronUp, Eye, EyeOff, Save, AlertCircle, Zap, ImageIcon, HelpCircle
 } from "lucide-react";
 
 const CURRENCIES = ["JPY", "CNY", "USD", "TWD", "HKD", "EUR", "SGD"];
@@ -257,6 +257,142 @@ function EditForm({ form, onChange, onSave, onCancel, saving, onUpload, uploadin
           {saving ? "保存中..." : "保存"}
         </Button>
         <Button size="sm" variant="outline" className="h-7 text-xs" onClick={onCancel}>取消</Button>
+      </div>
+    </div>
+  );
+}
+
+// ── OtherPaymentConfig component ──────────────────────────────────────────
+function OtherPaymentConfig() {
+  const DEFAULT = {
+    other_payment_name: '其它支付方式',
+    other_payment_note: '',
+    other_payment_image_url: '',
+    other_payment_proof_enabled: 'true',
+    // ⚠️ other_payment_skip_proof_override: when 'true', OVERRIDES ALL user permission checks.
+    // Users can skip proof upload regardless of role or any other permission setting.
+    // This is intentionally set here by tenant admins only.
+    other_payment_skip_proof_override: 'false',
+  };
+
+  const [config, setConfig] = useState({ ...DEFAULT });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
+  useEffect(() => {
+    base44.functions.invoke('managePaymentMethod', { action: 'get_other_config' })
+      .then(r => {
+        const c = r.data?.config || {};
+        setConfig({
+          other_payment_name: c.other_payment_name ?? DEFAULT.other_payment_name,
+          other_payment_note: c.other_payment_note ?? '',
+          other_payment_image_url: c.other_payment_image_url ?? '',
+          other_payment_proof_enabled: c.other_payment_proof_enabled ?? 'true',
+          other_payment_skip_proof_override: c.other_payment_skip_proof_override ?? 'false',
+        });
+        setLoading(false);
+      });
+  }, []); // eslint-disable-line
+
+  const set = (k, v) => setConfig(p => ({ ...p, [k]: v }));
+
+  const handleSave = async () => {
+    setSaving(true);
+    await base44.functions.invoke('managePaymentMethod', { action: 'save_other_config', ...config });
+    setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  const handleUpload = async (file) => {
+    setUploading(true);
+    const { file_url } = await base44.integrations.Core.UploadFile({ file });
+    set('other_payment_image_url', file_url);
+    setUploading(false);
+  };
+
+  if (loading) return <p className="text-xs text-gray-400 py-2">加载中...</p>;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <HelpCircle className="w-3.5 h-3.5 text-gray-400" />
+        <p className="text-xs font-semibold text-gray-700">其它支付方式</p>
+        <span className="text-xs text-gray-400">用户未选择支付方式时进入，可作为兜底页或特殊业务入口</span>
+      </div>
+      <div className="border border-gray-200 rounded-lg p-4 space-y-3 bg-gray-50/40">
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label className="text-xs text-gray-500">显示名称</Label>
+            <Input className="mt-0.5 h-8 text-sm" value={config.other_payment_name}
+              onChange={e => set('other_payment_name', e.target.value)}
+              placeholder="其它支付方式" />
+          </div>
+          <div>
+            <Label className="text-xs text-gray-500">图片（收款码/说明图）</Label>
+            <div className="flex gap-1 mt-0.5">
+              <Input className="h-8 text-sm flex-1" value={config.other_payment_image_url}
+                onChange={e => set('other_payment_image_url', e.target.value)} placeholder="https://..." />
+              <label className="cursor-pointer">
+                <div className="h-8 w-8 flex items-center justify-center border border-gray-200 rounded hover:bg-gray-100 bg-white">
+                  <Upload className="w-3.5 h-3.5 text-gray-400" />
+                </div>
+                <input type="file" accept="image/*" className="hidden"
+                  onChange={e => { const f = e.target.files[0]; if (f) handleUpload(f); }}
+                  disabled={uploading} />
+              </label>
+            </div>
+            {uploading && <p className="text-xs text-blue-500 mt-0.5">上传中...</p>}
+          </div>
+          <div className="col-span-2">
+            <Label className="text-xs text-gray-500">付款时说明（显示给用户）</Label>
+            <Textarea rows={2} className="mt-0.5 text-sm" value={config.other_payment_note}
+              onChange={e => set('other_payment_note', e.target.value)}
+              placeholder="请联系客服获取付款方式，或按如下步骤操作..." />
+          </div>
+        </div>
+
+        {config.other_payment_image_url && (
+          <img src={config.other_payment_image_url} alt="" className="h-16 rounded object-contain border border-gray-200" />
+        )}
+
+        <div className="border-t border-gray-200 pt-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="text-sm text-gray-700">开启付款凭证上传</Label>
+              <p className="text-xs text-gray-400 mt-0.5">关闭后，其它支付页不显示上传凭证区域</p>
+            </div>
+            <button type="button"
+              onClick={() => set('other_payment_proof_enabled', config.other_payment_proof_enabled === 'true' ? 'false' : 'true')}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${config.other_payment_proof_enabled === 'true' ? 'bg-blue-600' : 'bg-gray-200'}`}>
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${config.other_payment_proof_enabled === 'true' ? 'translate-x-6' : 'translate-x-1'}`} />
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="text-sm text-gray-700 flex items-center gap-1">
+                跳过上传凭证（覆盖所有权限）
+                <span className="text-[10px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded font-semibold">最高优先级</span>
+              </Label>
+              {/* ⚠️ This setting OVERRIDES ALL user permission checks including canSkipProof.
+                  When true, any user on method=other can skip proof upload regardless of role or permission config.
+                  This is intentional: set by tenant admins for special business flows (e.g. single-method tenant, error page, etc.) */}
+              <p className="text-xs text-gray-400 mt-0.5">开启后，任何用户在其它支付页均可跳过上传凭证，不受角色权限影响</p>
+            </div>
+            <button type="button"
+              onClick={() => set('other_payment_skip_proof_override', config.other_payment_skip_proof_override === 'true' ? 'false' : 'true')}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${config.other_payment_skip_proof_override === 'true' ? 'bg-orange-500' : 'bg-gray-200'}`}>
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${config.other_payment_skip_proof_override === 'true' ? 'translate-x-6' : 'translate-x-1'}`} />
+            </button>
+          </div>
+        </div>
+
+        <Button size="sm" className="bg-gray-900 hover:bg-gray-800 h-7 text-xs" onClick={handleSave} disabled={saving}>
+          <Save className="w-3 h-3 mr-1" />{saving ? '保存中...' : saved ? '已保存 ✓' : '保存'}
+        </Button>
       </div>
     </div>
   );
@@ -568,6 +704,11 @@ export default function PaymentMethodManager({ onReload }) {
           </div>
         )}
       </div>
+
+      <div className="border-t border-gray-100" />
+
+      {/* ── 其它支付方式（兜底/特殊业务） ── */}
+      <OtherPaymentConfig />
     </div>
   );
 }

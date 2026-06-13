@@ -155,6 +155,19 @@ Deno.serve(async (req) => {
       orderPaidAmount: order.paid_amount 
     });
 
+    // Build "other" payment method config from SiteSettings
+    // other_payment_skip_proof_override: when 'true', OVERRIDES ALL permission checks on the Payment page
+    // and allows the user to skip proof upload regardless of their role/permissions.
+    const otherPaymentConfig = {
+      name: settings['other_payment_name'] || '其它支付方式',
+      note: settings['other_payment_note'] || '',
+      image_url: settings['other_payment_image_url'] || '',
+      proof_enabled: settings['other_payment_proof_enabled'] !== 'false', // default true
+      // ⚠️ SECURITY NOTE: skip_proof_override=true bypasses ALL user permission checks.
+      // This is intentional and set exclusively by tenant admins. Do NOT gate this on canSkipProof.
+      skip_proof_override: settings['other_payment_skip_proof_override'] === 'true',
+    };
+
     return Response.json({ 
       order, 
       settings, 
@@ -166,7 +179,8 @@ Deno.serve(async (req) => {
       surchargeJpy,
       paymentAmountWithSurcharge,
       paymentBreakdown,
-      isSupplement
+      isSupplement,
+      otherPaymentConfig,
     });
 
   } catch (error) {

@@ -36,6 +36,7 @@ export default function Payment() {
   // Server-computed payment data (avoids client-side re-derivation bugs)
   const [serverPaymentData, setServerPaymentData] = useState(null);
   const [paymentPendingReminder, setPaymentPendingReminder] = useState("");
+  const [otherPaymentConfig, setOtherPaymentConfig] = useState(null);
 
   const loadPaymentData = (payMethodKey = null) => {
     if (!orderId) { navigate(createPageUrl("MyOrders")); return; }
@@ -51,6 +52,7 @@ export default function Payment() {
         }
         setPaymentMethods(data.paymentMethods || []);
         setRates(data.rates || null);
+        setOtherPaymentConfig(data.otherPaymentConfig || null);
         setServerPaymentData({
           isFullPayOnce: data.isFullPayOnce || false,
           estimatedShippingFee: data.estimatedShippingFee || 0,
@@ -127,7 +129,17 @@ export default function Payment() {
   const alipayAccount = settings["alipay_account"] || "";
   const alipayName = settings["alipay_account_name"] || "";
   const alipayQr = activeMethod?.image_url || settings["alipay_qr_url"] || "";
-  const methodLabel = activeMethod?.name || method;
+  const methodLabel = activeMethod?.name || (method === "other" ? (otherPaymentConfig?.name || "其它支付方式") : method);
+
+  // "其它支付方式" special handling:
+  // - skip_proof_override=true: OVERRIDES ALL user permission checks for proof upload skip.
+  //   This is set exclusively by tenant admins and is independent of canSkipProof.
+  const isOtherMethod = method === "other";
+  const otherProofEnabled = isOtherMethod ? (otherPaymentConfig?.proof_enabled !== false) : true;
+  // ⚠️ skip_proof_override bypasses canSkipProof entirely — do NOT add any additional permission gate here.
+  const effectiveCanSkipProof = isOtherMethod
+    ? (otherPaymentConfig?.skip_proof_override === true || canSkipProof)
+    : canSkipProof;
 
   // Currency conversion — prefer activeMethod config, fallback to URL param passed from SubmitOrder
   const payCurrency = activeMethod?.payment_currency || urlPayCurrency || "JPY";
@@ -316,15 +328,21 @@ export default function Payment() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {!isAutoCallback && activeMethod?.image_url && (
+            {!isAutoCallback && (activeMethod?.image_url || (isOtherMethod && otherPaymentConfig?.image_url)) && (
               <div className="text-center">
                 <p className="text-xs text-gray-500 mb-2">扫描二维码付款</p>
-                <img src={activeMethod.image_url} alt="收款码" className="w-48 h-48 mx-auto border border-gray-200 rounded-lg object-contain" />
+                <img
+                  src={activeMethod?.image_url || otherPaymentConfig?.image_url}
+                  alt="收款码"
+                  className="w-48 h-48 mx-auto border border-gray-200 rounded-lg object-contain"
+                />
               </div>
             )}
-            {activeMethod?.payment_note ? (
+            {(activeMethod?.payment_note || (isOtherMethod && otherPaymentConfig?.note)) ? (
               <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-3">
-                <p className="text-sm text-gray-700 whitespace-pre-wrap">{activeMethod.payment_note}</p>
+                <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                  {activeMethod?.payment_note || otherPaymentConfig?.note}
+                </p>
               </div>
             ) : (
               <p className="text-sm text-gray-400 text-center">请联系客服获取付款信息</p>
@@ -334,8 +352,8 @@ export default function Payment() {
       )}
 
       {/* Upload proof - only for manual (non-auto-callback) methods */}
-      {/* canSkipProof: user can click "已付款" without uploading proof */}
-      {!isAutoCallback && canSkipProof && (
+      {/* effectiveCanSkipProof: for method=other, skip_proof_override from admin OVERRIDES all permission checks */}
+      {!isAutoCallback && effectiveCanSkipProof && (
         <div className="flex justify-end">
           <Button
             variant="outline"
@@ -357,7 +375,8 @@ export default function Payment() {
           </Button>
         </div>
       )}
-      {!isAutoCallback && (
+      {/* For method=other, proof upload can be disabled entirely by admin via other_payment_proof_enabled=false */}
+      {!isAutoCallback && (isOtherMethod ? otherProofEnabled : true) && (
         !submitted ? (
           <Card className="border-gray-200">
             <CardHeader className="pb-3">
