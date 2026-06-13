@@ -60,11 +60,11 @@ function migrateConfig(raw) {
   return def();
 }
 
-// ─── ImageDropZone: paste or drag image, upload and return URL ───
-function ImageDropZone({ imageUrl, onUpload, onRemove }) {
+// ─── DescEditor: textarea + image integrated ───
+function DescEditor({ desc, imageUrl, onDescChange, onUpload, onRemove }) {
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const inputRef = useRef();
+  const fileInputRef = useRef();
 
   const uploadFile = async (file) => {
     if (!file || !file.type.startsWith("image/")) return;
@@ -78,7 +78,7 @@ function ImageDropZone({ imageUrl, onUpload, onRemove }) {
     e.preventDefault();
     setDragging(false);
     const file = e.dataTransfer.files[0];
-    uploadFile(file);
+    if (file) uploadFile(file);
   };
 
   const handlePaste = (e) => {
@@ -86,32 +86,52 @@ function ImageDropZone({ imageUrl, onUpload, onRemove }) {
     if (item) uploadFile(item.getAsFile());
   };
 
-  if (imageUrl) {
-    return (
-      <div className="relative inline-block mt-1">
-        <img src={imageUrl} alt="step" className="max-h-28 rounded border border-gray-200 object-contain" />
-        <button onClick={onRemove} className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600">
-          <X className="w-2.5 h-2.5" />
-        </button>
-      </div>
-    );
-  }
-
   return (
     <div
-      className={`mt-1 flex flex-col items-center justify-center gap-1 border-2 border-dashed rounded-lg py-3 cursor-pointer transition-colors text-xs text-gray-400
-        ${dragging ? "border-indigo-400 bg-indigo-50" : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"}`}
+      className={`mt-0.5 rounded-md border bg-background shadow-sm transition-colors ${dragging ? "border-indigo-400 ring-1 ring-indigo-300" : "border-input"}`}
       onDragOver={e => { e.preventDefault(); setDragging(true); }}
       onDragLeave={() => setDragging(false)}
       onDrop={handleDrop}
-      onPaste={handlePaste}
-      onClick={() => inputRef.current?.click()}
-      tabIndex={0}
-      onKeyDown={e => e.key === "Enter" && inputRef.current?.click()}
     >
-      {uploading ? <Loader2 className="w-4 h-4 animate-spin text-indigo-400" /> : <ImagePlus className="w-4 h-4" />}
-      <span>{uploading ? "上传中…" : "拖拽 / 粘贴 / 点击上传图片"}</span>
-      <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={e => uploadFile(e.target.files[0])} />
+      {/* Textarea */}
+      <textarea
+        className="w-full text-xs bg-transparent px-2 py-1.5 resize-none focus:outline-none"
+        rows={2}
+        value={desc || ""}
+        onChange={e => onDescChange(e.target.value)}
+        onPaste={handlePaste}
+        placeholder="输入描述，或粘贴 / 拖拽图片…"
+      />
+
+      {/* Divider + toolbar + image preview */}
+      <div className="border-t border-input px-2 py-1 flex items-center gap-2">
+        {/* Upload button */}
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className="text-gray-400 hover:text-indigo-500 transition-colors"
+          title="上传图片"
+        >
+          {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" /> : <ImagePlus className="w-3.5 h-3.5" />}
+        </button>
+        <span className="text-xs text-gray-300 flex-1">{dragging ? "松开鼠标上传" : "可拖拽或 Ctrl+V 粘贴图片"}</span>
+
+        {/* Thumbnail */}
+        {imageUrl && (
+          <div className="relative flex-shrink-0">
+            <img src={imageUrl} alt="" className="h-8 w-auto rounded border border-gray-200 object-contain" />
+            <button
+              type="button"
+              onClick={onRemove}
+              className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600"
+            >
+              <X className="w-2 h-2" />
+            </button>
+          </div>
+        )}
+
+        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={e => uploadFile(e.target.files[0])} />
+      </div>
     </div>
   );
 }
@@ -178,15 +198,10 @@ function SectionEditor({ section, sectionIdx, total, onChange, onDelete, onMoveU
                 </div>
                 <div>
                   <Label className="text-xs text-gray-400">描述</Label>
-                  <textarea
-                    className="mt-0.5 w-full text-xs rounded-md border border-input bg-background px-2 py-1.5 shadow-sm resize-none focus:outline-none focus:ring-1 focus:ring-ring"
-                    rows={2}
-                    value={step.desc || ""}
-                    onChange={e => updateStep(i, "desc", e.target.value)}
-                  />
-                  <Label className="text-xs text-gray-400 mt-1 block">配图（可选）</Label>
-                  <ImageDropZone
+                  <DescEditor
+                    desc={step.desc || ""}
                     imageUrl={step.image_url || ""}
+                    onDescChange={val => updateStep(i, "desc", val)}
                     onUpload={url => updateStep(i, "image_url", url)}
                     onRemove={() => updateStep(i, "image_url", "")}
                   />
