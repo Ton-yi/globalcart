@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import PaymentModal from "@/components/orders/PaymentModal";
 import UserNotifyShipmentModal from "@/components/orders/UserNotifyShipmentModal";
-import OrderDetailModal from "@/components/orders/OrderDetailModal";
+import OrderDetailDrawer from "@/components/orders/OrderDetailDrawer";
 import ShippingPoolDetailModal from "@/components/shippingpool/ShippingPoolDetailModal";
 
 const STATUS_LABEL = {
@@ -449,11 +449,13 @@ export default function UserTodo() {
           onSuccess={() => { setNotifyModal(null); setSelNotifyOrders([]); load(); }}
         />
       )}
-      {orderDetailModal && (
-        <OrderDetailModal
+      {orderDetailModal && currentUser && (
+        <OrderDetailDrawer
           order={orderDetailModal}
+          currentUser={currentUser}
+          initialUserPreference={initialData?.userPreference}
           onClose={() => setOrderDetailModal(null)}
-          onRefresh={() => { setOrderDetailModal(null); load(); }}
+          onAction={() => { setOrderDetailModal(null); load(); }}
         />
       )}
       {poolDetailModal && currentUser && (
