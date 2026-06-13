@@ -280,9 +280,14 @@ function AudiencePanel({ form, onChange }) {
         {/* Image mode */}
         {form.bgMode === "image" && (
           <div className="space-y-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
-            {/* 实时预览区 */}
+            {/* 实时预览区（支持拖拽更换） */}
             {form.bgImageUrl && (
-              <div className="relative rounded-lg overflow-hidden h-28 border border-gray-300 shadow-sm">
+              <div
+                className="relative rounded-lg overflow-hidden h-28 border border-gray-300 shadow-sm"
+                onDragOver={e => { e.preventDefault(); setDragging(true); }}
+                onDragLeave={() => setDragging(false)}
+                onDrop={handleDrop}
+              >
                 {/* 背景图 */}
                 <div
                   className="absolute inset-0 bg-cover bg-center"
