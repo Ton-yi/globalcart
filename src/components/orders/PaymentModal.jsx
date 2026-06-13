@@ -140,9 +140,12 @@ export default function PaymentModal({ order, mode = "prepay", onClose, onSucces
       ? `同一物流运费 - ${order.product_name}`
       : `同一物流代购 - ${order.product_name}`;
 
+    // For prepay, use finalAmountJpy (includes surcharge); for shipping/supplement use paidAmount as-is
+    const amountToCharge = (!isShipping && !isSupp && surchargeJpy > 0) ? finalAmountJpy : parseFloat(paidAmount);
+
     const res = await base44.functions.invoke("generateAlipayPaymentLink", {
       orderId: order.id,
-      amount: parseFloat(paidAmount),
+      amount: amountToCharge,
       currency: cur,
       subject,
       paymentType: isShipping ? "shipping" : "order",
