@@ -32,14 +32,7 @@ export const NOTIFICATION_TEXT_FIELDS = [
     type: "input",
     category: "general",
   },
-  {
-    key: "payment_pending_reminder",
-    label: "待付款页面提示",
-    description: "付款页面顶部显示的提示文字（留空使用系统默认）",
-    placeholder: "请在付款截止日期前完成支付，以免订单被取消。",
-    type: "input",
-    category: "general",
-  },
+
   {
     key: "shipped_reminder",
     label: "已发货提示",
