@@ -132,6 +132,12 @@ const ADMIN_NAV = [
     { key: "official_pool", label: "官方拼邮" },
   ]},
   { key: "permissions", label: "权限一览" },
+  { key: "__divider__" },
+  { group: "管理页面入口", children: [
+    { key: "ext_announcements", label: "公告管理", href: "AdminAnnouncements" },
+    { key: "ext_navbar", label: "导航栏设置", href: "AdminNavbarSettings" },
+    { key: "ext_users", label: "用户管理", href: "AdminUsers" },
+  ]},
 ];
 
 // Reusable toggle component (purely local state, no API call)
@@ -398,22 +404,36 @@ export default function AdminSettings() {
       <div className="flex flex-col md:flex-row gap-5 items-start">
         {/* Left vertical nav */}
         <aside className="w-full md:w-48 flex-shrink-0 bg-white border border-gray-200 rounded-lg p-2 space-y-0.5 md:sticky md:top-20">
-          {ADMIN_NAV.map(item => item.children ? (
-            <div key={item.group} className="pt-1.5">
-              <p className="px-3 py-1 text-xs font-semibold text-gray-400">{item.group}</p>
-              {item.children.map(c => (
-                <button key={c.key} onClick={() => setActiveTab(c.key)}
-                  className={`w-full text-left pl-6 pr-3 py-1.5 rounded-md text-sm transition-colors ${activeTab === c.key ? "bg-red-50 text-red-700 font-medium" : "text-gray-600 hover:bg-gray-50"}`}>
-                  {c.label}
-                </button>
-              ))}
-            </div>
-          ) : (
-            <button key={item.key} onClick={() => setActiveTab(item.key)}
-              className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${activeTab === item.key ? "bg-red-50 text-red-700 font-medium" : "text-gray-600 hover:bg-gray-50"}`}>
-              {item.label}
-            </button>
-          ))}
+          {ADMIN_NAV.map((item, idx) => {
+            if (item.key === '__divider__') return (
+              <div key={`divider-${idx}`} className="pt-2 pb-1">
+                <div className="border-t border-gray-100" />
+              </div>
+            );
+            if (item.children) return (
+              <div key={item.group} className="pt-1.5">
+                <p className="px-3 py-1 text-xs font-semibold text-gray-400">{item.group}</p>
+                {item.children.map(c => c.href ? (
+                  <Link key={c.key} to={createPageUrl(c.href)}
+                    className="w-full flex items-center justify-between pl-6 pr-2 py-1.5 rounded-md text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+                    {c.label}
+                    <ExternalLink className="w-3 h-3 text-gray-300 flex-shrink-0" />
+                  </Link>
+                ) : (
+                  <button key={c.key} onClick={() => setActiveTab(c.key)}
+                    className={`w-full text-left pl-6 pr-3 py-1.5 rounded-md text-sm transition-colors ${activeTab === c.key ? "bg-red-50 text-red-700 font-medium" : "text-gray-600 hover:bg-gray-50"}`}>
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+            );
+            return (
+              <button key={item.key} onClick={() => setActiveTab(item.key)}
+                className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${activeTab === item.key ? "bg-red-50 text-red-700 font-medium" : "text-gray-600 hover:bg-gray-50"}`}>
+                {item.label}
+              </button>
+            );
+          })}
         </aside>
 
         {/* Main content */}
