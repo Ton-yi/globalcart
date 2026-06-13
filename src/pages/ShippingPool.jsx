@@ -209,6 +209,16 @@ export default function ShippingPool() {
       setUseNewAddress(true);
       setSelectedAddressId("");
     }
+    // Auto-fill shipping method from user preference
+    if (pref?.preferred_shipping_method) {
+      f("shipping_method", pref.preferred_shipping_method);
+    }
+    // Auto-fill transit final address from preference
+    if (pref?.default_address_id && addrs.find(a => a.id === pref.default_address_id)) {
+      setTransitFinalAddressId(pref.default_address_id);
+    } else if (defaultAddr) {
+      setTransitFinalAddressId(defaultAddr.id);
+    }
     setFormLoading(false);
   };
 
@@ -570,6 +580,13 @@ export default function ShippingPool() {
                 <p className="text-xs text-gray-400">暂无可用中转地，请联系管理员添加</p> :
 
                 <div className="space-y-2">
+                            {/* Allow deselect / no transit */}
+                            <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${!form.transit_location_id ? "border-gray-400 bg-gray-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
+                              <input type="radio" checked={!form.transit_location_id} onChange={() => f("transit_location_id", "")} className="mt-0.5 accent-gray-500" />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-400">不指定（不拼邮到中转地）</p>
+                              </div>
+                            </label>
                             {transitLocations.map((l) =>
                   <label key={l.id} className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${form.transit_location_id === l.id ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
                                 <input type="radio" checked={form.transit_location_id === l.id} onChange={() => f("transit_location_id", l.id)} className="mt-0.5 accent-blue-600" />
@@ -729,7 +746,7 @@ export default function ShippingPool() {
                     <Select value={form.shipping_method} onValueChange={(v) => {f("shipping_method", v);setMethodError(null);}}>
                       <SelectTrigger className={`mt-1 h-8 text-sm ${methodError ? "border-red-300" : ""}`}><SelectValue placeholder="选择..." /></SelectTrigger>
                       <SelectContent>
-                        {SHIPPING_METHODS.map((m) => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
+                        {(shippingMethods.length > 0 ? shippingMethods.map(m => ({ value: m.code, label: m.name })) : SHIPPING_METHODS).map((m) => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
                       </SelectContent>
                     </Select>
                     {form.shipping_method && getShippingMethodError() &&
@@ -883,7 +900,7 @@ export default function ShippingPool() {
                                     <div className="flex items-center gap-2 flex-wrap">
                                       <span className="text-sm font-medium text-gray-800">{a.name}</span>
                                       {isCustomizable &&
-                              <Badge className="text-[10px] bg-green-100 text-green-700 border-green-200 hidden">用户可自定义</Badge>
+                              <Badge className="text-[10px] bg-green-100 text-green-700 border-green-200">可自定义金额</Badge>
                               }
                                       {a.description && <span className="text-xs text-gray-400">{a.description}</span>}
                                     </div>
@@ -954,7 +971,7 @@ export default function ShippingPool() {
                       <ChevronLeft className="w-3.5 h-3.5 mr-1" />上一步
                     </Button>
                     <Button size="sm" className="bg-red-600 hover:bg-red-700"
-              disabled={submitting || consType === "transit" && !form.transit_location_id || form.shipping_method && getShippingMethodError()}
+              disabled={submitting || !!(form.shipping_method && getShippingMethodError())}
               onClick={handleSubmit}>
                       {submitting ? "提交中..." : "确认创建发货申请"}
                     </Button>
