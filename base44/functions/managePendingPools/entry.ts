@@ -97,8 +97,7 @@ Deno.serve(async (req) => {
     if (action === 'update') {
       if (!pool_id) return Response.json({ error: 'Missing pool_id' }, { status: 400 });
 
-      const poolRecords = await base44.asServiceRole.entities.ShippingPool.filter({ id: pool_id });
-      const pool = poolRecords?.[0];
+      const pool = await base44.asServiceRole.entities.ShippingPool.get(pool_id).catch(() => null);
       if (!pool || pool.tenant_id !== tenantId) {
         return Response.json({ error: 'Pool not found' }, { status: 404 });
       }
@@ -124,8 +123,7 @@ Deno.serve(async (req) => {
         }, { status: 400 });
       }
 
-      const poolRecords = await base44.asServiceRole.entities.ShippingPool.filter({ id: pool_id });
-      const pool = poolRecords?.[0];
+      const pool = await base44.asServiceRole.entities.ShippingPool.get(pool_id).catch(() => null);
       if (!pool || pool.tenant_id !== tenantId) {
         return Response.json({ error: 'Pool not found' }, { status: 404 });
       }
