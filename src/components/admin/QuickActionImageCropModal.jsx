@@ -176,7 +176,7 @@ export default function QuickActionImageCropModal({ src, existingUrl, imageConfi
                 aspect={imageSize === "square" ? 1 : undefined}
                 keepSelection
               >
-                <img ref={imgRef} src={displaySrc} onLoad={onImageLoad} className="max-w-full max-h-72 object-contain" alt="crop" />
+                <img ref={imgRef} src={displaySrc} onLoad={onImageLoad} className="max-w-full max-h-72 object-contain" alt="crop" style={previewStyle} />
               </ReactCrop>
             </div>
           </div>
