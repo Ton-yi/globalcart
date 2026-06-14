@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 
 import ShippingMethodManager from "@/components/admin/ShippingMethodManager";
+import LocalShippingMethodManager from "@/components/admin/LocalShippingMethodManager";
 import OnlineStoreTagManager from "@/components/admin/OnlineStoreTagManager";
 import TransitShippingMethodManager from "@/components/admin/TransitShippingMethodManager";
 import ItemSizeTemplateManager from "@/components/admin/ItemSizeTemplateManager";
@@ -129,8 +130,9 @@ const ADMIN_NAV = [
   { key: "fee_rules", label: "服务费规则" },
   { key: "member_tiers", label: "会员阶级" },
   { group: "发货设置", children: [
-    { key: "shipping_methods", label: "运输方式" },
-    { key: "transit_methods", label: "中转运输" },
+    { key: "shipping_methods", label: "国际运输方式" },
+      { key: "local_shipping_methods", label: "本地运输方式" },
+      { key: "transit_methods", label: "中转运输" },
     { key: "item_sizes", label: "物品尺寸" },
     { key: "box_templates", label: "外箱模板" },
     { key: "storage", label: "库存存放" },
@@ -680,6 +682,14 @@ export default function AdminSettings() {
         <Card className="border-gray-200">
           <CardContent className="pt-5">
             <ShippingMethodManager initialData={shippingMethods} itemSizeTemplates={itemSizeTemplates || []} />
+          </CardContent>
+        </Card>
+      )}
+
+      {activeTab === "local_shipping_methods" && (
+        <Card className="border-gray-200">
+          <CardContent className="pt-5">
+            <LocalShippingMethodManager settings={settings} onReload={load} />
           </CardContent>
         </Card>
       )}

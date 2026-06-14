@@ -752,18 +752,18 @@ export default function ShippingMethodManager({ initialData = null, itemSizeTemp
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm font-semibold text-gray-700">运输方式管理</p>
+          <p className="text-sm font-semibold text-gray-700">国际运输方式</p>
           <p className="text-xs text-gray-400 mt-0.5">国家/地带代码与 lib/countries.js 中的日邮地带规则一致（zone1~zone5）</p>
         </div>
         <Button size="sm" variant="outline" onClick={() => setShowAdd(v => !v)}>
-          <Plus className="w-3.5 h-3.5 mr-1.5" />添加运输方式
+          <Plus className="w-3.5 h-3.5 mr-1.5" />添加国际运输方式
         </Button>
       </div>
 
       {/* Add new form */}
       {showAdd && (
         <div className="border border-dashed border-gray-300 rounded-xl p-4 space-y-3 bg-gray-50">
-          <p className="text-xs font-medium text-gray-600">新增运输方式</p>
+          <p className="text-xs font-medium text-gray-600">新增国际运输方式</p>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label className="text-xs text-gray-500">名称 *</Label>
