@@ -216,7 +216,7 @@ function CropView({ src, initialAspect, onDone, onCancel }) {
 
 // ─── ImageEditModal ────────────────────────────────────────
 // 两阶段同弹窗：mode="edit"（效果编辑）| mode="crop"（裁切）
-function ImageEditModal({ imageUrl, initialMode = "edit", blurAmount, brightness, overlayColor, overlayOpacity, previewTitle, onChange, onClose, aspect, cropHint }) {
+export function ImageEditModal({ imageUrl, initialMode = "edit", blurAmount, brightness, overlayColor, overlayOpacity, previewTitle, onChange, onClose, aspect, cropHint }) {
   const fileInputRef = useRef();
   const [mode, setMode] = useState(initialMode); // "edit" | "crop"
   const [local, setLocal] = useState({ blurAmount, brightness, overlayColor, overlayOpacity });

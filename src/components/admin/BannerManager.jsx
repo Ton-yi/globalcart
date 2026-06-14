@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Save, Image as ImageIcon, Upload, X, CheckCircle2, XCircle, ChevronDown, ChevronUp } from "lucide-react";
-import ImageEffectsPanel, { ImageCropModal } from "@/components/admin/ImageEffectsPanel";
+import ImageEffectsPanel, { ImageCropModal, ImageEditModal } from "@/components/admin/ImageEffectsPanel";
 
 const WIDTH_OPTIONS = [
   { value: "small",  label: "小", desc: "max-w-3xl" },
@@ -91,7 +91,7 @@ function SingleImageEditor({ img, onUpdate, onPatch, onDelete }) {
 // ─── Main Manager ────────────────────────────────────────────
 export default function BannerManager({ settings, onReload }) {
   const [config, setConfig] = useState({ width: "medium", images: [] });
-  const [cropSrc, setCropSrc] = useState(null);
+  const [pendingNewFileSrc, setPendingNewFileSrc] = useState(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -106,12 +106,21 @@ export default function BannerManager({ settings, onReload }) {
 
   const openCrop = (file) => {
     if (!file || !file.type.startsWith("image/")) return;
-    setCropSrc(URL.createObjectURL(file));
+    setPendingNewFileSrc(URL.createObjectURL(file));
   };
 
-  const handleCropConfirm = (fileUrl) => {
-    setCropSrc(null);
-    const newImage = { id: genId(), url: fileUrl, isActive: true, uploadedAt: new Date().toISOString(), blurAmount: 0, brightness: 100, overlayColor: "#000000", overlayOpacity: 0 };
+  const handleNewImageConfirm = ({ bgImageUrl, blurAmount, brightness, overlayColor, overlayOpacity }) => {
+    setPendingNewFileSrc(null);
+    const newImage = {
+      id: genId(),
+      url: bgImageUrl,
+      isActive: true,
+      uploadedAt: new Date().toISOString(),
+      blurAmount: blurAmount ?? 0,
+      brightness: brightness ?? 100,
+      overlayColor: overlayColor || "#000000",
+      overlayOpacity: overlayOpacity ?? 0,
+    };
     setConfig(prev => ({ ...prev, images: [...(prev.images || []), newImage] }));
   };
 
@@ -156,12 +165,17 @@ export default function BannerManager({ settings, onReload }) {
 
   return (
     <>
-      {cropSrc && (
-        <ImageCropModal
-          src={cropSrc}
-          onConfirm={handleCropConfirm}
-          onCancel={() => setCropSrc(null)}
-          hint="拖动选区以裁切 Banner 图片（建议宽幅，如 4:1 ~ 6:1）"
+      {pendingNewFileSrc && (
+        <ImageEditModal
+          imageUrl={pendingNewFileSrc}
+          initialMode="crop"
+          blurAmount={0}
+          brightness={100}
+          overlayColor="#000000"
+          overlayOpacity={0}
+          aspect={4}
+          onChange={handleNewImageConfirm}
+          onClose={() => setPendingNewFileSrc(null)}
         />
       )}
 
