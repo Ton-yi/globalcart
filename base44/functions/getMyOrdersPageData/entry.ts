@@ -141,8 +141,8 @@ Deno.serve(async (req) => {
 
     // 票务订单分离：普通订单列表只展示实物订单，票务订单单独返回供「票务需求」Tab 使用
     const allOrders = orders || [];
-    const physicalOrders = allOrders.filter(o => !o.is_ticket_order);
-    const ticketOrders = allOrders.filter(o => o.is_ticket_order);
+    const physicalOrders = allOrders.filter(o => o.order_type !== 'ticket');
+    const ticketOrders = allOrders.filter(o => o.order_type === 'ticket');
     let ticketConfig = {};
     try { ticketConfig = JSON.parse(settingsMap['ticket_order_config'] || '{}'); } catch { ticketConfig = {}; }
 

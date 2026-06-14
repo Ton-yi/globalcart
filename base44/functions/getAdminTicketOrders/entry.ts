@@ -23,7 +23,7 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'User record not found' }, { status: 404 });
     }
     const tenantId = userRecords[0].tenant_id || null;
-    const filter = (isPlatformAdmin || !tenantId) ? { is_ticket_order: true } : { tenant_id: tenantId, is_ticket_order: true };
+    const filter = (isPlatformAdmin || !tenantId) ? { order_type: 'ticket' } : { tenant_id: tenantId, order_type: 'ticket' };
 
     const [orders, siteSettings] = await Promise.all([
       base44.asServiceRole.entities.Order.filter(filter, '-created_date'),

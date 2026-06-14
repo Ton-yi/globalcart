@@ -111,7 +111,7 @@ Deno.serve(async (req) => {
     const defaultPackingFeeConsolidation = parseFloat(settingsMap['default_packing_fee_consolidation'] || '0') || 0;
 
     // 票务订单有独立视图（票务 Tab），普通订单列表只展示实物订单
-    const physicalOrders = (orders || []).filter(o => !o.is_ticket_order);
+    const physicalOrders = (orders || []).filter(o => o.order_type !== 'ticket');
 
     return Response.json({
       orders: physicalOrders,

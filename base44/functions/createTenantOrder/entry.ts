@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
     // ========================================================================
     // === 票务订单分支：独立流程，与普通购买代购解耦 ===========================
     // ========================================================================
-    if (body.is_ticket_order === true) {
+    if (body.order_type === 'ticket') {
       const ticketSettings = await base44.asServiceRole.entities.SiteSettings.filter({ tenant_id: assignedTenantId, key: 'ticket_order_config' });
       let ticketCfg = {};
       try { ticketCfg = JSON.parse(ticketSettings?.[0]?.value || '{}'); } catch { ticketCfg = {}; }
@@ -119,7 +119,7 @@ Deno.serve(async (req) => {
       const ticketOrder = await base44.asServiceRole.entities.Order.create({
         tenant_id: assignedTenantId,
         order_number: tOrderNumber,
-        is_ticket_order: true,
+        order_type: 'ticket',
         product_name: body.product_name || td.performance_name || '票务需求',
         quantity: 1,
         user_email: body.user_email,

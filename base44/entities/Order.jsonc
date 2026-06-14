@@ -166,10 +166,15 @@
       "default": "pending_confirmation",
       "description": "\u8ba2\u5355\u72b6\u6001\uff08transit_shipped=\u4e2d\u8f6c\u5730\u5df2\u53d1\u8d27\uff0c\u7b49\u5f85\u6700\u7ec8\u7b7e\u6536\uff1bexpired=\u5df2\u8d85\u65f6\uff09"
     },
-    "is_ticket_order": {
-      "type": "boolean",
-      "default": false,
-      "description": "\u662f\u5426\u4e3a\u7968\u52a1\u8d2d\u4e70\u9700\u6c42\u8ba2\u5355\uff08\u6a21\u5757\u5316\u529f\u80fd\uff0c\u72ec\u7acb\u6d41\u7a0b\uff09"
+    "order_type": {
+      "type": "string",
+      "enum": [
+        "physical",
+        "ticket",
+        "group_buy"
+      ],
+      "default": "physical",
+      "description": "\u8ba2\u5355\u7c7b\u578b\uff1aphysical=\u5b9e\u7269\u5546\u54c1\uff0cticket=\u7968\u52a1\u9700\u6c42\uff0cgroup_buy=\u62fc\u5355"
     },
     "ticket_status": {
       "type": "string",
@@ -229,7 +234,7 @@
         },
         "seats": {
           "type": "array",
-          "description": "\u5e2d\u79cd-\u6570\u91cf-\u6599\u91d1\u660e\u7ec6 [{seat_type, quantity, price_jpy}]",
+          "description": "\u5e2d\u79cd - \u6570\u91cf - \u6599\u91d1\u660e\u7ec6 [{seat_type, quantity, price_jpy}]",
           "items": {
             "type": "object",
             "properties": {
