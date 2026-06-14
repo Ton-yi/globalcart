@@ -5,12 +5,11 @@
  * Feature: shows sender avatar, name, and timestamp.
  */
 import { useState, useEffect, useRef } from "react";
-import { Send, Upload, X, MessageCircle, Lock } from "lucide-react";
+import { Send, MessageCircle, Lock } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { usePermissions } from "@/hooks/usePermissions";
 import { updateOrder } from "@/lib/tenantApi";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import RichTextInput from "@/components/common/RichTextInput";
 import UserProfileLink from "@/components/common/UserProfileLink";
 
 function formatTime(ts) {
@@ -39,8 +38,7 @@ export default function OrderMessageThread({ order, currentUser, isAdmin, onMess
   
   const [localMessages, setLocalMessages] = useState(order.messages || []);
   const [content, setContent] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
-  const [uploading, setUploading] = useState(false);
+  const [imageUrls, setImageUrls] = useState([]);
   const [sending, setSending] = useState(false);
   const bottomRef = useRef(null);
 
@@ -48,17 +46,8 @@ export default function OrderMessageThread({ order, currentUser, isAdmin, onMess
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [localMessages]);
 
-  const handleUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    setUploading(true);
-    const { file_url } = await base44.integrations.Core.UploadFile({ file });
-    setImageUrl(file_url);
-    setUploading(false);
-  };
-
   const handleSend = async () => {
-    if (!content.trim() && !imageUrl) return;
+    if (!content.trim() && imageUrls.length === 0) return;
     setSending(true);
 
     const userData = userProfileMap[currentUser.email] || {};
@@ -70,7 +59,7 @@ export default function OrderMessageThread({ order, currentUser, isAdmin, onMess
       avatar_url: userData.avatar_url || currentUser.avatar_url || '',
       role: isAdmin ? "admin" : "user",
       content: content.trim(),
-      image_url: imageUrl || "",
+      image_url: imageUrls[0] || "",
       timestamp: new Date().toISOString(),
       prev_status: order.order_status,
     };
@@ -80,7 +69,7 @@ export default function OrderMessageThread({ order, currentUser, isAdmin, onMess
     // Optimistically update local state immediately
     setLocalMessages(updatedMessages);
     setContent("");
-    setImageUrl("");
+    setImageUrls([]);
 
     // 标记对方角色有未读消息
     const unreadRoles = isAdmin ? ["user"] : ["admin"];
@@ -170,51 +159,20 @@ export default function OrderMessageThread({ order, currentUser, isAdmin, onMess
 
       {/* Compose */}
       {canSendMessage ? (
-        <div className="border border-gray-200 rounded-xl p-3 space-y-2.5 bg-gray-50">
-          <Textarea
-            placeholder="输入留言内容... (Enter 发送，Shift+Enter 换行)"
-            rows={3}
-            value={content}
-            onChange={e => setContent(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                handleSend();
-              }
-            }}
-            className="bg-white text-sm resize-none"
-            disabled={!canSendMessage}
-          />
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {canSendImage && (
-                <label className="cursor-pointer">
-                  <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs transition-colors ${
-                    imageUrl ? "border-green-300 bg-green-50 text-green-700" : "border-gray-200 bg-white text-gray-500 hover:bg-gray-50"
-                  }`}>
-                    <Upload className="w-3.5 h-3.5" />
-                    {uploading ? "上传中..." : imageUrl ? "图片已附" : "附图片"}
-                  </div>
-                  <input type="file" accept="image/*" className="hidden" onChange={handleUpload} disabled={uploading || !canSendImage} />
-                </label>
-              )}
-              {imageUrl && canSendImage && (
-                <button onClick={() => setImageUrl("")} className="text-gray-400 hover:text-red-500">
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-            <Button
-              size="sm"
-              className="bg-gray-900 hover:bg-gray-800 text-xs"
-              onClick={handleSend}
-              disabled={sending || (!content.trim() && !imageUrl) || !canSendMessage}
-            >
-              <Send className="w-3.5 h-3.5 mr-1" />
-              {sending ? "发送中..." : "发送留言"}
-            </Button>
-          </div>
-        </div>
+        <RichTextInput
+          value={content}
+          onChange={setContent}
+          imageUrls={imageUrls}
+          onImageUrls={canSendImage ? setImageUrls : undefined}
+          onSubmit={handleSend}
+          placeholder="输入留言内容... (Ctrl+Enter 发送)"
+          rows={3}
+          maxImages={1}
+          disabled={!canSendMessage}
+          submitLoading={sending}
+          submitLabel="发送留言"
+          className="border-gray-200"
+        />
       ) : (
         <div className="border border-gray-200 rounded-xl p-3 bg-gray-50 text-center">
           <div className="flex items-center justify-center gap-2 text-gray-500 text-sm">
