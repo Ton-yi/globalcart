@@ -1,8 +1,12 @@
 /**
  * ImageEffectsPanel — 图片效果编辑面板
- * ImageEditModal：左右双栏，左侧实时预览，右侧裁切+效果一体化控制
+ * 新逻辑：
+ *   - 裁切 Tab：用户在原图上预选裁切区域（不上传，不破坏原图）
+ *   - 效果 Tab：实时预览裁切后的效果（canvas 渲染，不上传）
+ *   - 点击"应用"：同时执行裁切上传 + 效果保存
+ *   - 用户随时可回裁切 Tab 重新调整，原图不丢失
  */
-import { useState, useRef, useCallback, useMemo } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import ReactCrop, { centerCrop, makeAspectCrop } from "react-image-crop";
 import "react-image-crop/dist/ReactCrop.css";
 import { base44 } from "@/api/base44Client";
@@ -40,8 +44,24 @@ export function SliderField({ label, value, min, max, unit, onChange }) {
   );
 }
 
+// ─── 工具：把 completedCrop 区域渲染到 canvas，返回 dataURL ──
+function getCroppedDataUrl(image, completedCrop) {
+  if (!image || !completedCrop || completedCrop.width === 0 || completedCrop.height === 0) return null;
+  const toNatX = image.naturalWidth  / image.width;
+  const toNatY = image.naturalHeight / image.height;
+  const srcX = completedCrop.x * toNatX;
+  const srcY = completedCrop.y * toNatY;
+  const srcW = completedCrop.width  * toNatX;
+  const srcH = completedCrop.height * toNatY;
+  const canvas = document.createElement("canvas");
+  canvas.width  = Math.round(srcW);
+  canvas.height = Math.round(srcH);
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(image, srcX, srcY, srcW, srcH, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL("image/jpeg", 0.92);
+}
+
 // ─── ImageEditModal ────────────────────────────────────────
-// 左右双栏一体化编辑器：左侧预览，右侧 Tab（裁切 / 效果）
 export function ImageEditModal({
   imageUrl,
   initialMode = "edit",
@@ -56,26 +76,49 @@ export function ImageEditModal({
 }) {
   const fileInputRef = useRef();
   const imgRef = useRef();
-
-  const [tab, setTab] = useState(initialMode === "crop" ? "crop" : "effect"); // "crop" | "effect"
-  const [local, setLocal] = useState({ blurAmount, brightness, overlayColor, overlayOpacity });
-  const [currentImageUrl, setCurrentImageUrl] = useState(imageUrl); // the working image (may be updated by crop)
-  const [uploading, setUploading] = useState(false);
-  // cb 固定在 mount 时生成，避免每次渲染变化导致图片反复重载
   const cbRef = useRef(Date.now());
 
-  // Crop state
+  const [tab, setTab] = useState(initialMode === "crop" ? "crop" : "effect");
+  const [local, setLocal] = useState({ blurAmount, brightness, overlayColor, overlayOpacity });
+
+  // 原图 URL（可被旋转/更换图片更新，但不被裁切更新）
+  const [sourceImageUrl, setSourceImageUrl] = useState(imageUrl);
+
+  // 预裁切状态（仅预选，不上传）
+  const [crop, setCrop] = useState();
+  const [completedCrop, setCompletedCrop] = useState();
+
+  // 效果 Tab 用于预览的裁切后 dataURL（纯展示，不上传）
+  const [previewDataUrl, setPreviewDataUrl] = useState(null);
+
+  const [uploading, setUploading] = useState(false);
+
   const initPresetIdx = (() => {
     if (aspect == null) return 0;
     const idx = ASPECT_PRESETS.findIndex(p => p.value != null && Math.abs(p.value - aspect) < 0.01);
     return idx >= 0 ? idx : 0;
   })();
   const [presetIdx, setPresetIdx] = useState(initPresetIdx);
-  const [crop, setCrop] = useState();
-  const [completedCrop, setCompletedCrop] = useState();
-  // 若外部锁定了 aspect，始终用它；否则用预设选择器的当前值
   const currentAspect = aspect != null ? aspect : ASPECT_PRESETS[presetIdx].value;
   const patch = (p) => setLocal(prev => ({ ...prev, ...p }));
+
+  // 切换到效果 Tab 时，实时生成裁切预览
+  const handleSwitchToEffect = useCallback(() => {
+    const img = imgRef.current;
+    if (img && completedCrop && completedCrop.width > 0) {
+      const dataUrl = getCroppedDataUrl(img, completedCrop);
+      if (dataUrl) setPreviewDataUrl(dataUrl);
+      else setPreviewDataUrl(null);
+    } else {
+      setPreviewDataUrl(null);
+    }
+    setTab("effect");
+  }, [completedCrop]);
+
+  // 切回裁切 Tab
+  const handleSwitchToCrop = useCallback(() => {
+    setTab("crop");
+  }, []);
 
   // ── Crop helpers ──
   const resetCrop = useCallback((newAspect) => {
@@ -86,6 +129,7 @@ export function ImageEditModal({
     const c = centerCrop(makeAspectCrop({ unit: "%", width: 85 }, ratio, w, h), w, h);
     setCrop(c);
     setCompletedCrop(undefined);
+    setPreviewDataUrl(null);
   }, []);
 
   const onImageLoad = (e) => {
@@ -101,46 +145,7 @@ export function ImageEditModal({
     resetCrop(ASPECT_PRESETS[idx].value);
   };
 
-
-
-  const handleApplyCrop = async () => {
-    const image = imgRef.current;
-    if (!image || !completedCrop || completedCrop.width === 0 || completedCrop.height === 0) {
-      setTab("effect");
-      return;
-    }
-    setUploading(true);
-
-    const toNatX = image.naturalWidth  / image.width;
-    const toNatY = image.naturalHeight / image.height;
-
-    const srcX = completedCrop.x * toNatX;
-    const srcY = completedCrop.y * toNatY;
-    const srcW = completedCrop.width  * toNatX;
-    const srcH = completedCrop.height * toNatY;
-
-    const canvas = document.createElement("canvas");
-    canvas.width  = Math.round(srcW);
-    canvas.height = Math.round(srcH);
-    const ctx = canvas.getContext("2d");
-    ctx.drawImage(
-      image,
-      srcX, srcY, srcW, srcH,
-      0, 0, canvas.width, canvas.height,
-    );
-    canvas.toBlob(async (blob) => {
-      if (!blob) { setUploading(false); setTab("effect"); return; }
-      const file = new File([blob], "cropped.jpg", { type: "image/jpeg" });
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
-      setUploading(false);
-      setCurrentImageUrl(file_url);
-      setCrop(undefined);
-      setCompletedCrop(undefined);
-      setTab("effect");
-    }, "image/jpeg", 0.92);
-  };
-
-  // ── Rotate CCW ──
+  // ── Rotate CCW（旋转原图，裁切重置）──
   const handleRotateCCW = () => {
     const image = imgRef.current;
     if (!image) return;
@@ -154,34 +159,65 @@ export function ImageEditModal({
     canvas.toBlob((blob) => {
       if (!blob) return;
       cbRef.current = Date.now();
-      setCurrentImageUrl(URL.createObjectURL(blob));
+      setSourceImageUrl(URL.createObjectURL(blob));
       setCrop(undefined);
       setCompletedCrop(undefined);
+      setPreviewDataUrl(null);
     }, "image/jpeg", 0.92);
   };
 
   // ── File replace ──
   const handleFile = (file) => {
     if (!file || !file.type.startsWith("image/")) return;
-    cbRef.current = Date.now(); // 新图刷新 cache-bust
-    setCurrentImageUrl(URL.createObjectURL(file));
+    cbRef.current = Date.now();
+    setSourceImageUrl(URL.createObjectURL(file));
     setCrop(undefined);
     setCompletedCrop(undefined);
+    setPreviewDataUrl(null);
     setTab("crop");
   };
 
-  // ── Final apply ──
-  const handleApply = () => {
-    onChange({ ...local, bgImageUrl: currentImageUrl });
-    onClose();
+  // ── Final apply：此时才真正上传裁切结果 ──
+  const handleApply = async () => {
+    const image = imgRef.current;
+    // 如果有有效裁切选区，上传裁切后图片；否则直接用原图
+    if (image && completedCrop && completedCrop.width > 0 && completedCrop.height > 0) {
+      setUploading(true);
+      const toNatX = image.naturalWidth  / image.width;
+      const toNatY = image.naturalHeight / image.height;
+      const srcX = completedCrop.x * toNatX;
+      const srcY = completedCrop.y * toNatY;
+      const srcW = completedCrop.width  * toNatX;
+      const srcH = completedCrop.height * toNatY;
+      const canvas = document.createElement("canvas");
+      canvas.width  = Math.round(srcW);
+      canvas.height = Math.round(srcH);
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(image, srcX, srcY, srcW, srcH, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(async (blob) => {
+        if (!blob) { setUploading(false); return; }
+        const file = new File([blob], "cropped.jpg", { type: "image/jpeg" });
+        const { file_url } = await base44.integrations.Core.UploadFile({ file });
+        setUploading(false);
+        onChange({ ...local, bgImageUrl: file_url });
+        onClose();
+      }, "image/jpeg", 0.92);
+    } else {
+      // 无裁切，直接保存原图 + 效果
+      onChange({ ...local, bgImageUrl: sourceImageUrl });
+      onClose();
+    }
   };
 
-  // ── Effect preview style ──
+  // 效果预览用的图片：优先用裁切预览 dataURL，否则用原图
+  const effectPreviewUrl = previewDataUrl || sourceImageUrl;
   const previewStyle = {
-    backgroundImage: `url(${currentImageUrl})`,
+    backgroundImage: `url(${effectPreviewUrl})`,
     filter: `blur(${local.blurAmount}px) brightness(${local.brightness / 100})`,
     transform: local.blurAmount > 0 ? "scale(1.05)" : undefined,
   };
+
+  const hasCropSelection = completedCrop && completedCrop.width > 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
@@ -198,7 +234,7 @@ export function ImageEditModal({
 
           {/* ── Left: Preview ── */}
           <div className="flex-1 bg-gray-50 flex items-center justify-center p-4 relative overflow-hidden border-r border-gray-100">
-            {currentImageUrl ? (
+            {sourceImageUrl ? (
               tab === "crop" ? (
                 <div className="w-full h-full overflow-hidden flex items-center justify-center select-none">
                   <ReactCrop
@@ -211,7 +247,7 @@ export function ImageEditModal({
                   >
                     <img
                       ref={imgRef}
-                      src={currentImageUrl.startsWith("blob:") ? currentImageUrl : `${currentImageUrl}${currentImageUrl.includes("?") ? "&" : "?"}cb=${cbRef.current}`}
+                      src={sourceImageUrl.startsWith("blob:") ? sourceImageUrl : `${sourceImageUrl}${sourceImageUrl.includes("?") ? "&" : "?"}cb=${cbRef.current}`}
                       crossOrigin="anonymous"
                       onLoad={onImageLoad}
                       style={{ maxWidth: "480px", maxHeight: "55vh", display: "block" }}
@@ -221,7 +257,7 @@ export function ImageEditModal({
                   </ReactCrop>
                 </div>
               ) : (
-                /* 效果预览 */
+                /* 效果预览：显示裁切后区域（或原图）叠加效果 */
                 <div className="relative w-full rounded-lg overflow-hidden shadow-md" style={{ maxHeight: "65vh", aspectRatio: "16/9" }}>
                   <div className="absolute inset-0 bg-cover bg-center" style={previewStyle} />
                   {local.overlayOpacity > 0 && (
@@ -240,8 +276,6 @@ export function ImageEditModal({
                 <span className="text-xs">暂无图片</span>
               </div>
             )}
-
-
           </div>
 
           {/* ── Right: Controls ── */}
@@ -249,7 +283,7 @@ export function ImageEditModal({
             {/* Tab switcher */}
             <div className="flex border-b border-gray-100 flex-shrink-0">
               <button
-                onClick={() => setTab("crop")}
+                onClick={handleSwitchToCrop}
                 className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition-colors ${
                   tab === "crop" ? "text-blue-600 border-b-2 border-blue-600 bg-blue-50/50" : "text-gray-500 hover:text-gray-700"
                 }`}
@@ -257,7 +291,7 @@ export function ImageEditModal({
                 <Crop className="w-3.5 h-3.5" />裁切
               </button>
               <button
-                onClick={() => setTab("effect")}
+                onClick={handleSwitchToEffect}
                 className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition-colors ${
                   tab === "effect" ? "text-blue-600 border-b-2 border-blue-600 bg-blue-50/50" : "text-gray-500 hover:text-gray-700"
                 }`}
@@ -269,7 +303,7 @@ export function ImageEditModal({
             <div className="flex-1 p-3 space-y-4 overflow-y-auto">
               {tab === "crop" ? (
                 <>
-                  {/* 比例预设：aspect 锁定时隐藏 */}
+                  {/* 比例预设 */}
                   <div>
                     <Label className="text-xs text-gray-500 mb-2 block">宽高比</Label>
                     {aspect != null ? (
@@ -292,38 +326,42 @@ export function ImageEditModal({
                         ))}
                       </div>
                     )}
-                    <p className="text-xs text-gray-400 mt-2">滚轮缩放图片，拖动选框调整裁切区域</p>
+                    <p className="text-xs text-gray-400 mt-2">拖动选框调整裁切区域，完成后切换到效果 Tab 预览</p>
                   </div>
 
                   {/* 旋转 */}
-                  <Button
-                    size="sm" variant="outline" className="w-full h-8 text-xs"
-                    onClick={handleRotateCCW}
-                  >
+                  <Button size="sm" variant="outline" className="w-full h-8 text-xs" onClick={handleRotateCCW}>
                     <RotateCcw className="w-3 h-3 mr-1" />逆时针旋转 90°
                   </Button>
 
-                  {/* 应用裁切 */}
-                  <Button
-                    size="sm" className="w-full h-8 text-xs"
-                    onClick={handleApplyCrop}
-                    disabled={uploading}
-                  >
-                    {uploading ? "处理中…" : "应用裁切 →"}
+                  {/* 去效果 Tab */}
+                  <Button size="sm" className="w-full h-8 text-xs" onClick={handleSwitchToEffect}>
+                    预览效果 →
                   </Button>
 
                   {/* 更换图片 */}
                   <div className="pt-2 border-t border-gray-100">
-                    <Button
-                      size="sm" variant="outline" className="w-full h-8 text-xs"
-                      onClick={() => fileInputRef.current?.click()}
-                    >
+                    <Button size="sm" variant="outline" className="w-full h-8 text-xs"
+                      onClick={() => fileInputRef.current?.click()}>
                       <Upload className="w-3 h-3 mr-1" />更换图片
                     </Button>
                   </div>
                 </>
               ) : (
                 <>
+                  {/* 裁切状态提示 */}
+                  {hasCropSelection ? (
+                    <div className="flex items-center gap-1.5 px-2 py-1.5 bg-green-50 border border-green-200 rounded text-xs text-green-700">
+                      <Crop className="w-3 h-3 flex-shrink-0" />
+                      <span>已预选裁切区域</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1.5 px-2 py-1.5 bg-gray-50 border border-gray-200 rounded text-xs text-gray-500">
+                      <Crop className="w-3 h-3 flex-shrink-0" />
+                      <span>未裁切（使用原图）</span>
+                    </div>
+                  )}
+
                   {/* 效果滑块 */}
                   <SliderField label="模糊度" value={local.blurAmount} min={0} max={20} unit="px" onChange={v => patch({ blurAmount: v })} />
                   <SliderField label="明度" value={local.brightness} min={30} max={150} unit="%" onChange={v => patch({ brightness: v })} />
@@ -339,11 +377,11 @@ export function ImageEditModal({
                   </div>
                   <SliderField label="遮罩透明度" value={local.overlayOpacity} min={0} max={80} unit="%" onChange={v => patch({ overlayOpacity: v })} />
 
-                  {/* 重新裁切入口 */}
+                  {/* 回裁切 Tab */}
                   <div className="pt-2 border-t border-gray-100 space-y-2">
                     <Button size="sm" variant="outline" className="w-full h-8 text-xs"
-                      onClick={() => { setCrop(undefined); setCompletedCrop(undefined); setTab("crop"); }}>
-                      <Crop className="w-3 h-3 mr-1" />重新裁切
+                      onClick={handleSwitchToCrop}>
+                      <Crop className="w-3 h-3 mr-1" />重新调整裁切
                     </Button>
                     <Button size="sm" variant="outline" className="w-full h-8 text-xs"
                       onClick={() => fileInputRef.current?.click()}>
@@ -357,7 +395,10 @@ export function ImageEditModal({
             {/* Footer actions */}
             <div className="p-3 border-t border-gray-100 flex gap-2 flex-shrink-0">
               <Button variant="outline" size="sm" className="flex-1 h-8 text-xs" onClick={onClose}>取消</Button>
-              <Button size="sm" className="flex-1 h-8 text-xs" onClick={handleApply} disabled={!currentImageUrl}>应用</Button>
+              <Button size="sm" className="flex-1 h-8 text-xs" onClick={handleApply}
+                disabled={!sourceImageUrl || uploading}>
+                {uploading ? "处理中…" : "应用"}
+              </Button>
             </div>
           </div>
         </div>
