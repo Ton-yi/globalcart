@@ -10,7 +10,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { usePageSize } from "@/hooks/usePageSize";
 import PaginationBar from "@/components/common/PaginationBar";
 import { orderRegistry } from "@/lib/orderRegistry";
-import AdminOrderEditModal from "@/components/admin/AdminOrderEditModal";
+import TicketOrderDetailPanel from "@/components/tickets/TicketOrderDetailPanel";
 
 const ALL_STATUSES = [
   { v: "pending_confirmation", l: "待确认" },
@@ -43,17 +43,14 @@ export default function AdminTicketOrders() {
   const [collapsedGroups, setCollapsedGroups] = useState({});
   const [userProfileMap, setUserProfileMap] = useState({});
   const { pageSize, setPageSize, currentPage, setCurrentPage, resetPage } = usePageSize("admin_ticket_orders_page_size", 20);
-  const [itemSizeTemplates, setItemSizeTemplates] = useState([]);
-  const [shippingPools, setShippingPools] = useState([]);
+
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
     const r = await base44.functions.invoke('getAdminTicketOrders', {});
-    const { orders: data = [], userProfileMap: profiles = {}, itemSizeTemplates: templates = [], shippingPools: pools = [] } = r.data || {};
+    const { orders: data = [], userProfileMap: profiles = {} } = r.data || {};
     setOrders(data);
     setUserProfileMap(profiles);
-    setItemSizeTemplates(templates);
-    setShippingPools(pools);
     setLoading(false);
   }, []);
 
@@ -321,16 +318,11 @@ export default function AdminTicketOrders() {
         className="mt-1"
       />
 
-      {selectedOrder && canEditOrder && (
-        <AdminOrderEditModal
+      {selectedOrder && (
+        <TicketOrderDetailPanel
           order={selectedOrder}
-          initialItemSizeTemplates={itemSizeTemplates}
-          shippingPools={shippingPools}
-          currentUser={user}
           userProfileMap={userProfileMap}
           onClose={() => setSelectedOrder(null)}
-          onSaved={() => { setSelectedOrder(null); fetchOrders(); }}
-          onOpenPool={() => {}}
         />
       )}
     </div>
