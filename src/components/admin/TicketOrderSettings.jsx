@@ -161,17 +161,17 @@ export default function TicketOrderSettings({ settings, onReload }) {
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <Label className="text-xs text-gray-500">预付比例（%）</Label>
-                  <Input type="number" className="mt-1 h-8 text-sm" value={config.prepay_rate}
+                  <Input type="number" className="mt-1 h-8 text-sm" value={config.prepay_rate ?? ""}
                     onChange={e => set({ prepay_rate: parseFloat(e.target.value) || 0 })} />
                 </div>
                 <div>
                   <Label className="text-xs text-gray-500">JPY→CNY 汇率增益</Label>
-                  <Input type="number" step="0.0001" className="mt-1 h-8 text-sm" value={config.jpy_cny_increment}
+                  <Input type="number" step="0.0001" className="mt-1 h-8 text-sm" value={config.jpy_cny_increment ?? ""}
                     onChange={e => set({ jpy_cny_increment: parseFloat(e.target.value) || 0 })} />
                 </div>
                 <div>
                   <Label className="text-xs text-gray-500">JPY→USD 汇率增益</Label>
-                  <Input type="number" step="0.0001" className="mt-1 h-8 text-sm" value={config.jpy_usd_increment}
+                  <Input type="number" step="0.0001" className="mt-1 h-8 text-sm" value={config.jpy_usd_increment ?? ""}
                     onChange={e => set({ jpy_usd_increment: parseFloat(e.target.value) || 0 })} />
                 </div>
               </div>
@@ -198,7 +198,7 @@ export default function TicketOrderSettings({ settings, onReload }) {
               <div>
                 <Label className="text-xs text-gray-500">抽中追加报酬最低额（抽選販売）</Label>
                 <Input type="number" className="mt-1 h-8 text-sm w-40"
-                  value={config.min_lottery_win_bonus ?? 0}
+                  value={config.min_lottery_win_bonus ?? ""}
                   onChange={e => set({ min_lottery_win_bonus: parseFloat(e.target.value) || 0 })} />
               </div>
             </CardContent>
