@@ -76,7 +76,8 @@ export function ImageEditModal({
   const [completedCrop, setCompletedCrop] = useState();
   const [scale, setScale] = useState(1);
 
-  const currentAspect = ASPECT_PRESETS[presetIdx].value;
+  // 若外部锁定了 aspect，始终用它；否则用预设选择器的当前值
+  const currentAspect = aspect != null ? aspect : ASPECT_PRESETS[presetIdx].value;
   const patch = (p) => setLocal(prev => ({ ...prev, ...p }));
 
   // ── Crop helpers ──
@@ -307,22 +308,29 @@ export function ImageEditModal({
             <div className="flex-1 p-3 space-y-4 overflow-y-auto">
               {tab === "crop" ? (
                 <>
-                  {/* 比例预设 */}
+                  {/* 比例预设：aspect 锁定时隐藏 */}
                   <div>
                     <Label className="text-xs text-gray-500 mb-2 block">宽高比</Label>
-                    <div className="grid grid-cols-4 gap-1">
-                      {ASPECT_PRESETS.map((p, i) => (
-                        <button
-                          key={p.label}
-                          onClick={() => handlePresetClick(i)}
-                          className={`py-1 rounded text-xs font-medium transition-colors ${
-                            presetIdx === i ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                          }`}
-                        >
-                          {p.label}
-                        </button>
-                      ))}
-                    </div>
+                    {aspect != null ? (
+                      <div className="flex items-center gap-1.5 px-2 py-1.5 bg-blue-50 border border-blue-200 rounded text-xs text-blue-700">
+                        <span>🔒</span>
+                        <span>已锁定为 {ASPECT_PRESETS.find(p => p.value != null && Math.abs(p.value - aspect) < 0.01)?.label || `${aspect.toFixed(2)}:1`}</span>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-4 gap-1">
+                        {ASPECT_PRESETS.map((p, i) => (
+                          <button
+                            key={p.label}
+                            onClick={() => handlePresetClick(i)}
+                            className={`py-1 rounded text-xs font-medium transition-colors ${
+                              presetIdx === i ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                            }`}
+                          >
+                            {p.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                     <p className="text-xs text-gray-400 mt-2">滚轮缩放图片，拖动选框调整裁切区域</p>
                   </div>
 
