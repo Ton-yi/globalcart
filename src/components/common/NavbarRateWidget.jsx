@@ -21,14 +21,15 @@ async function fetchRates() {
   return _cache;
 }
 
-function fmt(val, code) {
+function fmt(val, code, unit = 100) {
   if (!val) return "---";
   const noDecimal = ["KRW", "IDR", "VND"];
-  if (noDecimal.includes(code)) return Math.round(val * 100).toLocaleString();
-  return (val * 100).toFixed(2);
+  const amount = val * unit;
+  if (noDecimal.includes(code)) return Math.round(amount).toLocaleString();
+  return amount.toFixed(2);
 }
 
-export default function NavbarRateWidget({ currencies = [] }) {
+export default function NavbarRateWidget({ currencies = [], unit = 100 }) {
   const [rates, setRates] = useState(null);
 
   useEffect(() => {
@@ -45,7 +46,7 @@ export default function NavbarRateWidget({ currencies = [] }) {
         return (
           <span key={code} className="inline-flex items-center gap-1 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5 font-medium whitespace-nowrap">
             <TrendingUp className="w-3 h-3" />
-            100¥={fmt(val, code)}{code}
+            {unit}¥={fmt(val, code, unit)}{code}
           </span>
         );
       })}
