@@ -14,10 +14,11 @@ import { useState, useEffect } from "react";
 import { tenantEntity } from "@/lib/tenantApi";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Save, TrendingUp, Plus, X } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 
 const ALL_CURRENCIES = [
   { code: "CNY", label: "人民币 (CNY)" },
@@ -120,9 +121,9 @@ export default function ExchangeRateDisplayManager({ settings, onReload }) {
 
       <CardContent className="space-y-5">
         {/* 总开关 */}
-        <div className="flex items-center gap-2 cursor-pointer" onClick={() => setForm(p => ({ ...p, enabled: !p.enabled }))}>
-          <Checkbox checked={!!form.enabled} onCheckedChange={v => setForm(p => ({ ...p, enabled: !!v }))} />
-          <Label className="text-sm cursor-pointer select-none">启用主页汇率显示</Label>
+        <div className="flex items-center gap-2">
+          <Switch checked={!!form.enabled} onCheckedChange={v => setForm(p => ({ ...p, enabled: !!v }))} />
+          <Label className="text-sm cursor-pointer select-none" onClick={() => setForm(p => ({ ...p, enabled: !p.enabled }))}>启用主页汇率显示</Label>
         </div>
 
         {form.enabled && (
