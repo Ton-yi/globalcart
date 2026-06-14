@@ -6,7 +6,7 @@
  *   - 点击"应用"：同时执行裁切上传 + 效果保存
  *   - 用户随时可回裁切 Tab 重新调整，原图不丢失
  */
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback } from "react";
 import ReactCrop, { centerCrop, makeAspectCrop } from "react-image-crop";
 import "react-image-crop/dist/ReactCrop.css";
 import { base44 } from "@/api/base44Client";
@@ -235,8 +235,9 @@ export function ImageEditModal({
           {/* ── Left: Preview ── */}
           <div className="flex-1 bg-gray-50 flex items-center justify-center p-4 relative overflow-hidden border-r border-gray-100">
             {sourceImageUrl ? (
-              tab === "crop" ? (
-                <div className="w-full h-full overflow-hidden flex items-center justify-center select-none">
+              <>
+                {/* 裁切 Tab：ReactCrop 显示，效果 Tab：隐藏但保持 imgRef 有效以便 handleApply 读取坐标 */}
+                <div className={`w-full h-full overflow-hidden flex items-center justify-center select-none ${tab !== "crop" ? "hidden" : ""}`}>
                   <ReactCrop
                     crop={crop}
                     onChange={(px, pct) => setCrop(pct)}
@@ -256,20 +257,22 @@ export function ImageEditModal({
                     />
                   </ReactCrop>
                 </div>
-              ) : (
-                /* 效果预览：显示裁切后区域（或原图）叠加效果 */
-                <div className="relative w-full rounded-lg overflow-hidden shadow-md" style={{ maxHeight: "65vh", aspectRatio: "16/9" }}>
-                  <div className="absolute inset-0 bg-cover bg-center" style={previewStyle} />
-                  {local.overlayOpacity > 0 && (
-                    <div className="absolute inset-0" style={{ backgroundColor: local.overlayColor, opacity: local.overlayOpacity / 100 }} />
-                  )}
-                  {previewTitle && (
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                      <span className="text-white text-base font-bold drop-shadow">{previewTitle}</span>
-                    </div>
-                  )}
-                </div>
-              )
+
+                {/* 效果预览：显示裁切后区域（或原图）叠加效果 */}
+                {tab === "effect" && (
+                  <div className="relative w-full rounded-lg overflow-hidden shadow-md" style={{ maxHeight: "65vh", aspectRatio: "16/9" }}>
+                    <div className="absolute inset-0 bg-cover bg-center" style={previewStyle} />
+                    {local.overlayOpacity > 0 && (
+                      <div className="absolute inset-0" style={{ backgroundColor: local.overlayColor, opacity: local.overlayOpacity / 100 }} />
+                    )}
+                    {previewTitle && (
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <span className="text-white text-base font-bold drop-shadow">{previewTitle}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
             ) : (
               <div className="text-gray-300 flex flex-col items-center gap-2">
                 <ImageIcon className="w-12 h-12" />
