@@ -73,7 +73,7 @@ export default function ExchangeRateWidget({ currencies = [], compact = false, f
             <div key={code} className="border border-gray-100 rounded-lg overflow-hidden">
               <div className="bg-gray-50 px-4 py-2.5 font-medium text-sm text-gray-800 flex items-center gap-2">
                 <TrendingUp className="w-4 h-4 text-emerald-600" />
-                现在日元兑{label}（{code}）的汇率是多少？
+                {unit}日元兑{label}（{code}）是多少？
               </div>
               <div className="px-4 py-2.5 text-sm text-gray-600">
                 当前汇率：<span className="font-bold text-emerald-700">{fmt(val, code, unit)} {code}</span>

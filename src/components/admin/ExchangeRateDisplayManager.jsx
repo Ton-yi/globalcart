@@ -252,7 +252,7 @@ export default function ExchangeRateDisplayManager({ settings, onReload }) {
               </div>
               {form.position === "faq" && (
                 <p className="text-xs text-amber-600 mt-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                  选择"常见问题"时，系统将在 FAQ 末尾自动插入一条「100日元兑 [币种] 是多少？」的问答条目，答案实时显示当前汇率。
+                  选择"常见问题"时，系统将在 FAQ 末尾自动插入一条「{form.unit ?? 100}日元兑 [币种] 是多少？」的问答条目，答案实时显示当前汇率。
                 </p>
               )}
             </div>
