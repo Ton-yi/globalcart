@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
 import { tenantEntity } from "@/lib/tenantApi";
+import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
-import { Save, LayoutDashboard } from "lucide-react";
+import { Save, LayoutDashboard, HelpCircle } from "lucide-react";
+import FaqItemPicker from "@/components/admin/FaqItemPicker.jsx";
 
 const GROUP_DEFS = [
   { key: "action_required", defaultLabel: "需要操作", colorClass: "text-red-600" },
@@ -22,12 +24,21 @@ const DEFAULT_CONFIG = {
     shipping:        { hidden: false, label: "运输中",   max_items: 3 },
     done:            { hidden: false, label: "已完成",   max_items: 3 },
   },
+  faq_enabled: false,
+  faq_item_ids: [],
 };
 
 export default function LogisticsStatusBoardManager({ settings, onReload }) {
   const [config, setConfig] = useState(DEFAULT_CONFIG);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [categories, setCategories] = useState([]);
+
+  useEffect(() => {
+    base44.functions.invoke('manageFaqCategories', { action: 'list' })
+      .then(r => setCategories((r.data?.categories || []).filter(c => c.is_active !== false)))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const setting = (settings || []).find(s => s.key === "home_status_board");
@@ -98,6 +109,37 @@ export default function LogisticsStatusBoardManager({ settings, onReload }) {
           <Input className="h-7 text-xs mt-0.5" value={config.title}
             onChange={e => setConfig(prev => ({ ...prev, title: e.target.value }))}
             placeholder="物流状态看板" />
+        </div>
+
+        {/* FAQ 常见问题模块 */}
+        <div className="border border-teal-200 rounded-lg p-3 bg-teal-50/40">
+          <div className="flex items-center gap-2 mb-2">
+            <Switch
+              checked={!!config.faq_enabled}
+              onCheckedChange={v => setConfig(prev => ({ ...prev, faq_enabled: v }))}
+            />
+            <div className="flex items-center gap-1.5">
+              <HelpCircle className="w-3.5 h-3.5 text-teal-600" />
+              <Label className="text-xs text-gray-600 cursor-pointer select-none" onClick={() => setConfig(prev => ({ ...prev, faq_enabled: !prev.faq_enabled }))}>
+                在看板下方显示常见问题
+              </Label>
+            </div>
+          </div>
+          {config.faq_enabled && (
+            <div className="mt-2">
+              <Label className="text-xs text-gray-500 block mb-2">
+                选择展示的常见问题
+                {(config.faq_item_ids || []).length > 0 && (
+                  <span className="ml-1.5 text-teal-600 font-medium">已选 {config.faq_item_ids.length} 条</span>
+                )}
+              </Label>
+              <FaqItemPicker
+                categories={categories}
+                selectedIds={config.faq_item_ids || []}
+                onChange={ids => setConfig(prev => ({ ...prev, faq_item_ids: ids }))}
+              />
+            </div>
+          )}
         </div>
 
         {/* 各分组设置 */}

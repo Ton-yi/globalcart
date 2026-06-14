@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Save, List, Plus, Trash2, GripVertical, ChevronDown, ChevronUp, ImagePlus, X, Loader2 } from "lucide-react";
+import { Save, List, Plus, Trash2, GripVertical, ChevronDown, ChevronUp, ImagePlus, X, Loader2, HelpCircle } from "lucide-react";
+import FaqItemPicker from "@/components/admin/FaqItemPicker.jsx";
 
 const AUDIENCE_TABS = [
   { key: "guest", label: "未登录用户可见" },
@@ -145,8 +146,32 @@ function DescEditor({ desc, imageUrl, onDescChange, onUpload, onRemove }) {
   );
 }
 
+// ─── FaqStepEditor: a step of type "faq" ───
+function FaqStepEditor({ step, idx, onUpdate, onRemove, categories }) {
+  const selected = step.faq_item_ids || [];
+  return (
+    <div className="grid grid-cols-1 gap-1.5 p-3 bg-teal-50 rounded-lg border border-teal-200">
+      <div className="flex items-center justify-between mb-0.5">
+        <div className="flex items-center gap-1.5">
+          <HelpCircle className="w-3.5 h-3.5 text-teal-600" />
+          <span className="text-xs font-semibold text-teal-700">FAQ 卡片 {idx + 1}</span>
+          {selected.length > 0 && <span className="text-xs text-teal-500">（已选 {selected.length} 条）</span>}
+        </div>
+        <button onClick={onRemove} className="text-red-400 hover:text-red-600">
+          <Trash2 className="w-3 h-3" />
+        </button>
+      </div>
+      <FaqItemPicker
+        categories={categories}
+        selectedIds={selected}
+        onChange={ids => onUpdate("faq_item_ids", ids)}
+      />
+    </div>
+  );
+}
+
 // ─── SectionEditor: edit one section (heading + steps) ───
-function SectionEditor({ section, sectionIdx, total, onChange, onDelete, onMoveUp, onMoveDown }) {
+function SectionEditor({ section, sectionIdx, total, onChange, onDelete, onMoveUp, onMoveDown, categories }) {
   const [collapsed, setCollapsed] = useState(false);
 
   const updateStep = (i, field, val) => {
@@ -154,6 +179,7 @@ function SectionEditor({ section, sectionIdx, total, onChange, onDelete, onMoveU
     onChange({ ...section, steps });
   };
   const addStep = () => onChange({ ...section, steps: [...section.steps, { _id: Date.now().toString(), title: "新步骤", desc: "" }] });
+  const addFaqStep = () => onChange({ ...section, steps: [...section.steps, { _id: Date.now().toString(), type: "faq", faq_item_ids: [] }] });
   const removeStep = (i) => onChange({ ...section, steps: section.steps.filter((_, idx) => idx !== i) });
 
   return (
@@ -193,33 +219,52 @@ function SectionEditor({ section, sectionIdx, total, onChange, onDelete, onMoveU
             <div className="flex items-center justify-between">
               <Label className="text-xs text-gray-500">卡片列表（{section.steps.length} 张）</Label>
             </div>
-            {section.steps.map((step, i) => (
-              <div key={step._id || i} className="grid grid-cols-1 gap-1.5 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                <div className="flex items-center justify-between mb-0.5">
-                  <span className="text-xs font-semibold text-gray-400">Step {i + 1}</span>
-                  <button onClick={() => removeStep(i)} className="text-red-400 hover:text-red-600">
-                    <Trash2 className="w-3 h-3" />
-                  </button>
-                </div>
-                <div>
-                  <Label className="text-xs text-gray-400">标题</Label>
-                  <Input className="mt-0.5 h-7 text-xs" value={step.title || ""} onChange={e => updateStep(i, "title", e.target.value)} />
-                </div>
-                <div>
-                  <Label className="text-xs text-gray-400">描述</Label>
-                  <DescEditor
-                    desc={step.desc || ""}
-                    imageUrl={step.image_url || ""}
-                    onDescChange={val => updateStep(i, "desc", val)}
-                    onUpload={url => updateStep(i, "image_url", url)}
-                    onRemove={() => updateStep(i, "image_url", "")}
+            {section.steps.map((step, i) => {
+              if (step.type === "faq") {
+                return (
+                  <FaqStepEditor
+                    key={step._id || i}
+                    step={step}
+                    idx={i}
+                    onUpdate={(field, val) => updateStep(i, field, val)}
+                    onRemove={() => removeStep(i)}
+                    categories={categories}
                   />
+                );
+              }
+              return (
+                <div key={step._id || i} className="grid grid-cols-1 gap-1.5 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                  <div className="flex items-center justify-between mb-0.5">
+                    <span className="text-xs font-semibold text-gray-400">Step {i + 1}</span>
+                    <button onClick={() => removeStep(i)} className="text-red-400 hover:text-red-600">
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-400">标题</Label>
+                    <Input className="mt-0.5 h-7 text-xs" value={step.title || ""} onChange={e => updateStep(i, "title", e.target.value)} />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-400">描述</Label>
+                    <DescEditor
+                      desc={step.desc || ""}
+                      imageUrl={step.image_url || ""}
+                      onDescChange={val => updateStep(i, "desc", val)}
+                      onUpload={url => updateStep(i, "image_url", url)}
+                      onRemove={() => updateStep(i, "image_url", "")}
+                    />
+                  </div>
                 </div>
-              </div>
-            ))}
-            <Button size="sm" variant="outline" onClick={addStep} className="w-full h-7 text-xs border-dashed">
-              <Plus className="w-3 h-3 mr-1" />新增卡片
-            </Button>
+              );
+            })}
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" onClick={addStep} className="flex-1 h-7 text-xs border-dashed">
+                <Plus className="w-3 h-3 mr-1" />新增卡片
+              </Button>
+              <Button size="sm" variant="outline" onClick={addFaqStep} className="flex-1 h-7 text-xs border-dashed border-teal-300 text-teal-600 hover:bg-teal-50">
+                <HelpCircle className="w-3 h-3 mr-1" />新增常见问题
+              </Button>
+            </div>
           </div>
         </div>
       )}
@@ -228,7 +273,7 @@ function SectionEditor({ section, sectionIdx, total, onChange, onDelete, onMoveU
 }
 
 // ─── AudiencePanel ────────────────────────────────────────
-function AudiencePanel({ form, onChange }) {
+function AudiencePanel({ form, onChange, categories }) {
   const f = (k, v) => onChange({ ...form, [k]: v });
 
   const updateSection = (i, val) => {
@@ -265,6 +310,7 @@ function AudiencePanel({ form, onChange }) {
               onDelete={() => removeSection(i)}
               onMoveUp={() => moveSection(i, -1)}
               onMoveDown={() => moveSection(i, 1)}
+              categories={categories}
             />
           ))}
           <Button size="sm" variant="outline" onClick={addSection} className="w-full h-8 text-xs border-dashed border-indigo-300 text-indigo-600 hover:bg-indigo-50">
@@ -282,6 +328,13 @@ export default function StepsSectionManager({ settings, onReload }) {
   const [activeTab, setActiveTab] = useState("guest");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [categories, setCategories] = useState([]);
+
+  useEffect(() => {
+    base44.functions.invoke('manageFaqCategories', { action: 'list' })
+      .then(r => setCategories((r.data?.categories || []).filter(c => c.is_active !== false)))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const setting = (settings || []).find(s => s.key === "home_steps_config");
@@ -365,6 +418,7 @@ export default function StepsSectionManager({ settings, onReload }) {
           key={currentAudience}
           form={form[currentAudience]}
           onChange={val => setForm(prev => ({ ...prev, [currentAudience]: val }))}
+          categories={categories}
         />
       </CardContent>
     </Card>
