@@ -34,6 +34,7 @@ import HelpCenterFaq from '@/pages/HelpCenterFaq';
 import AdminFaq from '@/pages/AdminFaq';
 import UserTodo from '@/pages/UserTodo';
 import SubmitTicketOrder from '@/pages/SubmitTicketOrder';
+import AdminTicketOrders from '@/pages/AdminTicketOrders';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -256,6 +257,11 @@ const AuthenticatedApp = () => {
       <Route path="/:locale/SubmitTicketOrder" element={
         <LayoutWrapper currentPageName="SubmitTicketOrder">
           <SubmitTicketOrder />
+        </LayoutWrapper>
+      } />
+      <Route path="/:locale/AdminTicketOrders" element={
+        <LayoutWrapper currentPageName="AdminTicketOrders">
+          <AdminTicketOrders />
         </LayoutWrapper>
       } />
       <Route path="/:locale/UserPrivacySettings" element={
