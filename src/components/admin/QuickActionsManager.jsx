@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { tenantEntity } from "@/lib/tenantApi";
 import { invalidateTenantConfigCache } from "@/lib/configCache";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, Save, Zap } from "lucide-react";
+import { Plus, Trash2, Save, Zap, ImageIcon, Upload, X } from "lucide-react";
+import QuickActionImageCropModal from "@/components/admin/QuickActionImageCropModal";
 
 const ICON_OPTIONS = [
   { value: "Send", label: "📤 预报发货" },
@@ -45,6 +46,7 @@ const ICON_OPTIONS = [
   { value: "Banknote", label: "💵 账单" },
   { value: "Handshake", label: "🤝 协议" },
   { value: "emoji", label: "✏️ 自定义 Emoji..." },
+  { value: "custom_image", label: "🖼 自定义图片..." },
 ];
 
 const COLOR_OPTIONS = [
@@ -108,114 +110,226 @@ function cloneAudience(a) {
 }
 
 // ─── ActionEditor ─────────────────────────────────────────
-function ActionEditor({ action, idx, total, onUpdate, onRemove, onMoveUp, onMoveDown }) {
+function ActionEditor({ action, idx, total, onUpdate, onUpdateMulti, onRemove, onMoveUp, onMoveDown }) {
+  const fileInputRef = useRef();
+  const [cropSrc, setCropSrc] = useState(null);
+
   const emojiMode = isEmojiMode(action.icon);
-  const previewIcon = emojiMode ? (action.emoji || action.icon || "❓") : null;
+  const imageMode = action.icon === "custom_image";
+  const previewIcon = emojiMode && !imageMode ? (action.emoji || action.icon || "❓") : null;
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file || !file.type.startsWith("image/")) return;
+    e.target.value = "";
+    setCropSrc(URL.createObjectURL(file));
+  };
+
+  const handleCropConfirm = ({ imageUrl, imageSize, blurAmount, brightness, overlayColor, overlayOpacity }) => {
+    setCropSrc(null);
+    onUpdateMulti({ icon: "custom_image", imageUrl, imageSize, blurAmount, brightness, overlayColor, overlayOpacity });
+  };
+
+  // Preview for custom_image mode
+  const renderPreview = () => {
+    if (imageMode && action.imageUrl) {
+      const isFill = action.imageSize === "fill";
+      return (
+        <div className={`w-9 h-9 rounded-lg flex-shrink-0 overflow-hidden relative mt-1 ${!isFill ? (action.color || "bg-gray-400") : ""}`}>
+          {isFill ? (
+            <>
+              <div className="absolute inset-0 bg-cover bg-center"
+                style={{
+                  backgroundImage: `url(${action.imageUrl})`,
+                  filter: `blur(${action.blurAmount ?? 0}px) brightness(${(action.brightness ?? 100) / 100})`,
+                  transform: (action.blurAmount ?? 0) > 0 ? "scale(1.08)" : undefined,
+                }}
+              />
+              {(action.overlayOpacity ?? 0) > 0 && (
+                <div className="absolute inset-0" style={{ backgroundColor: action.overlayColor || "#000000", opacity: (action.overlayOpacity ?? 0) / 100 }} />
+              )}
+            </>
+          ) : (
+            <img src={action.imageUrl} alt="" className="w-full h-full object-cover"
+              style={{ filter: `blur(${action.blurAmount ?? 0}px) brightness(${(action.brightness ?? 100) / 100})` }}
+            />
+          )}
+        </div>
+      );
+    }
+    return (
+      <div className={`w-9 h-9 rounded-lg flex-shrink-0 flex items-center justify-center mt-1 ${action.color || 'bg-gray-400'}`}>
+        {emojiMode
+          ? <span className="text-lg leading-none">{previewIcon}</span>
+          : <span className="text-white text-xs font-bold">{action.icon?.slice(0, 2)}</span>
+        }
+      </div>
+    );
+  };
 
   return (
-    <div className="border border-gray-200 rounded-lg p-3 bg-gray-50 space-y-2">
-      <div className="flex items-start gap-2">
-        {/* 排序 */}
-        <div className="flex flex-col gap-0.5 mt-1">
-          <button onClick={onMoveUp} disabled={idx === 0}
-            className="text-gray-300 hover:text-gray-500 disabled:opacity-20 text-xs leading-none">▲</button>
-          <button onClick={onMoveDown} disabled={idx === total - 1}
-            className="text-gray-300 hover:text-gray-500 disabled:opacity-20 text-xs leading-none">▼</button>
-        </div>
+    <>
+      {cropSrc && (
+        <QuickActionImageCropModal
+          src={cropSrc}
+          imageConfig={{ imageSize: action.imageSize, blurAmount: action.blurAmount, brightness: action.brightness, overlayColor: action.overlayColor, overlayOpacity: action.overlayOpacity }}
+          onConfirm={handleCropConfirm}
+          onCancel={() => setCropSrc(null)}
+        />
+      )}
+      <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
 
-        {/* 预览 */}
-        <div className={`w-9 h-9 rounded-lg flex-shrink-0 flex items-center justify-center mt-1 ${action.color || 'bg-gray-400'}`}>
-          {emojiMode
-            ? <span className="text-lg leading-none">{previewIcon}</span>
-            : <span className="text-white text-xs font-bold">{action.icon?.slice(0, 2)}</span>
-          }
-        </div>
-
-        <div className="flex-1 grid grid-cols-2 gap-2">
-          <div>
-            <Label className="text-xs text-gray-500">入口标题</Label>
-            <Input className="h-7 text-xs mt-0.5" value={action.title}
-              onChange={e => onUpdate("title", e.target.value)} placeholder="如：提交订单" />
-          </div>
-          <div>
-            <Label className="text-xs text-gray-500">跳转路径</Label>
-            <Input className="h-7 text-xs mt-0.5 font-mono" value={action.path}
-              onChange={e => onUpdate("path", e.target.value)} placeholder="如：SubmitOrder" />
+      <div className="border border-gray-200 rounded-lg p-3 bg-gray-50 space-y-2">
+        <div className="flex items-start gap-2">
+          {/* 排序 */}
+          <div className="flex flex-col gap-0.5 mt-1">
+            <button onClick={onMoveUp} disabled={idx === 0}
+              className="text-gray-300 hover:text-gray-500 disabled:opacity-20 text-xs leading-none">▲</button>
+            <button onClick={onMoveDown} disabled={idx === total - 1}
+              className="text-gray-300 hover:text-gray-500 disabled:opacity-20 text-xs leading-none">▼</button>
           </div>
 
-          <div>
-            <Label className="text-xs text-gray-500">图标类型</Label>
-            <Select
-              value={emojiMode ? "emoji" : action.icon}
-              onValueChange={v => {
-                if (v === "emoji") {
-                  onUpdate("icon", "emoji");
-                } else {
-                  onUpdate("icon", v);
-                  onUpdate("emoji", "");
-                }
-              }}>
-              <SelectTrigger className="h-7 text-xs mt-0.5"><SelectValue /></SelectTrigger>
-              <SelectContent className="max-h-60">
-                {ICON_OPTIONS.map(o => (
-                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {/* 预览 */}
+          {renderPreview()}
 
-          {emojiMode ? (
+          <div className="flex-1 grid grid-cols-2 gap-2">
             <div>
-              <Label className="text-xs text-gray-500">Emoji 图标</Label>
-              <Input className="h-7 text-sm mt-0.5 text-center" value={action.emoji || ""}
-                onChange={e => onUpdate("emoji", e.target.value)}
-                placeholder="🚀" maxLength={4} />
+              <Label className="text-xs text-gray-500">入口标题</Label>
+              <Input className="h-7 text-xs mt-0.5" value={action.title}
+                onChange={e => onUpdate("title", e.target.value)} placeholder="如：提交订单" />
             </div>
-          ) : (
             <div>
-              <Label className="text-xs text-gray-500">颜色</Label>
-              <Select value={action.color} onValueChange={v => onUpdate("color", v)}>
+              <Label className="text-xs text-gray-500">跳转路径</Label>
+              <Input className="h-7 text-xs mt-0.5 font-mono" value={action.path}
+                onChange={e => onUpdate("path", e.target.value)} placeholder="如：SubmitOrder" />
+            </div>
+
+            <div>
+              <Label className="text-xs text-gray-500">图标类型</Label>
+              <Select
+                value={imageMode ? "custom_image" : emojiMode ? "emoji" : action.icon}
+                onValueChange={v => {
+                  if (v === "emoji") {
+                    onUpdate("icon", "emoji");
+                  } else if (v === "custom_image") {
+                    onUpdate("icon", "custom_image");
+                  } else {
+                    onUpdate("icon", v);
+                    onUpdate("emoji", "");
+                  }
+                }}>
                 <SelectTrigger className="h-7 text-xs mt-0.5"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {COLOR_OPTIONS.map(o => (
-                    <SelectItem key={o.value} value={o.value}>
-                      <span className="flex items-center gap-2">
-                        <span className={`inline-block w-3 h-3 rounded-full ${o.value}`} />
-                        {o.label}
-                      </span>
-                    </SelectItem>
+                <SelectContent className="max-h-60">
+                  {ICON_OPTIONS.map(o => (
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-          )}
 
-          {emojiMode && (
-            <div>
-              <Label className="text-xs text-gray-500">背景颜色</Label>
-              <Select value={action.color} onValueChange={v => onUpdate("color", v)}>
-                <SelectTrigger className="h-7 text-xs mt-0.5"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {COLOR_OPTIONS.map(o => (
-                    <SelectItem key={o.value} value={o.value}>
-                      <span className="flex items-center gap-2">
-                        <span className={`inline-block w-3 h-3 rounded-full ${o.value}`} />
-                        {o.label}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+            {imageMode ? (
+              <div>
+                <Label className="text-xs text-gray-500">图片操作</Label>
+                <div className="flex gap-1 mt-0.5">
+                  <Button size="sm" variant="outline" className="h-7 text-xs flex-1"
+                    onClick={() => fileInputRef.current?.click()}>
+                    <Upload className="w-3 h-3 mr-1" />{action.imageUrl ? "更换图片" : "上传图片"}
+                  </Button>
+                  {action.imageUrl && (
+                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-400 hover:text-red-600"
+                      onClick={() => onUpdateMulti({ imageUrl: "", imageSize: undefined, blurAmount: undefined, brightness: undefined, overlayColor: undefined, overlayOpacity: undefined })}>
+                      <X className="w-3.5 h-3.5" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ) : emojiMode ? (
+              <div>
+                <Label className="text-xs text-gray-500">Emoji 图标</Label>
+                <Input className="h-7 text-sm mt-0.5 text-center" value={action.emoji || ""}
+                  onChange={e => onUpdate("emoji", e.target.value)}
+                  placeholder="🚀" maxLength={4} />
+              </div>
+            ) : (
+              <div>
+                <Label className="text-xs text-gray-500">颜色</Label>
+                <Select value={action.color} onValueChange={v => onUpdate("color", v)}>
+                  <SelectTrigger className="h-7 text-xs mt-0.5"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {COLOR_OPTIONS.map(o => (
+                      <SelectItem key={o.value} value={o.value}>
+                        <span className="flex items-center gap-2">
+                          <span className={`inline-block w-3 h-3 rounded-full ${o.value}`} />
+                          {o.label}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* 背景色：仅在 emoji 模式或 custom_image 正方形模式下显示 */}
+            {(emojiMode && !imageMode) && (
+              <div>
+                <Label className="text-xs text-gray-500">背景颜色</Label>
+                <Select value={action.color} onValueChange={v => onUpdate("color", v)}>
+                  <SelectTrigger className="h-7 text-xs mt-0.5"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {COLOR_OPTIONS.map(o => (
+                      <SelectItem key={o.value} value={o.value}>
+                        <span className="flex items-center gap-2">
+                          <span className={`inline-block w-3 h-3 rounded-full ${o.value}`} />
+                          {o.label}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {imageMode && action.imageSize === "square" && (
+              <div>
+                <Label className="text-xs text-gray-500">背景颜色（正方形模式）</Label>
+                <Select value={action.color || "bg-gray-400"} onValueChange={v => onUpdate("color", v)}>
+                  <SelectTrigger className="h-7 text-xs mt-0.5"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {COLOR_OPTIONS.map(o => (
+                      <SelectItem key={o.value} value={o.value}>
+                        <span className="flex items-center gap-2">
+                          <span className={`inline-block w-3 h-3 rounded-full ${o.value}`} />
+                          {o.label}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+
+          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-red-400 hover:text-red-600 flex-shrink-0 mt-1"
+            onClick={onRemove}>
+            <Trash2 className="w-3.5 h-3.5" />
+          </Button>
         </div>
 
-        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-red-400 hover:text-red-600 flex-shrink-0 mt-1"
-          onClick={onRemove}>
-          <Trash2 className="w-3.5 h-3.5" />
-        </Button>
+        {/* Image re-edit hint */}
+        {imageMode && action.imageUrl && (
+          <div className="ml-8 flex items-center gap-2">
+            <button className="text-xs text-orange-500 hover:text-orange-700 underline underline-offset-2"
+              onClick={() => fileInputRef.current?.click()}>
+              重新裁切 / 调整效果
+            </button>
+            <span className="text-xs text-gray-400">
+              当前：{action.imageSize === "fill" ? "填充模式" : "正方形"}
+              {(action.blurAmount ?? 0) > 0 ? `，模糊 ${action.blurAmount}px` : ""}
+              {(action.overlayOpacity ?? 0) > 0 ? `，遮罩 ${action.overlayOpacity}%` : ""}
+            </span>
+          </div>
+        )}
       </div>
-    </div>
+    </>
   );
 }
 
@@ -226,6 +340,7 @@ function AudiencePanel({ audience, onChange }) {
   const addAction = () => onChange({ actions: [...actions, { ...DEFAULT_ACTION, id: generateId() }] });
   const removeAction = (idx) => onChange({ actions: actions.filter((_, i) => i !== idx) });
   const updateAction = (idx, field, val) => onChange({ actions: actions.map((a, i) => i === idx ? { ...a, [field]: val } : a) });
+  const updateActionMulti = (idx, patch) => onChange({ actions: actions.map((a, i) => i === idx ? { ...a, ...patch } : a) });
   const moveAction = (idx, dir) => {
     const next = [...actions];
     const target = idx + dir;
@@ -248,6 +363,7 @@ function AudiencePanel({ audience, onChange }) {
           idx={idx}
           total={actions.length}
           onUpdate={(field, val) => updateAction(idx, field, val)}
+          onUpdateMulti={(patch) => updateActionMulti(idx, patch)}
           onRemove={() => removeAction(idx)}
           onMoveUp={() => moveAction(idx, -1)}
           onMoveDown={() => moveAction(idx, 1)}

@@ -20,6 +20,9 @@ const ICON_MAP = {
 function isEmojiMode(icon) {
   return !icon || icon === "emoji" || !/^[A-Z]/.test(icon);
 }
+function isImageMode(icon) {
+  return icon === "custom_image";
+}
 
 function isVisible(action, userRole) {
   if (!action.visible_to || action.visible_to === "all") return true;
@@ -32,6 +35,35 @@ function isVisible(action, userRole) {
 }
 
 function ActionIcon({ action }) {
+  if (isImageMode(action.icon) && action.imageUrl) {
+    const isFill = action.imageSize === "fill";
+    if (isFill) {
+      return (
+        <>
+          <div
+            className="absolute inset-0 bg-cover bg-center"
+            style={{
+              backgroundImage: `url(${action.imageUrl})`,
+              filter: `blur(${action.blurAmount ?? 0}px) brightness(${(action.brightness ?? 100) / 100})`,
+              transform: (action.blurAmount ?? 0) > 0 ? "scale(1.08)" : undefined,
+            }}
+          />
+          {(action.overlayOpacity ?? 0) > 0 && (
+            <div className="absolute inset-0" style={{ backgroundColor: action.overlayColor || "#000000", opacity: (action.overlayOpacity ?? 0) / 100 }} />
+          )}
+        </>
+      );
+    }
+    // square: render as img element, centered
+    return (
+      <img
+        src={action.imageUrl}
+        alt=""
+        className="w-full h-full object-cover"
+        style={{ filter: `blur(${action.blurAmount ?? 0}px) brightness(${(action.brightness ?? 100) / 100})` }}
+      />
+    );
+  }
   if (isEmojiMode(action.icon)) {
     const emoji = action.emoji || action.icon || "❓";
     return <span className="text-xl leading-none select-none">{emoji}</span>;
@@ -68,7 +100,7 @@ export default function QuickActionsGrid({ actions = [], userRole }) {
           const isExternal = action.path?.startsWith("http");
           const content = (
             <div className="flex flex-col items-center gap-2 p-3 bg-white border border-gray-200 rounded-xl hover:shadow-md hover:border-gray-300 transition-all cursor-pointer group">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${action.color || "bg-gray-400"} group-hover:scale-105 transition-transform`}>
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden relative group-hover:scale-105 transition-transform ${isImageMode(action.icon) && action.imageSize === "fill" ? "bg-gray-200" : (action.color || "bg-gray-400")}`}>
                 <ActionIcon action={action} />
               </div>
               <span className="text-xs text-gray-700 font-medium text-center leading-tight">{action.title}</span>
