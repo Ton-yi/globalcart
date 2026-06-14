@@ -2,7 +2,7 @@
  * ImageEffectsPanel — 图片效果编辑面板
  * ImageEditModal：左右双栏，左侧实时预览，右侧裁切+效果一体化控制
  */
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useMemo } from "react";
 import ReactCrop, { centerCrop, makeAspectCrop } from "react-image-crop";
 import "react-image-crop/dist/ReactCrop.css";
 import { base44 } from "@/api/base44Client";
@@ -62,6 +62,8 @@ export function ImageEditModal({
   const [local, setLocal] = useState({ blurAmount, brightness, overlayColor, overlayOpacity });
   const [currentImageUrl, setCurrentImageUrl] = useState(imageUrl); // the working image (may be updated by crop)
   const [uploading, setUploading] = useState(false);
+  // cb 固定在 mount 时生成，避免每次渲染变化导致图片反复重载
+  const cbRef = useRef(Date.now());
 
   // Crop state
   const initPresetIdx = (() => {
@@ -150,6 +152,7 @@ export function ImageEditModal({
   // ── File replace ──
   const handleFile = (file) => {
     if (!file || !file.type.startsWith("image/")) return;
+    cbRef.current = Date.now(); // 新图刷新 cache-bust
     setCurrentImageUrl(URL.createObjectURL(file));
     setCrop(undefined);
     setCompletedCrop(undefined);
@@ -194,15 +197,15 @@ export function ImageEditModal({
                   <div style={{ transform: `scale(${scale})`, transformOrigin: "center center", transition: "transform 0.1s ease" }}>
                     <ReactCrop
                       crop={crop}
-                      onChange={(_, pct) => setCrop(pct)}
-                      onComplete={(c) => setCompletedCrop(c)}
+                      onChange={(px, pct) => setCrop(pct)}
+                      onComplete={(px) => setCompletedCrop(px)}
                       aspect={currentAspect}
                       minWidth={20}
                       minHeight={20}
                     >
                       <img
                         ref={imgRef}
-                        src={currentImageUrl.startsWith("blob:") ? currentImageUrl : `${currentImageUrl}${currentImageUrl.includes("?") ? "&" : "?"}cb=${Date.now()}`}
+                        src={currentImageUrl.startsWith("blob:") ? currentImageUrl : `${currentImageUrl}${currentImageUrl.includes("?") ? "&" : "?"}cb=${cbRef.current}`}
                         crossOrigin="anonymous"
                         onLoad={onImageLoad}
                         style={{ maxWidth: "100%", maxHeight: "60vh", display: "block" }}
