@@ -1,8 +1,16 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
 const DEFAULT_API_URL = 'https://v6.exchangerate-api.com/v6/89e2f91c758d92aa2c06667b/latest/JPY';
-const RATE_KEYS = { USD: 'jpy_usd', CNY: 'jpy_cny', EUR: 'jpy_eur', GBP: 'jpy_gbp', AUD: 'jpy_aud', SGD: 'jpy_sgd', HKD: 'jpy_hkd', TWD: 'jpy_twd' };
-const FALLBACKS = { jpy_usd: 0.0067, jpy_cny: 0.048, jpy_eur: 0.0062, jpy_gbp: 0.0050, jpy_aud: 0.0104, jpy_sgd: 0.0090, jpy_hkd: 0.052, jpy_twd: 0.22 };
+const RATE_KEYS = {
+  USD: 'jpy_usd', CNY: 'jpy_cny', EUR: 'jpy_eur', GBP: 'jpy_gbp',
+  AUD: 'jpy_aud', SGD: 'jpy_sgd', HKD: 'jpy_hkd', TWD: 'jpy_twd',
+  KRW: 'jpy_krw', CAD: 'jpy_cad', THB: 'jpy_thb', MYR: 'jpy_myr',
+};
+const FALLBACKS = {
+  jpy_usd: 0.0067, jpy_cny: 0.048, jpy_eur: 0.0062, jpy_gbp: 0.0050,
+  jpy_aud: 0.0104, jpy_sgd: 0.0090, jpy_hkd: 0.052, jpy_twd: 0.22,
+  jpy_krw: 8.9, jpy_cad: 0.0093, jpy_thb: 0.24, jpy_myr: 0.031,
+};
 
 Deno.serve(async (req) => {
   try {

@@ -251,7 +251,10 @@ export default function Layout({ children, currentPageName }) {
           </nav>
 
           <div className="flex items-center gap-2">
-            <NavbarRateWidget currencies={navbarRateCurrencies} />
+            {/* 仅当 nav 中央未渲染汇率小组件时才在右侧显示（避免重复渲染） */}
+            {!navItems.some(item => item.isRateWidget) && (
+              <NavbarRateWidget currencies={navbarRateCurrencies} />
+            )}
             <LocaleSwitcher />
             <NotificationBell />
             <MidnightToggle />
