@@ -56,7 +56,6 @@ export function ImageEditModal({
 }) {
   const fileInputRef = useRef();
   const imgRef = useRef();
-  const containerRef = useRef();
 
   const [tab, setTab] = useState(initialMode === "crop" ? "crop" : "effect"); // "crop" | "effect"
   const [local, setLocal] = useState({ blurAmount, brightness, overlayColor, overlayOpacity });
@@ -74,8 +73,6 @@ export function ImageEditModal({
   const [presetIdx, setPresetIdx] = useState(initPresetIdx);
   const [crop, setCrop] = useState();
   const [completedCrop, setCompletedCrop] = useState();
-  const [scale, setScale] = useState(1);
-
   // 若外部锁定了 aspect，始终用它；否则用预设选择器的当前值
   const currentAspect = aspect != null ? aspect : ASPECT_PRESETS[presetIdx].value;
   const patch = (p) => setLocal(prev => ({ ...prev, ...p }));
@@ -104,41 +101,7 @@ export function ImageEditModal({
     resetCrop(ASPECT_PRESETS[idx].value);
   };
 
-  const handleWheel = useCallback((e) => {
-    e.preventDefault();
-    const delta = e.deltaY > 0 ? -0.1 : 0.1;
-    setScale(prev => Math.min(3, Math.max(0.5, parseFloat((prev + delta).toFixed(2)))));
-  }, []);
 
-  const containerCallbackRef = useCallback((node) => {
-    if (node) {
-      node.addEventListener("wheel", handleWheel, { passive: false });
-      // 触控 pinch-to-zoom
-      let lastDist = null;
-      const onTouchMove = (e) => {
-        if (e.touches.length !== 2) return;
-        e.preventDefault();
-        const dx = e.touches[0].clientX - e.touches[1].clientX;
-        const dy = e.touches[0].clientY - e.touches[1].clientY;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (lastDist !== null) {
-          const delta = (dist - lastDist) * 0.01;
-          setScale(prev => Math.min(4, Math.max(0.5, parseFloat((prev + delta).toFixed(2)))));
-        }
-        lastDist = dist;
-      };
-      const onTouchEnd = () => { lastDist = null; };
-      node.addEventListener("touchmove", onTouchMove, { passive: false });
-      node.addEventListener("touchend", onTouchEnd);
-      containerRef.current = node;
-      node._onTouchMove = onTouchMove;
-      node._onTouchEnd = onTouchEnd;
-    } else if (containerRef.current) {
-      containerRef.current.removeEventListener("wheel", handleWheel);
-      containerRef.current.removeEventListener("touchmove", containerRef.current._onTouchMove);
-      containerRef.current.removeEventListener("touchend", containerRef.current._onTouchEnd);
-    }
-  }, [handleWheel]);
 
   const handleApplyCrop = async () => {
     const image = imgRef.current;
@@ -148,9 +111,6 @@ export function ImageEditModal({
     }
     setUploading(true);
 
-    // completedCrop 坐标是在 scale=1 的图片渲染空间中的像素坐标
-    // （因为 scale 在 ReactCrop 外层的 wrapper 上，ReactCrop 感知不到 scale）
-    // 只需映射到 naturalWidth/naturalHeight：乘以 natural/display 比
     const toNatX = image.naturalWidth  / image.width;
     const toNatY = image.naturalHeight / image.height;
 
@@ -176,7 +136,6 @@ export function ImageEditModal({
       setCurrentImageUrl(file_url);
       setCrop(undefined);
       setCompletedCrop(undefined);
-      setScale(1);
       setTab("effect");
     }, "image/jpeg", 0.92);
   };
@@ -241,46 +200,25 @@ export function ImageEditModal({
           <div className="flex-1 bg-gray-50 flex items-center justify-center p-4 relative overflow-hidden border-r border-gray-100">
             {currentImageUrl ? (
               tab === "crop" ? (
-                /* 裁切预览：
-                   - 外层容器 overflow:hidden，尺寸固定，不随缩放变化
-                   - scale wrapper 用 CSS transform 缩放 ReactCrop+img 整体
-                   - ReactCrop 坐标系始终基于 scale=1 的图片尺寸，提取时除以 scale 还原
-                */
-                <div
-                  ref={containerCallbackRef}
-                  className="w-full h-full overflow-hidden flex items-center justify-center select-none"
-                >
-                  {/* scale wrapper：transform 不影响布局，容器不会撑大 */}
-                  <div style={{
-                    transform: `scale(${scale})`,
-                    transformOrigin: "center center",
-                    transition: "transform 0.1s ease",
-                    display: "inline-block",
-                    lineHeight: 0,
-                  }}>
-                    <ReactCrop
-                      crop={crop}
-                      onChange={(px, pct) => setCrop(pct)}
-                      onComplete={(px) => setCompletedCrop(px)}
-                      aspect={currentAspect}
-                      minWidth={20}
-                      minHeight={20}
-                    >
-                      <img
-                        ref={imgRef}
-                        src={currentImageUrl.startsWith("blob:") ? currentImageUrl : `${currentImageUrl}${currentImageUrl.includes("?") ? "&" : "?"}cb=${cbRef.current}`}
-                        crossOrigin="anonymous"
-                        onLoad={onImageLoad}
-                        style={{
-                          maxWidth: "480px",
-                          maxHeight: "55vh",
-                          display: "block",
-                        }}
-                        alt="crop"
-                        draggable={false}
-                      />
-                    </ReactCrop>
-                  </div>
+                <div className="w-full h-full overflow-hidden flex items-center justify-center select-none">
+                  <ReactCrop
+                    crop={crop}
+                    onChange={(px, pct) => setCrop(pct)}
+                    onComplete={(px) => setCompletedCrop(px)}
+                    aspect={currentAspect}
+                    minWidth={20}
+                    minHeight={20}
+                  >
+                    <img
+                      ref={imgRef}
+                      src={currentImageUrl.startsWith("blob:") ? currentImageUrl : `${currentImageUrl}${currentImageUrl.includes("?") ? "&" : "?"}cb=${cbRef.current}`}
+                      crossOrigin="anonymous"
+                      onLoad={onImageLoad}
+                      style={{ maxWidth: "480px", maxHeight: "55vh", display: "block" }}
+                      alt="crop"
+                      draggable={false}
+                    />
+                  </ReactCrop>
                 </div>
               ) : (
                 /* 效果预览 */
@@ -303,17 +241,7 @@ export function ImageEditModal({
               </div>
             )}
 
-            {/* 缩放控制（仅裁切模式） */}
-            {tab === "crop" && currentImageUrl && (
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-white/90 border border-gray-200 rounded-full px-2 py-1 shadow-sm">
-                <button onClick={() => setScale(s => Math.max(0.5, parseFloat((s - 0.1).toFixed(2))))}
-                  className="w-5 h-5 flex items-center justify-center text-gray-500 hover:text-gray-800 font-bold text-sm">−</button>
-                <span className="text-xs text-gray-500 w-9 text-center tabular-nums">{Math.round(scale * 100)}%</span>
-                <button onClick={() => setScale(s => Math.min(3, parseFloat((s + 0.1).toFixed(2))))}
-                  className="w-5 h-5 flex items-center justify-center text-gray-500 hover:text-gray-800 font-bold text-sm">+</button>
-                <button onClick={() => { setScale(1); setCrop(undefined); setCompletedCrop(undefined); }} className="text-xs text-gray-400 hover:text-gray-600 ml-0.5">重置</button>
-              </div>
-            )}
+
           </div>
 
           {/* ── Right: Controls ── */}
