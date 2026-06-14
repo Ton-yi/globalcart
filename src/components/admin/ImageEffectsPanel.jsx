@@ -123,8 +123,11 @@ function ImageEditModal({ imageUrl, blurAmount, brightness, overlayColor, overla
     setCropSrc(URL.createObjectURL(file));
   };
 
+  const [draggingOver, setDraggingOver] = useState(false);
+
   const handleDrop = (e) => {
     e.preventDefault();
+    setDraggingOver(false);
     handleFile(e.dataTransfer.files[0]);
   };
 
@@ -154,8 +157,9 @@ function ImageEditModal({ imageUrl, blurAmount, brightness, overlayColor, overla
           {/* 预览区 / 上传区 */}
           {displayUrl ? (
             <div
-              className="relative rounded-lg overflow-hidden h-32 mb-4 border border-gray-200 group"
-              onDragOver={e => e.preventDefault()}
+              className={`relative rounded-lg overflow-hidden h-32 mb-4 border-2 transition-colors ${draggingOver ? "border-blue-400 border-dashed" : "border-gray-200"} group`}
+              onDragOver={e => { e.preventDefault(); setDraggingOver(true); }}
+              onDragLeave={() => setDraggingOver(false)}
               onDrop={handleDrop}
             >
               <div className="absolute inset-0 bg-cover bg-center" style={{
@@ -171,23 +175,35 @@ function ImageEditModal({ imageUrl, blurAmount, brightness, overlayColor, overla
                   <span className="text-white text-sm font-bold drop-shadow">{previewTitle}</span>
                 </div>
               )}
-              {/* 悬停时显示更换按钮 */}
-              <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/30 transition-colors">
-                <Button size="sm" className="h-7 text-xs opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 text-gray-800 hover:bg-white"
-                  onClick={() => fileInputRef.current?.click()}>
-                  <Upload className="w-3 h-3 mr-1" />更换图片
-                </Button>
-              </div>
+              {/* 拖拽悬停提示 */}
+              {draggingOver ? (
+                <div className="absolute inset-0 flex items-center justify-center bg-blue-500/60">
+                  <div className="flex flex-col items-center gap-1 text-white">
+                    <Upload className="w-5 h-5" />
+                    <span className="text-xs font-medium">松开以上传图片</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/30 transition-colors">
+                  <Button size="sm" className="h-7 text-xs opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 text-gray-800 hover:bg-white"
+                    onClick={() => fileInputRef.current?.click()}>
+                    <Upload className="w-3 h-3 mr-1" />更换图片
+                  </Button>
+                </div>
+              )}
             </div>
           ) : (
             <button
-              className="w-full h-24 mb-4 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center gap-1 text-gray-400 hover:border-blue-400 hover:text-blue-500 transition-colors"
-              onDragOver={e => e.preventDefault()}
+              className={`w-full h-24 mb-4 border-2 border-dashed rounded-lg flex flex-col items-center justify-center gap-1 transition-colors ${
+                draggingOver ? "border-blue-400 bg-blue-50 text-blue-500" : "border-gray-300 text-gray-400 hover:border-blue-400 hover:text-blue-500"
+              }`}
+              onDragOver={e => { e.preventDefault(); setDraggingOver(true); }}
+              onDragLeave={() => setDraggingOver(false)}
               onDrop={handleDrop}
               onClick={() => fileInputRef.current?.click()}
             >
               <ImageIcon className="w-5 h-5" />
-              <span className="text-xs">点击或拖拽图片至此上传</span>
+              <span className="text-xs">{draggingOver ? "松开以上传图片" : "点击或拖拽图片至此上传"}</span>
             </button>
           )}
 
@@ -274,7 +290,7 @@ export default function ImageEffectsPanel({
         {/* 预览区（有图时显示） */}
         {imageUrl ? (
           <div
-            className="relative rounded-lg overflow-hidden h-28 border border-gray-300 shadow-sm"
+            className={`relative rounded-lg overflow-hidden h-28 border-2 shadow-sm transition-colors ${dragging ? "border-blue-400 border-dashed" : "border-gray-300"}`}
             onDragOver={e => { e.preventDefault(); setDragging(true); }}
             onDragLeave={() => setDragging(false)}
             onDrop={handleDrop}
@@ -298,16 +314,25 @@ export default function ImageEffectsPanel({
                 <span className="text-white text-sm font-bold drop-shadow">{previewTitle}</span>
               </div>
             )}
-            <div className="absolute top-2 right-2 flex gap-1">
-              <Button size="sm" className="h-6 text-xs px-2 bg-white/80 text-gray-700 hover:bg-white"
-                onClick={() => setEditOpen(true)}>
-                <Upload className="w-3 h-3 mr-1" />编辑
-              </Button>
-              <Button size="sm" variant="destructive" className="h-6 text-xs px-2 bg-red-500/80 hover:bg-red-600"
-                onClick={onRemove}>
-                <X className="w-3 h-3" />
-              </Button>
-            </div>
+            {dragging ? (
+              <div className="absolute inset-0 flex items-center justify-center bg-blue-500/60">
+                <div className="flex flex-col items-center gap-1 text-white">
+                  <Upload className="w-5 h-5" />
+                  <span className="text-xs font-medium">松开以上传图片</span>
+                </div>
+              </div>
+            ) : (
+              <div className="absolute top-2 right-2 flex gap-1">
+                <Button size="sm" className="h-6 text-xs px-2 bg-white/80 text-gray-700 hover:bg-white"
+                  onClick={() => setEditOpen(true)}>
+                  <Upload className="w-3 h-3 mr-1" />编辑
+                </Button>
+                <Button size="sm" variant="destructive" className="h-6 text-xs px-2 bg-red-500/80 hover:bg-red-600"
+                  onClick={onRemove}>
+                  <X className="w-3 h-3" />
+                </Button>
+              </div>
+            )}
           </div>
         ) : (
           /* 上传区（无图时显示） */
