@@ -47,6 +47,7 @@ const DEFAULT_CONFIG = {
   enabled: false,
   currencies: ["CNY", "USD"],
   position: "hero_right",
+  textColor: "",
 };
 
 export default function ExchangeRateDisplayManager({ settings, onReload }) {
@@ -185,6 +186,28 @@ export default function ExchangeRateDisplayManager({ settings, onReload }) {
                 </div>
               </div>
             </div>
+
+            {/* 字体颜色（仅 Hero 模式有效） */}
+            {(form.position === "hero_left" || form.position === "hero_right") && (
+              <div>
+                <Label className="text-xs text-gray-500 block mb-2">字体颜色（叠加在 Hero 上时）</Label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    value={form.textColor || "#ffffff"}
+                    onChange={e => setForm(p => ({ ...p, textColor: e.target.value }))}
+                    className="w-8 h-8 rounded cursor-pointer border border-gray-200"
+                  />
+                  <span className="text-xs text-gray-500">{form.textColor || "#ffffff"}</span>
+                  {form.textColor && (
+                    <button
+                      className="text-xs text-gray-400 hover:text-red-500 transition-colors"
+                      onClick={() => setForm(p => ({ ...p, textColor: "" }))}
+                    >重置默认</button>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* 显示位置 */}
             <div>

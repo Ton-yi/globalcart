@@ -40,7 +40,7 @@ function resolveAudienceConfig(config, user) {
   return config;
 }
 
-export default function HeroSection({ config, user, tenant }) {
+export default function HeroSection({ config, user, tenant, rateOverlay = null, ratePosition = "hero_right" }) {
   const c = { ...DEFAULT_HERO, ...resolveAudienceConfig(config, user) };
 
   const buttons = (c.buttons || []).filter(b => {
@@ -102,6 +102,13 @@ export default function HeroSection({ config, user, tenant }) {
       )}
       {/* Overlay */}
       {overlayStyle && <div style={overlayStyle} />}
+
+      {/* Rate widget overlay — top-left or top-right */}
+      {rateOverlay && (
+        <div className={`absolute top-3 z-20 max-w-[180px] ${ratePosition === "hero_left" ? "left-3" : "right-3"}`}>
+          {rateOverlay}
+        </div>
+      )}
 
       {/* Content */}
       <div className="relative z-10">

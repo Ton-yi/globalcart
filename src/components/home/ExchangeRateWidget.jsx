@@ -41,7 +41,7 @@ async function fetchRates() {
   return _rateCache;
 }
 
-export default function ExchangeRateWidget({ currencies = [], compact = false, faqMode = false }) {
+export default function ExchangeRateWidget({ currencies = [], compact = false, faqMode = false, heroOverlay = false, textColor = "" }) {
   const [rates, setRates] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -103,7 +103,29 @@ export default function ExchangeRateWidget({ currencies = [], compact = false, f
     );
   }
 
-  // ── 标准模式（Hero 左/右）──────────────────────────────────
+  // ── Hero 叠加模式（绝对定位覆盖在 Hero 图层上方）──────────
+  if (heroOverlay) {
+    const color = textColor || "#ffffff";
+    return (
+      <div className="flex flex-col gap-1 pointer-events-none">
+        {currencies.map(code => {
+          const val = rates?.[`jpy_${code.toLowerCase()}`] ?? rates?.[code];
+          const label = CURRENCY_LABELS[code] || code;
+          return (
+            <div key={code} className="flex items-center gap-1.5 bg-black/25 backdrop-blur-sm rounded-lg px-2.5 py-1.5">
+              <TrendingUp className="w-3 h-3 flex-shrink-0" style={{ color }} />
+              <span className="text-xs whitespace-nowrap" style={{ color, opacity: 0.85 }}>{label}</span>
+              <span className="text-sm font-bold ml-auto whitespace-nowrap" style={{ color }}>
+                {fmt(val, code)} {code}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  // ── 标准模式（Hero 左/右侧块）──────────────────────────────
   return (
     <div className="flex flex-col gap-1.5">
       {currencies.map(code => {

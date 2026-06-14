@@ -116,19 +116,16 @@ export default function Home() {
 
   return (
     <div className="space-y-8">
-      {/* Hero — wraps hero + optional left/right rate widgets */}
-      {rateEnabled && (ratePos === "hero_left" || ratePos === "hero_right") ? (
-        <div className={`flex items-stretch gap-4 ${ratePos === "hero_left" ? "flex-row-reverse" : "flex-row"}`}>
-          <div className="flex-1 min-w-0">
-            <HeroSection config={heroConfig} user={user} tenant={tenant} />
-          </div>
-          <div className="flex flex-col justify-center gap-1.5 flex-shrink-0 w-44">
-            <ExchangeRateWidget currencies={rateCurrencies} />
-          </div>
-        </div>
-      ) : (
-        <HeroSection config={heroConfig} user={user} tenant={tenant} />
-      )}
+      {/* Hero — rate widget overlaid on top of hero when position is hero_left/hero_right */}
+      <HeroSection
+        config={heroConfig}
+        user={user}
+        tenant={tenant}
+        ratePosition={ratePos}
+        rateOverlay={rateEnabled && (ratePos === "hero_left" || ratePos === "hero_right") ? (
+          <ExchangeRateWidget currencies={rateCurrencies} heroOverlay textColor={rc?.textColor || ""} />
+        ) : null}
+      />
 
       {/* Quick Actions — show for all visitors (guest actions visible without login) */}
       {quickActions && (Array.isArray(quickActions) ? quickActions.length > 0 : Object.keys(quickActions).length > 0) && (
