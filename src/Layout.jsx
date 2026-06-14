@@ -12,6 +12,7 @@ import {
 import NotificationBell from "@/components/common/NotificationBell.jsx";
 import NavbarRateWidget from "@/components/common/NavbarRateWidget.jsx";
 import AnnouncementPositionRenderer from "@/components/home/AnnouncementPositionRenderer";
+import BannerDisplay from "@/components/home/BannerDisplay";
 import { MidnightToggle } from "@/components/common/ThemeSelector";
 import LocaleSwitcher from "@/components/common/LocaleSwitcher";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +30,7 @@ export default function Layout({ children, currentPageName }) {
   const [navbarSettings, setNavbarSettings] = useState(null);
   const [navbarRateCurrencies, setNavbarRateCurrencies] = useState([]);
   const [transitLocations, setTransitLocations] = useState([]);
+  const [bannerConfig, setBannerConfig] = useState(null);
   const location = useLocation();
 
   useEffect(() => {
@@ -46,6 +48,12 @@ export default function Layout({ children, currentPageName }) {
     setAnnouncements(cfg.announcements || []);
     setNavbarSettings(cfg.navbarSettings || null);
     setTransitLocations(cfg.transitLocations || []);
+    const bannerSetting = (cfg.settings || []).find(s => s.key === "home_banner_config");
+    if (bannerSetting?.value) {
+      try { setBannerConfig(JSON.parse(bannerSetting.value)); } catch { setBannerConfig(null); }
+    } else {
+      setBannerConfig(null);
+    }
     const rateSetting = (cfg.settings || []).find(s => s.key === "navbar_exchange_rate_config");
     if (rateSetting?.value) {
       try {
@@ -156,6 +164,7 @@ export default function Layout({ children, currentPageName }) {
 
       {/* Sticky top zone: above_nav + header stack together */}
       <div className="sticky top-0 z-50">
+        {bannerConfig && <BannerDisplay config={bannerConfig} />}
         <AnnouncementPositionRenderer
           announcements={announcements} position="above_nav"
           currentPageName={currentPageName} userRole={user?.role}

@@ -42,6 +42,7 @@ import NotificationTextSettings from "@/components/admin/NotificationTextSetting
 import QuickActionsManager from "@/components/admin/QuickActionsManager";
 import LogisticsStatusBoardManager from "@/components/admin/LogisticsStatusBoardManager";
 import HeroSectionManager from "@/components/admin/HeroSectionManager";
+import BannerManager from "@/components/admin/BannerManager";
 import StepsSectionManager from "@/components/admin/StepsSectionManager";
 import FaqManager from "@/components/admin/FaqManager";
 import TenantExchangeRateSettings from "@/components/admin/TenantExchangeRateSettings";
@@ -462,6 +463,7 @@ export default function AdminSettings() {
         <div className="flex flex-col xl:flex-row gap-5 items-start">
           {/* 左列 */}
           <div className="flex-1 min-w-0 space-y-5">
+            <BannerManager settings={settings} onReload={load} />
             <HeroSectionManager settings={settings} onReload={load} />
             <QuickActionsManager settings={settings} onReload={load} />
             <ExchangeRateDisplayManager settings={settings} onReload={load} />
