@@ -3,11 +3,6 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Eye, EyeOff, ArrowUp, ArrowDown, IndentIncrease, IndentDecrease } from "lucide-react";
 
-// 用户入口 key 集合（用于分组显示）
-const USER_ENTRY_KEYS = new Set([
-  "UserHome", "UserSubmitOrder", "UserSubmitOrderPlain", "UserGroupBuy",
-  "UserMyOrders", "UserShippingPool", "UserProfile", "UserHelpCenter", "UserTodoAdmin",
-]);
 
 function clone(t) { return JSON.parse(JSON.stringify(t)); }
 function getList(tree, parentPath) {
@@ -110,31 +105,6 @@ export default function NavbarSettingsManager({ group, tree, onChange }) {
 
   const renderRows = (nodes, parentPath = []) =>
     nodes.map((node, i) => renderRow(node, i, parentPath));
-
-  // 对 admin 组：在根级将管理功能和用户入口分区展示
-  if (group === "admin") {
-    const adminNodes = tree.filter(n => !USER_ENTRY_KEYS.has(n.key));
-    const userEntryNodes = tree.filter(n => USER_ENTRY_KEYS.has(n.key));
-    // 保持路径索引与原 tree 对应
-    const adminIndices = tree.map((n, i) => !USER_ENTRY_KEYS.has(n.key) ? i : null).filter(i => i !== null);
-    const userIndices = tree.map((n, i) => USER_ENTRY_KEYS.has(n.key) ? i : null).filter(i => i !== null);
-    return (
-      <div className="space-y-4">
-        <div>
-          <p className="text-xs font-medium text-gray-500 mb-2 pb-1 border-b">管理功能入口</p>
-          {adminIndices.map(i => renderRow(tree[i], i, []))}
-        </div>
-        {userEntryNodes.length > 0 && (
-          <div>
-            <p className="text-xs font-medium text-blue-500 mb-2 pb-1 border-b border-blue-100">
-              用户入口（默认隐藏，可开启后出现在管理员导航中）
-            </p>
-            {userIndices.map(i => renderRow(tree[i], i, []))}
-          </div>
-        )}
-      </div>
-    );
-  }
 
   return <div>{renderRows(tree)}</div>;
 }
