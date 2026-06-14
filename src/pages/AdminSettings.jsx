@@ -159,7 +159,7 @@ function Toggle({ enabled, onToggle, color = "bg-blue-600", size = "md" }) {
 
 export default function AdminSettings() {
   const { user } = useCurrentUser();
-  const [activeTab, setActiveTab] = useState("countries");
+  const [activeTab, setActiveTab] = useState("home_customize");
   const [settings, setSettings] = useState([]);
   const [addons, setAddons] = useState([]);
   const [loading, setLoading] = useState(true);
