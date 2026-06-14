@@ -231,6 +231,7 @@ export default function Layout({ children, currentPageName }) {
                 );
               }
               if (item.isRateWidget) {
+                if (currentPageName === "AdminNavbarSettings") return null;
                 return <NavbarRateWidget key={item.key} currencies={navbarRateCurrencies} />;
               }
               return (
@@ -251,8 +252,8 @@ export default function Layout({ children, currentPageName }) {
           </nav>
 
           <div className="flex items-center gap-2">
-            {/* 仅当 nav 中央未渲染汇率小组件时才在右侧显示（避免重复渲染） */}
-            {!navItems.some(item => item.isRateWidget) && (
+            {/* 仅当 nav 中央未渲染汇率小组件时才在右侧显示，且不在汇率设置页面本身显示（避免重复/自引用） */}
+            {!navItems.some(item => item.isRateWidget) && currentPageName !== "AdminNavbarSettings" && (
               <NavbarRateWidget currencies={navbarRateCurrencies} />
             )}
             <LocaleSwitcher />
