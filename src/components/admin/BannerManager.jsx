@@ -17,13 +17,8 @@ const WIDTH_OPTIONS = [
 function genId() { return `banner_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`; }
 
 // ─── SingleImageEditor — 每张图片的效果折叠面板 ───────────
-function SingleImageEditor({ img, onUpdate, onDelete }) {
+function SingleImageEditor({ img, onUpdate, onPatch, onDelete }) {
   const [open, setOpen] = useState(false);
-
-  const handleEffectsChange = (patch) => {
-    // patch 可能含 imageUrl（更换图）或效果字段
-    onUpdate({ ...img, ...patch });
-  };
 
   return (
     <div className={`rounded-lg border transition-colors ${img.isActive ? "border-gray-200" : "border-gray-100"}`}>
@@ -77,23 +72,22 @@ function SingleImageEditor({ img, onUpdate, onDelete }) {
 
       {/* 效果面板（折叠） */}
       {open && (
-        <div className="p-3 border-t border-gray-100 bg-white rounded-b-lg">
-          <ImageEffectsPanel
-            imageUrl={img.url}
-            blurAmount={img.blurAmount ?? 0}
-            brightness={img.brightness ?? 100}
-            overlayColor={img.overlayColor || "#000000"}
-            overlayOpacity={img.overlayOpacity ?? 0}
-            cropAspect={undefined}
-            cropHint="拖动选区以裁切 Banner 图片（建议宽幅，如 4:1 ~ 6:1）"
-            onChange={patch => {
-              // imageUrl 字段名映射
-              const { imageUrl, ...rest } = patch;
-              onUpdate({ ...img, ...(imageUrl ? { url: imageUrl } : {}), ...rest });
-            }}
-            onRemove={() => onDelete(img.id)}
-          />
-        </div>
+      <div className="p-3 border-t border-gray-100 bg-white rounded-b-lg">
+        <ImageEffectsPanel
+          imageUrl={img.url}
+          blurAmount={img.blurAmount ?? 0}
+          brightness={img.brightness ?? 100}
+          overlayColor={img.overlayColor || "#000000"}
+          overlayOpacity={img.overlayOpacity ?? 0}
+          cropAspect={undefined}
+          cropHint="拖动选区以裁切 Banner 图片（建议宽幅，如 4:1 ~ 6:1）"
+          onChange={patch => {
+            const { imageUrl: newUrl, ...rest } = patch;
+            onPatch(img.id, { ...(newUrl ? { url: newUrl } : {}), ...rest });
+          }}
+          onRemove={() => onDelete(img.id)}
+        />
+      </div>
       )}
     </div>
   );
@@ -128,6 +122,13 @@ export default function BannerManager({ settings, onReload }) {
 
   const updateImage = (updated) => {
     setConfig(prev => ({ ...prev, images: prev.images.map(img => img.id === updated.id ? updated : img) }));
+  };
+
+  const patchImage = (id, patch) => {
+    setConfig(prev => ({
+      ...prev,
+      images: prev.images.map(img => img.id === id ? { ...img, ...patch } : img),
+    }));
   };
 
   const deleteImage = (id) => {
@@ -222,6 +223,7 @@ export default function BannerManager({ settings, onReload }) {
                     key={img.id}
                     img={img}
                     onUpdate={updateImage}
+                    onPatch={patchImage}
                     onDelete={deleteImage}
                   />
                 ))}
