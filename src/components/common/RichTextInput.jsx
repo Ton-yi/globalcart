@@ -38,16 +38,17 @@ export default function RichTextInput({
   className = "",
 }) {
   const fileRef = useRef(null);
+  const dragCounter = useRef(0);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
 
   const uploadFiles = async (files) => {
-    const imgs = Array.from(files).filter(f => f && f.type?.startsWith("image/"));
-    if (!imgs.length) return;
-    if (imageUrls.length + imgs.length > maxImages) {
-      toast.error(`最多上传 ${maxImages} 张图片`);
-      return;
-    }
+    const all = Array.from(files).filter(f => f && f.type?.startsWith("image/"));
+    if (!all.length) return;
+    const remaining = maxImages - imageUrls.length;
+    if (remaining <= 0) { toast.error(`最多上传 ${maxImages} 张图片`); return; }
+    const imgs = all.slice(0, remaining);
+    if (all.length > remaining) toast.error(`最多还能上传 ${remaining} 张，已自动截取前 ${remaining} 张`);
     setUploading(true);
     try {
       const newUrls = [];
@@ -85,9 +86,10 @@ export default function RichTextInput({
   return (
     <div
       className={`border rounded-lg p-3 transition-colors ${dragOver ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-gray-50"} ${className}`}
-      onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-      onDragLeave={() => setDragOver(false)}
-      onDrop={handleDrop}
+      onDragEnter={(e) => { e.preventDefault(); dragCounter.current++; setDragOver(true); }}
+      onDragLeave={() => { dragCounter.current--; if (dragCounter.current === 0) setDragOver(false); }}
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={(e) => { dragCounter.current = 0; handleDrop(e); }}
     >
       <Textarea
         rows={rows}
