@@ -6,6 +6,7 @@
  */
 import { useState, useEffect } from "react";
 import { tenantEntity } from "@/lib/tenantApi";
+import { invalidateTenantConfigCache } from "@/lib/configCache";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -135,6 +136,8 @@ export default function NavbarExchangeRateManager({ settings, onReload }) {
           category: "general",
         });
       }
+      // 失效 configCache，使 Layout 下次 mount 或路由切换时重新加载最新配置
+      invalidateTenantConfigCache();
       if (onReload) await onReload();
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);

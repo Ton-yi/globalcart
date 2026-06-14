@@ -42,24 +42,36 @@ export default function Layout({ children, currentPageName }) {
     }
   }, [tenant?.favicon_url, tenant?.branding_name]);
 
+  const applyTenantConfig = (cfg) => {
+    setAnnouncements(cfg.announcements || []);
+    setNavbarSettings(cfg.navbarSettings || null);
+    setTransitLocations(cfg.transitLocations || []);
+    const rateSetting = (cfg.settings || []).find(s => s.key === "navbar_exchange_rate_config");
+    if (rateSetting?.value) {
+      try {
+        const rc = JSON.parse(rateSetting.value);
+        if (rc.enabled && Array.isArray(rc.currencies)) setNavbarRateCurrencies(rc.currencies);
+        else setNavbarRateCurrencies([]);
+      } catch { setNavbarRateCurrencies([]); }
+    } else {
+      setNavbarRateCurrencies([]);
+    }
+  };
+
   useEffect(() => {
     if (!user) return;
-    // fetchTenantConfig handles its own cache — no need to check cache here separately
-    fetchTenantConfig()
-      .then(cfg => {
-        setAnnouncements(cfg.announcements || []);
-        setNavbarSettings(cfg.navbarSettings || null);
-        setTransitLocations(cfg.transitLocations || []);
-        const rateSetting = (cfg.settings || []).find(s => s.key === "navbar_exchange_rate_config");
-        if (rateSetting?.value) {
-          try {
-            const rc = JSON.parse(rateSetting.value);
-            if (rc.enabled && Array.isArray(rc.currencies)) setNavbarRateCurrencies(rc.currencies);
-          } catch { /* noop */ }
-        }
-      })
-      .catch(() => {});
-  }, [user?.email]);
+    fetchTenantConfig().then(applyTenantConfig).catch(() => {});
+  }, [user?.email]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Re-fetch when any part of the app invalidates the config cache (e.g. after saving navbar rate settings)
+  useEffect(() => {
+    if (!user) return;
+    const handler = () => {
+      fetchTenantConfig({ force: true }).then(applyTenantConfig).catch(() => {});
+    };
+    window.addEventListener('tenantConfigInvalidated', handler);
+    return () => window.removeEventListener('tenantConfigInvalidated', handler);
+  }, [user?.email]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Derive isTransitManager from already-fetched transitLocations (no extra network request)
   const isTransitManager = useMemo(

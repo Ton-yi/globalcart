@@ -8,6 +8,7 @@
  */
 import { useState, useEffect } from "react";
 import { tenantEntity } from "@/lib/tenantApi";
+import { invalidateTenantConfigCache } from "@/lib/configCache";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -133,30 +134,34 @@ export default function ExchangeRateDisplayManager({ settings, onReload }) {
 
   const handleSave = async () => {
     setSaving(true);
-    const saveForm = {
-      ...form,
-      unit: form.currencies[0]?.unit ?? 100,
-      position: (form.positions || [])[0] || form.position || "hero_right",
-    };
-    const value = JSON.stringify(saveForm);
+    try {
+      const saveForm = {
+        ...form,
+        unit: form.currencies[0]?.unit ?? 100,
+        position: (form.positions || [])[0] || form.position || "hero_right",
+      };
+      const value = JSON.stringify(saveForm);
 
-    // 直接从后端查最新记录，避免 settings props 过时或含重复 key 导致错误
-    const existingList = await tenantEntity.list("SiteSettings", { key: "home_exchange_rate_config" });
-    const existing = existingList?.[0];
-    if (existing?.id) {
-      await tenantEntity.update("SiteSettings", existing.id, { value });
-    } else {
-      await tenantEntity.create("SiteSettings", {
-        key: "home_exchange_rate_config",
-        value,
-        description: "主页汇率显示配置（JSON）",
-        category: "general",
-      });
+      // 直接从后端查最新记录，避免 settings props 过时或含重复 key 导致错误
+      const existingList = await tenantEntity.list("SiteSettings", { key: "home_exchange_rate_config" });
+      const existing = existingList?.[0];
+      if (existing?.id) {
+        await tenantEntity.update("SiteSettings", existing.id, { value });
+      } else {
+        await tenantEntity.create("SiteSettings", {
+          key: "home_exchange_rate_config",
+          value,
+          description: "主页汇率显示配置（JSON）",
+          category: "general",
+        });
+      }
+      invalidateTenantConfigCache();
+      await onReload();
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } finally {
+      setSaving(false);
     }
-    await onReload();
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
   };
 
   return (

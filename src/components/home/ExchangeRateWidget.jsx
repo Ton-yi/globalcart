@@ -6,7 +6,7 @@
  *   compact: bool          — 紧凑模式（导航栏/标题旁）
  *   faqMode: bool          — FAQ 模式，渲染为问答条目
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { TrendingUp, Loader2 } from "lucide-react";
 
@@ -75,10 +75,12 @@ export default function ExchangeRateWidget({ currencies = [], compact = false, f
   const [rates, setRates] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const codeKey = useMemo(() => items.map(i => i.code).join(","), [items]);
+
   useEffect(() => {
     if (!items.length) { setLoading(false); return; }
     fetchRates().then(r => { setRates(r); setLoading(false); });
-  }, [items.map(i => i.code).join(",")]);
+  }, [codeKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!items.length) return null;
 

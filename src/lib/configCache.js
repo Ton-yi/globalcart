@@ -22,4 +22,6 @@ export function setTenantConfigCache(data) {
 export function invalidateTenantConfigCache() {
   _cache = null;
   _cacheTs = 0;
+  // Notify Layout (and any other listeners) to reload tenant config
+  try { window.dispatchEvent(new CustomEvent('tenantConfigInvalidated')); } catch { /* noop */ }
 }

@@ -4,7 +4,7 @@
  * props:
  *   currencies: string[]  — 从 navbar_exchange_rate_config 读取
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { TrendingUp } from "lucide-react";
 
@@ -55,10 +55,12 @@ export default function NavbarRateWidget({ currencies = [], unit = 100 }) {
   const items = normalizeItems(currencies, unit);
   const [rates, setRates] = useState(null);
 
+  const codeKey = useMemo(() => items.map(i => i.code).join(","), [items]);
+
   useEffect(() => {
     if (!items.length) return;
     fetchRates().then(setRates);
-  }, [items.map(i => i.code).join(",")]);
+  }, [codeKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!items.length || !rates) return null;
 
