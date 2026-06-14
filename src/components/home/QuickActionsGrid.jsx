@@ -38,24 +38,10 @@ function ActionIcon({ action }) {
   if (isImageMode(action.icon) && action.imageUrl) {
     const isFill = action.imageSize === "fill";
     if (isFill) {
-      return (
-        <>
-          <img
-            src={action.imageUrl}
-            alt=""
-            className="absolute inset-0 w-full h-full object-cover"
-            style={{
-              filter: `blur(${action.blurAmount ?? 0}px) brightness(${(action.brightness ?? 100) / 100})`,
-              transform: (action.blurAmount ?? 0) > 0 ? "scale(1.08)" : undefined,
-            }}
-          />
-          {(action.overlayOpacity ?? 0) > 0 && (
-            <div className="absolute inset-0" style={{ backgroundColor: action.overlayColor || "#000000", opacity: (action.overlayOpacity ?? 0) / 100 }} />
-          )}
-        </>
-      );
+      // Fill mode: rendered via parent div's background, ActionIcon returns nothing
+      return null;
     }
-    // square: render centered inside the colored container (80% size to let bg color show)
+    // square: centered inside the colored container
     return (
       <img
         src={action.imageUrl}
@@ -101,9 +87,29 @@ export default function QuickActionsGrid({ actions = [], userRole }) {
           const isExternal = action.path?.startsWith("http");
           const content = (
             <div className="flex flex-col items-center gap-2 p-3 bg-white border border-gray-200 rounded-xl hover:shadow-md hover:border-gray-300 transition-all cursor-pointer group">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden relative group-hover:scale-105 transition-transform ${isImageMode(action.icon) && action.imageSize === "fill" ? "" : (action.color || "bg-gray-400")}`}>
-                <ActionIcon action={action} />
-              </div>
+              {(() => {
+                const isFillImage = isImageMode(action.icon) && action.imageSize === "fill";
+                return (
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden relative group-hover:scale-105 transition-transform ${isFillImage ? "" : (action.color || "bg-gray-400")}`}>
+                    {isFillImage && (
+                      <>
+                        <div style={{
+                          position: "absolute", inset: 0,
+                          backgroundImage: `url(${action.imageUrl})`,
+                          backgroundSize: "cover",
+                          backgroundPosition: "center",
+                          filter: `blur(${action.blurAmount ?? 0}px) brightness(${(action.brightness ?? 100) / 100})`,
+                          transform: (action.blurAmount ?? 0) > 0 ? "scale(1.08)" : undefined,
+                        }} />
+                        {(action.overlayOpacity ?? 0) > 0 && (
+                          <div style={{ position: "absolute", inset: 0, backgroundColor: action.overlayColor || "#000000", opacity: (action.overlayOpacity ?? 0) / 100 }} />
+                        )}
+                      </>
+                    )}
+                    {!isFillImage && <ActionIcon action={action} />}
+                  </div>
+                );
+              })()}
               <span className="text-xs text-gray-700 font-medium text-center leading-tight">{action.title}</span>
             </div>
           );
