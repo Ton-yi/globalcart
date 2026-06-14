@@ -456,7 +456,7 @@ export default function AdminSettings() {
         <div className={`flex-1 min-w-0 space-y-5 ${activeTab === "home_customize" ? "" : "max-w-2xl"}`}>
 
       {activeTab === "home_customize" && !loading && (
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 items-start">
+        <div className="columns-1 xl:columns-2 gap-5 space-y-0 [&>*]:break-inside-avoid [&>*]:mb-5">
           <ExchangeRateDisplayManager settings={settings} onReload={load} />
           <HeroSectionManager settings={settings} onReload={load} />
           <StepsSectionManager settings={settings} onReload={load} />
