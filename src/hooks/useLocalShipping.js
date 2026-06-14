@@ -106,7 +106,8 @@ export function useLocalShipping() {
 
   const handleAddMethod = (companyId) => {
     setActiveMethod(null);
-    setForm({ ...BLANK_METHOD, company_id: companyId });
+    // New methods start at sort_order -1 so they float to the top of their group
+    setForm({ ...BLANK_METHOD, company_id: companyId, sort_order: -1 });
     setFormMode("add");
   };
 

@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import RichTextInput from "@/components/common/RichTextInput";
 
 // ──────────────────────────────────────────────
 // Flat tree helpers
@@ -40,8 +41,11 @@ export default function ShippingCompanyTreePanel({
   onMethodsChange,   // (newMethods) => void
   onCompaniesChange, // (newCompanies) => void
 }) {
+  const [companyForm, setCompanyForm] = useState(null); // null | { name, logo_url, description, id? }
+
   // Build display tree: companies in order, methods nested under their company
   const sortedCompanies = [...companies].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+  // Ungrouped methods shown at TOP
   const ungrouped = methods.filter(m => !m.company_id);
   const sortedUngrouped = [...ungrouped].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
 
@@ -101,6 +105,13 @@ export default function ShippingCompanyTreePanel({
     }).sort((a, b) => a.sort_order - b.sort_order)
       .map((x, i) => ({ ...x, sort_order: i }));
     onCompaniesChange(recalc);
+  };
+
+  // ── Inline company form helpers ──────────────────────────
+  const handleCompanyFormSave = () => {
+    if (!companyForm?.name?.trim()) return;
+    onAddCompany(companyForm);
+    setCompanyForm(null);
   };
 
   // ── Render ────────────────────────────────────────────────
@@ -168,14 +179,70 @@ export default function ShippingCompanyTreePanel({
       {/* Header */}
       <div className="flex items-center justify-between">
         <p className="text-sm font-semibold text-gray-700">运输公司 & 方式排序</p>
-        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={onAddCompany}>
-          <Plus className="w-3 h-3 mr-1" />添加运输公司
-        </Button>
+        {!companyForm && (
+          <Button size="sm" variant="outline" className="h-7 text-xs"
+            onClick={() => setCompanyForm({ name: "", logo_url: "", description: "" })}>
+            <Plus className="w-3 h-3 mr-1" />添加运输公司
+          </Button>
+        )}
       </div>
 
-      {/* Companies */}
+      {/* Inline add-company form */}
+      {companyForm && (
+        <div className="border border-blue-200 rounded-xl p-3 space-y-2 bg-blue-50">
+          <p className="text-xs font-semibold text-blue-700 flex items-center gap-1">
+            <Building2 className="w-3.5 h-3.5" />
+            {companyForm.id ? "编辑运输公司" : "新增运输公司"}
+          </p>
+          <input
+            className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-sm bg-white focus:outline-none focus:border-blue-400"
+            placeholder="公司名称 *"
+            value={companyForm.name}
+            onChange={e => setCompanyForm(p => ({ ...p, name: e.target.value }))}
+            autoFocus
+          />
+          <input
+            className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs bg-white focus:outline-none focus:border-blue-400"
+            placeholder="Logo URL（可选）"
+            value={companyForm.logo_url || ""}
+            onChange={e => setCompanyForm(p => ({ ...p, logo_url: e.target.value }))}
+          />
+          <textarea
+            className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs bg-white focus:outline-none focus:border-blue-400 resize-none"
+            rows={2}
+            placeholder="描述（可选）"
+            value={companyForm.description || ""}
+            onChange={e => setCompanyForm(p => ({ ...p, description: e.target.value }))}
+          />
+          <div className="flex gap-2 justify-end">
+            <Button size="sm" variant="outline" className="h-6 text-xs" onClick={() => setCompanyForm(null)}>取消</Button>
+            <Button size="sm" className="h-6 text-xs bg-blue-600 hover:bg-blue-700"
+              disabled={!companyForm.name.trim()}
+              onClick={handleCompanyFormSave}>
+              {companyForm.id ? "保存" : "创建"}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Ungrouped methods — always at TOP */}
+      {sortedUngrouped.length > 0 && (
+        <div className="border border-dashed border-gray-200 rounded-xl overflow-hidden">
+          <div className="px-3 py-2 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+            <span className="text-xs font-medium text-gray-500">未分组</span>
+            <button
+              className="text-xs text-orange-500 hover:text-orange-700 flex items-center gap-1"
+              onClick={() => onAddMethod(null)}
+            ><Plus className="w-3 h-3" />添加</button>
+          </div>
+          <div className="px-2 py-1.5 space-y-0.5 bg-white">
+            {sortedUngrouped.map((m, i) => renderMethod(m, sortedUngrouped.length, i))}
+          </div>
+        </div>
+      )}
+
       {sortedCompanies.length === 0 && sortedUngrouped.length === 0 && (
-        <p className="text-xs text-gray-400 italic text-center py-4">暂无运输公司，点击"添加运输公司"新建</p>
+        <p className="text-xs text-gray-400 italic text-center py-4">暂无内容，点击右上方"添加运输公司"或左侧"新增运输方式"</p>
       )}
 
       {sortedCompanies.map((company, cIdx) => {
@@ -236,25 +303,13 @@ export default function ShippingCompanyTreePanel({
         );
       })}
 
-      {/* Ungrouped methods */}
-      {sortedUngrouped.length > 0 && (
-        <div className="border border-dashed border-gray-200 rounded-xl overflow-hidden">
-          <div className="px-3 py-2 bg-gray-50 border-b border-gray-100">
-            <span className="text-xs font-medium text-gray-500">未分组</span>
-          </div>
-          <div className="px-2 py-1.5 space-y-0.5 bg-white">
-            {sortedUngrouped.map((m, i) => renderMethod(m, sortedUngrouped.length, i))}
-          </div>
-        </div>
-      )}
-
-      {/* Global add method button when no companies exist */}
+      {/* Add ungrouped method button — always show when companies exist */}
       {sortedCompanies.length > 0 && (
         <button
           className="w-full text-xs text-gray-400 hover:text-orange-600 py-2 rounded-lg border border-dashed border-gray-200 hover:border-orange-300 hover:bg-orange-50 transition-colors flex items-center justify-center gap-1"
           onClick={() => onAddMethod(null)}
         >
-          <Plus className="w-3 h-3" />添加本地运输方式（不分组）
+          <Plus className="w-3 h-3" />添加运输方式（不分组）
         </button>
       )}
     </div>

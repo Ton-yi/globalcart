@@ -124,9 +124,14 @@ export function LocalShippingDetail({ state }) {
   return (
     <>
       {!isFormOpen ? (
-        <div className="border border-dashed border-gray-200 rounded-xl p-8 text-center space-y-2">
-          <p className="text-xs text-gray-400">点击右侧运输方式条目进行编辑</p>
-          <p className="text-xs text-gray-400">或在右侧点击"＋添加运输方式"新建</p>
+        <div className="space-y-3">
+          <div className="border border-dashed border-gray-200 rounded-xl p-6 text-center space-y-3">
+            <p className="text-xs text-gray-400">点击右侧运输方式条目进行编辑</p>
+            <Button size="sm" className="bg-orange-500 hover:bg-orange-600 h-7 text-xs"
+              onClick={() => state.handleAddMethod(null)}>
+              <Plus className="w-3 h-3 mr-1" />新增运输方式
+            </Button>
+          </div>
         </div>
       ) : (
         <div className="border border-orange-200 rounded-xl p-4 space-y-3 bg-orange-50">
@@ -225,7 +230,7 @@ export function LocalShippingTree({ state }) {
     companies, methods, activeMethod,
     handleSelectMethod, handleAddMethod,
     handleMethodsChange, handleCompaniesChange,
-    deleteCompany, setCompanyModal,
+    deleteCompany, setCompanyModal, persistCompany,
   } = state;
 
   return (
@@ -234,7 +239,7 @@ export function LocalShippingTree({ state }) {
       methods={methods}
       activeMethodId={activeMethod}
       onSelectMethod={handleSelectMethod}
-      onAddCompany={() => setCompanyModal({ initial: { ...BLANK_COMPANY } })}
+      onAddCompany={(formData) => persistCompany(formData)}
       onEditCompany={(company) => setCompanyModal({ initial: { ...company } })}
       onDeleteCompany={deleteCompany}
       onAddMethod={handleAddMethod}
