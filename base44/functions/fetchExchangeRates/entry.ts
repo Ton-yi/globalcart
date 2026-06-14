@@ -21,19 +21,25 @@ Deno.serve(async (req) => {
     }
     const body = await req.json().catch(() => ({}));
 
-    // 解析租户 ID
+    // 解析租户 ID + 平台/租户设置，全部并行查询
     const pickPlat = arr => (arr || []).find(s => !s.tenant_id || s.tenant_id === '');
-    const userRecords = await base44.asServiceRole.entities.User.filter({ email: user.email });
-    const tenantId = userRecords?.[0]?.tenant_id || '';
-
-    // 平台级设置 + 租户级 API 覆盖（并行）
-    const [urlSettings, freqSettings, cacheSettings, tenantApiKeySettings, tenantFreqSettings] = await Promise.all([
+    const [userRecords, urlSettings, freqSettings, cacheSettings, platformIncrSettings] = await Promise.all([
+      base44.asServiceRole.entities.User.filter({ email: user.email }),
       base44.asServiceRole.entities.SiteSettings.filter({ key: 'exchange_rate_api_url' }),
       base44.asServiceRole.entities.SiteSettings.filter({ key: 'exchange_rate_refresh_minutes' }),
       base44.asServiceRole.entities.SiteSettings.filter({ key: 'exchange_rate_cache' }),
-      tenantId ? base44.asServiceRole.entities.SiteSettings.filter({ key: 'tenant_exchange_rate_api_key', tenant_id: tenantId }) : Promise.resolve([]),
-      tenantId ? base44.asServiceRole.entities.SiteSettings.filter({ key: 'tenant_exchange_rate_refresh_minutes', tenant_id: tenantId }) : Promise.resolve([]),
+      base44.asServiceRole.entities.SiteSettings.filter({ tenant_id: '' }),  // 平台级全量（含增量）
     ]);
+    const tenantId = userRecords?.[0]?.tenant_id || '';
+
+    // 租户级设置（需要 tenantId，单独一批并行）
+    const [tenantApiKeySettings, tenantFreqSettings, tenantIncrSettings] = tenantId
+      ? await Promise.all([
+          base44.asServiceRole.entities.SiteSettings.filter({ key: 'tenant_exchange_rate_api_key', tenant_id: tenantId }),
+          base44.asServiceRole.entities.SiteSettings.filter({ key: 'tenant_exchange_rate_refresh_minutes', tenant_id: tenantId }),
+          base44.asServiceRole.entities.SiteSettings.filter({ tenant_id: tenantId }),  // 租户级全量（含增量）
+        ])
+      : [[], [], []];
 
     const platformApiUrl = pickPlat(urlSettings)?.value || DEFAULT_API_URL;
     const platformRefreshMinutes = Math.max(5, parseFloat(pickPlat(freqSettings)?.value) || 60);
@@ -55,17 +61,13 @@ Deno.serve(async (req) => {
       : cacheSettings;
     const cacheRecord = tenantApiKey ? (allCacheSettings?.[0] || null) : pick(cacheSettings);
 
-    // 辅助函数：叠加平台增量 + 租户增量（tenantId 已解析，避免重复查询）
-    const applyIncrements = async (rawRates) => {
+    // 辅助函数：叠加平台增量 + 租户增量（复用已查询的全量数据，不再重复查询）
+    const applyIncrements = (rawRates) => {
       const rates = { ...rawRates };
-      const [platformSettings, tenantSettings] = await Promise.all([
-        base44.asServiceRole.entities.SiteSettings.filter({ tenant_id: '' }),
-        tenantId ? base44.asServiceRole.entities.SiteSettings.filter({ tenant_id: tenantId }) : Promise.resolve([]),
-      ]);
       const platMap = {};
-      (platformSettings || []).forEach(s => { platMap[s.key] = parseFloat(s.value) || 0; });
+      (platformIncrSettings || []).forEach(s => { platMap[s.key] = parseFloat(s.value) || 0; });
       const tenantMap = {};
-      (tenantSettings || []).forEach(s => { tenantMap[s.key] = parseFloat(s.value) || 0; });
+      (tenantIncrSettings || []).forEach(s => { tenantMap[s.key] = parseFloat(s.value) || 0; });
       Object.values(RATE_KEYS).forEach(key => {
         const platInc = platMap[`${key}_increment`] || 0;
         const tenantInc = tenantMap[`${key}_increment`] || 0;
@@ -82,7 +84,7 @@ Deno.serve(async (req) => {
         const ageMs = Date.now() - new Date(cached.fetched_at).getTime();
         if (cached.rates && ageMs >= 0 && ageMs < refreshMinutes * 60 * 1000) {
           const rawRates = cached.rates;
-          const rates = await applyIncrements(rawRates);
+          const rates = applyIncrements(rawRates);
           return Response.json({ ...rates, rates, raw_rates: rawRates, cached: true });
         }
       } catch { /* 缓存损坏则忽略，继续实时查询 */ }
@@ -116,7 +118,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const rates = await applyIncrements(rawRates);
+    const rates = applyIncrements(rawRates);
     return Response.json({ ...rates, rates, raw_rates: rawRates });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
