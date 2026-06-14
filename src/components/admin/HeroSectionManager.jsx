@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import ReactCrop, { centerCrop, makeAspectCrop } from "react-image-crop";
 import "react-image-crop/dist/ReactCrop.css";
 import { tenantEntity } from "@/lib/tenantApi";
+import { invalidateTenantConfigCache } from "@/lib/configCache";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -411,6 +412,7 @@ export default function HeroSectionManager({ settings, onReload }) {
       } else {
         await tenantEntity.create("SiteSettings", { key: "home_hero_config", value, description: "主页 Hero 区块配置（JSON）", category: "general" });
       }
+      invalidateTenantConfigCache();
       await onReload();
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);

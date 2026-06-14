@@ -234,6 +234,7 @@ export default function AdminSettings() {
           countriesConfig: data.countriesConfig || null,
           navbarSettings: data.navbarSettings || null,
           settings: data.settings || [],
+          faqCategories: data.faqCategories || [],
         });
       }
       t.done('data ready');

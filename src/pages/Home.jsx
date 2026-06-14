@@ -7,6 +7,7 @@ import { timePage } from "@/lib/timing";
 import { Truck, Package, CheckCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { getStatusLabel, getStatusColor } from "@/lib/orderStatus";
+import { getTenantConfigCache, setTenantConfigCache } from "@/lib/configCache";
 // Badge/getStatus* kept for future use; LogisticsStatusBoard handles order display now
 import QuickActionsGrid from "@/components/home/QuickActionsGrid";
 import LogisticsStatusBoard from "@/components/home/LogisticsStatusBoard";
@@ -30,31 +31,59 @@ export default function Home() {
     const t = timePage('Home');
 
     const parseJson = (raw, key) => {
-      const item = raw.find(s => s.key === key);
+      const item = (raw || []).find(s => s.key === key);
       if (item?.value) { try { return JSON.parse(item.value); } catch { return null; } }
       return null;
     };
 
-    const loadSettings = () =>
-      base44.functions.invoke('getPublicHomeConfig', { hostname: window.location.hostname })
-        .then(r => {
-          const raw = r.data?.raw || [];
-          return {
-            quickActions: parseJson(raw, 'home_quick_actions') || [],
-            boardConfig: parseJson(raw, 'home_status_board') || {},
-            heroConfig: parseJson(raw, 'home_hero_config') || null,
-            stepsConfig: parseJson(raw, 'home_steps_config') || null,
-            faqConfig: parseJson(raw, 'home_faq_config') || null,
-            rateConfig: parseJson(raw, 'home_exchange_rate_config') || null,
-            faqCategories: r.data?.faqCategories || [],
-          };
-        })
-        .catch(() => ({ quickActions: [], boardConfig: {}, heroConfig: null, stepsConfig: null, faqConfig: null, rateConfig: null }));
+    // Logged-in users: use getTenantConfigData (has 30s in-memory cache shared with Layout/AdminSettings)
+    // Guests: fall back to getPublicHomeConfig (no auth required)
+    const loadSettings = async () => {
+      let raw = [];
+      let faqCategories = [];
 
-    const loadOrders = () =>
-      base44.functions.invoke('getTenantOrders', {})
+      // Check if already cached (logged-in path)
+      const cached = getTenantConfigCache();
+      if (cached) {
+        raw = cached.settings || [];
+        faqCategories = cached.faqCategories || [];
+      } else {
+        // Try authenticated endpoint first; fall back to public
+        try {
+          const r = await base44.functions.invoke('getTenantConfigData', {});
+          const data = r.data || {};
+          raw = data.settings || [];
+          faqCategories = data.faqCategories || [];
+          // Cache it for reuse across components
+          setTenantConfigCache({ ...data, faqCategories });
+        } catch {
+          // Guest / unauthenticated: use public endpoint
+          try {
+            const r = await base44.functions.invoke('getPublicHomeConfig', { hostname: window.location.hostname });
+            raw = r.data?.raw || [];
+            faqCategories = r.data?.faqCategories || [];
+          } catch { /* silent */ }
+        }
+      }
+
+      return {
+        quickActions: parseJson(raw, 'home_quick_actions') || [],
+        boardConfig:  parseJson(raw, 'home_status_board') || {},
+        heroConfig:   parseJson(raw, 'home_hero_config') || null,
+        stepsConfig:  parseJson(raw, 'home_steps_config') || null,
+        faqConfig:    parseJson(raw, 'home_faq_config') || null,
+        rateConfig:   parseJson(raw, 'home_exchange_rate_config') || null,
+        faqCategories,
+      };
+    };
+
+    // Only fetch orders for logged-in users
+    const loadOrders = () => {
+      if (!user) return Promise.resolve([]);
+      return base44.functions.invoke('getTenantOrders', {})
         .then(r => (r.data?.orders || []).slice(0, 5))
         .catch(() => []);
+    };
 
     Promise.all([
       t.timeCall('loadOrders', loadOrders),
@@ -70,7 +99,7 @@ export default function Home() {
       setFaqCategories(faqCategories);
       t.done('data ready');
     });
-  }, []);
+  }, [user?.email]); // re-run when auth state changes (guest → logged-in)
 
   const DEFAULT_SECTIONS = [{
     heading: "代购流程",

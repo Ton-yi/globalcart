@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { tenantEntity } from "@/lib/tenantApi";
 import { base44 } from "@/api/base44Client";
+import { invalidateTenantConfigCache } from "@/lib/configCache";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -361,6 +362,7 @@ export default function StepsSectionManager({ settings, onReload }) {
       } else {
         await tenantEntity.create("SiteSettings", { key: "home_steps_config", value, description: "主页代购流程区块配置（JSON）", category: "general" });
       }
+      invalidateTenantConfigCache();
       await onReload();
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);

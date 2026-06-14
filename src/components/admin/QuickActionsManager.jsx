@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { tenantEntity } from "@/lib/tenantApi";
+import { invalidateTenantConfigCache } from "@/lib/configCache";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -289,6 +290,7 @@ export default function QuickActionsManager({ settings, onReload }) {
           description: "主页快捷操作入口配置（JSON）", category: "general",
         });
       }
+      invalidateTenantConfigCache();
       await onReload();
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);

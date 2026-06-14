@@ -62,7 +62,8 @@ Deno.serve(async (req) => {
       addons,
       announcements,
       siteSettings,
-      navbarSettingsArr
+      navbarSettingsArr,
+      faqCategoriesRaw,
     ] = await Promise.all([
       base44.asServiceRole.entities.ItemSizeTemplate.filter(filter),
       base44.asServiceRole.entities.OnlineStoreTagRule.filter(filter),
@@ -75,8 +76,9 @@ Deno.serve(async (req) => {
       tenantId
         ? base44.asServiceRole.entities.NavbarSettings.filter({ tenant_id: tenantId })
         : Promise.resolve([]),
+      base44.asServiceRole.entities.FaqCategory.filter({ ...filter, is_active: true }),
     ]);
-    console.log(`[TIMING] getTenantConfigData | 8x parallel entity queries: ${Date.now()-t3}ms`);
+    console.log(`[TIMING] getTenantConfigData | 10x parallel entity queries: ${Date.now()-t3}ms`);
 
     // Parse tenant countries config
     const countriesConfigRaw = (siteSettings || []).find(s => s.key === 'tenant_countries_config');
@@ -99,6 +101,8 @@ Deno.serve(async (req) => {
       });
     })();
 
+    const faqCategories = (faqCategoriesRaw || []).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+
     return Response.json({
       itemSizeTemplates: itemSizeTemplates || [],
       storeTagRules: storeTagRules || [],
@@ -110,6 +114,7 @@ Deno.serve(async (req) => {
       countriesConfig,
       navbarSettings: navbarSettingsArr?.[0] || null,
       settings: siteSettings || [],
+      faqCategories,
     });
 
   } catch (error) {

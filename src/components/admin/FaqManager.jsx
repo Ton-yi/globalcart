@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { tenantEntity } from "@/lib/tenantApi";
+import { invalidateTenantConfigCache } from "@/lib/configCache";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -178,6 +179,7 @@ export default function FaqManager({ settings, onReload }) {
       } else {
         await tenantEntity.create("SiteSettings", { key: "home_faq_config", value, description: "主页常见问题区块配置（JSON）", category: "general" });
       }
+      invalidateTenantConfigCache();
       await onReload();
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
