@@ -23,6 +23,9 @@ import UserNotifyShipmentModal from "@/components/orders/UserNotifyShipmentModal
 import ShippingEditModal from "@/components/shippingpool/ShippingEditModal";
 import ShippingPoolDetailModal from "@/components/shippingpool/ShippingPoolDetailModal";
 import { shippingPoolApi } from "@/lib/tenantApi";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Ticket } from "lucide-react";
+import UserTicketOrderCard from "@/components/tickets/UserTicketOrderCard";
 
 const STORAGE_KEY = "my_orders_columns";
 
@@ -193,6 +196,7 @@ export default function MyOrders() {
   const canEditShipmentRequest = can("shipping:edit_shipment_request");
   const canNotifyShipment = can("shipping:notify_shipment");
   const [orders, setOrders] = useState([]);
+  const [ticketOrders, setTicketOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [alipayReturnMsg, setAlipayReturnMsg] = useState(null);
 
@@ -255,6 +259,7 @@ export default function MyOrders() {
     const data = r.data || {};
     const freshOrders = data.orders || [];
     setOrders(freshOrders);
+    setTicketOrders(data.ticketOrders || []);
     setShippingPools(data.pools || []);
     setAllowUserRewarehouse(data.allowUserRewarehouse || false);
     setAllowSplitAfterWarehouse(data.allowSplitAfterWarehouse || false);
@@ -405,6 +410,26 @@ export default function MyOrders() {
           <button className="ml-auto text-green-500 hover:text-green-700" onClick={() => setAlipayReturnMsg(null)}>✕</button>
         </div>
       )}
+      <Tabs defaultValue="physical" className="space-y-4">
+      <TabsList>
+        <TabsTrigger value="physical" className="gap-1.5"><Package className="w-3.5 h-3.5" />实物订单</TabsTrigger>
+        <TabsTrigger value="ticket" className="gap-1.5"><Ticket className="w-3.5 h-3.5" />票务需求</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="ticket" className="space-y-3">
+        {loading ? (
+          <p className="text-gray-400 text-sm py-8 text-center">加载中...</p>
+        ) : ticketOrders.length === 0 ? (
+          <div className="flex flex-col items-center text-gray-400 py-16">
+            <Ticket className="w-10 h-10 mb-3 opacity-30" />
+            <p className="text-sm">暂无票务需求</p>
+          </div>
+        ) : (
+          ticketOrders.map(o => <UserTicketOrderCard key={o.id} order={o} />)
+        )}
+      </TabsContent>
+
+      <TabsContent value="physical" className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h1 className="text-xl font-bold text-gray-900">我的订单</h1>
         <div className="flex items-center gap-2">
@@ -900,6 +925,8 @@ export default function MyOrders() {
           </div>
         </div>
       )}
+      </TabsContent>
+      </Tabs>
     </div>
   );
 }

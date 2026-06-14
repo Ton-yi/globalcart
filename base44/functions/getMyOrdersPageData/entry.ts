@@ -139,8 +139,17 @@ Deno.serve(async (req) => {
     const settingsMap = {};
     for (const s of (siteSettings || [])) { settingsMap[s.key] = s.value; }
 
+    // 票务订单分离：普通订单列表只展示实物订单，票务订单单独返回供「票务需求」Tab 使用
+    const allOrders = orders || [];
+    const physicalOrders = allOrders.filter(o => !o.is_ticket_order);
+    const ticketOrders = allOrders.filter(o => o.is_ticket_order);
+    let ticketConfig = {};
+    try { ticketConfig = JSON.parse(settingsMap['ticket_order_config'] || '{}'); } catch { ticketConfig = {}; }
+
     return Response.json({
-      orders: orders || [],
+      orders: physicalOrders,
+      ticketOrders,
+      ticketConfig,
       pools: accessiblePools,
       storeTagRules: (storeTagRules || []).filter(r => r.is_active !== false),
       transitLocations: (transitLocations || []).filter(l => l.is_active !== false),

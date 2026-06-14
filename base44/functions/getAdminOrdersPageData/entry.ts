@@ -110,8 +110,11 @@ Deno.serve(async (req) => {
     const defaultPackingFeeSingle = parseFloat(settingsMap['default_packing_fee_single'] || '0') || 0;
     const defaultPackingFeeConsolidation = parseFloat(settingsMap['default_packing_fee_consolidation'] || '0') || 0;
 
+    // 票务订单有独立视图（票务 Tab），普通订单列表只展示实物订单
+    const physicalOrders = (orders || []).filter(o => !o.is_ticket_order);
+
     return Response.json({
-      orders: orders || [],
+      orders: physicalOrders,
       storeTagRules: sortedRules,
       itemSizeTemplates: itemSizeTemplates || [],
       pendingEditRequests: pendingEditRequests || [],

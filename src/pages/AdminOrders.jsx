@@ -1,5 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Package, Ticket } from "lucide-react";
+import AdminTicketOrders from "@/pages/AdminTicketOrders";
 import { Search, RefreshCw, Filter, ChevronUp, ChevronDown, ChevronsUpDown, Trash2, AlertCircle, Layers, Send, LayoutList, Archive, ArchiveRestore, Scissors, Calculator, CheckCircle, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -523,7 +526,17 @@ export default function AdminOrders() {
   };
 
   return (
-    <div className="space-y-4">
+    <Tabs defaultValue="physical" className="space-y-4">
+      <TabsList>
+        <TabsTrigger value="physical" className="gap-1.5"><Package className="w-3.5 h-3.5" />实物订单</TabsTrigger>
+        <TabsTrigger value="ticket" className="gap-1.5"><Ticket className="w-3.5 h-3.5" />票务订单</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="ticket">
+        <AdminTicketOrders />
+      </TabsContent>
+
+      <TabsContent value="physical" className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h1 className="text-xl font-bold text-gray-900">订单管理</h1>
         <div className="flex items-center gap-2">
@@ -1069,6 +1082,7 @@ export default function AdminOrders() {
           </div>
         </div>
       )}
-    </div>
+      </TabsContent>
+    </Tabs>
   );
 }
