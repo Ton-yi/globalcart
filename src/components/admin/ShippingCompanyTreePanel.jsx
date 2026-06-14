@@ -1,9 +1,8 @@
 /**
  * ShippingCompanyTreePanel
- * 单列平铺排序面板 — 参照导航栏布局设置设计理念。
- * 所有运输公司、运输方式在同一列，可自由调整位置。
- * 运输公司可缩进形成层级；运输方式只能是顶级或公司子级（不可再缩进）。
- * 排序操作在前端完成，点击「保存排序」才实际写入后端。
+ * 单列平铺排序面板。
+ * 规则：运输公司固定为顶级（不可缩进），运输方式可缩进成为子级。
+ * 排序/缩进操作全部在前端完成，点击「保存排序」才写入后端。
  */
 import { useState, useEffect } from "react";
 import {
@@ -56,14 +55,13 @@ export default function ShippingCompanyTreePanel({
   onAddMethod,
   onMethodsChange,
   onCompaniesChange,
-  saving: externalSaving = false,
 }) {
   const [flatList, setFlatList] = useState(() => buildFlatList(companies, methods));
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [addCompanyForm, setAddCompanyForm] = useState(null);
 
-  // Sync when external data changes (e.g. after add/delete)
+  // Sync when external data changes (after add/delete from outside)
   useEffect(() => {
     setFlatList(buildFlatList(companies, methods));
     setDirty(false);
@@ -80,38 +78,45 @@ export default function ShippingCompanyTreePanel({
 
   const move = (idx, dir) => mutate(list => {
     const subSize = subtreeSize(list, idx);
+    const blockEnd = idx + 1 + subSize;
     const block = list.splice(idx, 1 + subSize);
-    const insertAt = dir === -1 ? idx + dir : idx - subSize + dir;
+    const insertAt = dir === -1
+      ? Math.max(0, idx - 1)
+      : idx - subSize + dir; // dir === 1
     list.splice(Math.max(0, insertAt), 0, ...block);
   });
 
-  const indent = (idx) => mutate(list => {
-    const item = list[idx];
-    if (item._depth >= 2) return;
-    // Only companies can be indented; methods blocked at call site
-    let prevSiblingIdx = -1;
+  // 运输公司不可缩进；运输方式可缩进至 depth 1
+  const canIndent = (idx) => {
+    const item = flatList[idx];
+    if (item._type === "company") return false; // companies always stay at top level
+    if (item._depth >= 1) return false;          // methods max depth 1
+    // need a previous item at same or higher level to attach to
     for (let i = idx - 1; i >= 0; i--) {
-      if (list[i]._depth === item._depth) { prevSiblingIdx = i; break; }
-      if (list[i]._depth < item._depth) break;
+      if (flatList[i]._depth <= item._depth) return true;
     }
-    if (prevSiblingIdx === -1) return;
-    list[idx]._depth = item._depth + 1;
-  });
+    return false;
+  };
 
-  const outdent = (idx) => mutate(list => {
-    if (list[idx]._depth === 0) return;
-    list[idx]._depth = list[idx]._depth - 1;
-  });
+  const canOutdent = (idx) => flatList[idx]._depth > 0;
+
+  const indent = (idx) => mutate(list => { list[idx]._depth = 1; });
+  const outdent = (idx) => mutate(list => { list[idx]._depth = 0; });
 
   const toggleVisibility = (idx) => mutate(list => {
     list[idx].is_active = !(list[idx].is_active !== false);
   });
 
+  const canMoveUp = (idx) => idx > 0;
+  const canMoveDown = (idx) => (idx + subtreeSize(flatList, idx)) < flatList.length - 1;
+
   const handleDeleteItem = (idx) => {
     const item = flatList[idx];
     if (item._type === "company") {
+      if (!confirm(`确认删除运输公司「${item.name}」？`)) return;
       onDeleteCompany(item.id);
     } else {
+      if (!confirm(`确认删除运输方式「${item.name}」？`)) return;
       mutate(list => list.splice(idx, 1));
     }
   };
@@ -131,19 +136,6 @@ export default function ShippingCompanyTreePanel({
     if (!addCompanyForm?.name?.trim()) return;
     onAddCompany(addCompanyForm);
     setAddCompanyForm(null);
-  };
-
-  const canMoveUp = (idx) => idx > 0;
-  const canMoveDown = (idx) => (idx + subtreeSize(flatList, idx)) < flatList.length - 1;
-  const canIndent = (idx) => {
-    const item = flatList[idx];
-    if (item._type === "method") return false; // methods cannot be indented further
-    if (item._depth >= 2) return false;
-    for (let i = idx - 1; i >= 0; i--) {
-      if (flatList[i]._depth === item._depth) return true;
-      if (flatList[i]._depth < item._depth) return false;
-    }
-    return false;
   };
 
   return (
@@ -239,10 +231,6 @@ export default function ShippingCompanyTreePanel({
                 {item.name || <span className="text-gray-400 italic">未命名</span>}
               </span>
 
-              {item._type === "method" && item.fee_jpy > 0 && (
-                <span className="text-xs text-orange-500 flex-shrink-0">¥{item.fee_jpy}</span>
-              )}
-
               <div className="flex items-center gap-0.5 flex-shrink-0" onClick={e => e.stopPropagation()}>
                 {isCompany && (
                   <button className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-blue-600"
@@ -263,11 +251,12 @@ export default function ShippingCompanyTreePanel({
                   <ArrowDown className="w-3 h-3" />
                 </button>
                 <button className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-700 disabled:opacity-30"
-                  disabled={!canIndent(idx)} onClick={() => indent(idx)} title="设为子级">
+                  disabled={!canIndent(idx)} onClick={() => indent(idx)} title="设为子级"
+                  style={{ opacity: isCompany ? 0.2 : undefined }}>
                   <IndentIncrease className="w-3 h-3" />
                 </button>
                 <button className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-700 disabled:opacity-30"
-                  disabled={item._depth === 0} onClick={() => outdent(idx)} title="提升一级">
+                  disabled={!canOutdent(idx)} onClick={() => outdent(idx)} title="提升一级">
                   <IndentDecrease className="w-3 h-3" />
                 </button>
                 <button className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500"
