@@ -202,7 +202,8 @@ export function ImageEditModal({
                     >
                       <img
                         ref={imgRef}
-                        src={currentImageUrl}
+                        src={currentImageUrl.startsWith("blob:") ? currentImageUrl : `${currentImageUrl}${currentImageUrl.includes("?") ? "&" : "?"}cb=${Date.now()}`}
+                        crossOrigin="anonymous"
                         onLoad={onImageLoad}
                         style={{ maxWidth: "100%", maxHeight: "60vh", display: "block" }}
                         alt="crop"
