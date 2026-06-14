@@ -193,7 +193,12 @@ function AudiencePanel({ form, onChange }) {
             overlayColor={form.overlayColor || "#000000"}
             overlayOpacity={form.overlayOpacity ?? 0}
             previewTitle={form.title || "标题预览"}
-            onChange={patch => onChange({ ...form, ...patch, bgMode: "image" })}
+            aspect={3}
+            cropHint="拖动选区以裁切图片（推荐宽高比 3:1）"
+            onChange={patch => {
+              // ImageEditModal 内部裁切后会直接带 bgImageUrl 回来，统一合并
+              onChange({ ...form, ...patch, bgMode: "image" });
+            }}
             onRemove={() => onChange({ ...form, bgImageUrl: "", bgMode: "white" })}
             onFileSelected={file => setCropSrc(URL.createObjectURL(file))}
           />

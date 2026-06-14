@@ -103,82 +103,122 @@ export function SliderField({ label, value, min, max, unit, onChange }) {
 }
 
 // ─── ImageEditModal ────────────────────────────────────────
-// 图片编辑弹窗：以现有图片为对象，支持调效果 + 更换图片
-function ImageEditModal({ imageUrl, blurAmount, brightness, overlayColor, overlayOpacity, previewTitle, onChange, onClose, onFileSelected }) {
+// 图片编辑弹窗：沙盒模式，内置上传+裁切+效果调整，确认后才提交给父组件
+function ImageEditModal({ imageUrl, blurAmount, brightness, overlayColor, overlayOpacity, previewTitle, onChange, onClose, aspect = 3, cropHint }) {
   const fileInputRef = useRef();
   const [local, setLocal] = useState({ blurAmount, brightness, overlayColor, overlayOpacity });
+  // pendingImageUrl: 用户在弹窗内上传/裁切后的临时图片，未确认前不影响外部
+  const [pendingImageUrl, setPendingImageUrl] = useState(imageUrl);
+  const [cropSrc, setCropSrc] = useState(null);
+  const [uploading, setUploading] = useState(false);
 
   const patch = (p) => setLocal(prev => ({ ...prev, ...p }));
 
   const handleConfirm = () => {
-    onChange(local);
+    onChange({ ...local, bgImageUrl: pendingImageUrl });
     onClose();
   };
 
   const handleFile = (file) => {
     if (!file || !file.type.startsWith("image/")) return;
-    // 先提交当前效果变更，再触发文件替换流程
-    onChange(local);
-    onFileSelected?.(file);
-    onClose();
+    setCropSrc(URL.createObjectURL(file));
   };
 
+  const handleDrop = (e) => {
+    e.preventDefault();
+    handleFile(e.dataTransfer.files[0]);
+  };
+
+  const displayUrl = pendingImageUrl;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="bg-white rounded-xl shadow-2xl p-5 max-w-lg w-full mx-4">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-gray-800">编辑图片效果</h3>
-          <button onClick={onClose}><X className="w-4 h-4 text-gray-400" /></button>
-        </div>
+    <>
+      {/* 裁切弹窗（在编辑弹窗之上） */}
+      {cropSrc && (
+        <ImageCropModal
+          src={cropSrc}
+          aspect={aspect}
+          hint={cropHint || "拖动选区以裁切图片"}
+          onConfirm={(url) => { setCropSrc(null); setPendingImageUrl(url); }}
+          onCancel={() => setCropSrc(null)}
+        />
+      )}
 
-        {/* 预览 */}
-        <div className="relative rounded-lg overflow-hidden h-32 mb-4 border border-gray-200">
-          <div className="absolute inset-0 bg-cover bg-center" style={{
-            backgroundImage: `url(${imageUrl})`,
-            filter: `blur(${local.blurAmount}px) brightness(${local.brightness / 100})`,
-            transform: local.blurAmount > 0 ? "scale(1.05)" : undefined,
-          }} />
-          {local.overlayOpacity > 0 && (
-            <div className="absolute inset-0" style={{ backgroundColor: local.overlayColor, opacity: local.overlayOpacity / 100 }} />
-          )}
-          {previewTitle && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <span className="text-white text-sm font-bold drop-shadow">{previewTitle}</span>
-            </div>
-          )}
-        </div>
-
-        {/* 效果控制 */}
-        <div className="space-y-3 mb-4">
-          <SliderField label="模糊度（雾化）" value={local.blurAmount} min={0} max={20} unit="px" onChange={v => patch({ blurAmount: v })} />
-          <SliderField label="明度" value={local.brightness} min={30} max={150} unit="%" onChange={v => patch({ brightness: v })} />
-          <div>
-            <Label className="text-xs text-gray-500 mb-1 block">遮罩颜色</Label>
-            <div className="flex items-center gap-2">
-              <input type="color" value={local.overlayColor}
-                onChange={e => patch({ overlayColor: e.target.value })}
-                className="w-7 h-7 rounded border border-gray-200 cursor-pointer p-0.5" />
-              <Input className="h-7 text-xs font-mono flex-1" value={local.overlayColor}
-                onChange={e => patch({ overlayColor: e.target.value })} />
-            </div>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+        <div className="bg-white rounded-xl shadow-2xl p-5 max-w-lg w-full mx-4">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-gray-800">编辑图片</h3>
+            <button onClick={onClose}><X className="w-4 h-4 text-gray-400" /></button>
           </div>
-          <SliderField label="遮罩透明度" value={local.overlayOpacity} min={0} max={80} unit="%" onChange={v => patch({ overlayOpacity: v })} />
-        </div>
 
-        {/* 底部按钮 */}
-        <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" className="h-8 text-xs"
-            onClick={() => fileInputRef.current?.click()}>
-            <Upload className="w-3 h-3 mr-1" />更换图片
-          </Button>
+          {/* 预览区 / 上传区 */}
+          {displayUrl ? (
+            <div
+              className="relative rounded-lg overflow-hidden h-32 mb-4 border border-gray-200 group"
+              onDragOver={e => e.preventDefault()}
+              onDrop={handleDrop}
+            >
+              <div className="absolute inset-0 bg-cover bg-center" style={{
+                backgroundImage: `url(${displayUrl})`,
+                filter: `blur(${local.blurAmount}px) brightness(${local.brightness / 100})`,
+                transform: local.blurAmount > 0 ? "scale(1.05)" : undefined,
+              }} />
+              {local.overlayOpacity > 0 && (
+                <div className="absolute inset-0" style={{ backgroundColor: local.overlayColor, opacity: local.overlayOpacity / 100 }} />
+              )}
+              {previewTitle && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <span className="text-white text-sm font-bold drop-shadow">{previewTitle}</span>
+                </div>
+              )}
+              {/* 悬停时显示更换按钮 */}
+              <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/30 transition-colors">
+                <Button size="sm" className="h-7 text-xs opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 text-gray-800 hover:bg-white"
+                  onClick={() => fileInputRef.current?.click()}>
+                  <Upload className="w-3 h-3 mr-1" />更换图片
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <button
+              className="w-full h-24 mb-4 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center gap-1 text-gray-400 hover:border-blue-400 hover:text-blue-500 transition-colors"
+              onDragOver={e => e.preventDefault()}
+              onDrop={handleDrop}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <ImageIcon className="w-5 h-5" />
+              <span className="text-xs">点击或拖拽图片至此上传</span>
+            </button>
+          )}
+
           <input ref={fileInputRef} type="file" accept="image/*" className="hidden"
             onChange={e => { const f = e.target.files[0]; e.target.value = ""; if (f) handleFile(f); }} />
-          <div className="flex-1" />
-          <Button variant="outline" size="sm" className="h-8 text-xs" onClick={onClose}>取消</Button>
-          <Button size="sm" className="h-8 text-xs" onClick={handleConfirm}>应用</Button>
+
+          {/* 效果控制 */}
+          <div className="space-y-3 mb-4">
+            <SliderField label="模糊度（雾化）" value={local.blurAmount} min={0} max={20} unit="px" onChange={v => patch({ blurAmount: v })} />
+            <SliderField label="明度" value={local.brightness} min={30} max={150} unit="%" onChange={v => patch({ brightness: v })} />
+            <div>
+              <Label className="text-xs text-gray-500 mb-1 block">遮罩颜色</Label>
+              <div className="flex items-center gap-2">
+                <input type="color" value={local.overlayColor}
+                  onChange={e => patch({ overlayColor: e.target.value })}
+                  className="w-7 h-7 rounded border border-gray-200 cursor-pointer p-0.5" />
+                <Input className="h-7 text-xs font-mono flex-1" value={local.overlayColor}
+                  onChange={e => patch({ overlayColor: e.target.value })} />
+              </div>
+            </div>
+            <SliderField label="遮罩透明度" value={local.overlayOpacity} min={0} max={80} unit="%" onChange={v => patch({ overlayOpacity: v })} />
+          </div>
+
+          {/* 底部按钮 */}
+          <div className="flex items-center gap-2 justify-end">
+            <Button variant="outline" size="sm" className="h-8 text-xs" onClick={onClose}>取消</Button>
+            <Button size="sm" className="h-8 text-xs" onClick={handleConfirm}>应用</Button>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -192,9 +232,11 @@ export default function ImageEffectsPanel({
   overlayColor = "#000000",
   overlayOpacity = 0,
   previewTitle,
+  aspect,
+  cropHint,
   onChange,
   onRemove,
-  onFileSelected,  // (file: File) => void — 由消费方实现上传+裁切
+  onFileSelected,  // (file: File) => void — 由消费方实现上传+裁切（无图时仍用）
 }) {
   const fileInputRef = useRef();
   const [dragging, setDragging] = useState(false);
@@ -221,9 +263,10 @@ export default function ImageEffectsPanel({
           overlayColor={overlayColor}
           overlayOpacity={overlayOpacity}
           previewTitle={previewTitle}
+          aspect={aspect}
+          cropHint={cropHint}
           onChange={onChange}
           onClose={() => setEditOpen(false)}
-          onFileSelected={onFileSelected}
         />
       )}
 
