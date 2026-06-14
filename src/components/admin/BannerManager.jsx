@@ -94,23 +94,33 @@ export default function BannerManager({ settings, onReload }) {
   const [dragging, setDragging] = useState(false);
   const fileInputRef = useRef();
 
+  const [initialised, setInitialised] = useState(false);
   useEffect(() => {
+    if (initialised) return; // don't overwrite local edits after first load
     const s = (settings || []).find(s => s.key === "home_banner_config");
     if (s?.value) {
-      try { setConfig(JSON.parse(s.value)); } catch { /* noop */ }
+      try {
+        setConfig(JSON.parse(s.value));
+        setInitialised(true);
+      } catch { /* noop */ }
+    } else if (settings && settings.length > 0) {
+      // settings loaded but no banner config yet — mark as initialised
+      setInitialised(true);
     }
-  }, [settings]);
+  }, [settings, initialised]);
 
   const openCrop = (file) => {
     if (!file || !file.type.startsWith("image/")) return;
     setPendingNewFileSrc(URL.createObjectURL(file));
   };
 
-  const handleNewImageConfirm = ({ bgImageUrl, blurAmount, brightness, overlayColor, overlayOpacity }) => {
+  const handleNewImageConfirm = ({ bgImageUrl, url, blurAmount, brightness, overlayColor, overlayOpacity }) => {
     setPendingNewFileSrc(null);
+    const finalUrl = bgImageUrl || url;
+    if (!finalUrl) return; // guard: no url means upload failed
     const newImage = {
       id: genId(),
-      url: bgImageUrl,
+      url: finalUrl,
       isActive: true,
       uploadedAt: new Date().toISOString(),
       blurAmount: blurAmount ?? 0,
@@ -128,7 +138,12 @@ export default function BannerManager({ settings, onReload }) {
   const patchImage = (id, patch) => {
     setConfig(prev => ({
       ...prev,
-      images: prev.images.map(img => img.id === id ? { ...img, ...patch } : img),
+      images: prev.images.map(img => {
+        if (img.id !== id) return img;
+        // ImageEditModal returns bgImageUrl when a new crop was uploaded; normalise to url
+        const { bgImageUrl, ...rest } = patch;
+        return { ...img, ...rest, ...(bgImageUrl ? { url: bgImageUrl } : {}) };
+      }),
     }));
   };
 

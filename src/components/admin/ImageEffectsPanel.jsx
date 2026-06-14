@@ -248,8 +248,20 @@ export function ImageEditModal({
         onClose();
       }, "image/jpeg", 0.92);
     } else {
-      // 无裁切，直接保存原图 + 效果
-      onChange({ ...local, bgImageUrl: sourceImageUrl });
+      // 无裁切
+      if (sourceImageUrl.startsWith("blob:")) {
+        // blob URL from a replaced/rotated image that was never cropped — upload it as-is
+        setUploading(true);
+        const res = await fetch(sourceImageUrl);
+        const blob = await res.blob();
+        const file = new File([blob], "image.jpg", { type: blob.type || "image/jpeg" });
+        const { file_url } = await base44.integrations.Core.UploadFile({ file });
+        setUploading(false);
+        onChange({ ...local, bgImageUrl: file_url });
+      } else {
+        // Already a persistent URL — just save effects
+        onChange({ ...local, bgImageUrl: sourceImageUrl });
+      }
       onClose();
     }
   };
