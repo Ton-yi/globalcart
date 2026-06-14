@@ -23,7 +23,7 @@ import { Label } from "@/components/ui/label";
 import { Upload, X, ImageIcon } from "lucide-react";
 
 // ─── ImageCropModal ────────────────────────────────────────
-export function ImageCropModal({ src, onConfirm, onCancel, aspect, hint, filename = "image.jpg" }) {
+export function ImageCropModal({ src, onConfirm, onCancel, aspect, hint, filename = "image.jpg", zIndex = "z-50" }) {
   const [crop, setCrop] = useState();
   const [completedCrop, setCompletedCrop] = useState();
   const imgRef = useRef();
@@ -59,7 +59,7 @@ export function ImageCropModal({ src, onConfirm, onCancel, aspect, hint, filenam
   }, [completedCrop, src, filename]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+    <div className={`fixed inset-0 ${zIndex} flex items-center justify-center bg-black/60`}>
       <div className="bg-white rounded-xl shadow-2xl p-5 max-w-2xl w-full mx-4">
         <div className="flex items-center justify-between mb-3">
           <h3 className="font-semibold text-gray-800">裁切图片</h3>
@@ -110,7 +110,6 @@ function ImageEditModal({ imageUrl, blurAmount, brightness, overlayColor, overla
   // pendingImageUrl: 用户在弹窗内上传/裁切后的临时图片，未确认前不影响外部
   const [pendingImageUrl, setPendingImageUrl] = useState(imageUrl);
   const [cropSrc, setCropSrc] = useState(null);
-  const [uploading, setUploading] = useState(false);
 
   const patch = (p) => setLocal(prev => ({ ...prev, ...p }));
 
@@ -133,12 +132,13 @@ function ImageEditModal({ imageUrl, blurAmount, brightness, overlayColor, overla
 
   return (
     <>
-      {/* 裁切弹窗（在编辑弹窗之上） */}
+      {/* 裁切弹窗（z-[60] 确保浮于编辑弹窗之上） */}
       {cropSrc && (
         <ImageCropModal
           src={cropSrc}
           aspect={aspect}
           hint={cropHint || "拖动选区以裁切图片"}
+          zIndex="z-[60]"
           onConfirm={(url) => { setCropSrc(null); setPendingImageUrl(url); }}
           onCancel={() => setCropSrc(null)}
         />
@@ -335,29 +335,9 @@ export default function ImageEffectsPanel({
           onChange={e => { const f = e.target.files[0]; e.target.value = ""; if (f) handleFile(f); }}
         />
 
-        {/* 效果控制（有图时显示） */}
+        {/* 效果控制入口提示（有图时显示，实际编辑在弹窗内） */}
         {imageUrl && (
-          <>
-            <SliderField label="模糊度（雾化）" value={blurAmount} min={0} max={20} unit="px" onChange={v => onChange({ blurAmount: v })} />
-            <SliderField label="明度" value={brightness} min={30} max={150} unit="%" onChange={v => onChange({ brightness: v })} />
-            <div>
-              <Label className="text-xs text-gray-500 mb-1 block">遮罩颜色</Label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="color"
-                  value={overlayColor}
-                  onChange={e => onChange({ overlayColor: e.target.value })}
-                  className="w-7 h-7 rounded border border-gray-200 cursor-pointer p-0.5"
-                />
-                <Input
-                  className="h-7 text-xs font-mono flex-1"
-                  value={overlayColor}
-                  onChange={e => onChange({ overlayColor: e.target.value })}
-                />
-              </div>
-            </div>
-            <SliderField label="遮罩透明度" value={overlayOpacity} min={0} max={80} unit="%" onChange={v => onChange({ overlayOpacity: v })} />
-          </>
+          <p className="text-xs text-gray-400 text-center">点击"编辑"按钮调整效果或更换图片</p>
         )}
       </div>
     </>
