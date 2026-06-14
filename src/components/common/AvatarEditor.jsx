@@ -55,6 +55,7 @@ export default function AvatarEditor({ value, onChange, size = 64, disabled = fa
           uploading={uploading}
           onConfirm={handleCropConfirm}
           onCancel={() => setCropSrc(null)}
+          onReplaceImage={readImageFile ? (src) => setCropSrc(src) : undefined}
         />
       )}
       <div className="relative inline-block flex-shrink-0" {...dragProps}>
@@ -75,7 +76,18 @@ export default function AvatarEditor({ value, onChange, size = 64, disabled = fa
           <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-gray-400 rounded-full flex items-center justify-center">
             <Lock className="w-3 h-3 text-white" />
           </div>
+        ) : value ? (
+          // Has avatar: camera opens the editor directly
+          <button
+            type="button"
+            className="absolute -bottom-1 -right-1 w-6 h-6 bg-red-600 rounded-full flex items-center justify-center cursor-pointer hover:bg-red-700"
+            onClick={() => setCropSrc(value)}
+            disabled={uploading}
+          >
+            <Camera className="w-3 h-3 text-white" />
+          </button>
         ) : (
+          // No avatar: camera opens file picker
           <label className="absolute -bottom-1 -right-1 w-6 h-6 bg-red-600 rounded-full flex items-center justify-center cursor-pointer hover:bg-red-700">
             <Camera className="w-3 h-3 text-white" />
             <input type="file" accept="image/*" className="hidden" onChange={handleFileSelect} disabled={uploading} />

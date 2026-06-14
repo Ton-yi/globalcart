@@ -5,13 +5,13 @@
  * - No react-image-crop dependency (avoids coordinate-system bugs with zoom)
  */
 import { useState, useRef, useEffect, useCallback } from "react";
-import { X, Check } from "lucide-react";
+import { X, Check, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const CANVAS_SIZE = 320; // display canvas px
 const OUTPUT_SIZE = 400; // output image px
 
-export default function AvatarCropModal({ imageSrc, onConfirm, onCancel, uploading }) {
+export default function AvatarCropModal({ imageSrc, onConfirm, onCancel, uploading, onReplaceImage }) {
   const canvasRef = useRef(null);
   const imgRef = useRef(null);
 
@@ -172,17 +172,42 @@ export default function AvatarCropModal({ imageSrc, onConfirm, onCancel, uploadi
         <p className="text-xs text-gray-400 text-center pb-2">拖动图片调整位置，滑块调整大小</p>
 
         {/* Footer */}
-        <div className="flex gap-2 justify-end px-5 py-4 border-t">
-          <Button variant="outline" size="sm" onClick={onCancel} disabled={uploading}>取消</Button>
-          <Button
-            size="sm"
-            className="bg-red-600 hover:bg-red-700"
-            onClick={handleConfirm}
-            disabled={uploading}
-          >
-            <Check className="w-3.5 h-3.5 mr-1.5" />
-            {uploading ? "上传中..." : "使用此裁剪"}
-          </Button>
+        <div className="flex items-center justify-between px-5 py-4 border-t gap-2">
+          <div className="flex items-center gap-2">
+            {onReplaceImage && (
+              <label className="cursor-pointer">
+                <Button variant="outline" size="sm" asChild disabled={uploading}>
+                  <span><Upload className="w-3.5 h-3.5 mr-1.5" />更换图片</span>
+                </Button>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  disabled={uploading}
+                  onChange={(e) => {
+                    const file = e.target.files[0];
+                    e.target.value = "";
+                    if (!file || !file.type?.startsWith("image/")) return;
+                    const reader = new FileReader();
+                    reader.onload = () => onReplaceImage(reader.result);
+                    reader.readAsDataURL(file);
+                  }}
+                />
+              </label>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={onCancel} disabled={uploading}>取消</Button>
+            <Button
+              size="sm"
+              className="bg-red-600 hover:bg-red-700"
+              onClick={handleConfirm}
+              disabled={uploading}
+            >
+              <Check className="w-3.5 h-3.5 mr-1.5" />
+              {uploading ? "上传中..." : "使用此裁剪"}
+            </Button>
+          </div>
         </div>
       </div>
     </div>
