@@ -18,7 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { getStatusLabel, getStatusColor } from "@/lib/orderStatus";
-import OrderMessageThread from "@/components/orders/OrderMessageThread";
+import MessageThread from "@/components/common/MessageThread";
 
 // All statuses admin can manually set (escape hatch)
 const ALL_STATUSES = [
@@ -1190,13 +1190,14 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
 
           {/* ───────── MESSAGES TAB ───────── */}
           {tab === "messages" && (
-            <OrderMessageThread
-              order={order}
+            <MessageThread
+              contextObject={order}
+              contextType="order"
               currentUser={currentUser || { email: "admin" }}
               isAdmin={true}
-              contactInfo=""
+              onMessageSent={onSaved}
               userProfileMap={userProfileMap}
-              onMessageSent={() => {}}
+              permissionKey="order"
             />
           )}
 

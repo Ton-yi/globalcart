@@ -13,7 +13,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { getStatusLabel, getStatusColor, USER_CAN_RESUBMIT_PROOF_STATUSES } from "@/lib/orderStatus";
-import OrderMessageThread from "./OrderMessageThread";
+import MessageThread from "@/components/common/MessageThread";
 import PaymentModal from "./PaymentModal";
 import UserNotifyShipmentModal from "./UserNotifyShipmentModal";
 import ShippingEditModal from "@/components/shippingpool/ShippingEditModal";
@@ -453,14 +453,15 @@ export default function OrderDetailDrawer({ order, currentUser, initialUserPrefe
                 <span className="text-xs text-gray-400 ml-auto">{showMessages ? "收起" : "展开"}</span>
               </button>
             )}
-            <OrderMessageThread
-              order={order}
+            <MessageThread
+              contextObject={order}
+              contextType="order"
               currentUser={currentUser}
               isAdmin={false}
-              contactInfo={contactInfo}
               onMessageSent={handleMessageSent}
               hideHistory={hasMessages && !showMessages}
               userProfileMap={userProfileMap}
+              permissionKey="order"
             />
             {/* 已入库且开启了入库后拆单设置，展示申请拆单按钮 */}
             {status === "in_warehouse" && allowSplitAfterWarehouse && (() => {
