@@ -133,13 +133,16 @@ export default function ExchangeRateDisplayManager({ settings, onReload }) {
 
   const handleSave = async () => {
     setSaving(true);
-    const existing = (settings || []).find(s => s.key === "home_exchange_rate_config");
     const saveForm = {
       ...form,
       unit: form.currencies[0]?.unit ?? 100,
       position: (form.positions || [])[0] || form.position || "hero_right",
     };
     const value = JSON.stringify(saveForm);
+
+    // 直接从后端查最新记录，避免 settings props 过时或含重复 key 导致错误
+    const existingList = await tenantEntity.list("SiteSettings", { key: "home_exchange_rate_config" });
+    const existing = existingList?.[0];
     if (existing?.id) {
       await tenantEntity.update("SiteSettings", existing.id, { value });
     } else {
