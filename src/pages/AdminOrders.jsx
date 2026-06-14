@@ -59,27 +59,7 @@ export default function AdminOrders() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [bulkStatus, setBulkStatus] = useState("");
   const [bulkUpdating, setBulkUpdating] = useState(false);
-  const [columns, setColumns] = useState(() => {
-    // 初始化列配置
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      const controllerCols = physicalController.getColumnConfig();
-      if (!saved) return controllerCols;
-      const parsed = JSON.parse(saved);
-      const keyOrder = parsed.map(c => c.key);
-      const merged = [
-        ...parsed.map(p => {
-          const def = controllerCols.find(c => c.key === p.key);
-          if (!def) return null;
-          return { ...def, visible: p.visible, ...(p.imageWidth ? { imageWidth: p.imageWidth } : {}), ...(p.showActual !== undefined ? { showActual: p.showActual } : {}), ...(p.showActualOnly !== undefined ? { showActualOnly: p.showActualOnly } : {}) };
-        }).filter(Boolean),
-        ...controllerCols.filter(c => !keyOrder.includes(c.key)).map(c => ({ ...c, visible: c.defaultVisible })),
-      ];
-      return merged;
-    } catch {
-      return physicalController.getColumnConfig();
-    }
-  });
+  const [columns, setColumns] = useState(() => physicalController.loadColumns());
 
   const [sortKey, setSortKey] = useState(null);
   const [sortDir, setSortDir] = useState("asc");
@@ -368,60 +348,28 @@ export default function AdminOrders() {
           <span className="text-sm text-blue-700 font-medium shrink-0">已选 {selectedIds.length} 条</span>
 
           {/* Context-aware quick actions when all selected share the same status */}
-          {sharedStatus && (
-            <div className="flex items-center gap-1.5 border-r border-blue-200 pr-2 mr-1">
-              <span className="text-xs text-blue-500 shrink-0">快捷操作：</span>
-              {(sharedStatus === "paid" || sharedStatus === "pending_purchase") && (
-                <Button size="sm" className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700"
-                  onClick={handleBulkQuickOrdered} disabled={bulkUpdating}>
-                  {bulkUpdating ? "处理中..." : `一键标记已下单（${selectedIds.length} 条）`}
-                </Button>
-              )}
-
-              {sharedStatus === "in_warehouse" && (
-                <Button size="sm" className="h-7 text-xs bg-orange-600 hover:bg-orange-700"
-                  onClick={async () => {
-                    setBulkUpdating(true);
-                    await Promise.all(selectedIds.map(id =>
-                      base44.functions.invoke('updateTenantOrder', { order_id: id, order_status: "ready_to_ship" })
-                    ));
-                    setBulkUpdating(false);
-                    setSelectedIds([]);
-                    fetchOrders();
-                  }} disabled={bulkUpdating}>
-                  {bulkUpdating ? "处理中..." : `一键待发货（${selectedIds.length} 条）`}
-                </Button>
-              )}
-              {sharedStatus === "ready_to_ship" && (
-                <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700"
-                  onClick={async () => {
-                    setBulkUpdating(true);
-                    await Promise.all(selectedIds.map(id =>
-                      base44.functions.invoke('updateTenantOrder', { order_id: id, order_status: "shipped", shipped_date: new Date().toISOString().split("T")[0] })
-                    ));
-                    setBulkUpdating(false);
-                    setSelectedIds([]);
-                    fetchOrders();
-                  }} disabled={bulkUpdating}>
-                  {bulkUpdating ? "处理中..." : `一键发货（${selectedIds.length} 条）`}
-                </Button>
-              )}
-              {sharedStatus === "shipped" && (
-                <Button size="sm" className="h-7 text-xs bg-green-700 hover:bg-green-800"
-                  onClick={async () => {
-                    setBulkUpdating(true);
-                    await Promise.all(selectedIds.map(id =>
-                      base44.functions.invoke('updateTenantOrder', { order_id: id, order_status: "delivered" })
-                    ));
-                    setBulkUpdating(false);
-                    setSelectedIds([]);
-                    fetchOrders();
-                  }} disabled={bulkUpdating}>
-                  {bulkUpdating ? "处理中..." : `一键签收（${selectedIds.length} 条）`}
-                </Button>
-              )}
-            </div>
-          )}
+          {(() => {
+            const bulkActions = physicalController.getBulkActions(selectedOrders, sharedStatus);
+            return bulkActions.length > 0 ? (
+              <div className="flex items-center gap-1.5 border-r border-blue-200 pr-2 mr-1">
+                <span className="text-xs text-blue-500 shrink-0">快捷操作：</span>
+                {bulkActions.map(action => (
+                  <Button key={action.key} size="sm" className={`h-7 text-xs ${action.color}`}
+                    onClick={async () => {
+                      setBulkUpdating(true);
+                      await Promise.all(selectedIds.map(id =>
+                        base44.functions.invoke('updateTenantOrder', { order_id: id, ...action.updateData })
+                      ));
+                      setBulkUpdating(false);
+                      setSelectedIds([]);
+                      fetchOrders();
+                    }} disabled={bulkUpdating}>
+                    {bulkUpdating ? "处理中..." : `${action.label}（${selectedIds.length} 条）`}
+                  </Button>
+                ))}
+              </div>
+            ) : null;
+          })()}
 
           <Select value={bulkStatus} onValueChange={setBulkStatus}>
             <SelectTrigger className="h-7 text-xs w-40">
@@ -486,6 +434,8 @@ export default function AdminOrders() {
                         {physicalController.renderCell(order, { ...col, _rules: storeTagRules }, {
                           userAvatars: userProfileMap,
                           storeTagRules,
+                          matchStoreTagResult,
+                          getStatusLabel,
                           onOpenFullpaySettlement: (order, data) => {
                             setSelectedFullpayOrder(order);
                             setSettlementData(data);
@@ -604,53 +554,21 @@ export default function AdminOrders() {
 
               if (groupBy === "none") return renderData.map(renderOrderRow);
 
-              // Build groups
-              const getGroupKey = (order) => {
-                if (groupBy === "user_name") {
-                  return userProfileMap[order.user_email]?.display_name || order.user_name || order.user_email || "未知用户";
-                }
-                if (groupBy === "order_status") {
-                  // Merge all notified_shipment* into one group
-                  const NOTIFIED_GROUP = "已通知出货";
-                  if (["notified_shipment", "notified_shipment_fee_pending", "notified_shipment_fee_paid"].includes(order.order_status)) {
-                    return NOTIFIED_GROUP;
-                  }
-                  return ALL_STATUSES.find(s => s.v === order.order_status)?.l || getStatusLabel(order.order_status, "admin") || order.order_status || "未知状态";
-                }
-                if (groupBy === "online_store_tag") {
-                  const firstUrl = (order.product_url || "").split("\n").map(s => s.trim()).filter(Boolean)[0] || "";
-                  return matchStoreTagResult(firstUrl, storeTagRules).tag_label || "其它";
-                }
-                return "其它";
-              };
-
+              // Build groups using controller
               const groups = {};
               filtered.forEach(order => {
-                const key = getGroupKey(order);
+                const key = physicalController.getGroupKey(order, groupBy, userProfileMap, storeTagRules, ALL_STATUSES, { matchStoreTagResult, getStatusLabel });
                 if (!groups[key]) groups[key] = [];
                 groups[key].push(order);
               });
 
-              // Sort groups: for order_status, follow ALL_STATUSES order; others alphabetically
-              const groupEntries = Object.entries(groups);
-              if (groupBy === "order_status") {
-                const statusOrder = ALL_STATUSES.map(s => s.l);
-                groupEntries.sort(([a], [b]) => {
-                  const ai = statusOrder.indexOf(a);
-                  const bi = statusOrder.indexOf(b);
-                  if (ai === -1 && bi === -1) return a.localeCompare(b);
-                  if (ai === -1) return 1;
-                  if (bi === -1) return -1;
-                  return ai - bi;
-                });
-              }
+              // Sort groups using controller
+              const groupEntries = physicalController.sortGroups(Object.entries(groups), groupBy, ALL_STATUSES);
 
               return groupEntries.flatMap(([groupKey, groupOrders]) => {
                 const isCollapsed = collapsedGroups[groupKey] !== false;
-                // Find avatar for user_name grouping
-                const groupUserEmail = groupBy === "user_name" ? groupOrders[0]?.user_email : null;
-                const groupUserProfile = groupUserEmail ? (userProfileMap[groupUserEmail] || {}) : null;
-                const groupAvatarUrl = groupUserProfile?.avatar_url || null;
+                // Find avatar for user_name grouping using controller
+                const groupAvatarUrl = physicalController.getGroupAvatarUrl(groupKey, groupOrders, groupBy, userProfileMap);
                 return [
                   <tr key={`group-${groupKey}`} className="bg-gray-100 border-y border-gray-200">
                     <td className="px-3 py-2 w-8" onClick={e => e.stopPropagation()}>

@@ -299,6 +299,140 @@ export const PhysicalOrderController = {
   },
 
   /**
+   * 列配置管理
+   */
+  loadColumns: () => {
+    const STORAGE_KEY = "admin_orders_columns";
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      const controllerCols = PhysicalOrderController.getColumnConfig();
+      if (!saved) return controllerCols;
+      const parsed = JSON.parse(saved);
+      const keyOrder = parsed.map(c => c.key);
+      const merged = [
+        ...parsed.map(p => {
+          const def = controllerCols.find(c => c.key === p.key);
+          if (!def) return null;
+          return { ...def, visible: p.visible, ...(p.imageWidth ? { imageWidth: p.imageWidth } : {}), ...(p.showActual !== undefined ? { showActual: p.showActual } : {}), ...(p.showActualOnly !== undefined ? { showActualOnly: p.showActualOnly } : {}) };
+        }).filter(Boolean),
+        ...controllerCols.filter(c => !keyOrder.includes(c.key)).map(c => ({ ...c, visible: c.defaultVisible })),
+      ];
+      return merged;
+    } catch {
+      return PhysicalOrderController.getColumnConfig();
+    }
+  },
+
+  saveColumns: (columns) => {
+    const STORAGE_KEY = "admin_orders_columns";
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(columns.map(c => ({
+      key: c.key,
+      visible: c.visible,
+      ...(c.imageWidth ? { imageWidth: c.imageWidth } : {}),
+      ...(c.showActual !== undefined ? { showActual: c.showActual } : {}),
+      ...(c.showActualOnly !== undefined ? { showActualOnly: c.showActualOnly } : {}),
+    }))));
+  },
+
+  /**
+   * 分组逻辑
+   */
+  getGroupKey: (order, groupBy, userProfileMap, storeTagRules, ALL_STATUSES, helpers) => {
+    const { matchStoreTagResult, getStatusLabel } = helpers || {};
+    
+    if (groupBy === "user_name") {
+      return userProfileMap?.[order.user_email]?.display_name || order.user_name || order.user_email || "未知用户";
+    }
+    if (groupBy === "order_status") {
+      // Merge all notified_shipment* into one group
+      const NOTIFIED_GROUP = "已通知出货";
+      if (["notified_shipment", "notified_shipment_fee_pending", "notified_shipment_fee_paid"].includes(order.order_status)) {
+        return NOTIFIED_GROUP;
+      }
+      return ALL_STATUSES.find(s => s.v === order.order_status)?.l || getStatusLabel?.(order.order_status, "admin") || order.order_status || "未知状态";
+    }
+    if (groupBy === "online_store_tag") {
+      const firstUrl = (order.product_url || "").split("\n").map(s => s.trim()).filter(Boolean)[0] || "";
+      return matchStoreTagResult?.(firstUrl, storeTagRules).tag_label || "其它";
+    }
+    return "其它";
+  },
+
+  sortGroups: (groupEntries, groupBy, ALL_STATUSES) => {
+    if (groupBy === "order_status") {
+      const statusOrder = ALL_STATUSES.map(s => s.l);
+      groupEntries.sort(([a], [b]) => {
+        const ai = statusOrder.indexOf(a);
+        const bi = statusOrder.indexOf(b);
+        if (ai === -1 && bi === -1) return a.localeCompare(b);
+        if (ai === -1) return 1;
+        if (bi === -1) return -1;
+        return ai - bi;
+      });
+    }
+    return groupEntries;
+  },
+
+  /**
+   * 获取分组头像 URL
+   */
+  getGroupAvatarUrl: (groupKey, groupOrders, groupBy, userProfileMap) => {
+    if (groupBy === "user_name") {
+      const groupUserEmail = groupOrders[0]?.user_email;
+      const groupUserProfile = groupUserEmail ? (userProfileMap[groupUserEmail] || {}) : null;
+      return groupUserProfile?.avatar_url || null;
+    }
+    return null;
+  },
+
+  /**
+   * 批量操作
+   */
+  getBulkActions: (selectedOrders, sharedStatus) => {
+    const actions = [];
+    
+    if (!sharedStatus) return actions;
+    
+    if (sharedStatus === "paid" || sharedStatus === "pending_purchase") {
+      actions.push({
+        key: "quick_ordered",
+        label: "一键标记已下单",
+        color: "bg-indigo-600 hover:bg-indigo-700",
+        updateData: { order_status: "purchased", purchased_date: new Date().toISOString().split("T")[0] }
+      });
+    }
+    
+    if (sharedStatus === "in_warehouse") {
+      actions.push({
+        key: "ready_to_ship",
+        label: "一键待发货",
+        color: "bg-orange-600 hover:bg-orange-700",
+        updateData: { order_status: "ready_to_ship" }
+      });
+    }
+    
+    if (sharedStatus === "ready_to_ship") {
+      actions.push({
+        key: "shipped",
+        label: "一键发货",
+        color: "bg-green-600 hover:bg-green-700",
+        updateData: { order_status: "shipped", shipped_date: new Date().toISOString().split("T")[0] }
+      });
+    }
+    
+    if (sharedStatus === "shipped") {
+      actions.push({
+        key: "delivered",
+        label: "一键签收",
+        color: "bg-green-700 hover:bg-green-800",
+        updateData: { order_status: "delivered" }
+      });
+    }
+    
+    return actions;
+  },
+
+  /**
    * 获取详情弹窗组件（暂时返回 null，由 AdminOrders 统一处理）
    */
   getDetailModal: () => null,
