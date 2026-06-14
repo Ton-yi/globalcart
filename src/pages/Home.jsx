@@ -12,6 +12,7 @@ import QuickActionsGrid from "@/components/home/QuickActionsGrid";
 import LogisticsStatusBoard from "@/components/home/LogisticsStatusBoard";
 import HeroSection from "@/components/home/HeroSection";
 import FaqSection from "@/components/home/FaqSection";
+import ExchangeRateWidget from "@/components/home/ExchangeRateWidget";
 
 export default function Home() {
   const { user } = useCurrentUser();
@@ -23,6 +24,7 @@ export default function Home() {
   const [stepsConfig, setStepsConfig] = useState(null);
   const [faqConfig, setFaqConfig] = useState(null);
   const [faqCategories, setFaqCategories] = useState([]);
+  const [rateConfig, setRateConfig] = useState(null);
 
   useEffect(() => {
     const t = timePage('Home');
@@ -43,10 +45,11 @@ export default function Home() {
             heroConfig: parseJson(raw, 'home_hero_config') || null,
             stepsConfig: parseJson(raw, 'home_steps_config') || null,
             faqConfig: parseJson(raw, 'home_faq_config') || null,
+            rateConfig: parseJson(raw, 'home_exchange_rate_config') || null,
             faqCategories: r.data?.faqCategories || [],
           };
         })
-        .catch(() => ({ quickActions: [], boardConfig: {}, heroConfig: null, stepsConfig: null, faqConfig: null }));
+        .catch(() => ({ quickActions: [], boardConfig: {}, heroConfig: null, stepsConfig: null, faqConfig: null, rateConfig: null }));
 
     const loadOrders = () =>
       base44.functions.invoke('getTenantOrders', {})
@@ -56,13 +59,14 @@ export default function Home() {
     Promise.all([
       t.timeCall('loadOrders', loadOrders),
       t.timeCall('loadSettings', loadSettings),
-    ]).then(([orders, { quickActions, boardConfig, heroConfig, stepsConfig, faqConfig, faqCategories }]) => {
+    ]).then(([orders, { quickActions, boardConfig, heroConfig, stepsConfig, faqConfig, rateConfig, faqCategories }]) => {
       setRecentOrders(orders);
       setQuickActions(quickActions);
       setBoardConfig(boardConfig);
       setHeroConfig(heroConfig);
       setStepsConfig(stepsConfig);
       setFaqConfig(faqConfig);
+      setRateConfig(rateConfig);
       setFaqCategories(faqCategories);
       t.done('data ready');
     });
@@ -105,21 +109,47 @@ export default function Home() {
   };
   const stepsResolved = resolveSteps();
 
+  const rc = rateConfig;
+  const rateEnabled = rc?.enabled && rc?.currencies?.length > 0;
+  const rateCurrencies = rc?.currencies || [];
+  const ratePos = rc?.position || "hero_right";
+
   return (
     <div className="space-y-8">
-      {/* Hero */}
-      <HeroSection config={heroConfig} user={user} tenant={tenant} />
+      {/* Hero — wraps hero + optional left/right rate widgets */}
+      {rateEnabled && (ratePos === "hero_left" || ratePos === "hero_right") ? (
+        <div className={`flex items-stretch gap-4 ${ratePos === "hero_left" ? "flex-row-reverse" : "flex-row"}`}>
+          <div className="flex-1 min-w-0">
+            <HeroSection config={heroConfig} user={user} tenant={tenant} />
+          </div>
+          <div className="flex flex-col justify-center gap-1.5 flex-shrink-0 w-44">
+            <ExchangeRateWidget currencies={rateCurrencies} />
+          </div>
+        </div>
+      ) : (
+        <HeroSection config={heroConfig} user={user} tenant={tenant} />
+      )}
 
       {/* Quick Actions — show for all visitors (guest actions visible without login) */}
       {quickActions && (Array.isArray(quickActions) ? quickActions.length > 0 : Object.keys(quickActions).length > 0) && (
-        <QuickActionsGrid actions={quickActions} userRole={user?.role} />
+        <div>
+          {rateEnabled && ratePos === "quick_actions" && (
+            <div className="mb-2"><ExchangeRateWidget currencies={rateCurrencies} compact /></div>
+          )}
+          <QuickActionsGrid actions={quickActions} userRole={user?.role} />
+        </div>
       )}
 
       {/* Steps — multi-section */}
       {stepsResolved.visible && stepsResolved.sections.map((section, si) => (
         <div key={si}>
           {section.heading && (
-            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">{section.heading}</h2>
+            <div className="flex items-center gap-3 mb-3">
+              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">{section.heading}</h2>
+              {rateEnabled && ratePos === "steps_title" && si === 0 && (
+                <ExchangeRateWidget currencies={rateCurrencies} compact />
+              )}
+            </div>
           )}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {(section.steps || []).map((step, i) => {
@@ -146,11 +176,22 @@ export default function Home() {
 
       {/* Logistics Status Board */}
       {user && recentOrders.length > 0 && (
-        <LogisticsStatusBoard orders={recentOrders} boardConfig={boardConfig} />
+        <div>
+          {rateEnabled && ratePos === "status_board" && (
+            <div className="mb-2"><ExchangeRateWidget currencies={rateCurrencies} compact /></div>
+          )}
+          <LogisticsStatusBoard orders={recentOrders} boardConfig={boardConfig} />
+        </div>
       )}
 
       {/* FAQ */}
       <FaqSection config={faqConfig} faqCategories={faqCategories} user={user} />
+      {rateEnabled && ratePos === "faq" && (
+        <div className="space-y-2">
+          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">实时汇率参考</h2>
+          <ExchangeRateWidget currencies={rateCurrencies} faqMode />
+        </div>
+      )}
     </div>
   );
 }

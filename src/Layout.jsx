@@ -11,6 +11,7 @@ import {
   Home, Users, BarChart3, Store, Send, Zap, UserPlus, ChevronDown, ChevronRight, Layers, FileText
 } from "lucide-react";
 import NotificationBell from "@/components/common/NotificationBell.jsx";
+import NavbarRateWidget from "@/components/common/NavbarRateWidget.jsx";
 import AnnouncementPositionRenderer from "@/components/home/AnnouncementPositionRenderer";
 import { MidnightToggle } from "@/components/common/ThemeSelector";
 import LocaleSwitcher from "@/components/common/LocaleSwitcher";
@@ -28,6 +29,7 @@ export default function Layout({ children, currentPageName }) {
   const [announcements, setAnnouncements] = useState([]);
   const [navbarSettings, setNavbarSettings] = useState(null);
   const [isTransitManager, setIsTransitManager] = useState(false);
+  const [navbarRateCurrencies, setNavbarRateCurrencies] = useState([]);
   const location = useLocation();
 
   useEffect(() => {
@@ -56,15 +58,24 @@ export default function Layout({ children, currentPageName }) {
     if (cached) {
       setAnnouncements(cached.announcements || []);
       setNavbarSettings(cached.navbarSettings || null);
+      if (cached.navbarRateCurrencies) setNavbarRateCurrencies(cached.navbarRateCurrencies);
       return;
     }
     if (SELF_CONFIG_PAGES.has(currentPageName)) return;
     fetchTenantConfig()
-      .then(cfg => {
-        setAnnouncements(cfg.announcements || []);
-        setNavbarSettings(cfg.navbarSettings || null);
-      })
-      .catch(() => {});
+    .then(cfg => {
+      setAnnouncements(cfg.announcements || []);
+      setNavbarSettings(cfg.navbarSettings || null);
+      // parse navbar rate config
+      const rateSetting = (cfg.settings || []).find(s => s.key === "navbar_exchange_rate_config");
+      if (rateSetting?.value) {
+        try {
+          const rc = JSON.parse(rateSetting.value);
+          if (rc.enabled && Array.isArray(rc.currencies)) setNavbarRateCurrencies(rc.currencies);
+        } catch { /* noop */ }
+      }
+    })
+    .catch(() => {});
   }, [user?.email, currentPageName]);
 
   const isPlatformAdmin = user?.role === "platform_admin";
@@ -230,6 +241,7 @@ export default function Layout({ children, currentPageName }) {
           </nav>
 
           <div className="flex items-center gap-2">
+            <NavbarRateWidget currencies={navbarRateCurrencies} />
             <LocaleSwitcher />
             <NotificationBell />
             <MidnightToggle />
