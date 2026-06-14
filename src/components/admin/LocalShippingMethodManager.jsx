@@ -380,6 +380,18 @@ export default function LocalShippingMethodManager({ settings = [], onReload }) 
             />
             <span className="text-xs text-gray-500">{newForm.trackable ? "可追跡" : "不可追跡"}</span>
           </div>
+          <div>
+            <Label className="text-xs text-gray-500 mb-1 block">描述（可添加图片）</Label>
+            <RichTextInput
+              value={newForm.description}
+              onChange={v => setNewForm(p => ({ ...p, description: v }))}
+              imageUrls={newForm.description_images}
+              onImageUrls={urls => setNewForm(p => ({ ...p, description_images: urls }))}
+              placeholder="运输方式说明..."
+              rows={2}
+              maxImages={3}
+            />
+          </div>
           <div className="flex gap-2 justify-end">
             <Button variant="outline" size="sm" onClick={() => setShowAdd(false)}>取消</Button>
             <Button
