@@ -335,11 +335,6 @@ function ActionEditor({ action, idx, total, onUpdate, onUpdateMulti, onRemove, o
               onClick={handleReEdit}>
               调整效果
             </button>
-            <span className="text-xs text-gray-300">·</span>
-            <button className="text-xs text-blue-500 hover:text-blue-700 underline underline-offset-2"
-              onClick={() => fileInputRef.current?.click()}>
-              更换图片
-            </button>
             <span className="text-xs text-gray-400">
               当前：{action.imageSize === "fill" ? "填充模式" : "正方形"}
               {(action.blurAmount ?? 0) > 0 ? `，模糊 ${action.blurAmount}px` : ""}
