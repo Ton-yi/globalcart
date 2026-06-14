@@ -17,7 +17,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 
 import ShippingMethodManager from "@/components/admin/ShippingMethodManager";
-import LocalShippingMethodManager from "@/components/admin/LocalShippingMethodManager";
+import LocalShippingMethodManager, { LocalShippingDetail, LocalShippingTree } from "@/components/admin/LocalShippingMethodManager";
+import { useLocalShipping } from "@/hooks/useLocalShipping";
 import OnlineStoreTagManager from "@/components/admin/OnlineStoreTagManager";
 import TransitShippingMethodManager from "@/components/admin/TransitShippingMethodManager";
 import ItemSizeTemplateManager from "@/components/admin/ItemSizeTemplateManager";
@@ -48,6 +49,38 @@ import StepsSectionManager from "@/components/admin/StepsSectionManager";
 import FaqManager from "@/components/admin/FaqManager";
 import TenantExchangeRateSettings from "@/components/admin/TenantExchangeRateSettings";
 import ExchangeRateDisplayManager from "@/components/admin/ExchangeRateDisplayManager";
+
+// ─── 本地运输方式：两列 Card 布局 ────────────────────────────
+function LocalShippingTwoCol() {
+  const state = useLocalShipping();
+  if (state.loading) return <p className="text-gray-400 text-sm">加载中...</p>;
+  return (
+    <div className="flex flex-col xl:flex-row gap-5 items-start">
+      <div className="flex-1 min-w-0">
+        <Card className="border-gray-200 h-full">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold text-gray-700">运输方式编辑</CardTitle>
+            <p className="text-xs text-gray-400 mt-1">点击右侧条目后在此编辑详情，或新增运输方式</p>
+          </CardHeader>
+          <CardContent>
+            <LocalShippingDetail state={state} />
+          </CardContent>
+        </Card>
+      </div>
+      <div className="flex-1 min-w-0">
+        <Card className="border-gray-200">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold text-gray-700">运输公司 &amp; 方式排序</CardTitle>
+            <p className="text-xs text-gray-400 mt-1">管理运输公司分组及方式排列顺序</p>
+          </CardHeader>
+          <CardContent>
+            <LocalShippingTree state={state} />
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
 
 // Standalone editor with its own local save button (textarea content is large, better kept isolated)
 function CustomsHazmatTextEditor({ settings, onReload }) {
@@ -459,7 +492,7 @@ export default function AdminSettings() {
         </aside>
 
         {/* Main content — wider for home_customize tab */}
-        <div className={`flex-1 min-w-0 space-y-5 ${activeTab === "home_customize" ? "" : "max-w-2xl"}`}>
+        <div className={`flex-1 min-w-0 space-y-5 ${activeTab === "home_customize" || activeTab === "local_shipping_methods" ? "" : "max-w-2xl"}`}>
 
       {activeTab === "home_customize" && !loading && (
         <div className="flex flex-col xl:flex-row gap-5 items-start">
@@ -687,11 +720,7 @@ export default function AdminSettings() {
       )}
 
       {activeTab === "local_shipping_methods" && (
-        <Card className="border-gray-200">
-          <CardContent className="pt-5">
-            <LocalShippingMethodManager />
-          </CardContent>
-        </Card>
+        <LocalShippingTwoCol />
       )}
 
       {activeTab === "shipping_settings" && !loading && (
