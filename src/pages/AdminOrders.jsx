@@ -47,6 +47,10 @@ export default function AdminOrders() {
   const canPlaceOrder = isAdmin || can("order:place_order");
   const canWarehouseIn = isAdmin || can("order:warehouse_in");
   const canArchiveOrder = isAdmin || can("order:archive_order");
+  
+  // 获取实物订单控制器（必须在所有 useState 之前）
+  const physicalController = orderRegistry.get('physical');
+  
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -101,9 +105,6 @@ export default function AdminOrders() {
   const [settlementData, setSettlementData] = useState(null);
   const [actualWeight, setActualWeight] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
-
-  // 获取实物订单控制器
-  const physicalController = orderRegistry.get('physical');
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
