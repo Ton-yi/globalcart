@@ -166,10 +166,9 @@ function AudiencePanel({ form, onChange, categories }) {
                               onClick={() => toggleItem(item._id)}
                             >
                               <Checkbox
-                                className="mt-0.5 flex-shrink-0"
+                                className="mt-0.5 flex-shrink-0 pointer-events-none"
                                 checked={selectedItemIds.includes(item._id)}
                                 onCheckedChange={() => {}}
-                                onClick={e => { e.stopPropagation(); toggleItem(item._id); }}
                               />
                               <span className="text-xs text-gray-700 leading-relaxed line-clamp-2">{item.question}</span>
                             </div>
