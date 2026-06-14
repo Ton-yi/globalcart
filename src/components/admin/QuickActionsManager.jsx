@@ -112,7 +112,8 @@ function cloneAudience(a) {
 // ─── ActionEditor ─────────────────────────────────────────
 function ActionEditor({ action, idx, total, onUpdate, onUpdateMulti, onRemove, onMoveUp, onMoveDown }) {
   const fileInputRef = useRef();
-  const [cropSrc, setCropSrc] = useState(null);
+  const [cropSrc, setCropSrc] = useState(null);   // local blob: URL for new file
+  const [reEditMode, setReEditMode] = useState(false); // re-editing existing uploaded image
 
   const emojiMode = isEmojiMode(action.icon);
   const imageMode = action.icon === "custom_image";
@@ -122,12 +123,24 @@ function ActionEditor({ action, idx, total, onUpdate, onUpdateMulti, onRemove, o
     const file = e.target.files[0];
     if (!file || !file.type.startsWith("image/")) return;
     e.target.value = "";
+    setReEditMode(false);
     setCropSrc(URL.createObjectURL(file));
+  };
+
+  const handleReEdit = () => {
+    setCropSrc(null);
+    setReEditMode(true);
   };
 
   const handleCropConfirm = ({ imageUrl, imageSize, blurAmount, brightness, overlayColor, overlayOpacity }) => {
     setCropSrc(null);
+    setReEditMode(false);
     onUpdateMulti({ icon: "custom_image", imageUrl, imageSize, blurAmount, brightness, overlayColor, overlayOpacity });
+  };
+
+  const handleCropCancel = () => {
+    setCropSrc(null);
+    setReEditMode(false);
   };
 
   // Preview for custom_image mode
@@ -150,7 +163,7 @@ function ActionEditor({ action, idx, total, onUpdate, onUpdateMulti, onRemove, o
               )}
             </>
           ) : (
-            <img src={action.imageUrl} alt="" className="w-full h-full object-cover"
+            <img src={action.imageUrl} alt="" className="w-4/5 h-4/5 object-contain rounded"
               style={{ filter: `blur(${action.blurAmount ?? 0}px) brightness(${(action.brightness ?? 100) / 100})` }}
             />
           )}
@@ -169,12 +182,13 @@ function ActionEditor({ action, idx, total, onUpdate, onUpdateMulti, onRemove, o
 
   return (
     <>
-      {cropSrc && (
+      {(cropSrc || reEditMode) && (
         <QuickActionImageCropModal
-          src={cropSrc}
+          src={reEditMode ? null : cropSrc}
+          existingUrl={reEditMode ? action.imageUrl : undefined}
           imageConfig={{ imageSize: action.imageSize, blurAmount: action.blurAmount, brightness: action.brightness, overlayColor: action.overlayColor, overlayOpacity: action.overlayOpacity }}
           onConfirm={handleCropConfirm}
-          onCancel={() => setCropSrc(null)}
+          onCancel={handleCropCancel}
         />
       )}
       <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
@@ -318,8 +332,13 @@ function ActionEditor({ action, idx, total, onUpdate, onUpdateMulti, onRemove, o
         {imageMode && action.imageUrl && (
           <div className="ml-8 flex items-center gap-2">
             <button className="text-xs text-orange-500 hover:text-orange-700 underline underline-offset-2"
+              onClick={handleReEdit}>
+              调整效果
+            </button>
+            <span className="text-xs text-gray-300">·</span>
+            <button className="text-xs text-blue-500 hover:text-blue-700 underline underline-offset-2"
               onClick={() => fileInputRef.current?.click()}>
-              重新裁切 / 调整效果
+              更换图片
             </button>
             <span className="text-xs text-gray-400">
               当前：{action.imageSize === "fill" ? "填充模式" : "正方形"}

@@ -26,12 +26,17 @@ function SliderField({ label, value, min, max, unit, onChange }) {
 /**
  * QuickActionImageCropModal
  * Props:
- *   src          – object URL of the chosen local file (before upload)
+ *   src          – object URL of a NEW local file, OR null when re-editing an existing uploaded image
+ *   existingUrl  – already-uploaded image URL (used when src is null, for re-editing effects only)
  *   imageConfig  – existing { imageSize, blurAmount, brightness, overlayColor, overlayOpacity } (for re-edit)
  *   onConfirm    – ({ imageUrl, imageSize, blurAmount, brightness, overlayColor, overlayOpacity }) => void
  *   onCancel     – () => void
  */
-export default function QuickActionImageCropModal({ src, imageConfig = {}, onConfirm, onCancel }) {
+export default function QuickActionImageCropModal({ src, existingUrl, imageConfig = {}, onConfirm, onCancel }) {
+  // displaySrc: what we show in the crop / preview area
+  const displaySrc = src || existingUrl;
+  // effectsOnly: true when re-editing an already-uploaded image (no new file chosen)
+  const effectsOnly = !src && !!existingUrl;
   const [crop, setCrop] = useState();
   const [completedCrop, setCompletedCrop] = useState();
   const [uploading, setUploading] = useState(false);
@@ -45,6 +50,7 @@ export default function QuickActionImageCropModal({ src, imageConfig = {}, onCon
   const [overlayOpacity, setOverlayOpacity] = useState(imageConfig.overlayOpacity ?? 0);
 
   const onImageLoad = (e) => {
+    if (effectsOnly) return; // no cropping when re-editing effects on existing image
     const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
     const aspect = imageSize === "square" ? 1 : undefined;
     const c = centerCrop(
@@ -57,6 +63,7 @@ export default function QuickActionImageCropModal({ src, imageConfig = {}, onCon
   // Update crop aspect when size mode changes
   const handleSizeChange = (size) => {
     setImageSize(size);
+    if (effectsOnly) return;
     const img = imgRef.current;
     if (!img) return;
     const { naturalWidth: w, naturalHeight: h } = img;
@@ -72,37 +79,48 @@ export default function QuickActionImageCropModal({ src, imageConfig = {}, onCon
     const image = imgRef.current;
     setUploading(true);
     try {
-      let fileUrl = src;
-
-      if (image && completedCrop) {
-        const canvas = document.createElement("canvas");
-        const scaleX = image.naturalWidth / image.width;
-        const scaleY = image.naturalHeight / image.height;
-        canvas.width = completedCrop.width * scaleX;
-        canvas.height = completedCrop.height * scaleY;
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(
-          image,
-          completedCrop.x * scaleX, completedCrop.y * scaleY,
-          completedCrop.width * scaleX, completedCrop.height * scaleY,
-          0, 0, canvas.width, canvas.height,
-        );
-        await new Promise((resolve, reject) => {
-          canvas.toBlob(async (blob) => {
-            if (!blob) { resolve(); return; }
-            const file = new File([blob], "quick-action-img.jpg", { type: "image/jpeg" });
-            const { file_url } = await base44.integrations.Core.UploadFile({ file });
-            fileUrl = file_url;
-            resolve();
-          }, "image/jpeg", 0.9);
-        });
+      // Effects-only re-edit: keep the existing uploaded URL, no crop/upload needed
+      if (effectsOnly) {
+        onConfirm({ imageUrl: existingUrl, imageSize, blurAmount, brightness, overlayColor, overlayOpacity });
+        return;
       }
 
-      onConfirm({ imageUrl: fileUrl, imageSize, blurAmount, brightness, overlayColor, overlayOpacity });
+      // New file: must crop and upload
+      if (!image || !completedCrop || completedCrop.width === 0 || completedCrop.height === 0) {
+        // No crop interaction — upload the full image as-is
+        const res = await fetch(src);
+        const blob = await res.blob();
+        const file = new File([blob], "quick-action-img.jpg", { type: "image/jpeg" });
+        const { file_url } = await base44.integrations.Core.UploadFile({ file });
+        onConfirm({ imageUrl: file_url, imageSize, blurAmount, brightness, overlayColor, overlayOpacity });
+        return;
+      }
+
+      const canvas = document.createElement("canvas");
+      const scaleX = image.naturalWidth / image.width;
+      const scaleY = image.naturalHeight / image.height;
+      canvas.width = completedCrop.width * scaleX;
+      canvas.height = completedCrop.height * scaleY;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(
+        image,
+        completedCrop.x * scaleX, completedCrop.y * scaleY,
+        completedCrop.width * scaleX, completedCrop.height * scaleY,
+        0, 0, canvas.width, canvas.height,
+      );
+      await new Promise((resolve) => {
+        canvas.toBlob(async (blob) => {
+          if (!blob) { resolve(); return; }
+          const file = new File([blob], "quick-action-img.jpg", { type: "image/jpeg" });
+          const { file_url } = await base44.integrations.Core.UploadFile({ file });
+          onConfirm({ imageUrl: file_url, imageSize, blurAmount, brightness, overlayColor, overlayOpacity });
+          resolve();
+        }, "image/jpeg", 0.9);
+      });
     } finally {
       setUploading(false);
     }
-  }, [completedCrop, src, imageSize, blurAmount, brightness, overlayColor, overlayOpacity, onConfirm]);
+  }, [completedCrop, src, existingUrl, effectsOnly, imageSize, blurAmount, brightness, overlayColor, overlayOpacity, onConfirm]);
 
   // Live preview styles
   const previewStyle = {
@@ -115,7 +133,9 @@ export default function QuickActionImageCropModal({ src, imageConfig = {}, onCon
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-gray-100">
-          <h3 className="font-semibold text-gray-800">设置快捷入口背景图片</h3>
+          <h3 className="font-semibold text-gray-800">
+            {effectsOnly ? "调整图片效果" : "设置快捷入口背景图片"}
+          </h3>
           <button onClick={onCancel}><X className="w-4 h-4 text-gray-400" /></button>
         </div>
 
@@ -142,7 +162,8 @@ export default function QuickActionImageCropModal({ src, imageConfig = {}, onCon
             </p>
           </div>
 
-          {/* Crop area */}
+          {/* Crop area — hidden in effects-only mode */}
+          {!effectsOnly && (
           <div>
             <Label className="text-xs text-gray-500 mb-1.5 block">
               裁切图片{imageSize === "square" ? "（锁定 1:1）" : "（自由裁切）"}
@@ -155,10 +176,11 @@ export default function QuickActionImageCropModal({ src, imageConfig = {}, onCon
                 aspect={imageSize === "square" ? 1 : undefined}
                 keepSelection
               >
-                <img ref={imgRef} src={src} onLoad={onImageLoad} className="max-w-full" alt="crop" />
+                <img ref={imgRef} src={displaySrc} onLoad={onImageLoad} className="max-w-full" alt="crop" />
               </ReactCrop>
             </div>
           </div>
+          )}
 
           {/* Effects */}
           <div className="space-y-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
@@ -167,7 +189,7 @@ export default function QuickActionImageCropModal({ src, imageConfig = {}, onCon
             {/* Mini preview */}
             <div className="flex justify-center mb-2">
               <div className={`relative overflow-hidden rounded-xl shadow ${imageSize === "square" ? "w-14 h-14" : "w-24 h-14"}`}>
-                <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${src})`, ...previewStyle }} />
+                <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${displaySrc})`, ...previewStyle }} />
                 {overlayOpacity > 0 && (
                   <div className="absolute inset-0" style={{ backgroundColor: overlayColor, opacity: overlayOpacity / 100 }} />
                 )}

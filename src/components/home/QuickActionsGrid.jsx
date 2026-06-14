@@ -54,12 +54,12 @@ function ActionIcon({ action }) {
         </>
       );
     }
-    // square: render as img element, centered
+    // square: render centered inside the colored container (80% size to let bg color show)
     return (
       <img
         src={action.imageUrl}
         alt=""
-        className="w-full h-full object-cover"
+        className="w-4/5 h-4/5 object-contain rounded"
         style={{ filter: `blur(${action.blurAmount ?? 0}px) brightness(${(action.brightness ?? 100) / 100})` }}
       />
     );
