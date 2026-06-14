@@ -148,9 +148,11 @@ export default function BannerManager({ settings, onReload }) {
           key: "home_banner_config", value,
           description: "主页 Banner 配置（JSON）", category: "general",
         });
+        // Only reload when creating (so the new record gets an id for future updates)
+        await onReload();
       }
       invalidateTenantConfigCache();
-      await onReload();
+      window.dispatchEvent(new Event('tenantConfigInvalidated'));
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } finally {
