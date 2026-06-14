@@ -124,7 +124,7 @@ export default function Layout({ children, currentPageName }) {
           AdminSettingsHome: canAccessAdminSettings,
           AdminNavbarSettings: canAccessAdminSettings,
           ExchangeRate: true,
-          UserHome: true, UserSubmitOrder: true, UserSubmitOrderPlain: true, UserGroupBuy: true,
+          UserHome: true, UserSubmitOrder: true, UserSubmitOrderPlain: true, UserSubmitTicketOrder: true, UserGroupBuy: true,
           UserMyOrders: canViewMyOrders, UserShippingPool: true, UserProfile: true,
           UserHelpCenter: true, UserTodoAdmin: true,
         },

@@ -4,7 +4,7 @@
  */
 import {
   Home, ShoppingBag, UserPlus, Package, Send, User,
-  BarChart3, Layers, Users, Settings, Bell, Zap, FileText, Navigation, Crown, HelpCircle, MessageCircleQuestion, CheckSquare, TrendingUp,
+  BarChart3, Layers, Users, Settings, Bell, Zap, FileText, Navigation, Crown, HelpCircle, MessageCircleQuestion, CheckSquare, TrendingUp, Ticket,
 } from "lucide-react";
 
 export const NAV_REGISTRY = {
@@ -12,6 +12,7 @@ export const NAV_REGISTRY = {
     Home: { label: "首页", icon: Home, page: "Home" },
     SubmitOrder: { label: "提交需求", icon: ShoppingBag, page: "SubmitOrder" },
     SubmitOrderPlain: { label: "普通下单", icon: ShoppingBag, page: "SubmitOrder" },
+    SubmitTicketOrder: { label: "票务需求", icon: Ticket, page: "SubmitTicketOrder" },
     GroupBuy: { label: "拼下单", icon: UserPlus, page: "GroupBuy" },
     MyOrders: { label: "我的订单", icon: Package, page: "MyOrders" },
     ShippingPool: { label: "发货 & 拼邮", icon: Send, page: "ShippingPool" },
@@ -42,6 +43,7 @@ export const NAV_REGISTRY = {
     UserHome: { label: "首页（用户）", icon: Home, page: "Home" },
     UserSubmitOrder: { label: "提交需求", icon: ShoppingBag, page: "SubmitOrder" },
     UserSubmitOrderPlain: { label: "普通下单", icon: ShoppingBag, page: "SubmitOrder" },
+    UserSubmitTicketOrder: { label: "票务需求", icon: Ticket, page: "SubmitTicketOrder" },
     UserGroupBuy: { label: "拼下单", icon: UserPlus, page: "GroupBuy" },
     UserMyOrders: { label: "我的订单（用户）", icon: Package, page: "MyOrders" },
     UserShippingPool: { label: "发货 & 拼邮（用户）", icon: Send, page: "ShippingPool" },
@@ -56,7 +58,7 @@ export const DEFAULT_NAV_TREES = {
     { key: "Home" },
     { key: "ExchangeRate", hidden: true },
     { key: "UserTodo" },
-    { key: "SubmitOrder", children: [{ key: "SubmitOrderPlain" }, { key: "GroupBuy" }] },
+    { key: "SubmitOrder", children: [{ key: "SubmitOrderPlain" }, { key: "SubmitTicketOrder" }, { key: "GroupBuy" }] },
     { key: "MyOrders" },
     { key: "ShippingPool" },
     { key: "Profile", children: [{ key: "MemberTiers" }] },
@@ -79,7 +81,7 @@ export const DEFAULT_NAV_TREES = {
     ]},
     // 用户入口（默认隐藏，管理员可按需开启）
     { key: "UserHome", hidden: true },
-    { key: "UserSubmitOrder", hidden: true, children: [{ key: "UserSubmitOrderPlain" }, { key: "UserGroupBuy" }] },
+    { key: "UserSubmitOrder", hidden: true, children: [{ key: "UserSubmitOrderPlain" }, { key: "UserSubmitTicketOrder" }, { key: "UserGroupBuy" }] },
     { key: "UserMyOrders", hidden: true },
     { key: "UserShippingPool", hidden: true },
     { key: "UserProfile", hidden: true },
