@@ -40,10 +40,11 @@ function ActionIcon({ action }) {
     if (isFill) {
       return (
         <>
-          <div
-            className="absolute inset-0 bg-cover bg-center"
+          <img
+            src={action.imageUrl}
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover"
             style={{
-              backgroundImage: `url(${action.imageUrl})`,
               filter: `blur(${action.blurAmount ?? 0}px) brightness(${(action.brightness ?? 100) / 100})`,
               transform: (action.blurAmount ?? 0) > 0 ? "scale(1.08)" : undefined,
             }}
@@ -100,7 +101,7 @@ export default function QuickActionsGrid({ actions = [], userRole }) {
           const isExternal = action.path?.startsWith("http");
           const content = (
             <div className="flex flex-col items-center gap-2 p-3 bg-white border border-gray-200 rounded-xl hover:shadow-md hover:border-gray-300 transition-all cursor-pointer group">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden relative group-hover:scale-105 transition-transform ${isImageMode(action.icon) && action.imageSize === "fill" ? "bg-gray-200" : (action.color || "bg-gray-400")}`}>
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden relative group-hover:scale-105 transition-transform ${isImageMode(action.icon) && action.imageSize === "fill" ? "" : (action.color || "bg-gray-400")}`}>
                 <ActionIcon action={action} />
               </div>
               <span className="text-xs text-gray-700 font-medium text-center leading-tight">{action.title}</span>
