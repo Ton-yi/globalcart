@@ -59,7 +59,7 @@ export default function Layout({ children, currentPageName }) {
     if (cached) {
       setAnnouncements(cached.announcements || []);
       setNavbarSettings(cached.navbarSettings || null);
-      const cachedRateSetting = (cached.settings || []).find(s => s.key === "navbar_exchange_rate_config");
+      const cachedRateSetting = (cached.settings || []).find(s => s.key === "home_exchange_rate_config");
       if (cachedRateSetting?.value) {
         try {
           const rc = JSON.parse(cachedRateSetting.value);
@@ -75,7 +75,7 @@ export default function Layout({ children, currentPageName }) {
       setAnnouncements(cfg.announcements || []);
       setNavbarSettings(cfg.navbarSettings || null);
       // parse navbar rate config
-      const rateSetting = (cfg.settings || []).find(s => s.key === "navbar_exchange_rate_config");
+      const rateSetting = (cfg.settings || []).find(s => s.key === "home_exchange_rate_config");
       if (rateSetting?.value) {
         try {
           const rc = JSON.parse(rateSetting.value);
