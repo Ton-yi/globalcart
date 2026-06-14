@@ -52,11 +52,20 @@ async function fetchRates() {
   return _rateCache;
 }
 
-// 标准化为 [{code, unit}] 格式
+// 标准化为 [{code, unit, reversed}] 格式
 function normalizeCurrencies(currencies, defaultUnit = 100) {
   if (!Array.isArray(currencies) || currencies.length === 0) return [];
-  if (typeof currencies[0] === "string") return currencies.map(c => ({ code: c, unit: defaultUnit }));
+  if (typeof currencies[0] === "string") return currencies.map(c => ({ code: c, unit: defaultUnit, reversed: false }));
   return currencies;
+}
+
+// 反向模式：unit [外币] = X 日元
+function fmtReversed(value, code, unit = 1) {
+  if (!value) return "---";
+  // value = 1 JPY 兑 code 的汇率，所以 unit 外币 = unit/value JPY
+  const jpy = unit / value;
+  if (jpy >= 1) return Math.round(jpy).toLocaleString();
+  return jpy.toFixed(2);
 }
 
 export default function ExchangeRateWidget({ currencies = [], compact = false, faqMode = false, heroOverlay = false, textColor = "", unit = 100 }) {
@@ -86,17 +95,23 @@ export default function ExchangeRateWidget({ currencies = [], compact = false, f
   if (faqMode) {
     return (
       <div className="space-y-3">
-        {items.map(({ code, unit: u }) => {
+        {items.map(({ code, unit: u, reversed }) => {
           const val = rates?.[`jpy_${code.toLowerCase()}`] ?? rates?.[code];
           const label = CURRENCY_LABELS[code] || code;
+          const question = reversed
+            ? `${u}${code}兑日元是多少？`
+            : `${u}日元兑${label}（${code}）是多少？`;
+          const answer = reversed
+            ? <><span className="font-bold text-emerald-700">{fmtReversed(val, code, u)} 日元</span></>
+            : <><span className="font-bold text-emerald-700">{fmt(val, code, u)} {code}</span></>;
           return (
             <div key={code} className="border border-gray-100 rounded-lg overflow-hidden">
               <div className="bg-gray-50 px-4 py-2.5 font-medium text-sm text-gray-800 flex items-center gap-2">
                 <TrendingUp className="w-4 h-4 text-emerald-600" />
-                {u}日元兑{label}（{code}）是多少？
+                {question}
               </div>
               <div className="px-4 py-2.5 text-sm text-gray-600">
-                当前汇率：<span className="font-bold text-emerald-700">{fmt(val, code, u)} {code}</span>
+                当前汇率：{answer}
                 <span className="text-xs text-gray-400 ml-2">（含服务增量，实时更新）</span>
               </div>
             </div>
@@ -110,13 +125,15 @@ export default function ExchangeRateWidget({ currencies = [], compact = false, f
   if (compact) {
     return (
       <div className="flex flex-wrap items-center gap-2">
-        {items.map(({ code, unit: u }) => {
+        {items.map(({ code, unit: u, reversed }) => {
           const val = rates?.[`jpy_${code.toLowerCase()}`] ?? rates?.[code];
           return (
             <span key={code} className="inline-flex items-center gap-1 text-xs bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-full px-2.5 py-1 font-medium whitespace-nowrap">
               <TrendingUp className="w-3 h-3" />
-              <span className="opacity-70">{u}¥=</span>
-              <span className="font-bold">{fmt(val, code, u)}</span> {code}
+              {reversed
+                ? <><span className="opacity-70">{u}{code}=</span><span className="font-bold">{fmtReversed(val, code, u)}</span>¥</>
+                : <><span className="opacity-70">{u}¥=</span><span className="font-bold">{fmt(val, code, u)}</span> {code}</>
+              }
             </span>
           );
         })}
@@ -129,7 +146,7 @@ export default function ExchangeRateWidget({ currencies = [], compact = false, f
     const color = textColor || "#ffffff";
     return (
       <div className="flex flex-col gap-1 pointer-events-none">
-        {items.map(({ code, unit: u }) => {
+        {items.map(({ code, unit: u, reversed }) => {
           const val = rates?.[`jpy_${code.toLowerCase()}`] ?? rates?.[code];
           const label = CURRENCY_LABELS[code] || code;
           return (
@@ -137,7 +154,10 @@ export default function ExchangeRateWidget({ currencies = [], compact = false, f
               <TrendingUp className="w-3 h-3 flex-shrink-0" style={{ color }} />
               <span className="text-xs whitespace-nowrap" style={{ color, opacity: 0.85 }}>{label}</span>
               <span className="text-sm font-bold ml-auto whitespace-nowrap" style={{ color }}>
-                {u}¥={fmt(val, code, u)} {code}
+                {reversed
+                  ? `${u}${code}=${fmtReversed(val, code, u)}¥`
+                  : `${u}¥=${fmt(val, code, u)} ${code}`
+                }
               </span>
             </div>
           );
@@ -149,15 +169,17 @@ export default function ExchangeRateWidget({ currencies = [], compact = false, f
   // ── 标准模式（Hero 左/右侧块）──────────────────────────────
   return (
     <div className="flex flex-col gap-1.5">
-      {items.map(({ code, unit: u }) => {
+      {items.map(({ code, unit: u, reversed }) => {
         const val = rates?.[`jpy_${code.toLowerCase()}`] ?? rates?.[code];
         const label = CURRENCY_LABELS[code] || code;
         return (
           <div key={code} className="flex items-center gap-2 bg-white/80 backdrop-blur-sm border border-emerald-100 rounded-xl px-3 py-2 shadow-sm">
             <TrendingUp className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
-            <span className="text-xs text-gray-500 whitespace-nowrap">{u}¥→ {label}</span>
+            <span className="text-xs text-gray-500 whitespace-nowrap">
+              {reversed ? `${u}${code}→ ¥` : `${u}¥→ ${label}`}
+            </span>
             <span className="text-sm font-bold text-emerald-700 ml-auto whitespace-nowrap">
-              {fmt(val, code, u)} {code}
+              {reversed ? `${fmtReversed(val, code, u)} ¥` : `${fmt(val, code, u)} ${code}`}
             </span>
           </div>
         );

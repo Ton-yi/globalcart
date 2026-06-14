@@ -37,11 +37,18 @@ function fmt(val, code, unit = 100) {
   return amount.toFixed(decimals);
 }
 
-// 标准化为 [{code, unit}] 格式
+// 标准化为 [{code, unit, reversed}] 格式
 function normalizeItems(currencies, defaultUnit = 100) {
   if (!Array.isArray(currencies) || currencies.length === 0) return [];
-  if (typeof currencies[0] === "string") return currencies.map(c => ({ code: c, unit: defaultUnit }));
+  if (typeof currencies[0] === "string") return currencies.map(c => ({ code: c, unit: defaultUnit, reversed: false }));
   return currencies;
+}
+
+function fmtReversed(value, code, unit = 1) {
+  if (!value) return "---";
+  const jpy = unit / value;
+  if (jpy >= 1) return Math.round(jpy).toLocaleString();
+  return jpy.toFixed(2);
 }
 
 export default function NavbarRateWidget({ currencies = [], unit = 100 }) {
@@ -57,12 +64,15 @@ export default function NavbarRateWidget({ currencies = [], unit = 100 }) {
 
   return (
     <div className="hidden md:flex items-center gap-2 px-2">
-      {items.map(({ code, unit: u }) => {
+      {items.map(({ code, unit: u, reversed }) => {
         const val = rates[`jpy_${code.toLowerCase()}`] ?? rates[code];
         return (
           <span key={code} className="inline-flex items-center gap-1 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5 font-medium whitespace-nowrap">
             <TrendingUp className="w-3 h-3" />
-            {u}¥={fmt(val, code, u)}{code}
+            {reversed
+              ? `${u}${code}=${fmtReversed(val, code, u)}¥`
+              : `${u}¥=${fmt(val, code, u)}${code}`
+            }
           </span>
         );
       })}

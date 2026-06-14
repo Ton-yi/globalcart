@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Save, TrendingUp, Plus, X, ArrowUp, ArrowDown, ChevronDown } from "lucide-react";
+import { Save, TrendingUp, Plus, X, ArrowUp, ArrowDown, ChevronDown, ArrowLeftRight } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 
 const PRESET_CURRENCIES = [
@@ -208,8 +208,24 @@ export default function ExchangeRateDisplayManager({ settings, onReload }) {
                           value={unit}
                           onChange={e => updateUnit(code, e.target.value)}
                         />
-                        <span className="text-xs text-gray-400">日元</span>
+                        <span className="text-xs text-gray-400 whitespace-nowrap">{form.currencies.find(c=>c.code===code)?.reversed ? code : "日元"}</span>
                       </div>
+
+                      {/* 反转按钮 */}
+                      <button
+                        title={form.currencies.find(c=>c.code===code)?.reversed ? "当前：外币→日元（点击切换回日元→外币）" : "当前：日元→外币（点击切换为外币→日元）"}
+                        onClick={() => setForm(p => ({
+                          ...p,
+                          currencies: p.currencies.map(c => c.code === code ? { ...c, reversed: !c.reversed } : c)
+                        }))}
+                        className={`p-1 rounded transition-colors flex-shrink-0 ${
+                          form.currencies.find(c=>c.code===code)?.reversed
+                            ? "bg-blue-100 text-blue-600 hover:bg-blue-200"
+                            : "hover:bg-gray-100 text-gray-400 hover:text-gray-600"
+                        }`}
+                      >
+                        <ArrowLeftRight className="w-3.5 h-3.5" />
+                      </button>
 
                       {/* 删除 */}
                       <button onClick={() => removeCurrency(code)}
@@ -334,11 +350,13 @@ export default function ExchangeRateDisplayManager({ settings, onReload }) {
               <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5">
                 <p className="text-xs text-gray-400 mb-1.5">显示预览（实际数字会用实时汇率替换）</p>
                 <div className="flex flex-wrap gap-2">
-                  {form.currencies.map(({ code, unit }) => (
+                  {form.currencies.map(({ code, unit, reversed }) => (
                     <span key={code} className="inline-flex items-center gap-1 text-xs bg-white border border-emerald-200 text-emerald-800 rounded-full px-2.5 py-1 font-medium">
                       <TrendingUp className="w-3 h-3" />
-                      <span className="opacity-70">{unit}¥=</span>
-                      <span className="font-bold">---</span> {code}
+                      {reversed
+                        ? <><span className="opacity-70">{unit}{code}=</span><span className="font-bold">---</span>¥</>
+                        : <><span className="opacity-70">{unit}¥=</span><span className="font-bold">---</span> {code}</>
+                      }
                     </span>
                   ))}
                 </div>
