@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import { User, Save, Palette, Archive, Lock, Bell, ExternalLink } from "lucide-react";
 import AvatarEditor from "@/components/common/AvatarEditor";
+import NavbarExchangeRateManager from "@/components/admin/NavbarExchangeRateManager";
 import ThemeSelector from "@/components/common/ThemeSelector";
 import CreditPanel from "@/components/user/CreditPanel";
 import UserRolePermissionsCard from "@/components/user/UserRolePermissionsCard";
@@ -172,6 +173,9 @@ export default function UserPreferences() {
 
       {/* 通知管理（全局开关 + 详细设置入口） */}
       <NotificationGlobalSettingsCard />
+
+      {/* 导航栏汇率显示 */}
+      <NavbarExchangeRateManager />
 
       {/* 界面主题 */}
       <Card className="border-gray-200">

@@ -46,6 +46,7 @@ import StepsSectionManager from "@/components/admin/StepsSectionManager";
 import FaqManager from "@/components/admin/FaqManager";
 import TenantExchangeRateSettings from "@/components/admin/TenantExchangeRateSettings";
 import ExchangeRateDisplayManager from "@/components/admin/ExchangeRateDisplayManager";
+import NavbarExchangeRateManager from "@/components/admin/NavbarExchangeRateManager";
 
 // Standalone editor with its own local save button (textarea content is large, better kept isolated)
 function CustomsHazmatTextEditor({ settings, onReload }) {
@@ -462,6 +463,7 @@ export default function AdminSettings() {
             <HeroSectionManager settings={settings} onReload={load} />
             <QuickActionsManager settings={settings} onReload={load} />
             <ExchangeRateDisplayManager settings={settings} onReload={load} />
+            <NavbarExchangeRateManager settings={settings} onReload={load} />
           </div>
           {/* 右列 */}
           <div className="flex-1 min-w-0 space-y-5">
