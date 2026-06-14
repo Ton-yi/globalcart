@@ -689,7 +689,7 @@ export default function AdminSettings() {
       {activeTab === "local_shipping_methods" && (
         <Card className="border-gray-200">
           <CardContent className="pt-5">
-            <LocalShippingMethodManager settings={settings} onReload={load} />
+            <LocalShippingMethodManager />
           </CardContent>
         </Card>
       )}

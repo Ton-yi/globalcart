@@ -1,29 +1,33 @@
 /**
- * LocalShippingMethodManager — 日本本地运输方式 & 自提地点管理
- * 存储于 SiteSettings，key = "local_shipping_methods_config"
- * 数据结构：
- *   [{
- *     id, name, trackable, fee_jpy, description,
- *     pickup_locations: [{ id, name, fee_jpy, description }]
- *   }]
+ * LocalShippingMethodManager — Master-Detail Layout
+ *
+ * 左侧（Detail）：本地运输方式详细编辑表单（点击右侧条目后激活）
+ * 右侧（Master）：运输公司树状排序面板（ShippingCompanyTreePanel）
+ *
+ * 数据通过 manageLocalShipping 后端函数统一管理（tenant-safe）
+ * 运输方式通过 SiteSettings 存储，运输公司通过 ShippingCompany 实体存储
  */
-import { useState, useEffect } from "react";
-import { tenantEntity } from "@/lib/tenantApi";
-import { Plus, Trash2, Edit2, ChevronDown, ChevronUp, Check, MapPin, Save, X } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { base44 } from "@/api/base44Client";
+import {
+  Plus, Trash2, MapPin, Save, X, Building2, ImageIcon
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import RichTextInput from "@/components/common/RichTextInput";
+import ShippingCompanyTreePanel from "@/components/admin/ShippingCompanyTreePanel";
 
 const genId = () => Math.random().toString(36).slice(2, 10);
+const BLANK_METHOD = { name: "", trackable: false, fee_jpy: 0, description: "", description_images: [], pickup_locations: [], company_id: null, sort_order: 0, indent: 0, is_active: true };
+const BLANK_COMPANY = { name: "", logo_url: "", description: "" };
 
 // ─── 自提地点编辑行 ──────────────────────────────────────────
 function PickupLocationRow({ loc, onChange, onDelete }) {
-  const [descImages, setDescImages] = useState([]);
-
   return (
     <div className="border border-gray-200 rounded-lg p-3 space-y-2 bg-white">
       <div className="grid grid-cols-2 gap-2">
@@ -41,7 +45,7 @@ function PickupLocationRow({ loc, onChange, onDelete }) {
           <Input
             type="number"
             className="mt-1 h-7 text-xs"
-            value={loc.fee_jpy ?? ""}
+            value={loc.fee_jpy === 0 ? "" : (loc.fee_jpy ?? "")}
             onChange={e => onChange({ ...loc, fee_jpy: e.target.value === "" ? 0 : parseFloat(e.target.value) || 0 })}
             placeholder="0"
           />
@@ -70,24 +74,209 @@ function PickupLocationRow({ loc, onChange, onDelete }) {
   );
 }
 
-// ─── 运输方式卡片 ────────────────────────────────────────────
-function MethodCard({ method, onChange, onDelete }) {
-  const [expanded, setExpanded] = useState(false);
-  const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ ...method });
-
+// ─── 运输公司录入弹窗 ─────────────────────────────────────────
+function CompanyFormModal({ initial, onSave, onClose, saving }) {
+  const [form, setForm] = useState({ ...BLANK_COMPANY, ...initial });
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
-  const handleSave = () => {
+  // If user pastes an image url via name RichTextInput, extract it as logo
+  const handleNameChange = (val) => {
+    // val might be plain text; logo handled via separate uploader
+    f("name", val);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-5 space-y-4" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <p className="font-semibold text-sm text-gray-800 flex items-center gap-2">
+            <Building2 className="w-4 h-4 text-blue-500" />
+            {initial?.id ? "编辑运输公司" : "添加运输公司"}
+          </p>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
+        </div>
+
+        <div className="space-y-3">
+          <div>
+            <Label className="text-xs text-gray-500 mb-1 block">公司名称 *</Label>
+            <Input
+              className="h-8 text-sm"
+              value={form.name}
+              onChange={e => f("name", e.target.value)}
+              placeholder="ヤマト運輸"
+            />
+          </div>
+
+          <div>
+            <Label className="text-xs text-gray-500 mb-1 block">Logo URL（可选）</Label>
+            <div className="flex gap-2">
+              <Input
+                className="h-8 text-xs flex-1"
+                value={form.logo_url || ""}
+                onChange={e => f("logo_url", e.target.value)}
+                placeholder="https://..."
+              />
+              {form.logo_url && (
+                <img src={form.logo_url} alt="logo" className="w-8 h-8 object-contain rounded border border-gray-200 flex-shrink-0" />
+              )}
+            </div>
+          </div>
+
+          <div>
+            <Label className="text-xs text-gray-500 mb-1 block">描述（纯文本）</Label>
+            <Textarea
+              className="text-sm resize-none"
+              rows={3}
+              value={form.description || ""}
+              onChange={e => f("description", e.target.value)}
+              placeholder="运输公司简介..."
+            />
+          </div>
+        </div>
+
+        <div className="flex gap-2 justify-end pt-1">
+          <Button variant="outline" size="sm" onClick={onClose}>取消</Button>
+          <Button
+            size="sm"
+            className="bg-blue-600 hover:bg-blue-700"
+            disabled={!form.name.trim() || saving}
+            onClick={() => onSave(form)}
+          >
+            {initial?.id ? "保存更改" : "创建"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── 主组件 ──────────────────────────────────────────────────
+export default function LocalShippingMethodManager() {
+  const [companies, setCompanies] = useState([]);
+  const [methods, setMethods] = useState([]);
+  const [settingId, setSettingId] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  // Detail panel state
+  const [activeMethod, setActiveMethod] = useState(null); // null = collapsed
+  const [formMode, setFormMode] = useState("edit"); // "edit" | "add"
+  const [form, setForm] = useState({ ...BLANK_METHOD });
+
+  // Company modal state
+  const [companyModal, setCompanyModal] = useState(null); // null | { initial }
+
+  // ── Load ─────────────────────────────────────────────────
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await base44.functions.invoke("manageLocalShipping", { action: "listAll" });
+      setCompanies(res.data.companies || []);
+      setMethods(res.data.methods || []);
+      setSettingId(res.data.settingId || null);
+    } catch (e) {
+      toast.error("加载失败: " + e.message);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  // ── Persist methods ───────────────────────────────────────
+  const persistMethods = async (updatedMethods) => {
+    setSaving(true);
+    try {
+      const res = await base44.functions.invoke("manageLocalShipping", {
+        action: "saveMethods",
+        methods: updatedMethods,
+        settingId
+      });
+      if (res.data.settingId && !settingId) setSettingId(res.data.settingId);
+      setMethods(updatedMethods);
+      toast.success("运输方式已保存");
+    } catch (e) {
+      toast.error("保存失败: " + e.message);
+    }
+    setSaving(false);
+  };
+
+  // ── Persist companies ─────────────────────────────────────
+  const persistCompany = async (company) => {
+    setSaving(true);
+    try {
+      const res = await base44.functions.invoke("manageLocalShipping", { action: "saveCompany", company });
+      const saved = res.data.company;
+      setCompanies(prev => {
+        if (prev.find(c => c.id === saved.id)) return prev.map(c => c.id === saved.id ? saved : c);
+        return [...prev, saved];
+      });
+      toast.success("运输公司已保存");
+      setCompanyModal(null);
+    } catch (e) {
+      toast.error("保存失败: " + e.message);
+    }
+    setSaving(false);
+  };
+
+  const deleteCompany = async (companyId) => {
+    if (!confirm("确认删除此运输公司？其下的运输方式将变为未分组。")) return;
+    setSaving(true);
+    try {
+      await base44.functions.invoke("manageLocalShipping", { action: "deleteCompany", companyId });
+      setCompanies(prev => prev.filter(c => c.id !== companyId));
+      // Ungroup methods under this company
+      const updated = methods.map(m => m.company_id === companyId ? { ...m, company_id: null } : m);
+      setMethods(updated);
+      await base44.functions.invoke("manageLocalShipping", { action: "saveMethods", methods: updated, settingId });
+      toast.success("运输公司已删除");
+    } catch (e) {
+      toast.error("删除失败: " + e.message);
+    }
+    setSaving(false);
+  };
+
+  // ── Detail form actions ───────────────────────────────────
+  const handleSelectMethod = (m) => {
+    setActiveMethod(m.id);
+    setForm({ ...BLANK_METHOD, ...m });
+    setFormMode("edit");
+  };
+
+  const handleAddMethod = (companyId) => {
+    setActiveMethod(null);
+    setForm({ ...BLANK_METHOD, company_id: companyId });
+    setFormMode("add");
+  };
+
+  const handleSaveForm = async () => {
     if (!form.name?.trim()) { toast.error("请填写名称"); return; }
-    onChange(form);
-    setEditing(false);
+    let updatedMethods;
+    if (formMode === "add") {
+      const created = { ...form, id: genId() };
+      updatedMethods = [...methods, created];
+    } else {
+      updatedMethods = methods.map(m => m.id === activeMethod ? { ...form } : m);
+    }
+    await persistMethods(updatedMethods);
+    setActiveMethod(null);
+    setForm({ ...BLANK_METHOD });
+  };
+
+  const handleDeleteMethod = async () => {
+    if (!activeMethod) return;
+    if (!confirm("确认删除此运输方式？")) return;
+    const updatedMethods = methods.filter(m => m.id !== activeMethod);
+    await persistMethods(updatedMethods);
+    setActiveMethod(null);
+    setForm({ ...BLANK_METHOD });
   };
 
   const handleCancel = () => {
-    setForm({ ...method });
-    setEditing(false);
+    setActiveMethod(null);
+    setForm({ ...BLANK_METHOD });
   };
+
+  const f = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
   const addPickupLocation = () => {
     f("pickup_locations", [
@@ -106,75 +295,69 @@ function MethodCard({ method, onChange, onDelete }) {
     f("pickup_locations", (form.pickup_locations || []).filter((_, i) => i !== idx));
   };
 
-  // Keep form synced when parent changes (e.g. after reload)
-  useEffect(() => {
-    if (!editing) setForm({ ...method });
-  }, [method]);
+  // ── Handle tree panel method/company changes ──────────────
+  const handleMethodsChange = (newMethods) => {
+    setMethods(newMethods);
+    // Immediate persist for tree operations
+    persistMethods(newMethods);
+  };
 
-  const pickupCount = (method.pickup_locations || []).length;
+  const handleCompaniesChange = async (newCompanies) => {
+    // Persist sort_order changes for all companies
+    setSaving(true);
+    try {
+      await Promise.all(newCompanies.map(c =>
+        base44.functions.invoke("manageLocalShipping", { action: "saveCompany", company: c })
+      ));
+      setCompanies(newCompanies);
+    } catch (e) {
+      toast.error("排序保存失败: " + e.message);
+    }
+    setSaving(false);
+  };
+
+  const isFormOpen = activeMethod !== null || formMode === "add";
+
+  if (loading) {
+    return <div className="py-8 text-center text-xs text-gray-400">加载中...</div>;
+  }
 
   return (
-    <div className={`border rounded-xl overflow-hidden ${method.is_active !== false ? "border-gray-200" : "border-gray-100 opacity-60"}`}>
-      {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3 bg-white">
-        <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center text-orange-600 text-xs font-bold flex-shrink-0">
-          {(method.name || "?")[0]}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-medium text-sm text-gray-900">{method.name}</span>
-            {method.fee_jpy > 0 && (
-              <Badge className="text-xs bg-orange-100 text-orange-700">¥{method.fee_jpy} JPY</Badge>
-            )}
-            {method.fee_jpy === 0 && (
-              <Badge className="text-xs bg-green-100 text-green-700">免费</Badge>
-            )}
-            <Badge className={`text-xs ${method.trackable ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-500"}`}>
-              {method.trackable ? "可追跡" : "不可追跡"}
-            </Badge>
-            {pickupCount > 0 && (
-              <Badge className="text-xs bg-purple-100 text-purple-700">
-                <MapPin className="w-2.5 h-2.5 mr-0.5" />{pickupCount} 个自提地点
-              </Badge>
-            )}
-          </div>
-        </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <Switch
-            checked={method.is_active !== false}
-            onCheckedChange={v => onChange({ ...method, is_active: v })}
-          />
-          <button
-            onClick={() => { setEditing(!editing); setExpanded(true); }}
-            className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-700"
-          >
-            <Edit2 className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={() => onDelete(method.id)}
-            className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-500"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={() => setExpanded(v => !v)}
-            className="p-1.5 rounded hover:bg-gray-100 text-gray-400"
-          >
-            {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-          </button>
-        </div>
+    <div className="space-y-3">
+      <div>
+        <p className="text-sm font-semibold text-gray-700">日本本地运输方式</p>
+        <p className="text-xs text-gray-400 mt-0.5">配置运输公司、宅配、自取等本地配送选项及排序分组</p>
       </div>
 
-      {/* Expanded */}
-      {expanded && (
-        <div className="border-t border-gray-100 px-4 py-4 space-y-4 bg-gray-50">
-          {editing ? (
-            <>
-              {/* 基本信息 */}
+      <div className="grid grid-cols-5 gap-4 items-start">
+        {/* ── 左侧：Detail 编辑表单 ── */}
+        <div className="col-span-2">
+          {!isFormOpen ? (
+            <div className="border border-dashed border-gray-200 rounded-xl p-6 text-center space-y-2">
+              <p className="text-xs text-gray-400">点击右侧运输方式条目进行编辑，</p>
+              <p className="text-xs text-gray-400">或点击"＋添加运输方式"新建</p>
+            </div>
+          ) : (
+            <div className="border border-orange-200 rounded-xl p-4 space-y-3 bg-orange-50">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-gray-700">
+                  {formMode === "add" ? "新增运输方式" : "编辑运输方式"}
+                </p>
+                <button onClick={handleCancel} className="text-gray-400 hover:text-gray-600">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              {/* 两列基本信息 */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-xs text-gray-500">名称 *</Label>
-                  <Input className="mt-1 h-8 text-sm" value={form.name || ""} onChange={e => f("name", e.target.value)} placeholder="宅急便" />
+                  <Input
+                    className="mt-1 h-8 text-sm"
+                    value={form.name || ""}
+                    onChange={e => f("name", e.target.value)}
+                    placeholder="宅急便"
+                  />
                 </div>
                 <div>
                   <Label className="text-xs text-gray-500">料金（JPY）</Label>
@@ -188,10 +371,16 @@ function MethodCard({ method, onChange, onDelete }) {
                 </div>
               </div>
 
-              <div className="flex items-center gap-3">
-                <Label className="text-xs text-gray-500">追跡可否</Label>
-                <Switch checked={!!form.trackable} onCheckedChange={v => f("trackable", v)} />
-                <span className="text-xs text-gray-500">{form.trackable ? "可追跡" : "不可追跡"}</span>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs text-gray-500 flex-shrink-0">追跡可否</Label>
+                  <Switch checked={!!form.trackable} onCheckedChange={v => f("trackable", v)} />
+                  <span className="text-xs text-gray-400">{form.trackable ? "可" : "否"}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs text-gray-500 flex-shrink-0">启用</Label>
+                  <Switch checked={form.is_active !== false} onCheckedChange={v => f("is_active", v)} />
+                </div>
               </div>
 
               <div>
@@ -218,7 +407,7 @@ function MethodCard({ method, onChange, onDelete }) {
                   </Button>
                 </div>
                 {(form.pickup_locations || []).length === 0 ? (
-                  <p className="text-xs text-gray-400 italic py-1">暂无自提地点，点击"添加地点"新增</p>
+                  <p className="text-xs text-gray-400 italic py-1">暂无自提地点</p>
                 ) : (
                   (form.pickup_locations || []).map((loc, idx) => (
                     <PickupLocationRow
@@ -231,193 +420,57 @@ function MethodCard({ method, onChange, onDelete }) {
                 )}
               </div>
 
-              <div className="flex gap-2 justify-end pt-1">
-                <Button variant="outline" size="sm" onClick={handleCancel}>取消</Button>
-                <Button size="sm" className="bg-red-600 hover:bg-red-700" onClick={handleSave}>
-                  <Save className="w-3 h-3 mr-1" />保存
-                </Button>
-              </div>
-            </>
-          ) : (
-            // Read-only view
-            <div className="space-y-2 text-sm text-gray-700">
-              {method.description && (
-                <p className="text-gray-600 text-xs whitespace-pre-wrap">{method.description}</p>
-              )}
-              {pickupCount > 0 && (
-                <div>
-                  <p className="text-xs font-medium text-gray-500 mb-1.5">自提地点（{pickupCount}）</p>
-                  <div className="space-y-1.5">
-                    {(method.pickup_locations || []).map((loc, i) => (
-                      <div key={i} className="flex items-center gap-2 text-xs bg-white border border-gray-100 rounded-lg px-3 py-2">
-                        <MapPin className="w-3 h-3 text-purple-400 flex-shrink-0" />
-                        <span className="font-medium text-gray-700">{loc.name}</span>
-                        {loc.fee_jpy > 0
-                          ? <Badge className="text-xs bg-orange-100 text-orange-700 ml-auto">¥{loc.fee_jpy}</Badge>
-                          : <Badge className="text-xs bg-green-100 text-green-700 ml-auto">免费</Badge>
-                        }
-                      </div>
-                    ))}
-                  </div>
+              <div className="flex gap-2 justify-between pt-1">
+                {formMode === "edit" && (
+                  <button
+                    className="text-xs text-red-400 hover:text-red-600 flex items-center gap-1"
+                    onClick={handleDeleteMethod}
+                  >
+                    <Trash2 className="w-3 h-3" />删除
+                  </button>
+                )}
+                <div className="flex gap-2 ml-auto">
+                  <Button variant="outline" size="sm" onClick={handleCancel}>取消</Button>
+                  <Button
+                    size="sm"
+                    className="bg-red-600 hover:bg-red-700"
+                    onClick={handleSaveForm}
+                    disabled={saving}
+                  >
+                    <Save className="w-3 h-3 mr-1" />保存
+                  </Button>
                 </div>
-              )}
+              </div>
             </div>
           )}
         </div>
-      )}
-    </div>
-  );
-}
 
-// ─── 主组件 ──────────────────────────────────────────────────
-const SETTING_KEY = "local_shipping_methods_config";
-
-export default function LocalShippingMethodManager({ settings = [], onReload }) {
-  const [methods, setMethods] = useState([]);
-  const [settingId, setSettingId] = useState(null);
-  const [saving, setSaving] = useState(false);
-  const [showAdd, setShowAdd] = useState(false);
-  const [newForm, setNewForm] = useState({ name: "", trackable: false, fee_jpy: 0, description: "", description_images: [], pickup_locations: [] });
-
-  // Load from settings prop
-  useEffect(() => {
-    const s = settings.find(x => x.key === SETTING_KEY);
-    if (s) {
-      setSettingId(s.id);
-      try {
-        const parsed = JSON.parse(s.value);
-        if (Array.isArray(parsed)) setMethods(parsed);
-      } catch { setMethods([]); }
-    } else {
-      setSettingId(null);
-      setMethods([]);
-    }
-  }, [settings]);
-
-  const persist = async (updated) => {
-    setSaving(true);
-    const value = JSON.stringify(updated);
-    try {
-      if (settingId) {
-        await tenantEntity.update('SiteSettings', settingId, { value });
-      } else {
-        const created = await tenantEntity.create('SiteSettings', {
-          key: SETTING_KEY,
-          value,
-          description: '日本本地运输方式配置（JSON）',
-          category: 'shipping'
-        });
-        setSettingId(created.id);
-      }
-      setMethods(updated);
-      toast.success("保存成功");
-    } catch {
-      toast.error("保存失败，请重试");
-    }
-    setSaving(false);
-  };
-
-  const handleChange = (updated) => {
-    const next = methods.map(m => m.id === updated.id ? updated : m);
-    persist(next);
-  };
-
-  const handleDelete = (id) => {
-    if (!confirm("确认删除此本地运输方式？")) return;
-    persist(methods.filter(m => m.id !== id));
-  };
-
-  const handleAddNew = () => {
-    if (!newForm.name?.trim()) { toast.error("请填写名称"); return; }
-    const created = { ...newForm, id: genId() };
-    persist([...methods, created]);
-    setNewForm({ name: "", trackable: false, fee_jpy: 0, description: "", description_images: [], pickup_locations: [] });
-    setShowAdd(false);
-  };
-
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-semibold text-gray-700">日本本地运输方式</p>
-          <p className="text-xs text-gray-400 mt-0.5">配置宅配、自取等本地配送选项，可在自提地点设置多个自取点</p>
+        {/* ── 右侧：Master 树状面板 ── */}
+        <div className="col-span-3">
+          <ShippingCompanyTreePanel
+            companies={companies}
+            methods={methods}
+            activeMethodId={activeMethod}
+            onSelectMethod={handleSelectMethod}
+            onAddCompany={() => setCompanyModal({ initial: { ...BLANK_COMPANY } })}
+            onEditCompany={(company) => setCompanyModal({ initial: { ...company } })}
+            onDeleteCompany={deleteCompany}
+            onAddMethod={handleAddMethod}
+            onMethodsChange={handleMethodsChange}
+            onCompaniesChange={handleCompaniesChange}
+          />
         </div>
-        <Button size="sm" variant="outline" onClick={() => setShowAdd(v => !v)}>
-          <Plus className="w-3.5 h-3.5 mr-1.5" />添加本地运输方式
-        </Button>
       </div>
 
-      {/* 新增表单 */}
-      {showAdd && (
-        <div className="border border-dashed border-orange-300 rounded-xl p-4 space-y-3 bg-orange-50">
-          <p className="text-xs font-medium text-gray-600">新增本地运输方式</p>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-xs text-gray-500">名称 *</Label>
-              <Input
-                className="mt-1 h-8 text-sm"
-                value={newForm.name}
-                onChange={e => setNewForm(p => ({ ...p, name: e.target.value }))}
-                placeholder="宅急便"
-              />
-            </div>
-            <div>
-              <Label className="text-xs text-gray-500">料金（JPY）</Label>
-              <Input
-                type="number"
-                className="mt-1 h-8 text-sm"
-                value={newForm.fee_jpy === 0 ? "" : newForm.fee_jpy}
-                onChange={e => setNewForm(p => ({ ...p, fee_jpy: e.target.value === "" ? 0 : parseFloat(e.target.value) || 0 }))}
-                placeholder="0"
-              />
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <Label className="text-xs text-gray-500">追跡可否</Label>
-            <Switch
-              checked={newForm.trackable}
-              onCheckedChange={v => setNewForm(p => ({ ...p, trackable: v }))}
-            />
-            <span className="text-xs text-gray-500">{newForm.trackable ? "可追跡" : "不可追跡"}</span>
-          </div>
-          <div>
-            <Label className="text-xs text-gray-500 mb-1 block">描述（可添加图片）</Label>
-            <RichTextInput
-              value={newForm.description}
-              onChange={v => setNewForm(p => ({ ...p, description: v }))}
-              imageUrls={newForm.description_images}
-              onImageUrls={urls => setNewForm(p => ({ ...p, description_images: urls }))}
-              placeholder="运输方式说明..."
-              rows={2}
-              maxImages={3}
-            />
-          </div>
-          <div className="flex gap-2 justify-end">
-            <Button variant="outline" size="sm" onClick={() => setShowAdd(false)}>取消</Button>
-            <Button
-              size="sm"
-              className="bg-red-600 hover:bg-red-700"
-              onClick={handleAddNew}
-              disabled={!newForm.name.trim() || saving}
-            >
-              添加
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {methods.length === 0 && !showAdd && (
-        <p className="text-xs text-gray-400 italic py-3 text-center">暂无本地运输方式，点击"添加"新增</p>
-      )}
-
-      {methods.map(m => (
-        <MethodCard
-          key={m.id}
-          method={m}
-          onChange={handleChange}
-          onDelete={handleDelete}
+      {/* 运输公司 Modal */}
+      {companyModal && (
+        <CompanyFormModal
+          initial={companyModal.initial}
+          onSave={persistCompany}
+          onClose={() => setCompanyModal(null)}
+          saving={saving}
         />
-      ))}
+      )}
     </div>
   );
 }
