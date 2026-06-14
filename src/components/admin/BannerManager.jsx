@@ -30,6 +30,7 @@ function SingleImageEditor({ img, onUpdate, onPatch, onDelete }) {
           brightness={img.brightness ?? 100}
           overlayColor={img.overlayColor || "#000000"}
           overlayOpacity={img.overlayOpacity ?? 0}
+          showHeightPreview
           onChange={patch => { onPatch(img.id, patch); setEditOpen(false); }}
           onClose={() => setEditOpen(false)}
         />
@@ -170,6 +171,7 @@ export default function BannerManager({ settings, onReload }) {
           overlayColor="#000000"
           overlayOpacity={0}
           aspect={4}
+          showHeightPreview
           onChange={handleNewImageConfirm}
           onClose={() => setPendingNewFileSrc(null)}
         />

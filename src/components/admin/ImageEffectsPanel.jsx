@@ -27,6 +27,42 @@ const ASPECT_PRESETS = [
   { label: "9:16", value: 9 / 16 },
 ];
 
+// ─── Banner 高度预览覆层 ────────────────────────────────────
+// 对应 BannerDisplay 的 HEIGHT_PX: small=80, medium=160, large=260
+const BANNER_HEIGHT_RATIOS = [
+  { label: "小", ratio: 80 / 260,  color: "#f59e0b" }, // amber
+  { label: "中", ratio: 160 / 260, color: "#3b82f6" }, // blue
+];
+
+function BannerHeightOverlay({ completedCrop }) {
+  const { x, y, width, height } = completedCrop;
+  return (
+    <>
+      {/* 大 — 实际裁切框标签（贴在选框右上角） */}
+      <div
+        className="pointer-events-none"
+        style={{ position: "absolute", left: x + width, top: y, zIndex: 100, transform: "translateX(-100%)" }}
+      >
+        <span style={{ background: "#22c55e", color: "#fff", fontSize: 10, padding: "1px 5px", borderRadius: "0 0 0 3px", lineHeight: "16px", display: "inline-block", fontWeight: 700 }}>大</span>
+      </div>
+      {/* 小 / 中 预览框 */}
+      {BANNER_HEIGHT_RATIOS.map(({ label, ratio, color }) => {
+        const h = height * ratio;
+        const topY = y + (height - h) / 2;
+        return (
+          <div
+            key={label}
+            className="pointer-events-none"
+            style={{ position: "absolute", left: x, top: topY, width, height: h, border: `2px dashed ${color}`, zIndex: 90, boxSizing: "border-box" }}
+          >
+            <span style={{ position: "absolute", right: 0, top: 0, background: color, color: "#fff", fontSize: 10, padding: "1px 5px", borderRadius: "0 0 0 3px", lineHeight: "16px", fontWeight: 700 }}>{label}</span>
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
 // ─── SliderField ───────────────────────────────────────────
 export function SliderField({ label, value, min, max, unit, onChange }) {
   return (
@@ -73,6 +109,7 @@ export function ImageEditModal({
   onChange,
   onClose,
   aspect,
+  showHeightPreview = false,
 }) {
   const fileInputRef = useRef();
   const imgRef = useRef();
@@ -240,29 +277,34 @@ export function ImageEditModal({
               <>
                 {/* 裁切 Tab：ReactCrop 显示，效果 Tab：隐藏但保持 imgRef 有效以便 handleApply 读取坐标 */}
                 <div className={`w-full h-full overflow-hidden flex items-center justify-center select-none ${tab !== "crop" ? "hidden" : ""}`}>
-                  <ReactCrop
-                    crop={crop}
-                    onChange={(px, pct) => setCrop(pct)}
-                    onComplete={(px) => {
-                      setCompletedCrop(px);
-                      if (imgRef.current) {
-                        cropImgSizeRef.current = { width: imgRef.current.width, height: imgRef.current.height };
-                      }
-                    }}
-                    aspect={currentAspect}
-                    minWidth={20}
-                    minHeight={20}
-                  >
-                    <img
-                      ref={imgRef}
-                      src={sourceImageUrl.startsWith("blob:") ? sourceImageUrl : `${sourceImageUrl}${sourceImageUrl.includes("?") ? "&" : "?"}cb=${cbRef.current}`}
-                      crossOrigin="anonymous"
-                      onLoad={onImageLoad}
-                      style={{ maxWidth: "480px", maxHeight: "55vh", display: "block" }}
-                      alt="crop"
-                      draggable={false}
-                    />
-                  </ReactCrop>
+                  <div className="relative">
+                    <ReactCrop
+                      crop={crop}
+                      onChange={(px, pct) => setCrop(pct)}
+                      onComplete={(px) => {
+                        setCompletedCrop(px);
+                        if (imgRef.current) {
+                          cropImgSizeRef.current = { width: imgRef.current.width, height: imgRef.current.height };
+                        }
+                      }}
+                      aspect={currentAspect}
+                      minWidth={20}
+                      minHeight={20}
+                    >
+                      <img
+                        ref={imgRef}
+                        src={sourceImageUrl.startsWith("blob:") ? sourceImageUrl : `${sourceImageUrl}${sourceImageUrl.includes("?") ? "&" : "?"}cb=${cbRef.current}`}
+                        crossOrigin="anonymous"
+                        onLoad={onImageLoad}
+                        style={{ maxWidth: "480px", maxHeight: "55vh", display: "block" }}
+                        alt="crop"
+                        draggable={false}
+                      />
+                    </ReactCrop>
+                    {showHeightPreview && completedCrop && completedCrop.width > 0 && (
+                      <BannerHeightOverlay completedCrop={completedCrop} />
+                    )}
+                  </div>
                 </div>
 
                 {/* 效果预览：显示裁切后区域（或原图）的完整图片叠加效果 */}
