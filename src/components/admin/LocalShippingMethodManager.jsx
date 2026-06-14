@@ -181,7 +181,7 @@ function MethodCard({ method, onChange, onDelete }) {
                   <Input
                     type="number"
                     className="mt-1 h-8 text-sm"
-                    value={form.fee_jpy ?? ""}
+                    value={form.fee_jpy === 0 ? "" : (form.fee_jpy ?? "")}
                     onChange={e => f("fee_jpy", e.target.value === "" ? 0 : parseFloat(e.target.value) || 0)}
                     placeholder="0"
                   />
@@ -366,8 +366,8 @@ export default function LocalShippingMethodManager({ settings = [], onReload }) 
               <Input
                 type="number"
                 className="mt-1 h-8 text-sm"
-                value={newForm.fee_jpy}
-                onChange={e => setNewForm(p => ({ ...p, fee_jpy: parseFloat(e.target.value) || 0 }))}
+                value={newForm.fee_jpy === 0 ? "" : newForm.fee_jpy}
+                onChange={e => setNewForm(p => ({ ...p, fee_jpy: e.target.value === "" ? 0 : parseFloat(e.target.value) || 0 }))}
                 placeholder="0"
               />
             </div>
