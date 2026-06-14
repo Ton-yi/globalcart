@@ -293,9 +293,9 @@ function AudiencePanel({ form, onChange, categories }) {
   return (
     <div className="space-y-4">
       {/* Visibility */}
-      <div className="flex items-center gap-2 cursor-pointer" onClick={() => f("visible", !form.visible)}>
-        <Checkbox checked={!!form.visible} onCheckedChange={v => f("visible", !!v)} />
-        <span className="text-xs text-gray-600 select-none">显示此区块</span>
+      <div className="flex items-center gap-2">
+        <Checkbox id="visible-check" checked={!!form.visible} onCheckedChange={v => f("visible", !!v)} />
+        <label htmlFor="visible-check" className="text-xs text-gray-600 select-none cursor-pointer">显示此区块</label>
       </div>
 
       {form.visible && (
@@ -390,11 +390,11 @@ export default function StepsSectionManager({ settings, onReload }) {
         </div>
         <p className="text-xs text-gray-400 mt-1">为不同受众配置代购流程区块，支持多区块、增删卡片、调整顺序。</p>
 
-        <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-100 cursor-pointer" onClick={() => toggleUnified(!form.unified)}>
-          <Checkbox checked={!!form.unified} onCheckedChange={toggleUnified} />
-          <span className="text-xs text-gray-600 select-none">
+        <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-100">
+          <Checkbox id="unified-check" checked={!!form.unified} onCheckedChange={toggleUnified} />
+          <label htmlFor="unified-check" className="text-xs text-gray-600 select-none cursor-pointer">
             所有用户显示同一套配置（不区分登录状态与角色）
-          </span>
+          </label>
         </div>
       </CardHeader>
 
