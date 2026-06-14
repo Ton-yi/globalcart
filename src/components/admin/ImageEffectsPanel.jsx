@@ -87,6 +87,8 @@ export function ImageEditModal({
   // 预裁切状态（仅预选，不上传）
   const [crop, setCrop] = useState();
   const [completedCrop, setCompletedCrop] = useState();
+  // 缓存 completedCrop 时图片的显示尺寸，防止 hidden 后 DOM 尺寸归零
+  const cropImgSizeRef = useRef({ width: 0, height: 0 });
 
   // 效果 Tab 用于预览的裁切后 dataURL（纯展示，不上传）
   const [previewDataUrl, setPreviewDataUrl] = useState(null);
@@ -102,10 +104,12 @@ export function ImageEditModal({
   const currentAspect = aspect != null ? aspect : ASPECT_PRESETS[presetIdx].value;
   const patch = (p) => setLocal(prev => ({ ...prev, ...p }));
 
-  // 切换到效果 Tab 时，实时生成裁切预览
+  // 切换到效果 Tab 时，实时生成裁切预览（此时 img 还可见，尺寸正确）
   const handleSwitchToEffect = useCallback(() => {
     const img = imgRef.current;
     if (img && completedCrop && completedCrop.width > 0) {
+      // 同步缓存当前显示尺寸
+      cropImgSizeRef.current = { width: img.width, height: img.height };
       const dataUrl = getCroppedDataUrl(img, completedCrop);
       if (dataUrl) setPreviewDataUrl(dataUrl);
       else setPreviewDataUrl(null);
@@ -183,8 +187,11 @@ export function ImageEditModal({
     // 如果有有效裁切选区，上传裁切后图片；否则直接用原图
     if (image && completedCrop && completedCrop.width > 0 && completedCrop.height > 0) {
       setUploading(true);
-      const toNatX = image.naturalWidth  / image.width;
-      const toNatY = image.naturalHeight / image.height;
+      // 使用缓存的显示尺寸（防止 hidden 后 DOM 尺寸变为 0）
+      const displayW = cropImgSizeRef.current.width || image.width;
+      const displayH = cropImgSizeRef.current.height || image.height;
+      const toNatX = image.naturalWidth  / displayW;
+      const toNatY = image.naturalHeight / displayH;
       const srcX = completedCrop.x * toNatX;
       const srcY = completedCrop.y * toNatY;
       const srcW = completedCrop.width  * toNatX;
@@ -236,7 +243,12 @@ export function ImageEditModal({
                   <ReactCrop
                     crop={crop}
                     onChange={(px, pct) => setCrop(pct)}
-                    onComplete={(px) => setCompletedCrop(px)}
+                    onComplete={(px) => {
+                      setCompletedCrop(px);
+                      if (imgRef.current) {
+                        cropImgSizeRef.current = { width: imgRef.current.width, height: imgRef.current.height };
+                      }
+                    }}
                     aspect={currentAspect}
                     minWidth={20}
                     minHeight={20}
