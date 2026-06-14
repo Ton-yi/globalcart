@@ -4,10 +4,11 @@
  * Alipay: auto-generates signed link, user clicks pay, callback updates status automatically.
  * Other: upload proof manually.
  */
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { X, CreditCard, ExternalLink, CheckCircle, Loader2, Upload, Lock } from "lucide-react";
+import { X, CreditCard, ExternalLink, CheckCircle, Loader2, Lock } from "lucide-react";
+import FileDropzone from "@/components/common/FileDropzone";
 import { base44 } from "@/api/base44Client";
 import { usePermissions } from "@/hooks/usePermissions";
 import { updateOrder } from "@/lib/tenantApi";
@@ -148,7 +149,6 @@ export default function PaymentModal({ order, mode = "prepay", onClose, onSucces
   const [proofUrl, setProofUrl] = useState("");
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const fileInputRef = useRef(null);
 
   const handleGenerateAlipay = async () => {
     setGenerating(true);
@@ -400,44 +400,13 @@ export default function PaymentModal({ order, mode = "prepay", onClose, onSucces
               )}
               <div>
                 <Label className="text-sm">上传付款凭证（上传后自动提交）</Label>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={e => { const f = e.target.files[0]; if (f) handleProofUploaded(f); e.target.value = ""; }}
-                  disabled={uploading || submitting}
-                />
-                <div
-                  className={`mt-1 flex flex-col items-center gap-1.5 px-3 py-5 border-2 border-dashed rounded-lg text-sm transition-colors cursor-pointer ${
-                    proofUrl ? "border-green-300 bg-green-50 text-green-700" :
-                    uploading ? "border-blue-200 bg-blue-50 text-blue-500" :
-                    "border-gray-200 text-gray-400 hover:border-blue-300 hover:text-blue-500"
-                  }`}
-                  onClick={() => { if (!uploading && !submitting) fileInputRef.current?.click(); }}
-                  onDragOver={e => e.preventDefault()}
-                  onDrop={e => {
-                    e.preventDefault();
-                    const file = e.dataTransfer.files[0];
-                    if (file && file.type.startsWith("image/")) handleProofUploaded(file);
-                  }}
-                >
-                  {proofUrl
-                    ? <><CheckCircle className="w-5 h-5" /><span>凭证已上传，正在提交...</span></>
-                    : uploading
-                    ? <><Loader2 className="w-5 h-5 animate-spin" /><span>上传中...</span></>
-                    : <><Upload className="w-5 h-5" /><span>点击选择图片或拖拽到此处</span></>}
-                </div>
-                <input
-                  type="text"
-                  placeholder="或点击此处后粘贴截图（Ctrl+V / ⌘V）"
-                  className="w-full h-9 px-3 mt-2 text-xs border border-gray-300 rounded-md bg-white text-gray-500 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400 transition-colors"
-                  disabled={uploading || submitting}
-                  onPaste={e => {
-                    const item = Array.from(e.clipboardData.items).find(i => i.type.startsWith("image/"));
-                    if (item) { e.preventDefault(); const f = item.getAsFile(); if (f) handleProofUploaded(f); }
-                  }}
-                  readOnly
+                <FileDropzone
+                  className="mt-1"
+                  onFile={handleProofUploaded}
+                  uploading={uploading || submitting}
+                  uploaded={!!proofUrl}
+                  label="凭证已上传，正在提交..."
+                  placeholder="点击选择图片或拖拽到此处"
                 />
               </div>
             </div>

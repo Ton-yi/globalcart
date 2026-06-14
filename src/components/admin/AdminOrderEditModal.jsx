@@ -8,7 +8,8 @@ import ReactMarkdown from "react-markdown";
 import { base44 } from "@/api/base44Client";
 import { updateOrder, tenantEntity } from "@/lib/tenantApi";
 import { usePermissions } from "@/hooks/usePermissions";
-import { X, ExternalLink, Copy, Loader2, CheckCircle, Upload, AlertTriangle, MessageCircle, Package, Send, Layers, Scissors, GitBranch, GitPullRequest, Lock, Zap } from "lucide-react";
+import { X, ExternalLink, Copy, Loader2, CheckCircle, AlertTriangle, MessageCircle, Package, Send, Layers, Scissors, GitBranch, GitPullRequest, Lock, Zap } from "lucide-react";
+import FileDropzone from "@/components/common/FileDropzone";
 import { ImageWithViewer } from "@/components/common/ImageViewer";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -598,27 +599,15 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
                 <div className="space-y-3 border border-indigo-100 rounded-xl p-3 bg-indigo-50">
                   <div className="text-sm font-medium text-indigo-800">待下单 — 完成购买后上传截图</div>
                   <div className="space-y-2">
-                    <label
-                      className="cursor-pointer block"
-                      onDragOver={e => e.preventDefault()}
-                      onDrop={e => {
-                        e.preventDefault();
-                        const file = e.dataTransfer.files[0];
-                        if (file && file.type.startsWith("image/")) uploadFile(file, setPurchaseScreenshot, setUploadingScreenshot);
-                      }}
-                    >
-                      <div className={`flex items-center justify-center gap-2 border-2 border-dashed rounded-lg p-3 text-sm transition-colors ${
-                        purchaseScreenshot ? "border-green-300 bg-green-50 text-green-700" : uploadingScreenshot ? "border-blue-200 bg-blue-50 text-blue-500" : "border-indigo-200 bg-white text-gray-400 hover:border-indigo-400"
-                      }`}>
-                        {purchaseScreenshot
-                          ? <><CheckCircle className="w-4 h-4" />截图已上传，点击或拖拽可更换</>
-                          : uploadingScreenshot
-                          ? <><Loader2 className="w-4 h-4 animate-spin" />上传中...</>
-                          : <><Upload className="w-4 h-4" />点击或拖拽上传购买截图（可选）</>}
-                      </div>
-                      <input type="file" accept="image/*" className="hidden"
-                        onChange={e => uploadFile(e.target.files[0], setPurchaseScreenshot, setUploadingScreenshot)} />
-                    </label>
+                    <FileDropzone
+                      onFile={f => uploadFile(f, setPurchaseScreenshot, setUploadingScreenshot)}
+                      uploading={uploadingScreenshot}
+                      uploaded={!!purchaseScreenshot}
+                      label="截图已上传，点击或拖拽可更换"
+                      placeholder="点击或拖拽上传购买截图（可选）"
+                      borderColor="border-indigo-200"
+                      pasteHint={false}
+                    />
                     <div>
                       <Label className="text-xs text-gray-500">或粘贴截图 URL</Label>
                       <Input
@@ -691,29 +680,14 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
                 <div className="space-y-3 border border-teal-100 rounded-xl p-3 bg-teal-50">
                   <div className="text-sm font-medium text-teal-800">已下单 — 到货后入库</div>
                   <div className="space-y-2">
-                    <label
-                      className="cursor-pointer block"
-                      onDragOver={e => e.preventDefault()}
-                      onDrop={e => {
-                        e.preventDefault();
-                        const file = e.dataTransfer.files[0];
-                        if (file && file.type.startsWith("image/")) uploadFile(file, setArrivalPhoto, setUploadingArrival);
-                      }}
-                    >
-                      <div className={`flex flex-col items-center justify-center gap-1.5 border-2 border-dashed rounded-lg p-3 text-sm transition-colors ${
-                        arrivalPhoto ? "border-green-300 bg-green-50 text-green-700" :
-                        uploadingArrival ? "border-blue-200 bg-blue-50 text-blue-500" :
-                        "border-teal-200 bg-white text-gray-400 hover:border-teal-400 hover:text-teal-600"
-                      }`}>
-                        {arrivalPhoto
-                          ? <><CheckCircle className="w-4 h-4" /><span>到货图片已上传，点击或拖拽可更换</span></>
-                          : uploadingArrival
-                          ? <><Loader2 className="w-4 h-4 animate-spin" /><span>上传中...</span></>
-                          : <><Upload className="w-4 h-4" /><span>点击选择或拖拽图片至此处</span></>}
-                      </div>
-                      <input type="file" accept="image/*" className="hidden"
-                        onChange={e => uploadFile(e.target.files[0], setArrivalPhoto, setUploadingArrival)} />
-                    </label>
+                    <FileDropzone
+                      onFile={f => uploadFile(f, setArrivalPhoto, setUploadingArrival)}
+                      uploading={uploadingArrival}
+                      uploaded={!!arrivalPhoto}
+                      label="到货图片已上传，点击或拖拽可更换"
+                      borderColor="border-teal-200"
+                      pasteHint={false}
+                    />
                     <div>
                       <Label className="text-xs text-gray-500">或粘贴图片 URL</Label>
                       <Input
