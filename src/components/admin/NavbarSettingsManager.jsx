@@ -89,7 +89,7 @@ export default function NavbarSettingsManager({ group, tree, onChange }) {
               <ArrowDown className="w-3.5 h-3.5" />
             </Button>
             <Button variant="ghost" size="icon" className="h-7 w-7" title="设为上一项的子级"
-              disabled={i === 0 || depth + subtreeDepth(node) > 3}
+              disabled={i === 0 || (depth + subtreeDepth(node)) > 3}
               onClick={() => indent(path)}>
               <IndentIncrease className="w-3.5 h-3.5" />
             </Button>

@@ -121,25 +121,26 @@ export default function NavbarExchangeRateManager({ settings, onReload }) {
 
   const handleSave = async () => {
     setSaving(true);
-    const value = JSON.stringify(form);
-
-    // 直接从后端查最新记录，避免 settings props 过时或重复 key 导致错误
-    const existingList = await tenantEntity.list("SiteSettings", { key: "navbar_exchange_rate_config" });
-    const existing = existingList?.[0];
-    if (existing?.id) {
-      await tenantEntity.update("SiteSettings", existing.id, { value });
-    } else {
-      await tenantEntity.create("SiteSettings", {
-        key: "navbar_exchange_rate_config",
-        value,
-        description: "导航栏汇率显示配置（JSON）",
-        category: "general",
-      });
+    try {
+      const value = JSON.stringify(form);
+      const existingList = await tenantEntity.list("SiteSettings", { key: "navbar_exchange_rate_config" });
+      const existing = existingList?.[0];
+      if (existing?.id) {
+        await tenantEntity.update("SiteSettings", existing.id, { value });
+      } else {
+        await tenantEntity.create("SiteSettings", {
+          key: "navbar_exchange_rate_config",
+          value,
+          description: "导航栏汇率显示配置（JSON）",
+          category: "general",
+        });
+      }
+      if (onReload) await onReload();
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } finally {
+      setSaving(false);
     }
-    if (onReload) await onReload();
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
   };
 
   return (
@@ -160,8 +161,8 @@ export default function NavbarExchangeRateManager({ settings, onReload }) {
       <CardContent className="space-y-5">
         {/* 总开关 */}
         <div className="flex items-center gap-2">
-          <Switch checked={!!form.enabled} onCheckedChange={v => setForm(p => ({ ...p, enabled: !!v }))} />
-          <Label className="text-sm cursor-pointer select-none" onClick={() => setForm(p => ({ ...p, enabled: !p.enabled }))}>启用导航栏汇率显示</Label>
+          <Switch id="navbar-rate-enable-switch" checked={!!form.enabled} onCheckedChange={v => setForm(p => ({ ...p, enabled: !!v }))} />
+          <Label className="text-sm cursor-pointer select-none" htmlFor="navbar-rate-enable-switch">启用导航栏汇率显示</Label>
         </div>
 
         {form.enabled && (

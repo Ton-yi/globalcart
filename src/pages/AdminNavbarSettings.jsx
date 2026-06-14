@@ -55,8 +55,9 @@ export default function AdminNavbarSettings() {
       }
     } catch (e) {
       toast.error(e.response?.data?.error || e.message);
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
   const handleReset = (group) => {
