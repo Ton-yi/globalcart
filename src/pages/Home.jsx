@@ -113,6 +113,7 @@ export default function Home() {
   const rateEnabled = rc?.enabled && rc?.currencies?.length > 0;
   const rateCurrencies = rc?.currencies || [];
   const ratePos = rc?.position || "hero_right";
+  const rateUnit = rc?.unit ?? 100;
 
   return (
     <div className="space-y-8">
@@ -123,7 +124,7 @@ export default function Home() {
         tenant={tenant}
         ratePosition={ratePos}
         rateOverlay={rateEnabled && (ratePos === "hero_left" || ratePos === "hero_right") ? (
-          <ExchangeRateWidget currencies={rateCurrencies} heroOverlay textColor={rc?.textColor || ""} />
+          <ExchangeRateWidget currencies={rateCurrencies} heroOverlay textColor={rc?.textColor || ""} unit={rateUnit} />
         ) : null}
       />
 
@@ -131,7 +132,7 @@ export default function Home() {
       {quickActions && (Array.isArray(quickActions) ? quickActions.length > 0 : Object.keys(quickActions).length > 0) && (
         <div>
           {rateEnabled && ratePos === "quick_actions" && (
-            <div className="mb-2"><ExchangeRateWidget currencies={rateCurrencies} compact /></div>
+            <div className="mb-2"><ExchangeRateWidget currencies={rateCurrencies} compact unit={rateUnit} /></div>
           )}
           <QuickActionsGrid actions={quickActions} userRole={user?.role} />
         </div>
@@ -144,7 +145,7 @@ export default function Home() {
             <div className="flex items-center gap-3 mb-3">
               <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">{section.heading}</h2>
               {rateEnabled && ratePos === "steps_title" && si === 0 && (
-                <ExchangeRateWidget currencies={rateCurrencies} compact />
+                <ExchangeRateWidget currencies={rateCurrencies} compact unit={rateUnit} />
               )}
             </div>
           )}
@@ -175,7 +176,7 @@ export default function Home() {
       {user && recentOrders.length > 0 && (
         <div>
           {rateEnabled && ratePos === "status_board" && (
-            <div className="mb-2"><ExchangeRateWidget currencies={rateCurrencies} compact /></div>
+            <div className="mb-2"><ExchangeRateWidget currencies={rateCurrencies} compact unit={rateUnit} /></div>
           )}
           <LogisticsStatusBoard orders={recentOrders} boardConfig={boardConfig} />
         </div>
@@ -186,7 +187,7 @@ export default function Home() {
       {rateEnabled && ratePos === "faq" && (
         <div className="space-y-2">
           <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">实时汇率参考</h2>
-          <ExchangeRateWidget currencies={rateCurrencies} faqMode />
+          <ExchangeRateWidget currencies={rateCurrencies} faqMode unit={rateUnit} />
         </div>
       )}
     </div>

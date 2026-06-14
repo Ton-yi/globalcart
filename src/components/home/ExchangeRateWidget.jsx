@@ -16,12 +16,13 @@ const CURRENCY_LABELS = {
   AUD: "澳元", CAD: "加元", THB: "泰铢", MYR: "林吉特",
 };
 
-// 格式化金额：KRW等无小数，其他保留2位
-function fmt(value, code) {
+// 格式化金额：KRW等无小数，其他保留2位；unit 为比例单位（默认100）
+function fmt(value, code, unit = 100) {
   if (!value) return "---";
   const noDecimal = ["KRW", "IDR", "VND"];
-  if (noDecimal.includes(code)) return Math.round(value * 100).toLocaleString();
-  return (value * 100).toFixed(2);
+  const amount = value * unit;
+  if (noDecimal.includes(code)) return Math.round(amount).toLocaleString();
+  return amount.toFixed(2);
 }
 
 let _rateCache = null;
@@ -41,7 +42,7 @@ async function fetchRates() {
   return _rateCache;
 }
 
-export default function ExchangeRateWidget({ currencies = [], compact = false, faqMode = false, heroOverlay = false, textColor = "" }) {
+export default function ExchangeRateWidget({ currencies = [], compact = false, faqMode = false, heroOverlay = false, textColor = "", unit = 100 }) {
   const [rates, setRates] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -67,7 +68,6 @@ export default function ExchangeRateWidget({ currencies = [], compact = false, f
       <div className="space-y-3">
         {currencies.map(code => {
           const val = rates?.[`jpy_${code.toLowerCase()}`] ?? rates?.[code];
-          const display = fmt(val, code);
           const label = CURRENCY_LABELS[code] || code;
           return (
             <div key={code} className="border border-gray-100 rounded-lg overflow-hidden">
@@ -76,7 +76,7 @@ export default function ExchangeRateWidget({ currencies = [], compact = false, f
                 现在日元兑{label}（{code}）的汇率是多少？
               </div>
               <div className="px-4 py-2.5 text-sm text-gray-600">
-                当前汇率：<span className="font-bold text-emerald-700">100 日元 ≈ {display} {code}</span>
+                当前汇率：<span className="font-bold text-emerald-700">{fmt(val, code, unit)} {code}</span>
                 <span className="text-xs text-gray-400 ml-2">（含服务增量，实时更新）</span>
               </div>
             </div>
@@ -95,7 +95,7 @@ export default function ExchangeRateWidget({ currencies = [], compact = false, f
           return (
             <span key={code} className="inline-flex items-center gap-1 text-xs bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-full px-2.5 py-1 font-medium whitespace-nowrap">
               <TrendingUp className="w-3 h-3" />
-              100 JPY ≈ <span className="font-bold">{fmt(val, code)}</span> {code}
+              <span className="font-bold">{fmt(val, code, unit)}</span> {code}
             </span>
           );
         })}
@@ -116,7 +116,7 @@ export default function ExchangeRateWidget({ currencies = [], compact = false, f
               <TrendingUp className="w-3 h-3 flex-shrink-0" style={{ color }} />
               <span className="text-xs whitespace-nowrap" style={{ color, opacity: 0.85 }}>{label}</span>
               <span className="text-sm font-bold ml-auto whitespace-nowrap" style={{ color }}>
-                {fmt(val, code)} {code}
+                {fmt(val, code, unit)} {code}
               </span>
             </div>
           );
@@ -136,7 +136,7 @@ export default function ExchangeRateWidget({ currencies = [], compact = false, f
             <TrendingUp className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
             <span className="text-xs text-gray-500 whitespace-nowrap">{label}</span>
             <span className="text-sm font-bold text-emerald-700 ml-auto whitespace-nowrap">
-              100 JPY = {fmt(val, code)} {code}
+              {fmt(val, code, unit)} {code}
             </span>
           </div>
         );

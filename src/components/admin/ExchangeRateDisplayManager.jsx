@@ -49,6 +49,7 @@ const DEFAULT_CONFIG = {
   currencies: ["CNY", "USD"],
   position: "hero_right",
   textColor: "",
+  unit: 100,
 };
 
 export default function ExchangeRateDisplayManager({ settings, onReload }) {
@@ -188,6 +189,24 @@ export default function ExchangeRateDisplayManager({ settings, onReload }) {
               </div>
             </div>
 
+            {/* 比例单位 */}
+            <div>
+              <Label className="text-xs text-gray-500 block mb-1.5">汇率比例单位（日元）</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  min={1}
+                  className="h-8 text-xs w-28"
+                  value={form.unit ?? 100}
+                  onChange={e => {
+                    const v = parseInt(e.target.value, 10);
+                    setForm(p => ({ ...p, unit: isNaN(v) || v < 1 ? 1 : v }));
+                  }}
+                />
+                <span className="text-xs text-gray-400">日元 = 对应币种金额（仅显示币种金额，不显示日元数字）</span>
+              </div>
+            </div>
+
             {/* 字体颜色（仅 Hero 模式有效） */}
             {(form.position === "hero_left" || form.position === "hero_right") && (
               <div>
@@ -245,10 +264,11 @@ export default function ExchangeRateDisplayManager({ settings, onReload }) {
                 {(form.currencies || []).map(code => (
                   <span key={code} className="inline-flex items-center gap-1 text-xs bg-white border border-emerald-200 text-emerald-800 rounded-full px-2.5 py-1 font-medium">
                     <TrendingUp className="w-3 h-3" />
-                    100 JPY ≈ <span className="font-bold">---</span> {code}
+                    <span className="font-bold">---</span> {code}
                   </span>
                 ))}
               </div>
+              <p className="text-xs text-gray-400 mt-1">（以 {form.unit ?? 100} 日元为单位计算后，仅显示换算后的币种金额）</p>
             </div>
           </>
         )}
