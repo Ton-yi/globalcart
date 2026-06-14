@@ -190,7 +190,7 @@ export default function TicketOrderSettings({ settings, onReload }) {
                   <div key={m.value}>
                     <Label className="text-xs text-gray-500">{m.label}</Label>
                     <Input type="number" className="mt-1 h-8 text-sm"
-                      value={config.min_additional_fee?.[m.value] ?? 0}
+                      value={config.min_additional_fee?.[m.value] ?? ""}
                       onChange={e => setMinFee(m.value, e.target.value)} />
                   </div>
                 ))}
