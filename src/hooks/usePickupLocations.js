@@ -1,5 +1,6 @@
 /**
  * usePickupLocations — 自提地点独立状态 hook
+ * 排序/显隐在前端操作，点击保存后才写入后端。
  */
 import { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
@@ -14,7 +15,9 @@ export const BLANK_PICKUP = {
 };
 
 export function usePickupLocations() {
-  const [locations, setLocations] = useState([]);
+  const [locations, setLocations] = useState([]);       // authoritative (from server)
+  const [localOrder, setLocalOrder] = useState([]);     // local draft for sorting
+  const [orderDirty, setOrderDirty] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -27,7 +30,10 @@ export function usePickupLocations() {
     setLoading(true);
     try {
       const res = await base44.functions.invoke("manageLocalShipping", { action: "listPickupLocations" });
-      setLocations(res.data.locations || []);
+      const locs = res.data.locations || [];
+      setLocations(locs);
+      setLocalOrder([...locs].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)));
+      setOrderDirty(false);
     } catch (e) {
       toast.error("加载自提地点失败: " + e.message);
     }
@@ -36,6 +42,7 @@ export function usePickupLocations() {
 
   useEffect(() => { load(); }, [load]);
 
+  // ── Detail form handlers ────────────────────────────────
   const handleSelect = (loc) => {
     setActiveId(loc.id);
     setForm({ ...BLANK_PICKUP, ...loc });
@@ -63,11 +70,12 @@ export function usePickupLocations() {
         location: formMode === "add" ? formData : { ...formData, id: activeId }
       });
       const saved = res.data.location;
-      setLocations(prev =>
-        prev.find(l => l.id === saved.id)
-          ? prev.map(l => l.id === saved.id ? saved : l)
-          : [...prev, saved]
-      );
+      const newLocs = locations.find(l => l.id === saved.id)
+        ? locations.map(l => l.id === saved.id ? saved : l)
+        : [...locations, saved];
+      setLocations(newLocs);
+      setLocalOrder([...newLocs].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)));
+      setOrderDirty(false);
       toast.success("自提地点已保存");
       setActiveId(null);
       setFormMode("edit");
@@ -84,7 +92,10 @@ export function usePickupLocations() {
     setSaving(true);
     try {
       await base44.functions.invoke("manageLocalShipping", { action: "deletePickupLocation", locationId: activeId });
-      setLocations(prev => prev.filter(l => l.id !== activeId));
+      const newLocs = locations.filter(l => l.id !== activeId);
+      setLocations(newLocs);
+      setLocalOrder([...newLocs].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)));
+      setOrderDirty(false);
       toast.success("已删除");
       setActiveId(null);
       setFormMode("edit");
@@ -95,22 +106,35 @@ export function usePickupLocations() {
     setSaving(false);
   };
 
-  const handleReorder = async (locationId, direction) => {
-    const sorted = [...locations].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
-    const idx = sorted.findIndex(x => x.id === locationId);
-    const swapIdx = direction === "up" ? idx - 1 : idx + 1;
-    if (swapIdx < 0 || swapIdx >= sorted.length) return;
-    const reordered = sorted.map((x, i) => {
-      if (i === idx) return { ...x, sort_order: swapIdx };
-      if (i === swapIdx) return { ...x, sort_order: idx };
-      return { ...x, sort_order: i };
-    }).sort((a, b) => a.sort_order - b.sort_order).map((x, i) => ({ ...x, sort_order: i }));
-    setLocations(reordered);
+  // ── Local-only sort/visibility (no backend call until saveOrder) ──
+  const handleReorder = (locationId, direction) => {
+    setLocalOrder(prev => {
+      const list = [...prev];
+      const idx = list.findIndex(x => x.id === locationId);
+      const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+      if (swapIdx < 0 || swapIdx >= list.length) return prev;
+      [list[idx], list[swapIdx]] = [list[swapIdx], list[idx]];
+      return list.map((x, i) => ({ ...x, sort_order: i }));
+    });
+    setOrderDirty(true);
+  };
+
+  const handleToggleVisibility = (locationId) => {
+    setLocalOrder(prev =>
+      prev.map(l => l.id === locationId ? { ...l, is_active: !(l.is_active !== false) } : l)
+    );
+    setOrderDirty(true);
+  };
+
+  const handleSaveOrder = async () => {
     setSaving(true);
     try {
-      await Promise.all(reordered.map(l =>
+      await Promise.all(localOrder.map(l =>
         base44.functions.invoke("manageLocalShipping", { action: "savePickupLocation", location: l })
       ));
+      setLocations([...localOrder]);
+      setOrderDirty(false);
+      toast.success("排序已保存");
     } catch (e) {
       toast.error("排序保存失败: " + e.message);
       load();
@@ -118,19 +142,12 @@ export function usePickupLocations() {
     setSaving(false);
   };
 
-  const handleToggleVisibility = async (locationId) => {
-    const loc = locations.find(l => l.id === locationId);
-    if (!loc) return;
-    const updated = { ...loc, is_active: !(loc.is_active !== false) };
-    setLocations(prev => prev.map(l => l.id === locationId ? updated : l));
-    await base44.functions.invoke("manageLocalShipping", { action: "savePickupLocation", location: updated });
-  };
-
   return {
-    locations, loading, saving,
+    locations: localOrder,
+    loading, saving, orderDirty,
     activeId, formMode, form, setForm,
     isFormOpen: activeId !== null || formMode === "add",
     handleSelect, handleAdd, handleCancel, handleSave, handleDelete,
-    handleReorder, handleToggleVisibility,
+    handleReorder, handleToggleVisibility, handleSaveOrder,
   };
 }

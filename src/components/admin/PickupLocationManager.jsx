@@ -3,7 +3,7 @@
  * 自提地点管理 — Master-Detail 两列布局
  * 左侧：编辑表单  右侧：排序列表
  */
-import { Plus, Trash2, Save, X, MapPin, ChevronUp, ChevronDown, Eye, EyeOff } from "lucide-react";
+import { Plus, Trash2, Save, X, MapPin, ChevronUp, ChevronDown, Eye, EyeOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -97,7 +97,7 @@ function PickupDetail({ state }) {
 
 // ─── 右侧：排序列表 ──────────────────────────────────────────
 function PickupTree({ state }) {
-  const { locations, activeId, handleSelect, handleAdd, handleReorder, handleToggleVisibility } = state;
+  const { locations, activeId, handleSelect, handleAdd, handleReorder, handleToggleVisibility, handleSaveOrder, orderDirty, saving } = state;
 
   const sorted = [...locations].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
 
@@ -107,9 +107,17 @@ function PickupTree({ state }) {
         <p className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
           <MapPin className="w-4 h-4 text-purple-500" />自提地点排序
         </p>
-        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={handleAdd}>
-          <Plus className="w-3 h-3 mr-1" />新增
-        </Button>
+        <div className="flex gap-2">
+          {orderDirty && (
+            <Button size="sm" className="h-7 text-xs bg-purple-600 hover:bg-purple-700" onClick={handleSaveOrder} disabled={saving}>
+              {saving ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Save className="w-3 h-3 mr-1" />}
+              保存排序
+            </Button>
+          )}
+          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={handleAdd}>
+            <Plus className="w-3 h-3 mr-1" />新增
+          </Button>
+        </div>
       </div>
 
       {sorted.length === 0 ? (

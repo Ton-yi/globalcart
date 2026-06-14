@@ -177,6 +177,7 @@ export function LocalShippingTree({ state }) {
       onAddMethod={handleAddMethod}
       onMethodsChange={(newMethods) => handleFlatListChange(companies, newMethods)}
       onCompaniesChange={(newCompanies) => handleFlatListChange(newCompanies, methods)}
+      saving={false}
     />
   );
 }
