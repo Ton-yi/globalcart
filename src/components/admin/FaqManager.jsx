@@ -68,9 +68,9 @@ function AudiencePanel({ form, onChange, categories }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2 cursor-pointer" onClick={() => f("visible", !form.visible)}>
-        <Checkbox checked={!!form.visible} onCheckedChange={v => f("visible", !!v)} />
-        <span className="text-xs text-gray-600 select-none">显示此区块</span>
+      <div className="flex items-center gap-2">
+        <Checkbox id="faq-visible-check" checked={!!form.visible} onCheckedChange={v => f("visible", !!v)} />
+        <label htmlFor="faq-visible-check" className="text-xs text-gray-600 select-none cursor-pointer">显示此区块</label>
       </div>
 
       {form.visible && (
@@ -121,7 +121,7 @@ function AudiencePanel({ form, onChange, categories }) {
                     onClick={() => toggleCategory(cat.id)}
                   >
                     <div className="flex items-center gap-2">
-                      <Checkbox checked={selectedCatIds.includes(cat.id)} onCheckedChange={() => toggleCategory(cat.id)} />
+                      <Checkbox checked={selectedCatIds.includes(cat.id)} onCheckedChange={() => {}} onClick={e => { e.stopPropagation(); toggleCategory(cat.id); }} />
                       <span className="text-sm">{cat.icon && <span className="mr-1">{cat.icon}</span>}{cat.title}</span>
                     </div>
                     <Badge variant="outline" className="text-xs">{(cat.items || []).length} 条</Badge>
@@ -168,7 +168,8 @@ function AudiencePanel({ form, onChange, categories }) {
                               <Checkbox
                                 className="mt-0.5 flex-shrink-0"
                                 checked={selectedItemIds.includes(item._id)}
-                                onCheckedChange={() => toggleItem(item._id)}
+                                onCheckedChange={() => {}}
+                                onClick={e => { e.stopPropagation(); toggleItem(item._id); }}
                               />
                               <span className="text-xs text-gray-700 leading-relaxed line-clamp-2">{item.question}</span>
                             </div>
@@ -264,10 +265,9 @@ export default function FaqManager({ settings, onReload }) {
         </div>
         <p className="text-xs text-gray-400 mt-1">选择要在主页展示的问答分类。在「管理问答内容」中维护分类和问题。</p>
 
-        <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-100 cursor-pointer"
-          onClick={() => toggleUnified(!form.unified)}>
-          <Checkbox checked={!!form.unified} onCheckedChange={toggleUnified} />
-          <span className="text-xs text-gray-600 select-none">所有用户显示同一套配置</span>
+        <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-100">
+          <Checkbox id="faq-unified-check" checked={!!form.unified} onCheckedChange={toggleUnified} />
+          <label htmlFor="faq-unified-check" className="text-xs text-gray-600 select-none cursor-pointer">所有用户显示同一套配置</label>
         </div>
 
       </CardHeader>
