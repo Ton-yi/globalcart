@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 
-// 改为百分比显示宽度（图片相对于视口的可见宽度）
-const WIDTH_PERCENT = {
-  small:  50,   // 图片宽度显示为视口的 50%
-  medium: 75,   // 图片宽度显示为视口的 75%
-  large:  100,  // 图片宽度显示为视口的 100%
+// 容器高度（图片始终 cover 填满，高度决定能看到多少图片内容）
+const HEIGHT_PX = {
+  small:  80,
+  medium: 160,
+  large:  260,
 };
 
 /**
@@ -26,19 +26,19 @@ export default function BannerDisplay({ config }) {
 
   if (!picked) return null;
 
-  const widthPercent = WIDTH_PERCENT[config?.width || "medium"];
+  const heightPx = HEIGHT_PX[config?.width || "medium"];
   const blur = picked.blurAmount ?? 0;
   const brightness = picked.brightness ?? 100;
   const overlayColor = picked.overlayColor || "#000000";
   const overlayOpacity = picked.overlayOpacity ?? 0;
 
   return (
-    <div className="w-full overflow-hidden">
-      <div className="relative mx-auto" style={{ width: `${widthPercent}%` }}>
+    <div className="w-full overflow-hidden" style={{ height: heightPx }}>
+      <div className="relative w-full h-full">
         <img
           src={picked.url}
           alt="banner"
-          className="w-full h-auto block"
+          className="w-full h-full object-cover block"
           draggable={false}
           style={{
             filter: `blur(${blur}px) brightness(${brightness / 100})`,
