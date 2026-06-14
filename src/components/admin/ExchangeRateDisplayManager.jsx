@@ -16,7 +16,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Save, TrendingUp } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Save, TrendingUp, Plus, X } from "lucide-react";
 
 const ALL_CURRENCIES = [
   { code: "CNY", label: "人民币 (CNY)" },
@@ -52,6 +53,7 @@ export default function ExchangeRateDisplayManager({ settings, onReload }) {
   const [form, setForm] = useState(DEFAULT_CONFIG);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [customInput, setCustomInput] = useState("");
 
   useEffect(() => {
     const s = (settings || []).find(s => s.key === "home_exchange_rate_config");
@@ -69,6 +71,15 @@ export default function ExchangeRateDisplayManager({ settings, onReload }) {
       if (cur.length >= 4) return prev; // max 4
       return { ...prev, currencies: [...cur, code] };
     });
+  };
+
+  const addCustomCurrency = () => {
+    const code = customInput.trim().toUpperCase();
+    if (!code || code.length < 2 || code.length > 6) return;
+    if ((form.currencies || []).includes(code)) { setCustomInput(""); return; }
+    if ((form.currencies || []).length >= 4) return;
+    setForm(prev => ({ ...prev, currencies: [...(prev.currencies || []), code] }));
+    setCustomInput("");
   };
 
   const handleSave = async () => {
@@ -139,6 +150,39 @@ export default function ExchangeRateDisplayManager({ settings, onReload }) {
                     </div>
                   );
                 })}
+              </div>
+
+              {/* 自定义币种 */}
+              <div className="mt-3 space-y-2">
+                <p className="text-xs text-gray-400">自定义币种（输入标准 ISO 4217 代码，如 MXN、BRL）</p>
+                {/* 已添加的自定义币种标签 */}
+                {(form.currencies || []).filter(c => !ALL_CURRENCIES.some(a => a.code === c)).length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {(form.currencies || []).filter(c => !ALL_CURRENCIES.some(a => a.code === c)).map(code => (
+                      <span key={code} className="inline-flex items-center gap-1 text-xs bg-emerald-50 border border-emerald-300 text-emerald-800 rounded-full px-2.5 py-1 font-medium">
+                        {code}
+                        <button onClick={() => toggleCurrency(code)} className="ml-0.5 hover:text-red-600 transition-colors">
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <Input
+                    className="h-8 text-xs uppercase flex-1"
+                    placeholder="例：MXN"
+                    value={customInput}
+                    maxLength={6}
+                    onChange={e => setCustomInput(e.target.value.toUpperCase())}
+                    onKeyDown={e => e.key === "Enter" && addCustomCurrency()}
+                    disabled={(form.currencies || []).length >= 4}
+                  />
+                  <Button size="sm" variant="outline" className="h-8 px-3 text-xs" onClick={addCustomCurrency}
+                    disabled={(form.currencies || []).length >= 4 || !customInput.trim()}>
+                    <Plus className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
               </div>
             </div>
 
