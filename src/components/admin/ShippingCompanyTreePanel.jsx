@@ -1,34 +1,67 @@
 /**
  * ShippingCompanyTreePanel
- * 右侧：运输公司 + 本地运输方式 树状排序面板
- * 操作：上移/下移/缩进（设为子项）/提级/隐藏
- * 点击方式条目 → 触发 onSelectMethod
+ * 单列平铺排序面板 — 设计理念与导航栏布局设置完全一致：
+ * 所有运输公司、运输方式在同一列，可自由调整位置、缩进层级。
+ *
+ * 内部数据结构：flatList = [{type:'company'|'method', id, ...item, depth: 0|1|2}]
+ * depth 0 = 顶级，depth 1 = 子级，depth 2 = 孙级（最多3层）
  */
 import { useState } from "react";
-import {
-  Plus, ChevronUp, ChevronDown, EyeOff, Eye,
-  ArrowRight, ArrowLeft, Trash2, Building2, Truck, Edit2
-} from "lucide-react";
+import { Building2, Truck, Eye, EyeOff, ArrowUp, ArrowDown, IndentIncrease, IndentDecrease, Plus, Trash2, Edit2, X, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import RichTextInput from "@/components/common/RichTextInput";
 
-// ──────────────────────────────────────────────
-// Flat tree helpers
-// ──────────────────────────────────────────────
+// ── helpers ──────────────────────────────────────────────────
+function clone(x) { return JSON.parse(JSON.stringify(x)); }
 
 /**
- * treeItems shape:
- * [
- *   { type: 'company', id, name, logo_url, description, is_active, sort_order },
- *   { type: 'method',  id, name, fee_jpy, trackable, is_active, company_id, sort_order, indent },
- *   ...
- * ]
- * We keep a flat ordered array for easy manipulation.
- * company_id on a method = which company it's grouped under (null = ungrouped)
- * indent on a method = 0 (top-level under company) | 1 (sub-item)
+ * Build a flat ordered list from companies + methods.
+ * We store depth directly on each item (derived from company_id + indent fields).
+ * companies are always depth 0.
+ * methods: depth = indent (0 or 1), but when under a company we add 1 more.
+ * For the flat list we normalise: item.depth = 0 (top) | 1 | 2
  */
+function buildFlatList(companies, methods) {
+  // Sort both by sort_order
+  const sortedAll = [
+    ...companies.map(c => ({ ...c, _type: "company", _depth: 0 })),
+    ...methods.map(m => ({ ...m, _type: "method", _depth: m.indent === 1 ? 1 : 0 })),
+  ].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+  return sortedAll;
+}
 
+/**
+ * Rebuild sort_order from flat list position, and write back depth → indent/company fields.
+ * Returns { companies, methods }
+ */
+function flatListToEntities(flatList) {
+  const companies = [];
+  const methods = [];
+  flatList.forEach((item, idx) => {
+    if (item._type === "company") {
+      const { _type, _depth, ...rest } = item;
+      companies.push({ ...rest, sort_order: idx });
+    } else {
+      const { _type, _depth, ...rest } = item;
+      methods.push({ ...rest, sort_order: idx, indent: _depth > 0 ? 1 : 0 });
+    }
+  });
+  return { companies, methods };
+}
+
+function subtreeSize(flatList, idx) {
+  // Count how many items after idx are children (depth > flatList[idx]._depth)
+  const baseDepth = flatList[idx]._depth;
+  let count = 0;
+  for (let i = idx + 1; i < flatList.length; i++) {
+    if (flatList[i]._depth > baseDepth) count++;
+    else break;
+  }
+  return count;
+}
+
+// ── Component ─────────────────────────────────────────────────
 export default function ShippingCompanyTreePanel({
   companies = [],
   methods = [],
@@ -38,140 +71,92 @@ export default function ShippingCompanyTreePanel({
   onEditCompany,
   onDeleteCompany,
   onAddMethod,
-  onMethodsChange,   // (newMethods) => void
-  onCompaniesChange, // (newCompanies) => void
+  onMethodsChange,
+  onCompaniesChange,
 }) {
-  const [companyForm, setCompanyForm] = useState(null); // null | { name, logo_url, description, id? }
+  const [addCompanyForm, setAddCompanyForm] = useState(null);
 
-  // Build display tree: companies in order, methods nested under their company
-  const sortedCompanies = [...companies].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
-  // Ungrouped methods shown at TOP
-  const ungrouped = methods.filter(m => !m.company_id);
-  const sortedUngrouped = [...ungrouped].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+  const flatList = buildFlatList(companies, methods);
 
-  const getCompanyMethods = (cid) =>
-    [...methods.filter(m => m.company_id === cid)].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
-
-  // ── Method move helpers ───────────────────────────────────
-  const reorderMethods = (methodId, direction) => {
-    const m = methods.find(x => x.id === methodId);
-    if (!m) return;
-    const siblings = [...methods.filter(x => x.company_id === m.company_id)]
-      .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
-    const idx = siblings.findIndex(x => x.id === methodId);
-    const swapIdx = direction === "up" ? idx - 1 : idx + 1;
-    if (swapIdx < 0 || swapIdx >= siblings.length) return;
-
-    const updatedMethods = methods.map(x => {
-      if (x.id === siblings[idx].id) return { ...x, sort_order: siblings[swapIdx].sort_order ?? swapIdx };
-      if (x.id === siblings[swapIdx].id) return { ...x, sort_order: siblings[idx].sort_order ?? idx };
-      return x;
-    });
-    // Recalculate clean sort_order for affected group
-    const recalc = updatedMethods
-      .filter(x => x.company_id === m.company_id)
-      .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
-      .map((x, i) => ({ ...x, sort_order: i }));
-    onMethodsChange(updatedMethods.map(x => recalc.find(r => r.id === x.id) || x));
+  const commit = (newFlatList) => {
+    const { companies: newC, methods: newM } = flatListToEntities(newFlatList);
+    onCompaniesChange(newC);
+    onMethodsChange(newM);
   };
 
-  const indentMethod = (methodId) => {
-    // Make it a sub-item of the previous method's company sibling — we reuse indent field
-    const m = methods.find(x => x.id === methodId);
-    if (!m) return;
-    onMethodsChange(methods.map(x => x.id === methodId ? { ...x, indent: 1 } : x));
+  const move = (idx, dir) => {
+    const list = clone(flatList);
+    const j = idx + dir;
+    if (j < 0 || j >= list.length) return;
+    // Move the entire subtree together
+    const subSize = subtreeSize(list, idx);
+    const block = list.splice(idx, 1 + subSize);
+    // Recalculate insertion point after splice
+    const insertAt = dir === -1 ? j : j - subSize;
+    list.splice(insertAt, 0, ...block);
+    commit(list);
   };
 
-  const outdentMethod = (methodId) => {
-    const m = methods.find(x => x.id === methodId);
-    if (!m) return;
-    onMethodsChange(methods.map(x => x.id === methodId ? { ...x, indent: 0 } : x));
+  const indent = (idx) => {
+    const list = clone(flatList);
+    const item = list[idx];
+    if (item._depth >= 2) return;
+    // Can only indent if there's a previous sibling at the same level
+    let prevSiblingIdx = -1;
+    for (let i = idx - 1; i >= 0; i--) {
+      if (list[i]._depth === item._depth) { prevSiblingIdx = i; break; }
+      if (list[i]._depth < item._depth) break;
+    }
+    if (prevSiblingIdx === -1) return;
+    list[idx]._depth = item._depth + 1;
+    commit(list);
   };
 
-  const toggleMethodVisibility = (methodId) => {
-    onMethodsChange(methods.map(x => x.id === methodId ? { ...x, is_active: !(x.is_active !== false) } : x));
+  const outdent = (idx) => {
+    const list = clone(flatList);
+    const item = list[idx];
+    if (item._depth === 0) return;
+    list[idx]._depth = item._depth - 1;
+    commit(list);
   };
 
-  // ── Company move helpers ──────────────────────────────────
-  const reorderCompany = (companyId, direction) => {
-    const sorted = [...companies].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
-    const idx = sorted.findIndex(x => x.id === companyId);
-    const swapIdx = direction === "up" ? idx - 1 : idx + 1;
-    if (swapIdx < 0 || swapIdx >= sorted.length) return;
-    const recalc = sorted.map((x, i) => {
-      if (i === idx) return { ...x, sort_order: swapIdx };
-      if (i === swapIdx) return { ...x, sort_order: idx };
-      return { ...x, sort_order: i };
-    }).sort((a, b) => a.sort_order - b.sort_order)
-      .map((x, i) => ({ ...x, sort_order: i }));
-    onCompaniesChange(recalc);
+  const toggleVisibility = (idx) => {
+    const list = clone(flatList);
+    list[idx].is_active = !(list[idx].is_active !== false);
+    commit(list);
   };
 
-  // ── Inline company form helpers ──────────────────────────
-  const handleCompanyFormSave = () => {
-    if (!companyForm?.name?.trim()) return;
-    onAddCompany(companyForm);
-    setCompanyForm(null);
+  const handleDeleteItem = (idx) => {
+    const item = flatList[idx];
+    if (item._type === "company") {
+      onDeleteCompany(item.id);
+      return;
+    }
+    const list = clone(flatList);
+    list.splice(idx, 1);
+    commit(list);
   };
 
-  // ── Render ────────────────────────────────────────────────
-  const renderMethod = (m, siblingsCount, siblingIdx) => {
-    const isActive = m.is_active !== false;
-    const isSelected = m.id === activeMethodId;
-    const indent = m.indent === 1;
+  const handleAddCompanySave = () => {
+    if (!addCompanyForm?.name?.trim()) return;
+    onAddCompany(addCompanyForm);
+    setAddCompanyForm(null);
+  };
 
-    return (
-      <div
-        key={m.id}
-        className={`flex items-center gap-1 px-2 py-1.5 rounded-lg cursor-pointer transition-colors group
-          ${isSelected ? "bg-orange-50 border border-orange-300" : "hover:bg-gray-50 border border-transparent"}
-          ${!isActive ? "opacity-50" : ""}
-          ${indent ? "ml-5" : "ml-0"}
-        `}
-        onClick={() => onSelectMethod(m)}
-      >
-        <Truck className="w-3.5 h-3.5 text-orange-400 flex-shrink-0" />
-        <span className={`flex-1 text-xs truncate ${isSelected ? "font-semibold text-orange-700" : "text-gray-700"}`}>
-          {m.name || <span className="text-gray-400 italic">未命名</span>}
-        </span>
-        {m.fee_jpy > 0 && (
-          <span className="text-xs text-orange-500 flex-shrink-0">¥{m.fee_jpy}</span>
-        )}
-        {/* action buttons — show on hover */}
-        <div className="hidden group-hover:flex items-center gap-0.5 flex-shrink-0" onClick={e => e.stopPropagation()}>
-          <button
-            className="p-0.5 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-700 disabled:opacity-30"
-            disabled={siblingIdx === 0}
-            onClick={() => reorderMethods(m.id, "up")}
-            title="上移"
-          ><ChevronUp className="w-3 h-3" /></button>
-          <button
-            className="p-0.5 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-700 disabled:opacity-30"
-            disabled={siblingIdx === siblingsCount - 1}
-            onClick={() => reorderMethods(m.id, "down")}
-            title="下移"
-          ><ChevronDown className="w-3 h-3" /></button>
-          {!indent ? (
-            <button
-              className="p-0.5 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-700"
-              onClick={() => indentMethod(m.id)}
-              title="设为子项"
-            ><ArrowRight className="w-3 h-3" /></button>
-          ) : (
-            <button
-              className="p-0.5 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-700"
-              onClick={() => outdentMethod(m.id)}
-              title="提升一级"
-            ><ArrowLeft className="w-3 h-3" /></button>
-          )}
-          <button
-            className="p-0.5 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-700"
-            onClick={() => toggleMethodVisibility(m.id)}
-            title={isActive ? "隐藏" : "显示"}
-          >{isActive ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}</button>
-        </div>
-      </div>
-    );
+  // Determine if a move is disabled
+  const canMoveUp = (idx) => idx > 0;
+  const canMoveDown = (idx) => {
+    const subSize = subtreeSize(flatList, idx);
+    return (idx + subSize) < flatList.length - 1;
+  };
+  const canIndent = (idx) => {
+    const item = flatList[idx];
+    if (item._depth >= 2) return false;
+    for (let i = idx - 1; i >= 0; i--) {
+      if (flatList[i]._depth === item._depth) return true;
+      if (flatList[i]._depth < item._depth) return false;
+    }
+    return false;
   };
 
   return (
@@ -179,129 +164,148 @@ export default function ShippingCompanyTreePanel({
       {/* Header */}
       <div className="flex items-center justify-between">
         <p className="text-sm font-semibold text-gray-700">运输公司 & 方式排序</p>
-        {!companyForm && (
+        <div className="flex gap-2">
           <Button size="sm" variant="outline" className="h-7 text-xs"
-            onClick={() => setCompanyForm({ name: "", logo_url: "", description: "" })}>
-            <Plus className="w-3 h-3 mr-1" />添加运输公司
+            onClick={() => onAddMethod(null)}>
+            <Plus className="w-3 h-3 mr-1" />新增方式
           </Button>
-        )}
+          {!addCompanyForm && (
+            <Button size="sm" variant="outline" className="h-7 text-xs"
+              onClick={() => setAddCompanyForm({ name: "", logo_url: "", description: "" })}>
+              <Plus className="w-3 h-3 mr-1" />新增公司
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Inline add-company form */}
-      {companyForm && (
+      {addCompanyForm && (
         <div className="border border-blue-200 rounded-xl p-3 space-y-2 bg-blue-50">
-          <p className="text-xs font-semibold text-blue-700 flex items-center gap-1">
-            <Building2 className="w-3.5 h-3.5" />
-            {companyForm.id ? "编辑运输公司" : "新增运输公司"}
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold text-blue-700 flex items-center gap-1">
+              <Building2 className="w-3.5 h-3.5" />新增运输公司
+            </p>
+            <button onClick={() => setAddCompanyForm(null)} className="text-gray-400 hover:text-gray-600">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
           <p className="text-xs text-gray-500">公司名称（可粘贴图片作为 Logo）</p>
           <RichTextInput
-            value={companyForm.name}
-            onChange={v => setCompanyForm(p => ({ ...p, name: v }))}
-            imageUrls={companyForm.logo_url ? [companyForm.logo_url] : []}
-            onImageUrls={urls => setCompanyForm(p => ({ ...p, logo_url: urls[0] || "" }))}
+            value={addCompanyForm.name}
+            onChange={v => setAddCompanyForm(p => ({ ...p, name: v }))}
+            imageUrls={addCompanyForm.logo_url ? [addCompanyForm.logo_url] : []}
+            onImageUrls={urls => setAddCompanyForm(p => ({ ...p, logo_url: urls[0] || "" }))}
             placeholder="公司名称，可粘贴 Logo 图片..."
             rows={1}
             maxImages={1}
           />
           <div className="flex gap-2 justify-end">
-            <Button size="sm" variant="outline" className="h-6 text-xs" onClick={() => setCompanyForm(null)}>取消</Button>
+            <Button size="sm" variant="outline" className="h-6 text-xs" onClick={() => setAddCompanyForm(null)}>取消</Button>
             <Button size="sm" className="h-6 text-xs bg-blue-600 hover:bg-blue-700"
-              disabled={!companyForm.name.trim()}
-              onClick={handleCompanyFormSave}>
-              {companyForm.id ? "保存" : "创建"}
+              disabled={!addCompanyForm.name.trim()}
+              onClick={handleAddCompanySave}>
+              <Save className="w-3 h-3 mr-1" />创建
             </Button>
           </div>
         </div>
       )}
 
-      {/* Ungrouped methods — always at TOP */}
-      {sortedUngrouped.length > 0 && (
-        <div className="border border-dashed border-gray-200 rounded-xl overflow-hidden">
-          <div className="px-3 py-2 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
-            <span className="text-xs font-medium text-gray-500">未分组</span>
-            <button
-              className="text-xs text-orange-500 hover:text-orange-700 flex items-center gap-1"
-              onClick={() => onAddMethod(null)}
-            ><Plus className="w-3 h-3" />添加</button>
-          </div>
-          <div className="px-2 py-1.5 space-y-0.5 bg-white">
-            {sortedUngrouped.map((m, i) => renderMethod(m, sortedUngrouped.length, i))}
-          </div>
-        </div>
+      {/* Empty state */}
+      {flatList.length === 0 && (
+        <p className="text-xs text-gray-400 italic text-center py-6 border border-dashed border-gray-200 rounded-xl">
+          暂无内容，点击上方「新增方式」或「新增公司」
+        </p>
       )}
 
-      {sortedCompanies.length === 0 && sortedUngrouped.length === 0 && (
-        <p className="text-xs text-gray-400 italic text-center py-4">暂无内容，点击右上方"添加运输公司"或左侧"新增运输方式"</p>
-      )}
+      {/* Flat list */}
+      <div className="space-y-1">
+        {flatList.map((item, idx) => {
+          const isCompany = item._type === "company";
+          const isMethod = item._type === "method";
+          const isActive = item.is_active !== false;
+          const isSelected = isMethod && item.id === activeMethodId;
 
-      {sortedCompanies.map((company, cIdx) => {
-        const companyMethods = getCompanyMethods(company.id);
-        return (
-          <div key={company.id} className="border border-gray-200 rounded-xl overflow-hidden">
-            {/* Company header */}
-            <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border-b border-gray-100 group">
-              {company.logo_url ? (
-                <img src={company.logo_url} alt={company.name} className="w-6 h-6 object-contain rounded flex-shrink-0" />
+          return (
+            <div
+              key={item._type + item.id}
+              className={`flex items-center gap-2 py-1.5 px-2 rounded-lg border transition-colors
+                ${isSelected ? "border-orange-300 bg-orange-50" : isActive ? "border-gray-200 bg-white" : "border-gray-100 bg-gray-50 opacity-60"}
+                ${isMethod ? "cursor-pointer hover:border-orange-200 hover:bg-orange-50/50" : ""}
+              `}
+              style={{ marginLeft: item._depth * 24 }}
+              onClick={isMethod ? () => onSelectMethod(item) : undefined}
+            >
+              {/* Icon */}
+              {isCompany ? (
+                item.logo_url ? (
+                  <img src={item.logo_url} alt={item.name} className="w-5 h-5 object-contain rounded flex-shrink-0" />
+                ) : (
+                  <Building2 className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                )
               ) : (
-                <div className="w-6 h-6 rounded bg-blue-100 flex items-center justify-center flex-shrink-0">
-                  <Building2 className="w-3.5 h-3.5 text-blue-500" />
-                </div>
+                <Truck className="w-4 h-4 text-orange-400 flex-shrink-0" />
               )}
-              <span className="flex-1 text-xs font-semibold text-gray-800 truncate">{company.name}</span>
-              <div className="flex items-center gap-0.5 flex-shrink-0">
+
+              {/* Name */}
+              <span className={`flex-1 text-xs truncate
+                ${isCompany ? "font-semibold text-gray-800" : isSelected ? "font-semibold text-orange-700" : "text-gray-700"}
+              `}>
+                {item.name || <span className="text-gray-400 italic">未命名</span>}
+              </span>
+
+              {/* Fee badge for methods */}
+              {isMethod && item.fee_jpy > 0 && (
+                <span className="text-xs text-orange-500 flex-shrink-0">¥{item.fee_jpy}</span>
+              )}
+
+              {/* Action buttons */}
+              <div className="flex items-center gap-0.5 flex-shrink-0" onClick={e => e.stopPropagation()}>
+                {isCompany && (
+                  <button
+                    className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-blue-600"
+                    onClick={() => onEditCompany(item)}
+                    title="编辑公司"
+                  ><Edit2 className="w-3 h-3" /></button>
+                )}
                 <button
-                  className="p-0.5 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600 disabled:opacity-30"
-                  disabled={cIdx === 0}
-                  onClick={() => reorderCompany(company.id, "up")}
+                  className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-700"
+                  onClick={() => toggleVisibility(idx)}
+                  title={isActive ? "隐藏" : "显示"}
+                >{isActive ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}</button>
+                <button
+                  className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-700 disabled:opacity-30"
+                  disabled={!canMoveUp(idx)}
+                  onClick={() => move(idx, -1)}
                   title="上移"
-                ><ChevronUp className="w-3.5 h-3.5" /></button>
+                ><ArrowUp className="w-3 h-3" /></button>
                 <button
-                  className="p-0.5 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600 disabled:opacity-30"
-                  disabled={cIdx === sortedCompanies.length - 1}
-                  onClick={() => reorderCompany(company.id, "down")}
+                  className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-700 disabled:opacity-30"
+                  disabled={!canMoveDown(idx)}
+                  onClick={() => move(idx, 1)}
                   title="下移"
-                ><ChevronDown className="w-3.5 h-3.5" /></button>
+                ><ArrowDown className="w-3 h-3" /></button>
                 <button
-                  className="p-0.5 rounded hover:bg-gray-200 text-gray-400 hover:text-blue-600"
-                  onClick={() => onEditCompany(company)}
-                  title="编辑"
-                ><Edit2 className="w-3.5 h-3.5" /></button>
+                  className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-700 disabled:opacity-30"
+                  disabled={!canIndent(idx)}
+                  onClick={() => indent(idx)}
+                  title="设为子级"
+                ><IndentIncrease className="w-3 h-3" /></button>
                 <button
-                  className="p-0.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-500"
-                  onClick={() => onDeleteCompany(company.id)}
+                  className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-700 disabled:opacity-30"
+                  disabled={item._depth === 0}
+                  onClick={() => outdent(idx)}
+                  title="提升一级"
+                ><IndentDecrease className="w-3 h-3" /></button>
+                <button
+                  className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500"
+                  onClick={() => handleDeleteItem(idx)}
                   title="删除"
-                ><Trash2 className="w-3.5 h-3.5" /></button>
+                ><Trash2 className="w-3 h-3" /></button>
               </div>
             </div>
-
-            {/* Methods under company */}
-            <div className="px-2 py-1.5 space-y-0.5 bg-white min-h-[32px]">
-              {companyMethods.length === 0 ? (
-                <p className="text-xs text-gray-300 italic px-2 py-1">暂无运输方式</p>
-              ) : (
-                companyMethods.map((m, i) => renderMethod(m, companyMethods.length, i))
-              )}
-              <button
-                className="w-full text-left text-xs text-gray-400 hover:text-orange-600 px-2 py-1 rounded hover:bg-orange-50 transition-colors flex items-center gap-1"
-                onClick={() => onAddMethod(company.id)}
-              >
-                <Plus className="w-3 h-3" />添加运输方式
-              </button>
-            </div>
-          </div>
-        );
-      })}
-
-      {/* Add ungrouped method button — always show when companies exist */}
-      {sortedCompanies.length > 0 && (
-        <button
-          className="w-full text-xs text-gray-400 hover:text-orange-600 py-2 rounded-lg border border-dashed border-gray-200 hover:border-orange-300 hover:bg-orange-50 transition-colors flex items-center justify-center gap-1"
-          onClick={() => onAddMethod(null)}
-        >
-          <Plus className="w-3 h-3" />添加运输方式（不分组）
-        </button>
-      )}
+          );
+        })}
+      </div>
     </div>
   );
 }

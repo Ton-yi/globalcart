@@ -146,10 +146,32 @@ export function useLocalShipping() {
   const handleCompaniesChange = async (newCompanies) => {
     setSaving(true);
     try {
+      // Use bulk save — save all companies in parallel
       await Promise.all(newCompanies.map(c =>
         base44.functions.invoke("manageLocalShipping", { action: "saveCompany", company: c })
       ));
       setCompanies(newCompanies);
+    } catch (e) {
+      toast.error("排序保存失败: " + e.message);
+    }
+    setSaving(false);
+  };
+
+  /**
+   * Called by ShippingCompanyTreePanel when the flat list changes (both companies and methods
+   * may change together, e.g. after a reorder that spans both types).
+   */
+  const handleFlatListChange = async (newCompanies, newMethods) => {
+    setSaving(true);
+    try {
+      await Promise.all([
+        Promise.all(newCompanies.map(c =>
+          base44.functions.invoke("manageLocalShipping", { action: "saveCompany", company: c })
+        )),
+        base44.functions.invoke("manageLocalShipping", { action: "saveMethods", methods: newMethods, settingId }),
+      ]);
+      setCompanies(newCompanies);
+      setMethods(newMethods);
     } catch (e) {
       toast.error("排序保存失败: " + e.message);
     }
@@ -162,7 +184,7 @@ export function useLocalShipping() {
     companyModal, setCompanyModal,
     handleSelectMethod, handleAddMethod,
     handleSaveForm, handleDeleteMethod, handleCancel,
-    handleMethodsChange, handleCompaniesChange,
+    handleMethodsChange, handleCompaniesChange, handleFlatListChange,
     persistCompany, deleteCompany,
     isFormOpen: activeMethod !== null || formMode === "add",
   };

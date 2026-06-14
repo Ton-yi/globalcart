@@ -161,7 +161,7 @@ export function LocalShippingTree({ state }) {
   const {
     companies, methods, activeMethod,
     handleSelectMethod, handleAddMethod,
-    handleMethodsChange, handleCompaniesChange,
+    handleFlatListChange,
     deleteCompany, setCompanyModal, persistCompany,
   } = state;
 
@@ -175,8 +175,8 @@ export function LocalShippingTree({ state }) {
       onEditCompany={(company) => setCompanyModal({ initial: { ...company } })}
       onDeleteCompany={deleteCompany}
       onAddMethod={handleAddMethod}
-      onMethodsChange={handleMethodsChange}
-      onCompaniesChange={handleCompaniesChange}
+      onMethodsChange={(newMethods) => handleFlatListChange(companies, newMethods)}
+      onCompaniesChange={(newCompanies) => handleFlatListChange(newCompanies, methods)}
     />
   );
 }
