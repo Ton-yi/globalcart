@@ -330,6 +330,9 @@ export default function AdminOrders() {
   const [actualWeight, setActualWeight] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
 
+  // 获取实物订单控制器
+  const physicalController = orderRegistry.get('physical');
+
   const fetchOrders = useCallback(async () => {
     setLoading(true);
     const r = await base44.functions.invoke('getAdminOrdersPageData', {});
@@ -391,21 +394,25 @@ export default function AdminOrders() {
     fetchOrders();
   };
 
-  const filtered = orders.filter(o => {
-    if (showArchived ? !o.is_archived : !!o.is_archived) return false;
-    // Hide split-parent placeholder orders (split_index === -1 means already split into children)
-    if (o.split_index === -1) return false;
-    const matchStatus = statusFilter === "all" || o.order_status === statusFilter;
-    const q = search.toLowerCase();
-    const displayName = (userProfileMap[o.user_email]?.display_name || o.user_name || "").toLowerCase();
-    const matchSearch = !q ||
-      (o.product_name || "").toLowerCase().includes(q) ||
-      (o.order_number || "").toLowerCase().includes(q) ||
-      (o.user_email || "").toLowerCase().includes(q) ||
-      (o.user_name || "").toLowerCase().includes(q) ||
-      displayName.includes(q);
-    return matchStatus && matchSearch;
-  }).sort((a, b) => {
+  // 使用控制器的 filterData 方法过滤实物订单
+  const physicalOrders = physicalController?.filterData
+    ? physicalController.filterData(orders, { statusFilter, search, userProfileMap, showArchived })
+    : orders.filter(o => {
+        if (showArchived ? !o.is_archived : !!o.is_archived) return false;
+        if (o.split_index === -1) return false;
+        const matchStatus = statusFilter === "all" || o.order_status === statusFilter;
+        const q = search.toLowerCase();
+        const displayName = (userProfileMap[o.user_email]?.display_name || o.user_name || "").toLowerCase();
+        const matchSearch = !q ||
+          (o.product_name || "").toLowerCase().includes(q) ||
+          (o.order_number || "").toLowerCase().includes(q) ||
+          (o.user_email || "").toLowerCase().includes(q) ||
+          (o.user_name || "").toLowerCase().includes(q) ||
+          displayName.includes(q);
+        return matchStatus && matchSearch;
+      });
+
+  const filtered = physicalOrders.sort((a, b) => {
     if (!sortKey) return 0;
     const rk = sortKey === "submit_date" ? "created_date" : sortKey;
     let va = a[rk], vb = b[rk];
