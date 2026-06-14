@@ -103,7 +103,10 @@ export default function AdminNavbarSettings() {
         <TabsContent value="admin">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between py-4">
-              <CardTitle className="text-base">管理员导航入口</CardTitle>
+              <div>
+                <CardTitle className="text-base">管理员导航入口</CardTitle>
+                <p className="text-xs text-gray-400 mt-1">管理员身份登录时将完全使用此导航（与普通用户导航彻底分离）。下方「用户入口」默认隐藏，可按需开启。</p>
+              </div>
               <Button variant="outline" size="sm" onClick={() => handleReset("admin")}>
                 <RotateCcw className="w-3.5 h-3.5 mr-1" />恢复默认
               </Button>

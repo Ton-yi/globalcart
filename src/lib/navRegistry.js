@@ -23,6 +23,7 @@ export const NAV_REGISTRY = {
     ExchangeRate: { label: "实时汇率", icon: TrendingUp, page: "", isRateWidget: true },
   },
   admin: {
+    // 管理员功能入口
     AdminDashboard: { label: "管理总览", icon: BarChart3, page: "AdminDashboard" },
     AdminOrders: { label: "订单管理", icon: Package, page: "AdminOrders" },
     AdminShippingPool: { label: "发货池", icon: Send, page: "AdminShippingPool" },
@@ -37,6 +38,16 @@ export const NAV_REGISTRY = {
     AdminNavbarSettings: { label: "导航栏设置", icon: Navigation, page: "AdminNavbarSettings" },
     AdminSettingsHome: { label: "网站设置", icon: Settings, page: "AdminSettings" },
     ExchangeRate: { label: "实时汇率", icon: TrendingUp, page: "", isRateWidget: true },
+    // 用户入口（可由管理员配置显示在管理员导航中）
+    UserHome: { label: "首页（用户）", icon: Home, page: "Home" },
+    UserSubmitOrder: { label: "提交需求", icon: ShoppingBag, page: "SubmitOrder" },
+    UserSubmitOrderPlain: { label: "普通下单", icon: ShoppingBag, page: "SubmitOrder" },
+    UserGroupBuy: { label: "拼下单", icon: UserPlus, page: "GroupBuy" },
+    UserMyOrders: { label: "我的订单（用户）", icon: Package, page: "MyOrders" },
+    UserShippingPool: { label: "发货 & 拼邮（用户）", icon: Send, page: "ShippingPool" },
+    UserProfile: { label: "个人档案（用户）", icon: User, page: "AdminUserDetail/me" },
+    UserHelpCenter: { label: "帮助中心", icon: HelpCircle, page: "helpcenter", activePage: "HelpCenter" },
+    UserTodoAdmin: { label: "我的待办（用户）", icon: CheckSquare, page: "UserTodo" },
   },
 };
 
@@ -66,6 +77,14 @@ export const DEFAULT_NAV_TREES = {
       { key: "AdminNavbarSettings" },
       { key: "AdminSettingsHome" },
     ]},
+    // 用户入口（默认隐藏，管理员可按需开启）
+    { key: "UserHome", hidden: true },
+    { key: "UserSubmitOrder", hidden: true, children: [{ key: "UserSubmitOrderPlain" }, { key: "UserGroupBuy" }] },
+    { key: "UserMyOrders", hidden: true },
+    { key: "UserShippingPool", hidden: true },
+    { key: "UserProfile", hidden: true },
+    { key: "UserHelpCenter", hidden: true },
+    { key: "UserTodoAdmin", hidden: true },
   ],
 };
 

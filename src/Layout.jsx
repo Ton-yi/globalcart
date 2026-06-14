@@ -117,6 +117,16 @@ export default function Layout({ children, currentPageName }) {
       AdminSettingsHome: canAccessAdminSettings,
       AdminNavbarSettings: canAccessAdminSettings,
       ExchangeRate: true,
+      // 用户入口访问控制
+      UserHome: true,
+      UserSubmitOrder: true,
+      UserSubmitOrderPlain: true,
+      UserGroupBuy: true,
+      UserMyOrders: canViewMyOrders,
+      UserShippingPool: true,
+      UserProfile: true,
+      UserHelpCenter: true,
+      UserTodoAdmin: true,
     },
   });
 
@@ -127,11 +137,13 @@ export default function Layout({ children, currentPageName }) {
     ]},
   ];
 
+  // 管理员使用独立的 adminNavBuilt（完全由 admin_nav 配置驱动）
+  // 普通用户使用 userNavBuilt
   let navItems = userNavBuilt;
   if (isPlatformAdmin) {
-    navItems = [...userNavBuilt, ...platformAdminNav, ...adminNavBuilt];
+    navItems = [...adminNavBuilt, ...platformAdminNav];
   } else if (isTenantAdmin || isStaff) {
-    navItems = [...userNavBuilt, ...adminNavBuilt];
+    navItems = adminNavBuilt;
   }
 
 
