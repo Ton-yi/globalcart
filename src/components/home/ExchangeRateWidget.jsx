@@ -16,13 +16,23 @@ const CURRENCY_LABELS = {
   AUD: "澳元", CAD: "加元", THB: "泰铢", MYR: "林吉特",
 };
 
-// 格式化金额：KRW等无小数，其他保留2位；unit 为比例单位（默认100）
+// 格式化金额：KRW等无小数，其他动态小数位；unit 为比例单位（默认100）
+// 对于小于1的值，找到第一个有效数字位后再保留2位
 function fmt(value, code, unit = 100) {
   if (!value) return "---";
   const noDecimal = ["KRW", "IDR", "VND"];
   const amount = value * unit;
   if (noDecimal.includes(code)) return Math.round(amount).toLocaleString();
-  return amount.toFixed(2);
+  if (amount >= 1) return amount.toFixed(2);
+  // 找到第一个非零小数位的位置，再多保留2位
+  const str = amount.toFixed(20);
+  const dotIdx = str.indexOf('.');
+  let firstSigIdx = -1;
+  for (let i = dotIdx + 1; i < str.length; i++) {
+    if (str[i] !== '0') { firstSigIdx = i - dotIdx; break; }
+  }
+  const decimals = firstSigIdx >= 0 ? firstSigIdx + 1 : 4;
+  return amount.toFixed(decimals);
 }
 
 let _rateCache = null;

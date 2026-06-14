@@ -26,7 +26,15 @@ function fmt(val, code, unit = 100) {
   const noDecimal = ["KRW", "IDR", "VND"];
   const amount = val * unit;
   if (noDecimal.includes(code)) return Math.round(amount).toLocaleString();
-  return amount.toFixed(2);
+  if (amount >= 1) return amount.toFixed(2);
+  const str = amount.toFixed(20);
+  const dotIdx = str.indexOf('.');
+  let firstSigIdx = -1;
+  for (let i = dotIdx + 1; i < str.length; i++) {
+    if (str[i] !== '0') { firstSigIdx = i - dotIdx; break; }
+  }
+  const decimals = firstSigIdx >= 0 ? firstSigIdx + 1 : 4;
+  return amount.toFixed(decimals);
 }
 
 export default function NavbarRateWidget({ currencies = [], unit = 100 }) {
