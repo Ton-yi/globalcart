@@ -95,6 +95,7 @@ export default function ExchangeRateWidget({ currencies = [], compact = false, f
           return (
             <span key={code} className="inline-flex items-center gap-1 text-xs bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-full px-2.5 py-1 font-medium whitespace-nowrap">
               <TrendingUp className="w-3 h-3" />
+              <span className="opacity-70">{unit}¥=</span>
               <span className="font-bold">{fmt(val, code, unit)}</span> {code}
             </span>
           );
@@ -116,7 +117,7 @@ export default function ExchangeRateWidget({ currencies = [], compact = false, f
               <TrendingUp className="w-3 h-3 flex-shrink-0" style={{ color }} />
               <span className="text-xs whitespace-nowrap" style={{ color, opacity: 0.85 }}>{label}</span>
               <span className="text-sm font-bold ml-auto whitespace-nowrap" style={{ color }}>
-                {fmt(val, code, unit)} {code}
+                {unit}¥={fmt(val, code, unit)} {code}
               </span>
             </div>
           );
@@ -134,7 +135,7 @@ export default function ExchangeRateWidget({ currencies = [], compact = false, f
         return (
           <div key={code} className="flex items-center gap-2 bg-white/80 backdrop-blur-sm border border-emerald-100 rounded-xl px-3 py-2 shadow-sm">
             <TrendingUp className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
-            <span className="text-xs text-gray-500 whitespace-nowrap">{label}</span>
+            <span className="text-xs text-gray-500 whitespace-nowrap">{unit}¥→ {label}</span>
             <span className="text-sm font-bold text-emerald-700 ml-auto whitespace-nowrap">
               {fmt(val, code, unit)} {code}
             </span>
