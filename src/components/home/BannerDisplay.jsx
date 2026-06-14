@@ -27,15 +27,30 @@ export default function BannerDisplay({ config }) {
 
   const widthClass = WIDTH_CLASS[config?.width || "medium"];
 
+  const blur = picked.blurAmount ?? 0;
+  const brightness = picked.brightness ?? 100;
+  const overlayColor = picked.overlayColor || "#000000";
+  const overlayOpacity = picked.overlayOpacity ?? 0;
+
   return (
     <div className="w-full overflow-hidden">
-      <div className={widthClass}>
+      <div className={`${widthClass} relative`}>
         <img
           src={picked.url}
           alt="banner"
-          className="w-full h-auto object-cover block"
+          className="w-full h-auto block"
           draggable={false}
+          style={{
+            filter: `blur(${blur}px) brightness(${brightness / 100})`,
+            transform: blur > 0 ? "scale(1.02)" : undefined,
+          }}
         />
+        {overlayOpacity > 0 && (
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{ backgroundColor: overlayColor, opacity: overlayOpacity / 100 }}
+          />
+        )}
       </div>
     </div>
   );

@@ -1,17 +1,15 @@
-import { useState, useEffect, useRef, useCallback } from "react";
-import ReactCrop, { centerCrop, makeAspectCrop } from "react-image-crop";
-import "react-image-crop/dist/ReactCrop.css";
+import { useState, useEffect } from "react";
 import { tenantEntity } from "@/lib/tenantApi";
 import { invalidateTenantConfigCache } from "@/lib/configCache";
-import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Save, Layout, Upload, X, ImageIcon, Plus, Trash2 } from "lucide-react";
+import { Save, Layout, Plus, Trash2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DEFAULT_HERO } from "@/components/home/HeroSection";
+import ImageEffectsPanel, { SliderField } from "@/components/admin/ImageEffectsPanel";
 
 const VARIANT_OPTIONS = [
   { value: "primary", label: "实心按钮" },
@@ -30,78 +28,6 @@ const AUDIENCE_TABS = [
 ];
 
 function genId() { return `btn_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`; }
-
-// ─── ImageCropModal ──────────────────────────────────────
-function ImageCropModal({ src, onConfirm, onCancel }) {
-  const [crop, setCrop] = useState();
-  const [completedCrop, setCompletedCrop] = useState();
-  const imgRef = useRef();
-
-  const onImageLoad = (e) => {
-    const { naturalWidth: width, naturalHeight: height } = e.currentTarget;
-    const c = centerCrop(makeAspectCrop({ unit: "%", width: 90 }, 3 / 1, width, height), width, height);
-    setCrop(c);
-  };
-
-  const handleConfirm = useCallback(async () => {
-    const image = imgRef.current;
-    if (!image || !completedCrop) { onConfirm(src); return; }
-    const canvas = document.createElement("canvas");
-    const scaleX = image.naturalWidth / image.width;
-    const scaleY = image.naturalHeight / image.height;
-    canvas.width = completedCrop.width * scaleX;
-    canvas.height = completedCrop.height * scaleY;
-    const ctx = canvas.getContext("2d");
-    ctx.drawImage(
-      image,
-      completedCrop.x * scaleX, completedCrop.y * scaleY,
-      completedCrop.width * scaleX, completedCrop.height * scaleY,
-      0, 0, canvas.width, canvas.height,
-    );
-    canvas.toBlob(async (blob) => {
-      if (!blob) { onConfirm(src); return; }
-      const file = new File([blob], "hero-bg.jpg", { type: "image/jpeg" });
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
-      onConfirm(file_url);
-    }, "image/jpeg", 0.9);
-  }, [completedCrop, src]);
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="bg-white rounded-xl shadow-2xl p-5 max-w-2xl w-full mx-4">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold text-gray-800">裁切背景图片</h3>
-          <button onClick={onCancel}><X className="w-4 h-4 text-gray-400" /></button>
-        </div>
-        <p className="text-xs text-gray-400 mb-3">拖动选区以裁切图片（推荐宽高比 3:1）</p>
-        <div className="max-h-[60vh] overflow-auto flex justify-center">
-          <ReactCrop crop={crop} onChange={(_, pct) => setCrop(pct)} onComplete={(c) => setCompletedCrop(c)} aspect={3}>
-            <img ref={imgRef} src={src} onLoad={onImageLoad} className="max-w-full" alt="crop" />
-          </ReactCrop>
-        </div>
-        <div className="flex gap-2 justify-end mt-4">
-          <Button variant="outline" size="sm" onClick={onCancel}>取消</Button>
-          <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={handleConfirm}>确认裁切并上传</Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── SliderField ─────────────────────────────────────────
-function SliderField({ label, value, min, max, unit, onChange }) {
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-1">
-        <Label className="text-xs text-gray-500">{label}</Label>
-        <span className="text-xs text-gray-400">{value}{unit}</span>
-      </div>
-      <input type="range" min={min} max={max} value={value}
-        onChange={e => onChange(Number(e.target.value))}
-        className="w-full h-1.5 rounded accent-blue-600" />
-    </div>
-  );
-}
 
 // 常用内页选项
 const PAGE_OPTIONS = [
@@ -199,171 +125,78 @@ function ButtonEditor({ buttons, onChange }) {
 
 // ─── AudiencePanel：单一受众的完整 hero 配置 ─────────────
 function AudiencePanel({ form, onChange }) {
-  const fileInputRef = useRef();
-  const [cropSrc, setCropSrc] = useState(null);
-  const [dragging, setDragging] = useState(false);
-
   const f = (k, v) => onChange({ ...form, [k]: v });
 
-  const openCrop = (file) => {
-    if (!file || !file.type.startsWith("image/")) return;
-    setCropSrc(URL.createObjectURL(file));
-  };
-
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    e.target.value = "";
-    openCrop(file);
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    setDragging(false);
-    const file = e.dataTransfer.files[0];
-    openCrop(file);
-  };
-
-  const handleCropConfirm = (fileUrl) => {
-    setCropSrc(null);
-    onChange({ ...form, bgImageUrl: fileUrl, bgMode: "image" });
-  };
-
   return (
-    <>
-      {cropSrc && (
-        <ImageCropModal src={cropSrc} onConfirm={handleCropConfirm} onCancel={() => setCropSrc(null)} />
-      )}
-      <div className="space-y-4">
-        {/* Text fields */}
-        <div className="grid grid-cols-1 gap-3">
-          <div>
-            <Label className="text-xs text-gray-500">标题（留空使用品牌名）</Label>
-            <Input className="mt-0.5 text-sm" value={form.title || ""} onChange={e => f("title", e.target.value)} placeholder="同一物流 · Tongyi Express" />
-          </div>
-          <div>
-            <Label className="text-xs text-gray-500">副标题（留空使用品牌副标题）</Label>
-            <Input className="mt-0.5 text-sm" value={form.subtitle || ""} onChange={e => f("subtitle", e.target.value)} placeholder="专业代购..." />
-          </div>
-          <div>
-            <Label className="text-xs text-gray-500">顶部徽标文字</Label>
-            <Input className="mt-0.5 text-sm" value={form.badgeText || ""} onChange={e => f("badgeText", e.target.value)} placeholder="日本 → 全球" />
-          </div>
-        </div>
-
-        {/* Background mode */}
+    <div className="space-y-4">
+      {/* Text fields */}
+      <div className="grid grid-cols-1 gap-3">
         <div>
-          <Label className="text-xs text-gray-500 mb-1.5 block">背景类型</Label>
-          <div className="flex gap-2">
-            {[{ v: "white", label: "纯白" }, { v: "color", label: "单色" }, { v: "image", label: "图片" }].map(opt => (
-              <button key={opt.v} onClick={() => f("bgMode", opt.v)}
-                className={`px-3 py-1.5 text-xs rounded-lg border transition-colors ${form.bgMode === opt.v ? "bg-purple-600 text-white border-purple-600" : "border-gray-200 text-gray-600 hover:border-gray-300"}`}>
-                {opt.label}
-              </button>
-            ))}
-          </div>
+          <Label className="text-xs text-gray-500">标题（留空使用品牌名）</Label>
+          <Input className="mt-0.5 text-sm" value={form.title || ""} onChange={e => f("title", e.target.value)} placeholder="同一物流 · Tongyi Express" />
         </div>
-
-        {/* Color mode */}
-        {form.bgMode === "color" && (
-          <div className="space-y-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
-            <div>
-              <Label className="text-xs text-gray-500">背景颜色</Label>
-              <div className="flex items-center gap-2 mt-0.5">
-                <input type="color" value={form.bgColor || "#ffffff"} onChange={e => f("bgColor", e.target.value)}
-                  className="w-8 h-8 rounded border border-gray-200 cursor-pointer p-0.5" />
-                <Input className="h-7 text-xs font-mono flex-1" value={form.bgColor || "#ffffff"} onChange={e => f("bgColor", e.target.value)} />
-              </div>
-            </div>
-            <SliderField label="透明度" value={form.bgOpacity ?? 100} min={10} max={100} unit="%" onChange={v => f("bgOpacity", v)} />
-          </div>
-        )}
-
-        {/* Image mode */}
-        {form.bgMode === "image" && (
-          <div className="space-y-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
-            {/* 实时预览区（支持拖拽更换） */}
-            {form.bgImageUrl && (
-              <div
-                className="relative rounded-lg overflow-hidden h-28 border border-gray-300 shadow-sm"
-                onDragOver={e => { e.preventDefault(); setDragging(true); }}
-                onDragLeave={() => setDragging(false)}
-                onDrop={handleDrop}
-              >
-                {/* 背景图 */}
-                <div
-                  className="absolute inset-0 bg-cover bg-center"
-                  style={{
-                    backgroundImage: `url(${form.bgImageUrl})`,
-                    filter: `blur(${form.blurAmount ?? 0}px) brightness(${(form.brightness ?? 100) / 100})`,
-                    transform: (form.blurAmount ?? 0) > 0 ? "scale(1.05)" : undefined,
-                  }}
-                />
-                {/* 遮罩 */}
-                {(form.overlayOpacity ?? 0) > 0 && (
-                  <div
-                    className="absolute inset-0"
-                    style={{
-                      backgroundColor: form.overlayColor || "#000000",
-                      opacity: (form.overlayOpacity ?? 0) / 100,
-                    }}
-                  />
-                )}
-                {/* 示意文字 */}
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 pointer-events-none">
-                  <span className="text-white text-sm font-bold drop-shadow">{form.title || "标题预览"}</span>
-                  {form.subtitle && <span className="text-white/80 text-xs drop-shadow">{form.subtitle}</span>}
-                </div>
-                {/* 更换 / 移除按钮 */}
-                <div className="absolute top-2 right-2 flex gap-1">
-                  <Button size="sm" className="h-6 text-xs px-2 bg-white/80 text-gray-700 hover:bg-white" onClick={() => fileInputRef.current?.click()}>
-                    <Upload className="w-3 h-3 mr-1" />更换
-                  </Button>
-                  <Button size="sm" variant="destructive" className="h-6 text-xs px-2 bg-red-500/80 hover:bg-red-600" onClick={() => onChange({ ...form, bgImageUrl: "", bgMode: "white" })}>
-                    <X className="w-3 h-3" />
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {/* 上传区（无图时显示） */}
-            {!form.bgImageUrl && (
-              <div>
-                <Label className="text-xs text-gray-500 mb-1.5 block">背景图片</Label>
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  onDragOver={e => { e.preventDefault(); setDragging(true); }}
-                  onDragLeave={() => setDragging(false)}
-                  onDrop={handleDrop}
-                  className={`w-full h-20 border-2 border-dashed rounded-lg flex flex-col items-center justify-center gap-1 transition-colors ${dragging ? "border-purple-400 bg-purple-50 text-purple-500" : "border-gray-300 text-gray-400 hover:border-purple-400 hover:text-purple-500"}`}>
-                  <ImageIcon className="w-5 h-5" />
-                  <span className="text-xs">点击或拖拽图片至此上传（将进入裁切步骤）</span>
-                </button>
-              </div>
-            )}
-            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
-
-            <SliderField label="模糊度（雾化）" value={form.blurAmount ?? 0} min={0} max={20} unit="px" onChange={v => f("blurAmount", v)} />
-            <SliderField label="明度" value={form.brightness ?? 100} min={30} max={150} unit="%" onChange={v => f("brightness", v)} />
-            <div>
-              <Label className="text-xs text-gray-500 mb-1 block">遮罩颜色</Label>
-              <div className="flex items-center gap-2">
-                <input type="color" value={form.overlayColor || "#000000"} onChange={e => f("overlayColor", e.target.value)}
-                  className="w-7 h-7 rounded border border-gray-200 cursor-pointer p-0.5" />
-                <Input className="h-7 text-xs font-mono flex-1" value={form.overlayColor || "#000000"} onChange={e => f("overlayColor", e.target.value)} />
-              </div>
-            </div>
-            <SliderField label="遮罩透明度" value={form.overlayOpacity ?? 0} min={0} max={80} unit="%" onChange={v => f("overlayOpacity", v)} />
-          </div>
-        )}
-
-        {/* Buttons */}
         <div>
-          <Label className="text-xs text-gray-500 mb-2 block">按钮配置</Label>
-          <ButtonEditor buttons={form.buttons || []} onChange={btns => f("buttons", btns)} />
+          <Label className="text-xs text-gray-500">副标题（留空使用品牌副标题）</Label>
+          <Input className="mt-0.5 text-sm" value={form.subtitle || ""} onChange={e => f("subtitle", e.target.value)} placeholder="专业代购..." />
+        </div>
+        <div>
+          <Label className="text-xs text-gray-500">顶部徽标文字</Label>
+          <Input className="mt-0.5 text-sm" value={form.badgeText || ""} onChange={e => f("badgeText", e.target.value)} placeholder="日本 → 全球" />
         </div>
       </div>
-    </>
+
+      {/* Background mode */}
+      <div>
+        <Label className="text-xs text-gray-500 mb-1.5 block">背景类型</Label>
+        <div className="flex gap-2">
+          {[{ v: "white", label: "纯白" }, { v: "color", label: "单色" }, { v: "image", label: "图片" }].map(opt => (
+            <button key={opt.v} onClick={() => f("bgMode", opt.v)}
+              className={`px-3 py-1.5 text-xs rounded-lg border transition-colors ${form.bgMode === opt.v ? "bg-purple-600 text-white border-purple-600" : "border-gray-200 text-gray-600 hover:border-gray-300"}`}>
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Color mode */}
+      {form.bgMode === "color" && (
+        <div className="space-y-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+          <div>
+            <Label className="text-xs text-gray-500">背景颜色</Label>
+            <div className="flex items-center gap-2 mt-0.5">
+              <input type="color" value={form.bgColor || "#ffffff"} onChange={e => f("bgColor", e.target.value)}
+                className="w-8 h-8 rounded border border-gray-200 cursor-pointer p-0.5" />
+              <Input className="h-7 text-xs font-mono flex-1" value={form.bgColor || "#ffffff"} onChange={e => f("bgColor", e.target.value)} />
+            </div>
+          </div>
+          <SliderField label="透明度" value={form.bgOpacity ?? 100} min={10} max={100} unit="%" onChange={v => f("bgOpacity", v)} />
+        </div>
+      )}
+
+      {/* Image mode — 使用共用的 ImageEffectsPanel */}
+      {form.bgMode === "image" && (
+        <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+          <ImageEffectsPanel
+            imageUrl={form.bgImageUrl}
+            blurAmount={form.blurAmount ?? 0}
+            brightness={form.brightness ?? 100}
+            overlayColor={form.overlayColor || "#000000"}
+            overlayOpacity={form.overlayOpacity ?? 0}
+            previewTitle={form.title || "标题预览"}
+            cropAspect={3}
+            cropHint="拖动选区以裁切图片（推荐宽高比 3:1）"
+            onChange={patch => onChange({ ...form, ...patch, bgMode: "image" })}
+            onRemove={() => onChange({ ...form, bgImageUrl: "", bgMode: "white" })}
+          />
+        </div>
+      )}
+
+      {/* Buttons */}
+      <div>
+        <Label className="text-xs text-gray-500 mb-2 block">按钮配置</Label>
+        <ButtonEditor buttons={form.buttons || []} onChange={btns => f("buttons", btns)} />
+      </div>
+    </div>
   );
 }
 

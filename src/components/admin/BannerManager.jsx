@@ -1,13 +1,12 @@
-import { useState, useEffect, useRef, useCallback } from "react";
-import ReactCrop, { centerCrop, makeAspectCrop } from "react-image-crop";
-import "react-image-crop/dist/ReactCrop.css";
+import { useState, useEffect, useRef } from "react";
 import { tenantEntity } from "@/lib/tenantApi";
 import { invalidateTenantConfigCache } from "@/lib/configCache";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Save, Image as ImageIcon, Upload, X, CheckCircle2, XCircle } from "lucide-react";
+import { Save, Image as ImageIcon, Upload, X, CheckCircle2, XCircle, ChevronDown, ChevronUp } from "lucide-react";
+import ImageEffectsPanel, { ImageCropModal } from "@/components/admin/ImageEffectsPanel";
 
 const WIDTH_OPTIONS = [
   { value: "small",  label: "小", desc: "max-w-3xl" },
@@ -15,65 +14,90 @@ const WIDTH_OPTIONS = [
   { value: "large",  label: "大", desc: "全宽" },
 ];
 
-// ─── Crop Modal（复用 Hero 相同逻辑，自由比例）───────────────
-function BannerCropModal({ src, onConfirm, onCancel }) {
-  const [crop, setCrop] = useState();
-  const [completedCrop, setCompletedCrop] = useState();
-  const imgRef = useRef();
+function genId() { return `banner_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`; }
 
-  const onImageLoad = (e) => {
-    const { naturalWidth: width, naturalHeight: height } = e.currentTarget;
-    // 默认选中整张图（宽度90%，比例自由）
-    const c = centerCrop(makeAspectCrop({ unit: "%", width: 90 }, width / height, width, height), width, height);
-    setCrop(c);
+// ─── SingleImageEditor — 每张图片的效果折叠面板 ───────────
+function SingleImageEditor({ img, onUpdate, onDelete }) {
+  const [open, setOpen] = useState(false);
+
+  const handleEffectsChange = (patch) => {
+    // patch 可能含 imageUrl（更换图）或效果字段
+    onUpdate({ ...img, ...patch });
   };
 
-  const handleConfirm = useCallback(async () => {
-    const image = imgRef.current;
-    if (!image || !completedCrop) { onConfirm(src); return; }
-    const canvas = document.createElement("canvas");
-    const scaleX = image.naturalWidth / image.width;
-    const scaleY = image.naturalHeight / image.height;
-    canvas.width = completedCrop.width * scaleX;
-    canvas.height = completedCrop.height * scaleY;
-    const ctx = canvas.getContext("2d");
-    ctx.drawImage(
-      image,
-      completedCrop.x * scaleX, completedCrop.y * scaleY,
-      completedCrop.width * scaleX, completedCrop.height * scaleY,
-      0, 0, canvas.width, canvas.height,
-    );
-    canvas.toBlob(async (blob) => {
-      if (!blob) { onConfirm(src); return; }
-      const file = new File([blob], "banner.jpg", { type: "image/jpeg" });
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
-      onConfirm(file_url);
-    }, "image/jpeg", 0.9);
-  }, [completedCrop, src]);
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="bg-white rounded-xl shadow-2xl p-5 max-w-2xl w-full mx-4">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold text-gray-800">裁切 Banner 图片</h3>
-          <button onClick={onCancel}><X className="w-4 h-4 text-gray-400" /></button>
+    <div className={`rounded-lg border transition-colors ${img.isActive ? "border-gray-200" : "border-gray-100"}`}>
+      {/* 缩略图行 */}
+      <div className="relative group overflow-hidden rounded-t-lg">
+        <img
+          src={img.url}
+          alt=""
+          className={`w-full h-20 object-cover cursor-pointer transition-opacity ${img.isActive ? "opacity-100" : "opacity-30"}`}
+          style={{
+            filter: `blur(${Math.min(img.blurAmount ?? 0, 3)}px) brightness(${(img.brightness ?? 100) / 100})`,
+          }}
+          onClick={() => onUpdate({ ...img, isActive: !img.isActive })}
+        />
+        {/* 遮罩预览叠加 */}
+        {(img.overlayOpacity ?? 0) > 0 && (
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{ backgroundColor: img.overlayColor || "#000000", opacity: (img.overlayOpacity ?? 0) / 100 }}
+          />
+        )}
+        {/* 状态标签 */}
+        <div className={`absolute bottom-0 inset-x-0 text-center text-xs py-0.5 pointer-events-none ${img.isActive ? "bg-green-500/80 text-white" : "bg-gray-500/70 text-white"}`}>
+          {img.isActive ? "启用" : "已禁用"}
         </div>
-        <p className="text-xs text-gray-400 mb-3">拖动选区以裁切图片（建议宽幅，如 4:1 ~ 6:1）</p>
-        <div className="max-h-[60vh] overflow-auto flex justify-center">
-          <ReactCrop crop={crop} onChange={(_, pct) => setCrop(pct)} onComplete={(c) => setCompletedCrop(c)}>
-            <img ref={imgRef} src={src} onLoad={onImageLoad} className="max-w-full" alt="crop" />
-          </ReactCrop>
-        </div>
-        <div className="flex gap-2 justify-end mt-4">
-          <Button variant="outline" size="sm" onClick={onCancel}>取消</Button>
-          <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700" onClick={handleConfirm}>确认裁切并上传</Button>
-        </div>
+        {/* 删除按钮 */}
+        <button
+          onClick={() => onDelete(img.id)}
+          className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10">
+          <X className="w-3 h-3" />
+        </button>
       </div>
+
+      {/* 底部操作栏 */}
+      <div className="flex items-center justify-between px-2 py-1 bg-gray-50 rounded-b-lg">
+        <button
+          onClick={() => onUpdate({ ...img, isActive: !img.isActive })}
+          className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700">
+          {img.isActive
+            ? <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
+            : <XCircle className="w-3.5 h-3.5 text-gray-400" />}
+          {img.isActive ? "启用" : "禁用"}
+        </button>
+        <button
+          onClick={() => setOpen(o => !o)}
+          className="flex items-center gap-0.5 text-xs text-indigo-500 hover:text-indigo-700">
+          效果
+          {open ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+        </button>
+      </div>
+
+      {/* 效果面板（折叠） */}
+      {open && (
+        <div className="p-3 border-t border-gray-100 bg-white rounded-b-lg">
+          <ImageEffectsPanel
+            imageUrl={img.url}
+            blurAmount={img.blurAmount ?? 0}
+            brightness={img.brightness ?? 100}
+            overlayColor={img.overlayColor || "#000000"}
+            overlayOpacity={img.overlayOpacity ?? 0}
+            cropAspect={undefined}
+            cropHint="拖动选区以裁切 Banner 图片（建议宽幅，如 4:1 ~ 6:1）"
+            onChange={patch => {
+              // imageUrl 字段名映射
+              const { imageUrl, ...rest } = patch;
+              onUpdate({ ...img, ...(imageUrl ? { url: imageUrl } : {}), ...rest });
+            }}
+            onRemove={() => onDelete(img.id)}
+          />
+        </div>
+      )}
     </div>
   );
 }
-
-function genId() { return `banner_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`; }
 
 // ─── Main Manager ────────────────────────────────────────────
 export default function BannerManager({ settings, onReload }) {
@@ -96,17 +120,14 @@ export default function BannerManager({ settings, onReload }) {
     setCropSrc(URL.createObjectURL(file));
   };
 
-  const handleCropConfirm = async (fileUrl) => {
+  const handleCropConfirm = (fileUrl) => {
     setCropSrc(null);
-    const newImage = { id: genId(), url: fileUrl, isActive: true, uploadedAt: new Date().toISOString() };
+    const newImage = { id: genId(), url: fileUrl, isActive: true, uploadedAt: new Date().toISOString(), blurAmount: 0, brightness: 100, overlayColor: "#000000", overlayOpacity: 0 };
     setConfig(prev => ({ ...prev, images: [...(prev.images || []), newImage] }));
   };
 
-  const toggleActive = (id) => {
-    setConfig(prev => ({
-      ...prev,
-      images: prev.images.map(img => img.id === id ? { ...img, isActive: !img.isActive } : img),
-    }));
+  const updateImage = (updated) => {
+    setConfig(prev => ({ ...prev, images: prev.images.map(img => img.id === updated.id ? updated : img) }));
   };
 
   const deleteImage = (id) => {
@@ -140,10 +161,11 @@ export default function BannerManager({ settings, onReload }) {
   return (
     <>
       {cropSrc && (
-        <BannerCropModal
+        <ImageCropModal
           src={cropSrc}
           onConfirm={handleCropConfirm}
           onCancel={() => setCropSrc(null)}
+          hint="拖动选区以裁切 Banner 图片（建议宽幅，如 4:1 ~ 6:1）"
         />
       )}
 
@@ -159,7 +181,7 @@ export default function BannerManager({ settings, onReload }) {
             </Button>
           </div>
           <p className="text-xs text-gray-400 mt-1">
-            上传图片至图库（最多 10 张）。点击图片可启用/禁用。启用的图片将在用户每次刷新时随机展示一张。
+            上传图片至图库（最多 10 张）。点击图片切换启用/禁用；点击"效果"可编辑模糊、明度、遮罩等。启用的图片在用户每次刷新时随机展示一张。
           </p>
         </CardHeader>
 
@@ -196,34 +218,12 @@ export default function BannerManager({ settings, onReload }) {
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {(config.images || []).map(img => (
-                  <div key={img.id} className="relative group rounded-lg overflow-hidden border border-gray-200">
-                    <img
-                      src={img.url}
-                      alt=""
-                      className={`w-full h-20 object-cover cursor-pointer transition-opacity ${img.isActive ? "opacity-100" : "opacity-30"}`}
-                      onClick={() => toggleActive(img.id)}
-                    />
-                    {/* 状态叠加 */}
-                    <div
-                      className="absolute inset-0 flex items-center justify-center pointer-events-none"
-                      onClick={() => toggleActive(img.id)}
-                    >
-                      {img.isActive
-                        ? <CheckCircle2 className="w-6 h-6 text-green-400 drop-shadow opacity-0 group-hover:opacity-100 transition-opacity" />
-                        : <XCircle className="w-6 h-6 text-gray-400 drop-shadow opacity-70" />
-                      }
-                    </div>
-                    {/* 删除按钮 */}
-                    <button
-                      onClick={() => deleteImage(img.id)}
-                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      <X className="w-3 h-3" />
-                    </button>
-                    {/* 状态标签 */}
-                    <div className={`absolute bottom-0 inset-x-0 text-center text-xs py-0.5 ${img.isActive ? "bg-green-500/80 text-white" : "bg-gray-500/70 text-white"}`}>
-                      {img.isActive ? "启用" : "已禁用"}
-                    </div>
-                  </div>
+                  <SingleImageEditor
+                    key={img.id}
+                    img={img}
+                    onUpdate={updateImage}
+                    onDelete={deleteImage}
+                  />
                 ))}
               </div>
             </div>
@@ -231,23 +231,18 @@ export default function BannerManager({ settings, onReload }) {
 
           {/* 上传区 */}
           {(config.images || []).length < 10 && (
-            <div>
-              {(config.images || []).length === 0 && (
-                <Label className="text-xs text-gray-500 mb-1.5 block">上传图片</Label>
-              )}
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                onDragOver={e => { e.preventDefault(); setDragging(true); }}
-                onDragLeave={() => setDragging(false)}
-                onDrop={e => { e.preventDefault(); setDragging(false); openCrop(e.dataTransfer.files[0]); }}
-                className={`w-full h-16 border-2 border-dashed rounded-lg flex items-center justify-center gap-2 transition-colors text-sm ${
-                  dragging ? "border-indigo-400 bg-indigo-50 text-indigo-500"
-                  : "border-gray-300 text-gray-400 hover:border-indigo-400 hover:text-indigo-500"
-                }`}>
-                <Upload className="w-4 h-4" />
-                点击或拖拽上传图片（将进入裁切步骤）
-              </button>
-            </div>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              onDragOver={e => { e.preventDefault(); setDragging(true); }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={e => { e.preventDefault(); setDragging(false); openCrop(e.dataTransfer.files[0]); }}
+              className={`w-full h-16 border-2 border-dashed rounded-lg flex items-center justify-center gap-2 transition-colors text-sm ${
+                dragging ? "border-indigo-400 bg-indigo-50 text-indigo-500"
+                : "border-gray-300 text-gray-400 hover:border-indigo-400 hover:text-indigo-500"
+              }`}>
+              <Upload className="w-4 h-4" />
+              点击或拖拽上传图片（将进入裁切步骤）
+            </button>
           )}
           <input
             ref={fileInputRef}
