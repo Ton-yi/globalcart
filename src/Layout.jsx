@@ -30,7 +30,6 @@ export default function Layout({ children, currentPageName }) {
   const [navbarSettings, setNavbarSettings] = useState(null);
   const [isTransitManager, setIsTransitManager] = useState(false);
   const [navbarRateCurrencies, setNavbarRateCurrencies] = useState([]);
-  const [navbarRateUnit, setNavbarRateUnit] = useState(100);
   const location = useLocation();
 
   useEffect(() => {
@@ -64,7 +63,6 @@ export default function Layout({ children, currentPageName }) {
         try {
           const rc = JSON.parse(cachedRateSetting.value);
           if (rc.enabled && Array.isArray(rc.currencies)) setNavbarRateCurrencies(rc.currencies);
-          if (rc.unit) setNavbarRateUnit(rc.unit);
         } catch { /* noop */ }
       }
       return;
@@ -80,7 +78,6 @@ export default function Layout({ children, currentPageName }) {
         try {
           const rc = JSON.parse(rateSetting.value);
           if (rc.enabled && Array.isArray(rc.currencies)) setNavbarRateCurrencies(rc.currencies);
-          if (rc.unit) setNavbarRateUnit(rc.unit);
         } catch { /* noop */ }
       }
     })
@@ -250,7 +247,7 @@ export default function Layout({ children, currentPageName }) {
           </nav>
 
           <div className="flex items-center gap-2">
-            <NavbarRateWidget currencies={navbarRateCurrencies} unit={navbarRateUnit} />
+            <NavbarRateWidget currencies={navbarRateCurrencies} />
             <LocaleSwitcher />
             <NotificationBell />
             <MidnightToggle />

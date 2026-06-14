@@ -3,54 +3,55 @@
  * 主页自定义 → 汇率显示设置
  * 配置存储在 SiteSettings key = "home_exchange_rate_config" (JSON)
  *
- * 结构：
- * {
- *   enabled: boolean,
- *   currencies: ["CNY","USD","EUR","TWD"],  // 至多4个
- *   position: "hero_left" | "hero_right" | "quick_actions" | "steps_title" | "status_board" | "faq",
- * }
+ * currencies 新格式（向后兼容旧 string[] 格式）：
+ * [{ code: "CNY", unit: 100 }, { code: "USD", unit: 1 }, ...]
  */
 import { useState, useEffect } from "react";
 import { tenantEntity } from "@/lib/tenantApi";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Save, TrendingUp, Plus, X } from "lucide-react";
+import { Save, TrendingUp, Plus, X, ArrowUp, ArrowDown, GripVertical } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 
-const ALL_CURRENCIES = [
-  { code: "CNY", label: "人民币 (CNY)" },
-  { code: "USD", label: "美元 (USD)" },
-  { code: "EUR", label: "欧元 (EUR)" },
-  { code: "TWD", label: "新台币 (TWD)" },
-  { code: "HKD", label: "港币 (HKD)" },
-  { code: "SGD", label: "新加坡元 (SGD)" },
-  { code: "KRW", label: "韩元 (KRW)" },
-  { code: "GBP", label: "英镑 (GBP)" },
-  { code: "AUD", label: "澳元 (AUD)" },
-  { code: "CAD", label: "加元 (CAD)" },
-  { code: "THB", label: "泰铢 (THB)" },
-  { code: "MYR", label: "马来西亚林吉特 (MYR)" },
+const PRESET_CURRENCIES = [
+  { code: "CNY", label: "人民币" },
+  { code: "USD", label: "美元" },
+  { code: "EUR", label: "欧元" },
+  { code: "TWD", label: "新台币" },
+  { code: "HKD", label: "港币" },
+  { code: "SGD", label: "新加坡元" },
+  { code: "KRW", label: "韩元" },
+  { code: "GBP", label: "英镑" },
+  { code: "AUD", label: "澳元" },
+  { code: "CAD", label: "加元" },
+  { code: "THB", label: "泰铢" },
+  { code: "MYR", label: "林吉特" },
 ];
 
 const POSITIONS = [
-  { value: "hero_left",    label: "Hero 区块左侧" },
-  { value: "hero_right",   label: "Hero 区块右侧" },
+  { value: "hero_left",     label: "Hero 区块左侧" },
+  { value: "hero_right",    label: "Hero 区块右侧" },
   { value: "quick_actions", label: "快捷操作区块（需开启快捷操作）" },
-  { value: "steps_title",  label: "流程区块标题旁（需开启流程区块）" },
-  { value: "status_board", label: "状态看板（需开启看板）" },
-  { value: "faq",          label: "常见问题（自动生成汇率 FAQ 条目）" },
+  { value: "steps_title",   label: "流程区块标题旁（需开启流程区块）" },
+  { value: "status_board",  label: "状态看板（需开启看板）" },
+  { value: "faq",           label: "常见问题（自动生成汇率 FAQ 条目）" },
 ];
 
 const DEFAULT_CONFIG = {
   enabled: false,
-  currencies: ["CNY", "USD"],
+  currencies: [],   // [{code, unit}]
   position: "hero_right",
   textColor: "",
-  unit: 100,
 };
+
+// 旧格式 string[] 兼容升级
+function normalizeCurrencies(raw) {
+  if (!Array.isArray(raw) || raw.length === 0) return [];
+  if (typeof raw[0] === "string") return raw.map(c => ({ code: c, unit: 100 }));
+  return raw;
+}
 
 export default function ExchangeRateDisplayManager({ settings, onReload }) {
   const [form, setForm] = useState(DEFAULT_CONFIG);
@@ -61,34 +62,68 @@ export default function ExchangeRateDisplayManager({ settings, onReload }) {
   useEffect(() => {
     const s = (settings || []).find(s => s.key === "home_exchange_rate_config");
     if (s?.value) {
-      try { setForm({ ...DEFAULT_CONFIG, ...JSON.parse(s.value) }); } catch { /* noop */ }
+      try {
+        const parsed = JSON.parse(s.value);
+        setForm({
+          ...DEFAULT_CONFIG,
+          ...parsed,
+          currencies: normalizeCurrencies(parsed.currencies),
+        });
+      } catch { /* noop */ }
     }
   }, [settings]);
 
-  const toggleCurrency = (code) => {
-    setForm(prev => {
-      const cur = prev.currencies || [];
-      if (cur.includes(code)) {
-        return { ...prev, currencies: cur.filter(c => c !== code) };
-      }
-      if (cur.length >= 4) return prev; // max 4
-      return { ...prev, currencies: [...cur, code] };
-    });
+  const selectedCodes = (form.currencies || []).map(c => c.code);
+
+  // 从预设列表添加
+  const addPreset = (code) => {
+    if (selectedCodes.includes(code)) return;
+    setForm(p => ({ ...p, currencies: [...p.currencies, { code, unit: 100 }] }));
   };
 
-  const addCustomCurrency = () => {
+  // 添加自定义币种
+  const addCustom = () => {
     const code = customInput.trim().toUpperCase();
     if (!code || code.length < 2 || code.length > 6) return;
-    if ((form.currencies || []).includes(code)) { setCustomInput(""); return; }
-    if ((form.currencies || []).length >= 4) return;
-    setForm(prev => ({ ...prev, currencies: [...(prev.currencies || []), code] }));
+    if (selectedCodes.includes(code)) { setCustomInput(""); return; }
+    setForm(p => ({ ...p, currencies: [...p.currencies, { code, unit: 100 }] }));
     setCustomInput("");
+  };
+
+  // 移除
+  const removeCurrency = (code) => {
+    setForm(p => ({ ...p, currencies: p.currencies.filter(c => c.code !== code) }));
+  };
+
+  // 修改单行 unit
+  const updateUnit = (code, val) => {
+    const n = parseInt(val, 10);
+    setForm(p => ({
+      ...p,
+      currencies: p.currencies.map(c => c.code === code ? { ...c, unit: isNaN(n) || n < 1 ? 1 : n } : c),
+    }));
+  };
+
+  // 上移 / 下移
+  const move = (idx, dir) => {
+    setForm(p => {
+      const arr = [...p.currencies];
+      const target = idx + dir;
+      if (target < 0 || target >= arr.length) return p;
+      [arr[idx], arr[target]] = [arr[target], arr[idx]];
+      return { ...p, currencies: arr };
+    });
   };
 
   const handleSave = async () => {
     setSaving(true);
     const existing = (settings || []).find(s => s.key === "home_exchange_rate_config");
-    const value = JSON.stringify(form);
+    // 保存时同时保留顶层 unit（取第一个币种的 unit 作为全局兼容值）
+    const saveForm = {
+      ...form,
+      unit: form.currencies[0]?.unit ?? 100,
+    };
+    const value = JSON.stringify(saveForm);
     if (existing?.id) {
       await tenantEntity.update("SiteSettings", existing.id, { value });
     } else {
@@ -129,107 +164,109 @@ export default function ExchangeRateDisplayManager({ settings, onReload }) {
 
         {form.enabled && (
           <>
-            {/* 货币选择 */}
+            {/* ── 已选币种列表 ── */}
             <div>
               <Label className="text-xs text-gray-500 block mb-2">
-                显示币种（最多同时选 4 个，已选 {form.currencies?.length || 0}/4）
+                显示币种 · 顺序即展示顺序（已选 {form.currencies.length} 个）
               </Label>
-              <div className="grid grid-cols-2 gap-1.5">
-                {ALL_CURRENCIES.map(c => {
-                  const checked = (form.currencies || []).includes(c.code);
-                  const disabled = !checked && (form.currencies || []).length >= 4;
+
+              {form.currencies.length === 0 && (
+                <p className="text-xs text-gray-400 italic py-2">尚未添加任何币种，请从下方选择或输入。</p>
+              )}
+
+              <div className="space-y-1.5">
+                {form.currencies.map(({ code, unit }, idx) => {
+                  const preset = PRESET_CURRENCIES.find(p => p.code === code);
                   return (
-                    <div
-                      key={c.code}
-                      className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-xs cursor-pointer select-none transition-colors ${
-                        checked ? "bg-emerald-50 border-emerald-300 text-emerald-800" :
-                        disabled ? "opacity-40 cursor-not-allowed border-gray-200" :
-                        "border-gray-200 hover:border-gray-300 text-gray-700"
-                      }`}
-                      onClick={() => !disabled && toggleCurrency(c.code)}
-                    >
-                      <Checkbox checked={checked} disabled={disabled} onCheckedChange={() => !disabled && toggleCurrency(c.code)} />
-                      <span>{c.label}</span>
+                    <div key={code} className="flex items-center gap-2 bg-white border border-emerald-200 rounded-lg px-2.5 py-2">
+                      {/* 排序按钮 */}
+                      <div className="flex flex-col gap-0.5">
+                        <button onClick={() => move(idx, -1)} disabled={idx === 0}
+                          className="p-0.5 rounded hover:bg-gray-100 disabled:opacity-20 transition-colors">
+                          <ArrowUp className="w-3 h-3 text-gray-400" />
+                        </button>
+                        <button onClick={() => move(idx, 1)} disabled={idx === form.currencies.length - 1}
+                          className="p-0.5 rounded hover:bg-gray-100 disabled:opacity-20 transition-colors">
+                          <ArrowDown className="w-3 h-3 text-gray-400" />
+                        </button>
+                      </div>
+
+                      {/* 币种标识 */}
+                      <div className="flex-1 min-w-0">
+                        <span className="text-xs font-semibold text-emerald-800">{code}</span>
+                        {preset && <span className="text-xs text-gray-400 ml-1.5">{preset.label}</span>}
+                      </div>
+
+                      {/* 比例单位 */}
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <span className="text-xs text-gray-400 whitespace-nowrap">单位</span>
+                        <Input
+                          type="number"
+                          min={1}
+                          className="h-7 text-xs w-20 text-center"
+                          value={unit}
+                          onChange={e => updateUnit(code, e.target.value)}
+                        />
+                        <span className="text-xs text-gray-400">日元</span>
+                      </div>
+
+                      {/* 删除 */}
+                      <button onClick={() => removeCurrency(code)}
+                        className="p-1 rounded hover:bg-red-50 text-gray-300 hover:text-red-500 transition-colors flex-shrink-0">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   );
                 })}
               </div>
-
-              {/* 自定义币种 */}
-              <div className="mt-3 space-y-2">
-                <p className="text-xs text-gray-400">自定义币种（输入标准 ISO 4217 代码，如 MXN、BRL）</p>
-                {/* 已添加的自定义币种标签 */}
-                {(form.currencies || []).filter(c => !ALL_CURRENCIES.some(a => a.code === c)).length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {(form.currencies || []).filter(c => !ALL_CURRENCIES.some(a => a.code === c)).map(code => (
-                      <span key={code} className="inline-flex items-center gap-1 text-xs bg-emerald-50 border border-emerald-300 text-emerald-800 rounded-full px-2.5 py-1 font-medium">
-                        {code}
-                        <button onClick={() => toggleCurrency(code)} className="ml-0.5 hover:text-red-600 transition-colors">
-                          <X className="w-3 h-3" />
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-                <div className="flex gap-2">
-                  <Input
-                    className="h-8 text-xs uppercase flex-1"
-                    placeholder="例：MXN"
-                    value={customInput}
-                    maxLength={6}
-                    onChange={e => setCustomInput(e.target.value.toUpperCase())}
-                    onKeyDown={e => e.key === "Enter" && addCustomCurrency()}
-                    disabled={(form.currencies || []).length >= 4}
-                  />
-                  <Button size="sm" variant="outline" className="h-8 px-3 text-xs" onClick={addCustomCurrency}
-                    disabled={(form.currencies || []).length >= 4 || !customInput.trim()}>
-                    <Plus className="w-3.5 h-3.5" />
-                  </Button>
-                </div>
-              </div>
             </div>
 
-            {/* 比例单位 */}
+            {/* ── 添加预设币种 ── */}
             <div>
-              <Label className="text-xs text-gray-500 block mb-1.5">汇率比例单位（日元）</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  type="number"
-                  min={1}
-                  className="h-8 text-xs w-28"
-                  value={form.unit ?? 100}
-                  onChange={e => {
-                    const v = parseInt(e.target.value, 10);
-                    setForm(p => ({ ...p, unit: isNaN(v) || v < 1 ? 1 : v }));
-                  }}
-                />
-                <span className="text-xs text-gray-400">日元 = 对应币种金额（仅显示币种金额，不显示日元数字）</span>
+              <Label className="text-xs text-gray-500 block mb-2">从预设列表添加</Label>
+              <div className="flex flex-wrap gap-1.5">
+                {PRESET_CURRENCIES.map(c => {
+                  const selected = selectedCodes.includes(c.code);
+                  return (
+                    <button
+                      key={c.code}
+                      onClick={() => addPreset(c.code)}
+                      disabled={selected}
+                      className={`inline-flex items-center gap-1 text-xs rounded-full px-2.5 py-1 border transition-colors ${
+                        selected
+                          ? "bg-emerald-50 border-emerald-300 text-emerald-600 opacity-50 cursor-not-allowed"
+                          : "bg-white border-gray-200 text-gray-600 hover:border-emerald-300 hover:text-emerald-700 hover:bg-emerald-50 cursor-pointer"
+                      }`}
+                    >
+                      {selected ? "✓" : <Plus className="w-3 h-3" />}
+                      {c.code}
+                      <span className="text-gray-400">{c.label}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-            {/* 字体颜色（仅 Hero 模式有效） */}
-            {(form.position === "hero_left" || form.position === "hero_right") && (
-              <div>
-                <Label className="text-xs text-gray-500 block mb-2">字体颜色（叠加在 Hero 上时）</Label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="color"
-                    value={form.textColor || "#ffffff"}
-                    onChange={e => setForm(p => ({ ...p, textColor: e.target.value }))}
-                    className="w-8 h-8 rounded cursor-pointer border border-gray-200"
-                  />
-                  <span className="text-xs text-gray-500">{form.textColor || "#ffffff"}</span>
-                  {form.textColor && (
-                    <button
-                      className="text-xs text-gray-400 hover:text-red-500 transition-colors"
-                      onClick={() => setForm(p => ({ ...p, textColor: "" }))}
-                    >重置默认</button>
-                  )}
-                </div>
+            {/* ── 自定义币种输入 ── */}
+            <div>
+              <Label className="text-xs text-gray-500 block mb-1.5">自定义币种（输入 ISO 4217 代码，如 MXN、BRL）</Label>
+              <div className="flex gap-2">
+                <Input
+                  className="h-8 text-xs uppercase w-32"
+                  placeholder="例：MXN"
+                  value={customInput}
+                  maxLength={6}
+                  onChange={e => setCustomInput(e.target.value.toUpperCase())}
+                  onKeyDown={e => e.key === "Enter" && addCustom()}
+                />
+                <Button size="sm" variant="outline" className="h-8 px-3 text-xs" onClick={addCustom}
+                  disabled={!customInput.trim()}>
+                  <Plus className="w-3.5 h-3.5 mr-1" />添加
+                </Button>
               </div>
-            )}
+            </div>
 
-            {/* 显示位置 */}
+            {/* ── 显示位置 ── */}
             <div>
               <Label className="text-xs text-gray-500 block mb-2">显示位置</Label>
               <div className="space-y-1.5">
@@ -252,24 +289,46 @@ export default function ExchangeRateDisplayManager({ settings, onReload }) {
               </div>
               {form.position === "faq" && (
                 <p className="text-xs text-amber-600 mt-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                  选择"常见问题"时，系统将在 FAQ 末尾自动插入一条「{form.unit ?? 100}日元兑 [币种] 是多少？」的问答条目，答案实时显示当前汇率。
+                  选择"常见问题"时，系统将为每个币种自动插入「X日元兑 [币种] 是多少？」问答条目。
                 </p>
               )}
             </div>
 
-            {/* 预览 */}
-            <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5">
-              <p className="text-xs text-gray-400 mb-1.5">显示预览（实际数字会用实时汇率替换）</p>
-              <div className="flex flex-wrap gap-2">
-                {(form.currencies || []).map(code => (
-                  <span key={code} className="inline-flex items-center gap-1 text-xs bg-white border border-emerald-200 text-emerald-800 rounded-full px-2.5 py-1 font-medium">
-                    <TrendingUp className="w-3 h-3" />
-                    <span className="font-bold">---</span> {code}
-                  </span>
-                ))}
+            {/* ── 字体颜色（Hero 模式）── */}
+            {(form.position === "hero_left" || form.position === "hero_right") && (
+              <div>
+                <Label className="text-xs text-gray-500 block mb-2">字体颜色（叠加在 Hero 上时）</Label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    value={form.textColor || "#ffffff"}
+                    onChange={e => setForm(p => ({ ...p, textColor: e.target.value }))}
+                    className="w-8 h-8 rounded cursor-pointer border border-gray-200"
+                  />
+                  <span className="text-xs text-gray-500">{form.textColor || "#ffffff"}</span>
+                  {form.textColor && (
+                    <button className="text-xs text-gray-400 hover:text-red-500 transition-colors"
+                      onClick={() => setForm(p => ({ ...p, textColor: "" }))}>重置默认</button>
+                  )}
+                </div>
               </div>
-              <p className="text-xs text-gray-400 mt-1">（以 {form.unit ?? 100} 日元为单位计算后，仅显示换算后的币种金额）</p>
-            </div>
+            )}
+
+            {/* ── 预览 ── */}
+            {form.currencies.length > 0 && (
+              <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5">
+                <p className="text-xs text-gray-400 mb-1.5">显示预览（实际数字会用实时汇率替换）</p>
+                <div className="flex flex-wrap gap-2">
+                  {form.currencies.map(({ code, unit }) => (
+                    <span key={code} className="inline-flex items-center gap-1 text-xs bg-white border border-emerald-200 text-emerald-800 rounded-full px-2.5 py-1 font-medium">
+                      <TrendingUp className="w-3 h-3" />
+                      <span className="opacity-70">{unit}¥=</span>
+                      <span className="font-bold">---</span> {code}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </>
         )}
       </CardContent>

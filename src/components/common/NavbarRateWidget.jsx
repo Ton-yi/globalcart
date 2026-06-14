@@ -37,24 +37,32 @@ function fmt(val, code, unit = 100) {
   return amount.toFixed(decimals);
 }
 
+// 标准化为 [{code, unit}] 格式
+function normalizeItems(currencies, defaultUnit = 100) {
+  if (!Array.isArray(currencies) || currencies.length === 0) return [];
+  if (typeof currencies[0] === "string") return currencies.map(c => ({ code: c, unit: defaultUnit }));
+  return currencies;
+}
+
 export default function NavbarRateWidget({ currencies = [], unit = 100 }) {
+  const items = normalizeItems(currencies, unit);
   const [rates, setRates] = useState(null);
 
   useEffect(() => {
-    if (!currencies.length) return;
+    if (!items.length) return;
     fetchRates().then(setRates);
-  }, [currencies.join(",")]);
+  }, [items.map(i => i.code).join(",")]);
 
-  if (!currencies.length || !rates) return null;
+  if (!items.length || !rates) return null;
 
   return (
     <div className="hidden md:flex items-center gap-2 px-2">
-      {currencies.map(code => {
+      {items.map(({ code, unit: u }) => {
         const val = rates[`jpy_${code.toLowerCase()}`] ?? rates[code];
         return (
           <span key={code} className="inline-flex items-center gap-1 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5 font-medium whitespace-nowrap">
             <TrendingUp className="w-3 h-3" />
-            {unit}¥={fmt(val, code, unit)}{code}
+            {u}¥={fmt(val, code, u)}{code}
           </span>
         );
       })}
