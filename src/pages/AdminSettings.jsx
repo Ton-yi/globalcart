@@ -227,11 +227,13 @@ export default function AdminSettings() {
           announcements: data.announcements || [],
           shippingMethods: data.shippingMethods || [],
           transitMethods: data.transitMethods || [],
-          transitLocations: [],
+          transitLocations: data.transitLocations || [],
           itemSizeTemplates: data.itemSizeTemplates || [],
           storeTagRules: data.storeTagRules || [],
           addons: data.addons || [],
           countriesConfig: data.countriesConfig || null,
+          navbarSettings: data.navbarSettings || null,
+          settings: data.settings || [],
         });
       }
       t.done('data ready');

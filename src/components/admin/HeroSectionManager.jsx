@@ -399,21 +399,24 @@ export default function HeroSectionManager({ settings, onReload }) {
 
   const handleSave = async () => {
     setSaving(true);
-    // 若统一模式，保存前将 guest 配置同步到 user 和 admin
-    const saveForm = form.unified
-      ? { ...form, user: { ...form.guest }, admin: { ...form.guest } }
-      : form;
-    const existing = (settings || []).find(s => s.key === "home_hero_config");
-    const value = JSON.stringify(saveForm);
-    if (existing?.id) {
-      await tenantEntity.update("SiteSettings", existing.id, { value });
-    } else {
-      await tenantEntity.create("SiteSettings", { key: "home_hero_config", value, description: "主页 Hero 区块配置（JSON）", category: "general" });
+    try {
+      // 若统一模式，保存前将 guest 配置同步到 user 和 admin
+      const saveForm = form.unified
+        ? { ...form, user: { ...form.guest }, admin: { ...form.guest } }
+        : form;
+      const existing = (settings || []).find(s => s.key === "home_hero_config");
+      const value = JSON.stringify(saveForm);
+      if (existing?.id) {
+        await tenantEntity.update("SiteSettings", existing.id, { value });
+      } else {
+        await tenantEntity.create("SiteSettings", { key: "home_hero_config", value, description: "主页 Hero 区块配置（JSON）", category: "general" });
+      }
+      await onReload();
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } finally {
+      setSaving(false);
     }
-    await onReload();
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
   };
 
   const toggleUnified = (checked) => {

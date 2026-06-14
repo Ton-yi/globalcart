@@ -350,20 +350,23 @@ export default function StepsSectionManager({ settings, onReload }) {
 
   const handleSave = async () => {
     setSaving(true);
-    const saveForm = form.unified
-      ? { ...form, user: cloneAudience(form.guest), admin: cloneAudience(form.guest) }
-      : form;
-    const existing = (settings || []).find(s => s.key === "home_steps_config");
-    const value = JSON.stringify(saveForm);
-    if (existing?.id) {
-      await tenantEntity.update("SiteSettings", existing.id, { value });
-    } else {
-      await tenantEntity.create("SiteSettings", { key: "home_steps_config", value, description: "主页代购流程区块配置（JSON）", category: "general" });
+    try {
+      const saveForm = form.unified
+        ? { ...form, user: cloneAudience(form.guest), admin: cloneAudience(form.guest) }
+        : form;
+      const existing = (settings || []).find(s => s.key === "home_steps_config");
+      const value = JSON.stringify(saveForm);
+      if (existing?.id) {
+        await tenantEntity.update("SiteSettings", existing.id, { value });
+      } else {
+        await tenantEntity.create("SiteSettings", { key: "home_steps_config", value, description: "主页代购流程区块配置（JSON）", category: "general" });
+      }
+      await onReload();
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } finally {
+      setSaving(false);
     }
-    await onReload();
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
   };
 
   const toggleUnified = (checked) => {

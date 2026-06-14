@@ -62,20 +62,23 @@ export default function LogisticsStatusBoardManager({ settings, onReload }) {
 
   const handleSave = async () => {
     setSaving(true);
-    const existing = (settings || []).find(s => s.key === "home_status_board");
-    const value = JSON.stringify(config);
-    if (existing?.id) {
-      await tenantEntity.update("SiteSettings", existing.id, { value });
-    } else {
-      await tenantEntity.create("SiteSettings", {
-        key: "home_status_board", value,
-        description: "主页物流状态看板配置（JSON）", category: "general",
-      });
+    try {
+      const existing = (settings || []).find(s => s.key === "home_status_board");
+      const value = JSON.stringify(config);
+      if (existing?.id) {
+        await tenantEntity.update("SiteSettings", existing.id, { value });
+      } else {
+        await tenantEntity.create("SiteSettings", {
+          key: "home_status_board", value,
+          description: "主页物流状态看板配置（JSON）", category: "general",
+        });
+      }
+      await onReload();
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } finally {
+      setSaving(false);
     }
-    await onReload();
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
   };
 
   const updateGroup = (key, field, val) => {
