@@ -216,13 +216,13 @@ function CropView({ src, initialAspect, onDone, onCancel }) {
 
 // ─── ImageEditModal ────────────────────────────────────────
 // 两阶段同弹窗：mode="edit"（效果编辑）| mode="crop"（裁切）
-function ImageEditModal({ imageUrl, blurAmount, brightness, overlayColor, overlayOpacity, previewTitle, onChange, onClose, aspect, cropHint }) {
+function ImageEditModal({ imageUrl, initialMode = "edit", blurAmount, brightness, overlayColor, overlayOpacity, previewTitle, onChange, onClose, aspect, cropHint }) {
   const fileInputRef = useRef();
-  const [mode, setMode] = useState("edit"); // "edit" | "crop"
+  const [mode, setMode] = useState(initialMode); // "edit" | "crop"
   const [local, setLocal] = useState({ blurAmount, brightness, overlayColor, overlayOpacity });
   const [pendingImageUrl, setPendingImageUrl] = useState(imageUrl);
-  // cropSrc: 待裁切的原始图（上传新文件时设置）
-  const [cropSrc, setCropSrc] = useState(null);
+  // cropSrc: 待裁切的原始图
+  const [cropSrc, setCropSrc] = useState(initialMode === "crop" ? imageUrl : null);
   const [draggingOver, setDraggingOver] = useState(false);
 
   const patch = (p) => setLocal(prev => ({ ...prev, ...p }));
@@ -391,15 +391,19 @@ export default function ImageEffectsPanel({
   cropHint,
   onChange,
   onRemove,
-  onFileSelected,
+  onFileSelected, // 保留 prop 兼容性，但不再需要外部处理
 }) {
   const fileInputRef = useRef();
   const [dragging, setDragging] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  // 新图片直接进入编辑器（裁切模式）
+  const [pendingNewFile, setPendingNewFile] = useState(null);
 
   const handleFile = (file) => {
     if (!file || !file.type.startsWith("image/")) return;
-    onFileSelected?.(file);
+    // 直接打开编辑器，传入临时 URL 作为新图
+    setPendingNewFile(URL.createObjectURL(file));
+    setEditOpen(true);
   };
 
   const handleDrop = (e) => {
@@ -410,9 +414,11 @@ export default function ImageEffectsPanel({
 
   return (
     <>
-      {editOpen && imageUrl && (
+      {editOpen && (
         <ImageEditModal
-          imageUrl={imageUrl}
+          // 新上传文件：用临时 URL 作为初始图，进入裁切模式
+          imageUrl={pendingNewFile || imageUrl}
+          initialMode={pendingNewFile ? "crop" : "edit"}
           blurAmount={blurAmount}
           brightness={brightness}
           overlayColor={overlayColor}
@@ -420,8 +426,8 @@ export default function ImageEffectsPanel({
           previewTitle={previewTitle}
           aspect={aspect}
           cropHint={cropHint}
-          onChange={onChange}
-          onClose={() => setEditOpen(false)}
+          onChange={(patch) => { onChange(patch); setPendingNewFile(null); }}
+          onClose={() => { setEditOpen(false); setPendingNewFile(null); }}
         />
       )}
 
