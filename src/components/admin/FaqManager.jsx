@@ -40,8 +40,10 @@ function migrateConfig(raw) {
   };
 }
 
+let _panelIdCounter = 0;
 function AudiencePanel({ form, onChange, categories }) {
   const [expandedCats, setExpandedCats] = useState({});
+  const [panelId] = useState(() => ++_panelIdCounter);
   const f = (k, v) => onChange({ ...form, [k]: v });
 
   const selectMode = form.select_mode || "category";
@@ -69,8 +71,8 @@ function AudiencePanel({ form, onChange, categories }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
-        <Checkbox id="faq-visible-check" checked={!!form.visible} onCheckedChange={v => f("visible", !!v)} />
-        <label htmlFor="faq-visible-check" className="text-xs text-gray-600 select-none cursor-pointer">显示此区块</label>
+        <Checkbox id={`faq-visible-check-${panelId}`} checked={!!form.visible} onCheckedChange={v => f("visible", !!v)} />
+        <label htmlFor={`faq-visible-check-${panelId}`} className="text-xs text-gray-600 select-none cursor-pointer">显示此区块</label>
       </div>
 
       {form.visible && (
@@ -121,7 +123,7 @@ function AudiencePanel({ form, onChange, categories }) {
                     onClick={() => toggleCategory(cat.id)}
                   >
                     <div className="flex items-center gap-2">
-                      <Checkbox checked={selectedCatIds.includes(cat.id)} onCheckedChange={() => {}} onClick={e => { e.stopPropagation(); toggleCategory(cat.id); }} />
+                      <Checkbox checked={selectedCatIds.includes(cat.id)} onCheckedChange={() => {}} className="pointer-events-none" />
                       <span className="text-sm">{cat.icon && <span className="mr-1">{cat.icon}</span>}{cat.title}</span>
                     </div>
                     <Badge variant="outline" className="text-xs">{(cat.items || []).length} 条</Badge>
