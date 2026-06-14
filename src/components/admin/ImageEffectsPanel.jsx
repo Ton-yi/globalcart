@@ -111,22 +111,48 @@ export function ImageEditModal({
   const containerCallbackRef = useCallback((node) => {
     if (node) {
       node.addEventListener("wheel", handleWheel, { passive: false });
+      // 触控 pinch-to-zoom
+      let lastDist = null;
+      const onTouchMove = (e) => {
+        if (e.touches.length !== 2) return;
+        e.preventDefault();
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (lastDist !== null) {
+          const delta = (dist - lastDist) * 0.01;
+          setScale(prev => Math.min(4, Math.max(0.5, parseFloat((prev + delta).toFixed(2)))));
+        }
+        lastDist = dist;
+      };
+      const onTouchEnd = () => { lastDist = null; };
+      node.addEventListener("touchmove", onTouchMove, { passive: false });
+      node.addEventListener("touchend", onTouchEnd);
       containerRef.current = node;
+      node._onTouchMove = onTouchMove;
+      node._onTouchEnd = onTouchEnd;
     } else if (containerRef.current) {
       containerRef.current.removeEventListener("wheel", handleWheel);
+      containerRef.current.removeEventListener("touchmove", containerRef.current._onTouchMove);
+      containerRef.current.removeEventListener("touchend", containerRef.current._onTouchEnd);
     }
   }, [handleWheel]);
 
   const handleApplyCrop = async () => {
     const image = imgRef.current;
     if (!image || !completedCrop || completedCrop.width === 0 || completedCrop.height === 0) {
-      // 无选区 → 直接切到效果 tab
       setTab("effect");
       return;
     }
     setUploading(true);
-    const scaleX = image.naturalWidth / image.width;
-    const scaleY = image.naturalHeight / image.height;
+
+    // completedCrop 是相对于图片显示尺寸（含scale）的像素坐标
+    // image.width/height 是未缩放时的显示尺寸，需除以 scale 还原
+    const displayW = image.width;   // 图片在 scale=1 时的显示宽
+    const displayH = image.height;
+    const scaleX = image.naturalWidth  / (displayW * scale);
+    const scaleY = image.naturalHeight / (displayH * scale);
+
     const canvas = document.createElement("canvas");
     canvas.width  = Math.round(completedCrop.width  * scaleX);
     canvas.height = Math.round(completedCrop.height * scaleY);
@@ -145,6 +171,7 @@ export function ImageEditModal({
       setCurrentImageUrl(file_url);
       setCrop(undefined);
       setCompletedCrop(undefined);
+      setScale(1);
       setTab("effect");
     }, "image/jpeg", 0.92);
   };
@@ -189,31 +216,37 @@ export function ImageEditModal({
           <div className="flex-1 bg-gray-50 flex items-center justify-center p-4 relative overflow-hidden border-r border-gray-100">
             {currentImageUrl ? (
               tab === "crop" ? (
-                /* 裁切预览：ReactCrop 叠加在图片上 */
+                /* 裁切预览：scale 只作用于图片，ReactCrop 选框保持不动 */
                 <div
                   ref={containerCallbackRef}
-                  className="w-full h-full overflow-auto flex items-center justify-center select-none"
+                  className="w-full h-full overflow-hidden flex items-center justify-center select-none"
+                  style={{ cursor: "crosshair" }}
                 >
-                  <div style={{ transform: `scale(${scale})`, transformOrigin: "center center", transition: "transform 0.1s ease" }}>
-                    <ReactCrop
-                      crop={crop}
-                      onChange={(px, pct) => setCrop(pct)}
-                      onComplete={(px) => setCompletedCrop(px)}
-                      aspect={currentAspect}
-                      minWidth={20}
-                      minHeight={20}
-                    >
-                      <img
-                        ref={imgRef}
-                        src={currentImageUrl.startsWith("blob:") ? currentImageUrl : `${currentImageUrl}${currentImageUrl.includes("?") ? "&" : "?"}cb=${cbRef.current}`}
-                        crossOrigin="anonymous"
-                        onLoad={onImageLoad}
-                        style={{ maxWidth: "100%", maxHeight: "60vh", display: "block" }}
-                        alt="crop"
-                        draggable={false}
-                      />
-                    </ReactCrop>
-                  </div>
+                  <ReactCrop
+                    crop={crop}
+                    onChange={(px, pct) => setCrop(pct)}
+                    onComplete={(px) => setCompletedCrop(px)}
+                    aspect={currentAspect}
+                    minWidth={20}
+                    minHeight={20}
+                  >
+                    <img
+                      ref={imgRef}
+                      src={currentImageUrl.startsWith("blob:") ? currentImageUrl : `${currentImageUrl}${currentImageUrl.includes("?") ? "&" : "?"}cb=${cbRef.current}`}
+                      crossOrigin="anonymous"
+                      onLoad={onImageLoad}
+                      style={{
+                        maxWidth: "100%",
+                        maxHeight: "60vh",
+                        display: "block",
+                        transform: `scale(${scale})`,
+                        transformOrigin: "center center",
+                        transition: "transform 0.1s ease",
+                      }}
+                      alt="crop"
+                      draggable={false}
+                    />
+                  </ReactCrop>
                 </div>
               ) : (
                 /* 效果预览 */
