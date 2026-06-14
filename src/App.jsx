@@ -79,7 +79,12 @@ const AuthenticatedApp = () => {
     return <Navigate to={`/${getPreferredLocale()}${location.pathname}${location.search}${location.hash}`} replace />;
   }
 
-  if (isLoadingPublicSettings || isLoadingAuth) {
+  // 帮助中心页面对未登录用户开放
+  const isPublicPage = ['/helpcenter', '/helpcenter/faq', '/faq'].some(p =>
+    location.pathname.endsWith(p) || location.pathname.includes('/helpcenter')
+  );
+
+  if ((isLoadingPublicSettings || isLoadingAuth) && !isPublicPage) {
     return (
       <div className="fixed inset-0 flex items-center justify-center">
         <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div>
@@ -91,8 +96,11 @@ const AuthenticatedApp = () => {
     if (authError.type === 'user_not_registered') {
       return <UserNotRegisteredError />;
     } else if (authError.type === 'auth_required') {
-      navigateToLogin();
-      return null;
+      if (!isPublicPage) {
+        navigateToLogin();
+        return null;
+      }
+      // 公开页面：继续渲染，不重定向
     }
   }
 
