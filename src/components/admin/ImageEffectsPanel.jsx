@@ -369,6 +369,12 @@ export function ImageEditModal({
                     </div>
                   )}
 
+                  {/* 恢复默认 */}
+                  <Button size="sm" variant="outline" className="w-full h-8 text-xs"
+                    onClick={() => setLocal({ blurAmount: 0, brightness: 100, overlayColor: "#000000", overlayOpacity: 0 })}>
+                    恢复默认效果
+                  </Button>
+
                   {/* 效果滑块 */}
                   <SliderField label="模糊度" value={local.blurAmount} min={0} max={20} unit="px" onChange={v => patch({ blurAmount: v })} />
                   <SliderField label="明度" value={local.brightness} min={30} max={150} unit="%" onChange={v => patch({ brightness: v })} />
