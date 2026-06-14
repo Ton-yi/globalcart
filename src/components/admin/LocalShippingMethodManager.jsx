@@ -9,53 +9,15 @@
  * 将两个面板分别放入独立 Card。
  */
 import { useState } from "react";
-import { Plus, Trash2, MapPin, Save, X, Building2 } from "lucide-react";
+import { Plus, Trash2, Save, X, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { toast } from "sonner";
 import RichTextInput from "@/components/common/RichTextInput";
 import ShippingCompanyTreePanel from "@/components/admin/ShippingCompanyTreePanel";
 import { useLocalShipping, BLANK_METHOD, BLANK_COMPANY } from "@/hooks/useLocalShipping";
-
-const genId = () => Math.random().toString(36).slice(2, 10);
-
-// ─── 自提地点编辑行 ──────────────────────────────────────────
-function PickupLocationRow({ loc, onChange, onDelete }) {
-  return (
-    <div className="border border-gray-200 rounded-lg p-3 space-y-2 bg-white">
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <Label className="text-xs text-gray-500">地点名称 *</Label>
-          <Input className="mt-1 h-7 text-xs" value={loc.name || ""}
-            onChange={e => onChange({ ...loc, name: e.target.value })} placeholder="东京自取点" />
-        </div>
-        <div>
-          <Label className="text-xs text-gray-500">费用（JPY）</Label>
-          <Input type="number" className="mt-1 h-7 text-xs"
-            value={loc.fee_jpy === 0 ? "" : (loc.fee_jpy ?? "")}
-            onChange={e => onChange({ ...loc, fee_jpy: e.target.value === "" ? 0 : parseFloat(e.target.value) || 0 })}
-            placeholder="0" />
-        </div>
-      </div>
-      <div>
-        <Label className="text-xs text-gray-500">描述（可添加图片）</Label>
-        <div className="mt-1">
-          <RichTextInput value={loc.description || ""} onChange={v => onChange({ ...loc, description: v })}
-            imageUrls={loc.description_images || []} onImageUrls={urls => onChange({ ...loc, description_images: urls })}
-            placeholder="地点说明、交通方式、营业时间..." rows={2} maxImages={3} />
-        </div>
-      </div>
-      <div className="flex justify-end">
-        <button type="button" onClick={onDelete} className="flex items-center gap-1 text-xs text-red-400 hover:text-red-600">
-          <Trash2 className="w-3 h-3" />删除此地点
-        </button>
-      </div>
-    </div>
-  );
-}
 
 // ─── 运输公司编辑弹窗（仅用于编辑已有公司）─────────────────────
 export function CompanyFormModal({ initial, onSave, onClose, saving }) {
@@ -110,16 +72,6 @@ export function LocalShippingDetail({ state }) {
   } = state;
 
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }));
-
-  const addPickupLocation = () => {
-    f("pickup_locations", [...(form.pickup_locations || []), { id: genId(), name: "", fee_jpy: 0, description: "", description_images: [] }]);
-  };
-  const updatePickupLocation = (idx, updated) => {
-    const arr = [...(form.pickup_locations || [])]; arr[idx] = updated; f("pickup_locations", arr);
-  };
-  const deletePickupLocation = (idx) => {
-    f("pickup_locations", (form.pickup_locations || []).filter((_, i) => i !== idx));
-  };
 
   return (
     <>
@@ -176,26 +128,6 @@ export function LocalShippingDetail({ state }) {
             <RichTextInput value={form.description || ""} onChange={v => f("description", v)}
               imageUrls={form.description_images || []} onImageUrls={urls => f("description_images", urls)}
               placeholder="运输方式说明..." rows={2} maxImages={3} />
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label className="text-xs text-gray-600 font-medium flex items-center gap-1">
-                <MapPin className="w-3.5 h-3.5 text-purple-500" />自提地点设定
-              </Label>
-              <Button size="sm" variant="outline" className="h-6 text-xs" onClick={addPickupLocation}>
-                <Plus className="w-3 h-3 mr-1" />添加地点
-              </Button>
-            </div>
-            {(form.pickup_locations || []).length === 0 ? (
-              <p className="text-xs text-gray-400 italic py-1">暂无自提地点</p>
-            ) : (
-              (form.pickup_locations || []).map((loc, idx) => (
-                <PickupLocationRow key={loc.id || idx} loc={loc}
-                  onChange={updated => updatePickupLocation(idx, updated)}
-                  onDelete={() => deletePickupLocation(idx)} />
-              ))
-            )}
           </div>
 
           <div className="flex gap-2 justify-between pt-1">

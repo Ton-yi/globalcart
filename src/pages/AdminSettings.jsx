@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import ShippingMethodManager from "@/components/admin/ShippingMethodManager";
 import LocalShippingMethodManager, { LocalShippingDetail, LocalShippingTree } from "@/components/admin/LocalShippingMethodManager";
 import { useLocalShipping } from "@/hooks/useLocalShipping";
+import PickupLocationManager from "@/components/admin/PickupLocationManager";
 import OnlineStoreTagManager from "@/components/admin/OnlineStoreTagManager";
 import TransitShippingMethodManager from "@/components/admin/TransitShippingMethodManager";
 import ItemSizeTemplateManager from "@/components/admin/ItemSizeTemplateManager";
@@ -720,7 +721,18 @@ export default function AdminSettings() {
       )}
 
       {activeTab === "local_shipping_methods" && (
-        <LocalShippingTwoCol />
+        <div className="space-y-5">
+          <LocalShippingTwoCol />
+          <Card className="border-purple-200">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold text-gray-700">自提地点设置</CardTitle>
+              <p className="text-xs text-gray-400 mt-1">独立管理自提取货地点，包括名称、手续费、说明及图片</p>
+            </CardHeader>
+            <CardContent>
+              <PickupLocationManager />
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       {activeTab === "shipping_settings" && !loading && (

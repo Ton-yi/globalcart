@@ -11,7 +11,7 @@ const genId = () => Math.random().toString(36).slice(2, 10);
 export const BLANK_METHOD = {
   name: "", trackable: false, fee_jpy: 0,
   description: "", description_images: [],
-  pickup_locations: [], company_id: null,
+  company_id: null,
   sort_order: 0, indent: 0, is_active: true
 };
 

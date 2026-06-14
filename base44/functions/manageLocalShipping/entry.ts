@@ -101,6 +101,37 @@ Deno.serve(async (req) => {
       return Response.json({ ok: true, settingId: savedId });
     }
 
+    // ── listPickupLocations ───────────────────────────────────
+    if (action === "listPickupLocations") {
+      const locations = await base44.asServiceRole.entities.PickupLocation.filter({ tenant_id: tenantId });
+      return Response.json({ locations: locations.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)) });
+    }
+
+    // ── savePickupLocation ────────────────────────────────────
+    if (action === "savePickupLocation") {
+      const { location } = body;
+      if (!location?.name?.trim()) return Response.json({ error: "名称不能为空" }, { status: 400 });
+      let result;
+      if (location.id) {
+        const existing = await base44.asServiceRole.entities.PickupLocation.filter({ id: location.id, tenant_id: tenantId });
+        if (!existing.length) return Response.json({ error: "Not found" }, { status: 404 });
+        const { id, ...data } = location;
+        result = await base44.asServiceRole.entities.PickupLocation.update(id, { ...data, tenant_id: tenantId });
+      } else {
+        result = await base44.asServiceRole.entities.PickupLocation.create({ ...location, tenant_id: tenantId });
+      }
+      return Response.json({ location: result });
+    }
+
+    // ── deletePickupLocation ──────────────────────────────────
+    if (action === "deletePickupLocation") {
+      const { locationId } = body;
+      const existing = await base44.asServiceRole.entities.PickupLocation.filter({ id: locationId, tenant_id: tenantId });
+      if (!existing.length) return Response.json({ error: "Not found" }, { status: 404 });
+      await base44.asServiceRole.entities.PickupLocation.delete(locationId);
+      return Response.json({ ok: true });
+    }
+
     return Response.json({ error: "Unknown action" }, { status: 400 });
   } catch (e) {
     return Response.json({ error: e.message }, { status: 500 });
