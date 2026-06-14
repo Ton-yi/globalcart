@@ -9,7 +9,7 @@ import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Upload, X, ImageIcon, Crop, Sliders } from "lucide-react";
+import { Upload, X, ImageIcon, Crop, Sliders, RotateCcw } from "lucide-react";
 
 // ─── 常量 ──────────────────────────────────────────────────
 const ASPECT_PRESETS = [
@@ -177,6 +177,26 @@ export function ImageEditModal({
     }, "image/jpeg", 0.92);
   };
 
+  // ── Rotate CCW ──
+  const handleRotateCCW = () => {
+    const image = imgRef.current;
+    if (!image) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = image.naturalHeight;
+    canvas.height = image.naturalWidth;
+    const ctx = canvas.getContext("2d");
+    ctx.translate(0, canvas.height);
+    ctx.rotate(-Math.PI / 2);
+    ctx.drawImage(image, 0, 0);
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      cbRef.current = Date.now();
+      setCurrentImageUrl(URL.createObjectURL(blob));
+      setCrop(undefined);
+      setCompletedCrop(undefined);
+    }, "image/jpeg", 0.92);
+  };
+
   // ── File replace ──
   const handleFile = (file) => {
     if (!file || !file.type.startsWith("image/")) return;
@@ -333,6 +353,14 @@ export function ImageEditModal({
                     )}
                     <p className="text-xs text-gray-400 mt-2">滚轮缩放图片，拖动选框调整裁切区域</p>
                   </div>
+
+                  {/* 旋转 */}
+                  <Button
+                    size="sm" variant="outline" className="w-full h-8 text-xs"
+                    onClick={handleRotateCCW}
+                  >
+                    <RotateCcw className="w-3 h-3 mr-1" />逆时针旋转 90°
+                  </Button>
 
                   {/* 应用裁切 */}
                   <Button
