@@ -40,23 +40,6 @@ export function SliderField({ label, value, min, max, unit, onChange }) {
   );
 }
 
-// ─── ImageCropModal（保留导出以兼容外部使用者） ─────────────────
-export function ImageCropModal({ src, onConfirm, onCancel, aspect, zIndex = "z-50" }) {
-  return (
-    <div className={`fixed inset-0 ${zIndex} flex items-center justify-center bg-black/70`}>
-      <div className="bg-white rounded-xl shadow-2xl flex flex-col w-full mx-4" style={{ maxWidth: 680, maxHeight: "94vh" }}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
-          <h3 className="font-semibold text-gray-800">裁切图片</h3>
-          <button onClick={onCancel} className="text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
-        </div>
-        <div className="flex-1 overflow-y-auto px-5 py-4" style={{ minHeight: 0 }}>
-          <CropView src={src} initialAspect={aspect} onDone={onConfirm} onCancel={onCancel} />
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ─── CropView（裁切视图，内嵌在编辑器内） ────────────────────
 function CropView({ src, initialAspect, onDone, onCancel }) {
   const initPresetIdx = (() => {

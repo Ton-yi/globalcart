@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Save, Image as ImageIcon, Upload, X, CheckCircle2, XCircle, ChevronDown, ChevronUp } from "lucide-react";
-import ImageEffectsPanel, { ImageCropModal, ImageEditModal } from "@/components/admin/ImageEffectsPanel";
+import ImageEffectsPanel, { ImageEditModal } from "@/components/admin/ImageEffectsPanel";
 
 const WIDTH_OPTIONS = [
   { value: "small",  label: "小", desc: "max-w-3xl" },
