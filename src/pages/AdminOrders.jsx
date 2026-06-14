@@ -3,6 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Package, Ticket } from "lucide-react";
 import AdminTicketOrders from "@/pages/AdminTicketOrders";
+import { orderRegistry } from "@/lib/orderRegistry";
 import { Search, RefreshCw, Filter, ChevronUp, ChevronDown, ChevronsUpDown, Trash2, AlertCircle, Layers, Send, LayoutList, Archive, ArchiveRestore, Scissors, Calculator, CheckCircle, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
