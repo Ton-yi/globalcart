@@ -92,7 +92,10 @@ export function ImageEditModal({
   }, []);
 
   const onImageLoad = (e) => {
-    const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
+    const img = e.currentTarget;
+    // 记录 scale=1 时图片实际渲染尺寸（受 CSS maxWidth/maxHeight 约束后的布局尺寸）
+    baseImgSizeRef.current = { w: img.width, h: img.height };
+    const { naturalWidth: w, naturalHeight: h } = img;
     const ratio = currentAspect ?? w / h;
     const c = centerCrop(makeAspectCrop({ unit: "%", width: 85 }, ratio, w, h), w, h);
     setCrop(c);
@@ -102,6 +105,9 @@ export function ImageEditModal({
     setPresetIdx(idx);
     resetCrop(ASPECT_PRESETS[idx].value);
   };
+
+  // 用于记录图片在 scale=1 时的自然渲染尺寸（受 maxWidth/maxHeight CSS 约束）
+  const baseImgSizeRef = useRef({ w: 0, h: 0 });
 
   const handleWheel = useCallback((e) => {
     e.preventDefault();
@@ -147,13 +153,12 @@ export function ImageEditModal({
     }
     setUploading(true);
 
-    // completedCrop 坐标是在 scale 变换后的视觉坐标系中（像素）
-    // image.width/height 是 CSS 渲染尺寸（scale=1 时），natural 是原始像素
-    // 视觉坐标 → 原始像素：先除以 scale，再乘以 natural/display 比
-    const displayW = image.width;
-    const displayH = image.height;
-    const toNatX = image.naturalWidth  / (displayW * scale);
-    const toNatY = image.naturalHeight / (displayH * scale);
+    // completedCrop 坐标是相对于图片当前渲染尺寸（= baseSize * scale）的像素坐标
+    // 需要映射到 naturalWidth/naturalHeight（原始像素）
+    const renderedW = baseImgSizeRef.current.w * scale;
+    const renderedH = baseImgSizeRef.current.h * scale;
+    const toNatX = image.naturalWidth  / renderedW;
+    const toNatY = image.naturalHeight / renderedH;
 
     const srcX = completedCrop.x * toNatX;
     const srcY = completedCrop.y * toNatY;
@@ -262,12 +267,18 @@ export function ImageEditModal({
                       crossOrigin="anonymous"
                       onLoad={onImageLoad}
                       style={{
-                        maxWidth: "100%",
-                        maxHeight: "60vh",
+                        // 用 width/height 控制缩放，而非 CSS transform
+                        // 这样 ReactCrop 的坐标系与图片渲染尺寸完全一致
+                        width: baseImgSizeRef.current.w > 0
+                          ? `${baseImgSizeRef.current.w * scale}px`
+                          : undefined,
+                        height: baseImgSizeRef.current.h > 0
+                          ? `${baseImgSizeRef.current.h * scale}px`
+                          : undefined,
+                        maxWidth: scale <= 1 ? "100%" : "none",
+                        maxHeight: scale <= 1 ? "60vh" : "none",
                         display: "block",
-                        transform: `scale(${scale})`,
-                        transformOrigin: "center center",
-                        transition: "transform 0.1s ease",
+                        transition: "width 0.1s ease, height 0.1s ease",
                       }}
                       alt="crop"
                       draggable={false}
@@ -303,7 +314,7 @@ export function ImageEditModal({
                 <span className="text-xs text-gray-500 w-9 text-center tabular-nums">{Math.round(scale * 100)}%</span>
                 <button onClick={() => setScale(s => Math.min(3, parseFloat((s + 0.1).toFixed(2))))}
                   className="w-5 h-5 flex items-center justify-center text-gray-500 hover:text-gray-800 font-bold text-sm">+</button>
-                <button onClick={() => setScale(1)} className="text-xs text-gray-400 hover:text-gray-600 ml-0.5">重置</button>
+                <button onClick={() => { setScale(1); setCrop(undefined); setCompletedCrop(undefined); }} className="text-xs text-gray-400 hover:text-gray-600 ml-0.5">重置</button>
               </div>
             )}
           </div>
