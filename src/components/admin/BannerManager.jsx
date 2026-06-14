@@ -5,7 +5,7 @@ import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Save, Image as ImageIcon, Upload, X, CheckCircle2, XCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { Save, Image as ImageIcon, Upload, X, CheckCircle2, XCircle, Pencil, Trash2 } from "lucide-react";
 import ImageEffectsPanel, { ImageEditModal } from "@/components/admin/ImageEffectsPanel";
 
 const WIDTH_OPTIONS = [
@@ -16,14 +16,27 @@ const WIDTH_OPTIONS = [
 
 function genId() { return `banner_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`; }
 
-// ─── SingleImageEditor — 每张图片的效果折叠面板 ───────────
+// ─── SingleImageEditor — 每张图片的缩略图 + 操作栏 ───────────
 function SingleImageEditor({ img, onUpdate, onPatch, onDelete }) {
-  const [open, setOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
 
   return (
     <div className={`rounded-lg border transition-colors ${img.isActive ? "border-gray-200" : "border-gray-100"}`}>
+      {editOpen && (
+        <ImageEditModal
+          imageUrl={img.url}
+          initialMode="effect"
+          blurAmount={img.blurAmount ?? 0}
+          brightness={img.brightness ?? 100}
+          overlayColor={img.overlayColor || "#000000"}
+          overlayOpacity={img.overlayOpacity ?? 0}
+          onChange={patch => { onPatch(img.id, patch); setEditOpen(false); }}
+          onClose={() => setEditOpen(false)}
+        />
+      )}
+
       {/* 缩略图行 */}
-      <div className="relative group overflow-hidden rounded-t-lg">
+      <div className="relative overflow-hidden rounded-t-lg">
         <img
           src={img.url}
           alt=""
@@ -33,26 +46,18 @@ function SingleImageEditor({ img, onUpdate, onPatch, onDelete }) {
           }}
           onClick={() => onUpdate({ ...img, isActive: !img.isActive })}
         />
-        {/* 遮罩预览叠加 */}
         {(img.overlayOpacity ?? 0) > 0 && (
           <div
             className="absolute inset-0 pointer-events-none"
             style={{ backgroundColor: img.overlayColor || "#000000", opacity: (img.overlayOpacity ?? 0) / 100 }}
           />
         )}
-        {/* 状态标签 */}
         <div className={`absolute bottom-0 inset-x-0 text-center text-xs py-0.5 pointer-events-none ${img.isActive ? "bg-green-500/80 text-white" : "bg-gray-500/70 text-white"}`}>
           {img.isActive ? "启用" : "已禁用"}
         </div>
-        {/* 删除按钮 */}
-        <button
-          onClick={() => onDelete(img.id)}
-          className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10">
-          <X className="w-3 h-3" />
-        </button>
       </div>
 
-      {/* 底部操作栏 */}
+      {/* 底部操作栏：启用 | 编辑 | 删除 */}
       <div className="flex items-center justify-between px-2 py-1 bg-gray-50 rounded-b-lg">
         <button
           onClick={() => onUpdate({ ...img, isActive: !img.isActive })}
@@ -62,28 +67,19 @@ function SingleImageEditor({ img, onUpdate, onPatch, onDelete }) {
             : <XCircle className="w-3.5 h-3.5 text-gray-400" />}
           {img.isActive ? "启用" : "禁用"}
         </button>
-        <button
-          onClick={() => setOpen(o => !o)}
-          className="flex items-center gap-0.5 text-xs text-indigo-500 hover:text-indigo-700">
-          效果
-          {open ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setEditOpen(true)}
+            className="flex items-center gap-0.5 text-xs text-indigo-500 hover:text-indigo-700">
+            <Pencil className="w-3 h-3" />编辑
+          </button>
+          <button
+            onClick={() => onDelete(img.id)}
+            className="flex items-center gap-0.5 text-xs text-red-400 hover:text-red-600 ml-1">
+            <Trash2 className="w-3 h-3" />删除
+          </button>
+        </div>
       </div>
-
-      {/* 效果面板（折叠） */}
-      {open && (
-      <div className="p-3 border-t border-gray-100 bg-white rounded-b-lg">
-        <ImageEffectsPanel
-          imageUrl={img.url}
-          blurAmount={img.blurAmount ?? 0}
-          brightness={img.brightness ?? 100}
-          overlayColor={img.overlayColor || "#000000"}
-          overlayOpacity={img.overlayOpacity ?? 0}
-          onChange={patch => onPatch(img.id, patch)}
-          onRemove={() => onDelete(img.id)}
-        />
-      </div>
-      )}
     </div>
   );
 }
