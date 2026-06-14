@@ -8,7 +8,7 @@
  * - 数据过滤规则
  */
 
-import { Package, Scissors, AlertCircle, Layers, Send, Archive, ArchiveRestore, Trash2 } from "lucide-react";
+import { Package } from "lucide-react";
 import { getStatusLabel, getStatusColor } from "@/lib/orderStatus";
 import { ImageWithViewer } from "@/components/common/ImageViewer";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +19,13 @@ import { matchStoreTagResult } from "@/lib/onlineStoreTag";
 export const PhysicalOrderController = {
   getLabel: () => "实物订单",
   getIcon: () => Package,
+  
+  /**
+   * 获取控制器辅助方法（可选）
+   */
+  getHelpers: () => ({
+    // 可以在这里定义控制器需要的辅助方法
+  }),
 
   /**
    * 获取表格列配置
@@ -266,15 +273,20 @@ export const PhysicalOrderController = {
    * 数据过滤逻辑
    */
   filterData: (orders, filters) => {
-    const { statusFilter, search, userProfileMap, showArchived } = filters;
+    const { statusFilter, search, userProfileMap, showArchived } = filters || {};
     
     return orders.filter(o => {
+      // 存档过滤
       if (showArchived ? !o.is_archived : !!o.is_archived) return false;
+      // 隐藏已拆分的父订单
       if (o.split_index === -1) return false;
       
+      // 状态过滤
       const matchStatus = statusFilter === "all" || o.order_status === statusFilter;
-      const q = search.toLowerCase();
-      const displayName = (userProfileMap[o.user_email]?.display_name || o.user_name || "").toLowerCase();
+      
+      // 搜索过滤
+      const q = search?.toLowerCase() || "";
+      const displayName = (userProfileMap?.[o.user_email]?.display_name || o.user_name || "").toLowerCase();
       const matchSearch = !q ||
         (o.product_name || "").toLowerCase().includes(q) ||
         (o.order_number || "").toLowerCase().includes(q) ||
