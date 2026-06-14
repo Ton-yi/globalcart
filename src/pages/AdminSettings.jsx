@@ -50,6 +50,7 @@ import StepsSectionManager from "@/components/admin/StepsSectionManager";
 import FaqManager from "@/components/admin/FaqManager";
 import TenantExchangeRateSettings from "@/components/admin/TenantExchangeRateSettings";
 import ExchangeRateDisplayManager from "@/components/admin/ExchangeRateDisplayManager";
+import TicketOrderSettings from "@/components/admin/TicketOrderSettings";
 
 // ─── 本地运输方式：两列 Card 布局 ────────────────────────────
 function LocalShippingTwoCol() {
@@ -158,6 +159,7 @@ const ADMIN_NAV = [
   { group: "订单管理", children: [
     { key: "order_management", label: "商城标签规则" },
     { key: "order_management_split", label: "订单管理" },
+    { key: "ticket_orders", label: "票务功能" },
   ]},
   { key: "payment_methods", label: "支付方式" },
   { key: "addons", label: "增值服务" },
@@ -545,6 +547,11 @@ export default function AdminSettings() {
         </div>
       )}
       {activeTab === "order_management_split" && loading && <p className="text-gray-400 text-sm">加载中...</p>}
+
+      {activeTab === "ticket_orders" && !loading && (
+        <TicketOrderSettings settings={settings} onReload={load} />
+      )}
+      {activeTab === "ticket_orders" && loading && <p className="text-gray-400 text-sm">加载中...</p>}
 
       {activeTab === "addons" && (
         <Card className="border-gray-200">

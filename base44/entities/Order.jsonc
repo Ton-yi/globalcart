@@ -166,6 +166,144 @@
       "default": "pending_confirmation",
       "description": "\u8ba2\u5355\u72b6\u6001\uff08transit_shipped=\u4e2d\u8f6c\u5730\u5df2\u53d1\u8d27\uff0c\u7b49\u5f85\u6700\u7ec8\u7b7e\u6536\uff1bexpired=\u5df2\u8d85\u65f6\uff09"
     },
+    "is_ticket_order": {
+      "type": "boolean",
+      "default": false,
+      "description": "\u662f\u5426\u4e3a\u7968\u52a1\u8d2d\u4e70\u9700\u6c42\u8ba2\u5355\uff08\u6a21\u5757\u5316\u529f\u80fd\uff0c\u72ec\u7acb\u6d41\u7a0b\uff09"
+    },
+    "ticket_status": {
+      "type": "string",
+      "enum": [
+        "pending_confirmation",
+        "accepted",
+        "awaiting_lottery_result",
+        "purchased_pending_warehouse",
+        "in_warehouse",
+        "shipped",
+        "delivered",
+        "cancelled"
+      ],
+      "description": "\u7968\u52a1\u8ba2\u5355\u72b6\u6001\uff08\u7edf\u4e00\u679a\u4e3e\uff0c\u524d\u7aef\u6309\u89d2\u8272\u663e\u793a\u4e0d\u540c\u522b\u540d\uff09\uff1apending_confirmation=\u5f85\u53d7\u7406/\u5f85\u786e\u8ba4\uff0caccepted=\u5df2\u53d7\u7406/\u5f85\u5f00\u7968\uff08\u62bd\u9009\u65f6\u663e\u793a\u5f85\u5f00\u59cb\u62bd\u9009\uff09\uff0cawaiting_lottery_result=\u7b49\u5f85\u62bd\u9009\u7ed3\u679c\uff0cpurchased_pending_warehouse=\u5df2\u8d2d\u4e70\u5f85\u5165\u5e93/\u5df2\u62bd\u4e2d\u5f85\u5165\u5e93\uff0cin_warehouse=\u5f85\u53d1\u8d27/\u5df2\u5165\u5e93\uff0cshipped=\u5df2\u53d1\u8d27\uff0cdelivered=\u5df2\u6536\u8d27\uff0ccancelled=\u5df2\u53d6\u6d88"
+    },
+    "ticket_data": {
+      "type": "object",
+      "description": "\u7968\u52a1\u9700\u6c42\u8be6\u60c5\uff08\u8bbe\u7f6e\u9a71\u52a8\uff0c\u5b57\u6bb5\u53ef\u89c1\u6027\u7531\u7ba1\u7406\u5458\u914d\u7f6e\uff09",
+      "properties": {
+        "prefecture": {
+          "type": "string",
+          "description": "\u90fd\u9053\u5e9c\u770c"
+        },
+        "performance_datetime": {
+          "type": "string",
+          "description": "\u958b\u6f14\u65e5\u6642\uff08ISO\uff09"
+        },
+        "sales_method": {
+          "type": "string",
+          "enum": [
+            "first_come",
+            "lottery",
+            "other"
+          ],
+          "description": "\u8ca9\u58f2\u65b9\u6cd5\uff1a\u5148\u7740\u8ca9\u58f2/\u62bd\u9078\u8ca9\u58f2/\u4ed6"
+        },
+        "sales_start_time": {
+          "type": "string",
+          "description": "\u8ca9\u58f2\u958b\u59cb\u6642\u9593\uff08ISO\uff09"
+        },
+        "sales_end_time": {
+          "type": "string",
+          "description": "\u8ca9\u58f2\u7d42\u4e86\u6642\u9593\uff08ISO\uff09"
+        },
+        "lottery_result_time": {
+          "type": "string",
+          "description": "\u62bd\u9078\u7d50\u679c\u767a\u8868\u6642\u9593\uff08ISO\uff0c\u4ec5\u62bd\u9078\u8ca9\u58f2\uff09"
+        },
+        "ticketing_method": {
+          "type": "string",
+          "enum": [
+            "paper",
+            "electronic",
+            "ticket_number"
+          ],
+          "description": "\u767a\u5238\u65b9\u5f0f\uff1a\u7d19\u30c1\u30b1\u30c3\u30c8/\u96fb\u5b50\u30c1\u30b1\u30c3\u30c8/\u767a\u5238\u756a\u53f7"
+        },
+        "seats": {
+          "type": "array",
+          "description": "\u5e2d\u79cd-\u6570\u91cf-\u6599\u91d1\u660e\u7ec6 [{seat_type, quantity, price_jpy}]",
+          "items": {
+            "type": "object",
+            "properties": {
+              "seat_type": {
+                "type": "string",
+                "description": "\u5e2d\u79cd\u540d\u79f0"
+              },
+              "quantity": {
+                "type": "number",
+                "description": "\u9700\u6c42\u7968\u6570"
+              },
+              "price_jpy": {
+                "type": "number",
+                "description": "\u5355\u4ef7\uff08JPY\uff09"
+              },
+              "actual_quantity": {
+                "type": "number",
+                "description": "\u7ba1\u7406\u5458\u5f55\u5165\u7684\u5b9e\u9645\u8d2d\u4e70\u7968\u6570\uff08\u7ed3\u7b97\u9000\u5dee\u4ef7\u7528\uff09"
+              }
+            }
+          }
+        },
+        "account_count": {
+          "type": "number",
+          "default": 1,
+          "description": "\u671f\u671b\u62bd\u7968\u8d26\u6237\u6570\uff08\u62bd\u9078\u6642\uff09/ \u671f\u671b\u62a2\u7968\u4eba\u6570\uff08\u5148\u7740\u6642\uff09"
+        },
+        "additional_fee_jpy": {
+          "type": "number",
+          "default": 0,
+          "description": "\u8ffd\u52a0\u6599\u91d1\uff1a\u7528\u6237\u81ea\u884c\u8f93\u5165\u9884\u671f\u989d\u5916\u62a5\u916c\uff08JPY\uff09"
+        },
+        "lottery_win_bonus_jpy": {
+          "type": "number",
+          "default": 0,
+          "description": "\u62bd\u4e2d\u8ffd\u52a0\u62a5\u916c\uff08JPY\uff0c\u4ec5\u62bd\u9078\u8ca9\u58f2\uff09"
+        },
+        "performance_name": {
+          "type": "string",
+          "description": "\u6f14\u51fa\u540d"
+        },
+        "purchase_link": {
+          "type": "string",
+          "description": "\u8d2d\u4e70\u94fe\u63a5 \u6216 \u6f14\u51fa\u4fe1\u606f\u94fe\u63a5"
+        }
+      }
+    },
+    "ticket_prepaid_total_jpy": {
+      "type": "number",
+      "default": 0,
+      "description": "\u7968\u52a1\u9884\u4ed8\u603b\u989d\u5feb\u7167\uff08JPY\uff09= \u03a3(\u5e2d\u79cd\u6570\u91cf \u00d7 \u5355\u4ef7) \u00d7 \u8d26\u6237\u6570 + \u8ffd\u52a0\u6599\u91d1"
+    },
+    "ticket_refund_jpy": {
+      "type": "number",
+      "default": 0,
+      "description": "\u7968\u52a1\u9000\u5dee\u4ef7\u91d1\u989d\uff08JPY\uff09= \u03a3((\u9884\u4ed8\u7968\u6570 \u2212 \u5b9e\u9645\u7968\u6570) \u00d7 \u5355\u4ef7) \u00d7 \u8d26\u6237\u6570"
+    },
+    "ticket_refund_settled": {
+      "type": "boolean",
+      "default": false,
+      "description": "\u7968\u52a1\u9000\u5dee\u4ef7\u662f\u5426\u5df2\u5904\u7406"
+    },
+    "ticket_image_urls": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [],
+      "description": "\u7968\u56fe\u7247/\u62bd\u9009\u622a\u56fe URL \u5217\u8868"
+    },
+    "ticket_number_issued": {
+      "type": "string",
+      "description": "\u7ba1\u7406\u5458\u5f55\u5165\u7684\u767a\u5238\u756a\u53f7"
+    },
     "is_archived": {
       "type": "boolean",
       "default": false
