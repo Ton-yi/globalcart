@@ -7,9 +7,10 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Save, HelpCircle, ExternalLink, Settings, ChevronDown, ChevronUp } from "lucide-react";
+import { Save, HelpCircle, ExternalLink, Settings } from "lucide-react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
+import FaqItemPicker from "@/components/admin/FaqItemPicker";
 
 const DEFAULT_FAQ = {
   unified: true,
@@ -42,37 +43,24 @@ function migrateConfig(raw) {
 
 let _panelIdCounter = 0;
 function AudiencePanel({ form, onChange, categories }) {
-  const [expandedCats, setExpandedCats] = useState({});
   const [panelId] = useState(() => ++_panelIdCounter);
   const f = (k, v) => onChange({ ...form, [k]: v });
 
   const selectMode = form.select_mode || "category";
-
-  // Category mode
-  const toggleCategory = (id) => {
-    const ids = form.selected_category_ids || [];
-    f("selected_category_ids", ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]);
-  };
-
-  // Item mode
-  const toggleItem = (itemId) => {
-    const ids = form.selected_item_ids || [];
-    f("selected_item_ids", ids.includes(itemId) ? ids.filter(x => x !== itemId) : [...ids, itemId]);
-  };
-
-  const toggleCatExpand = (catId) => setExpandedCats(prev => ({ ...prev, [catId]: !prev[catId] }));
-
   const selectedCatIds = form.selected_category_ids || [];
   const selectedItemIds = form.selected_item_ids || [];
 
-  // All items across all categories (for item mode)
-  const allItems = categories.flatMap(cat => (cat.items || []).map(item => ({ ...item, _catId: cat.id, _catTitle: cat.title, _catIcon: cat.icon })));
+  const toggleCategory = (id) => {
+    f("selected_category_ids", selectedCatIds.includes(id)
+      ? selectedCatIds.filter(x => x !== id)
+      : [...selectedCatIds, id]);
+  };
 
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
-        <Checkbox id={`faq-visible-check-${panelId}`} checked={!!form.visible} onCheckedChange={v => f("visible", !!v)} />
-        <label htmlFor={`faq-visible-check-${panelId}`} className="text-xs text-gray-600 select-none cursor-pointer">显示此区块</label>
+        <Checkbox id={`faq-visible-${panelId}`} checked={!!form.visible} onCheckedChange={v => f("visible", !!v)} />
+        <label htmlFor={`faq-visible-${panelId}`} className="text-xs text-gray-600 select-none cursor-pointer">显示此区块</label>
       </div>
 
       {form.visible && (
@@ -137,50 +125,11 @@ function AudiencePanel({ form, onChange, categories }) {
                 精选问题
                 {selectedItemIds.length > 0 && <span className="ml-1.5 text-teal-600 font-medium">已选 {selectedItemIds.length} 条</span>}
               </Label>
-              <div className="space-y-1.5">
-                {categories.map(cat => {
-                  const items = cat.items || [];
-                  if (items.length === 0) return null;
-                  const expanded = expandedCats[cat.id] !== false; // default expanded
-                  const catSelectedCount = items.filter(it => selectedItemIds.includes(it._id)).length;
-                  return (
-                    <div key={cat.id} className="border border-gray-200 rounded-lg overflow-hidden">
-                      <div
-                        className="flex items-center justify-between px-3 py-2 bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors"
-                        onClick={() => toggleCatExpand(cat.id)}
-                      >
-                        <span className="text-xs font-medium text-gray-700">
-                          {cat.icon && <span className="mr-1">{cat.icon}</span>}{cat.title}
-                        </span>
-                        <div className="flex items-center gap-2">
-                          {catSelectedCount > 0 && <Badge className="bg-teal-100 text-teal-700 text-xs border-0">{catSelectedCount} 已选</Badge>}
-                          {expanded ? <ChevronUp className="w-3.5 h-3.5 text-gray-400" /> : <ChevronDown className="w-3.5 h-3.5 text-gray-400" />}
-                        </div>
-                      </div>
-                      {expanded && (
-                        <div className="divide-y divide-gray-100">
-                          {items.map(item => (
-                            <div
-                              key={item._id}
-                              className={`flex items-start gap-2.5 px-3 py-2.5 cursor-pointer transition-colors ${
-                                selectedItemIds.includes(item._id) ? "bg-teal-50" : "bg-white hover:bg-gray-50"
-                              }`}
-                              onClick={() => toggleItem(item._id)}
-                            >
-                              <Checkbox
-                                className="mt-0.5 flex-shrink-0 pointer-events-none"
-                                checked={selectedItemIds.includes(item._id)}
-                                onCheckedChange={() => {}}
-                              />
-                              <span className="text-xs text-gray-700 leading-relaxed line-clamp-2">{item.question}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+              <FaqItemPicker
+                categories={categories}
+                selectedIds={selectedItemIds}
+                onChange={ids => f("selected_item_ids", ids)}
+              />
             </div>
           )}
         </>
