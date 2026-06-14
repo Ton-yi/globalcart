@@ -96,17 +96,24 @@ export function LocalShippingDetail({ state }) {
             </button>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="col-span-3 sm:col-span-1">
               <Label className="text-xs text-gray-500">名称 *</Label>
               <Input className="mt-1 h-8 text-sm" value={form.name || ""}
                 onChange={e => f("name", e.target.value)} placeholder="宅急便" />
             </div>
             <div>
-              <Label className="text-xs text-gray-500">料金（JPY）</Label>
+              <Label className="text-xs text-gray-500">收取金额（JPY）</Label>
               <Input type="number" className="mt-1 h-8 text-sm"
                 value={form.fee_jpy === 0 ? "" : (form.fee_jpy ?? "")}
                 onChange={e => f("fee_jpy", e.target.value === "" ? 0 : parseFloat(e.target.value) || 0)}
+                placeholder="0" />
+            </div>
+            <div>
+              <Label className="text-xs text-gray-500">成本金额（JPY）</Label>
+              <Input type="number" className="mt-1 h-8 text-sm"
+                value={form.cost_jpy === 0 ? "" : (form.cost_jpy ?? "")}
+                onChange={e => f("cost_jpy", e.target.value === "" ? 0 : parseFloat(e.target.value) || 0)}
                 placeholder="0" />
             </div>
           </div>
