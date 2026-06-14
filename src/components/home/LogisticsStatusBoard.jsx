@@ -91,7 +91,7 @@ function FaqGroupItem({ item }) {
   );
 }
 
-export default function LogisticsStatusBoard({ orders = [], boardConfig = {}, faqCategories = [] }) {
+export default function LogisticsStatusBoard({ orders = [], boardConfig = {}, faqCategories = [], rateWidget = null }) {
   if (orders.length === 0 && !boardConfig.faq_enabled) return null;
 
   const grouped = groupOrders(orders);
@@ -116,8 +116,11 @@ export default function LogisticsStatusBoard({ orders = [], boardConfig = {}, fa
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">{boardTitle}</h2>
-        <Link to={createPageUrl("MyOrders")} className="text-xs text-red-600 flex items-center gap-1 hover:underline">
+        <div className="flex items-center gap-3 flex-wrap">
+          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">{boardTitle}</h2>
+          {rateWidget}
+        </div>
+        <Link to={createPageUrl("MyOrders")} className="text-xs text-red-600 flex items-center gap-1 hover:underline flex-shrink-0 ml-2">
           查看全部 <ArrowRight className="w-3 h-3" />
         </Link>
       </div>

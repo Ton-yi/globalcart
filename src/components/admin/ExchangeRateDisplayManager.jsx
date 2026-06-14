@@ -35,14 +35,15 @@ const POSITIONS = [
   { value: "hero_right",    label: "Hero 区块右侧" },
   { value: "quick_actions", label: "快捷操作区块（需开启快捷操作）" },
   { value: "steps_title",   label: "流程区块标题旁（需开启流程区块）" },
-  { value: "status_board",  label: "状态看板（需开启看板）" },
+  { value: "status_board",  label: "状态看板标题右侧（需开启看板）" },
   { value: "faq",           label: "常见问题（自动生成汇率 FAQ 条目）" },
 ];
 
 const DEFAULT_CONFIG = {
   enabled: false,
   currencies: [],   // [{code, unit}]
-  position: "hero_right",
+  positions: [],    // 新格式：多选数组；兼容旧 position 字符串
+  position: "hero_right", // 旧格式兼容保留
   textColor: "",
 };
 
@@ -65,10 +66,16 @@ export default function ExchangeRateDisplayManager({ settings, onReload }) {
     if (s?.value) {
       try {
         const parsed = JSON.parse(s.value);
+        // 兼容旧单选 position → positions 数组
+        let positions = parsed.positions;
+        if (!Array.isArray(positions)) {
+          positions = parsed.position ? [parsed.position] : [];
+        }
         setForm({
           ...DEFAULT_CONFIG,
           ...parsed,
           currencies: normalizeCurrencies(parsed.currencies),
+          positions,
         });
       } catch { /* noop */ }
     }
@@ -116,13 +123,21 @@ export default function ExchangeRateDisplayManager({ settings, onReload }) {
     });
   };
 
+  const togglePosition = (val) => {
+    setForm(p => {
+      const cur = p.positions || [];
+      const next = cur.includes(val) ? cur.filter(v => v !== val) : [...cur, val];
+      return { ...p, positions: next, position: next[0] || "" };
+    });
+  };
+
   const handleSave = async () => {
     setSaving(true);
     const existing = (settings || []).find(s => s.key === "home_exchange_rate_config");
-    // 保存时同时保留顶层 unit（取第一个币种的 unit 作为全局兼容值）
     const saveForm = {
       ...form,
       unit: form.currencies[0]?.unit ?? 100,
+      position: (form.positions || [])[0] || form.position || "hero_right",
     };
     const value = JSON.stringify(saveForm);
     if (existing?.id) {
@@ -297,28 +312,33 @@ export default function ExchangeRateDisplayManager({ settings, onReload }) {
               )}
             </div>
 
-            {/* ── 显示位置 ── */}
+            {/* ── 显示位置（复选）── */}
             <div>
-              <Label className="text-xs text-gray-500 block mb-2">显示位置</Label>
+              <Label className="text-xs text-gray-500 block mb-2">显示位置（可多选）</Label>
               <div className="space-y-1.5">
-                {POSITIONS.map(pos => (
-                  <div
-                    key={pos.value}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs cursor-pointer select-none transition-colors ${
-                      form.position === pos.value
-                        ? "bg-emerald-50 border-emerald-300 text-emerald-800 font-medium"
-                        : "border-gray-200 hover:border-gray-300 text-gray-700"
-                    }`}
-                    onClick={() => setForm(p => ({ ...p, position: pos.value }))}
-                  >
-                    <div className={`w-3 h-3 rounded-full border-2 flex-shrink-0 ${
-                      form.position === pos.value ? "border-emerald-600 bg-emerald-600" : "border-gray-300"
-                    }`} />
-                    {pos.label}
-                  </div>
-                ))}
+                {POSITIONS.map(pos => {
+                  const checked = (form.positions || []).includes(pos.value);
+                  return (
+                    <div
+                      key={pos.value}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs cursor-pointer select-none transition-colors ${
+                        checked
+                          ? "bg-emerald-50 border-emerald-300 text-emerald-800 font-medium"
+                          : "border-gray-200 hover:border-gray-300 text-gray-700"
+                      }`}
+                      onClick={() => togglePosition(pos.value)}
+                    >
+                      <div className={`w-3.5 h-3.5 rounded border-2 flex-shrink-0 flex items-center justify-center ${
+                        checked ? "border-emerald-600 bg-emerald-600" : "border-gray-300"
+                      }`}>
+                        {checked && <span className="text-white text-[9px] leading-none font-bold">✓</span>}
+                      </div>
+                      {pos.label}
+                    </div>
+                  );
+                })}
               </div>
-              {form.position === "faq" && (
+              {(form.positions || []).includes("faq") && (
                 <p className="text-xs text-amber-600 mt-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                   选择"常见问题"时，系统将为每个币种自动插入「X日元兑 [币种] 是多少？」问答条目。
                 </p>
@@ -326,7 +346,7 @@ export default function ExchangeRateDisplayManager({ settings, onReload }) {
             </div>
 
             {/* ── 字体颜色（Hero 模式）── */}
-            {(form.position === "hero_left" || form.position === "hero_right") && (
+            {((form.positions || []).includes("hero_left") || (form.positions || []).includes("hero_right")) && (
               <div>
                 <Label className="text-xs text-gray-500 block mb-2">字体颜色（叠加在 Hero 上时）</Label>
                 <div className="flex items-center gap-3">

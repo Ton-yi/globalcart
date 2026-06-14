@@ -112,7 +112,11 @@ export default function Home() {
   const rc = rateConfig;
   const rateEnabled = rc?.enabled && rc?.currencies?.length > 0;
   const rateCurrencies = rc?.currencies || [];   // [{code,unit}] 新格式，组件内自动兼容
-  const ratePos = rc?.position || "hero_right";
+  // 兼容旧单选 position 和新多选 positions
+  const ratePositions = Array.isArray(rc?.positions) && rc.positions.length > 0
+    ? rc.positions
+    : rc?.position ? [rc.position] : ["hero_right"];
+  const hasPos = (pos) => rateEnabled && ratePositions.includes(pos);
 
   return (
     <div className="space-y-8">
@@ -121,8 +125,8 @@ export default function Home() {
         config={heroConfig}
         user={user}
         tenant={tenant}
-        ratePosition={ratePos}
-        rateOverlay={rateEnabled && (ratePos === "hero_left" || ratePos === "hero_right") ? (
+        ratePosition={ratePositions[0] || "hero_right"}
+        rateOverlay={(hasPos("hero_left") || hasPos("hero_right")) ? (
           <ExchangeRateWidget currencies={rateCurrencies} heroOverlay textColor={rc?.textColor || ""} />
         ) : null}
       />
@@ -130,7 +134,7 @@ export default function Home() {
       {/* Quick Actions — show for all visitors (guest actions visible without login) */}
       {quickActions && (Array.isArray(quickActions) ? quickActions.length > 0 : Object.keys(quickActions).length > 0) && (
         <div>
-          {rateEnabled && ratePos === "quick_actions" && (
+          {hasPos("quick_actions") && (
             <div className="mb-2"><ExchangeRateWidget currencies={rateCurrencies} compact /></div>
           )}
           <QuickActionsGrid actions={quickActions} userRole={user?.role} />
@@ -143,7 +147,7 @@ export default function Home() {
           {section.heading && (
             <div className="flex items-center gap-3 mb-3">
               <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">{section.heading}</h2>
-              {rateEnabled && ratePos === "steps_title" && si === 0 && (
+              {hasPos("steps_title") && si === 0 && (
                 <ExchangeRateWidget currencies={rateCurrencies} compact />
               )}
             </div>
@@ -173,17 +177,17 @@ export default function Home() {
 
       {/* Logistics Status Board */}
       {user && (recentOrders.length > 0 || boardConfig.faq_enabled) && (
-        <div>
-          {rateEnabled && ratePos === "status_board" && (
-            <div className="mb-2"><ExchangeRateWidget currencies={rateCurrencies} compact /></div>
-          )}
-          <LogisticsStatusBoard orders={recentOrders} boardConfig={boardConfig} faqCategories={faqCategories} />
-        </div>
+        <LogisticsStatusBoard
+          orders={recentOrders}
+          boardConfig={boardConfig}
+          faqCategories={faqCategories}
+          rateWidget={hasPos("status_board") ? <ExchangeRateWidget currencies={rateCurrencies} compact /> : null}
+        />
       )}
 
       {/* FAQ */}
       <FaqSection config={faqConfig} faqCategories={faqCategories} user={user} />
-      {rateEnabled && ratePos === "faq" && (
+      {hasPos("faq") && (
         <div className="space-y-2">
           <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">实时汇率参考</h2>
           <ExchangeRateWidget currencies={rateCurrencies} faqMode />
