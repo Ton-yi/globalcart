@@ -1,10 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import { fetchTenantConfig } from "@/lib/tenantApi";
-import { getTenantConfigCache } from "@/lib/configCache";
 import { 
   ShoppingBag, Package, Truck, User, Settings, 
   Bell, LogOut, Menu, X, Shield, Globe,
@@ -28,8 +27,8 @@ export default function Layout({ children, currentPageName }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [announcements, setAnnouncements] = useState([]);
   const [navbarSettings, setNavbarSettings] = useState(null);
-  const [isTransitManager, setIsTransitManager] = useState(false);
   const [navbarRateCurrencies, setNavbarRateCurrencies] = useState([]);
+  const [transitLocations, setTransitLocations] = useState([]);
   const location = useLocation();
 
   useEffect(() => {
@@ -44,45 +43,29 @@ export default function Layout({ children, currentPageName }) {
   }, [tenant?.favicon_url, tenant?.branding_name]);
 
   useEffect(() => {
-    if (!user?.email) return;
-    base44.entities.TransitLocation.filter({ manager_email: user.email, is_active: true })
-      .then(locations => setIsTransitManager(locations.length > 0))
+    if (!user) return;
+    // fetchTenantConfig handles its own cache — no need to check cache here separately
+    fetchTenantConfig()
+      .then(cfg => {
+        setAnnouncements(cfg.announcements || []);
+        setNavbarSettings(cfg.navbarSettings || null);
+        setTransitLocations(cfg.transitLocations || []);
+        const rateSetting = (cfg.settings || []).find(s => s.key === "navbar_exchange_rate_config");
+        if (rateSetting?.value) {
+          try {
+            const rc = JSON.parse(rateSetting.value);
+            if (rc.enabled && Array.isArray(rc.currencies)) setNavbarRateCurrencies(rc.currencies);
+          } catch { /* noop */ }
+        }
+      })
       .catch(() => {});
   }, [user?.email]);
 
-  const SELF_CONFIG_PAGES = new Set(["AdminSettings"]);
-
-  useEffect(() => {
-    if (!user) return;
-    const cached = getTenantConfigCache();
-    if (cached) {
-      setAnnouncements(cached.announcements || []);
-      setNavbarSettings(cached.navbarSettings || null);
-      const cachedRateSetting = (cached.settings || []).find(s => s.key === "navbar_exchange_rate_config");
-      if (cachedRateSetting?.value) {
-        try {
-          const rc = JSON.parse(cachedRateSetting.value);
-          if (rc.enabled && Array.isArray(rc.currencies)) setNavbarRateCurrencies(rc.currencies);
-        } catch { /* noop */ }
-      }
-      return;
-    }
-    if (SELF_CONFIG_PAGES.has(currentPageName)) return;
-    fetchTenantConfig()
-    .then(cfg => {
-      setAnnouncements(cfg.announcements || []);
-      setNavbarSettings(cfg.navbarSettings || null);
-      // parse navbar rate config
-      const rateSetting = (cfg.settings || []).find(s => s.key === "navbar_exchange_rate_config");
-      if (rateSetting?.value) {
-        try {
-          const rc = JSON.parse(rateSetting.value);
-          if (rc.enabled && Array.isArray(rc.currencies)) setNavbarRateCurrencies(rc.currencies);
-        } catch { /* noop */ }
-      }
-    })
-    .catch(() => {});
-  }, [user?.email, currentPageName]);
+  // Derive isTransitManager from already-fetched transitLocations (no extra network request)
+  const isTransitManager = useMemo(
+    () => user?.email ? transitLocations.some(l => l.manager_email === user.email && l.is_active) : false,
+    [transitLocations, user?.email]
+  );
 
   const isPlatformAdmin = user?.role === "platform_admin";
   const isTenantAdmin = user?.role === "admin" || user?.role === "tenant_admin";
@@ -99,52 +82,47 @@ export default function Layout({ children, currentPageName }) {
   const canViewMyOrders = isAdmin || isTenantUser || can("view:my_orders_module");
   const canAccessTransitWork = isAdmin || can("shipping:view_transit_panel");
 
-  const userNavBuilt = buildNav(mergeNavTree(navbarSettings?.user_nav, "user"), "user", {
-    access: { MyOrders: canViewMyOrders, ShippingPool: !canAccessAdminShippingPool },
-    labelOverrides: { ShippingPool: isTransitManager ? "发货池" : "发货 & 拼邮" },
-  });
+  const navItems = useMemo(() => {
+    const platformAdminNav = [
+      { key: "PlatformAdminSettings", label: "平台设置", icon: Settings, page: "PlatformAdminSettings", children: [
+        { key: "PlatformNotificationManager", label: "跨租户通知", icon: Bell, page: "PlatformNotificationManager", children: [] },
+        { key: "PlatformTenantManager", label: "租户管理", icon: Globe, page: "PlatformAdminSettings", children: [] },
+      ]},
+    ];
 
-  const adminNavBuilt = buildNav(mergeNavTree(navbarSettings?.admin_nav, "admin"), "admin", {
-    access: {
-      AdminDashboard: canAccessAdminDashboard,
-      AdminOrders: canAccessAdminOrders,
-      AdminShippingPool: canAccessAdminShippingPool,
-      AdminTransitWork: canAccessTransitWork,
-      AdminUsers: canAccessAdminUsers,
-      AdminSettings: canAccessAdminSettings,
-      AdminAnnouncements: canAccessAdminAnnouncements,
-      AdminFeeRules: canAccessAdminSettings,
-      AdminSettingsHome: canAccessAdminSettings,
-      AdminNavbarSettings: canAccessAdminSettings,
-      ExchangeRate: true,
-      // 用户入口访问控制
-      UserHome: true,
-      UserSubmitOrder: true,
-      UserSubmitOrderPlain: true,
-      UserGroupBuy: true,
-      UserMyOrders: canViewMyOrders,
-      UserShippingPool: true,
-      UserProfile: true,
-      UserHelpCenter: true,
-      UserTodoAdmin: true,
-    },
-  });
+    if (isPlatformAdmin || isTenantAdmin || isStaff) {
+      const built = buildNav(mergeNavTree(navbarSettings?.admin_nav, "admin"), "admin", {
+        access: {
+          AdminDashboard: canAccessAdminDashboard,
+          AdminOrders: canAccessAdminOrders,
+          AdminShippingPool: canAccessAdminShippingPool,
+          AdminTransitWork: canAccessTransitWork,
+          AdminUsers: canAccessAdminUsers,
+          AdminSettings: canAccessAdminSettings,
+          AdminAnnouncements: canAccessAdminAnnouncements,
+          AdminFeeRules: canAccessAdminSettings,
+          AdminSettingsHome: canAccessAdminSettings,
+          AdminNavbarSettings: canAccessAdminSettings,
+          ExchangeRate: true,
+          UserHome: true, UserSubmitOrder: true, UserSubmitOrderPlain: true, UserGroupBuy: true,
+          UserMyOrders: canViewMyOrders, UserShippingPool: true, UserProfile: true,
+          UserHelpCenter: true, UserTodoAdmin: true,
+        },
+      });
+      return isPlatformAdmin ? [...built, ...platformAdminNav] : built;
+    }
 
-  const platformAdminNav = [
-    { key: "PlatformAdminSettings", label: "平台设置", icon: Settings, page: "PlatformAdminSettings", children: [
-      { key: "PlatformNotificationManager", label: "跨租户通知", icon: Bell, page: "PlatformNotificationManager", children: [] },
-      { key: "PlatformTenantManager", label: "租户管理", icon: Globe, page: "PlatformAdminSettings", children: [] },
-    ]},
-  ];
-
-  // 管理员使用独立的 adminNavBuilt（完全由 admin_nav 配置驱动）
-  // 普通用户使用 userNavBuilt
-  let navItems = userNavBuilt;
-  if (isPlatformAdmin) {
-    navItems = [...adminNavBuilt, ...platformAdminNav];
-  } else if (isTenantAdmin || isStaff) {
-    navItems = adminNavBuilt;
-  }
+    return buildNav(mergeNavTree(navbarSettings?.user_nav, "user"), "user", {
+      access: { MyOrders: canViewMyOrders, ShippingPool: !canAccessAdminShippingPool },
+      labelOverrides: { ShippingPool: isTransitManager ? "发货池" : "发货 & 拼邮" },
+    });
+  }, [
+    navbarSettings,
+    isPlatformAdmin, isTenantAdmin, isStaff,
+    canAccessAdminDashboard, canAccessAdminOrders, canAccessAdminShippingPool,
+    canAccessTransitWork, canAccessAdminUsers, canAccessAdminSettings,
+    canAccessAdminAnnouncements, canViewMyOrders, isTransitManager,
+  ]);
 
 
 
