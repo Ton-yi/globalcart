@@ -211,11 +211,6 @@ export function ImageEditModal({
 
   // 效果预览用的图片：优先用裁切预览 dataURL，否则用原图
   const effectPreviewUrl = previewDataUrl || sourceImageUrl;
-  const previewStyle = {
-    backgroundImage: `url(${effectPreviewUrl})`,
-    filter: `blur(${local.blurAmount}px) brightness(${local.brightness / 100})`,
-    transform: local.blurAmount > 0 ? "scale(1.05)" : undefined,
-  };
 
   const hasCropSelection = completedCrop && completedCrop.width > 0;
 
@@ -258,10 +253,19 @@ export function ImageEditModal({
                   </ReactCrop>
                 </div>
 
-                {/* 效果预览：显示裁切后区域（或原图）叠加效果 */}
+                {/* 效果预览：显示裁切后区域（或原图）的完整图片叠加效果 */}
                 {tab === "effect" && (
-                  <div className="relative w-full rounded-lg overflow-hidden shadow-md" style={{ maxHeight: "65vh", aspectRatio: "16/9" }}>
-                    <div className="absolute inset-0 bg-cover bg-center" style={previewStyle} />
+                  <div className="relative rounded-lg overflow-hidden shadow-md" style={{ maxWidth: "480px", maxHeight: "65vh" }}>
+                    <img
+                      src={effectPreviewUrl}
+                      alt="preview"
+                      style={{
+                        display: "block",
+                        maxWidth: "100%",
+                        maxHeight: "65vh",
+                        filter: `blur(${local.blurAmount}px) brightness(${local.brightness / 100})`,
+                      }}
+                    />
                     {local.overlayOpacity > 0 && (
                       <div className="absolute inset-0" style={{ backgroundColor: local.overlayColor, opacity: local.overlayOpacity / 100 }} />
                     )}
