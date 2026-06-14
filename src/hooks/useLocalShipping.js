@@ -134,6 +134,7 @@ export function useLocalShipping() {
 
   const handleCancel = () => {
     setActiveMethod(null);
+    setFormMode("edit");
     setForm({ ...BLANK_METHOD });
   };
 
