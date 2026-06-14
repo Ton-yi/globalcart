@@ -36,6 +36,7 @@ export const NAV_REGISTRY = {
     AdminNotificationDefaults: { label: "通知默认设置", icon: Settings, page: "AdminNotificationDefaults" },
     AdminNavbarSettings: { label: "导航栏设置", icon: Navigation, page: "AdminNavbarSettings" },
     AdminSettingsHome: { label: "网站设置", icon: Settings, page: "AdminSettings" },
+    ExchangeRate: { label: "实时汇率", icon: TrendingUp, page: "", isRateWidget: true },
   },
 };
 
@@ -51,6 +52,7 @@ export const DEFAULT_NAV_TREES = {
     { key: "HelpCenter", hidden: true, children: [{ key: "HelpCenterFaq" }] },
   ],
   admin: [
+    { key: "ExchangeRate", hidden: true },
     { key: "AdminDashboard" },
     { key: "AdminOrders" },
     { key: "AdminShippingPool", children: [{ key: "AdminTransitWork" }] },
@@ -137,6 +139,7 @@ export function buildNav(tree, group, { access = {}, labelOverrides = {} } = {})
         icon: reg.icon,
         page: reg.page,
         activePage: reg.activePage || reg.page,
+        isRateWidget: reg.isRateWidget || false,
         children: walk(n.children, depth + 1),
       };
     });

@@ -116,6 +116,7 @@ export default function Layout({ children, currentPageName }) {
       AdminFeeRules: canAccessAdminSettings,
       AdminSettingsHome: canAccessAdminSettings,
       AdminNavbarSettings: canAccessAdminSettings,
+      ExchangeRate: true,
     },
   });
 
@@ -229,6 +230,9 @@ export default function Layout({ children, currentPageName }) {
                   </div>
                 );
               }
+              if (item.isRateWidget) {
+                return <NavbarRateWidget key={item.key} currencies={navbarRateCurrencies} />;
+              }
               return (
                 <Link key={item.key} to={createPageUrl(item.page)}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm transition-colors ${
@@ -274,7 +278,7 @@ export default function Layout({ children, currentPageName }) {
 
         {mobileOpen && (
           <div className="md:hidden border-t bg-white px-4 py-3 space-y-1">
-            {navItems.map((item) => (
+            {navItems.filter(item => !item.isRateWidget).map((item) => (
               <div key={item.key}>
                 <Link to={createPageUrl(item.page)} onClick={() => setMobileOpen(false)}
                   className={`flex items-center gap-2 px-3 py-2 rounded text-sm ${
