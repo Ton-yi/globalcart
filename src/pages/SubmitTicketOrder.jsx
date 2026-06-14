@@ -69,7 +69,7 @@ export default function SubmitTicketOrder() {
     setSubmitting(true);
     try {
       const res = await base44.functions.invoke("createTenantOrder", {
-        is_ticket_order: true,
+        order_type: 'ticket',
         product_name: form.order_name || ticketData.performance_name || "票务需求",
         quantity: 1,
         user_email: user.email,
