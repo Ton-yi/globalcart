@@ -93,8 +93,6 @@ export function ImageEditModal({
 
   const onImageLoad = (e) => {
     const img = e.currentTarget;
-    // 记录 scale=1 时图片实际渲染尺寸（受 CSS maxWidth/maxHeight 约束后的布局尺寸）
-    baseImgSizeRef.current = { w: img.width, h: img.height };
     const { naturalWidth: w, naturalHeight: h } = img;
     const ratio = currentAspect ?? w / h;
     const c = centerCrop(makeAspectCrop({ unit: "%", width: 85 }, ratio, w, h), w, h);
@@ -105,9 +103,6 @@ export function ImageEditModal({
     setPresetIdx(idx);
     resetCrop(ASPECT_PRESETS[idx].value);
   };
-
-  // 用于记录图片在 scale=1 时的自然渲染尺寸（受 maxWidth/maxHeight CSS 约束）
-  const baseImgSizeRef = useRef({ w: 0, h: 0 });
 
   const handleWheel = useCallback((e) => {
     e.preventDefault();
@@ -153,12 +148,11 @@ export function ImageEditModal({
     }
     setUploading(true);
 
-    // completedCrop 坐标是相对于图片当前渲染尺寸（= baseSize * scale）的像素坐标
-    // 需要映射到 naturalWidth/naturalHeight（原始像素）
-    const renderedW = baseImgSizeRef.current.w * scale;
-    const renderedH = baseImgSizeRef.current.h * scale;
-    const toNatX = image.naturalWidth  / renderedW;
-    const toNatY = image.naturalHeight / renderedH;
+    // completedCrop 坐标是在 scale=1 的图片渲染空间中的像素坐标
+    // （因为 scale 在 ReactCrop 外层的 wrapper 上，ReactCrop 感知不到 scale）
+    // 只需映射到 naturalWidth/naturalHeight：乘以 natural/display 比
+    const toNatX = image.naturalWidth  / image.width;
+    const toNatY = image.naturalHeight / image.height;
 
     const srcX = completedCrop.x * toNatX;
     const srcY = completedCrop.y * toNatY;
@@ -247,43 +241,46 @@ export function ImageEditModal({
           <div className="flex-1 bg-gray-50 flex items-center justify-center p-4 relative overflow-hidden border-r border-gray-100">
             {currentImageUrl ? (
               tab === "crop" ? (
-                /* 裁切预览：scale 只作用于图片，ReactCrop 选框保持不动 */
+                /* 裁切预览：
+                   - 外层容器 overflow:hidden，尺寸固定，不随缩放变化
+                   - scale wrapper 用 CSS transform 缩放 ReactCrop+img 整体
+                   - ReactCrop 坐标系始终基于 scale=1 的图片尺寸，提取时除以 scale 还原
+                */
                 <div
                   ref={containerCallbackRef}
                   className="w-full h-full overflow-hidden flex items-center justify-center select-none"
-                  style={{ cursor: "crosshair" }}
                 >
-                  <ReactCrop
-                    crop={crop}
-                    onChange={(px, pct) => setCrop(pct)}
-                    onComplete={(px) => setCompletedCrop(px)}
-                    aspect={currentAspect}
-                    minWidth={20}
-                    minHeight={20}
-                  >
-                    <img
-                      ref={imgRef}
-                      src={currentImageUrl.startsWith("blob:") ? currentImageUrl : `${currentImageUrl}${currentImageUrl.includes("?") ? "&" : "?"}cb=${cbRef.current}`}
-                      crossOrigin="anonymous"
-                      onLoad={onImageLoad}
-                      style={{
-                        // 用 width/height 控制缩放，而非 CSS transform
-                        // 这样 ReactCrop 的坐标系与图片渲染尺寸完全一致
-                        width: baseImgSizeRef.current.w > 0
-                          ? `${baseImgSizeRef.current.w * scale}px`
-                          : undefined,
-                        height: baseImgSizeRef.current.h > 0
-                          ? `${baseImgSizeRef.current.h * scale}px`
-                          : undefined,
-                        maxWidth: scale <= 1 ? "100%" : "none",
-                        maxHeight: scale <= 1 ? "60vh" : "none",
-                        display: "block",
-                        transition: "width 0.1s ease, height 0.1s ease",
-                      }}
-                      alt="crop"
-                      draggable={false}
-                    />
-                  </ReactCrop>
+                  {/* scale wrapper：transform 不影响布局，容器不会撑大 */}
+                  <div style={{
+                    transform: `scale(${scale})`,
+                    transformOrigin: "center center",
+                    transition: "transform 0.1s ease",
+                    display: "inline-block",
+                    lineHeight: 0,
+                  }}>
+                    <ReactCrop
+                      crop={crop}
+                      onChange={(px, pct) => setCrop(pct)}
+                      onComplete={(px) => setCompletedCrop(px)}
+                      aspect={currentAspect}
+                      minWidth={20}
+                      minHeight={20}
+                    >
+                      <img
+                        ref={imgRef}
+                        src={currentImageUrl.startsWith("blob:") ? currentImageUrl : `${currentImageUrl}${currentImageUrl.includes("?") ? "&" : "?"}cb=${cbRef.current}`}
+                        crossOrigin="anonymous"
+                        onLoad={onImageLoad}
+                        style={{
+                          maxWidth: "100%",
+                          maxHeight: "60vh",
+                          display: "block",
+                        }}
+                        alt="crop"
+                        draggable={false}
+                      />
+                    </ReactCrop>
+                  </div>
                 </div>
               ) : (
                 /* 效果预览 */
