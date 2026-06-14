@@ -1,6 +1,6 @@
 /**
- * ImageEffectsPanel — 共用的图片上传 + 效果（模糊/明度/遮罩）面板
- * 同时包含 ImageCropModal（带自定义宽高比）
+ * ImageEffectsPanel — 图片效果编辑面板（纯效果，不含上传逻辑）
+ * 上传 / 裁切由消费方（如 HeroSectionManager）自行协调
  *
  * Props:
  *   imageUrl       string         当前图片 URL
@@ -9,11 +9,9 @@
  *   overlayColor   string         遮罩颜色 hex
  *   overlayOpacity number         遮罩透明度 %
  *   previewTitle   string?        预览区叠加文字（可选）
- *   cropAspect     number?        裁切宽高比（undefined = 自由裁切）
- *   cropHint       string?        裁切提示文字
- *   onChange(patch) fn            局部字段更新回调
+ *   onChange(patch) fn            局部字段更新回调 { blurAmount? brightness? overlayColor? overlayOpacity? }
  *   onRemove()      fn            移除图片回调
- *   accentColor    string?        主题色 class 前缀（如 "blue" "indigo"），默认 "blue"
+ *   onFileSelected(file) fn?      用户选择/拖拽新文件时的回调（由外部处理上传+裁切）
  */
 import { useState, useRef, useCallback } from "react";
 import ReactCrop, { centerCrop, makeAspectCrop } from "react-image-crop";
@@ -104,7 +102,9 @@ export function SliderField({ label, value, min, max, unit, onChange }) {
   );
 }
 
-// ─── ImageEffectsPanel ────────────────────────────────────
+// ─── ImageEffectsPanel ─────────────────────────────────────
+// 纯效果面板：上传区 / 预览区 + 效果滑块
+// 文件选择后通过 onFileSelected(file) 委托给消费方处理上传+裁切
 export default function ImageEffectsPanel({
   imageUrl,
   blurAmount = 0,
@@ -112,43 +112,26 @@ export default function ImageEffectsPanel({
   overlayColor = "#000000",
   overlayOpacity = 0,
   previewTitle,
-  cropAspect,
-  cropHint,
   onChange,
   onRemove,
+  onFileSelected,  // (file: File) => void — 由消费方实现上传+裁切
 }) {
   const fileInputRef = useRef();
-  const [cropSrc, setCropSrc] = useState(null);
   const [dragging, setDragging] = useState(false);
 
-  const openCrop = (file) => {
+  const handleFile = (file) => {
     if (!file || !file.type.startsWith("image/")) return;
-    setCropSrc(URL.createObjectURL(file));
+    onFileSelected?.(file);
   };
 
   const handleDrop = (e) => {
     e.preventDefault();
     setDragging(false);
-    openCrop(e.dataTransfer.files[0]);
-  };
-
-  const handleCropConfirm = (fileUrl) => {
-    setCropSrc(null);
-    onChange({ imageUrl: fileUrl });
+    handleFile(e.dataTransfer.files[0]);
   };
 
   return (
     <>
-      {cropSrc && (
-        <ImageCropModal
-          src={cropSrc}
-          onConfirm={handleCropConfirm}
-          onCancel={() => setCropSrc(null)}
-          aspect={cropAspect}
-          hint={cropHint}
-        />
-      )}
-
       <div className="space-y-3">
         {/* 预览区（有图时显示） */}
         {imageUrl ? (
@@ -211,7 +194,7 @@ export default function ImageEffectsPanel({
           type="file"
           accept="image/*"
           className="hidden"
-          onChange={e => { const f = e.target.files[0]; e.target.value = ""; if (f) openCrop(f); }}
+          onChange={e => { const f = e.target.files[0]; e.target.value = ""; if (f) handleFile(f); }}
         />
 
         {/* 效果控制（始终显示） */}

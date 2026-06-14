@@ -19,6 +19,7 @@ function genId() { return `banner_${Date.now()}_${Math.random().toString(36).sli
 // ─── SingleImageEditor — 每张图片的效果折叠面板 ───────────
 function SingleImageEditor({ img, onUpdate, onPatch, onDelete }) {
   const [open, setOpen] = useState(false);
+  const [cropSrc, setCropSrc] = useState(null);
 
   return (
     <div className={`rounded-lg border transition-colors ${img.isActive ? "border-gray-200" : "border-gray-100"}`}>
@@ -73,19 +74,23 @@ function SingleImageEditor({ img, onUpdate, onPatch, onDelete }) {
       {/* 效果面板（折叠） */}
       {open && (
       <div className="p-3 border-t border-gray-100 bg-white rounded-b-lg">
+        {cropSrc && (
+          <ImageCropModal
+            src={cropSrc}
+            hint="拖动选区以裁切 Banner 图片（建议宽幅，如 4:1 ~ 6:1）"
+            onConfirm={(url) => { setCropSrc(null); onPatch(img.id, { url }); }}
+            onCancel={() => setCropSrc(null)}
+          />
+        )}
         <ImageEffectsPanel
           imageUrl={img.url}
           blurAmount={img.blurAmount ?? 0}
           brightness={img.brightness ?? 100}
           overlayColor={img.overlayColor || "#000000"}
           overlayOpacity={img.overlayOpacity ?? 0}
-          cropAspect={undefined}
-          cropHint="拖动选区以裁切 Banner 图片（建议宽幅，如 4:1 ~ 6:1）"
-          onChange={patch => {
-            const { imageUrl: newUrl, ...rest } = patch;
-            onPatch(img.id, { ...(newUrl ? { url: newUrl } : {}), ...rest });
-          }}
+          onChange={patch => onPatch(img.id, patch)}
           onRemove={() => onDelete(img.id)}
+          onFileSelected={file => setCropSrc(URL.createObjectURL(file))}
         />
       </div>
       )}

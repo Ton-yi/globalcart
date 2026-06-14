@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { tenantEntity } from "@/lib/tenantApi";
 import { invalidateTenantConfigCache } from "@/lib/configCache";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Save, Layout, Plus, Trash2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DEFAULT_HERO } from "@/components/home/HeroSection";
-import ImageEffectsPanel, { SliderField } from "@/components/admin/ImageEffectsPanel";
+import ImageEffectsPanel, { SliderField, ImageCropModal } from "@/components/admin/ImageEffectsPanel";
 
 const VARIANT_OPTIONS = [
   { value: "primary", label: "实心按钮" },
@@ -126,6 +126,7 @@ function ButtonEditor({ buttons, onChange }) {
 // ─── AudiencePanel：单一受众的完整 hero 配置 ─────────────
 function AudiencePanel({ form, onChange }) {
   const f = (k, v) => onChange({ ...form, [k]: v });
+  const [cropSrc, setCropSrc] = useState(null);
 
   return (
     <div className="space-y-4">
@@ -173,9 +174,18 @@ function AudiencePanel({ form, onChange }) {
         </div>
       )}
 
-      {/* Image mode — 使用共用的 ImageEffectsPanel */}
+      {/* Image mode — ImageEffectsPanel 负责效果，AudiencePanel 协调上传+裁切 */}
       {form.bgMode === "image" && (
         <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+          {cropSrc && (
+            <ImageCropModal
+              src={cropSrc}
+              aspect={3}
+              hint="拖动选区以裁切图片（推荐宽高比 3:1）"
+              onConfirm={(url) => { setCropSrc(null); onChange({ ...form, bgImageUrl: url, bgMode: "image" }); }}
+              onCancel={() => setCropSrc(null)}
+            />
+          )}
           <ImageEffectsPanel
             imageUrl={form.bgImageUrl}
             blurAmount={form.blurAmount ?? 0}
@@ -183,10 +193,9 @@ function AudiencePanel({ form, onChange }) {
             overlayColor={form.overlayColor || "#000000"}
             overlayOpacity={form.overlayOpacity ?? 0}
             previewTitle={form.title || "标题预览"}
-            cropAspect={3}
-            cropHint="拖动选区以裁切图片（推荐宽高比 3:1）"
             onChange={patch => onChange({ ...form, ...patch, bgMode: "image" })}
             onRemove={() => onChange({ ...form, bgImageUrl: "", bgMode: "white" })}
+            onFileSelected={file => setCropSrc(URL.createObjectURL(file))}
           />
         </div>
       )}
