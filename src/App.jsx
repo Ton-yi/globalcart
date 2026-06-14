@@ -35,7 +35,6 @@ import AdminFaq from '@/pages/AdminFaq';
 import UserTodo from '@/pages/UserTodo';
 import SubmitTicketOrder from '@/pages/SubmitTicketOrder';
 import AdminTicketOrders from '@/pages/AdminTicketOrders';
-import OrderRegistryTest from '@/components/orders/controllers/OrderRegistryTest';
 
 // 初始化订单控制器注册中心
 import '@/components/orders/controllers';
@@ -277,11 +276,6 @@ const AuthenticatedApp = () => {
       <Route path="/:locale/u/:handle" element={
         <LayoutWrapper currentPageName="PublicProfile">
           <PublicProfile />
-        </LayoutWrapper>
-      } />
-      <Route path="/:locale/OrderRegistryTest" element={
-        <LayoutWrapper currentPageName="OrderRegistryTest">
-          <OrderRegistryTest />
         </LayoutWrapper>
       } />
       
