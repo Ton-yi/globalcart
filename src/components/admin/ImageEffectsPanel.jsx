@@ -272,8 +272,8 @@ export function ImageEditModal({
                         crossOrigin="anonymous"
                         onLoad={onImageLoad}
                         style={{
-                          maxWidth: "100%",
-                          maxHeight: "60vh",
+                          maxWidth: "480px",
+                          maxHeight: "55vh",
                           display: "block",
                         }}
                         alt="crop"
