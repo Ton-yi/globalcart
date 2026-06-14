@@ -349,6 +349,16 @@ function ImageEditModal({ imageUrl, initialMode = "edit", blurAmount, brightness
               <input ref={fileInputRef} type="file" accept="image/*" className="hidden"
                 onChange={e => { const f = e.target.files[0]; e.target.value = ""; if (f) handleFile(f); }} />
 
+              {/* 裁切入口（始终可见） */}
+              {pendingImageUrl && (
+                <div className="mb-3">
+                  <Button variant="outline" size="sm" className="w-full h-8 text-xs border-dashed border-blue-300 text-blue-600 hover:bg-blue-50"
+                    onClick={handleCropCurrent}>
+                    <Crop className="w-3 h-3 mr-1.5" />裁切图片
+                  </Button>
+                </div>
+              )}
+
               {/* 效果控制 */}
               <div className="space-y-3 mb-4">
                 <SliderField label="模糊度（雾化）" value={local.blurAmount} min={0} max={20} unit="px" onChange={v => patch({ blurAmount: v })} />
