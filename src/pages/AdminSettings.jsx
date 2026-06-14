@@ -456,28 +456,34 @@ export default function AdminSettings() {
         <div className={`flex-1 min-w-0 space-y-5 ${activeTab === "home_customize" ? "" : "max-w-2xl"}`}>
 
       {activeTab === "home_customize" && !loading && (
-        <div className="columns-1 xl:columns-2 gap-5 space-y-0 [&>*]:break-inside-avoid [&>*]:mb-5">
-          <ExchangeRateDisplayManager settings={settings} onReload={load} />
-          <HeroSectionManager settings={settings} onReload={load} />
-          <StepsSectionManager settings={settings} onReload={load} />
-          <QuickActionsManager settings={settings} onReload={load} />
-          <LogisticsStatusBoardManager settings={settings} onReload={load} />
-          <FaqManager settings={settings} onReload={load} />
-          <Card className="border-teal-200">
-            <CardContent className="pt-4 pb-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-700">帮助中心 · 问答内容管理</p>
-                  <p className="text-xs text-gray-400 mt-0.5">创建分类、编写问答内容（支持 Markdown），供主页 FAQ 区块和帮助中心页使用</p>
+        <div className="flex flex-col xl:flex-row gap-5 items-start">
+          {/* 左列 */}
+          <div className="flex-1 min-w-0 space-y-5">
+            <HeroSectionManager settings={settings} onReload={load} />
+            <QuickActionsManager settings={settings} onReload={load} />
+            <ExchangeRateDisplayManager settings={settings} onReload={load} />
+          </div>
+          {/* 右列 */}
+          <div className="flex-1 min-w-0 space-y-5">
+            <StepsSectionManager settings={settings} onReload={load} />
+            <LogisticsStatusBoardManager settings={settings} onReload={load} />
+            <FaqManager settings={settings} onReload={load} />
+            <Card className="border-teal-200">
+              <CardContent className="pt-4 pb-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">帮助中心 · 问答内容管理</p>
+                    <p className="text-xs text-gray-400 mt-0.5">创建分类、编写问答内容（支持 Markdown），供主页 FAQ 区块和帮助中心页使用</p>
+                  </div>
+                  <Link to={createPageUrl("AdminFaq")}>
+                    <Button size="sm" className="h-7 text-xs bg-teal-600 hover:bg-teal-700">
+                      <ExternalLink className="w-3.5 h-3.5 mr-1" />进入管理
+                    </Button>
+                  </Link>
                 </div>
-                <Link to={createPageUrl("AdminFaq")}>
-                  <Button size="sm" className="h-7 text-xs bg-teal-600 hover:bg-teal-700">
-                    <ExternalLink className="w-3.5 h-3.5 mr-1" />进入管理
-                  </Button>
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       )}
       {activeTab === "home_customize" && loading && <p className="text-gray-400 text-sm">加载中...</p>}
