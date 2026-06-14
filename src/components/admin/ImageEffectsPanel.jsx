@@ -147,21 +147,26 @@ export function ImageEditModal({
     }
     setUploading(true);
 
-    // completedCrop 是相对于图片显示尺寸（含scale）的像素坐标
-    // image.width/height 是未缩放时的显示尺寸，需除以 scale 还原
-    const displayW = image.width;   // 图片在 scale=1 时的显示宽
+    // completedCrop 坐标是在 scale 变换后的视觉坐标系中（像素）
+    // image.width/height 是 CSS 渲染尺寸（scale=1 时），natural 是原始像素
+    // 视觉坐标 → 原始像素：先除以 scale，再乘以 natural/display 比
+    const displayW = image.width;
     const displayH = image.height;
-    const scaleX = image.naturalWidth  / (displayW * scale);
-    const scaleY = image.naturalHeight / (displayH * scale);
+    const toNatX = image.naturalWidth  / (displayW * scale);
+    const toNatY = image.naturalHeight / (displayH * scale);
+
+    const srcX = completedCrop.x * toNatX;
+    const srcY = completedCrop.y * toNatY;
+    const srcW = completedCrop.width  * toNatX;
+    const srcH = completedCrop.height * toNatY;
 
     const canvas = document.createElement("canvas");
-    canvas.width  = Math.round(completedCrop.width  * scaleX);
-    canvas.height = Math.round(completedCrop.height * scaleY);
+    canvas.width  = Math.round(srcW);
+    canvas.height = Math.round(srcH);
     const ctx = canvas.getContext("2d");
     ctx.drawImage(
       image,
-      completedCrop.x * scaleX, completedCrop.y * scaleY,
-      completedCrop.width * scaleX, completedCrop.height * scaleY,
+      srcX, srcY, srcW, srcH,
       0, 0, canvas.width, canvas.height,
     );
     canvas.toBlob(async (blob) => {
