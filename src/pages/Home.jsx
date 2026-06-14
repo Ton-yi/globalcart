@@ -173,12 +173,12 @@ export default function Home() {
       ))}
 
       {/* Logistics Status Board */}
-      {user && recentOrders.length > 0 && (
+      {user && (recentOrders.length > 0 || boardConfig.faq_enabled) && (
         <div>
           {rateEnabled && ratePos === "status_board" && (
             <div className="mb-2"><ExchangeRateWidget currencies={rateCurrencies} compact unit={rateUnit} /></div>
           )}
-          <LogisticsStatusBoard orders={recentOrders} boardConfig={boardConfig} />
+          <LogisticsStatusBoard orders={recentOrders} boardConfig={boardConfig} faqCategories={faqCategories} />
         </div>
       )}
 

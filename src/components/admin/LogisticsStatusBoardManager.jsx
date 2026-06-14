@@ -111,37 +111,6 @@ export default function LogisticsStatusBoardManager({ settings, onReload }) {
             placeholder="物流状态看板" />
         </div>
 
-        {/* FAQ 常见问题模块 */}
-        <div className="border border-teal-200 rounded-lg p-3 bg-teal-50/40">
-          <div className="flex items-center gap-2 mb-2">
-            <Switch
-              checked={!!config.faq_enabled}
-              onCheckedChange={v => setConfig(prev => ({ ...prev, faq_enabled: v }))}
-            />
-            <div className="flex items-center gap-1.5">
-              <HelpCircle className="w-3.5 h-3.5 text-teal-600" />
-              <Label className="text-xs text-gray-600 cursor-pointer select-none" onClick={() => setConfig(prev => ({ ...prev, faq_enabled: !prev.faq_enabled }))}>
-                在看板下方显示常见问题
-              </Label>
-            </div>
-          </div>
-          {config.faq_enabled && (
-            <div className="mt-2">
-              <Label className="text-xs text-gray-500 block mb-2">
-                选择展示的常见问题
-                {(config.faq_item_ids || []).length > 0 && (
-                  <span className="ml-1.5 text-teal-600 font-medium">已选 {config.faq_item_ids.length} 条</span>
-                )}
-              </Label>
-              <FaqItemPicker
-                categories={categories}
-                selectedIds={config.faq_item_ids || []}
-                onChange={ids => setConfig(prev => ({ ...prev, faq_item_ids: ids }))}
-              />
-            </div>
-          )}
-        </div>
-
         {/* 各分组设置 */}
         <div className="space-y-2">
           <Label className="text-xs text-gray-500 block">分组设置</Label>
@@ -185,6 +154,32 @@ export default function LogisticsStatusBoardManager({ settings, onReload }) {
               </div>
             );
           })}
+
+          {/* FAQ 常见问题分组 — 与其它分组同等层级 */}
+          <div className="border border-teal-200 rounded-lg p-3 bg-teal-50/30">
+            <div className="flex items-center gap-3">
+              <Switch
+                checked={!!config.faq_enabled}
+                onCheckedChange={v => setConfig(prev => ({ ...prev, faq_enabled: v }))}
+              />
+              <HelpCircle className="w-3.5 h-3.5 text-teal-600 flex-shrink-0" />
+              <span className="text-xs font-semibold text-teal-700 w-14 flex-shrink-0">常见问题</span>
+              <span className="text-xs text-gray-400 flex-1">在看板中显示常见问题分组</span>
+              {(config.faq_item_ids || []).length > 0 && (
+                <span className="text-xs text-teal-600 font-medium flex-shrink-0">已选 {config.faq_item_ids.length} 条</span>
+              )}
+            </div>
+            {config.faq_enabled && (
+              <div className="mt-3 pt-3 border-t border-teal-200">
+                <Label className="text-xs text-gray-500 block mb-2">选择展示的常见问题</Label>
+                <FaqItemPicker
+                  categories={categories}
+                  selectedIds={config.faq_item_ids || []}
+                  onChange={ids => setConfig(prev => ({ ...prev, faq_item_ids: ids }))}
+                />
+              </div>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>
