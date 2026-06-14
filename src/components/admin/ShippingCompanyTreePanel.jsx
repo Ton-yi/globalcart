@@ -194,25 +194,15 @@ export default function ShippingCompanyTreePanel({
             <Building2 className="w-3.5 h-3.5" />
             {companyForm.id ? "编辑运输公司" : "新增运输公司"}
           </p>
-          <input
-            className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-sm bg-white focus:outline-none focus:border-blue-400"
-            placeholder="公司名称 *"
+          <p className="text-xs text-gray-500">公司名称（可粘贴图片作为 Logo）</p>
+          <RichTextInput
             value={companyForm.name}
-            onChange={e => setCompanyForm(p => ({ ...p, name: e.target.value }))}
-            autoFocus
-          />
-          <input
-            className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs bg-white focus:outline-none focus:border-blue-400"
-            placeholder="Logo URL（可选）"
-            value={companyForm.logo_url || ""}
-            onChange={e => setCompanyForm(p => ({ ...p, logo_url: e.target.value }))}
-          />
-          <textarea
-            className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs bg-white focus:outline-none focus:border-blue-400 resize-none"
-            rows={2}
-            placeholder="描述（可选）"
-            value={companyForm.description || ""}
-            onChange={e => setCompanyForm(p => ({ ...p, description: e.target.value }))}
+            onChange={v => setCompanyForm(p => ({ ...p, name: v }))}
+            imageUrls={companyForm.logo_url ? [companyForm.logo_url] : []}
+            onImageUrls={urls => setCompanyForm(p => ({ ...p, logo_url: urls[0] || "" }))}
+            placeholder="公司名称，可粘贴 Logo 图片..."
+            rows={1}
+            maxImages={1}
           />
           <div className="flex gap-2 justify-end">
             <Button size="sm" variant="outline" className="h-6 text-xs" onClick={() => setCompanyForm(null)}>取消</Button>

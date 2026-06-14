@@ -57,7 +57,7 @@ function PickupLocationRow({ loc, onChange, onDelete }) {
   );
 }
 
-// ─── 运输公司录入弹窗 ─────────────────────────────────────────
+// ─── 运输公司编辑弹窗（仅用于编辑已有公司）─────────────────────
 export function CompanyFormModal({ initial, onSave, onClose, saving }) {
   const [form, setForm] = useState({ ...BLANK_COMPANY, ...initial });
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }));
@@ -66,22 +66,22 @@ export function CompanyFormModal({ initial, onSave, onClose, saving }) {
       <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-5 space-y-4" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <p className="font-semibold text-sm text-gray-800 flex items-center gap-2">
-            <Building2 className="w-4 h-4 text-blue-500" />
-            {initial?.id ? "编辑运输公司" : "添加运输公司"}
+            <Building2 className="w-4 h-4 text-blue-500" />编辑运输公司
           </p>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
         </div>
         <div className="space-y-3">
           <div>
-            <Label className="text-xs text-gray-500 mb-1 block">公司名称 *</Label>
-            <Input className="h-8 text-sm" value={form.name} onChange={e => f("name", e.target.value)} placeholder="ヤマト運輸" />
-          </div>
-          <div>
-            <Label className="text-xs text-gray-500 mb-1 block">Logo URL（可选）</Label>
-            <div className="flex gap-2">
-              <Input className="h-8 text-xs flex-1" value={form.logo_url || ""} onChange={e => f("logo_url", e.target.value)} placeholder="https://..." />
-              {form.logo_url && <img src={form.logo_url} alt="logo" className="w-8 h-8 object-contain rounded border border-gray-200 flex-shrink-0" />}
-            </div>
+            <Label className="text-xs text-gray-500 mb-1 block">公司名称（可粘贴图片作为 Logo）</Label>
+            <RichTextInput
+              value={form.name}
+              onChange={v => f("name", v)}
+              imageUrls={form.logo_url ? [form.logo_url] : []}
+              onImageUrls={urls => f("logo_url", urls[0] || "")}
+              placeholder="公司名称，可粘贴 Logo 图片..."
+              rows={1}
+              maxImages={1}
+            />
           </div>
           <div>
             <Label className="text-xs text-gray-500 mb-1 block">描述（纯文本）</Label>
@@ -93,7 +93,7 @@ export function CompanyFormModal({ initial, onSave, onClose, saving }) {
           <Button variant="outline" size="sm" onClick={onClose}>取消</Button>
           <Button size="sm" className="bg-blue-600 hover:bg-blue-700"
             disabled={!form.name.trim() || saving} onClick={() => onSave(form)}>
-            {initial?.id ? "保存更改" : "创建"}
+            保存更改
           </Button>
         </div>
       </div>
