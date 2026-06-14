@@ -168,7 +168,7 @@ export default function QuickActionImageCropModal({ src, existingUrl, imageConfi
             <Label className="text-xs text-gray-500 mb-1.5 block">
               裁切图片{imageSize === "square" ? "（锁定 1:1）" : "（自由裁切）"}
             </Label>
-            <div className="max-h-64 overflow-auto flex justify-center bg-gray-100 rounded-lg p-2">
+            <div className="flex justify-center bg-gray-100 rounded-lg p-2 overflow-hidden">
               <ReactCrop
                 crop={crop}
                 onChange={(_, pct) => setCrop(pct)}
@@ -176,7 +176,7 @@ export default function QuickActionImageCropModal({ src, existingUrl, imageConfi
                 aspect={imageSize === "square" ? 1 : undefined}
                 keepSelection
               >
-                <img ref={imgRef} src={displaySrc} onLoad={onImageLoad} className="max-w-full" alt="crop" />
+                <img ref={imgRef} src={displaySrc} onLoad={onImageLoad} className="max-w-full max-h-72 object-contain" alt="crop" />
               </ReactCrop>
             </div>
           </div>
