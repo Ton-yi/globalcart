@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Save, TrendingUp, Plus, X, ArrowUp, ArrowDown, GripVertical } from "lucide-react";
+import { Save, TrendingUp, Plus, X, ArrowUp, ArrowDown, ChevronDown } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 
 const PRESET_CURRENCIES = [
@@ -58,6 +58,7 @@ export default function ExchangeRateDisplayManager({ settings, onReload }) {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [customInput, setCustomInput] = useState("");
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   useEffect(() => {
     const s = (settings || []).find(s => s.key === "home_exchange_rate_config");
@@ -221,49 +222,63 @@ export default function ExchangeRateDisplayManager({ settings, onReload }) {
               </div>
             </div>
 
-            {/* ── 添加预设币种 ── */}
+            {/* ── 添加币种（下拉预设 + 自定义输入）── */}
             <div>
-              <Label className="text-xs text-gray-500 block mb-2">从预设列表添加</Label>
-              <div className="flex flex-wrap gap-1.5">
-                {PRESET_CURRENCIES.map(c => {
-                  const selected = selectedCodes.includes(c.code);
-                  return (
-                    <button
-                      key={c.code}
-                      onClick={() => addPreset(c.code)}
-                      disabled={selected}
-                      className={`inline-flex items-center gap-1 text-xs rounded-full px-2.5 py-1 border transition-colors ${
-                        selected
-                          ? "bg-emerald-50 border-emerald-300 text-emerald-600 opacity-50 cursor-not-allowed"
-                          : "bg-white border-gray-200 text-gray-600 hover:border-emerald-300 hover:text-emerald-700 hover:bg-emerald-50 cursor-pointer"
-                      }`}
-                    >
-                      {selected ? "✓" : <Plus className="w-3 h-3" />}
-                      {c.code}
-                      <span className="text-gray-400">{c.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* ── 自定义币种输入 ── */}
-            <div>
-              <Label className="text-xs text-gray-500 block mb-1.5">自定义币种（输入 ISO 4217 代码，如 MXN、BRL）</Label>
+              <Label className="text-xs text-gray-500 block mb-1.5">添加币种</Label>
               <div className="flex gap-2">
+                {/* 下拉预设选择器 */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setDropdownOpen(v => !v)}
+                    className="h-8 px-3 text-xs border border-gray-200 rounded-md bg-white flex items-center gap-1.5 hover:border-emerald-300 hover:bg-emerald-50 transition-colors min-w-[140px]"
+                  >
+                    <span className="flex-1 text-left text-gray-500">选择预设币种…</span>
+                    <ChevronDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                  </button>
+                  {dropdownOpen && (
+                    <div className="absolute left-0 top-full mt-1 z-50 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[200px] max-h-56 overflow-y-auto">
+                      {PRESET_CURRENCIES.map(c => {
+                        const selected = selectedCodes.includes(c.code);
+                        return (
+                          <button
+                            key={c.code}
+                            type="button"
+                            disabled={selected}
+                            onClick={() => { addPreset(c.code); setDropdownOpen(false); }}
+                            className={`w-full flex items-center gap-2 px-3 py-2 text-xs text-left transition-colors ${
+                              selected
+                                ? "text-gray-300 cursor-not-allowed"
+                                : "text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 cursor-pointer"
+                            }`}
+                          >
+                            <span className="font-semibold w-10 flex-shrink-0">{c.code}</span>
+                            <span className="text-gray-400">{c.label}</span>
+                            {selected && <span className="ml-auto text-emerald-500 text-xs">✓</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* 自定义币种输入 */}
                 <Input
-                  className="h-8 text-xs uppercase w-32"
-                  placeholder="例：MXN"
+                  className="h-8 text-xs uppercase w-24"
+                  placeholder="自定义…"
                   value={customInput}
                   maxLength={6}
                   onChange={e => setCustomInput(e.target.value.toUpperCase())}
                   onKeyDown={e => e.key === "Enter" && addCustom()}
                 />
-                <Button size="sm" variant="outline" className="h-8 px-3 text-xs" onClick={addCustom}
+                <Button size="sm" variant="outline" className="h-8 px-3 text-xs flex-shrink-0" onClick={addCustom}
                   disabled={!customInput.trim()}>
                   <Plus className="w-3.5 h-3.5 mr-1" />添加
                 </Button>
               </div>
+              {dropdownOpen && (
+                <div className="fixed inset-0 z-40" onClick={() => setDropdownOpen(false)} />
+              )}
             </div>
 
             {/* ── 显示位置 ── */}
