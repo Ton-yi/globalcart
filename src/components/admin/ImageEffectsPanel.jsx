@@ -23,62 +23,195 @@ import { Label } from "@/components/ui/label";
 import { Upload, X, ImageIcon } from "lucide-react";
 
 // ─── ImageCropModal ────────────────────────────────────────
+const ASPECT_PRESETS = [
+  { label: "自由", value: undefined },
+  { label: "16:9", value: 16 / 9 },
+  { label: "4:3",  value: 4 / 3 },
+  { label: "3:2",  value: 3 / 2 },
+  { label: "1:1",  value: 1 },
+  { label: "3:4",  value: 3 / 4 },
+  { label: "2:3",  value: 2 / 3 },
+  { label: "9:16", value: 9 / 16 },
+];
+
 export function ImageCropModal({ src, onConfirm, onCancel, aspect, hint, filename = "image.jpg", zIndex = "z-50" }) {
+  // 初始比例：优先用传入的 aspect，否则找最接近的预设，否则"自由"
+  const initPreset = (() => {
+    if (aspect == null) return 0; // 自由
+    const idx = ASPECT_PRESETS.findIndex(p => p.value != null && Math.abs(p.value - aspect) < 0.01);
+    return idx >= 0 ? idx : 0;
+  })();
+
+  const [presetIdx, setPresetIdx] = useState(initPreset);
   const [crop, setCrop] = useState();
   const [completedCrop, setCompletedCrop] = useState();
+  const [scale, setScale] = useState(1);
+  const [uploading, setUploading] = useState(false);
   const imgRef = useRef();
+  const containerRef = useRef();
+
+  const currentAspect = ASPECT_PRESETS[presetIdx].value;
+
+  // 切换比例时重置裁切框
+  const applyPreset = (idx) => {
+    setPresetIdx(idx);
+    setCrop(undefined);
+    setCompletedCrop(undefined);
+  };
 
   const onImageLoad = (e) => {
     const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
-    const ratio = aspect ?? w / h;
-    const c = centerCrop(makeAspectCrop({ unit: "%", width: 90 }, ratio, w, h), w, h);
+    const ratio = currentAspect ?? w / h;
+    const c = centerCrop(makeAspectCrop({ unit: "%", width: 85 }, ratio, w, h), w, h);
     setCrop(c);
   };
 
+  // 每次比例改变后，如果图片已加载，重新生成裁切框
+  const resetCropForAspect = useCallback((newAspect) => {
+    const image = imgRef.current;
+    if (!image) return;
+    const { naturalWidth: w, naturalHeight: h } = image;
+    const ratio = newAspect ?? w / h;
+    const c = centerCrop(makeAspectCrop({ unit: "%", width: 85 }, ratio, w, h), w, h);
+    setCrop(c);
+    setCompletedCrop(undefined);
+  }, []);
+
+  const handlePresetClick = (idx) => {
+    applyPreset(idx);
+    resetCropForAspect(ASPECT_PRESETS[idx].value);
+  };
+
+  // 滚轮缩放
+  const handleWheel = useCallback((e) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+    setScale(prev => Math.min(3, Math.max(0.5, parseFloat((prev + delta).toFixed(2)))));
+  }, []);
+
+  // 绑定/解绑滚轮事件（passive:false 以允许 preventDefault）
+  const containerCallbackRef = useCallback((node) => {
+    if (node) {
+      node.addEventListener("wheel", handleWheel, { passive: false });
+      containerRef.current = node;
+    } else if (containerRef.current) {
+      containerRef.current.removeEventListener("wheel", handleWheel);
+    }
+  }, [handleWheel]);
+
   const handleConfirm = useCallback(async () => {
     const image = imgRef.current;
-    if (!image || !completedCrop) { onConfirm(src); return; }
+    if (!image || !completedCrop || completedCrop.width === 0 || completedCrop.height === 0) {
+      onConfirm(src);
+      return;
+    }
+    setUploading(true);
+    // completedCrop 是像素值，对应的是 img 元素的渲染尺寸（已经含 scale 缩放）
+    // img 元素的实际渲染宽高 = image.width（CSS 像素），而 naturalWidth 是原始像素
+    // 但 ReactCrop 的 completedCrop 是相对于 img 元素的渲染尺寸（不含 CSS transform scale）
+    // 我们用 scale 对图片做了 CSS transform，所以需要除以 scale 换算回未缩放坐标
+    const renderedW = image.width;   // ReactCrop 内 img 元素的 CSS 宽度（未缩放的布局宽度）
+    const renderedH = image.height;
+    const scaleX = image.naturalWidth / renderedW;
+    const scaleY = image.naturalHeight / renderedH;
     const canvas = document.createElement("canvas");
-    const scaleX = image.naturalWidth / image.width;
-    const scaleY = image.naturalHeight / image.height;
-    canvas.width = completedCrop.width * scaleX;
-    canvas.height = completedCrop.height * scaleY;
+    canvas.width  = Math.round(completedCrop.width  * scaleX);
+    canvas.height = Math.round(completedCrop.height * scaleY);
     const ctx = canvas.getContext("2d");
     ctx.drawImage(
       image,
-      completedCrop.x * scaleX, completedCrop.y * scaleY,
-      completedCrop.width * scaleX, completedCrop.height * scaleY,
+      completedCrop.x * scaleX,
+      completedCrop.y * scaleY,
+      completedCrop.width  * scaleX,
+      completedCrop.height * scaleY,
       0, 0, canvas.width, canvas.height,
     );
     canvas.toBlob(async (blob) => {
-      if (!blob) { onConfirm(src); return; }
+      if (!blob) { setUploading(false); onConfirm(src); return; }
       const file = new File([blob], filename, { type: "image/jpeg" });
       const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      setUploading(false);
       onConfirm(file_url);
-    }, "image/jpeg", 0.9);
+    }, "image/jpeg", 0.92);
   }, [completedCrop, src, filename]);
 
   return (
-    <div className={`fixed inset-0 ${zIndex} flex items-center justify-center bg-black/60`}>
-      <div className="bg-white rounded-xl shadow-2xl p-5 max-w-2xl w-full mx-4">
-        <div className="flex items-center justify-between mb-3">
+    <div className={`fixed inset-0 ${zIndex} flex items-center justify-center bg-black/70`}>
+      <div className="bg-white rounded-xl shadow-2xl flex flex-col max-w-2xl w-full mx-4" style={{ maxHeight: "92vh" }}>
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
           <h3 className="font-semibold text-gray-800">裁切图片</h3>
-          <button onClick={onCancel}><X className="w-4 h-4 text-gray-400" /></button>
+          <button onClick={onCancel} className="text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
         </div>
-        {hint && <p className="text-xs text-gray-400 mb-3">{hint}</p>}
-        <div className="max-h-[60vh] overflow-auto flex justify-center">
-          <ReactCrop
-            crop={crop}
-            onChange={(_, pct) => setCrop(pct)}
-            onComplete={(c) => setCompletedCrop(c)}
-            aspect={aspect}
-          >
-            <img ref={imgRef} src={src} onLoad={onImageLoad} className="max-w-full" alt="crop" />
-          </ReactCrop>
+
+        {/* 比例预设栏 */}
+        <div className="flex items-center gap-1.5 px-5 py-2.5 border-b border-gray-100 flex-wrap flex-shrink-0">
+          {ASPECT_PRESETS.map((p, i) => (
+            <button
+              key={p.label}
+              onClick={() => handlePresetClick(i)}
+              className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+                presetIdx === i
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+          <span className="ml-auto text-xs text-gray-400">滚轮缩放图片 · 拖拽选区裁切</span>
         </div>
-        <div className="flex gap-2 justify-end mt-4">
-          <Button variant="outline" size="sm" onClick={onCancel}>取消</Button>
-          <Button size="sm" onClick={handleConfirm}>确认裁切并上传</Button>
+
+        {/* 裁切区域（可滚动） */}
+        <div
+          ref={containerCallbackRef}
+          className="flex-1 overflow-auto flex items-center justify-center bg-gray-50 p-4 select-none"
+          style={{ minHeight: 0 }}
+        >
+          <div style={{ transform: `scale(${scale})`, transformOrigin: "center center", transition: "transform 0.1s ease" }}>
+            <ReactCrop
+              crop={crop}
+              onChange={(_, pct) => setCrop(pct)}
+              onComplete={(c) => setCompletedCrop(c)}
+              aspect={currentAspect}
+              minWidth={20}
+              minHeight={20}
+            >
+              <img
+                ref={imgRef}
+                src={src}
+                onLoad={onImageLoad}
+                style={{ maxWidth: "100%", maxHeight: "50vh", display: "block" }}
+                alt="crop"
+                draggable={false}
+              />
+            </ReactCrop>
+          </div>
+        </div>
+
+        {/* 缩放指示器 + 操作按钮 */}
+        <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100 flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setScale(s => Math.max(0.5, parseFloat((s - 0.1).toFixed(2))))}
+              className="w-6 h-6 rounded border border-gray-200 flex items-center justify-center text-gray-500 hover:bg-gray-100 text-sm font-bold"
+            >−</button>
+            <span className="text-xs text-gray-500 w-10 text-center">{Math.round(scale * 100)}%</span>
+            <button
+              onClick={() => setScale(s => Math.min(3, parseFloat((s + 0.1).toFixed(2))))}
+              className="w-6 h-6 rounded border border-gray-200 flex items-center justify-center text-gray-500 hover:bg-gray-100 text-sm font-bold"
+            >+</button>
+            <button
+              onClick={() => setScale(1)}
+              className="text-xs text-gray-400 hover:text-gray-600 ml-1"
+            >重置</button>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={onCancel} disabled={uploading}>取消</Button>
+            <Button size="sm" onClick={handleConfirm} disabled={uploading}>
+              {uploading ? "上传中…" : "确认裁切并上传"}
+            </Button>
+          </div>
         </div>
       </div>
     </div>
