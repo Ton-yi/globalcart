@@ -37,7 +37,7 @@ Deno.serve(async (req) => {
     try { orderResult = await base44.asServiceRole.entities.Order.filter({ id: order_id }); } catch (_) {}
     const order = Array.isArray(orderResult) ? orderResult[0] : orderResult;
     if (!order) return Response.json({ error: 'Order not found' }, { status: 404 });
-    if (!order.is_ticket_order) return Response.json({ error: '非票务订单' }, { status: 400 });
+    if (order.order_type !== 'ticket') return Response.json({ error: '非票务订单' }, { status: 400 });
     if (!isPlatformAdmin && order.tenant_id !== tenantId) {
       return Response.json({ error: 'Forbidden: Order does not belong to your tenant' }, { status: 403 });
     }
