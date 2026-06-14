@@ -6,7 +6,7 @@
  *   - 点击"应用"：同时执行裁切上传 + 效果保存
  *   - 用户随时可回裁切 Tab 重新调整，原图不丢失
  */
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useLayoutEffect } from "react";
 import ReactCrop, { centerCrop, makeAspectCrop } from "react-image-crop";
 import "react-image-crop/dist/ReactCrop.css";
 import { base44 } from "@/api/base44Client";
@@ -29,14 +29,29 @@ const ASPECT_PRESETS = [
 
 // ─── Banner 高度预览覆层 ────────────────────────────────────
 // 对应 BannerDisplay 的 HEIGHT_PX: small=80, medium=160, large=260
-// 渲染为 ReactCrop 的子元素，定位基准 = img 元素（ReactCrop 根节点是 position:relative）
 const BANNER_HEIGHT_RATIOS = [
   { ratio: 80 / 260,  color: "#f59e0b" }, // 小 amber
   { ratio: 160 / 260, color: "#3b82f6" }, // 中 blue
 ];
 
-function BannerHeightOverlay({ completedCrop }) {
+// imgRef: 图片元素的 ref；completedCrop: px 坐标（相对于图片）；wrapperRef: 包裹 ReactCrop 的容器
+function BannerHeightOverlay({ imgRef, completedCrop, wrapperRef }) {
+  const [imgOffset, setImgOffset] = useState({ left: 0, top: 0 });
+
+  useLayoutEffect(() => {
+    const img = imgRef.current;
+    const wrapper = wrapperRef.current;
+    if (!img || !wrapper) return;
+    const imgRect = img.getBoundingClientRect();
+    const wrapRect = wrapper.getBoundingClientRect();
+    setImgOffset({
+      left: imgRect.left - wrapRect.left,
+      top: imgRect.top - wrapRect.top,
+    });
+  }, [completedCrop, imgRef, wrapperRef]);
+
   const { x, y, width, height } = completedCrop;
+
   return (
     <>
       {BANNER_HEIGHT_RATIOS.map(({ ratio, color }, i) => {
@@ -48,8 +63,8 @@ function BannerHeightOverlay({ completedCrop }) {
             className="pointer-events-none"
             style={{
               position: "absolute",
-              left: x,
-              top: topY,
+              left: imgOffset.left + x,
+              top: imgOffset.top + topY,
               width,
               height: h,
               border: `2px dashed ${color}`,
@@ -113,6 +128,7 @@ export function ImageEditModal({
 }) {
   const fileInputRef = useRef();
   const imgRef = useRef();
+  const cropWrapperRef = useRef();
   const cbRef = useRef(Date.now());
 
   const [tab, setTab] = useState(initialMode === "crop" ? "crop" : "effect");
@@ -276,7 +292,10 @@ export function ImageEditModal({
             {sourceImageUrl ? (
               <>
                 {/* 裁切 Tab：ReactCrop 显示，效果 Tab：隐藏但保持 imgRef 有效以便 handleApply 读取坐标 */}
-                <div className={`w-full h-full overflow-hidden flex items-center justify-center select-none ${tab !== "crop" ? "hidden" : ""}`}>
+                <div
+                  ref={cropWrapperRef}
+                  className={`w-full h-full overflow-hidden flex items-center justify-center select-none relative ${tab !== "crop" ? "hidden" : ""}`}
+                >
                   <ReactCrop
                     crop={crop}
                     onChange={(px, pct) => setCrop(pct)}
@@ -299,10 +318,14 @@ export function ImageEditModal({
                       alt="crop"
                       draggable={false}
                     />
-                    {showHeightPreview && completedCrop && completedCrop.width > 0 && (
-                      <BannerHeightOverlay completedCrop={completedCrop} />
-                    )}
                   </ReactCrop>
+                  {showHeightPreview && completedCrop && completedCrop.width > 0 && (
+                    <BannerHeightOverlay
+                      imgRef={imgRef}
+                      completedCrop={completedCrop}
+                      wrapperRef={cropWrapperRef}
+                    />
+                  )}
                 </div>
 
                 {/* 效果预览：显示裁切后区域（或原图）的完整图片叠加效果 */}
