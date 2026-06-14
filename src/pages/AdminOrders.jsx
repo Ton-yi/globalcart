@@ -55,7 +55,27 @@ export default function AdminOrders() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [bulkStatus, setBulkStatus] = useState("");
   const [bulkUpdating, setBulkUpdating] = useState(false);
-  const [columns, setColumns] = useState(() => loadColumns());
+  const [columns, setColumns] = useState(() => {
+    // 初始化列配置
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      const controllerCols = physicalController.getColumnConfig();
+      if (!saved) return controllerCols;
+      const parsed = JSON.parse(saved);
+      const keyOrder = parsed.map(c => c.key);
+      const merged = [
+        ...parsed.map(p => {
+          const def = controllerCols.find(c => c.key === p.key);
+          if (!def) return null;
+          return { ...def, visible: p.visible, ...(p.imageWidth ? { imageWidth: p.imageWidth } : {}), ...(p.showActual !== undefined ? { showActual: p.showActual } : {}), ...(p.showActualOnly !== undefined ? { showActualOnly: p.showActualOnly } : {}) };
+        }).filter(Boolean),
+        ...controllerCols.filter(c => !keyOrder.includes(c.key)).map(c => ({ ...c, visible: c.defaultVisible })),
+      ];
+      return merged;
+    } catch {
+      return physicalController.getColumnConfig();
+    }
+  });
 
   const [sortKey, setSortKey] = useState(null);
   const [sortDir, setSortDir] = useState("asc");
@@ -84,29 +104,6 @@ export default function AdminOrders() {
 
   // 获取实物订单控制器
   const physicalController = orderRegistry.get('physical');
-
-  // 列配置加载函数（必须在组件内，因为依赖 physicalController）
-  const loadColumns = useCallback(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      const controllerCols = physicalController.getColumnConfig();
-      if (!saved) return controllerCols;
-      const parsed = JSON.parse(saved);
-      // Merge with controller columns to pick up any new columns added
-      const keyOrder = parsed.map(c => c.key);
-      const merged = [
-        ...parsed.map(p => {
-          const def = controllerCols.find(c => c.key === p.key);
-          if (!def) return null;
-          return { ...def, visible: p.visible, ...(p.imageWidth ? { imageWidth: p.imageWidth } : {}), ...(p.showActual !== undefined ? { showActual: p.showActual } : {}), ...(p.showActualOnly !== undefined ? { showActualOnly: p.showActualOnly } : {}) };
-        }).filter(Boolean),
-        ...controllerCols.filter(c => !keyOrder.includes(c.key)).map(c => ({ ...c, visible: c.defaultVisible })),
-      ];
-      return merged;
-    } catch {
-      return physicalController.getColumnConfig();
-    }
-  }, [physicalController]);
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
