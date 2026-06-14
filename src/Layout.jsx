@@ -58,7 +58,13 @@ export default function Layout({ children, currentPageName }) {
     if (cached) {
       setAnnouncements(cached.announcements || []);
       setNavbarSettings(cached.navbarSettings || null);
-      if (cached.navbarRateCurrencies) setNavbarRateCurrencies(cached.navbarRateCurrencies);
+      const cachedRateSetting = (cached.settings || []).find(s => s.key === "navbar_exchange_rate_config");
+      if (cachedRateSetting?.value) {
+        try {
+          const rc = JSON.parse(cachedRateSetting.value);
+          if (rc.enabled && Array.isArray(rc.currencies)) setNavbarRateCurrencies(rc.currencies);
+        } catch { /* noop */ }
+      }
       return;
     }
     if (SELF_CONFIG_PAGES.has(currentPageName)) return;

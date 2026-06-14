@@ -109,6 +109,7 @@ Deno.serve(async (req) => {
       announcements: announcements || [],
       countriesConfig,
       navbarSettings: navbarSettingsArr?.[0] || null,
+      settings: siteSettings || [],
     });
 
   } catch (error) {
