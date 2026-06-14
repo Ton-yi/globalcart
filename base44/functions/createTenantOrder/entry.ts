@@ -68,6 +68,83 @@ Deno.serve(async (req) => {
       return Response.json({ error: '您已被禁止提交购买需求，请联系管理员。' }, { status: 403 });
     }
 
+    // ========================================================================
+    // === 票务订单分支：独立流程，与普通购买代购解耦 ===========================
+    // ========================================================================
+    if (body.is_ticket_order === true) {
+      const ticketSettings = await base44.asServiceRole.entities.SiteSettings.filter({ tenant_id: assignedTenantId, key: 'ticket_order_config' });
+      let ticketCfg = {};
+      try { ticketCfg = JSON.parse(ticketSettings?.[0]?.value || '{}'); } catch { ticketCfg = {}; }
+      if (ticketCfg.enabled !== true) {
+        return Response.json({ error: '票务购买需求功能未开启' }, { status: 400 });
+      }
+
+      const td = body.ticket_data || {};
+      const seats = Array.isArray(td.seats) ? td.seats : [];
+      const accountCount = parseFloat(td.account_count) || 1;
+      const additionalFee = parseFloat(td.additional_fee_jpy) || 0;
+
+      // 服务端权威计算预付总额（JPY）= Σ(数量×单价) × 账户数 + 追加料金
+      const seatTotal = seats.reduce((sum, s) => sum + (parseFloat(s.quantity) || 0) * (parseFloat(s.price_jpy) || 0), 0);
+      const grossTotal = seatTotal * accountCount + additionalFee;
+
+      // 校验各发券方式最低追加料金
+      const minFee = (ticketCfg.min_additional_fee || {})[td.ticketing_method] || 0;
+      if (td.ticketing_method && additionalFee < minFee) {
+        return Response.json({ error: `追加料金不得低于 ¥${minFee}` }, { status: 400 });
+      }
+      if (td.sales_method === 'lottery') {
+        const minBonus = ticketCfg.min_lottery_win_bonus || 0;
+        if ((parseFloat(td.lottery_win_bonus_jpy) || 0) < minBonus) {
+          return Response.json({ error: `抽中追加报酬不得低于 ¥${minBonus}` }, { status: 400 });
+        }
+      }
+
+      // 独立预付配置
+      const tPrepayEnabled = ticketCfg.prepay_enabled !== false;
+      let tPrepayRate = parseFloat(ticketCfg.prepay_rate);
+      if (isNaN(tPrepayRate) || tPrepayRate <= 0 || tPrepayRate > 100) tPrepayRate = 100;
+      const prepaidTotal = Math.round(grossTotal * (tPrepayEnabled ? tPrepayRate : 100) / 100);
+
+      // Generate ticket order number TK{YYYYMMDD}{seq}
+      const tNow = new Date();
+      const tJst = new Date(tNow.getTime() + 9 * 60 * 60 * 1000);
+      const tDateStr = `${tJst.getUTCFullYear()}${String(tJst.getUTCMonth() + 1).padStart(2, '0')}${String(tJst.getUTCDate()).padStart(2, '0')}`;
+      const tPrefix = `TK${tDateStr}`;
+      const tExisting = await base44.asServiceRole.entities.Order.filter({ tenant_id: assignedTenantId });
+      const tToday = (tExisting || []).filter(o => (o.order_number || '').startsWith(tPrefix));
+      const tMaxSeq = tToday.reduce((max, o) => Math.max(max, parseInt((o.order_number || '').slice(tPrefix.length), 10) || 0), 0);
+      const tOrderNumber = `${tPrefix}${String(tMaxSeq + 1).padStart(4, '0')}`;
+
+      const ticketOrder = await base44.asServiceRole.entities.Order.create({
+        tenant_id: assignedTenantId,
+        order_number: tOrderNumber,
+        is_ticket_order: true,
+        product_name: body.product_name || td.performance_name || '票务需求',
+        quantity: 1,
+        user_email: body.user_email,
+        user_name: body.user_name,
+        user_note: body.user_note || '',
+        ticket_data: {
+          ...td,
+          account_count: accountCount,
+          additional_fee_jpy: additionalFee,
+          lottery_win_bonus_jpy: parseFloat(td.lottery_win_bonus_jpy) || 0,
+          seats: seats.map(s => ({ seat_type: s.seat_type, quantity: parseFloat(s.quantity) || 0, price_jpy: parseFloat(s.price_jpy) || 0 })),
+        },
+        ticket_status: 'pending_confirmation',
+        ticket_prepaid_total_jpy: prepaidTotal,
+        prepayment_amount: prepaidTotal,
+        prepayment_amount_jpy: prepaidTotal,
+        prepayment_currency: 'JPY',
+        payment_mode: 'prepay',
+        order_status: 'payment_pending',
+        payment_status: 'awaiting_payment',
+      });
+
+      return Response.json({ success: true, order: ticketOrder });
+    }
+
     // === Server-side fee recomputation (never trust client-submitted amounts) ===
     const estimatedJpy = parseFloat(body.estimated_jpy) || 0;
 

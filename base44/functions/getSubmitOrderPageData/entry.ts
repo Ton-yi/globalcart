@@ -110,11 +110,18 @@ Deno.serve(async (req) => {
       jpy_twd: (baseRates.jpy_twd ?? DEFAULT_RATES.jpy_twd) + (parseFloat(settingsMap.jpy_twd_increment) || 0),
     };
 
+    // 票务模块配置（设置驱动）
+    let ticketConfig = null;
+    if (settingsMap.ticket_order_config) {
+      try { ticketConfig = JSON.parse(settingsMap.ticket_order_config); } catch { ticketConfig = null; }
+    }
+
     return Response.json({
       addons: (addons || []).filter(a => (!a.addon_type || a.addon_type === 'order') && a.is_active !== false),
       settings: settingsMap,
       rates,
       activeRule,  // null means fall back to settings.service_fee_rate
+      ticketConfig,
     });
 
   } catch (error) {
