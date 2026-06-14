@@ -7,7 +7,7 @@ import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Save, Image as ImageIcon, Upload, X, Trash2, CheckCircle2, XCircle } from "lucide-react";
+import { Save, Image as ImageIcon, Upload, X, CheckCircle2, XCircle } from "lucide-react";
 
 const WIDTH_OPTIONS = [
   { value: "small",  label: "小", desc: "max-w-3xl" },
@@ -79,7 +79,6 @@ function genId() { return `banner_${Date.now()}_${Math.random().toString(36).sli
 export default function BannerManager({ settings, onReload }) {
   const [config, setConfig] = useState({ width: "medium", images: [] });
   const [cropSrc, setCropSrc] = useState(null);
-  const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -241,13 +240,12 @@ export default function BannerManager({ settings, onReload }) {
                 onDragOver={e => { e.preventDefault(); setDragging(true); }}
                 onDragLeave={() => setDragging(false)}
                 onDrop={e => { e.preventDefault(); setDragging(false); openCrop(e.dataTransfer.files[0]); }}
-                disabled={uploading}
                 className={`w-full h-16 border-2 border-dashed rounded-lg flex items-center justify-center gap-2 transition-colors text-sm ${
                   dragging ? "border-indigo-400 bg-indigo-50 text-indigo-500"
                   : "border-gray-300 text-gray-400 hover:border-indigo-400 hover:text-indigo-500"
                 }`}>
                 <Upload className="w-4 h-4" />
-                {uploading ? "上传中..." : "点击或拖拽上传图片（将进入裁切步骤）"}
+                点击或拖拽上传图片（将进入裁切步骤）
               </button>
             </div>
           )}

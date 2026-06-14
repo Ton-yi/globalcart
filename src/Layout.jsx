@@ -162,9 +162,10 @@ export default function Layout({ children, currentPageName }) {
         currentPageName={currentPageName} userRole={user?.role}
       />
 
+      {bannerConfig && <BannerDisplay config={bannerConfig} />}
+
       {/* Sticky top zone: above_nav + header stack together */}
       <div className="sticky top-0 z-50">
-        {bannerConfig && <BannerDisplay config={bannerConfig} />}
         <AnnouncementPositionRenderer
           announcements={announcements} position="above_nav"
           currentPageName={currentPageName} userRole={user?.role}

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useState, useEffect } from "react";
 
 const WIDTH_CLASS = {
   small:  "max-w-3xl mx-auto",
@@ -8,30 +8,27 @@ const WIDTH_CLASS = {
 
 /**
  * BannerDisplay — 在导航栏上方渲染一张随机选取的 Banner 图片。
- * 每次挂载时从启用图片中随机选一张（即每次刷新随机）。
- * props:
- *   config: { width: "small"|"medium"|"large", images: [{id, url, isActive}] }
+ * 第一次收到有效的启用图片列表时锁定随机选取，之后不再因 config 变化而换图，
+ * 确保页面内路由跳转不会触发重新随机，只有完整刷新才会重新选取。
  */
 export default function BannerDisplay({ config }) {
-  const activeImages = useMemo(
-    () => (config?.images || []).filter(i => i.isActive && i.url),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [] // intentionally empty — pick once on mount (page load / refresh)
-  );
+  const [picked, setPicked] = useState(null);
 
-  const picked = useMemo(() => {
-    if (activeImages.length === 0) return null;
-    const idx = Math.floor(Math.random() * activeImages.length);
-    return activeImages[idx];
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // same — pick once
+  useEffect(() => {
+    // 已锁定则不重新选
+    if (picked) return;
+    const active = (config?.images || []).filter(i => i.isActive && i.url);
+    if (active.length === 0) return;
+    const idx = Math.floor(Math.random() * active.length);
+    setPicked(active[idx]);
+  }, [config]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!picked) return null;
 
   const widthClass = WIDTH_CLASS[config?.width || "medium"];
 
   return (
-    <div className="w-full bg-gray-100 overflow-hidden">
+    <div className="w-full overflow-hidden">
       <div className={widthClass}>
         <img
           src={picked.url}
