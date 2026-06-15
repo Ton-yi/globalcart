@@ -139,7 +139,7 @@ export default function PublicProfile() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <Card>
             <CardContent className="p-4 text-center">
-              <p className="text-xs text-gray-500">累计消费</p>
+              <p className="text-xs text-gray-500">下单实付</p>
               <p className="text-xl font-bold text-green-700 mt-1">{formatCurrency(profile.stats.totalPaidJpy)}</p>
             </CardContent>
           </Card>
@@ -205,7 +205,7 @@ export default function PublicProfile() {
                 <div className="flex-1">
                   <p className="text-sm font-medium">{order.product_name}</p>
                   <p className="text-xs text-gray-500 mt-1">
-                    {formatDate(order.created_date)} · {formatCurrency(order.paid_amount)}
+                    {formatDate(order.created_date)} · 下单实付 {formatCurrency(order.paid_amount)}
                   </p>
                 </div>
                 <Badge className={order.order_status === 'delivered' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}>
