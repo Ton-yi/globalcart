@@ -22,14 +22,15 @@ import { base44 } from "@/api/base44Client";
 import SupplementPaymentCard from "@/components/tickets/SupplementPaymentCard";
 
 const TICKET_STATUS_LABELS = {
-  pending_confirmation: "待确认",
-  accepted: "已受理",
-  awaiting_lottery_result: "待抽选结果",
-  purchased_pending_warehouse: "已购买待入库",
-  in_warehouse: "已入库",
-  shipped: "已发货",
-  delivered: "已收货",
-  cancelled: "已取消",
+pending_confirmation: "待确认",
+accepted: "已受理",
+awaiting_lottery_result: "待抽选结果",
+purchased_pending_warehouse: "已购买待入库",
+in_warehouse: "已入库",
+shipped: "已发货",
+delivered: "已收货",
+lottery_lost: "未中选",
+cancelled: "已取消",
 };
 
 const TICKET_STATUS_COLORS = {
@@ -40,6 +41,7 @@ const TICKET_STATUS_COLORS = {
   in_warehouse: "bg-green-100 text-green-700",
   shipped: "bg-teal-100 text-teal-700",
   delivered: "bg-green-200 text-green-800",
+  lottery_lost: "bg-gray-200 text-gray-800",
   cancelled: "bg-red-100 text-red-700",
 };
 
@@ -818,33 +820,20 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
                 size="sm"
                 variant="outline"
                 disabled={statusUpdating}
-                onClick={async () => {
-                  setStatusUpdating(true);
-                  try {
-                    await updateOrder(order.id, {
-                      ticket_status: "in_warehouse",
-                      messages: [
-                        ...(order.messages || []),
-                        { id: `in_warehouse_${Date.now()}`, from: "系统通知", from_email: "system@system.local",
-                          role: "admin", content: "订单状态更新为已入库/待发货",
-                          timestamp: new Date().toISOString(), is_system_notification: true,
-                          meta: { type: "status_update", new_status: "in_warehouse" } }
-                      ],
-                      unread_roles: ["user"]
-                    });
-                    toast.success("订单已更新为已入库/待发货");
-                    onRefresh?.();
-                    onClose?.();
-                  } catch (e) {
-                    toast.error("更新失败：" + e.message);
-                  } finally {
-                    setStatusUpdating(false);
-                  }
-                }}
+                onClick={() => handleStatusUpdate("in_warehouse")}
                 className="bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
               >
                 {statusUpdating ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : null}
                 已入库 / 待发货
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={statusUpdating}
+                onClick={() => handleStatusUpdate("lottery_lost")}
+                className="bg-gray-100 hover:bg-gray-200 text-gray-700 border-gray-200"
+              >
+                未中选
               </Button>
             </div>
           )}
@@ -1368,7 +1357,7 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
                         className="h-8 text-sm rounded border border-red-300 px-2 bg-white"
                         value={supplementPaymentMethod || ""}
                         onChange={e => setSupplementPaymentMethod(e.target.value)}
-                        disabled={requestingSupplement}
+                        disabled={requestingSupplement || statusUpdating}
                       >
                         <option value="">选择支付方式</option>
                         <option value="alipay">支付宝</option>
@@ -1387,7 +1376,8 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
                           }
                           setRequestingSupplement(true);
                           try {
-                            const res = await base44.functions.invoke("requestTicketSupplement", {
+                            const res = await base44.functions.invoke("handleTicketSupplement", {
+                              action: 'request_payment',
                               order_id: order.id,
                               payment_method: supplementPaymentMethod,
                             });

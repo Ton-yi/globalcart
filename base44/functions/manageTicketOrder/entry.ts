@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
 /**
  * 票务订单后台管理：状态流转 / 录入实际票数 / 服务端权威退差价 / 录入发券信息 / 取消。
@@ -60,9 +60,16 @@ Deno.serve(async (req) => {
     let updateData = {};
 
     if (action === 'set_status') {
-      const valid = ['pending_confirmation', 'accepted', 'awaiting_lottery_result', 'purchased_pending_warehouse', 'in_warehouse', 'shipped', 'delivered', 'cancelled'];
+      const valid = ['pending_confirmation', 'accepted', 'awaiting_lottery_result', 'purchased_pending_warehouse', 'in_warehouse', 'shipped', 'delivered', 'lottery_lost', 'cancelled'];
       if (!valid.includes(body.ticket_status)) return Response.json({ error: '无效状态' }, { status: 400 });
       updateData.ticket_status = body.ticket_status;
+
+      // 如果是未中选，自动计算全额退款
+      if (body.ticket_status === 'lottery_lost') {
+        const refund = calcRefund(seats.map(s => ({ ...s, actual_quantity: 0 })));
+        updateData.ticket_refund_jpy = refund;
+        updateData.ticket_refund_settled = false; // 标记为待结算
+      }
 
     } else if (action === 'record_actual') {
       const actuals = body.actual_quantities || {};
@@ -97,11 +104,116 @@ Deno.serve(async (req) => {
       updateData.order_status = 'cancelled';
       if (body.cancel_reason) updateData.cancel_reason = String(body.cancel_reason);
 
+    } else if (action === 'mark_lottery_lost') {
+      if (order.ticket_data?.sales_method !== 'lottery') {
+        return Response.json({ error: 'Not a lottery order' }, { status: 400 });
+      }
+
+      // Set all actual quantities to 0
+      const newSeats = seats.map(s => ({ ...s, actual_quantity: 0 }));
+      const refund = calcRefund(newSeats);
+
+      updateData.ticket_status = 'lottery_lost';
+      updateData.ticket_data = { ...td, seats: newSeats };
+      updateData.ticket_refund_jpy = refund;
+      updateData.ticket_refund_settled = false; // Mark as pending settlement
+      updateData.messages = [
+        ...(order.messages || []),
+        {
+          id: `lottery_lost_${Date.now()}`,
+          from: "系统通知",
+          from_email: "system@system.local",
+          role: "admin",
+          content: `订单状态更新为：未中选。已自动计算全额退款 ¥${refund.toLocaleString()}。`,
+          timestamp: new Date().toISOString(),
+          is_system_notification: true,
+          meta: { type: "status_update", new_status: "lottery_lost" }
+        }
+      ];
+      updateData.unread_roles = ["user"];
+
     } else {
       return Response.json({ error: '未知操作' }, { status: 400 });
     }
 
     const updated = await base44.asServiceRole.entities.Order.update(order_id, updateData);
+
+    // Trigger notification if status was changed
+    if (updateData.ticket_status && updateData.ticket_status !== order.ticket_status) {
+      try {
+        let notif_subtype = `ticket_${updateData.ticket_status}`;
+        let notif_title = `票务订单状态更新`;
+                const isLottery = order.ticket_data?.sales_method === 'lottery';
+        const statusLabelMap = {
+          pending_confirmation: { user: "待受理", admin: "待确认" },
+          accepted: { user: isLottery ? "待开始抽选" : "待受理", admin: isLottery ? "待开始抽选" : "待开票" },
+          awaiting_lottery_result: { user: "等待抽选结果", admin: "等待抽选结果" },
+          purchased_pending_warehouse: { user: isLottery ? "已抽中待入库" : "已购买待入库", admin: isLottery ? "已抽中待入库" : "已购买待入库" },
+          in_warehouse: { user: "待发货", admin: "已入库" },
+          shipped: { user: "已发货", admin: "已发货" },
+          delivered: { user: "已收货", admin: "已收货" },
+          lottery_lost: { user: "未中选", admin: "未中选" },
+          cancelled: { user: "已取消", admin: "已取消" },
+        };
+        const statusLabel = statusLabelMap[updateData.ticket_status]?.user || updateData.ticket_status;
+        let notif_content = `您的票务订单（${order.order_number}）状态已更新为：${statusLabel}。`;
+
+        if (updateData.ticket_status === 'lottery_lost') {
+            notif_subtype = 'lottery_lost';
+            notif_title = '票务订单未中选';
+            notif_content = `您的票务订单（${order.order_number}）未中选，已自动为您处理退款事宜。`;
+        }
+
+        await base44.functions.invoke('createNotification', {
+          order_id: order.id,
+          notification_type: 'order_status',
+          notification_subtype: notif_subtype,
+          recipient_emails: [order.user_email],
+          custom_title: notif_title,
+          custom_content: notif_content
+        });
+      } catch (e) {
+        console.error(`Failed to create notification for status update to ${updateData.ticket_status}:`, e);
+      }
+    }
+
+    // 触发通知
+    try {
+      let notificationSubtype = null;
+      let notificationTitle = null;
+      let notificationContent = null;
+
+      if (action === 'set_status') {
+        notificationSubtype = `ticket_status_${body.ticket_status}`;
+        notificationTitle = `票务订单状态更新：${TICKET_STATUS_LABELS[body.ticket_status] || body.ticket_status}`;
+        notificationContent = `您的票务订单（${order.order_number}）状态已更新为：${TICKET_STATUS_LABELS[body.ticket_status] || body.ticket_status}。`;
+        if (body.ticket_status === 'lottery_lost') {
+          notificationContent += ` 退款金额 ¥${(updateData.ticket_refund_jpy || 0).toLocaleString()} JPY 将尽快处理。`;
+        }
+      } else if (action === 'record_actual') {
+        notificationSubtype = 'ticket_actual_recorded';
+        notificationTitle = '票务订单实际购买数量已更新';
+        notificationContent = `您的票务订单（${order.order_number}）管理员已录入实际购买数量，退差价（如有）将尽快处理。`;
+      } else if (action === 'settle_refund') {
+        notificationSubtype = 'ticket_refund_settled';
+        notificationTitle = '票务订单退差价已处理';
+        notificationContent = `您的票务订单（${order.order_number}）退差价 ¥${(updateData.ticket_refund_jpy || 0).toLocaleString()} JPY 已处理。`;
+      }
+
+      if (notificationSubtype) {
+        await base44.functions.invoke('createNotification', {
+          order_id,
+          notification_type: 'order_status',
+          notification_subtype: notificationSubtype,
+          recipient_emails: [order.user_email],
+          custom_title: notificationTitle,
+          custom_content: notificationContent,
+        });
+      }
+    } catch (e) {
+      console.error("Failed to create notification:", e);
+    }
+
     return Response.json({ success: true, order: updated });
   } catch (error) {
     console.error('manageTicketOrder error:', error);
