@@ -14,6 +14,9 @@ const VIS_OPTIONS = [
   { value: "hidden", label: "隐藏" },
 ];
 
+// 这些字段强制必填，管理员不允许更改
+const LOCKED_REQUIRED_FIELDS = new Set(["sales_method", "ticketing_method"]);
+
 function Toggle({ enabled, onToggle, color = "bg-violet-600" }) {
   return (
     <button type="button" onClick={onToggle}
@@ -49,7 +52,16 @@ export default function TicketOrderSettings({ settings, onReload }) {
   const save = async () => {
     setSaving(true);
     try {
-      const value = JSON.stringify(config);
+      // 强制确保锁定字段始终为 required，不受管理员误改影响
+      const safeConfig = {
+        ...config,
+        field_visibility: {
+          ...config.field_visibility,
+          sales_method: "required",
+          ticketing_method: "required",
+        },
+      };
+      const value = JSON.stringify(safeConfig);
       if (existing) {
         await tenantEntity.update("SiteSettings", existing.id, { value });
       } else {
@@ -133,17 +145,27 @@ export default function TicketOrderSettings({ settings, onReload }) {
               <p className="text-xs text-gray-400 mt-1">为票的每个属性设置 必填 / 选填 / 隐藏。</p>
             </CardHeader>
             <CardContent className="space-y-1.5">
-              {TICKET_FIELDS.map(f => (
-                <div key={f.key} className="flex items-center justify-between py-1">
-                  <Label className="text-sm text-gray-600">{f.label}</Label>
-                  <Select value={config.field_visibility?.[f.key] || "optional"} onValueChange={v => setVis(f.key, v)}>
-                    <SelectTrigger className="h-7 w-24 text-xs"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {VIS_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-              ))}
+              {TICKET_FIELDS.map(f => {
+                const locked = LOCKED_REQUIRED_FIELDS.has(f.key);
+                return (
+                  <div key={f.key} className="flex items-center justify-between py-1">
+                    <Label className="text-sm text-gray-600 flex items-center gap-1">
+                      {f.label}
+                      {locked && <span className="text-xs text-red-500 font-normal">（必填，不可更改）</span>}
+                    </Label>
+                    {locked ? (
+                      <span className="h-7 w-24 text-xs flex items-center justify-center rounded border border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed">必填</span>
+                    ) : (
+                      <Select value={config.field_visibility?.[f.key] || "optional"} onValueChange={v => setVis(f.key, v)}>
+                        <SelectTrigger className="h-7 w-24 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {VIS_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </div>
+                );
+              })}
             </CardContent>
           </Card>
 

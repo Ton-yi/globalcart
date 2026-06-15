@@ -45,8 +45,17 @@ export default function SubmitTicketOrder() {
   const setTd = (patch) => setTicketData(prev => ({ ...prev, ...patch }));
 
   const validate = () => {
-    const vis = config?.field_visibility || {};
+    // 販売方法、発券方式 始终必填（不受 field_visibility 配置影响）
+    if (!ticketData.sales_method) { toast.error("请选择販売方法"); return false; }
+    if (!ticketData.ticketing_method) { toast.error("请选择発券方式"); return false; }
     if (!ticketData.seats?.length) { toast.error("请至少添加一个席种"); return false; }
+    // 其他 required 字段校验（通过 field_visibility）
+    const vis = config?.field_visibility || {};
+    const req = (k) => vis[k] === "required";
+    if (req("prefecture") && !ticketData.prefecture) { toast.error("请填写都道府県"); return false; }
+    if (req("performance_datetime") && !ticketData.performance_datetime) { toast.error("请填写開演日時"); return false; }
+    if (req("performance_name") && !ticketData.performance_name) { toast.error("请填写演出名"); return false; }
+    if (req("purchase_link") && !ticketData.purchase_link) { toast.error("请填写购买链接"); return false; }
     // 最低追加料金校验
     const method = ticketData.ticketing_method;
     const minFee = config?.min_additional_fee?.[method] ?? 0;
