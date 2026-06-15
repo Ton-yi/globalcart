@@ -61,7 +61,7 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
   const isAdmin = actualCurrentUser?.role === "admin" || actualCurrentUser?.role === "staff" || actualCurrentUser?.role === "platform_admin";
   const canUpdateStatus = can("order:update") || isAdmin;
   const [statusUpdating, setStatusUpdating] = useState(false);
-  const [ticketNumberInput, setTicketNumberInput] = useState("");
+  const [ticketNumberInput, setTicketNumberInput] = useState(order.ticket_number_issued || "");
   const [uploadingImage, setUploadingImage] = useState(false);
   const [showTicketNumberModal, setShowTicketNumberModal] = useState(false);
   const [showImageUploadModal, setShowImageUploadModal] = useState(false);
@@ -296,15 +296,30 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
             </Button>
           )}
           {shouldShowTicketNumberButton && (
-            <Button
-              size="sm"
-              onClick={() => setShowTicketNumberModal(true)}
-              disabled={statusUpdating}
-              className="ml-auto bg-teal-50 hover:bg-teal-100 text-teal-700 border-teal-200"
-            >
-              <Wand2 className="w-3.5 h-3.5 mr-1" />
-              登记发券番号 / 已发货
-            </Button>
+            <div className="ml-auto flex items-center gap-2">
+              <Input
+                value={ticketNumberInput}
+                onChange={(e) => setTicketNumberInput(e.target.value)}
+                placeholder="请输入发券番号"
+                className="w-40 h-8 text-sm"
+                disabled={statusUpdating}
+              />
+              <Button
+                size="sm"
+                onClick={() => {
+                  if (ticketNumberInput.trim()) {
+                    handleTicketNumberSubmit();
+                  } else {
+                    setShowTicketNumberModal(true);
+                  }
+                }}
+                disabled={statusUpdating}
+                className="bg-teal-50 hover:bg-teal-100 text-teal-700 border-teal-200"
+              >
+                <Wand2 className="w-3.5 h-3.5 mr-1" />
+                登记发券番号 / 已发货
+              </Button>
+            </div>
           )}
           {shouldShowPaperTicketButton && (
             <Button
