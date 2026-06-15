@@ -37,6 +37,12 @@ export default function UserTicketOrderCard({ order }) {
             <p className="text-xs text-gray-500 mt-1">
               {order.order_number} · 预付 ¥{(order.ticket_prepaid_total_jpy || 0).toLocaleString()}
             </p>
+            {(order.order_stage_payment_jpy || order.payment_method) && (
+              <p className="text-xs text-gray-500 mt-0.5">
+                {order.order_stage_payment_jpy ? `下单实付 ¥${(order.order_stage_payment_jpy || 0).toLocaleString()}` : ''}
+                {order.payment_method ? ` · ${order.payment_method === 'credit' ? '记账' : order.payment_method === 'alipay' ? '支付宝' : order.payment_method === 'wechatpay' ? '微信支付' : '其它'}` : ''}
+              </p>
+            )}
           </div>
           <button onClick={() => setOpen(o => !o)} className="text-gray-400 hover:text-gray-600 flex-shrink-0">
             {open ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}

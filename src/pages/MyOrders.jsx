@@ -33,7 +33,8 @@ const ALL_COLUMNS = [
   { key: "product_image_url", label: "商品图片", defaultVisible: true, sortable: false, isImage: true },
   { key: "order_number", label: "订单号", defaultVisible: true, sortable: true },
   { key: "product_name", label: "商品名", defaultVisible: true, sortable: true },
-  { key: "prepayment_amount", label: "付款金额", defaultVisible: true, sortable: true },
+  { key: "order_stage_payment_jpy", label: "下单实付", defaultVisible: true, sortable: true },
+  { key: "paid_amount", label: "已付总额", defaultVisible: false, sortable: true },
   { key: "weight_g", label: "订单重量", defaultVisible: true, sortable: true },
   { key: "order_status", label: "订单状态", defaultVisible: true, sortable: true },
   { key: "online_store_tag", label: "商城标签", defaultVisible: false, sortable: true },
@@ -105,35 +106,13 @@ function CellValue({ col, order }) {
       return (
         <span className="text-sm font-medium text-gray-900 truncate">{order.product_name}</span>
       );
-    case "prepayment_amount": {
-      const val = order.prepayment_amount;
-      const cur = order.prepayment_currency || "JPY";
-      const jpyAmt = order.prepayment_amount_jpy || (cur === "JPY" ? val : null) || order.paid_amount || null;
-      const isNonJpy = cur && cur !== "JPY" && val > 0;
-
-      const mainStr = jpyAmt && jpyAmt > 0
-        ? `${Math.round(jpyAmt).toLocaleString()} yen`
-        : (!val || val <= 0) ? "-"
-        : cur === "JPY" ? `${Math.round(val).toLocaleString()} yen`
-        : cur === "CNY" ? `${Math.round(val)} yuan`
-        : `${cur} ${Number(val).toFixed(2)}`;
-
-      const actualStr = isNonJpy
-        ? (cur === "CNY" ? `${Math.round(val)} 元` : `${cur} ${Number(val).toFixed(2)}`)
-        : null;
-
-      if (col.showActualOnly && isNonJpy && actualStr) {
-        return <span className="text-sm text-gray-700">{actualStr}</span>;
+    case "order_stage_payment_jpy": {
+      const amt = order.order_stage_payment_jpy;
+      if (!amt || amt <= 0) {
+        const legacy = order.prepayment_amount_jpy || order.paid_amount;
+        return <span className="text-sm text-gray-700">{legacy ? `${Math.round(legacy).toLocaleString()} yen` : "-"}</span>;
       }
-      if (col.showActual && isNonJpy && actualStr) {
-        return (
-          <div className="flex flex-col gap-0.5">
-            <span className="text-sm text-gray-700">{mainStr}</span>
-            <span className="text-[11px] text-gray-400">实付 {actualStr}</span>
-          </div>
-        );
-      }
-      return <span className="text-sm text-gray-700">{mainStr}</span>;
+      return <span className="text-sm text-gray-700 font-medium">{`${Math.round(amt).toLocaleString()} yen`}</span>;
     }
     case "weight_g":
       return <span className="text-sm text-gray-700">{order.weight_g ? `${order.weight_g}g` : "-"}</span>;

@@ -36,7 +36,8 @@ export const PhysicalOrderController = {
       { key: "user_name", label: "用户名", defaultVisible: true, sortable: true },
       { key: "product_name", label: "商品名", defaultVisible: true, sortable: true },
       { key: "estimated_jpy", label: "货款", defaultVisible: true, sortable: true },
-      { key: "prepayment_amount", label: "付款金额", defaultVisible: true, sortable: true },
+      { key: "order_stage_payment_jpy", label: "下单实付", defaultVisible: true, sortable: true },
+      { key: "paid_amount", label: "已付总额", defaultVisible: true, sortable: true },
       { key: "weight_g", label: "订单重量", defaultVisible: true, sortable: true },
       { key: "order_status", label: "订单状态", defaultVisible: true, sortable: true },
       { key: "online_store_tag", label: "商城标签", defaultVisible: false, sortable: true },
@@ -95,30 +96,20 @@ export const PhysicalOrderController = {
       case "estimated_jpy":
         return <span className="text-sm text-gray-700">{order.estimated_jpy ? `${Math.round(order.estimated_jpy).toLocaleString()} yen` : "-"}</span>;
       
-      case "prepayment_amount": {
-        const amt = order.prepayment_amount;
-        const cur = order.prepayment_currency || "JPY";
-        const jpyAmt = order.prepayment_amount_jpy || (cur === "JPY" ? amt : null) || order.paid_amount || null;
-        const isNonJpy = cur && cur !== "JPY" && amt > 0;
-
-        const mainDisplay = jpyAmt
-          ? `${Math.round(jpyAmt).toLocaleString()} yen`
-          : formatAmount(amt, cur);
-
-        if (col.showActualOnly && isNonJpy) {
-          const actualDisplay = cur === "CNY" ? `${Math.round(amt)} 元` : `${cur} ${Number(amt).toFixed(2)}`;
-          return <span className="text-sm text-gray-700">{actualDisplay}</span>;
+      case "order_stage_payment_jpy": {
+        const amt = order.order_stage_payment_jpy;
+        if (!amt || amt <= 0) {
+          // 旧订单兼容：显示 prepayment_amount_jpy
+          const legacy = order.prepayment_amount_jpy || order.paid_amount;
+          return <span className="text-sm text-gray-700">{legacy ? `${Math.round(legacy).toLocaleString()} yen` : "-"}</span>;
         }
-        if (col.showActual && isNonJpy) {
-          const actualSub = cur === "CNY" ? `实付 ${Math.round(amt)} 元` : `实付 ${cur} ${Number(amt).toFixed(2)}`;
-          return (
-            <div className="flex flex-col gap-0.5">
-              <span className="text-sm text-gray-700">{mainDisplay}</span>
-              <span className="text-[11px] text-gray-400">{actualSub}</span>
-            </div>
-          );
-        }
-        return <span className="text-sm text-gray-700">{mainDisplay}</span>;
+        return <span className="text-sm text-gray-700 font-medium">{`${Math.round(amt).toLocaleString()} yen`}</span>;
+      }
+      
+      case "paid_amount": {
+        const amt = order.paid_amount;
+        if (!amt || amt <= 0) return <span className="text-sm text-gray-400">-</span>;
+        return <span className="text-sm text-gray-700">{`${Math.round(amt).toLocaleString()} yen`}</span>;
       }
       
       case "weight_g":
