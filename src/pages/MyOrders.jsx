@@ -25,7 +25,7 @@ import ShippingPoolDetailModal from "@/components/shippingpool/ShippingPoolDetai
 import { shippingPoolApi } from "@/lib/tenantApi";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Ticket } from "lucide-react";
-import UserTicketOrderCard from "@/components/tickets/UserTicketOrderCard";
+import MyTicketOrders from "@/components/tickets/MyTicketOrders";
 
 const STORAGE_KEY = "my_orders_columns";
 
@@ -401,17 +401,14 @@ export default function MyOrders() {
         <TabsTrigger value="ticket" className="gap-1.5"><Ticket className="w-3.5 h-3.5" />票务需求</TabsTrigger>
       </TabsList>
 
-      <TabsContent value="ticket" className="space-y-3">
-        {loading ? (
-          <p className="text-gray-400 text-sm py-8 text-center">加载中...</p>
-        ) : ticketOrders.length === 0 ? (
-          <div className="flex flex-col items-center text-gray-400 py-16">
-            <Ticket className="w-10 h-10 mb-3 opacity-30" />
-            <p className="text-sm">暂无票务需求</p>
-          </div>
-        ) : (
-          ticketOrders.map(o => <UserTicketOrderCard key={o.id} order={o} />)
-        )}
+      <TabsContent value="ticket">
+        <MyTicketOrders 
+          orders={ticketOrders} 
+          loading={loading}
+          onRefresh={() => fetchOrders(user)}
+          currentUser={user}
+          userProfileMap={pageData.userProfileMap || {}}
+        />
       </TabsContent>
 
       <TabsContent value="physical" className="space-y-4">
