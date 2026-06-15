@@ -159,6 +159,11 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
     order.ticket_status === "awaiting_lottery_result" &&
     ticketData.sales_method === "lottery" &&
     (ticketData.ticketing_method === "electronic" || ticketData.ticketing_method === "ticket_number");
+  
+  // 未中选按钮：抽选订单 + 待抽选结果状态 + 管理员
+  const shouldShowLotteryLostButton = isAdmin &&
+    order.ticket_status === "awaiting_lottery_result" &&
+    ticketData.sales_method === "lottery";
 
   const handleTicketNumberSubmit = async () => {
     if (!ticketNumberInput.trim()) {
@@ -826,6 +831,10 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
                 {statusUpdating ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : null}
                 已入库 / 待发货
               </Button>
+            </div>
+          )}
+          {shouldShowLotteryLostButton && (
+            <div className="ml-auto flex items-center gap-2">
               <Button
                 size="sm"
                 variant="outline"

@@ -24,10 +24,17 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Missing action or order_id' }, { status: 400 });
     }
 
-    // 获取订单
-    const order = await base44.entities.Order.get(order_id);
+    // 获取订单（使用服务端角色）
+    const order = await base44.asServiceRole.entities.Order.get(order_id);
     if (!order) {
       return Response.json({ error: 'Order not found' }, { status: 404 });
+    }
+
+    // 验证租户归属
+    const userRecords = await base44.asServiceRole.entities.User.filter({ email: user.email });
+    const tenantId = userRecords?.[0]?.tenant_id || null;
+    if (!isPlatformAdmin && order.tenant_id !== tenantId) {
+      return Response.json({ error: 'Forbidden: Order does not belong to your tenant' }, { status: 403 });
     }
 
     // 验证订单类型
@@ -93,8 +100,8 @@ Deno.serve(async (req) => {
           return Response.json({ error: 'Failed to generate payment link' }, { status: 500 });
         }
 
-        // 更新订单状态
-        await base44.entities.Order.update(order_id, {
+        // 更新订单状态（使用服务端角色）
+        await base44.asServiceRole.entities.Order.update(order_id, {
           supplement_payment_url: paymentRes.data.payment_url,
           supplement_out_trade_no: outTradeNo,
           supplement_payment_method: payment_method,
@@ -126,7 +133,7 @@ Deno.serve(async (req) => {
       }
 
       // 其他支付方式：手动确认
-      await base44.entities.Order.update(order_id, {
+      await base44.asServiceRole.entities.Order.update(order_id, {
         supplement_payment_method: payment_method,
         messages: [
           ...(order.messages || []),
@@ -161,7 +168,7 @@ Deno.serve(async (req) => {
       const { paid_amount, payment_proof_url } = body;
       const finalAmount = paid_amount !== undefined ? paid_amount : supplementAmount;
 
-      await base44.entities.Order.update(order_id, {
+      await base44.asServiceRole.entities.Order.update(order_id, {
         supplement_requested: false,
         supplement_amount: 0,
         supplement_paid: true,

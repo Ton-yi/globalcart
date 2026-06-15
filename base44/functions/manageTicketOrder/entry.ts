@@ -177,43 +177,6 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 触发通知
-    try {
-      let notificationSubtype = null;
-      let notificationTitle = null;
-      let notificationContent = null;
-
-      if (action === 'set_status') {
-        notificationSubtype = `ticket_status_${body.ticket_status}`;
-        notificationTitle = `票务订单状态更新：${TICKET_STATUS_LABELS[body.ticket_status] || body.ticket_status}`;
-        notificationContent = `您的票务订单（${order.order_number}）状态已更新为：${TICKET_STATUS_LABELS[body.ticket_status] || body.ticket_status}。`;
-        if (body.ticket_status === 'lottery_lost') {
-          notificationContent += ` 退款金额 ¥${(updateData.ticket_refund_jpy || 0).toLocaleString()} JPY 将尽快处理。`;
-        }
-      } else if (action === 'record_actual') {
-        notificationSubtype = 'ticket_actual_recorded';
-        notificationTitle = '票务订单实际购买数量已更新';
-        notificationContent = `您的票务订单（${order.order_number}）管理员已录入实际购买数量，退差价（如有）将尽快处理。`;
-      } else if (action === 'settle_refund') {
-        notificationSubtype = 'ticket_refund_settled';
-        notificationTitle = '票务订单退差价已处理';
-        notificationContent = `您的票务订单（${order.order_number}）退差价 ¥${(updateData.ticket_refund_jpy || 0).toLocaleString()} JPY 已处理。`;
-      }
-
-      if (notificationSubtype) {
-        await base44.functions.invoke('createNotification', {
-          order_id,
-          notification_type: 'order_status',
-          notification_subtype: notificationSubtype,
-          recipient_emails: [order.user_email],
-          custom_title: notificationTitle,
-          custom_content: notificationContent,
-        });
-      }
-    } catch (e) {
-      console.error("Failed to create notification:", e);
-    }
-
     return Response.json({ success: true, order: updated });
   } catch (error) {
     console.error('manageTicketOrder error:', error);
