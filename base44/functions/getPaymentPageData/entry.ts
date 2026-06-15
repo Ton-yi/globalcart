@@ -100,9 +100,11 @@ Deno.serve(async (req) => {
     
     // Determine payment amount based on payment status
     let paymentAmountJpy = order.prepayment_amount || 0;
+    // For ticket orders, estimated_jpy is not set; use ticket_prepaid_total_jpy as the display total
+    const isTicketOrder = order.order_type === 'ticket';
     let paymentBreakdown = {
-      product_fee: order.estimated_jpy || 0,
-      service_fee: order.service_fee_amount || 0,
+      product_fee: isTicketOrder ? (order.ticket_prepaid_total_jpy || order.prepayment_amount || 0) : (order.estimated_jpy || 0),
+      service_fee: isTicketOrder ? 0 : (order.service_fee_amount || 0),
       shipping_fee: 0,
       total: order.prepayment_amount || 0
     };

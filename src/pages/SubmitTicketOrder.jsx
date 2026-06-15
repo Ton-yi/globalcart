@@ -127,22 +127,29 @@ export default function SubmitTicketOrder() {
   const canFormSubmit = canSubmit && missingFields.length === 0 && !hasTimeErrors && calcTicketPrepaidTotal(ticketData) > 0;
 
   // ── Build fee breakdown for payment page ─────────────────────────────────
-  const buildFeeBreakdown = () => {
+  // NOTE: actual prepaid total is authoritative from the server (order.prepayment_amount).
+  // This breakdown is display-only; totals are overridden by the server value after order creation.
+  const buildFeeBreakdown = (serverPrepaidTotal) => {
     const seats = ticketData.seats || [];
     const accountCount = parseFloat(ticketData.account_count) || 1;
     const additional = parseFloat(ticketData.additional_fee_jpy) || 0;
-    const lotteryBonus = parseFloat(ticketData.lottery_win_bonus_jpy) || 0;
     const seatLines = seats.map(s => ({
       label: `${s.seat_type || "席种"} × ${s.quantity || 0} × ${accountCount}账户`,
       amount: Math.round((parseFloat(s.quantity) || 0) * (parseFloat(s.price_jpy) || 0) * accountCount),
     }));
     const lines = [...seatLines];
     if (additional > 0) lines.push({ label: "追加料金", amount: additional });
-    const prepay = calcTicketPrepaidTotal(ticketData);
+    // Estimate service fee for display (actual is computed server-side)
+    const grossTotal = lines.reduce((s, l) => s + l.amount, 0);
+    const fallbackRate = (parseFloat(config?.fallback_service_fee_rate) || 0) / 100;
+    const fallbackFixed = parseFloat(config?.fallback_service_fee_fixed) || 0;
+    const estimatedSvcFee = Math.round(grossTotal * fallbackRate + fallbackFixed);
+    if (estimatedSvcFee > 0) lines.push({ label: "服务费（参考）", amount: estimatedSvcFee });
     const prepayEnabled = config?.prepay_enabled !== false;
     let prepayRate = parseFloat(config?.prepay_rate);
     if (isNaN(prepayRate) || prepayRate <= 0 || prepayRate > 100) prepayRate = 100;
-    const finalPrepay = Math.round(prepay * (prepayEnabled ? prepayRate : 100) / 100);
+    // Use server-computed prepaid total as authoritative; fall back to client estimate
+    const finalPrepay = serverPrepaidTotal ?? Math.round((grossTotal + estimatedSvcFee) * (prepayEnabled ? prepayRate : 100) / 100);
     return { lines, total: finalPrepay, prepayRate: prepayEnabled ? prepayRate : 100 };
   };
 
@@ -151,7 +158,6 @@ export default function SubmitTicketOrder() {
     if (!canFormSubmit) return;
     setSubmitting(true);
     try {
-      const feeBreakdown = buildFeeBreakdown();
       const res = await base44.functions.invoke("createTenantOrder", {
         order_type: 'ticket',
         product_name: orderName || ticketData.performance_name || "票务需求",
@@ -180,7 +186,8 @@ export default function SubmitTicketOrder() {
       const order = res.data?.order;
       if (!order) throw new Error(res.data?.error || "提交失败");
       const selectedCurrency = paymentMethod?.payment_currency || "JPY";
-      // Encode fee breakdown in URL for payment page display
+      // Rebuild breakdown using server-authoritative prepaid total so the Payment page shows the correct amount
+      const feeBreakdown = buildFeeBreakdown(order.prepayment_amount);
       const breakdownEncoded = encodeURIComponent(JSON.stringify(feeBreakdown));
       navigate(`${createPageUrl("Payment")}?order_id=${order.id}&method=${paymentMethod?.value || "other"}&pay_currency=${selectedCurrency}&ticket_breakdown=${breakdownEncoded}`);
     } catch (err) {
