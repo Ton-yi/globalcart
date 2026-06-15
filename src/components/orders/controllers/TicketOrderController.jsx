@@ -237,28 +237,116 @@ export const TicketOrderController = {
    * 票务订单数据过滤
    */
   filterData: (orders, filters) => {
-    const { statusFilter, search, userProfileMap, showArchived } = filters;
+    const { 
+      statusFilter, search, userProfileMap, showArchived,
+      orderAmountFilter, customOrderAmount,
+      salesMethodFilter, ticketingMethodFilter,
+      ticketDateFilter,
+      additionalFeeFilter, customAdditionalFee,
+      lotteryBonusFilter, customLotteryBonus,
+    } = filters;
     
     return orders.filter(o => {
       if (showArchived ? !o.is_archived : !!o.is_archived) return false;
       
-      const matchStatus = statusFilter === "all" || o.ticket_status === statusFilter;
-      const q = (search || "").toLowerCase().trim();
-      if (!q) return matchStatus;
-      
       const td = o.ticket_data || {};
-      const displayName = (userProfileMap?.[o.user_email]?.display_name || o.user_name || "").toLowerCase();
       
-      const matchSearch =
+      // Status filter
+      const matchStatus = statusFilter === "all" || o.ticket_status === statusFilter;
+      
+      // Order amount filter
+      const orderAmount = o.ticket_prepaid_total_jpy || 0;
+      let matchOrderAmount = true;
+      if (orderAmountFilter && orderAmountFilter !== "all") {
+        if (orderAmountFilter === "0-5000") matchOrderAmount = orderAmount >= 0 && orderAmount < 5000;
+        else if (orderAmountFilter === "5000-10000") matchOrderAmount = orderAmount >= 5000 && orderAmount < 10000;
+        else if (orderAmountFilter === "10000-50000") matchOrderAmount = orderAmount >= 10000 && orderAmount < 50000;
+        else if (orderAmountFilter === "50000+") matchOrderAmount = orderAmount >= 50000;
+        else if (orderAmountFilter === "custom") {
+          if (customOrderAmount?.min) matchOrderAmount = orderAmount >= Number(customOrderAmount.min);
+          if (customOrderAmount?.max) matchOrderAmount = matchOrderAmount && orderAmount <= Number(customOrderAmount.max);
+        }
+      }
+      
+      // Sales method filter
+      let matchSalesMethod = true;
+      if (salesMethodFilter && salesMethodFilter !== "all") {
+        matchSalesMethod = td.sales_method === salesMethodFilter;
+      }
+      
+      // Ticketing method filter
+      let matchTicketingMethod = true;
+      if (ticketingMethodFilter && ticketingMethodFilter !== "all") {
+        matchTicketingMethod = td.ticketing_method === ticketingMethodFilter;
+      }
+      
+      // Unified date range filter
+      let matchDateRange = true;
+      if (ticketDateFilter) {
+        const { field, from, to } = ticketDateFilter;
+        let dateValue = null;
+        
+        // Get date value based on field
+        if (field === "ticket_data.performance_datetime") {
+          dateValue = td.performance_datetime ? new Date(td.performance_datetime) : null;
+        } else if (field === "ticket_data.sales_start_time") {
+          dateValue = td.sales_start_time ? new Date(td.sales_start_time) : null;
+        } else if (field === "ticket_data.sales_end_time") {
+          dateValue = td.sales_end_time ? new Date(td.sales_end_time) : null;
+        } else if (field === "submit_date") {
+          dateValue = o.created_date ? new Date(o.created_date) : null;
+        } else if (field === "ticket_data.lottery_result_time") {
+          dateValue = td.lottery_result_time ? new Date(td.lottery_result_time) : null;
+        }
+        
+        if (dateValue) {
+          if (from) matchDateRange = dateValue >= from;
+          if (to) matchDateRange = matchDateRange && dateValue <= to;
+        } else {
+          matchDateRange = false;
+        }
+      }
+      
+      // Additional fee filter
+      const additionalFee = td.additional_fee_jpy || 0;
+      let matchAdditionalFee = true;
+      if (additionalFeeFilter && additionalFeeFilter !== "all") {
+        if (additionalFeeFilter === "0-1000") matchAdditionalFee = additionalFee >= 0 && additionalFee < 1000;
+        else if (additionalFeeFilter === "1000-3000") matchAdditionalFee = additionalFee >= 1000 && additionalFee < 3000;
+        else if (additionalFeeFilter === "3000-10000") matchAdditionalFee = additionalFee >= 3000 && additionalFee < 10000;
+        else if (additionalFeeFilter === "10000+") matchAdditionalFee = additionalFee >= 10000;
+        else if (additionalFeeFilter === "custom") {
+          if (customAdditionalFee?.min) matchAdditionalFee = additionalFee >= Number(customAdditionalFee.min);
+          if (customAdditionalFee?.max) matchAdditionalFee = matchAdditionalFee && additionalFee <= Number(customAdditionalFee.max);
+        }
+      }
+      
+      // Lottery bonus filter
+      const lotteryBonus = td.lottery_win_bonus_jpy || 0;
+      let matchLotteryBonus = true;
+      if (lotteryBonusFilter && lotteryBonusFilter !== "all") {
+        if (lotteryBonusFilter === "0-1000") matchLotteryBonus = lotteryBonus >= 0 && lotteryBonus < 1000;
+        else if (lotteryBonusFilter === "1000-3000") matchLotteryBonus = lotteryBonus >= 1000 && lotteryBonus < 3000;
+        else if (lotteryBonusFilter === "3000-10000") matchLotteryBonus = lotteryBonus >= 3000 && lotteryBonus < 10000;
+        else if (lotteryBonusFilter === "10000+") matchLotteryBonus = lotteryBonus >= 10000;
+        else if (lotteryBonusFilter === "custom") {
+          if (customLotteryBonus?.min) matchLotteryBonus = lotteryBonus >= Number(customLotteryBonus.min);
+          if (customLotteryBonus?.max) matchLotteryBonus = matchLotteryBonus && lotteryBonus <= Number(customLotteryBonus.max);
+        }
+      }
+      
+      // Search
+      const q = (search || "").toLowerCase().trim();
+      const matchSearch = !q ||
         (o.product_name || "").toLowerCase().includes(q) ||
         (o.order_number || "").toLowerCase().includes(q) ||
-        (o.user_email || "").toLowerCase().includes(q) ||
         (o.user_name || "").toLowerCase().includes(q) ||
-        displayName.includes(q) ||
+        (o.user_email || "").toLowerCase().includes(q) ||
         (td.performance_name || "").toLowerCase().includes(q) ||
         (td.prefecture || "").toLowerCase().includes(q);
       
-      return matchStatus && matchSearch;
+      return matchStatus && matchOrderAmount && matchSalesMethod && matchTicketingMethod &&
+        matchDateRange && matchAdditionalFee && matchLotteryBonus && matchSearch;
     });
   },
 

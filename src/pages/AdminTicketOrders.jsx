@@ -12,7 +12,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { usePageSize } from "@/hooks/usePageSize";
 import PaginationBar from "@/components/common/PaginationBar";
 import ColumnCustomizer from "@/components/orders/ColumnCustomizer";
-import DateRangeFilter from "@/components/orders/DateRangeFilter";
+import TicketDateRangeFilter from "@/components/tickets/TicketDateRangeFilter";
 import { orderRegistry } from "@/lib/orderRegistry";
 import TicketOrderDetailPanel from "@/components/tickets/TicketOrderDetailPanel";
 
@@ -74,11 +74,7 @@ export default function AdminTicketOrders() {
   const [customOrderAmount, setCustomOrderAmount] = useState({ min: "", max: "" });
   const [salesMethodFilter, setSalesMethodFilter] = useState("all");
   const [ticketingMethodFilter, setTicketingMethodFilter] = useState("all");
-  const [performanceDateRange, setPerformanceDateRange] = useState(null);
-  const [salesStartDateRange, setSalesStartDateRange] = useState(null);
-  const [salesEndDateRange, setSalesEndDateRange] = useState(null);
-  const [submitDateRange, setSubmitDateRange] = useState(null);
-  const [lotteryResultDateRange, setLotteryResultDateRange] = useState(null);
+  const [ticketDateFilter, setTicketDateFilter] = useState(null);
   const [additionalFeeFilter, setAdditionalFeeFilter] = useState("all");
   const [customAdditionalFee, setCustomAdditionalFee] = useState({ min: "", max: "" });
   const [lotteryBonusFilter, setLotteryBonusFilter] = useState("all");
@@ -115,7 +111,7 @@ export default function AdminTicketOrders() {
         statusFilter, search, userProfileMap, showArchived,
         orderAmountFilter, customOrderAmount,
         salesMethodFilter, ticketingMethodFilter,
-        performanceDateRange, salesStartDateRange, salesEndDateRange, submitDateRange, lotteryResultDateRange,
+        ticketDateFilter,
         additionalFeeFilter, customAdditionalFee,
         lotteryBonusFilter, customLotteryBonus,
       })
@@ -151,59 +147,30 @@ export default function AdminTicketOrders() {
           matchTicketingMethod = td.ticketing_method === ticketingMethodFilter;
         }
         
-        // Date range filters
-        let matchPerformanceDate = true;
-        if (performanceDateRange) {
-          const perfDate = td.performance_datetime ? new Date(td.performance_datetime) : null;
-          if (perfDate) {
-            if (performanceDateRange.from) matchPerformanceDate = perfDate >= performanceDateRange.from;
-            if (performanceDateRange.to) matchPerformanceDate = matchPerformanceDate && perfDate <= performanceDateRange.to;
-          } else {
-            matchPerformanceDate = false;
+        // Unified date range filter
+        let matchDateRange = true;
+        if (ticketDateFilter) {
+          const { field, from, to } = ticketDateFilter;
+          let dateValue = null;
+          
+          // Get date value based on field
+          if (field === "ticket_data.performance_datetime") {
+            dateValue = td.performance_datetime ? new Date(td.performance_datetime) : null;
+          } else if (field === "ticket_data.sales_start_time") {
+            dateValue = td.sales_start_time ? new Date(td.sales_start_time) : null;
+          } else if (field === "ticket_data.sales_end_time") {
+            dateValue = td.sales_end_time ? new Date(td.sales_end_time) : null;
+          } else if (field === "submit_date") {
+            dateValue = o.created_date ? new Date(o.created_date) : null;
+          } else if (field === "ticket_data.lottery_result_time") {
+            dateValue = td.lottery_result_time ? new Date(td.lottery_result_time) : null;
           }
-        }
-        
-        let matchSalesStartDate = true;
-        if (salesStartDateRange) {
-          const startDate = td.sales_start_time ? new Date(td.sales_start_time) : null;
-          if (startDate) {
-            if (salesStartDateRange.from) matchSalesStartDate = startDate >= salesStartDateRange.from;
-            if (salesStartDateRange.to) matchSalesStartDate = matchSalesStartDate && startDate <= salesStartDateRange.to;
+          
+          if (dateValue) {
+            if (from) matchDateRange = dateValue >= from;
+            if (to) matchDateRange = matchDateRange && dateValue <= to;
           } else {
-            matchSalesStartDate = false;
-          }
-        }
-        
-        let matchSalesEndDate = true;
-        if (salesEndDateRange) {
-          const endDate = td.sales_end_time ? new Date(td.sales_end_time) : null;
-          if (endDate) {
-            if (salesEndDateRange.from) matchSalesEndDate = endDate >= salesEndDateRange.from;
-            if (salesEndDateRange.to) matchSalesEndDate = matchSalesEndDate && endDate <= salesEndDateRange.to;
-          } else {
-            matchSalesEndDate = false;
-          }
-        }
-        
-        let matchSubmitDate = true;
-        if (submitDateRange) {
-          const submitDate = o.created_date ? new Date(o.created_date) : null;
-          if (submitDate) {
-            if (submitDateRange.from) matchSubmitDate = submitDate >= submitDateRange.from;
-            if (submitDateRange.to) matchSubmitDate = matchSubmitDate && submitDate <= submitDateRange.to;
-          } else {
-            matchSubmitDate = false;
-          }
-        }
-        
-        let matchLotteryResultDate = true;
-        if (lotteryResultDateRange) {
-          const lotteryDate = td.lottery_result_time ? new Date(td.lottery_result_time) : null;
-          if (lotteryDate) {
-            if (lotteryResultDateRange.from) matchLotteryResultDate = lotteryDate >= lotteryResultDateRange.from;
-            if (lotteryResultDateRange.to) matchLotteryResultDate = matchLotteryResultDate && lotteryDate <= lotteryResultDateRange.to;
-          } else {
-            matchLotteryResultDate = false;
+            matchDateRange = false;
           }
         }
         
@@ -246,8 +213,7 @@ export default function AdminTicketOrders() {
           (td.prefecture || "").toLowerCase().includes(q);
         
         return matchStatus && matchOrderAmount && matchSalesMethod && matchTicketingMethod &&
-          matchPerformanceDate && matchSalesStartDate && matchSalesEndDate && matchSubmitDate && matchLotteryResultDate &&
-          matchAdditionalFee && matchLotteryBonus && matchSearch;
+          matchDateRange && matchAdditionalFee && matchLotteryBonus && matchSearch;
       })
   );
 
@@ -431,29 +397,9 @@ export default function AdminTicketOrders() {
           </SelectContent>
         </Select>
 
-        {/* 開演日 - 固定宽度 */}
+        {/* 日期筛选 - 统一选择器 */}
         <div className="shrink-0">
-          <DateRangeFilter value={performanceDateRange} onChange={setPerformanceDateRange} placeholder="開演日" />
-        </div>
-
-        {/* 販売開始日 - 固定宽度 */}
-        <div className="shrink-0">
-          <DateRangeFilter value={salesStartDateRange} onChange={setSalesStartDateRange} placeholder="販売開始日" />
-        </div>
-
-        {/* 販売終了日 - 固定宽度 */}
-        <div className="shrink-0">
-          <DateRangeFilter value={salesEndDateRange} onChange={setSalesEndDateRange} placeholder="販売終了日" />
-        </div>
-
-        {/* 订单提交日 - 固定宽度 */}
-        <div className="shrink-0">
-          <DateRangeFilter value={submitDateRange} onChange={setSubmitDateRange} placeholder="订单提交日" />
-        </div>
-
-        {/* 結果発表日 - 固定宽度 */}
-        <div className="shrink-0">
-          <DateRangeFilter value={lotteryResultDateRange} onChange={setLotteryResultDateRange} placeholder="結果発表日" />
+          <TicketDateRangeFilter value={ticketDateFilter} onChange={setTicketDateFilter} />
         </div>
 
         {/* 追加料金 - 固定宽度 */}
@@ -500,13 +446,11 @@ export default function AdminTicketOrders() {
 
         {/* 清除筛选 */}
         {(statusFilter !== "all" || search || orderAmountFilter !== "all" || salesMethodFilter !== "all" || 
-          ticketingMethodFilter !== "all" || performanceDateRange || salesStartDateRange || salesEndDateRange || 
-          submitDateRange || lotteryResultDateRange || additionalFeeFilter !== "all" || lotteryBonusFilter !== "all") && (
+          ticketingMethodFilter !== "all" || ticketDateFilter || additionalFeeFilter !== "all" || lotteryBonusFilter !== "all") && (
           <button onClick={() => {
             setStatusFilter("all"); setSearch("");
             setOrderAmountFilter("all"); setSalesMethodFilter("all"); setTicketingMethodFilter("all");
-            setPerformanceDateRange(null); setSalesStartDateRange(null); setSalesEndDateRange(null);
-            setSubmitDateRange(null); setLotteryResultDateRange(null);
+            setTicketDateFilter(null);
             setAdditionalFeeFilter("all"); setLotteryBonusFilter("all");
             resetPage();
           }}
