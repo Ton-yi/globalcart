@@ -69,6 +69,8 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
   const [imageUploadType, setImageUploadType] = useState("ticket"); // "ticket" or "lottery"
   const [lotteryImageFile, setLotteryImageFile] = useState(null);
   const [lotteryImagePreview, setLotteryImagePreview] = useState(null);
+  const [paperTicketImageFile, setPaperTicketImageFile] = useState(null);
+  const [paperTicketImagePreview, setPaperTicketImagePreview] = useState(null);
 
   const ticketData = order.ticket_data || {};
   const seats = ticketData.seats || [];
@@ -378,15 +380,102 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
             </div>
           )}
           {shouldShowPaperTicketButton && (
-            <Button
-              size="sm"
-              onClick={() => { setImageUploadType("ticket"); setShowImageUploadModal(true); }}
-              disabled={statusUpdating || uploadingImage}
-              className="ml-auto bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200"
-            >
-              <Upload className="w-3.5 h-3.5 mr-1" />
-              上传票图片 / 已购买待入库
-            </Button>
+            <div className="ml-auto flex items-center gap-2">
+              <div className="relative" style={{ minWidth: 160 }}>
+                <input
+                  readOnly
+                  placeholder="点击后粘贴 / 拖拽截图"
+                  value={paperTicketImageFile instanceof File ? paperTicketImageFile.name : ""}
+                  className={`h-8 w-full rounded-md border px-3 text-sm shadow-sm outline-none focus:ring-1 cursor-pointer ${
+                    paperTicketImageFile instanceof File
+                      ? "border-purple-400 bg-purple-50 text-purple-700 focus:ring-purple-400 pr-14"
+                      : "border-input bg-background text-muted-foreground focus:ring-ring pr-3"
+                  }`}
+                  onPaste={(e) => {
+                    const items = e.clipboardData?.items;
+                    if (!items) return;
+                    for (let i = 0; i < items.length; i++) {
+                      if (items[i].type.indexOf('image') !== -1) {
+                        const file = items[i].getAsFile();
+                        if (file) {
+                          setPaperTicketImageFile(file);
+                          setPaperTicketImagePreview(URL.createObjectURL(file));
+                          toast.success("图片已从剪贴板加载");
+                          break;
+                        }
+                      }
+                    }
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const file = e.dataTransfer?.files?.[0];
+                    if (file && file.type.indexOf('image') !== -1) {
+                      setPaperTicketImageFile(file);
+                      setPaperTicketImagePreview(URL.createObjectURL(file));
+                      toast.success("图片已加载");
+                    }
+                  }}
+                  onDragOver={(e) => e.preventDefault()}
+                  onClick={async (e) => {
+                    e.currentTarget.focus();
+                    try {
+                      const items = await navigator.clipboard.read();
+                      for (const item of items) {
+                        const imageType = item.types.find(t => t.startsWith('image/'));
+                        if (imageType) {
+                          const blob = await item.getType(imageType);
+                          const file = new File([blob], `clipboard_${Date.now()}.png`, { type: imageType });
+                          setPaperTicketImageFile(file);
+                          setPaperTicketImagePreview(URL.createObjectURL(file));
+                          toast.success("已从剪切板加载图片");
+                          break;
+                        }
+                      }
+                    } catch {
+                      // 用户未授权剪切板或剪切板无图片，保持 focus 等待手动粘贴
+                    }
+                  }}
+                />
+                {paperTicketImageFile instanceof File && (
+                  <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                    {paperTicketImagePreview && <img src={paperTicketImagePreview} className="h-5 w-5 object-cover rounded" />}
+                    <button
+                      className="text-purple-500 hover:text-red-500 px-1 text-base leading-none"
+                      onClick={() => { setPaperTicketImageFile(null); setPaperTicketImagePreview(null); }}
+                    >×</button>
+                  </div>
+                )}
+              </div>
+              <input
+                id="paper-ticket-image-input"
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setPaperTicketImageFile(file);
+                    setPaperTicketImagePreview(URL.createObjectURL(file));
+                    toast.success("图片已加载");
+                  }
+                }}
+              />
+              <Button
+                size="sm"
+                onClick={async () => {
+                  if (paperTicketImageFile instanceof File) {
+                    await handleImageUpload(paperTicketImageFile, "ticket");
+                  } else {
+                    document.getElementById('paper-ticket-image-input').click();
+                  }
+                }}
+                disabled={statusUpdating || uploadingImage}
+                className="bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200"
+              >
+                <Upload className="w-3.5 h-3.5 mr-1" />
+                {paperTicketImageFile instanceof File ? "确认上传 / 已购买待入库" : "上传票图片 / 已购买待入库"}
+              </Button>
+            </div>
           )}
           {shouldShowLotteryButton && (
             <div className="ml-auto flex items-center gap-2">
