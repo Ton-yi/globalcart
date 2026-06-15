@@ -259,6 +259,18 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
                   </div>
                   <div className="space-y-1.5 text-sm">
                     <div className="flex justify-between">
+                      <span className="text-gray-500">销售方式</span>
+                      <span className="font-medium text-gray-900">
+                        {SALES_METHOD_LABELS[ticketData.sales_method] || ticketData.sales_method || "-"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">发券方式</span>
+                      <span className="font-medium text-gray-900">
+                        {TICKETING_METHOD_LABELS[ticketData.ticketing_method] || ticketData.ticketing_method || "-"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
                       <span className="text-gray-500">提交日期</span>
                       <span className="font-medium text-gray-900">{formatDate(order.created_date)}</span>
                     </div>
