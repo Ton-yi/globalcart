@@ -174,42 +174,23 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
   const handleImageUpload = async (file, type) => {
     setUploadingImage(true);
     try {
-      // 上传图片
-      const uploadRes = await base44.functions.invoke('getPaymentPageData', { file });
-      const imageUrl = uploadRes.data?.file_url;
-      
-      if (!imageUrl) {
-        toast.error("图片上传失败");
-        return;
-      }
+      const { url: imageUrl } = await base44.integrations.Core.UploadFile({ file });
+      if (!imageUrl) { toast.error("图片上传失败"); return; }
 
-      let newStatus, messageContent, statusLabel;
-      
-      if (type === "ticket") {
-        newStatus = "purchased_pending_warehouse";
-        statusLabel = "已购买待入库";
-        messageContent = "票券图片已上传，订单状态更新为已购买待入库";
-      } else { // lottery
-        newStatus = "awaiting_lottery_result";
-        statusLabel = "等待抽选结果";
-        messageContent = "抽选截图已上传，订单状态更新为等待抽选结果";
-      }
+      const newStatus = type === "ticket" ? "purchased_pending_warehouse" : "awaiting_lottery_result";
+      const statusLabel = type === "ticket" ? "已购买待入库" : "等待抽选结果";
+      const messageContent = type === "ticket"
+        ? "票券图片已上传，订单状态更新为已购买待入库"
+        : "抽选截图已上传，订单状态更新为等待抽选结果";
 
       await updateOrder(order.id, {
         ticket_status: newStatus,
         ticket_image_urls: [...(order.ticket_image_urls || []), imageUrl],
         messages: [
           ...(order.messages || []),
-          {
-            id: `image_upload_${Date.now()}`,
-            from: "系统通知",
-            from_email: "system@system.local",
-            role: "admin",
-            content: messageContent,
-            timestamp: new Date().toISOString(),
-            is_system_notification: true,
-            meta: { type: "image_uploaded", image_url: imageUrl, new_status: newStatus }
-          }
+          { id: `image_upload_${Date.now()}`, from: "系统通知", from_email: "system@system.local",
+            role: "admin", content: messageContent, timestamp: new Date().toISOString(),
+            is_system_notification: true, meta: { type: "image_uploaded", image_url: imageUrl, new_status: newStatus } }
         ],
         unread_roles: ["user"]
       });
@@ -223,43 +204,37 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
     }
   };
 
+  // 抽选：有图片则上传后更新状态；无图片则直接更新状态为待抽选结果
   const handleLotteryImageUpload = async (file) => {
-    if (!file) return;
     setUploadingImage(true);
     try {
-      const uploadRes = await base44.functions.invoke('getPaymentPageData', { file });
-      const imageUrl = uploadRes.data?.file_url;
-      
-      if (!imageUrl) {
-        toast.error("图片上传失败");
-        return false;
+      let extraFields = {};
+      if (file instanceof File) {
+        const { url: imageUrl } = await base44.integrations.Core.UploadFile({ file });
+        if (!imageUrl) { toast.error("图片上传失败"); return; }
+        extraFields = { ticket_image_urls: [...(order.ticket_image_urls || []), imageUrl] };
       }
+
+      const messageContent = file instanceof File
+        ? "抽选截图已上传，订单状态更新为等待抽选结果"
+        : "订单状态已更新为等待抽选结果";
 
       await updateOrder(order.id, {
         ticket_status: "awaiting_lottery_result",
-        ticket_image_urls: [...(order.ticket_image_urls || []), imageUrl],
+        ...extraFields,
         messages: [
           ...(order.messages || []),
-          {
-            id: `lottery_image_${Date.now()}`,
-            from: "系统通知",
-            from_email: "system@system.local",
-            role: "admin",
-            content: "抽选截图已上传，订单状态更新为等待抽选结果",
-            timestamp: new Date().toISOString(),
-            is_system_notification: true,
-            meta: { type: "lottery_image_uploaded", image_url: imageUrl }
-          }
+          { id: `lottery_${Date.now()}`, from: "系统通知", from_email: "system@system.local",
+            role: "admin", content: messageContent, timestamp: new Date().toISOString(),
+            is_system_notification: true, meta: { type: "lottery_status_update" } }
         ],
         unread_roles: ["user"]
       });
-      toast.success("抽选截图已上传，订单状态已更新为等待抽选结果");
+      toast.success("订单状态已更新为等待抽选结果");
       onRefresh?.();
       onClose?.();
-      return true;
     } catch (error) {
-      toast.error("上传失败：" + error.message);
-      return false;
+      toast.error("操作失败：" + error.message);
     } finally {
       setUploadingImage(false);
     }
@@ -483,13 +458,7 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
               />
               <Button
                 size="sm"
-                onClick={async () => {
-                  if (lotteryImageFile instanceof File) {
-                    await handleLotteryImageUpload(lotteryImageFile);
-                  } else {
-                    document.getElementById('lottery-image-input').click();
-                  }
-                }}
+                onClick={() => handleLotteryImageUpload(lotteryImageFile instanceof File ? lotteryImageFile : null)}
                 disabled={statusUpdating || uploadingImage}
                 className="bg-yellow-50 hover:bg-yellow-100 text-yellow-700 border-yellow-200"
               >
