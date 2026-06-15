@@ -269,58 +269,155 @@ export default function SubmitOrder() {
     const selectedMethodObj = paymentMethods.find((m) => (m.provider_key || m.name) === paymentMethod);
     const selectedCurrency = selectedMethodObj?.payment_currency || "JPY";
     
-    const res = await base44.functions.invoke('createTenantOrder', {
-      ...form,
-      product_url: urlsText,
-      user_email: user.email,
-      user_name: user.full_name || user.email,
-      quantity: 1,
-      estimated_jpy: parseFloat(form.estimated_jpy) || 0,
-      service_fee_rate: parseFloat(settings.service_fee_rate) || 10,
-      service_fee_amount: calculated ? calculated.serviceFeeJpy : null,
-      service_fee_rule_id: activeRule?.id || null,
-      service_fee_rule_name: activeRule?.name || null,
-      service_fee_rule_version: activeRule?.version || null,
-      prepayment_amount: prepaymentAmount,
-      prepayment_currency: selectedCurrency, // 使用支付方式对应的货币
-      online_store_tag: tagResult.tag_label,
-      online_store_tag_color: tagResult.tag_color,
-      payment_method: paymentMethod, // 记录付款方式
-      payment_mode: isCredit ? "credit" : isDeferred ? "deferred" : (settings.prepay_enabled === 'false' ? "fullpay_once" : "prepay"),
-      credit_cycle: isCredit ? (paymentMode === "credit_weekly" ? "weekly" : "monthly") : null,
-      order_status: isCredit ? "paid" : "payment_pending",
-      payment_status: isCredit ? "paid" : "awaiting_payment",
-      user_note: form.user_note || "",
-      selected_addon_ids: selectedAddons,
-      selected_addons: selectedAddonObjects.map((a) => ({ id: a.id, name: a.name, fee: parseFloat(a.fee) || 0, fee_currency: a.fee_currency || "JPY" }))
+    try {
+      const res = await base44.functions.invoke('createTenantOrder', {
+        ...form,
+        product_url: urlsText,
+        user_email: user.email,
+        user_name: user.full_name || user.email,
+        quantity: 1,
+        estimated_jpy: parseFloat(form.estimated_jpy) || 0,
+        service_fee_rate: parseFloat(settings.service_fee_rate) || 10,
+        service_fee_amount: calculated ? calculated.serviceFeeJpy : null,
+        service_fee_rule_id: activeRule?.id || null,
+        service_fee_rule_name: activeRule?.name || null,
+        service_fee_rule_version: activeRule?.version || null,
+        prepayment_amount: prepaymentAmount,
+        prepayment_currency: selectedCurrency, // 使用支付方式对应的货币
+        online_store_tag: tagResult.tag_label,
+        online_store_tag_color: tagResult.tag_color,
+        payment_method: paymentMethod, // 记录付款方式
+        payment_mode: isCredit ? "credit" : isDeferred ? "deferred" : (settings.prepay_enabled === 'false' ? "fullpay_once" : "prepay"),
+        credit_cycle: isCredit ? (paymentMode === "credit_weekly" ? "weekly" : "monthly") : null,
+        order_status: isCredit ? "paid" : "payment_pending",
+        payment_status: isCredit ? "paid" : "awaiting_payment",
+        user_note: form.user_note || "",
+        selected_addon_ids: selectedAddons,
+        selected_addons: selectedAddonObjects.map((a) => ({ id: a.id, name: a.name, fee: parseFloat(a.fee) || 0, fee_currency: a.fee_currency || "JPY" }))
+      });
+      
+      const order = res.data?.order;
+
+      if (res.data?.credit_downgraded) {
+        setCreditDowngradeMsg(res.data.credit_downgrade_reason);
+        setSubmitting(false);
+        setTimeout(() => navigate(createPageUrl("MyOrders")), 4000);
+        return;
+      }
+
+      // 记账订单：账目已直接记入记账系统，无需前往付款页
+      if (isCredit) {
+        setSubmitting(false);
+        toast.success("提交成功，本单已记账，无需付款");
+        navigate(createPageUrl("MyOrders"));
+        return;
+      }
+
+      // 后付款订单：下单阶段无需付款，货款将在支付运费时一并收取
+      if (isDeferred) {
+        setSubmitting(false);
+        toast.success("提交成功，货款将在支付运费时一并支付");
+        navigate(createPageUrl("MyOrders"));
+        return;
+      }
+
+      if (!order) {
+        toast.error('订单创建失败：服务器未返回订单信息');
+        setSubmitting(false);
+        return;
+      }
+
+      navigate(`/Payment?order_id=${order.id}&method=${paymentMethod || "other"}&pay_currency=${selectedCurrency}`);
+    } catch (error) {
+      toast.error('提交失败：' + error.message);
+      setSubmitting(false);
+    }
+  };
+
+  const handlePreShipmentSubmit = async () => {
+    // Validate addon fees before submitting
+    const validationErrors = {};
+    let hasErrors = false;
+    
+    selectedAddons.forEach(addonId => {
+      const addon = addonOptions.find(a => a.id === addonId);
+      if (addon && addon.is_user_customizable) {
+        const fee = addonCustomFees[addonId] || 0;
+        const error = validateAddonFee(addonId, fee);
+        if (error) {
+          validationErrors[addonId] = error;
+          hasErrors = true;
+        }
+      }
     });
     
-    const order = res.data?.order;
+    setAddonFeeErrors(validationErrors);
 
-    if (res.data?.credit_downgraded) {
-      setCreditDowngradeMsg(res.data.credit_downgrade_reason);
-      setSubmitting(false);
-      setTimeout(() => navigate(createPageUrl("MyOrders")), 4000);
+    if (hasErrors) {
+      toast.error('请修正所有自定义金额的错误');
       return;
     }
-
-    // 记账订单：账目已直接记入记账系统，无需前往付款页
-    if (isCredit) {
+    
+    setSubmitting(true);
+    const urlsText = urlMode === "textarea" ?
+      (productUrls[0] || "").split("\n").map((s) => s.trim()).filter(Boolean).join("\n") :
+      productUrls.filter((u) => u.trim()).join("\n");
+    const tagResult = await detectPrimaryStoreTagResult(urlsText);
+    const prepaymentAmount = calculated ? parseFloat(calculated.prepayJpy) : 0;
+    
+    // 获取用户选择的付款方式和对应货币
+    const selectedMethodObjForPre = paymentMethods.find((m) => (m.provider_key || m.name) === paymentMethod);
+    const selectedCurrencyForPre = selectedMethodObjForPre?.payment_currency || "JPY";
+    
+    try {
+      const res = await base44.functions.invoke('createTenantOrder', {
+        ...form,
+        product_url: urlsText,
+        user_email: user.email,
+        user_name: user.full_name || user.email,
+        quantity: 1,
+        estimated_jpy: parseFloat(form.estimated_jpy) || 0,
+        service_fee_rate: parseFloat(settings.service_fee_rate) || 10,
+        service_fee_amount: calculated ? calculated.serviceFeeJpy : null,
+        service_fee_rule_id: activeRule?.id || null,
+        service_fee_rule_name: activeRule?.name || null,
+        service_fee_rule_version: activeRule?.version || null,
+        prepayment_amount: prepaymentAmount,
+        prepayment_currency: selectedCurrencyForPre, // 使用支付方式对应的货币
+        payment_method: paymentMethod, // 记录付款方式
+        online_store_tag: tagResult.tag_label,
+        online_store_tag_color: tagResult.tag_color,
+        payment_mode: settings.prepay_enabled === 'false' ? "fullpay_once" : "prepay",
+        order_status: "payment_pending",
+        payment_status: "awaiting_payment",
+        user_note: form.user_note || "",
+        note_image_url: form.note_image_url || "",
+        selected_addon_ids: selectedAddons,
+        selected_addons: selectedAddons.map(id => {
+          const addon = addonOptions.find(a => a.id === id);
+          if (!addon) return null;
+          const customFee = addonCustomFees[id];
+          const isCustomizable = addon.is_user_customizable;
+          const fee = isCustomizable && customFee !== undefined ? customFee : parseFloat(addon.fee) || 0;
+          return { id: addon.id, name: addon.name, fee, fee_currency: addon.fee_currency || "JPY" };
+        }).filter(Boolean)
+      });
       setSubmitting(false);
-      toast.success("提交成功，本单已记账，无需付款");
-      navigate(createPageUrl("MyOrders"));
-      return;
-    }
-
-    // 后付款订单：下单阶段无需付款，货款将在支付运费时一并收取
-    if (isDeferred) {
+      
+      if (res.data?.error) {
+        toast.error('提交失败：' + res.data.error);
+        return;
+      }
+      
+      if (res.data?.order) {
+        navigate(createPageUrl(`PreShipmentForm`, { order_id: res.data.order.id }));
+      } else {
+        toast.error('订单创建失败：服务器未返回订单信息');
+      }
+    } catch (error) {
+      toast.error('提交失败：' + error.message);
       setSubmitting(false);
-      toast.success("提交成功，货款将在支付运费时一并支付");
-      navigate(createPageUrl("MyOrders"));
-      return;
     }
-
-    navigate(`/Payment?order_id=${order.id}&method=${paymentMethod || "other"}&pay_currency=${selectedCurrency}`);
   };
 
   return (
@@ -628,77 +725,7 @@ export default function SubmitOrder() {
               variant="outline"
               className="w-full border-purple-300 text-purple-700 hover:bg-purple-50"
               disabled={submitting || !form.product_name || !form.estimated_jpy}
-              onClick={async () => {
-                // Validate addon fees before submitting
-                const validationErrors = {};
-                let hasErrors = false;
-                
-                selectedAddons.forEach(addonId => {
-                  const addon = addonOptions.find(a => a.id === addonId);
-                  if (addon && addon.is_user_customizable) {
-                    const fee = addonCustomFees[addonId] || 0;
-                    const error = validateAddonFee(addonId, fee);
-                    if (error) {
-                      validationErrors[addonId] = error;
-                      hasErrors = true;
-                    }
-                  }
-                });
-                
-                setAddonFeeErrors(validationErrors);
-                if (hasErrors) {
-                  toast.error('请修正所有自定义金额的错误');
-                  return;
-                }
-                
-                setSubmitting(true);
-                const urlsText = urlMode === "textarea" ?
-                  (productUrls[0] || "").split("\n").map((s) => s.trim()).filter(Boolean).join("\n") :
-                  productUrls.filter((u) => u.trim()).join("\n");
-                const tagResult = await detectPrimaryStoreTagResult(urlsText);
-                const prepaymentAmount = calculated ? parseFloat(calculated.prepayJpy) : 0;
-                
-                // 获取用户选择的付款方式和对应货币
-                const selectedMethodObjForPre = paymentMethods.find((m) => (m.provider_key || m.name) === paymentMethod);
-                const selectedCurrencyForPre = selectedMethodObjForPre?.payment_currency || "JPY";
-                
-                const res = await base44.functions.invoke('createTenantOrder', {
-                  ...form,
-                  product_url: urlsText,
-                  user_email: user.email,
-                  user_name: user.full_name || user.email,
-                  quantity: 1,
-                  estimated_jpy: parseFloat(form.estimated_jpy) || 0,
-                  service_fee_rate: parseFloat(settings.service_fee_rate) || 10,
-                  service_fee_amount: calculated ? calculated.serviceFeeJpy : null,
-                  service_fee_rule_id: activeRule?.id || null,
-                  service_fee_rule_name: activeRule?.name || null,
-                  service_fee_rule_version: activeRule?.version || null,
-                  prepayment_amount: prepaymentAmount,
-                  prepayment_currency: selectedCurrencyForPre, // 使用支付方式对应的货币
-                  payment_method: paymentMethod, // 记录付款方式
-                  online_store_tag: tagResult.tag_label,
-                  online_store_tag_color: tagResult.tag_color,
-                  payment_mode: settings.prepay_enabled === 'false' ? "fullpay_once" : "prepay",
-                  order_status: "payment_pending",
-                  payment_status: "awaiting_payment",
-                  user_note: form.user_note || "",
-                  note_image_url: form.note_image_url || "",
-                  selected_addon_ids: selectedAddons,
-                  selected_addons: selectedAddons.map(id => {
-                    const addon = addonOptions.find(a => a.id === id);
-                    if (!addon) return null;
-                    const customFee = addonCustomFees[id];
-                    const isCustomizable = addon.is_user_customizable;
-                    const fee = isCustomizable && customFee !== undefined ? customFee : parseFloat(addon.fee) || 0;
-                    return { id: addon.id, name: addon.name, fee, fee_currency: addon.fee_currency || "JPY" };
-                  }).filter(Boolean)
-                });
-                setSubmitting(false);
-                if (res.data?.order) {
-                  navigate(createPageUrl(`PreShipmentForm`, { order_id: res.data.order.id }));
-                }
-              }}
+              onClick={handlePreShipmentSubmit}
             >
               <Truck className="w-4 h-4 mr-2" />
               填写预出货信息
