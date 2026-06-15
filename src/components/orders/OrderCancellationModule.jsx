@@ -7,7 +7,7 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { updateOrder } from "@/lib/tenantApi";
-import { AlertTriangle, CheckCircle, Loader2, MessageCircle, Tags } from "lucide-react";
+import { AlertTriangle, CheckCircle, Loader2, MessageCircle, Tags, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -35,6 +35,7 @@ export default function OrderCancellationModule({ order, onSuccess, compact = fa
   const [refundAmountCurrency, setRefundAmountCurrency] = useState("");
   const [isCalculating, setIsCalculating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [cancellationTemplate, setCancellationTemplate] = useState(null);
   const [adminContact, setAdminContact] = useState("");
 
@@ -133,15 +134,12 @@ export default function OrderCancellationModule({ order, onSuccess, compact = fa
       return;
     }
 
-    // 二次确认
-    const refundText = refundJpyNum > 0 || refundCurrencyNum > 0 
-      ? `，退款金额：${refundCurrencyNum > 0 ? `${refundCurrencyNum} ${paymentCurrency}` : ''}${refundCurrencyNum > 0 && refundJpyNum > 0 ? ' / ' : ''}${refundJpyNum > 0 ? `¥${Math.round(refundJpyNum).toLocaleString()} JPY` : ''}`
-      : '，无退款';
-    
-    if (!window.confirm(`确认取消订单 ${order.order_number || order.product_name}${refundText}？此操作不可撤销。`)) {
-      return;
-    }
+    // 显示二次确认弹窗
+    setShowConfirmDialog(true);
+  };
 
+  const confirmCancelOrder = async () => {
+    setShowConfirmDialog(false);
     setIsSubmitting(true);
 
     try {
@@ -240,6 +238,13 @@ export default function OrderCancellationModule({ order, onSuccess, compact = fa
     }
   };
 
+  // 计算退款显示文本
+  const refundJpyNum = parseFloat(refundAmountJpy) || 0;
+  const refundCurrencyNum = parseFloat(refundAmountCurrency) || 0;
+  const refundText = refundJpyNum > 0 || refundCurrencyNum > 0 
+    ? `${refundCurrencyNum > 0 ? `${refundCurrencyNum} ${paymentCurrency}` : ''}${refundCurrencyNum > 0 && refundJpyNum > 0 ? ' / ' : ''}${refundJpyNum > 0 ? `¥${Math.round(refundJpyNum).toLocaleString()} JPY` : ''}`
+    : '无退款';
+
   const hasRefund = originalAmount > 0 || originalAmountJpy > 0;
   const isPaid = order.payment_status === "paid" || order.paid_amount > 0;
 
@@ -247,6 +252,99 @@ export default function OrderCancellationModule({ order, onSuccess, compact = fa
   const cancellationHistory = (order.messages || []).filter(m => 
     m.meta?.type === "cancellation" || m.from_email === "system@system.local"
   ).reverse();
+
+  // 二次确认弹窗
+  if (showConfirmDialog) {
+    return (
+      <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onMouseDown={() => setShowConfirmDialog(false)}>
+        <div className="bg-white rounded-xl shadow-xl w-full max-w-lg" onMouseDown={e => e.stopPropagation()}>
+          <div className="flex items-center justify-between px-5 py-4 border-b">
+            <div>
+              <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-orange-600" />
+                确认取消订单
+              </h3>
+              <p className="text-xs text-gray-500 mt-0.5">{order.order_number || order.product_name}</p>
+            </div>
+            <button onClick={() => setShowConfirmDialog(false)}><X className="w-4 h-4 text-gray-500" /></button>
+          </div>
+
+          <div className="px-5 py-5 space-y-4">
+            {/* 取消原因分类 */}
+            <div>
+              <Label className="text-sm flex items-center gap-1.5">
+                <Tags className="w-3.5 h-3.5" />
+                取消原因分类
+              </Label>
+              <Select value={cancelCategory} onValueChange={setCancelCategory}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="选择取消原因分类" />
+                </SelectTrigger>
+                <SelectContent>
+                  {CANCEL_REASON_CATEGORIES.map(cat => (
+                    <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {cancelCategory && (
+                <Badge className={`mt-1.5 ${CANCEL_REASON_CATEGORIES.find(c => c.value === cancelCategory)?.color}`}>
+                  {CANCEL_REASON_CATEGORIES.find(c => c.value === cancelCategory)?.label}
+                </Badge>
+              )}
+            </div>
+
+            {/* 取消理由 */}
+            <div>
+              <Label className="text-sm">取消理由</Label>
+              <div className="mt-1 p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 whitespace-pre-wrap">
+                {cancelReason}
+              </div>
+            </div>
+
+            {/* 退款金额 */}
+            {(refundJpyNum > 0 || refundCurrencyNum > 0) && (
+              <div>
+                <Label className="text-sm">退款金额</Label>
+                <div className="mt-1 p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800 font-medium">
+                  {refundText}
+                </div>
+              </div>
+            )}
+
+            {/* 图片预览 */}
+            {cancelImages.length > 0 && (
+              <div>
+                <Label className="text-sm">附加图片</Label>
+                <div className="mt-1 flex gap-2 flex-wrap">
+                  {cancelImages.map((url, idx) => (
+                    <img key={idx} src={url} alt={`附件${idx + 1}`} className="w-20 h-20 object-cover rounded border" />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="px-5 py-3 border-t flex gap-2 justify-end">
+            <Button variant="outline" size="sm" onClick={() => setShowConfirmDialog(false)} disabled={isSubmitting}>
+              返回
+            </Button>
+            <Button 
+              size="sm" 
+              className="bg-red-600 hover:bg-red-700"
+              onClick={confirmCancelOrder}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <><Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />处理中...</>
+              ) : (
+                <><AlertTriangle className="w-3.5 h-3.5 mr-1" />确认取消</>
+              )}
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (compact) {
     return (
