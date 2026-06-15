@@ -219,11 +219,14 @@ function calculateDailySummary(orders, pools, allOrders, tierPurchases = []) {
     // 订单汇总
     orders.forEach(order => {
         const isTicket = order.order_type === 'ticket';
-        const payment = order.order_stage_payment_jpy || order.paid_amount || 0;
+        // 票务订单：下单阶段实付 = ticket_prepaid_total_jpy；普通订单使用 order_stage_payment_jpy
+        const payment = isTicket ? (order.ticket_prepaid_total_jpy || order.paid_amount || 0) : (order.order_stage_payment_jpy || order.paid_amount || 0);
+        // 票务订单退差价 = ticket_refund_jpy；普通订单 = refund_amount_jpy
         const refund = (isTicket ? order.ticket_refund_jpy : order.refund_amount_jpy) || 0;
         // 票务订单：货款成本 = ticket_prepaid_total_jpy（票面价）；普通订单使用 estimated_jpy
         const cost = isTicket ? (order.ticket_prepaid_total_jpy || 0) : (order.estimated_jpy || 0);
         const addon = (order.selected_addons || []).reduce((s, a) => s + (a.fee || 0), 0);
+        // 服务费：票务和普通订单都使用 service_fee_amount
         const svcFee = order.service_fee_amount || 0;
         const itemExtra = order.item_size_extra_fee || 0;
 
