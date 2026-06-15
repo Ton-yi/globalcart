@@ -281,8 +281,38 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
     e.preventDefault();
   };
   
+  const [editingSeats, setEditingSeats] = useState(false);
+  const [actualSeats, setActualSeats] = useState(
+    (ticketData.seats || []).map(s => ({ ...s, actual_quantity: s.actual_quantity ?? s.quantity ?? 0 }))
+  );
+  const [savingSeats, setSavingSeats] = useState(false);
+
+  const computedRefund = actualSeats.reduce((sum, s) => {
+    const diff = (s.quantity || 0) - (s.actual_quantity ?? s.quantity ?? 0);
+    return sum + diff * (s.price_jpy || 0);
+  }, 0) * (ticketData.account_count || 1);
+
+  const handleSaveActualSeats = async () => {
+    setSavingSeats(true);
+    try {
+      const updatedSeats = actualSeats.map(s => ({ ...s }));
+      await updateOrder(order.id, {
+        ticket_data: { ...ticketData, seats: updatedSeats },
+        ticket_refund_jpy: computedRefund > 0 ? computedRefund : 0,
+      });
+      toast.success("实际数量已保存，退款金额已更新");
+      setEditingSeats(false);
+      onRefresh?.();
+    } catch (e) {
+      toast.error("保存失败：" + e.message);
+    } finally {
+      setSavingSeats(false);
+    }
+  };
+
   const tabs = [
     { key: "overview", label: "概览" },
+    { key: "details", label: "席种 · 数量" },
     { key: "messages", label: "留言 & 取消", badge: (order.unread_roles || []).includes("admin") && isAdmin ? "red" : null },
     { key: "fees", label: "费用明细" },
     { key: "timeline", label: "时间线" },
@@ -859,109 +889,141 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
 
           {/* ===== DETAILS TAB ===== */}
           {activeTab === "details" && (
-            <div className="space-y-6">
-              {/* Seats breakdown */}
-              {seats.length > 0 && (
-                <div>
-                  <div className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                    <Users className="w-4 h-4" />席种明细（共 {totalSeats} 票）
+            <div className="space-y-5">
+              {/* 席种明细 + 实际数量编辑 */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                    <Users className="w-4 h-4" />
+                    席种明细（共 {totalSeats} 票，×{ticketData.account_count || 1} 账户）
                   </div>
-                  <div className="border border-gray-200 rounded-lg overflow-hidden">
-                    <table className="w-full text-sm">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-3 py-2 text-left font-medium text-gray-600">席种</th>
-                          <th className="px-3 py-2 text-left font-medium text-gray-600">数量</th>
-                          <th className="px-3 py-2 text-left font-medium text-gray-600">单价</th>
-                          <th className="px-3 py-2 text-left font-medium text-gray-600">小计</th>
-                          <th className="px-3 py-2 text-left font-medium text-gray-600">实际购买</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100">
-                        {seats.map((seat, i) => (
+                  {isAdmin && !editingSeats && (
+                    <Button size="sm" variant="outline" onClick={() => setEditingSeats(true)}>
+                      编辑实际数量
+                    </Button>
+                  )}
+                  {isAdmin && editingSeats && (
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={() => { setEditingSeats(false); setActualSeats((ticketData.seats || []).map(s => ({ ...s, actual_quantity: s.actual_quantity ?? s.quantity ?? 0 }))); }}>
+                        取消
+                      </Button>
+                      <Button size="sm" className="bg-violet-600 hover:bg-violet-700 text-white" onClick={handleSaveActualSeats} disabled={savingSeats}>
+                        {savingSeats ? <><Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />保存中...</> : "保存"}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-medium text-gray-600">席种</th>
+                        <th className="px-3 py-2 text-right font-medium text-gray-600">需求数</th>
+                        <th className="px-3 py-2 text-right font-medium text-gray-600">单价 (JPY)</th>
+                        <th className="px-3 py-2 text-right font-medium text-gray-600">小计</th>
+                        <th className="px-3 py-2 text-right font-medium text-gray-600">实际买到</th>
+                        <th className="px-3 py-2 text-right font-medium text-gray-600">差额</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {actualSeats.map((seat, i) => {
+                        const actualQty = seat.actual_quantity ?? seat.quantity ?? 0;
+                        const diff = (seat.quantity || 0) - actualQty;
+                        const refundForRow = diff * (seat.price_jpy || 0) * (ticketData.account_count || 1);
+                        return (
                           <tr key={i} className="hover:bg-gray-50">
                             <td className="px-3 py-2.5 font-medium text-gray-900">{seat.seat_type || "-"}</td>
-                            <td className="px-3 py-2.5 text-gray-700">{seat.quantity || 0}</td>
-                            <td className="px-3 py-2.5 text-gray-700">{formatCurrency(seat.price_jpy)}</td>
-                            <td className="px-3 py-2.5 font-medium text-gray-900">
-                              {formatCurrency((seat.quantity || 0) * (seat.price_jpy || 0))}
+                            <td className="px-3 py-2.5 text-right text-gray-700">{seat.quantity || 0}</td>
+                            <td className="px-3 py-2.5 text-right text-gray-700">{(seat.price_jpy || 0).toLocaleString()}</td>
+                            <td className="px-3 py-2.5 text-right font-medium text-gray-900">
+                              {((seat.quantity || 0) * (seat.price_jpy || 0) * (ticketData.account_count || 1)).toLocaleString()}
                             </td>
-                            <td className="px-3 py-2.5">
-                              {seat.actual_quantity !== undefined ? (
+                            <td className="px-3 py-2.5 text-right">
+                              {editingSeats ? (
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={seat.quantity || 0}
+                                  value={actualQty}
+                                  onChange={(e) => {
+                                    const val = Math.max(0, Math.min(seat.quantity || 0, Number(e.target.value)));
+                                    setActualSeats(prev => prev.map((s, idx) => idx === i ? { ...s, actual_quantity: val } : s));
+                                  }}
+                                  className="w-16 text-right rounded border border-violet-300 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-violet-400"
+                                />
+                              ) : (
                                 <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                                  seat.actual_quantity !== seat.quantity 
-                                    ? "bg-yellow-100 text-yellow-700" 
-                                    : "bg-green-100 text-green-700"
+                                  seat.actual_quantity === undefined ? "text-gray-400" :
+                                  diff > 0 ? "bg-yellow-100 text-yellow-700" : "bg-green-100 text-green-700"
                                 }`}>
-                                  {seat.actual_quantity}
+                                  {seat.actual_quantity === undefined ? "—" : actualQty}
                                 </span>
-                              ) : "-"}
+                              )}
+                            </td>
+                            <td className="px-3 py-2.5 text-right text-xs">
+                              {diff > 0 ? (
+                                <span className="text-orange-600 font-medium">退 {refundForRow.toLocaleString()} JPY</span>
+                              ) : diff < 0 ? (
+                                <span className="text-red-500">超出</span>
+                              ) : (
+                                <span className="text-gray-400">—</span>
+                              )}
                             </td>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
-              )}
 
-              {/* Sales timeline */}
-              <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-                <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                  <Calendar className="w-4 h-4" />销售时间线
-                </div>
-                <div className="grid md:grid-cols-3 gap-3 text-sm">
-                  {ticketData.sales_start_time && (
-                    <div>
-                      <div className="text-xs text-gray-500 mb-1">销售开始</div>
-                      <div className="font-medium text-gray-900">{formatDate(ticketData.sales_start_time)}</div>
-                    </div>
-                  )}
-                  {ticketData.sales_end_time && (
-                    <div>
-                      <div className="text-xs text-gray-500 mb-1">销售结束</div>
-                      <div className="font-medium text-gray-900">{formatDate(ticketData.sales_end_time)}</div>
-                    </div>
-                  )}
-                  {ticketData.lottery_result_time && (
-                    <div>
-                      <div className="text-xs text-gray-500 mb-1">抽选结果发表</div>
-                      <div className="font-medium text-gray-900">{formatDate(ticketData.lottery_result_time)}</div>
-                    </div>
-                  )}
-                </div>
+                {/* 退款合计预览 */}
+                {(editingSeats || computedRefund > 0) && (
+                  <div className={`mt-3 rounded-lg p-3 flex justify-between items-center text-sm ${
+                    computedRefund > 0 ? "bg-orange-50 border border-orange-200" : "bg-gray-50 border border-gray-200"
+                  }`}>
+                    <span className="font-medium text-gray-700">应退款合计</span>
+                    <span className={`font-bold text-base ${computedRefund > 0 ? "text-orange-600" : "text-gray-500"}`}>
+                      {computedRefund > 0 ? `${computedRefund.toLocaleString()} JPY` : "无需退款"}
+                    </span>
+                  </div>
+                )}
+
+                {/* 已存退款信息 */}
+                {!editingSeats && (order.ticket_refund_jpy || 0) > 0 && (
+                  <div className="mt-2 flex items-center justify-between text-xs text-blue-600 px-1">
+                    <span>已记录退差价：{(order.ticket_refund_jpy).toLocaleString()} JPY</span>
+                    <Badge className={order.ticket_refund_settled ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}>
+                      {order.ticket_refund_settled ? "已结算" : "待结算"}
+                    </Badge>
+                  </div>
+                )}
               </div>
 
-              {/* Additional fees */}
-              {(ticketData.additional_fee_jpy || 0) > 0 && (
-                <div className="bg-purple-50 border border-purple-100 rounded-lg p-4 space-y-2">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-purple-800">
-                    <CreditCard className="w-4 h-4" />追加料金
+              {/* 销售时间线 */}
+              {(ticketData.sales_start_time || ticketData.sales_end_time || ticketData.lottery_result_time) && (
+                <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                    <Calendar className="w-4 h-4" />销售时间线
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-purple-600">用户预期额外报酬</span>
-                    <span className="font-bold text-purple-700">{formatCurrency(ticketData.additional_fee_jpy)}</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Lottery win bonus */}
-              {(ticketData.lottery_win_bonus_jpy || 0) > 0 && (
-                <div className="bg-pink-50 border border-pink-100 rounded-lg p-4 space-y-2">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-pink-800">
-                    <CreditCard className="w-4 h-4" />抽中追加报酬
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-pink-600">抽选販売追加报酬</span>
-                    <span className="font-bold text-pink-700">{formatCurrency(ticketData.lottery_win_bonus_jpy)}</span>
+                  <div className="grid md:grid-cols-3 gap-3 text-sm">
+                    {ticketData.sales_start_time && (
+                      <div><div className="text-xs text-gray-500 mb-1">销售开始</div><div className="font-medium text-gray-900">{formatDate(ticketData.sales_start_time)}</div></div>
+                    )}
+                    {ticketData.sales_end_time && (
+                      <div><div className="text-xs text-gray-500 mb-1">销售结束</div><div className="font-medium text-gray-900">{formatDate(ticketData.sales_end_time)}</div></div>
+                    )}
+                    {ticketData.lottery_result_time && (
+                      <div><div className="text-xs text-gray-500 mb-1">抽选结果发表</div><div className="font-medium text-gray-900">{formatDate(ticketData.lottery_result_time)}</div></div>
+                    )}
                   </div>
                 </div>
               )}
 
-              {/* Ticket number */}
+              {/* 发券番号 */}
               {order.ticket_number_issued && (
                 <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
-                  <div className="text-sm font-semibold text-blue-800 mb-1">发券番号</div>
+                  <div className="text-sm font-semibold text-blue-800 mb-1">発券番号</div>
                   <div className="text-lg font-mono font-bold text-blue-700">{order.ticket_number_issued}</div>
                 </div>
               )}
