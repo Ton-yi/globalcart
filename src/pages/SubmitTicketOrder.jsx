@@ -75,6 +75,7 @@ export default function SubmitTicketOrder() {
         user_email: user.email,
         user_name: user.full_name || user.email,
         user_note: form.user_note || "",
+        payment_method: paymentMethod?.value || null,
         ticket_data: {
           ...ticketData,
           account_count: parseFloat(ticketData.account_count) || 1,

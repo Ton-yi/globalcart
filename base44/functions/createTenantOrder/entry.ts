@@ -125,6 +125,7 @@ Deno.serve(async (req) => {
         user_email: body.user_email,
         user_name: body.user_name,
         user_note: body.user_note || '',
+        payment_method: body.payment_method || null,
         ticket_data: {
           ...td,
           account_count: accountCount,
