@@ -349,26 +349,6 @@ export default function OrderCancellationModule({ order, onSuccess, compact = fa
   if (compact) {
     return (
       <div className="space-y-2">
-        {/* 取消原因分类选择 */}
-        <div className="flex items-center gap-2">
-          <Tags className="w-3.5 h-3.5 text-gray-400" />
-          <Select value={cancelCategory} onValueChange={setCancelCategory}>
-            <SelectTrigger className="h-7 text-xs w-36">
-              <SelectValue placeholder="选择取消原因分类" />
-            </SelectTrigger>
-            <SelectContent>
-              {CANCEL_REASON_CATEGORIES.map(cat => (
-                <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {cancelCategory && (
-            <Badge className={`text-xs ${CANCEL_REASON_CATEGORIES.find(c => c.value === cancelCategory)?.color}`}>
-              {CANCEL_REASON_CATEGORIES.find(c => c.value === cancelCategory)?.label}
-            </Badge>
-          )}
-        </div>
-
         {/* 第一行：取消理由输入框（占两行） */}
         <RichTextInput
           value={cancelReason}
