@@ -122,183 +122,70 @@ export default function OrderCancellationModule({ order, onSuccess, compact = fa
 
   if (compact) {
     return (
-      <Card className="border-red-100 bg-red-50">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium text-red-800 flex items-center gap-1.5">
-            <AlertTriangle className="w-3.5 h-3.5" />
-            取消订单
-          </CardTitle>
-          <CardDescription className="text-xs text-red-600">
-            取消后订单状态将变更为"已取消"
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div>
-            <Label className="text-xs">取消理由 <span className="text-red-500">*</span></Label>
-            <RichTextInput
-              value={cancelReason}
-              onChange={setCancelReason}
-              images={cancelImages}
-              setImages={setCancelImages}
-              placeholder="例如：商品缺货、用户要求取消等"
-              compact
-            />
-          </div>
-
-          {hasRefund && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs">退款金额（可选）</Label>
-                {isPaid && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-6 text-xs text-red-600 hover:bg-red-100"
-                    onClick={handleFullRefund}
-                  >
-                    全额退款
-                  </Button>
-                )}
-              </div>
-              
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label className="text-[10px] text-gray-500 flex items-center gap-1">
-                    <span className="text-xs">¥</span>
-                    日元退款额
-                  </Label>
-                  <Input
-                    type="number"
-                    className="h-7 text-xs mt-0.5"
-                    placeholder="0"
-                    value={refundAmountJpy}
-                    onChange={(e) => handleSetRefundJpy(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label className="text-[10px] text-gray-500 flex items-center gap-1">
-                  {paymentCurrency}
-                  退款额
-                </Label>
-                  <Input
-                    type="number"
-                    className="h-7 text-xs mt-0.5"
-                    placeholder="0"
-                    value={refundAmountCurrency}
-                    onChange={(e) => handleSetRefundCurrency(e.target.value)}
-                    disabled={paymentCurrency === "JPY"}
-                  />
-                </div>
-              </div>
-              {exchangeRate && paymentCurrency !== "JPY" && (
-                <p className="text-[10px] text-gray-400">
-                  汇率参考：1 {paymentCurrency} ≈ {exchangeRate.toFixed(4)} JPY（订单创建时）
-                </p>
-              )}
-            </div>
-          )}
-
-          <Button
-            size="sm"
-            className="w-full bg-red-600 hover:bg-red-700 text-xs"
-            onClick={handleCancelOrder}
-            disabled={isSubmitting || !cancelReason.trim()}
-          >
-            {isSubmitting ? (
-              <><Loader2 className="w-3 h-3 animate-spin mr-1" />处理中...</>
-            ) : (
-              <><AlertTriangle className="w-3 h-3 mr-1" />确认取消</>
-            )}
-          </Button>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  // 标准模式（非紧凑）
-  return (
-    <div className="space-y-3 border border-red-100 rounded-xl p-3 bg-red-50">
-      <div className="flex items-center gap-1.5 text-sm font-medium text-red-800">
-        <AlertTriangle className="w-4 h-4" />
-        取消订单
-      </div>
-
-      <div>
-        <Label className="text-sm">取消理由 <span className="text-red-500">*</span></Label>
+      <div className="space-y-2">
+        {/* 第一行：取消理由输入框 */}
         <RichTextInput
           value={cancelReason}
           onChange={setCancelReason}
           images={cancelImages}
           setImages={setCancelImages}
-          placeholder="请填写取消原因，这将作为系统留言发送给用户"
+          placeholder="取消理由..."
+          compact
         />
-      </div>
 
-      {hasRefund && (
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label className="text-sm">退款金额（可选）</Label>
-            {isPaid && (
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-7 text-xs text-red-600 hover:bg-red-100"
-                onClick={handleFullRefund}
-              >
-                全额退款
-              </Button>
-            )}
-          </div>
-          
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-xs text-gray-500 flex items-center gap-1">
-                <span className="text-sm">¥</span>
-                日元退款额 (JPY)
-              </Label>
+        {/* 第二行：退款金额输入框 + 退款按钮 */}
+        {hasRefund ? (
+          <div className="flex items-center gap-2">
+            <div className="flex-1 flex items-center gap-2">
               <Input
                 type="number"
-                className="mt-1"
-                placeholder="0"
+                className="h-8 text-xs flex-1"
+                placeholder="退款金额 JPY"
                 value={refundAmountJpy}
                 onChange={(e) => handleSetRefundJpy(e.target.value)}
               />
+              {paymentCurrency !== "JPY" && (
+                <Input
+                  type="number"
+                  className="h-8 text-xs w-24"
+                  placeholder={`${paymentCurrency}`}
+                  value={refundAmountCurrency}
+                  onChange={(e) => handleSetRefundCurrency(e.target.value)}
+                />
+              )}
+              {isPaid && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 text-xs"
+                  onClick={handleFullRefund}
+                >
+                  全额
+                </Button>
+              )}
             </div>
-            <div>
-              <Label className="text-xs text-gray-500 flex items-center gap-1">
-                {paymentCurrency}
-                用户付款货币退款额
-              </Label>
-              <Input
-                type="number"
-                className="mt-1"
-                placeholder="0"
-                value={refundAmountCurrency}
-                onChange={(e) => handleSetRefundCurrency(e.target.value)}
-                disabled={paymentCurrency === "JPY"}
-              />
-            </div>
+            <Button
+              size="sm"
+              className="h-8 text-xs bg-red-600 hover:bg-red-700"
+              onClick={handleCancelOrder}
+              disabled={isSubmitting || !cancelReason.trim()}
+            >
+              {isSubmitting ? <Loader2 className="w-3 h-3 animate-spin" /> : <AlertTriangle className="w-3 h-3" />}
+            </Button>
           </div>
-          {exchangeRate && paymentCurrency !== "JPY" && (
-            <p className="text-xs text-gray-400">
-              💡 使用订单创建时的历史汇率：1 {paymentCurrency} ≈ {exchangeRate.toFixed(4)} JPY
-            </p>
-          )}
-        </div>
-      )}
-
-      <Button
-        size="sm"
-        className="w-full bg-red-600 hover:bg-red-700"
-        onClick={handleCancelOrder}
-        disabled={isSubmitting || !cancelReason.trim()}
-      >
-        {isSubmitting ? (
-          <><Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />处理中...</>
         ) : (
-          <><MessageCircle className="w-3.5 h-3.5 mr-1" />取消并通知用户</>
+          <Button
+            size="sm"
+            className="h-8 text-xs bg-red-600 hover:bg-red-700 w-full"
+            onClick={handleCancelOrder}
+            disabled={isSubmitting || !cancelReason.trim()}
+          >
+            {isSubmitting ? "处理中..." : "确认取消"}
+          </Button>
         )}
-      </Button>
-    </div>
-  );
+      </div>
+    );
+  }
+
+  return null;
 }
