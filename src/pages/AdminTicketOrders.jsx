@@ -113,9 +113,34 @@ export default function AdminTicketOrders() {
   // Sort
   const filtered = [...filteredOrders].sort((a, b) => {
     if (!sortKey) return 0;
-    const rk = sortKey === "submit_date" ? "created_date" : sortKey;
-    let va = a[rk] ?? a.ticket_data?.[rk] ?? "";
-    let vb = b[rk] ?? b.ticket_data?.[rk] ?? "";
+    // Map column keys to actual data paths
+    const keyMap = {
+      submit_date: 'created_date',
+      performance_datetime: 'ticket_data.performance_datetime',
+      prefecture: 'ticket_data.prefecture',
+      sales_method: 'ticket_data.sales_method',
+      ticketing_method: 'ticket_data.ticketing_method',
+      account_count: 'ticket_data.account_count',
+      sales_start_time: 'ticket_data.sales_start_time',
+      sales_end_time: 'ticket_data.sales_end_time',
+      lottery_result_time: 'ticket_data.lottery_result_time',
+      additional_fee_jpy: 'ticket_data.additional_fee_jpy',
+      lottery_win_bonus_jpy: 'ticket_data.lottery_win_bonus_jpy',
+      purchase_link: 'ticket_data.purchase_link',
+    };
+    const dataPath = keyMap[sortKey] || sortKey;
+    
+    // Get value from nested path
+    const getValue = (obj, path) => {
+      if (path.includes('.')) {
+        return path.split('.').reduce((o, p) => o?.[p], obj) ?? "";
+      }
+      return obj[path] ?? "";
+    };
+    
+    let va = getValue(a, dataPath);
+    let vb = getValue(b, dataPath);
+    
     if (typeof va === "string") va = va.toLowerCase();
     if (typeof vb === "string") vb = vb.toLowerCase();
     if (va < vb) return sortDir === "asc" ? -1 : 1;

@@ -171,7 +171,8 @@ export const TicketOrderController = {
         const start = td.sales_start_time ? new Date(td.sales_start_time).toLocaleDateString("zh-CN") : null;
         const end = td.sales_end_time ? new Date(td.sales_end_time).toLocaleDateString("zh-CN") : null;
         if (!start && !end) return <span className="text-xs text-gray-400">-</span>;
-        return <span className="text-xs text-gray-700 whitespace-nowrap">{start || "?"} ~ {end || "?"}</span>;
+        // Add title attribute for tooltip
+        return <span className="text-xs text-gray-700 whitespace-nowrap" title={`${start || "?"} ~ ${end || "?"}`}>{start || "?"} ~ {end || "?"}</span>;
       }
 
       case "lottery_result_time": {
@@ -242,14 +243,20 @@ export const TicketOrderController = {
       if (showArchived ? !o.is_archived : !!o.is_archived) return false;
       
       const matchStatus = statusFilter === "all" || o.ticket_status === statusFilter;
-      const q = search.toLowerCase();
-      const displayName = (userProfileMap[o.user_email]?.display_name || o.user_name || "").toLowerCase();
-      const matchSearch = !q ||
+      const q = (search || "").toLowerCase().trim();
+      if (!q) return matchStatus;
+      
+      const td = o.ticket_data || {};
+      const displayName = (userProfileMap?.[o.user_email]?.display_name || o.user_name || "").toLowerCase();
+      
+      const matchSearch =
         (o.product_name || "").toLowerCase().includes(q) ||
         (o.order_number || "").toLowerCase().includes(q) ||
         (o.user_email || "").toLowerCase().includes(q) ||
         (o.user_name || "").toLowerCase().includes(q) ||
-        displayName.includes(q);
+        displayName.includes(q) ||
+        (td.performance_name || "").toLowerCase().includes(q) ||
+        (td.prefecture || "").toLowerCase().includes(q);
       
       return matchStatus && matchSearch;
     });
