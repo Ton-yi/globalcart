@@ -425,6 +425,9 @@ export default function SubmitOrder() {
                   {addonOptions.map((opt) => {
                     const isSelected = selectedAddons.includes(opt.id);
                     const isCustomizable = opt.is_user_customizable;
+                    const customFee = addonCustomFees[opt.id];
+                    const effectiveFee = isCustomizable && customFee !== undefined ? customFee : parseFloat(opt.fee) || 0;
+                    const feeCur = opt.fee_currency || "JPY";
                     return (
                       <div key={opt.id} className={`rounded-lg border p-2.5 transition-colors ${isSelected ? "border-yellow-400 bg-yellow-50" : "border-gray-200"}`}>
                         <label className="flex items-start gap-3 cursor-pointer">
@@ -434,15 +437,31 @@ export default function SubmitOrder() {
                             className="mt-0.5"
                           />
                           <div className="flex-1">
-                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <div className="flex items-center justify-between gap-2 flex-wrap mb-1">
                               <span className="text-sm font-medium text-gray-800">{opt.name}</span>
-                              {!isCustomizable && (
-                                <span className="text-sm text-red-600 font-semibold">
-                                  +{opt.fee_currency || "JPY"} {opt.fee_currency === "JPY" ? Math.round(parseFloat(opt.fee)) : parseFloat(opt.fee)}
-                                </span>
-                              )}
+                              <span className="text-sm text-red-600 font-semibold">
+                                +{feeCur} {feeCur === "JPY" ? Math.round(effectiveFee) : effectiveFee}
+                              </span>
                             </div>
                             {opt.description && <p className="text-xs text-gray-500 mt-0.5">{opt.description}</p>}
+                            {isCustomizable && isSelected && (
+                              <div className="mt-2 flex items-center gap-2">
+                                <Label className="text-xs text-gray-600">自定义金额 ({opt.min_fee || 0} - {opt.max_fee || '∞'} {feeCur})</Label>
+                                <Input
+                                  type="number"
+                                  min={opt.min_fee || 0}
+                                  max={opt.max_fee || undefined}
+                                  step="1"
+                                  placeholder={opt.fee || "0"}
+                                  value={customFee || ""}
+                                  onChange={(e) => {
+                                    const val = parseFloat(e.target.value);
+                                    setAddonCustomFees(prev => ({ ...prev, [opt.id]: isNaN(val) ? 0 : val }));
+                                  }}
+                                  className="h-7 text-xs w-32"
+                                />
+                              </div>
+                            )}
                           </div>
                         </label>
                       </div>
