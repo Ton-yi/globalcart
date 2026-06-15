@@ -13,7 +13,6 @@ import { Badge } from "@/components/ui/badge";
 import { Truck, Store, Calendar, MapPin, CreditCard, Loader2 } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
-import { AddressForm } from "@/components/common/AddressForm";
 
 export default function TicketShippingRequestForm({ order, onSubmit, onCancel, submitting }) {
   const [shippingMethod, setShippingMethod] = useState("domestic"); // "domestic" | "pickup"
@@ -28,18 +27,15 @@ export default function TicketShippingRequestForm({ order, onSubmit, onCancel, s
 
   // 计算需要补正的金额
   const calculatePaymentAmount = () => {
-    // 订单现存有待补款金额（如 supplement_requested 为 true 则有 supplement_amount）
     const pendingSupplement = order.supplement_requested ? (order.supplement_amount || 0) : 0;
     
-    // 运输方式费用或自提点服务费
     let shippingFee = 0;
     if (shippingMethod === "domestic" && selectedShippingMethod) {
-      // TODO: 从运输方式获取费用
-      shippingFee = 0; // 暂时设为 0，后续从运输方式配置读取
+      const method = shippingMethods.find(m => m.name === selectedShippingMethod);
+      shippingFee = method?.fee_jpy || 0;
     } else if (shippingMethod === "pickup" && selectedPickupLocation) {
-      // 从自提点获取服务费
-      const pickupLocation = pickupLocations?.find(p => p.id === selectedPickupLocation);
-      shippingFee = pickupLocation?.fee_jpy || 0;
+      const location = pickupLocations.find(p => p._id === selectedPickupLocation);
+      shippingFee = location?.pickup_service_fee_jpy || 0;
     }
     
     return pendingSupplement + shippingFee;
@@ -47,45 +43,22 @@ export default function TicketShippingRequestForm({ order, onSubmit, onCancel, s
 
   const paymentAmount = calculatePaymentAmount();
 
-  // 获取运输方式列表
-  const { data: shippingMethods = [] } = useQuery({
-    queryKey: ['shipping_methods'],
+  // 获取本地运输方式和自提点列表
+  const { data: localShippingData, isLoading: isLoadingShipping } = useQuery({
+    queryKey: ['local_shipping_options'],
     queryFn: async () => {
-      const res = await base44.functions.invoke('getTenantSettings', { key: 'shipping_methods' });
-      return res.data?.settings || [];
+      const res = await base44.functions.invoke('getLocalShippingOptions', {});
+      return res.data || { shippingMethods: [], pickupLocations: [] };
     }
   });
 
-  // 获取自提点列表
-  const { data: pickupLocations = [] } = useQuery({
-    queryKey: ['pickup_locations'],
-    queryFn: async () => {
-      const res = await base44.entities.PickupLocation.filter({ is_active: true });
-      return res || [];
-    }
-  });
-
-  // 获取收货地址列表（用户地址）
-  const { data: addresses = [] } = useQuery({
-    queryKey: ['user_addresses'],
-    queryFn: async () => {
-      const res = await base44.entities.UserPreference.filter({ 
-        user_email: order.user_email,
-        type: 'address'
-      });
-      return res || [];
-    }
-  });
-
-  const [selectedAddress, setSelectedAddress] = useState(null);
+  const shippingMethods = localShippingData?.shippingMethods || [];
+  const pickupLocations = localShippingData?.pickupLocations || [];
 
   const handleSubmit = async () => {
     if (shippingMethod === "domestic") {
       if (!selectedShippingMethod) {
         return { error: "请选择运输方式" };
-      }
-      if (!selectedAddress) {
-        return { error: "请选择收货地址" };
       }
       if (!expectedDeliveryDatetime) {
         return { error: "请选择期望到着日時" };
@@ -101,11 +74,10 @@ export default function TicketShippingRequestForm({ order, onSubmit, onCancel, s
 
     const requestData = {
       shipping_method_type: shippingMethod,
-      shipping_method_code: shippingMethod === "domestic" ? selectedShippingMethod : null,
+      shipping_method_name: shippingMethod === "domestic" ? selectedShippingMethod : null,
       pickup_location_id: shippingMethod === "pickup" ? selectedPickupLocation : null,
       expected_delivery_datetime: shippingMethod === "domestic" ? expectedDeliveryDatetime : null,
       pickup_datetime: shippingMethod === "pickup" ? pickupDatetime : null,
-      address: shippingMethod === "domestic" ? selectedAddress : null,
       note: note.trim(),
       payment_amount_jpy: paymentAmount,
       payment_method: paymentMethod
@@ -113,10 +85,6 @@ export default function TicketShippingRequestForm({ order, onSubmit, onCancel, s
 
     return onSubmit(requestData);
   };
-
-  const domesticShippingMethods = shippingMethods.filter(m => 
-    m.enabled_for_direct_ship !== false && m.is_active
-  );
 
   return (
     <div className="space-y-4">
@@ -162,41 +130,13 @@ export default function TicketShippingRequestForm({ order, onSubmit, onCancel, s
                 <SelectValue placeholder="请选择运输方式" />
               </SelectTrigger>
               <SelectContent>
-                {domesticShippingMethods.map(m => (
-                  <SelectItem key={m.code} value={m.code}>
-                    {m.name} ({m.transit_days})
+                {shippingMethods.filter(m => m.is_active !== false).map(m => (
+                  <SelectItem key={m.name} value={m.name}>
+                    {m.name} {m.fee_jpy ? `· ¥${m.fee_jpy.toLocaleString()}` : ""} {m.transit_days ? `· ${m.transit_days}` : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-          </div>
-
-          {/* 收货地址选择 */}
-          <div>
-            <Label className="text-sm">收货地址（日本）</Label>
-            <Select value={selectedAddress?.id || ""} onValueChange={(v) => {
-              const addr = addresses.find(a => a.id === v);
-              setSelectedAddress(addr);
-            }} disabled={submitting}>
-              <SelectTrigger className="mt-1">
-                <SelectValue placeholder="请选择收货地址" />
-              </SelectTrigger>
-              <SelectContent>
-                {addresses.map(a => (
-                  <SelectItem key={a.id} value={a.id}>
-                    {a.recipient_name} - {a.addr1?.slice(0, 20)}...
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {selectedAddress && (
-              <div className="mt-2 p-3 bg-white rounded border text-xs text-gray-700 space-y-1">
-                <div>〒{selectedAddress.postal_code}</div>
-                <div>{selectedAddress.addr1}</div>
-                <div>{selectedAddress.addr2}</div>
-                <div>{selectedAddress.recipient_phone}</div>
-              </div>
-            )}
           </div>
 
           {/* 期望到着日時 */}
@@ -229,16 +169,16 @@ export default function TicketShippingRequestForm({ order, onSubmit, onCancel, s
               </SelectTrigger>
               <SelectContent>
                 {pickupLocations.map(p => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.name} {p.fee_jpy > 0 ? `(¥${p.fee_jpy.toLocaleString()})` : ''}
+                  <SelectItem key={p._id} value={p._id}>
+                    {p.name} {p.pickup_service_fee_jpy > 0 ? `(¥${p.pickup_service_fee_jpy.toLocaleString()})` : ''}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
             {selectedPickupLocation && (
               <div className="mt-2 p-3 bg-white rounded border text-xs text-gray-700">
-                {pickupLocations.find(p => p.id === selectedPickupLocation)?.description && (
-                  <div className="mb-2">{pickupLocations.find(p => p.id === selectedPickupLocation)?.description}</div>
+                {pickupLocations.find(p => p._id === selectedPickupLocation)?.description && (
+                  <div className="mb-2">{pickupLocations.find(p => p._id === selectedPickupLocation)?.description}</div>
                 )}
               </div>
             )}
@@ -286,7 +226,7 @@ export default function TicketShippingRequestForm({ order, onSubmit, onCancel, s
             <div className="flex justify-between text-gray-700">
               <span>自提点服务费</span>
               <span className="font-medium">
-                ¥{(pickupLocations.find(p => p.id === selectedPickupLocation)?.fee_jpy || 0).toLocaleString()}
+                ¥{(pickupLocations.find(p => p._id === selectedPickupLocation)?.pickup_service_fee_jpy || 0).toLocaleString()}
               </span>
             </div>
           )}
