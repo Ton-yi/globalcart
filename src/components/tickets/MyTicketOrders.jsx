@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Ticket, Search, Filter, X } from 'lucide-react';
+import { Ticket, Search, Filter, X, Calendar, MapPin, Users } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import UserTicketOrderCard from '@/components/tickets/UserTicketOrderCard';
+import { Badge } from '@/components/ui/badge';
 import UserTicketOrderDetailPanel from '@/components/tickets/UserTicketOrderDetailPanel';
+import { ticketStatusLabel, TICKET_STATUS_COLORS, salesMethodLabel, ticketingMethodLabel } from '@/lib/ticketConfig';
 
 const STATUS_FILTERS = [
   { v: "all", l: "全部状态" },
@@ -64,7 +65,7 @@ export default function MyTicketOrders({ orders, loading, onRefresh, currentUser
         )}
       </div>
 
-      {/* Orders List */}
+      {/* Orders Grid - 2 columns */}
       {loading ? (
         <p className="text-gray-400 text-sm py-8 text-center">加载中...</p>
       ) : filteredOrders.length === 0 ? (
@@ -73,11 +74,13 @@ export default function MyTicketOrders({ orders, loading, onRefresh, currentUser
           <p className="text-sm">无匹配的票务需求</p>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="grid md:grid-cols-2 gap-4">
           {filteredOrders.map(o => (
-            <div key={o.id} onClick={() => setSelectedOrder(o)} className="cursor-pointer">
-              <UserTicketOrderCard order={o} />
-            </div>
+            <TicketOrderCard 
+              key={o.id} 
+              order={o} 
+              onClick={() => setSelectedOrder(o)} 
+            />
           ))}
         </div>
       )}
@@ -101,6 +104,136 @@ export default function MyTicketOrders({ orders, loading, onRefresh, currentUser
           userProfileMap={userProfileMap}
         />
       )}
+    </div>
+  );
+}
+
+/**
+ * 票务订单卡片 - 两列布局版本，显示更多外部信息
+ */
+function TicketOrderCard({ order, onClick }) {
+  const td = order.ticket_data || {};
+  const seats = td.seats || [];
+  const totalTickets = seats.reduce((sum, s) => sum + (s.quantity || 0), 0);
+  const isLottery = td.sales_method === "lottery";
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return null;
+    const d = new Date(dateStr);
+    return `${d.getMonth() + 1}/${d.getDate()}`;
+  };
+
+  const formatTime = (dateStr) => {
+    if (!dateStr) return null;
+    const d = new Date(dateStr);
+    return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+  };
+
+  return (
+    <div 
+      onClick={onClick}
+      className="bg-white border border-gray-200 rounded-xl p-4 hover:border-violet-300 hover:shadow-lg transition-all cursor-pointer group"
+    >
+      {/* Header: Status + Order Number */}
+      <div className="flex items-start justify-between gap-2 mb-3">
+        <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
+          <Ticket className="w-4 h-4 text-violet-600 flex-shrink-0" />
+          <Badge className={`${TICKET_STATUS_COLORS[order.ticket_status] || "bg-gray-100 text-gray-700"} text-xs flex-shrink-0`}>
+            {ticketStatusLabel(order.ticket_status, "user", isLottery)}
+          </Badge>
+          <span className="text-xs text-gray-400 font-mono truncate">{order.order_number}</span>
+        </div>
+        {order.ticket_refund_settled && (order.ticket_refund_jpy || 0) > 0 && (
+          <Badge className="bg-green-100 text-green-700 text-xs flex-shrink-0">
+            已退差价
+          </Badge>
+        )}
+      </div>
+
+      {/* Product Name */}
+      <h3 className="font-semibold text-gray-900 text-sm mb-2 truncate group-hover:text-violet-700 transition-colors">
+        {order.product_name}
+      </h3>
+
+      {/* Performance Info */}
+      {td.performance_name && (
+        <div className="mb-2">
+          <p className="text-xs text-gray-600 font-medium truncate">{td.performance_name}</p>
+        </div>
+      )}
+
+      {/* Key Info Grid */}
+      <div className="grid grid-cols-2 gap-2 mb-3">
+        {/* Date */}
+        {td.performance_datetime && (
+          <div className="flex items-center gap-1.5 text-xs text-gray-600">
+            <Calendar className="w-3 h-3 text-gray-400 flex-shrink-0" />
+            <span className="truncate">{formatDate(td.performance_datetime)} {formatTime(td.performance_datetime)}</span>
+          </div>
+        )}
+        
+        {/* Location */}
+        {td.prefecture && (
+          <div className="flex items-center gap-1.5 text-xs text-gray-600">
+            <MapPin className="w-3 h-3 text-gray-400 flex-shrink-0" />
+            <span className="truncate">{td.prefecture}</span>
+          </div>
+        )}
+
+        {/* Tickets Count */}
+        <div className="flex items-center gap-1.5 text-xs text-gray-600">
+          <Users className="w-3 h-3 text-gray-400 flex-shrink-0" />
+          <span>共 {totalTickets} 票</span>
+        </div>
+
+        {/* Accounts */}
+        {(td.account_count || 1) > 1 && (
+          <div className="flex items-center gap-1.5 text-xs text-gray-600">
+            <Users className="w-3 h-3 text-gray-400 flex-shrink-0" />
+            <span>×{td.account_count} 账户</span>
+          </div>
+        )}
+      </div>
+
+      {/* Sales & Ticketing Method */}
+      <div className="flex items-center gap-2 mb-3">
+        {td.sales_method && (
+          <Badge variant="outline" className="text-xs">
+            {salesMethodLabel(td.sales_method)}
+          </Badge>
+        )}
+        {td.ticketing_method && (
+          <Badge variant="outline" className="text-xs">
+            {ticketingMethodLabel(td.ticketing_method)}
+          </Badge>
+        )}
+      </div>
+
+      {/* Footer: Price + Payment */}
+      <div className="border-t border-gray-100 pt-3 flex items-end justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="text-xs text-gray-500 mb-0.5">预付总额</div>
+          <div className="text-base font-bold text-violet-700">
+            ¥{(order.ticket_prepaid_total_jpy || 0).toLocaleString()}
+          </div>
+          {order.order_stage_payment_jpy ? (
+            <div className="text-xs text-gray-400">已付 ¥{order.order_stage_payment_jpy.toLocaleString()}</div>
+          ) : null}
+        </div>
+        <div className="text-right">
+          {order.payment_method && (
+            <div className="text-xs text-gray-500 mb-0.5">
+              {{ 
+                alipay: "支付宝", 
+                wechatpay: "微信支付", 
+                paypay: "PayPay", 
+                credit: "记账"
+              }[order.payment_method] || '其它'}
+            </div>
+          )}
+          <div className="text-xs text-gray-400">{new Date(order.created_date).toLocaleDateString('zh-CN')}</div>
+        </div>
+      </div>
     </div>
   );
 }
