@@ -238,7 +238,6 @@ export default function OrderMessageThread({
             }
           />
         )
-        )
       ) : (
         <div className="border border-gray-200 rounded-xl p-3 bg-gray-50 text-center">
           <div className="flex items-center justify-center gap-2 text-gray-500 text-sm">
