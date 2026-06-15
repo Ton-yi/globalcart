@@ -127,10 +127,11 @@ export default function OrderCancellationModule({ order, onSuccess, compact = fa
         <RichTextInput
           value={cancelReason}
           onChange={setCancelReason}
-          images={cancelImages}
-          setImages={setCancelImages}
+          imageUrls={cancelImages}
+          onImageUrls={setCancelImages}
           placeholder="取消理由..."
-          compact
+          rows={1}
+          className="h-8"
         />
 
         {/* 第二行：退款金额输入框 + 退款按钮 */}
