@@ -144,7 +144,7 @@ export default function TicketOrderDetailPanel({ order, onClose, userProfileMap 
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b px-6 sticky top-[73px] bg-white z-10">
+        <div className="flex border-b px-6 sticky top-[73px] bg-white z-10 items-center">
           {tabs.map(t => (
             <button 
               key={t.key} 
@@ -158,6 +158,17 @@ export default function TicketOrderDetailPanel({ order, onClose, userProfileMap 
               {t.label}
             </button>
           ))}
+          {isPendingConfirmation && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => handleStatusUpdate("accepted")}
+              disabled={statusUpdating}
+              className="ml-auto bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
+            >
+              已受理 / 待开票
+            </Button>
+          )}
         </div>
 
         {/* Content */}
@@ -426,34 +437,14 @@ export default function TicketOrderDetailPanel({ order, onClose, userProfileMap 
 
           {/* ===== MESSAGES & CANCEL TAB ===== */}
           {activeTab === "messages" && (
-            <div className="space-y-6">
-              {/* Messages */}
-              <div>
-                <OrderMessageThread
-                  order={order}
-                  currentUser={actualCurrentUser}
-                  isAdmin={isAdmin}
-                  userProfileMap={userProfileMap}
-                  hideHistory={false}
-                />
-              </div>
-
-              {/* Status update button (only for pending_confirmation) */}
-              {isPendingConfirmation && (
-                <div className="border-t pt-4">
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleStatusUpdate("accepted")}
-                      disabled={statusUpdating}
-                      className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
-                    >
-                      已受理 / 待开票
-                    </Button>
-                  </div>
-                </div>
-              )}
+            <div>
+              <OrderMessageThread
+                order={order}
+                currentUser={actualCurrentUser}
+                isAdmin={isAdmin}
+                userProfileMap={userProfileMap}
+                hideHistory={false}
+              />
             </div>
           )}
 
