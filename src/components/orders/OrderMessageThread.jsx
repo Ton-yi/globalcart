@@ -80,6 +80,29 @@ export default function OrderMessageThread({ order, currentUser, isAdmin, onMess
     };
 
     await updateOrder(order.id, updates);
+    
+    // 如果是管理员/系统发送的留言，创建通知
+    if (isAdmin && order.user_email) {
+      try {
+        await base44.functions.invoke('createNotification', {
+          user_email: order.user_email,
+          notification_type: 'message',
+          notification_subtype: 'order_message_received',
+          title: '您有新的订单留言',
+          content: content.trim() || '（图片消息）',
+          related_entity_type: 'order',
+          related_entity_id: order.id,
+          related_url: `/orders/${order.id}`,
+          metadata: {
+            order_number: order.order_number,
+            message_id: newMsg.id
+          }
+        });
+      } catch (error) {
+        console.error('创建通知失败:', error);
+      }
+    }
+    
     setSending(false);
     onMessageSent?.();
   };

@@ -165,6 +165,28 @@ export default function OrderCancellationModule({ order, onSuccess, compact = fa
       // 执行更新
       await updateOrder(order.id, updates);
 
+      // 创建取消通知（与留言系统联动）
+      try {
+        await base44.functions.invoke('createNotification', {
+          user_email: order.user_email,
+          notification_type: 'cancellation',
+          notification_subtype: hasRefund ? 'order_cancelled_with_refund' : 'order_cancelled_no_refund',
+          title: hasRefund ? '订单已取消并退款' : '订单已取消',
+          content: messageContent,
+          related_entity_type: 'order',
+          related_entity_id: order.id,
+          related_url: `/orders/${order.id}`,
+          metadata: {
+            cancel_reason: cancelReason,
+            refund_amount_jpy: updates.refund_amount_jpy,
+            refund_amount_currency: refundAmountCurrency,
+            refund_currency: paymentCurrency
+          }
+        });
+      } catch (error) {
+        console.error('创建通知失败:', error);
+      }
+
       toast.success("订单已取消，通知已发送给用户");
       onSuccess?.();
     } catch (error) {

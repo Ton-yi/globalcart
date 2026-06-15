@@ -102,12 +102,69 @@ export default function MessageThread({
         messages: updatedMessages,
         unread_roles: unreadRoles,
       });
+      
+      // 如果是管理员发送的留言，创建通知
+      if (isAdmin && contextObject.user_email) {
+        try {
+          await base44.functions.invoke('createNotification', {
+            user_email: contextObject.user_email,
+            notification_type: 'message',
+            notification_subtype: 'order_message_received',
+            title: '您有新的订单留言',
+            content: content.trim() || '（图片消息）',
+            related_entity_type: 'order',
+            related_entity_id: contextObject.id,
+            related_url: `/orders/${contextObject.id}`,
+            metadata: {
+              order_number: contextObject.order_number,
+              message_id: newMsg.id
+            }
+          });
+        } catch (error) {
+          console.error('创建通知失败:', error);
+        }
+      }
     } else if (contextType === 'pool') {
       const { shippingPoolApi } = await import('@/lib/tenantApi');
       await shippingPoolApi.update(contextObject.id, {
         messages: updatedMessages,
         unread_roles: unreadRoles,
       });
+      
+      // 如果是管理员发送的留言，创建通知（发送给池子的所有参与者）
+      if (isAdmin) {
+        try {
+          // 获取池子参与者的邮箱列表
+          const participantEmails = [...new Set(
+            (contextObject.fee_breakdown_per_user || []).map(b => b.user_email)
+          )];
+          
+          // 如果没有费用明细，使用 creator_email
+          if (participantEmails.length === 0 && contextObject.creator_email) {
+            participantEmails.push(contextObject.creator_email);
+          }
+          
+          // 为每个参与者创建通知
+          for (const email of participantEmails) {
+            await base44.functions.invoke('createNotification', {
+              user_email: email,
+              notification_type: 'message',
+              notification_subtype: 'pool_message_received',
+              title: '发货池有新留言',
+              content: content.trim() || '（图片消息）',
+              related_entity_type: 'shipping_pool',
+              related_entity_id: contextObject.id,
+              related_url: `/shippingpool/${contextObject.id}`,
+              metadata: {
+                pool_code: contextObject.pool_code,
+                message_id: newMsg.id
+              }
+            });
+          }
+        } catch (error) {
+          console.error('创建通知失败:', error);
+        }
+      }
     }
 
     setSending(false);
