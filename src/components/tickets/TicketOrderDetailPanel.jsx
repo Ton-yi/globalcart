@@ -151,6 +151,12 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
   const shouldShowLotteryButton = isAccepted && ticketData.sales_method === "lottery";
   const shouldShowWarehouseButton = order.ticket_status === "purchased_pending_warehouse" && isAdmin;
 
+  // 抽選 + 電子チケット/発券番号 + awaiting_lottery_result → 直接标记已入库待发货（无需上传图片）
+  const shouldShowLotteryInWarehouseButton = isAdmin &&
+    order.ticket_status === "awaiting_lottery_result" &&
+    ticketData.sales_method === "lottery" &&
+    (ticketData.ticketing_method === "electronic" || ticketData.ticketing_method === "ticket_number");
+
   const handleTicketNumberSubmit = async () => {
     if (!ticketNumberInput.trim()) {
       toast.error("请输入发券番号");
@@ -800,6 +806,42 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
               >
                 <Upload className="w-3.5 h-3.5 mr-1" />
                 {warehouseImageFile instanceof File ? "确认上传 / 已入库待发货" : "上传图片 / 已入库待发货"}
+              </Button>
+            </div>
+          )}
+          {shouldShowLotteryInWarehouseButton && (
+            <div className="ml-auto flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={statusUpdating}
+                onClick={async () => {
+                  setStatusUpdating(true);
+                  try {
+                    await updateOrder(order.id, {
+                      ticket_status: "in_warehouse",
+                      messages: [
+                        ...(order.messages || []),
+                        { id: `in_warehouse_${Date.now()}`, from: "系统通知", from_email: "system@system.local",
+                          role: "admin", content: "订单状态更新为已入库/待发货",
+                          timestamp: new Date().toISOString(), is_system_notification: true,
+                          meta: { type: "status_update", new_status: "in_warehouse" } }
+                      ],
+                      unread_roles: ["user"]
+                    });
+                    toast.success("订单已更新为已入库/待发货");
+                    onRefresh?.();
+                    onClose?.();
+                  } catch (e) {
+                    toast.error("更新失败：" + e.message);
+                  } finally {
+                    setStatusUpdating(false);
+                  }
+                }}
+                className="bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
+              >
+                {statusUpdating ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : null}
+                已入库 / 待发货
               </Button>
             </div>
           )}
