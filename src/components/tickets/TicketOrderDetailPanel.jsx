@@ -294,26 +294,30 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
   // 已购买待入库 浮层
   const [showPurchasedPopover, setShowPurchasedPopover] = useState(false);
   const [purchasedConfirmed, setPurchasedConfirmed] = useState(false); // 第一次点击后设为true，第二次点击直接提交
+  // deliveryDatetime 存储 "YYYY-MM-DDTHH:MM" 格式（datetime-local 标准格式，精确到分但分固定为00）
   const defaultDeliveryDatetime = () => {
     const base = ticketData.performance_datetime
       ? new Date(ticketData.performance_datetime)
       : new Date();
-    // 精确到小时
     base.setMinutes(0, 0, 0);
-    return base.toISOString().slice(0, 13); // "YYYY-MM-DDTHH"
+    // 转为本地时间的 "YYYY-MM-DDTHH:00" 格式
+    const pad = n => String(n).padStart(2, "0");
+    return `${base.getFullYear()}-${pad(base.getMonth()+1)}-${pad(base.getDate())}T${pad(base.getHours())}:00`;
   };
   const [deliveryDatetime, setDeliveryDatetime] = useState(defaultDeliveryDatetime);
 
   const handlePurchasedPendingWarehouse = async () => {
     setStatusUpdating(true);
     try {
+      // deliveryDatetime 是 "YYYY-MM-DDTHH:MM"，转为 ISO 存储
+      const isoDatetime = new Date(deliveryDatetime).toISOString();
       await updateOrder(order.id, {
         ticket_status: "purchased_pending_warehouse",
-        ticket_data: { ...ticketData, estimated_ticket_delivery_datetime: deliveryDatetime + ":00:00" },
+        ticket_data: { ...ticketData, estimated_ticket_delivery_datetime: isoDatetime },
         messages: [
           ...(order.messages || []),
           { id: `purchased_${Date.now()}`, from: "系统通知", from_email: "system@system.local",
-            role: "admin", content: "订单状态更新为已购买待入库，预计发票时间：" + new Date(deliveryDatetime + ":00:00").toLocaleString("zh-CN"),
+            role: "admin", content: "订单状态更新为已购买待入库，预计发票时间：" + new Date(isoDatetime).toLocaleString("zh-CN"),
             timestamp: new Date().toISOString(), is_system_notification: true,
             meta: { type: "status_update", new_status: "purchased_pending_warehouse" } }
         ],
@@ -554,8 +558,8 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
                         step="3600"
                         value={deliveryDatetime}
                         onChange={e => {
-                          // 截取到小时
-                          const v = e.target.value.slice(0, 13);
+                          // 强制分钟为 00，精确到小时
+                          const v = e.target.value.slice(0, 14) + "00";
                           setDeliveryDatetime(v);
                           setPurchasedConfirmed(false);
                         }}
@@ -563,7 +567,7 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
                       />
                     </div>
                     <div className="mb-3 text-xs text-purple-700 bg-purple-50 rounded px-3 py-2">
-                      当前设置预计发票时间为：<span className="font-semibold">{deliveryDatetime ? new Date(deliveryDatetime + ":00:00").toLocaleString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—"}</span>
+                      当前设置预计发票时间为：<span className="font-semibold">{deliveryDatetime ? new Date(deliveryDatetime).toLocaleString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—"}</span>
                     </div>
                     <Button
                       size="sm"
