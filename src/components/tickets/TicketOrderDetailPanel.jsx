@@ -50,7 +50,7 @@ const TICKETING_METHOD_LABELS = {
   ticket_number: "発券番号",
 };
 
-export default function TicketOrderDetailPanel({ order, onClose, userProfileMap = {}, currentUser }) {
+export default function TicketOrderDetailPanel({ order, onClose, onRefresh, userProfileMap = {}, currentUser }) {
   const [activeTab, setActiveTab] = useState("overview");
   const { user: authUser } = useAuth();
   const { can } = usePermissions();
@@ -86,6 +86,7 @@ export default function TicketOrderDetailPanel({ order, onClose, userProfileMap 
         unread_roles: ["user"]
       });
       toast.success("订单状态已更新");
+      onRefresh?.(); // 刷新订单列表
       onClose?.();
     } catch (error) {
       toast.error("更新失败：" + error.message);

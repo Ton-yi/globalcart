@@ -323,6 +323,7 @@ export default function AdminTicketOrders() {
           order={selectedOrder}
           userProfileMap={userProfileMap}
           onClose={() => setSelectedOrder(null)}
+          onRefresh={fetchOrders}
         />
       )}
     </div>
