@@ -877,7 +877,7 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
                     value={ticketNumberInput}
                     onChange={(e) => setTicketNumberInput(e.target.value)}
                     placeholder="请输入发券番号"
-                    className="mt-1"
+                    className="mt-1 h-12 text-lg font-mono"
                   />
                 </div>
                 <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-xs text-blue-700">
