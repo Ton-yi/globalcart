@@ -3,7 +3,7 @@
  * 参照 TicketOrderDetailPanel 设计，但针对用户端简化操作权限
  */
 import { useState } from "react";
-import { X, Ticket, Calendar, MapPin, Users, CreditCard, FileText, Image as ImageIcon, MessageSquare, Loader2, Send } from "lucide-react";
+import { X, Ticket, Calendar, MapPin, Users, CreditCard, FileText, Image as ImageIcon, MessageSquare, Loader2, Send, Truck, Store, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ImageWithViewer } from "@/components/common/ImageViewer";
@@ -15,7 +15,11 @@ import { updateOrder } from "@/lib/tenantApi";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { base44 } from "@/api/base44Client";
+import { useQuery } from "@tanstack/react-query";
 import {
   ticketStatusLabel, TICKET_STATUS_COLORS,
   salesMethodLabel, ticketingMethodLabel,
@@ -52,7 +56,16 @@ export default function UserTicketOrderDetailPanel({ order, onClose, onRefresh, 
   const [messageText, setMessageText] = useState("");
   const [sendingMessage, setSendingMessage] = useState(false);
   const [showShippingRequestModal, setShowShippingRequestModal] = useState(false);
-  const [shippingRequestNote, setShippingRequestNote] = useState("");
+  const [confirmingDelivery, setConfirmingDelivery] = useState(false);
+  
+  // 发货申请表单状态
+  const [shippingMethodType, setShippingMethodType] = useState("domestic"); // "domestic" | "pickup"
+  const [selectedShippingMethod, setSelectedShippingMethod] = useState("");
+  const [selectedPickupLocation, setSelectedPickupLocation] = useState("");
+  const [expectedDeliveryDatetime, setExpectedDeliveryDatetime] = useState("");
+  const [pickupDatetime, setPickupDatetime] = useState("");
+  const [shippingNote, setShippingNote] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("alipay");
   const [submittingShippingRequest, setSubmittingShippingRequest] = useState(false);
 
   const ticketData = order.ticket_data || {};
@@ -79,6 +92,8 @@ export default function UserTicketOrderDetailPanel({ order, onClose, onRefresh, 
 
   // 用户可对已入库订单提出发货申请
   const canRequestShipping = order.ticket_status === "in_warehouse";
+  // 用户可对已发货订单确认收货
+  const canConfirmDelivery = order.ticket_status === "shipped";
 
   const handleSendMessage = async () => {
     if (!messageText.trim()) return;
@@ -109,36 +124,68 @@ export default function UserTicketOrderDetailPanel({ order, onClose, onRefresh, 
   };
 
   const handleShippingRequestSubmit = async () => {
-    if (!shippingRequestNote.trim()) {
-      toast.error("请输入发货申请说明");
+    if (!selectedShippingMethod && shippingMethodType === "domestic") {
+      toast.error("请选择运输方式");
       return;
     }
+    if (!selectedPickupLocation && shippingMethodType === "pickup") {
+      toast.error("请选择自提地点");
+      return;
+    }
+    if (!shippingNote.trim()) {
+      toast.error("请输入备注说明");
+      return;
+    }
+
     setSubmittingShippingRequest(true);
     try {
-      await updateOrder(order.id, {
-        messages: [
-          ...(order.messages || []),
-          {
-            id: `shipping_request_${Date.now()}`,
-            from: actualCurrentUser?.full_name || actualCurrentUser?.email || "用户",
-            from_email: actualCurrentUser?.email,
-            role: "user",
-            content: `发货申请：${shippingRequestNote.trim()}`,
-            timestamp: new Date().toISOString(),
-            is_shipping_request: true,
-            meta: { type: "shipping_request", status: "pending" }
-          }
-        ],
-        unread_roles: ["admin"]
+      const res = await base44.functions.invoke('submitTicketShippingRequest', {
+        order_id: order.id,
+        shipping_method_type: shippingMethodType,
+        shipping_method_code: selectedShippingMethod,
+        pickup_location_id: selectedPickupLocation,
+        expected_delivery_datetime: shippingMethodType === "domestic" ? expectedDeliveryDatetime : null,
+        pickup_datetime: shippingMethodType === "pickup" ? pickupDatetime : null,
+        note: shippingNote,
+        payment_method: paymentMethod
       });
-      toast.success("发货申请已提交，等待管理员确认");
+
+      toast.success(res.data?.message || "发货申请已提交");
       setShowShippingRequestModal(false);
-      setShippingRequestNote("");
+      resetShippingForm();
       onRefresh?.();
     } catch (error) {
       toast.error("提交失败：" + error.message);
     } finally {
       setSubmittingShippingRequest(false);
+    }
+  };
+
+  const resetShippingForm = () => {
+    setShippingMethodType("domestic");
+    setSelectedShippingMethod("");
+    setSelectedPickupLocation("");
+    setExpectedDeliveryDatetime("");
+    setPickupDatetime("");
+    setShippingNote("");
+    setPaymentMethod("alipay");
+  };
+
+  const handleConfirmDelivery = async () => {
+    if (!confirm("确认已收到商品？")) return;
+    
+    setConfirmingDelivery(true);
+    try {
+      const res = await base44.functions.invoke('confirmTicketDelivery', {
+        order_id: order.id
+      });
+
+      toast.success(res.data?.message || "已确认收货");
+      onRefresh?.();
+    } catch (error) {
+      toast.error("确认失败：" + error.message);
+    } finally {
+      setConfirmingDelivery(false);
     }
   };
 
@@ -148,6 +195,34 @@ export default function UserTicketOrderDetailPanel({ order, onClose, onRefresh, 
     { key: "messages", label: "留言" },
     { key: "fees", label: "费用明细" },
   ];
+
+  // 获取运输方式和自提点数据
+  const { data: shippingMethods = [] } = useQuery({
+    queryKey: ['shipping_methods'],
+    queryFn: async () => {
+      const res = await base44.entities.ShippingMethod.filter({ is_active: true });
+      return res.filter(m => m.enabled_for_direct_ship);
+    }
+  });
+
+  const { data: pickupLocations = [] } = useQuery({
+    queryKey: ['pickup_locations'],
+    queryFn: async () => {
+      const res = await base44.entities.PickupLocation.filter({ is_active: true });
+      return res.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+    }
+  });
+
+  // 计算需要补正的金额
+  const calculatePaymentAmount = () => {
+    const pendingSupplement = order.supplement_requested ? (order.supplement_amount || 0) : 0;
+    const shippingFee = shippingMethodType === "domestic" 
+      ? (shippingMethods.find(m => m.code === selectedShippingMethod)?.official_pool_estimate_rate_per_unit || 0)
+      : (pickupLocations.find(l => l._id === selectedPickupLocation)?.fee_jpy || 0);
+    return pendingSupplement + shippingFee;
+  };
+
+  const paymentAmount = calculatePaymentAmount();
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 overflow-y-auto" 
@@ -215,6 +290,17 @@ export default function UserTicketOrderDetailPanel({ order, onClose, onRefresh, 
             >
               <Send className="w-3.5 h-3.5 mr-1" />
               发货申请
+            </Button>
+          )}
+          {canConfirmDelivery && (
+            <Button
+              size="sm"
+              onClick={handleConfirmDelivery}
+              disabled={confirmingDelivery}
+              className="ml-auto bg-green-600 hover:bg-green-700 text-white"
+            >
+              {confirmingDelivery ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <Check className="w-3.5 h-3.5 mr-1" />}
+              确认收货
             </Button>
           )}
         </div>
@@ -571,32 +657,167 @@ export default function UserTicketOrderDetailPanel({ order, onClose, onRefresh, 
         {/* 发货申请弹窗 */}
         {showShippingRequestModal && (
           <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onMouseDown={() => setShowShippingRequestModal(false)}>
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-md" onMouseDown={e => e.stopPropagation()}>
-              <div className="px-6 py-4 border-b">
-                <h3 className="font-semibold text-gray-900">发货申请</h3>
-                <p className="text-xs text-gray-500 mt-0.5">{order.order_number}</p>
-              </div>
-              <div className="px-6 py-4 space-y-3">
-                <div className="bg-teal-50 border border-teal-100 rounded-lg p-3 text-xs text-teal-700">
-                  <p>当前订单状态：已入库</p>
-                  <p className="mt-1">请说明您的发货要求，管理员会尽快处理。</p>
-                </div>
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl" onMouseDown={e => e.stopPropagation()}>
+              <div className="px-6 py-4 border-b flex items-center justify-between">
                 <div>
-                  <Label className="text-sm">申请说明</Label>
+                  <h3 className="font-semibold text-gray-900">发货申请</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">{order.order_number}</p>
+                </div>
+                <button onClick={() => setShowShippingRequestModal(false)} className="text-gray-400 hover:text-gray-600">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              
+              <div className="px-6 py-4 max-h-[70vh] overflow-y-auto">
+                {/* 发货方式切换 */}
+                <div className="mb-6">
+                  <div className="flex items-center justify-between mb-3">
+                    <Label className="text-sm font-semibold">发货方式</Label>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs ${shippingMethodType === "domestic" ? "font-semibold text-teal-700" : "text-gray-500"}`}>日本发货</span>
+                      <Switch
+                        checked={shippingMethodType === "pickup"}
+                        onCheckedChange={(v) => {
+                          setShippingMethodType(v ? "pickup" : "domestic");
+                          setSelectedShippingMethod("");
+                          setSelectedPickupLocation("");
+                        }}
+                      />
+                      <span className={`text-xs ${shippingMethodType === "pickup" ? "font-semibold text-teal-700" : "text-gray-500"}`}>自提</span>
+                    </div>
+                  </div>
+
+                  {shippingMethodType === "domestic" ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 text-xs text-teal-700 bg-teal-50 p-2 rounded">
+                        <Truck className="w-3.5 h-3.5" />
+                        <span>选择日本国内运输方式</span>
+                      </div>
+                      <div>
+                        <Label className="text-xs">运输方式</Label>
+                        <Select value={selectedShippingMethod} onValueChange={setSelectedShippingMethod}>
+                          <SelectTrigger className="mt-1 h-9 text-sm">
+                            <SelectValue placeholder="请选择运输方式" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {shippingMethods.map(m => (
+                              <SelectItem key={m.code} value={m.code}>
+                                {m.name} · {m.transit_days || "时效待定"}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="text-xs">期望到着日期时间</Label>
+                        <Input
+                          type="datetime-local"
+                          value={expectedDeliveryDatetime}
+                          onChange={(e) => setExpectedDeliveryDatetime(e.target.value)}
+                          className="mt-1 h-9 text-sm"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 text-xs text-teal-700 bg-teal-50 p-2 rounded">
+                        <Store className="w-3.5 h-3.5" />
+                        <span>选择自提地点</span>
+                      </div>
+                      <div>
+                        <Label className="text-xs">自提地点</Label>
+                        <Select value={selectedPickupLocation} onValueChange={setSelectedPickupLocation}>
+                          <SelectTrigger className="mt-1 h-9 text-sm">
+                            <SelectValue placeholder="请选择自提地点" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {pickupLocations.map(l => (
+                              <SelectItem key={l._id} value={l._id}>
+                                {l.name} {l.fee_jpy ? `· 服务费 ¥${l.fee_jpy.toLocaleString()}` : ""}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {selectedPickupLocation && (
+                        <div>
+                          <Label className="text-xs">期望自提日期时间</Label>
+                          <Input
+                            type="datetime-local"
+                            value={pickupDatetime}
+                            onChange={(e) => setPickupDatetime(e.target.value)}
+                            className="mt-1 h-9 text-sm"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* 备注 */}
+                <div className="mb-4">
+                  <Label className="text-sm">备注说明</Label>
                   <Textarea
-                    value={shippingRequestNote}
-                    onChange={(e) => setShippingRequestNote(e.target.value)}
-                    placeholder="请说明发货地址、运输方式等要求..."
-                    className="mt-1 min-h-[120px] text-sm"
+                    value={shippingNote}
+                    onChange={(e) => setShippingNote(e.target.value)}
+                    placeholder="请说明您的特殊要求..."
+                    className="mt-1 min-h-[80px] text-sm"
                   />
                 </div>
+
+                {/* 付款金额补正 */}
+                {paymentAmount > 0 && (
+                  <div className="mb-4 bg-orange-50 border border-orange-200 rounded-lg p-3 space-y-2">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-orange-800">
+                      <CreditCard className="w-4 h-4" />
+                      付款金额补正
+                    </div>
+                    <div className="flex justify-between text-xs text-orange-700">
+                      <span>订单待补款</span>
+                      <span>¥{(order.supplement_amount || 0).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between text-xs text-orange-700">
+                      <span>{shippingMethodType === "domestic" ? "运输费用" : "自提点服务费"}</span>
+                      <span>¥{(paymentAmount - (order.supplement_amount || 0)).toLocaleString()}</span>
+                    </div>
+                    <div className="border-t border-orange-200 pt-2 flex justify-between text-sm font-bold text-orange-900">
+                      <span>合计应付</span>
+                      <span>¥{paymentAmount.toLocaleString()}</span>
+                    </div>
+                    <div>
+                      <Label className="text-xs">支付方式</Label>
+                      <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                        <SelectTrigger className="mt-1 h-8 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="alipay">支付宝</SelectItem>
+                          <SelectItem value="wechatpay">微信支付</SelectItem>
+                          <SelectItem value="paypay">PayPay</SelectItem>
+                          <SelectItem value="credit">记账</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                )}
+
+                <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-xs text-blue-700">
+                  <p>提交后订单状态将更新为"已发货"（日本发货）或等待管理员确认（自提）。</p>
+                  <p className="mt-1">管理员会审核您的发货申请并尽快处理。</p>
+                </div>
               </div>
+
               <div className="px-6 py-3 border-t flex gap-2 justify-end">
                 <Button variant="outline" size="sm" onClick={() => setShowShippingRequestModal(false)} disabled={submittingShippingRequest}>
                   取消
                 </Button>
-                <Button size="sm" className="bg-teal-600 hover:bg-teal-700" onClick={handleShippingRequestSubmit} disabled={submittingShippingRequest || !shippingRequestNote.trim()}>
-                  {submittingShippingRequest ? <><Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />提交中...</> : <><Send className="w-3.5 h-3.5 mr-1" />提交申请</>}
+                <Button 
+                  size="sm" 
+                  className="bg-teal-600 hover:bg-teal-700 text-white" 
+                  onClick={handleShippingRequestSubmit} 
+                  disabled={submittingShippingRequest || (shippingMethodType === "domestic" && !selectedShippingMethod) || (shippingMethodType === "pickup" && !selectedPickupLocation) || !shippingNote.trim()}
+                >
+                  {submittingShippingRequest ? (<><Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />提交中...</>) : (<><Send className="w-3.5 h-3.5 mr-1" />提交申请{paymentAmount > 0 ? ` · 支付 ¥${paymentAmount.toLocaleString()}` : ""}</>)}
                 </Button>
               </div>
             </div>
