@@ -167,8 +167,24 @@ export default function AdminTicketOrders() {
           }
           
           if (dateValue) {
-            if (from) matchDateRange = dateValue >= from;
-            if (to) matchDateRange = matchDateRange && dateValue <= to;
+            // Convert user's date strings to Date objects with proper timezone handling
+            // from/to are local date strings (e.g., "2024-01-15" or "2024-01-15T10:30")
+            // We need to compare in user's local timezone
+            const fromDate = from ? new Date(from) : null;
+            const toDate = to ? new Date(to) : null;
+            
+            if (fromDate) matchDateRange = dateValue >= fromDate;
+            if (toDate && matchDateRange) {
+              // For "to" date, include the entire day by setting to end of day
+              if (to && !to.includes('T')) {
+                // Date-only input: set to end of day (23:59:59)
+                const endDate = new Date(toDate);
+                endDate.setHours(23, 59, 59, 999);
+                matchDateRange = dateValue <= endDate;
+              } else {
+                matchDateRange = dateValue <= toDate;
+              }
+            }
           } else {
             matchDateRange = false;
           }
