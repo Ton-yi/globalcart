@@ -134,10 +134,20 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
     (ticketData.sales_method === "first_come" || ticketData.sales_method === "other") &&
     (ticketData.ticketing_method === "electronic" || ticketData.ticketing_method === "ticket_number");
   
-  const shouldShowPaperTicketButton = isAccepted && 
+  // 先着/other + 紙チケット → 已受理时显示上传票图片按钮
+  // 抽選 + 紙チケット → 待抽选结果状态时也显示上传票图片按钮（上传后→已购买待入库）
+  const shouldShowPaperTicketButton = (
+    isAccepted &&
     (ticketData.sales_method === "first_come" || ticketData.sales_method === "other") &&
-    ticketData.ticketing_method === "paper";
-  
+    ticketData.ticketing_method === "paper"
+  ) || (
+    isAdmin &&
+    order.ticket_status === "awaiting_lottery_result" &&
+    ticketData.sales_method === "lottery" &&
+    ticketData.ticketing_method === "paper"
+  );
+
+  // 抽選 → 已受理时显示上传抽选截图按钮（紙チケット的抽選在 awaiting_lottery_result 改用上方 paper 按钮）
   const shouldShowLotteryButton = isAccepted && ticketData.sales_method === "lottery";
   const shouldShowWarehouseButton = order.ticket_status === "purchased_pending_warehouse" && isAdmin;
 
