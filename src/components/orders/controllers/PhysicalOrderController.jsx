@@ -264,7 +264,7 @@ export const PhysicalOrderController = {
    * 数据过滤逻辑
    */
   filterData: (orders, filters) => {
-    const { statusFilter, search, userProfileMap, showArchived } = filters || {};
+    const { statusFilter, search, userProfileMap, showArchived, storeTagFilter, storeTagRules, weightFilter, itemSizeFilter, replyFilter, dateRangeFilter } = filters || {};
     
     return orders.filter(o => {
       // 存档过滤
@@ -273,19 +273,68 @@ export const PhysicalOrderController = {
       if (o.split_index === -1) return false;
       
       // 状态过滤
-      const matchStatus = statusFilter === "all" || o.order_status === statusFilter;
+      if (statusFilter !== "all" && o.order_status !== statusFilter) return false;
       
       // 搜索过滤
       const q = search?.toLowerCase() || "";
-      const displayName = (userProfileMap?.[o.user_email]?.display_name || o.user_name || "").toLowerCase();
-      const matchSearch = !q ||
-        (o.product_name || "").toLowerCase().includes(q) ||
-        (o.order_number || "").toLowerCase().includes(q) ||
-        (o.user_email || "").toLowerCase().includes(q) ||
-        (o.user_name || "").toLowerCase().includes(q) ||
-        displayName.includes(q);
+      if (q) {
+        const displayName = (userProfileMap?.[o.user_email]?.display_name || o.user_name || "").toLowerCase();
+        const matchSearch =
+          (o.product_name || "").toLowerCase().includes(q) ||
+          (o.order_number || "").toLowerCase().includes(q) ||
+          (o.user_email || "").toLowerCase().includes(q) ||
+          (o.user_name || "").toLowerCase().includes(q) ||
+          displayName.includes(q);
+        if (!matchSearch) return false;
+      }
+
+      // 商城标签过滤
+      if (storeTagFilter && storeTagFilter !== "all") {
+        const firstUrl = (o.product_url || "").split("\n").map(s => s.trim()).filter(Boolean)[0] || "";
+        const tagResult = matchStoreTagResult(firstUrl, storeTagRules || []);
+        if (tagResult.tag_label !== storeTagFilter) return false;
+      }
+
+      // 订单重量过滤
+      if (weightFilter && weightFilter !== "all") {
+        const w = o.weight_g || 0;
+        if (weightFilter === "0-100" && !(w >= 0 && w < 100)) return false;
+        if (weightFilter === "100-500" && !(w >= 100 && w < 500)) return false;
+        if (weightFilter === "500-1000" && !(w >= 500 && w < 1000)) return false;
+        if (weightFilter === "1000+" && !(w >= 1000)) return false;
+      }
+
+      // 物品尺寸过滤
+      if (itemSizeFilter && itemSizeFilter !== "all") {
+        if (itemSizeFilter === "未设置") {
+          if (o.item_size_title) return false;
+        } else {
+          if ((o.item_size_title || "") !== itemSizeFilter) return false;
+        }
+      }
+
+      // 回复状态过滤
+      if (replyFilter && replyFilter !== "all") {
+        const hasUnread = (o.unread_roles || []).includes("admin");
+        const hasMsgs = (o.messages || []).length > 0;
+        if (replyFilter === "unread" && !hasUnread) return false;
+        if (replyFilter === "has_message" && !hasMsgs) return false;
+        if (replyFilter === "no_message" && hasMsgs) return false;
+      }
+
+      // 日期段过滤
+      if (dateRangeFilter && (dateRangeFilter.from || dateRangeFilter.to)) {
+        const { field, from, to } = dateRangeFilter;
+        // For created_date / submit_date use created_date; for date fields use the field directly
+        const raw = field === "submit_date" ? o.created_date : o[field];
+        if (!raw) return false;
+        // Normalize to date string YYYY-MM-DD
+        const dateStr = raw.length > 10 ? raw.slice(0, 10) : raw;
+        if (from && dateStr < from) return false;
+        if (to && dateStr > to) return false;
+      }
       
-      return matchStatus && matchSearch;
+      return true;
     });
   },
 

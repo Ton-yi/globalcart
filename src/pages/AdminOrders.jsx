@@ -4,7 +4,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Package, Ticket } from "lucide-react";
 import AdminTicketOrders from "@/pages/AdminTicketOrders";
 import { orderRegistry } from "@/lib/orderRegistry";
-import { Search, RefreshCw, Filter, ChevronUp, ChevronDown, ChevronsUpDown, Trash2, AlertCircle, Layers, Send, LayoutList, Archive, ArchiveRestore, Scissors } from "lucide-react";
+import { Search, RefreshCw, Filter, ChevronUp, ChevronDown, ChevronsUpDown, Trash2, AlertCircle, Layers, Send, LayoutList, Archive, ArchiveRestore, Scissors, X } from "lucide-react";
+import DateRangeFilter from "@/components/orders/DateRangeFilter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -80,6 +81,13 @@ export default function AdminOrders() {
   const [selectedPool, setSelectedPool] = useState(null);
   const [showArchived, setShowArchived] = useState(false);
   const { pageSize, setPageSize, currentPage, setCurrentPage, resetPage, PAGE_SIZES } = usePageSize("admin_orders_page_size", 20);
+  // 额外筛选条件
+  const [storeTagFilter, setStoreTagFilter] = useState("all");
+  const [weightFilter, setWeightFilter] = useState("all"); // "all" | "0-100" | "100-500" | "500-1000" | "1000+"
+  const [itemSizeFilter, setItemSizeFilter] = useState("all");
+  const [replyFilter, setReplyFilter] = useState("all"); // "all" | "unread" | "has_message" | "no_message"
+  const [dateRangeFilter, setDateRangeFilter] = useState(null); // { field, from, to }
+
   const [showFullpaySettlement, setShowFullpaySettlement] = useState(false);
   const [selectedFullpayOrder, setSelectedFullpayOrder] = useState(null);
   const [settlementData, setSettlementData] = useState(null);
@@ -149,7 +157,7 @@ export default function AdminOrders() {
 
   // 使用控制器的 filterData 方法过滤实物订单
   const physicalOrders = physicalController?.filterData
-    ? physicalController.filterData(orders, { statusFilter, search, userProfileMap, showArchived })
+    ? physicalController.filterData(orders, { statusFilter, search, userProfileMap, showArchived, storeTagFilter, storeTagRules, weightFilter, itemSizeFilter, replyFilter, dateRangeFilter })
     : orders.filter(o => {
         if (showArchived ? !o.is_archived : !!o.is_archived) return false;
         if (o.split_index === -1) return false;
@@ -312,34 +320,108 @@ export default function AdminOrders() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-2 items-center">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-          <Input placeholder="搜索订单号、商品名、用户..." className="pl-8 h-8 text-sm"
-            value={search} onChange={e => setSearch(e.target.value)} />
+      <div className="space-y-2">
+        {/* Row 1: search + status + group */}
+        <div className="flex flex-wrap gap-2 items-center">
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+            <Input placeholder="搜索订单号、商品名、用户..." className="pl-8 h-8 text-sm"
+              value={search} onChange={e => setSearch(e.target.value)} />
+          </div>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-40 h-8 text-sm">
+              <Filter className="w-3.5 h-3.5 mr-1.5 text-gray-400" />
+              <SelectValue placeholder="所有状态" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">所有状态</SelectItem>
+              {ALL_STATUSES.map(s => <SelectItem key={s.v} value={s.v}>{s.l}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={groupBy} onValueChange={v => { setGroupBy(v); setCollapsedGroups({}); }}>
+            <SelectTrigger className="w-36 h-8 text-sm">
+              <LayoutList className="w-3.5 h-3.5 mr-1.5 text-gray-400" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">不分组</SelectItem>
+              <SelectItem value="user_name">按用户名</SelectItem>
+              <SelectItem value="order_status">按订单状态</SelectItem>
+              <SelectItem value="online_store_tag">按商城标签</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-40 h-8 text-sm">
-            <Filter className="w-3.5 h-3.5 mr-1.5 text-gray-400" />
-            <SelectValue placeholder="所有状态" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">所有状态</SelectItem>
-            {ALL_STATUSES.map(s => <SelectItem key={s.v} value={s.v}>{s.l}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={groupBy} onValueChange={v => { setGroupBy(v); setCollapsedGroups({}); }}>
-          <SelectTrigger className="w-36 h-8 text-sm">
-            <LayoutList className="w-3.5 h-3.5 mr-1.5 text-gray-400" />
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">不分组</SelectItem>
-            <SelectItem value="user_name">按用户名</SelectItem>
-            <SelectItem value="order_status">按订单状态</SelectItem>
-            <SelectItem value="online_store_tag">按商城标签</SelectItem>
-          </SelectContent>
-        </Select>
+
+        {/* Row 2: additional filters flat */}
+        <div className="flex flex-wrap gap-2 items-center">
+          {/* 商城标签 */}
+          <Select value={storeTagFilter} onValueChange={setStoreTagFilter}>
+            <SelectTrigger className="h-8 text-xs w-36">
+              <SelectValue placeholder="商城标签" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">所有商城</SelectItem>
+              {[...new Set(storeTagRules.map(r => r.tag_label).filter(Boolean))].map(tag => (
+                <SelectItem key={tag} value={tag}>{tag}</SelectItem>
+              ))}
+              <SelectItem value="其它">其它</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* 订单重量 */}
+          <Select value={weightFilter} onValueChange={setWeightFilter}>
+            <SelectTrigger className="h-8 text-xs w-32">
+              <SelectValue placeholder="订单重量" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">所有重量</SelectItem>
+              <SelectItem value="0-100">0–100g</SelectItem>
+              <SelectItem value="100-500">100–500g</SelectItem>
+              <SelectItem value="500-1000">500–1000g</SelectItem>
+              <SelectItem value="1000+">1000g 以上</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* 物品尺寸 */}
+          <Select value={itemSizeFilter} onValueChange={setItemSizeFilter}>
+            <SelectTrigger className="h-8 text-xs w-32">
+              <SelectValue placeholder="物品尺寸" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">所有尺寸</SelectItem>
+              {[...new Set(itemSizeTemplates.map(t => t.title || t.name).filter(Boolean))].map(name => (
+                <SelectItem key={name} value={name}>{name}</SelectItem>
+              ))}
+              <SelectItem value="未设置">未设置</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* 回复状态 */}
+          <Select value={replyFilter} onValueChange={setReplyFilter}>
+            <SelectTrigger className="h-8 text-xs w-32">
+              <SelectValue placeholder="回复状态" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">所有回复</SelectItem>
+              <SelectItem value="unread">有新消息</SelectItem>
+              <SelectItem value="has_message">有留言</SelectItem>
+              <SelectItem value="no_message">无留言</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* 日期段筛选 */}
+          <DateRangeFilter value={dateRangeFilter} onChange={setDateRangeFilter} />
+
+          {/* 清除所有额外筛选 */}
+          {(storeTagFilter !== "all" || weightFilter !== "all" || itemSizeFilter !== "all" || replyFilter !== "all" || dateRangeFilter) && (
+            <button
+              onClick={() => { setStoreTagFilter("all"); setWeightFilter("all"); setItemSizeFilter("all"); setReplyFilter("all"); setDateRangeFilter(null); }}
+              className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 h-8 px-1"
+            >
+              <X className="w-3 h-3" />清除筛选
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Bulk actions */}
