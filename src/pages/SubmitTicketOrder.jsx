@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -7,7 +7,6 @@ import { createPageUrl } from "@/utils";
 import { Ticket, Lock, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -15,6 +14,7 @@ import { toast } from "sonner";
 import TicketRequestFields from "@/components/tickets/TicketRequestFields";
 import TicketPrepaySummary from "@/components/tickets/TicketPrepaySummary";
 import PaymentMethodSelector from "@/components/common/PaymentMethodSelector";
+import RichTextInput from "@/components/common/RichTextInput";
 import { calcTicketPrepaidTotal, TICKETING_METHODS } from "@/lib/ticketConfig";
 
 export default function SubmitTicketOrder() {
@@ -28,7 +28,10 @@ export default function SubmitTicketOrder() {
   const [paymentMethods, setPaymentMethods] = useState([]);
   const [paymentMethod, setPaymentMethod] = useState(null);
   const [submitting, setSubmitting] = useState(false);
-  const [form, setForm] = useState({ order_name: "", user_note: "" });
+  // order_name can be manually overridden after performance_name auto-fill
+  const [orderNameManual, setOrderNameManual] = useState(false);
+  const [orderName, setOrderName] = useState("");
+  const [userNote, setUserNote] = useState("");
   const [ticketData, setTicketData] = useState({ account_count: 1, seats: [] });
 
   useEffect(() => {
@@ -42,50 +45,144 @@ export default function SubmitTicketOrder() {
     }).catch(() => setLoading(false));
   }, []);
 
-  const setTd = (patch) => setTicketData(prev => ({ ...prev, ...patch }));
+  const setTd = (patch) => {
+    setTicketData(prev => {
+      const next = { ...prev, ...patch };
+      // auto-fill order name from performance_name unless manually overridden
+      if (patch.performance_name !== undefined && !orderNameManual) {
+        setOrderName(patch.performance_name || "");
+      }
+      return next;
+    });
+  };
 
-  const validate = () => {
-    // 販売方法、発券方式 始终必填（不受 field_visibility 配置影响）
-    if (!ticketData.sales_method) { toast.error("请选择販売方法"); return false; }
-    if (!ticketData.ticketing_method) { toast.error("请选择発券方式"); return false; }
-    if (!ticketData.seats?.length) { toast.error("请至少添加一个席种"); return false; }
-    // 其他 required 字段校验（通过 field_visibility）
+  // ── Time validation ────────────────────────────────────────────────────────
+  const timeErrors = useMemo(() => {
+    const errors = {};
+    const now = new Date();
+    const p = (v) => v ? new Date(v) : null;
+    const nowStr = now.toISOString().slice(0, 16);
+
+    const fields = {
+      performance_datetime: ticketData.performance_datetime,
+      sales_start_time: ticketData.sales_start_time,
+      sales_end_time: ticketData.sales_end_time,
+      lottery_result_time: ticketData.lottery_result_time,
+    };
+
+    // All fields must not be earlier than now
+    for (const [k, v] of Object.entries(fields)) {
+      if (v && new Date(v) < now) {
+        const labels = {
+          performance_datetime: "開演日時",
+          sales_start_time: ticketData.sales_method === "lottery" ? "抽選開始" : "販売開始",
+          sales_end_time: ticketData.sales_method === "lottery" ? "抽選終了" : "販売終了",
+          lottery_result_time: "結果発表",
+        };
+        errors[k] = `${labels[k]}不能早于当前时间`;
+      }
+    }
+
+    // 販売開始 ≤ 販売終了
+    if (ticketData.sales_start_time && ticketData.sales_end_time) {
+      if (new Date(ticketData.sales_end_time) <= new Date(ticketData.sales_start_time)) {
+        const endLabel = ticketData.sales_method === "lottery" ? "抽選終了" : "販売終了";
+        const startLabel = ticketData.sales_method === "lottery" ? "抽選開始" : "販売開始";
+        errors.sales_end_time = `${endLabel}不得早于${startLabel}`;
+      }
+    }
+
+    // 販売終了 ≤ 開演日時
+    if (ticketData.sales_end_time && ticketData.performance_datetime) {
+      if (new Date(ticketData.performance_datetime) <= new Date(ticketData.sales_end_time)) {
+        errors.performance_datetime = `開演日時不得早于${ticketData.sales_method === "lottery" ? "抽選終了" : "販売終了"}`;
+      }
+    }
+
+    // 結果発表 ≥ 販売終了（抽选）
+    if (ticketData.lottery_result_time && ticketData.sales_end_time) {
+      if (new Date(ticketData.lottery_result_time) <= new Date(ticketData.sales_end_time)) {
+        errors.lottery_result_time = "結果発表不得早于抽選終了";
+      }
+    }
+
+    return errors;
+  }, [ticketData]);
+
+  const hasTimeErrors = Object.keys(timeErrors).length > 0;
+
+  // ── Missing required fields ───────────────────────────────────────────────
+  const missingFields = useMemo(() => {
+    const missing = [];
     const vis = config?.field_visibility || {};
     const req = (k) => vis[k] === "required";
-    if (req("prefecture") && !ticketData.prefecture) { toast.error("请填写都道府県"); return false; }
-    if (req("performance_datetime") && !ticketData.performance_datetime) { toast.error("请填写開演日時"); return false; }
-    if (req("performance_name") && !ticketData.performance_name) { toast.error("请填写演出名"); return false; }
-    if (req("purchase_link") && !ticketData.purchase_link) { toast.error("请填写购买链接"); return false; }
-    // 最低追加料金校验
+
+    if (!ticketData.sales_method) missing.push("販売方法");
+    if (!ticketData.ticketing_method) missing.push("発券方式");
+    if (!ticketData.seats?.length || ticketData.seats.every(s => !s.seat_type)) missing.push("席种（至少一条）");
+
+    if (req("prefecture") && !ticketData.prefecture) missing.push("都道府県");
+    if (req("performance_datetime") && !ticketData.performance_datetime) missing.push("開演日時");
+    if (req("performance_name") && !ticketData.performance_name) missing.push("演出名");
+    if (req("purchase_link") && !ticketData.purchase_link) missing.push("购买链接");
+    if (req("sales_start_time") && !ticketData.sales_start_time) missing.push(ticketData.sales_method === "lottery" ? "抽選開始" : "販売開始");
+    if (req("sales_end_time") && !ticketData.sales_end_time) missing.push(ticketData.sales_method === "lottery" ? "抽選終了" : "販売終了");
+    if (req("lottery_result_time") && ticketData.sales_method === "lottery" && !ticketData.lottery_result_time) missing.push("結果発表");
+
+    // Fee checks
     const method = ticketData.ticketing_method;
     const minFee = config?.min_additional_fee?.[method] ?? 0;
-    if (method && (parseFloat(ticketData.additional_fee_jpy) || 0) < minFee) {
-      toast.error(`${TICKETING_METHODS.find(m => m.value === method)?.label} 的追加料金不得低于 ¥${minFee}`);
-      return false;
+    if (method && minFee > 0 && (parseFloat(ticketData.additional_fee_jpy) || 0) < minFee) {
+      missing.push(`追加料金（最低 ¥${minFee}）`);
     }
     if (ticketData.sales_method === "lottery") {
       const minBonus = config?.min_lottery_win_bonus ?? 0;
-      if ((parseFloat(ticketData.lottery_win_bonus_jpy) || 0) < minBonus) {
-        toast.error(`抽中追加报酬不得低于 ¥${minBonus}`); return false;
+      if (minBonus > 0 && (parseFloat(ticketData.lottery_win_bonus_jpy) || 0) < minBonus) {
+        missing.push(`抽中追加报酬（最低 ¥${minBonus}）`);
       }
     }
-    return true;
+
+    return missing;
+  }, [ticketData, config]);
+
+  const canFormSubmit = canSubmit && missingFields.length === 0 && !hasTimeErrors && calcTicketPrepaidTotal(ticketData) > 0;
+
+  // ── Build fee breakdown for payment page ─────────────────────────────────
+  const buildFeeBreakdown = () => {
+    const seats = ticketData.seats || [];
+    const accountCount = parseFloat(ticketData.account_count) || 1;
+    const additional = parseFloat(ticketData.additional_fee_jpy) || 0;
+    const lotteryBonus = parseFloat(ticketData.lottery_win_bonus_jpy) || 0;
+    const seatLines = seats.map(s => ({
+      label: `${s.seat_type || "席种"} × ${s.quantity || 0} × ${accountCount}账户`,
+      amount: Math.round((parseFloat(s.quantity) || 0) * (parseFloat(s.price_jpy) || 0) * accountCount),
+    }));
+    const lines = [...seatLines];
+    if (additional > 0) lines.push({ label: "追加料金", amount: additional });
+    const prepay = calcTicketPrepaidTotal(ticketData);
+    const prepayEnabled = config?.prepay_enabled !== false;
+    let prepayRate = parseFloat(config?.prepay_rate);
+    if (isNaN(prepayRate) || prepayRate <= 0 || prepayRate > 100) prepayRate = 100;
+    const finalPrepay = Math.round(prepay * (prepayEnabled ? prepayRate : 100) / 100);
+    return { lines, total: finalPrepay, prepayRate: prepayEnabled ? prepayRate : 100 };
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!validate()) return;
+    if (!canFormSubmit) return;
     setSubmitting(true);
     try {
+      const feeBreakdown = buildFeeBreakdown();
       const res = await base44.functions.invoke("createTenantOrder", {
         order_type: 'ticket',
-        product_name: form.order_name || ticketData.performance_name || "票务需求",
+        product_name: orderName || ticketData.performance_name || "票务需求",
         quantity: 1,
         user_email: user.email,
         user_name: user.full_name || user.email,
-        user_note: form.user_note || "",
+        user_note: userNote || "",
         payment_method: paymentMethod?.value || null,
         prepayment_currency: paymentMethod?.payment_currency || "JPY",
+        product_image_url: ticketData.product_image_url || null,
         ticket_data: {
           ...ticketData,
           account_count: parseFloat(ticketData.account_count) || 1,
@@ -101,7 +198,9 @@ export default function SubmitTicketOrder() {
       const order = res.data?.order;
       if (!order) throw new Error(res.data?.error || "提交失败");
       const selectedCurrency = paymentMethod?.payment_currency || "JPY";
-      navigate(`${createPageUrl("Payment")}?order_id=${order.id}&method=${paymentMethod?.value || "other"}&pay_currency=${selectedCurrency}`);
+      // Encode fee breakdown in URL for payment page display
+      const breakdownEncoded = encodeURIComponent(JSON.stringify(feeBreakdown));
+      navigate(`${createPageUrl("Payment")}?order_id=${order.id}&method=${paymentMethod?.value || "other"}&pay_currency=${selectedCurrency}&ticket_breakdown=${breakdownEncoded}`);
     } catch (err) {
       toast.error(err.message);
       setSubmitting(false);
@@ -138,16 +237,35 @@ export default function SubmitTicketOrder() {
             <CardTitle className="text-sm font-semibold text-gray-700">需求信息</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 pt-4">
-            <div>
-              <Label className="text-sm font-medium">订单名（方便辨认）</Label>
-              <Input className="mt-1 text-sm" placeholder="如 演唱会-S席x2"
-                value={form.order_name} onChange={e => setForm(f => ({ ...f, order_name: e.target.value }))} />
+            <TicketRequestFields
+              data={ticketData}
+              onChange={setTd}
+              config={config}
+              timeErrors={timeErrors}
+            />
+            {/* 订单名：performance_name 自动填充，可手动修改 */}
+            <div className="border-t border-gray-100 pt-3">
+              <Label className="text-sm font-medium">订单名（方便辨认，可修改）</Label>
+              <Input
+                className="mt-1 text-sm"
+                placeholder="如 演唱会-S席x2"
+                value={orderName}
+                onChange={e => {
+                  setOrderNameManual(true);
+                  setOrderName(e.target.value);
+                }}
+              />
             </div>
-            <TicketRequestFields data={ticketData} onChange={setTd} config={config} />
+            {/* 备注 */}
             <div className="border-t border-gray-100 pt-3">
               <Label className="text-sm font-medium mb-2 block">备注（可选）</Label>
-              <Textarea rows={2} className="text-sm" placeholder="其他特殊说明..."
-                value={form.user_note} onChange={e => setForm(f => ({ ...f, user_note: e.target.value }))} />
+              <RichTextInput
+                value={userNote}
+                onChange={setUserNote}
+                placeholder="其他特殊说明..."
+                maxImages={3}
+                rows={2}
+              />
             </div>
           </CardContent>
         </Card>
@@ -162,11 +280,27 @@ export default function SubmitTicketOrder() {
         </Card>
 
         {canSubmit ? (
-          <Button type="submit" disabled={submitting || prepaid <= 0}
-            className="w-full bg-violet-600 hover:bg-violet-700">
-            <Ticket className="w-4 h-4 mr-2" />
-            {submitting ? "提交中..." : "提交并前往付款"}
-          </Button>
+          <>
+            <Button
+              type="submit"
+              disabled={!canFormSubmit || submitting}
+              className="w-full bg-violet-600 hover:bg-violet-700 disabled:opacity-50"
+            >
+              <Ticket className="w-4 h-4 mr-2" />
+              {submitting ? "提交中..." : "提交并前往付款"}
+            </Button>
+            {/* Missing fields hint */}
+            {(missingFields.length > 0 || hasTimeErrors) && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 space-y-1">
+                {missingFields.length > 0 && (
+                  <p>以下必填项目尚未完成：<span className="font-medium">{missingFields.join("、")}</span></p>
+                )}
+                {hasTimeErrors && (
+                  <p>请修正上方时间错误后再提交。</p>
+                )}
+              </div>
+            )}
+          </>
         ) : (
           <Button type="button" disabled className="w-full bg-gray-400">
             <Lock className="w-4 h-4 mr-2" />您没有权限提交购买需求

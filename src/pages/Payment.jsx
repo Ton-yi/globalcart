@@ -22,6 +22,12 @@ export default function Payment() {
   const orderId = urlParams.get("order_id");
   const method = urlParams.get("method") || "alipay";
   const urlPayCurrency = urlParams.get("pay_currency") || null;
+  // Ticket fee breakdown passed from SubmitTicketOrder
+  const ticketBreakdown = (() => {
+    const raw = urlParams.get("ticket_breakdown");
+    if (!raw) return null;
+    try { return JSON.parse(decodeURIComponent(raw)); } catch { return null; }
+  })();
 
   const [order, setOrder] = useState(null);
   const [settings, setSettings] = useState({});
@@ -209,6 +215,32 @@ export default function Payment() {
             {isSupplement && (
               <div className="bg-orange-50 border border-orange-200 rounded-lg px-3 py-2 text-xs text-orange-700">
                 本次为补款：管理员已确认需补差额，付款后将累计入订单已付金额
+              </div>
+            )}
+
+            {/* Ticket fee breakdown */}
+            {ticketBreakdown && ticketBreakdown.lines?.length > 0 && (
+              <div className="bg-violet-50 border border-violet-200 rounded-lg px-4 py-3 space-y-2">
+                <div className="text-sm font-semibold text-violet-800">票务费用明细</div>
+                <div className="space-y-1 text-sm">
+                  {ticketBreakdown.lines.map((line, i) => (
+                    <div key={i} className="flex justify-between text-violet-700">
+                      <span>{line.label}</span>
+                      <span>¥{Math.round(line.amount).toLocaleString()}</span>
+                    </div>
+                  ))}
+                  {ticketBreakdown.prepayRate < 100 && (
+                    <div className="flex justify-between text-violet-600 text-xs border-t border-violet-200 pt-1">
+                      <span>预付比例（{ticketBreakdown.prepayRate}%）</span>
+                      <span />
+                    </div>
+                  )}
+                  <div className="border-t border-violet-200 pt-1 flex justify-between font-bold text-violet-800">
+                    <span>应付预付款</span>
+                    <span>¥{Math.round(ticketBreakdown.total).toLocaleString()}</span>
+                  </div>
+                </div>
+                <p className="text-xs text-violet-600">抢票/抽票结束后，按实际购票数量退还差价</p>
               </div>
             )}
 

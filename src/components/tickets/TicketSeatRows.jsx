@@ -1,21 +1,51 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Plus, X } from "lucide-react";
+import { Plus, X, HelpCircle } from "lucide-react";
 
 /**
  * 席种 - 数量 - 料金 明细编辑
  * 席种支持从预设列表快速选取，也可自行输入。
- * value: [{ seat_type, quantity, price_jpy }]
+ * accountCount 和 onAccountCountChange 将账户数内联到标题行右侧
  */
-export default function TicketSeatRows({ seats, onChange, seatPresets = [], required }) {
+export default function TicketSeatRows({
+  seats, onChange, seatPresets = [], required,
+  accountCount, onAccountCountChange, isLottery, showAccountCount,
+}) {
   const update = (idx, patch) => onChange(seats.map((s, i) => i === idx ? { ...s, ...patch } : s));
   const add = () => onChange([...seats, { seat_type: "", quantity: 1, price_jpy: "" }]);
   const remove = (idx) => onChange(seats.filter((_, i) => i !== idx));
 
+  const placeholder = isLottery ? "期望抽票账户数（每账户各抽一次）" : "期望抢票人数（同时抢票）";
+
   return (
     <div className="space-y-2">
-      <Label className="text-sm font-medium">席種 · 数量 · 料金{required && <span className="text-red-500 ml-0.5">*</span>}</Label>
+      {/* 标题行：席种标签 + 右侧账户数/抢票人数输入 */}
+      <div className="flex items-center justify-between gap-3">
+        <Label className="text-sm font-medium whitespace-nowrap">
+          席種 · 数量 · 料金{required && <span className="text-red-500 ml-0.5">*</span>}
+        </Label>
+        {showAccountCount && onAccountCountChange && (
+          <div className="flex items-center gap-1.5">
+            <Input
+              type="number"
+              min="1"
+              className="h-7 w-24 text-sm text-right"
+              placeholder={placeholder}
+              value={accountCount ?? 1}
+              onChange={e => onAccountCountChange(e.target.value)}
+            />
+            <div className="group relative">
+              <HelpCircle className="w-4 h-4 text-gray-400 cursor-help flex-shrink-0" />
+              <div className="absolute right-0 top-6 w-56 bg-gray-800 text-white text-xs rounded-lg p-2.5 hidden group-hover:block z-50 shadow-lg leading-relaxed">
+                {isLottery
+                  ? "期望参与抽选的账户数量。每个账户将独立参与抽选，总预付金额 = 席种总价 × 账户数。"
+                  : "同时参与抢票的人数。总预付金额 = 席种总价 × 人数。"}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* 席种预设快捷选取 */}
       {seatPresets.length > 0 && (
