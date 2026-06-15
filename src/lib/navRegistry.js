@@ -15,6 +15,7 @@ export const NAV_REGISTRY = {
     SubmitTicketOrder: { label: "票务需求", icon: Ticket, page: "SubmitTicketOrder" },
     GroupBuy: { label: "拼下单", icon: UserPlus, page: "GroupBuy" },
     MyOrders: { label: "我的订单", icon: Package, page: "MyOrders" },
+    MyOrdersTicket: { label: "我的票务需求", icon: Ticket, page: "MyOrders?tab=ticket" },
     ShippingPool: { label: "发货 & 拼邮", icon: Send, page: "ShippingPool" },
     Profile: { label: "个人档案", icon: User, page: "AdminUserDetail/me" },
     MemberTiers: { label: "会员阶级", icon: Crown, page: "MemberTiers" },
@@ -27,6 +28,7 @@ export const NAV_REGISTRY = {
     // 管理员功能入口
     AdminDashboard: { label: "管理总览", icon: BarChart3, page: "AdminDashboard" },
     AdminOrders: { label: "订单管理", icon: Package, page: "AdminOrders" },
+    AdminOrdersTicket: { label: "票务订单", icon: Ticket, page: "AdminOrders?tab=ticket" },
     AdminShippingPool: { label: "发货池", icon: Send, page: "AdminShippingPool" },
     AdminTransitWork: { label: "中转地工作面板", icon: Layers, page: "AdminTransitWork" },
     AdminUsers: { label: "用户管理", icon: Users, page: "AdminUsers" },
@@ -46,6 +48,7 @@ export const NAV_REGISTRY = {
     UserSubmitTicketOrder: { label: "票务需求", icon: Ticket, page: "SubmitTicketOrder" },
     UserGroupBuy: { label: "拼下单", icon: UserPlus, page: "GroupBuy" },
     UserMyOrders: { label: "我的订单（用户）", icon: Package, page: "MyOrders" },
+    UserMyOrdersTicket: { label: "我的票务需求（用户）", icon: Ticket, page: "MyOrders?tab=ticket" },
     UserShippingPool: { label: "发货 & 拼邮（用户）", icon: Send, page: "ShippingPool" },
     UserProfile: { label: "个人档案（用户）", icon: User, page: "AdminUserDetail/me" },
     UserHelpCenter: { label: "帮助中心", icon: HelpCircle, page: "helpcenter", activePage: "HelpCenter" },
@@ -59,7 +62,7 @@ export const DEFAULT_NAV_TREES = {
     { key: "ExchangeRate", hidden: true },
     { key: "UserTodo" },
     { key: "SubmitOrder", children: [{ key: "SubmitOrderPlain" }, { key: "SubmitTicketOrder" }, { key: "GroupBuy" }] },
-    { key: "MyOrders" },
+    { key: "MyOrders", children: [{ key: "MyOrdersTicket" }] },
     { key: "ShippingPool" },
     { key: "Profile", children: [{ key: "MemberTiers" }] },
     { key: "HelpCenter", hidden: true, children: [{ key: "HelpCenterFaq" }] },
@@ -67,7 +70,7 @@ export const DEFAULT_NAV_TREES = {
   admin: [
     { key: "ExchangeRate", hidden: true },
     { key: "AdminDashboard" },
-    { key: "AdminOrders" },
+    { key: "AdminOrders", children: [{ key: "AdminOrdersTicket" }] },
     { key: "AdminShippingPool", children: [{ key: "AdminTransitWork" }] },
     { key: "AdminUsers" },
     { key: "AdminSettings", children: [
@@ -82,7 +85,7 @@ export const DEFAULT_NAV_TREES = {
     // 用户入口（默认隐藏，管理员可按需开启）
     { key: "UserHome", hidden: true },
     { key: "UserSubmitOrder", hidden: true, children: [{ key: "UserSubmitOrderPlain" }, { key: "UserSubmitTicketOrder" }, { key: "UserGroupBuy" }] },
-    { key: "UserMyOrders", hidden: true },
+    { key: "UserMyOrders", hidden: true, children: [{ key: "UserMyOrdersTicket" }] },
     { key: "UserShippingPool", hidden: true },
     { key: "UserProfile", hidden: true },
     { key: "UserHelpCenter", hidden: true },

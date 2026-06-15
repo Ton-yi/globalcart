@@ -52,6 +52,11 @@ export default function AdminOrders() {
   // 获取实物订单控制器（必须在所有 useState 之前）
   const physicalController = orderRegistry.get('physical');
   
+  // 读取 URL 参数自动切换 tab
+  const urlParams = new URLSearchParams(window.location.search);
+  const initialTab = urlParams.get('tab') === 'ticket' ? 'ticket' : 'physical';
+  const [activeTab, setActiveTab] = useState(initialTab);
+  
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -295,7 +300,7 @@ export default function AdminOrders() {
   };
 
   return (
-    <Tabs defaultValue="physical" className="space-y-4">
+    <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
       <TabsList>
         <TabsTrigger value="physical" className="gap-1.5"><Package className="w-3.5 h-3.5" />实物订单</TabsTrigger>
         <TabsTrigger value="ticket" className="gap-1.5"><Ticket className="w-3.5 h-3.5" />票务订单</TabsTrigger>
