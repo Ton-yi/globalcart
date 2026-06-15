@@ -32,6 +32,7 @@ export default function SubmitTicketOrder() {
   const [orderNameManual, setOrderNameManual] = useState(false);
   const [orderName, setOrderName] = useState("");
   const [userNote, setUserNote] = useState("");
+  const [noteImageUrls, setNoteImageUrls] = useState([]);
   const [ticketData, setTicketData] = useState({ account_count: 1, seats: [] });
 
   useEffect(() => {
@@ -56,53 +57,31 @@ export default function SubmitTicketOrder() {
     });
   };
 
-  // ── Time validation ────────────────────────────────────────────────────────
+  // ── Time validation (cross-field only; past-check is enforced by `min` on the input) ─────
   const timeErrors = useMemo(() => {
     const errors = {};
-    const now = new Date();
-    const p = (v) => v ? new Date(v) : null;
-    const nowStr = now.toISOString().slice(0, 16);
+    const isLottery = ticketData.sales_method === "lottery";
+    const startLabel = isLottery ? "抽選開始" : "販売開始";
+    const endLabel = isLottery ? "抽選終了" : "販売終了";
 
-    const fields = {
-      performance_datetime: ticketData.performance_datetime,
-      sales_start_time: ticketData.sales_start_time,
-      sales_end_time: ticketData.sales_end_time,
-      lottery_result_time: ticketData.lottery_result_time,
-    };
-
-    // All fields must not be earlier than now
-    for (const [k, v] of Object.entries(fields)) {
-      if (v && new Date(v) < now) {
-        const labels = {
-          performance_datetime: "開演日時",
-          sales_start_time: ticketData.sales_method === "lottery" ? "抽選開始" : "販売開始",
-          sales_end_time: ticketData.sales_method === "lottery" ? "抽選終了" : "販売終了",
-          lottery_result_time: "結果発表",
-        };
-        errors[k] = `${labels[k]}不能早于当前时间`;
-      }
-    }
-
-    // 販売開始 ≤ 販売終了
+    // 販売開始 < 販売終了
     if (ticketData.sales_start_time && ticketData.sales_end_time) {
       if (new Date(ticketData.sales_end_time) <= new Date(ticketData.sales_start_time)) {
-        const endLabel = ticketData.sales_method === "lottery" ? "抽選終了" : "販売終了";
-        const startLabel = ticketData.sales_method === "lottery" ? "抽選開始" : "販売開始";
-        errors.sales_end_time = `${endLabel}不得早于${startLabel}`;
+        errors.sales_end_time = `${endLabel}必须晚于${startLabel}`;
       }
     }
 
-    // 販売終了 ≤ 開演日時
+    // 販売終了 < 開演日時
     if (ticketData.sales_end_time && ticketData.performance_datetime) {
-      if (new Date(ticketData.performance_datetime) <= new Date(ticketData.sales_end_time)) {
-        errors.performance_datetime = `開演日時不得早于${ticketData.sales_method === "lottery" ? "抽選終了" : "販売終了"}`;
+      if (new Date(ticketData.performance_datetime) < new Date(ticketData.sales_end_time)) {
+        errors.performance_datetime = `開演日時必须晚于${endLabel}`;
       }
     }
 
-    // 結果発表 ≥ 販売終了（抽选）
-    if (ticketData.lottery_result_time && ticketData.sales_end_time) {
+    // 結果発表 > 販売終了（抽选）
+    if (isLottery && ticketData.lottery_result_time && ticketData.sales_end_time) {
       if (new Date(ticketData.lottery_result_time) <= new Date(ticketData.sales_end_time)) {
-        errors.lottery_result_time = "結果発表不得早于抽選終了";
+        errors.lottery_result_time = "結果発表必须晚于抽選終了";
       }
     }
 
@@ -180,11 +159,14 @@ export default function SubmitTicketOrder() {
         user_email: user.email,
         user_name: user.full_name || user.email,
         user_note: userNote || "",
+        note_image_url: noteImageUrls?.[0] || null,
         payment_method: paymentMethod?.value || null,
         prepayment_currency: paymentMethod?.payment_currency || "JPY",
         product_image_url: ticketData.product_image_url || null,
         ticket_data: {
           ...ticketData,
+          performance_name: ticketData.performance_name || "",
+          purchase_link: ticketData.purchase_link || "",
           account_count: parseFloat(ticketData.account_count) || 1,
           additional_fee_jpy: parseFloat(ticketData.additional_fee_jpy) || 0,
           lottery_win_bonus_jpy: parseFloat(ticketData.lottery_win_bonus_jpy) || 0,
@@ -262,6 +244,8 @@ export default function SubmitTicketOrder() {
               <RichTextInput
                 value={userNote}
                 onChange={setUserNote}
+                imageUrls={noteImageUrls}
+                onImageUrls={setNoteImageUrls}
                 placeholder="其他特殊说明..."
                 maxImages={3}
                 rows={2}

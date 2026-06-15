@@ -135,6 +135,8 @@ Deno.serve(async (req) => {
         user_email: body.user_email,
         user_name: body.user_name,
         user_note: body.user_note || '',
+        note_image_url: body.note_image_url || null,
+        product_image_url: body.product_image_url || null,
         payment_method: body.payment_method || null,
         ticket_data: {
           ...td,
