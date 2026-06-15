@@ -151,7 +151,7 @@ export default function SubmitOrder() {
     });
   };
 
-  useEffect(() => { if (form.estimated_jpy) calculate(); }, [form.estimated_jpy, selectedAddons, settings, activeRule]);
+  useEffect(() => { if (form.estimated_jpy) calculate(); }, [form.estimated_jpy, selectedAddons, addonCustomFees, settings, activeRule]);
 
   const handleProductImageUpload = async (file) => {
     if (!file) return;
@@ -184,19 +184,61 @@ export default function SubmitOrder() {
   const removeUrl = (idx) => setProductUrls((prev) => prev.filter((_, i) => i !== idx));
   const toggleAddon = (id) => {
     setSelectedAddons((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+    // Clear error when toggling off
+    if (selectedAddons.includes(id)) {
+      setAddonFeeErrors(prev => { const copy = { ...prev }; delete copy[id]; return copy; });
+    }
+  };
+
+  const validateAddonFee = (addonId, fee) => {
+    const addon = addonOptions.find(a => a.id === addonId);
+    if (!addon || !addon.is_user_customizable) return null;
+    
+    const minFee = parseFloat(addon.min_fee) || 0;
+    const maxFee = parseFloat(addon.max_fee) || Infinity;
+    
+    if (fee < minFee) return `金额不能低于 ${minFee} ${addon.fee_currency || 'JPY'}`;
+    if (maxFee > 0 && fee > maxFee) return `金额不能高于 ${maxFee} ${addon.fee_currency || 'JPY'}`;
+    return null;
+  };
+
+  const handleAddonFeeChange = (addonId, value) => {
+    const val = parseFloat(value);
+    const fee = isNaN(val) ? 0 : val;
+    
+    setAddonCustomFees(prev => ({ ...prev, [addonId]: fee }));
+    
+    // Validate and update errors
+    const error = validateAddonFee(addonId, fee);
+    setAddonFeeErrors(prev => ({
+      ...prev,
+      [addonId]: error
+    }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const hasFeeErrors = Object.entries(addonCustomFees).some(([addonId, fee]) => {
-      const addon = addonOptions.find((a) => a.id === addonId);
-      return addon && addon.is_user_customizable && selectedAddons.includes(addonId) && (
-        fee < addon.min_fee || fee > addon.max_fee);
+    // Validate all customizable addon fees
+    const validationErrors = {};
+    let hasErrors = false;
+    
+    selectedAddons.forEach(addonId => {
+      const addon = addonOptions.find(a => a.id === addonId);
+      if (addon && addon.is_user_customizable) {
+        const fee = addonCustomFees[addonId] || 0;
+        const error = validateAddonFee(addonId, fee);
+        if (error) {
+          validationErrors[addonId] = error;
+          hasErrors = true;
+        }
+      }
     });
+    
+    setAddonFeeErrors(validationErrors);
 
-    if (hasFeeErrors) {
-      alert('请确保所有自定义增值服务的金额都在指定区间内');
+    if (hasErrors) {
+      toast.error('请修正所有自定义金额的错误');
       return;
     }
 
@@ -445,21 +487,28 @@ export default function SubmitOrder() {
                             </div>
                             {opt.description && <p className="text-xs text-gray-500 mt-0.5">{opt.description}</p>}
                             {isCustomizable && isSelected && (
-                              <div className="mt-2 flex items-center gap-2">
-                                <Label className="text-xs text-gray-600">自定义金额 ({opt.min_fee || 0} - {opt.max_fee || '∞'} {feeCur})</Label>
-                                <Input
-                                  type="number"
-                                  min={opt.min_fee || 0}
-                                  max={opt.max_fee || undefined}
-                                  step="1"
-                                  placeholder={opt.fee || "0"}
-                                  value={customFee || ""}
-                                  onChange={(e) => {
-                                    const val = parseFloat(e.target.value);
-                                    setAddonCustomFees(prev => ({ ...prev, [opt.id]: isNaN(val) ? 0 : val }));
-                                  }}
-                                  className="h-7 text-xs w-32"
-                                />
+                              <div className="mt-2 space-y-1.5">
+                                <div className="flex items-center gap-2">
+                                  <Label className="text-xs text-gray-600">自定义金额 ({opt.min_fee || 0} - {opt.max_fee || '∞'} {feeCur})</Label>
+                                  <Input
+                                    type="number"
+                                    min={opt.min_fee || 0}
+                                    max={opt.max_fee || undefined}
+                                    step="1"
+                                    placeholder={opt.fee || "0"}
+                                    value={customFee !== undefined ? customFee : ""}
+                                    onChange={(e) => handleAddonFeeChange(opt.id, e.target.value)}
+                                    className={`h-7 text-xs w-32 ${
+                                      addonFeeErrors[opt.id] ? "border-red-500 focus-visible:ring-red-500" : ""
+                                    }`}
+                                  />
+                                </div>
+                                {addonFeeErrors[opt.id] && (
+                                  <p className="text-xs text-red-600 flex items-center gap-1">
+                                    <AlertTriangle className="w-3 h-3" />
+                                    {addonFeeErrors[opt.id]}
+                                  </p>
+                                )}
                               </div>
                             )}
                           </div>
@@ -580,6 +629,28 @@ export default function SubmitOrder() {
               className="w-full border-purple-300 text-purple-700 hover:bg-purple-50"
               disabled={submitting || !form.product_name || !form.estimated_jpy}
               onClick={async () => {
+                // Validate addon fees before submitting
+                const validationErrors = {};
+                let hasErrors = false;
+                
+                selectedAddons.forEach(addonId => {
+                  const addon = addonOptions.find(a => a.id === addonId);
+                  if (addon && addon.is_user_customizable) {
+                    const fee = addonCustomFees[addonId] || 0;
+                    const error = validateAddonFee(addonId, fee);
+                    if (error) {
+                      validationErrors[addonId] = error;
+                      hasErrors = true;
+                    }
+                  }
+                });
+                
+                setAddonFeeErrors(validationErrors);
+                if (hasErrors) {
+                  toast.error('请修正所有自定义金额的错误');
+                  return;
+                }
+                
                 setSubmitting(true);
                 const urlsText = urlMode === "textarea" ?
                   (productUrls[0] || "").split("\n").map((s) => s.trim()).filter(Boolean).join("\n") :
@@ -616,7 +687,10 @@ export default function SubmitOrder() {
                   selected_addon_ids: selectedAddons,
                   selected_addons: selectedAddons.map(id => {
                     const addon = addonOptions.find(a => a.id === id);
-                    return { id: addon.id, name: addon.name, fee: parseFloat(addon.fee) || 0, fee_currency: addon.fee_currency || "JPY" };
+                    const customFee = addonCustomFees[id];
+                    const isCustomizable = addon.is_user_customizable;
+                    const fee = isCustomizable && customFee !== undefined ? customFee : parseFloat(addon.fee) || 0;
+                    return { id: addon.id, name: addon.name, fee, fee_currency: addon.fee_currency || "JPY" };
                   })
                 });
                 setSubmitting(false);
