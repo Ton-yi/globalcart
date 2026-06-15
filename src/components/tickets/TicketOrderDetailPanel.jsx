@@ -71,6 +71,8 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
   const [lotteryImagePreview, setLotteryImagePreview] = useState(null);
   const [paperTicketImageFile, setPaperTicketImageFile] = useState(null);
   const [paperTicketImagePreview, setPaperTicketImagePreview] = useState(null);
+  const [warehouseImageFile, setWarehouseImageFile] = useState(null);
+  const [warehouseImagePreview, setWarehouseImagePreview] = useState(null);
 
   const ticketData = order.ticket_data || {};
   const seats = ticketData.seats || [];
@@ -137,6 +139,7 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
     ticketData.ticketing_method === "paper";
   
   const shouldShowLotteryButton = isAccepted && ticketData.sales_method === "lottery";
+  const shouldShowWarehouseButton = order.ticket_status === "purchased_pending_warehouse" && isAdmin;
 
   const handleTicketNumberSubmit = async () => {
     if (!ticketNumberInput.trim()) {
@@ -474,6 +477,128 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
               >
                 <Upload className="w-3.5 h-3.5 mr-1" />
                 {paperTicketImageFile instanceof File ? "确认上传 / 已购买待入库" : "上传票图片 / 已购买待入库"}
+              </Button>
+            </div>
+          )}
+          {shouldShowWarehouseButton && (
+            <div className="ml-auto flex items-center gap-2">
+              <div className="relative" style={{ minWidth: 160 }}>
+                <input
+                  readOnly
+                  placeholder="点击后粘贴 / 拖拽截图"
+                  value={warehouseImageFile instanceof File ? warehouseImageFile.name : ""}
+                  className={`h-8 w-full rounded-md border px-3 text-sm shadow-sm outline-none focus:ring-1 cursor-pointer ${
+                    warehouseImageFile instanceof File
+                      ? "border-green-400 bg-green-50 text-green-700 focus:ring-green-400 pr-14"
+                      : "border-input bg-background text-muted-foreground focus:ring-ring pr-3"
+                  }`}
+                  onPaste={(e) => {
+                    const items = e.clipboardData?.items;
+                    if (!items) return;
+                    for (let i = 0; i < items.length; i++) {
+                      if (items[i].type.indexOf('image') !== -1) {
+                        const file = items[i].getAsFile();
+                        if (file) {
+                          setWarehouseImageFile(file);
+                          setWarehouseImagePreview(URL.createObjectURL(file));
+                          toast.success("图片已从剪贴板加载");
+                          break;
+                        }
+                      }
+                    }
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const file = e.dataTransfer?.files?.[0];
+                    if (file && file.type.indexOf('image') !== -1) {
+                      setWarehouseImageFile(file);
+                      setWarehouseImagePreview(URL.createObjectURL(file));
+                      toast.success("图片已加载");
+                    }
+                  }}
+                  onDragOver={(e) => e.preventDefault()}
+                  onClick={async (e) => {
+                    e.currentTarget.focus();
+                    try {
+                      const items = await navigator.clipboard.read();
+                      for (const item of items) {
+                        const imageType = item.types.find(t => t.startsWith('image/'));
+                        if (imageType) {
+                          const blob = await item.getType(imageType);
+                          const file = new File([blob], `clipboard_${Date.now()}.png`, { type: imageType });
+                          setWarehouseImageFile(file);
+                          setWarehouseImagePreview(URL.createObjectURL(file));
+                          toast.success("已从剪切板加载图片");
+                          break;
+                        }
+                      }
+                    } catch {
+                      // 用户未授权剪切板或剪切板无图片，保持 focus 等待手动粘贴
+                    }
+                  }}
+                />
+                {warehouseImageFile instanceof File && (
+                  <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                    {warehouseImagePreview && <img src={warehouseImagePreview} className="h-5 w-5 object-cover rounded" />}
+                    <button
+                      className="text-green-500 hover:text-red-500 px-1 text-base leading-none"
+                      onClick={() => { setWarehouseImageFile(null); setWarehouseImagePreview(null); }}
+                    >×</button>
+                  </div>
+                )}
+              </div>
+              <input
+                id="warehouse-image-input"
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setWarehouseImageFile(file);
+                    setWarehouseImagePreview(URL.createObjectURL(file));
+                    toast.success("图片已加载");
+                  }
+                }}
+              />
+              <Button
+                size="sm"
+                onClick={async () => {
+                  if (warehouseImageFile instanceof File) {
+                    setUploadingImage(true);
+                    try {
+                      const uploadRes = await base44.integrations.Core.UploadFile({ file: warehouseImageFile });
+                      const imageUrl = uploadRes?.file_url;
+                      if (!imageUrl) { toast.error("图片上传失败"); return; }
+                      await updateOrder(order.id, {
+                        ticket_status: "in_warehouse",
+                        ticket_image_urls: [...(order.ticket_image_urls || []), imageUrl],
+                        messages: [
+                          ...(order.messages || []),
+                          { id: `warehouse_${Date.now()}`, from: "系统通知", from_email: "system@system.local",
+                            role: "admin", content: "票券图片已上传，订单状态更新为已入库/待发货",
+                            timestamp: new Date().toISOString(), is_system_notification: true,
+                            meta: { type: "warehouse_image_uploaded", image_url: imageUrl } }
+                        ],
+                        unread_roles: ["user"]
+                      });
+                      toast.success("图片已上传，订单状态已更新为已入库/待发货");
+                      onRefresh?.();
+                      onClose?.();
+                    } catch (error) {
+                      toast.error("上传失败：" + error.message);
+                    } finally {
+                      setUploadingImage(false);
+                    }
+                  } else {
+                    document.getElementById('warehouse-image-input').click();
+                  }
+                }}
+                disabled={statusUpdating || uploadingImage}
+                className="bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
+              >
+                <Upload className="w-3.5 h-3.5 mr-1" />
+                {warehouseImageFile instanceof File ? "确认上传 / 已入库待发货" : "上传图片 / 已入库待发货"}
               </Button>
             </div>
           )}
