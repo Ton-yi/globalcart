@@ -218,7 +218,7 @@ export default function UserTicketOrderDetailPanel({ order, onClose, onRefresh, 
       shippingFee = method?.fee_jpy || 0;
     } else if (shippingMethodType === "pickup" && selectedPickupLocation) {
       const location = pickupLocations.find(l => l._id === selectedPickupLocation);
-      shippingFee = location?.pickup_service_fee_jpy || 0;
+      shippingFee = location?.pickup_service_fee_jpy ?? location?.fee_jpy ?? 0;
     }
     return pendingSupplement + shippingFee;
   };
@@ -734,7 +734,7 @@ export default function UserTicketOrderDetailPanel({ order, onClose, onRefresh, 
                           <SelectContent>
                             {pickupLocations.map(l => (
                               <SelectItem key={l._id} value={l._id}>
-                                {l.name} {l.pickup_service_fee_jpy ? `· 服务费 ¥${l.pickup_service_fee_jpy.toLocaleString()}` : ""}
+                                {l.name} {(l.pickup_service_fee_jpy ?? l.fee_jpy) ? `· 服务费 ¥${(l.pickup_service_fee_jpy ?? l.fee_jpy).toLocaleString()}` : ""}
                               </SelectItem>
                             ))}
                           </SelectContent>

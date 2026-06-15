@@ -41,12 +41,16 @@ Deno.serve(async (req) => {
     const pickupLocations = await base44.entities.PickupLocation.filter({
       tenant_id: tenantId,
       is_active: true
-    });
+    }, '-sort_order');
 
-    // 按 sort_order 排序
+    // 按 sort_order 排序，并确保返回正确的字段名
     const sortedPickupLocations = (pickupLocations || []).sort(
       (a, b) => (a.sort_order || 0) - (b.sort_order || 0)
-    );
+    ).map(p => ({
+      ...p,
+      // 兼容旧数据：如果 pickup_service_fee_jpy 不存在，使用 fee_jpy
+      pickup_service_fee_jpy: p.pickup_service_fee_jpy ?? p.fee_jpy ?? 0
+    }));
 
     return Response.json({
       shippingMethods,

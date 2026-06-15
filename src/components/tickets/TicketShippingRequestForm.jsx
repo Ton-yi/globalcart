@@ -35,7 +35,7 @@ export default function TicketShippingRequestForm({ order, onSubmit, onCancel, s
       shippingFee = method?.fee_jpy || 0;
     } else if (shippingMethod === "pickup" && selectedPickupLocation) {
       const location = pickupLocations.find(p => p._id === selectedPickupLocation);
-      shippingFee = location?.pickup_service_fee_jpy || 0;
+      shippingFee = location?.pickup_service_fee_jpy ?? location?.fee_jpy ?? 0;
     }
     
     return pendingSupplement + shippingFee;
@@ -170,7 +170,7 @@ export default function TicketShippingRequestForm({ order, onSubmit, onCancel, s
               <SelectContent>
                 {pickupLocations.map(p => (
                   <SelectItem key={p._id} value={p._id}>
-                    {p.name} {p.pickup_service_fee_jpy > 0 ? `(¥${p.pickup_service_fee_jpy.toLocaleString()})` : ''}
+                    {p.name} {(p.pickup_service_fee_jpy ?? p.fee_jpy ?? 0) > 0 ? `(¥${(p.pickup_service_fee_jpy ?? p.fee_jpy).toLocaleString()})` : ''}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -226,7 +226,7 @@ export default function TicketShippingRequestForm({ order, onSubmit, onCancel, s
             <div className="flex justify-between text-gray-700">
               <span>自提点服务费</span>
               <span className="font-medium">
-                ¥{(pickupLocations.find(p => p._id === selectedPickupLocation)?.pickup_service_fee_jpy || 0).toLocaleString()}
+                ¥{(pickupLocations.find(p => p._id === selectedPickupLocation)?.pickup_service_fee_jpy ?? pickupLocations.find(p => p._id === selectedPickupLocation)?.fee_jpy ?? 0).toLocaleString()}
               </span>
             </div>
           )}
