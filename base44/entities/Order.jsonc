@@ -6,6 +6,15 @@
       "type": "string",
       "description": "\u6240\u5c5e\u79df\u6237 ID"
     },
+    "order_type": {
+      "type": "string",
+      "enum": [
+        "physical",
+        "ticket"
+      ],
+      "default": "physical",
+      "description": "\u8ba2\u5355\u7c7b\u578b\uff1aphysical=\u5b9e\u7269\u8ba2\u5355\uff0cticket=\u7968\u52a1\u8ba2\u5355"
+    },
     "ticket_status": {
       "type": "string",
       "enum": [
@@ -21,5 +30,6 @@
       ],
       "description": "\u7968\u52a1\u8ba2\u5355\u72b6\u6001"
     }
-  }
+  },
+  "required": []
 }
