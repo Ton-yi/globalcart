@@ -149,6 +149,7 @@ export default function OrderCancellationModule({ order, onSuccess, compact = fa
       const updates = {
         order_status: "cancelled",
         cancel_reason: cancelReason,
+        cancel_category: cancelCategory || null,
       };
 
       // 如果有退款金额，记录双币种（强制与订单货币一致）

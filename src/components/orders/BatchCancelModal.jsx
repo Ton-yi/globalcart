@@ -70,6 +70,7 @@ export default function BatchCancelModal({ orders, onClose, onSuccess }) {
           await updateOrder(order.id, {
             order_status: "cancelled",
             cancel_reason: `${cancelReason} [${CANCEL_REASON_CATEGORIES.find(c => c.value === cancelCategory)?.label || '其他'}]`,
+            cancel_category: cancelCategory || null,
             messages: [...(order.messages || []), systemMessage],
             unread_roles: [...new Set([...(order.unread_roles || []), "user"])],
           });

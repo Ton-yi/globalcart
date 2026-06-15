@@ -335,6 +335,18 @@
     "cancel_reason": {
       "type": "string"
     },
+    "cancel_category": {
+      "type": "string",
+      "description": "\u53d6\u6d88\u539f\u56e0\u5206\u7c7b",
+      "enum": [
+        "customer_request",
+        "out_of_stock",
+        "shipping_issue",
+        "payment_issue",
+        "product_issue",
+        "other"
+      ]
+    },
     "payment_due_date": {
       "type": "string",
       "format": "date"

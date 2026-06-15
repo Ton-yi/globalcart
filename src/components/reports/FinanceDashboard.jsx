@@ -112,6 +112,12 @@ export default function FinanceDashboard({ data, dimension, compare }) {
                 <PieDistribution title="支出分布"     data={expensePieData} />
             </div>
 
+            {/* 取消原因分析 */}
+            <PieDistribution 
+                title="取消原因分布" 
+                data={Object.entries(summary.cancellation_counts || {}).map(([name, value]) => ({ name, value }))}
+            />
+
             {/* 维度分析表 */}
             <DimensionTable title="按维度分析（财务）" data={byDimension} dimension={dimension} />
 

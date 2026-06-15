@@ -129,6 +129,7 @@ Deno.serve(async (req) => {
             pending_ship_count: summary.pending_ship_count,
             status_counts: summary.status_counts,
             online_store_tag_counts: summary.online_store_tag_counts,
+            cancellation_counts: summary.cancellation_counts,
             updated_at: now,
         };
 
@@ -187,6 +188,7 @@ function calculateDailySummary(orders, pools, allOrders, tierPurchases = []) {
         pending_ship_count: 0,
         status_counts: {},
         online_store_tag_counts: {},
+        cancellation_counts: {},
     };
 
     // 客户统计
@@ -254,6 +256,12 @@ function calculateDailySummary(orders, pools, allOrders, tierPurchases = []) {
         // 下单网站分布
         const tag = order.online_store_tag || '其它';
         summary.online_store_tag_counts[tag] = (summary.online_store_tag_counts[tag] || 0) + 1;
+
+        // 取消原因分类统计
+        if (order.order_status === 'cancelled' && order.cancel_category) {
+            const category = order.cancel_category;
+            summary.cancellation_counts[category] = (summary.cancellation_counts[category] || 0) + 1;
+        }
     });
 
     // 发货池汇总
