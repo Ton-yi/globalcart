@@ -30,8 +30,9 @@ function Avatar({ name, imageUrl, size = "sm" }) {
   );
 }
 
-export default function OrderMessageThread({ order, currentUser, isAdmin, onMessageSent, contactInfo, composeOnly = false, hideHistory = false, userProfileMap = {}, showCancelButton = false, onCancelToggle, showCancelModule = false }) {
+export default function OrderMessageThread({ order, currentUser, isAdmin, onMessageSent, contactInfo, composeOnly = false, hideHistory = false, userProfileMap = {} }) {
   const { can } = usePermissions();
+  // Allow if user has parent permission OR specific child permission
   const canSendMessage = can("message:send_message") || can("message:send_order_message");
   const canSendImage = can("message:send_image");
   
@@ -181,42 +182,20 @@ export default function OrderMessageThread({ order, currentUser, isAdmin, onMess
 
       {/* Compose */}
       {canSendMessage ? (
-        <div className="space-y-3">
-          {showCancelButton && (
-            <div className="flex gap-2 mb-2">
-              <button
-                onClick={onCancelToggle}
-                className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
-                  showCancelModule
-                    ? "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                    : "bg-red-100 text-red-700 hover:bg-red-200"
-                }`}
-              >
-                {showCancelModule ? "返回留言" : "取消订单"}
-              </button>
-            </div>
-          )}
-          {!showCancelModule ? (
-            <RichTextInput
-              value={content}
-              onChange={setContent}
-              imageUrls={imageUrls}
-              onImageUrls={canSendImage ? setImageUrls : undefined}
-              onSubmit={handleSend}
-              placeholder="输入留言内容... (Ctrl+Enter 发送)"
-              rows={3}
-              maxImages={1}
-              disabled={!canSendMessage}
-              submitLoading={sending}
-              submitLabel="发送留言"
-              className="border-gray-200"
-            />
-          ) : (
-            <div className="text-center py-3 text-gray-500 text-sm">
-              请在上方点击"返回留言"切换回留言输入
-            </div>
-          )}
-        </div>
+        <RichTextInput
+          value={content}
+          onChange={setContent}
+          imageUrls={imageUrls}
+          onImageUrls={canSendImage ? setImageUrls : undefined}
+          onSubmit={handleSend}
+          placeholder="输入留言内容... (Ctrl+Enter 发送)"
+          rows={3}
+          maxImages={1}
+          disabled={!canSendMessage}
+          submitLoading={sending}
+          submitLabel="发送留言"
+          className="border-gray-200"
+        />
       ) : (
         <div className="border border-gray-200 rounded-xl p-3 bg-gray-50 text-center">
           <div className="flex items-center justify-center gap-2 text-gray-500 text-sm">
