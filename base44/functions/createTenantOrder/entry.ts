@@ -339,6 +339,8 @@ Deno.serve(async (req) => {
       order_number: orderNumber, // always override with server-generated number
       // Always store the original JPY amount separately for display/accounting
       ...(body.prepayment_amount ? { prepayment_amount_jpy: parseFloat(body.prepayment_amount) } : {}),
+      // Payment method and currency (already validated by frontend, stored as-is)
+      payment_method: body.payment_method || null,
       // Split marker detection
       has_split_marker: hasSplitMarker,
       split_sections: hasSplitMarker ? splitSections : [],

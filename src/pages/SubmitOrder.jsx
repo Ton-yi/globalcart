@@ -223,6 +223,10 @@ export default function SubmitOrder() {
     const tagResult = await detectPrimaryStoreTagResult(urlsText);
     const prepaymentAmount = calculated ? parseFloat(calculated.prepayJpy) : 0;
     
+    // 获取用户选择的付款方式和对应货币
+    const selectedMethodObj = paymentMethods.find((m) => (m.provider_key || m.name) === paymentMethod);
+    const selectedCurrency = selectedMethodObj?.payment_currency || "JPY";
+    
     const res = await base44.functions.invoke('createTenantOrder', {
       ...form,
       product_url: urlsText,
@@ -236,9 +240,10 @@ export default function SubmitOrder() {
       service_fee_rule_name: activeRule?.name || null,
       service_fee_rule_version: activeRule?.version || null,
       prepayment_amount: prepaymentAmount,
-      prepayment_currency: "JPY",
+      prepayment_currency: selectedCurrency, // 使用支付方式对应的货币
       online_store_tag: tagResult.tag_label,
       online_store_tag_color: tagResult.tag_color,
+      payment_method: paymentMethod, // 记录付款方式
       payment_mode: isCredit ? "credit" : isDeferred ? "deferred" : (settings.prepay_enabled === 'false' ? "fullpay_once" : "prepay"),
       credit_cycle: isCredit ? (paymentMode === "credit_weekly" ? "weekly" : "monthly") : null,
       order_status: isCredit ? "paid" : "payment_pending",
@@ -273,8 +278,6 @@ export default function SubmitOrder() {
       return;
     }
 
-    const selectedMethodObj = paymentMethods.find((m) => (m.provider_key || m.name) === paymentMethod);
-    const selectedCurrency = selectedMethodObj?.payment_currency || "JPY";
     navigate(`/Payment?order_id=${order.id}&method=${paymentMethod || "other"}&pay_currency=${selectedCurrency}`);
   };
 
@@ -565,6 +568,10 @@ export default function SubmitOrder() {
                 const tagResult = await detectPrimaryStoreTagResult(urlsText);
                 const prepaymentAmount = calculated ? parseFloat(calculated.prepayJpy) : 0;
                 
+                // 获取用户选择的付款方式和对应货币
+                const selectedMethodObjForPre = paymentMethods.find((m) => (m.provider_key || m.name) === paymentMethod);
+                const selectedCurrencyForPre = selectedMethodObjForPre?.payment_currency || "JPY";
+                
                 const res = await base44.functions.invoke('createTenantOrder', {
                   ...form,
                   product_url: urlsText,
@@ -578,7 +585,8 @@ export default function SubmitOrder() {
                   service_fee_rule_name: activeRule?.name || null,
                   service_fee_rule_version: activeRule?.version || null,
                   prepayment_amount: prepaymentAmount,
-                  prepayment_currency: "JPY",
+                  prepayment_currency: selectedCurrencyForPre, // 使用支付方式对应的货币
+                  payment_method: paymentMethod, // 记录付款方式
                   online_store_tag: tagResult.tag_label,
                   online_store_tag_color: tagResult.tag_color,
                   payment_mode: settings.prepay_enabled === 'false' ? "fullpay_once" : "prepay",
