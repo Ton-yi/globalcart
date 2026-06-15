@@ -115,12 +115,30 @@ export default function TicketOrderDetailPanel({ order, onClose, userProfileMap 
   const tabs = [
     { key: "overview", label: "概览" },
     { key: "messages", label: "留言", badge: (order.unread_roles || []).includes("admin") && isAdmin ? "red" : null },
-    ...(isPendingConfirmation
-      ? [{ key: "messages_actions", label: "留言 & 取消" }]
-      : []),
     { key: "fees", label: "费用明细" },
     { key: "timeline", label: "时间线" },
   ];
+
+  // 订单操作按钮（仅待确认状态显示）
+  const orderActionsTab = isPendingConfirmation ? {
+    key: "actions",
+    label: (
+      <div className="flex items-center gap-2">
+        <span>已受理/待开票</span>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            handleStatusUpdate("accepted");
+          }}
+          disabled={statusUpdating}
+          className="px-2 py-0.5 text-xs font-medium bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+        >
+          {statusUpdating ? "更新中..." : "点击执行"}
+        </button>
+      </div>
+    ),
+    disabled: true,
+  } : null;
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 overflow-y-auto" 
@@ -147,7 +165,7 @@ export default function TicketOrderDetailPanel({ order, onClose, userProfileMap 
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b px-6 sticky top-[73px] bg-white z-10">
+        <div className="flex border-b px-6 sticky top-[73px] bg-white z-10 gap-2">
           {tabs.map(t => (
             <button 
               key={t.key} 
@@ -161,6 +179,11 @@ export default function TicketOrderDetailPanel({ order, onClose, userProfileMap 
               {t.label}
             </button>
           ))}
+          {orderActionsTab && (
+            <div className="ml-auto">
+              {orderActionsTab.label}
+            </div>
+          )}
         </div>
 
         {/* Content */}
@@ -439,45 +462,7 @@ export default function TicketOrderDetailPanel({ order, onClose, userProfileMap 
             </div>
           )}
 
-          {/* ===== MESSAGES & CANCEL TAB (for pending_confirmation only) ===== */}
-          {activeTab === "messages_actions" && isPendingConfirmation && (
-            <div className="space-y-6">
-              {/* Messages with Cancel Button */}
-              <div>
-                <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                  <MessageSquare className="w-4 h-4" />留言沟通
-                </h3>
-                <OrderMessageThread
-                  order={order}
-                  currentUser={actualCurrentUser}
-                  isAdmin={isAdmin}
-                  userProfileMap={userProfileMap}
-                  hideHistory={false}
-                />
-              </div>
 
-              {/* Status update buttons */}
-              <div className="border-t pt-6">
-                <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                  <Wand2 className="w-4 h-4" />订单操作
-                </h3>
-                <div className="space-y-3">
-                  <div className="text-xs text-gray-500">更新订单状态</div>
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleStatusUpdate("accepted")}
-                      disabled={statusUpdating}
-                      className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
-                    >
-                      已受理 / 待开票
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* ===== FEES TAB ===== */}
           {activeTab === "fees" && (
