@@ -115,11 +115,11 @@ export default function TicketOrderDetailPanel({ order, onClose, userProfileMap 
   const tabs = [
     { key: "overview", label: "概览" },
     { key: "messages", label: "留言", badge: (order.unread_roles || []).includes("admin") && isAdmin ? "red" : null },
-    ...(isPendingConfirmation
-      ? [{ key: "messages_actions", label: "留言 & 取消" }]
-      : []),
     { key: "fees", label: "费用明细" },
     { key: "timeline", label: "时间线" },
+    ...(isPendingConfirmation
+      ? [{ key: "actions", label: "订单操作" }]
+      : []),
   ];
 
   return (
@@ -439,42 +439,39 @@ export default function TicketOrderDetailPanel({ order, onClose, userProfileMap 
             </div>
           )}
 
-          {/* ===== MESSAGES & CANCEL TAB (for pending_confirmation only) ===== */}
-          {activeTab === "messages_actions" && isPendingConfirmation && (
+          {/* ===== ACTIONS TAB (for pending_confirmation only) ===== */}
+          {activeTab === "actions" && isPendingConfirmation && (
             <div className="space-y-6">
-              {/* Messages with Cancel Button */}
+              {/* Status update buttons */}
               <div>
                 <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                  <MessageSquare className="w-4 h-4" />留言沟通
+                  <Wand2 className="w-4 h-4" />更新订单状态
                 </h3>
-                <OrderMessageThread
-                  order={order}
-                  currentUser={actualCurrentUser}
-                  isAdmin={isAdmin}
-                  userProfileMap={userProfileMap}
-                  hideHistory={false}
-                />
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleStatusUpdate("accepted")}
+                    disabled={statusUpdating}
+                    className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
+                  >
+                    已受理 / 待开票
+                  </Button>
+                </div>
               </div>
 
-              {/* Status update buttons */}
+              {/* Cancel order */}
               <div className="border-t pt-6">
                 <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                  <Wand2 className="w-4 h-4" />订单操作
+                  取消订单
                 </h3>
-                <div className="space-y-3">
-                  <div className="text-xs text-gray-500">更新订单状态</div>
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleStatusUpdate("accepted")}
-                      disabled={statusUpdating}
-                      className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
-                    >
-                      已受理 / 待开票
-                    </Button>
-                  </div>
-                </div>
+                <OrderCancellationModule 
+                  order={order} 
+                  compact 
+                  onSuccess={() => {
+                    onClose?.();
+                  }} 
+                />
               </div>
             </div>
           )}
