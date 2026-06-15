@@ -19,6 +19,7 @@ const notificationTypes = [
   { value: "shipping_request", label: "发货通知" },
   { value: "order_status", label: "订单状态" },
   { value: "message", label: "留言回复" },
+  { value: "cancellation", label: "订单取消" },
   { value: "other", label: "其他通知" },
 ];
 
@@ -43,6 +44,10 @@ const commonSubtypes = {
   ],
   message: [
     { value: "new_reply", label: "订单/发货申请有新回复" },
+  ],
+  cancellation: [
+    { value: "order_cancelled_with_refund", label: "订单取消（有退款）" },
+    { value: "order_cancelled_no_refund", label: "订单取消（无退款）" },
   ],
   other: [
     { value: "store_template_pending_review", label: "店铺模板提交待审核（管理员）" },
@@ -343,9 +348,34 @@ export default function AdminNotificationTemplates() {
         </CardHeader>
         <CardContent className="space-y-2 text-sm text-gray-600">
           <p>• 模板支持变量替换，可用变量包括：{'{{order_number}}'}, {'{{amount}}'}, {'{{user_name}}'}, {'{{order_date}}'} 等</p>
+          <p>• 取消通知模板专用变量：{'{{order_name}}'}, {'{{cancel_reason}}'}, {'{{refund_amount}}'}, {'{{admin_contact}}'}</p>
           <p>• 内容模板支持 HTML 和 Markdown 格式</p>
           <p>• 可以为每种通知类型设置默认的站内通知和邮件通知开关</p>
           <p>• 用户可以在个人设置中自定义是否接收某类通知的邮件</p>
+        </CardContent>
+      </Card>
+
+      {/* Default Templates Reference */}
+      <Card>
+        <CardHeader>
+          <CardTitle>取消通知模板示例</CardTitle>
+          <CardDescription>以下是推荐的默认模板，管理员可根据需要修改</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4 text-sm">
+          <div>
+            <h4 className="font-medium text-gray-700 mb-2">有退款模板（order_cancelled_with_refund）</h4>
+            <div className="bg-gray-50 p-3 rounded text-xs font-mono text-gray-700 whitespace-pre-wrap">
+              尊敬的用户，您的订单 {'{{order_name}}'}（{'{{order_number}}'}）由于 {'{{cancel_reason}}'} 而被管理员取消了，退款金额是 {'{{refund_amount}}'}。{'\n'}
+              请在这里发送您的收款方式，稍后由管理员手动汇款。
+            </div>
+          </div>
+          <div>
+            <h4 className="font-medium text-gray-700 mb-2">无退款模板（order_cancelled_no_refund）</h4>
+            <div className="bg-gray-50 p-3 rounded text-xs font-mono text-gray-700 whitespace-pre-wrap">
+              尊敬的用户，您的订单 {'{{order_name}}'}（{'{{order_number}}'}）由于 {'{{cancel_reason}}'} 而被管理员取消了。{'\n'}
+              如有后续疑问，您可在此留言或联系管理员 {'{{admin_contact}}'}，祝您有美好的一天。
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>

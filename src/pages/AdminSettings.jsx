@@ -138,6 +138,7 @@ const DEFAULT_SETTINGS = [
   { key: "line_id", value: "", description: "Line ID", category: "general" },
   { key: "wechat_id", value: "", description: "微信号", category: "general" },
   { key: "paid_order_reminder", value: "感谢付款！我们会尽快开始处理您的订单。", description: "已付款订单的提示消息", category: "general" },
+  { key: "admin_contact_info", value: "", description: "管理员联系方式（用于订单取消通知等）", category: "general" },
   { key: "alipay_account", value: "", description: "支付宝账号", category: "payment" },
   { key: "alipay_account_name", value: "", description: "支付宝收款人姓名", category: "payment" },
   { key: "alipay_qr_url", value: "", description: "支付宝收款码图片URL", category: "payment" },
@@ -978,6 +979,39 @@ export default function AdminSettings() {
         <div className="space-y-5">
           <NotificationTextSettings settings={settings} onReload={load} />
           <CustomsHazmatTextEditor settings={flat} onReload={load} />
+          
+          {/* 管理员联系方式设置 */}
+          <Card className="border-gray-200">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-sm font-semibold text-gray-700">管理员联系方式</CardTitle>
+                  <p className="text-xs text-gray-400 mt-1">用于订单取消通知等场景，用户可联系的管理员信息</p>
+                </div>
+                <Button size="sm" className="h-7 text-xs bg-gray-800 hover:bg-gray-700" onClick={handleSaveAll} disabled={saving}>
+                  <Save className="w-3 h-3 mr-1" />{saved ? "已保存 ✓" : saving ? "保存中..." : "保存"}
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {(() => {
+                const contactSetting = getSetting('admin_contact_info');
+                return (
+                  <div className="space-y-2">
+                    <Input
+                      className="h-9 text-sm"
+                      placeholder="例如：微信：admin123 / Line: tokunyi / 邮箱：support@tongyi.com"
+                      value={contactSetting?.value || ''}
+                      onChange={e => updateSettingByKey('admin_contact_info', e.target.value, '管理员联系方式（用于取消通知等）', 'general')}
+                    />
+                    <p className="text-xs text-gray-500">
+                      此联系方式将显示在订单取消通知中，用户可通过此方式联系管理员处理退款等事宜
+                    </p>
+                  </div>
+                );
+              })()}
+            </CardContent>
+          </Card>
         </div>
       )}
       {activeTab === "reminder_texts" && loading && <p className="text-gray-400 text-sm">加载中...</p>}
