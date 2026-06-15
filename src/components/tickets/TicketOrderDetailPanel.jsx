@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { base44 } from "@/api/base44Client";
 
 const TICKET_STATUS_LABELS = {
@@ -873,11 +874,11 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
               <div className="px-6 py-4 space-y-3">
                 <div>
                   <Label className="text-sm">发券番号</Label>
-                  <Input
+                  <Textarea
                     value={ticketNumberInput}
                     onChange={(e) => setTicketNumberInput(e.target.value)}
-                    placeholder="请输入发券番号"
-                    className="mt-1 h-12 text-lg font-mono"
+                    placeholder="请输入发券番号（支持多行）"
+                    className="mt-1 min-h-[120px] text-base font-mono"
                   />
                 </div>
                 <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-xs text-blue-700">
