@@ -309,13 +309,13 @@ export default function AdminOrders() {
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h1 className="text-xl font-bold text-gray-900">订单管理</h1>
         <div className="flex items-center gap-2">
-          <ColumnCustomizer columns={columns} onChange={handleColumnsChange} />
-          <Button variant="outline" size="sm" onClick={() => { setShowArchived(v => !v); setSelectedIds([]); }}>
-            {showArchived ? <><ArchiveRestore className="w-3.5 h-3.5 mr-1.5" />返回订单列表</> : <><Archive className="w-3.5 h-3.5 mr-1.5" />查看已存档</>}
-          </Button>
           <Button variant="outline" size="sm" onClick={fetchOrders}>
             <RefreshCw className="w-3.5 h-3.5 mr-1.5" />刷新
           </Button>
+          <Button variant="outline" size="sm" onClick={() => { setShowArchived(v => !v); setSelectedIds([]); }}>
+            {showArchived ? <><ArchiveRestore className="w-3.5 h-3.5 mr-1.5" />返回订单列表</> : <><Archive className="w-3.5 h-3.5 mr-1.5" />查看已存档</>}
+          </Button>
+          <ColumnCustomizer columns={columns} onChange={handleColumnsChange} />
         </div>
       </div>
 
