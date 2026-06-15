@@ -117,6 +117,7 @@ export default function OrderCancellationModule({ order, onSuccess, compact = fa
       }
 
       // 生成系统留言（使用模板）
+      // 注意：系统留言本身不会触发二次通知，仅作为订单内的消息记录
       const hasRefund = refundAmountJpy || refundAmountCurrency;
       const template = cancellationTemplate;
       
@@ -148,6 +149,7 @@ export default function OrderCancellationModule({ order, onSuccess, compact = fa
         content: messageContent,
         timestamp: new Date().toISOString(),
         image_urls: cancelImages, // 附加上传的图片
+        is_system_notification: true, // 标记为系统通知，避免二次触发
         meta: {
           type: "cancellation",
           cancel_reason: cancelReason,
