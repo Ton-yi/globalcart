@@ -11,6 +11,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { updateOrder } from "@/lib/tenantApi";
 import RichTextInput from "@/components/common/RichTextInput";
 import UserProfileLink from "@/components/common/UserProfileLink";
+import OrderCancellationModule from "@/components/orders/OrderCancellationModule";
 
 function formatTime(ts) {
   if (!ts) return "";
@@ -30,7 +31,19 @@ function Avatar({ name, imageUrl, size = "sm" }) {
   );
 }
 
-export default function OrderMessageThread({ order, currentUser, isAdmin, onMessageSent, contactInfo, composeOnly = false, hideHistory = false, userProfileMap = {} }) {
+export default function OrderMessageThread({ 
+  order, 
+  currentUser, 
+  isAdmin, 
+  onMessageSent, 
+  contactInfo, 
+  composeOnly = false, 
+  hideHistory = false, 
+  userProfileMap = {},
+  showCancelButton = false,
+  onCancelToggle,
+  showCancelModule = false,
+}) {
   const { can } = usePermissions();
   // Allow if user has parent permission OR specific child permission
   const canSendMessage = can("message:send_message") || can("message:send_order_message");
@@ -182,20 +195,54 @@ export default function OrderMessageThread({ order, currentUser, isAdmin, onMess
 
       {/* Compose */}
       {canSendMessage ? (
-        <RichTextInput
-          value={content}
-          onChange={setContent}
-          imageUrls={imageUrls}
-          onImageUrls={canSendImage ? setImageUrls : undefined}
-          onSubmit={handleSend}
-          placeholder="输入留言内容... (Ctrl+Enter 发送)"
-          rows={3}
-          maxImages={1}
-          disabled={!canSendMessage}
-          submitLoading={sending}
-          submitLabel="发送留言"
-          className="border-gray-200"
-        />
+        showCancelModule ? (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-700">取消订单</span>
+              <button 
+                onClick={onCancelToggle}
+                className="text-xs text-gray-500 hover:text-gray-700 underline"
+              >
+                返回留言
+              </button>
+            </div>
+            <OrderCancellationModule 
+              order={order} 
+              compact 
+              onSuccess={() => {
+                onCancelToggle?.();
+                onMessageSent?.();
+              }} 
+            />
+          </div>
+        ) : (
+          <div className="flex items-end gap-2">
+            {showCancelButton && (
+              <button
+                onClick={onCancelToggle}
+                className="px-3 py-2 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 rounded-md transition-colors whitespace-nowrap"
+              >
+                取消订单
+              </button>
+            )}
+            <div className="flex-1">
+              <RichTextInput
+                value={content}
+                onChange={setContent}
+                imageUrls={imageUrls}
+                onImageUrls={canSendImage ? setImageUrls : undefined}
+                onSubmit={handleSend}
+                placeholder="输入留言内容... (Ctrl+Enter 发送)"
+                rows={3}
+                maxImages={1}
+                disabled={!canSendMessage}
+                submitLoading={sending}
+                submitLabel="发送留言"
+                className="border-gray-200"
+              />
+            </div>
+          </div>
+        )
       ) : (
         <div className="border border-gray-200 rounded-xl p-3 bg-gray-50 text-center">
           <div className="flex items-center justify-center gap-2 text-gray-500 text-sm">
