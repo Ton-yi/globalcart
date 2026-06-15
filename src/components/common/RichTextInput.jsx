@@ -15,6 +15,7 @@
  *   submitLoading  - boolean         提交中状态
  *   submitLabel    - string          提交按钮文字，默认"发布"
  *   className      - string          外层容器额外样式
+ *   footerActions  - ReactNode       底部操作栏自定义按钮（放在发送按钮左侧）
  */
 import { useRef, useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
@@ -36,6 +37,7 @@ export default function RichTextInput({
   submitLoading = false,
   submitLabel = "发布",
   className = "",
+  footerActions,
 }) {
   const fileRef = useRef(null);
   const dragCounter = useRef(0);
@@ -128,27 +130,29 @@ export default function RichTextInput({
           )}
 
           <div className="flex items-center justify-between mt-2">
-            <button
-              type="button"
-              className="flex items-center gap-1 text-xs text-gray-500 hover:text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
-              onClick={() => fileRef.current?.click()}
-              disabled={uploading || disabled || imageUrls.length >= maxImages}
-            >
-              {uploading
-                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                : <ImagePlus className="w-3.5 h-3.5" />}
-              {uploading ? "上传中..." : "添加图片"}
-            </button>
+          <button
+            type="button"
+            className="flex items-center gap-1 text-xs text-gray-500 hover:text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={() => fileRef.current?.click()}
+            disabled={uploading || disabled || imageUrls.length >= maxImages}
+          >
+            {uploading
+              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              : <ImagePlus className="w-3.5 h-3.5" />}
+            {uploading ? "上传中..." : "添加图片"}
+          </button>
 
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/*"
-              multiple
-              className="hidden"
-              onChange={(e) => { uploadFiles(e.target.files); e.target.value = ""; }}
-            />
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={(e) => { uploadFiles(e.target.files); e.target.value = ""; }}
+          />
 
+          <div className="flex items-center gap-2">
+            {footerActions}
             {onSubmit && (
               <Button
                 size="sm"
@@ -159,6 +163,7 @@ export default function RichTextInput({
                 {submitLoading ? "发布中..." : submitLabel}
               </Button>
             )}
+          </div>
           </div>
         </>
       )}

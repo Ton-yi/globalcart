@@ -214,30 +214,30 @@ export default function OrderMessageThread({
             />
           </div>
         ) : (
-          <div className="flex items-end gap-2">
-            <button
-              onClick={() => setShowCancelModule(true)}
-              className="px-3 py-2 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 rounded-md transition-colors whitespace-nowrap"
-            >
-              取消订单
-            </button>
-            <div className="flex-1">
-              <RichTextInput
-                value={content}
-                onChange={setContent}
-                imageUrls={imageUrls}
-                onImageUrls={canSendImage ? setImageUrls : undefined}
-                onSubmit={handleSend}
-                placeholder="输入留言内容... (Ctrl+Enter 发送)"
-                rows={3}
-                maxImages={1}
-                disabled={!canSendMessage}
-                submitLoading={sending}
-                submitLabel="发送留言"
-                className="border-gray-200"
-              />
-            </div>
-          </div>
+          <RichTextInput
+            value={content}
+            onChange={setContent}
+            imageUrls={imageUrls}
+            onImageUrls={canSendImage ? setImageUrls : undefined}
+            onSubmit={handleSend}
+            placeholder="输入留言内容... (Ctrl+Enter 发送)"
+            rows={3}
+            maxImages={1}
+            disabled={!canSendMessage}
+            submitLoading={sending}
+            submitLabel="发送留言"
+            className="border-gray-200"
+            footerActions={
+              <button
+                type="button"
+                onClick={() => setShowCancelModule(true)}
+                className="px-3 py-2 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 rounded-md transition-colors whitespace-nowrap"
+              >
+                取消订单
+              </button>
+            }
+          />
+        )
         )
       ) : (
         <div className="border border-gray-200 rounded-xl p-3 bg-gray-50 text-center">
