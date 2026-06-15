@@ -55,7 +55,8 @@ export default function TicketDateRangeFilter({ value, onChange }) {
     setOpen(false);
   };
 
-  const displayLabel = currentField?.label || "日期";
+  // 只显示字段名，不显示具体日期
+  const displayLabel = currentField?.label || "日期筛选";
 
   return (
     <div className="relative" ref={ref}>
@@ -70,7 +71,7 @@ export default function TicketDateRangeFilter({ value, onChange }) {
         <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
         <span>
           {hasValue 
-            ? `${displayLabel}: ${value.from || "∼"} ~ ${value.to || "∼"}` 
+            ? `${displayLabel}` 
             : "日期筛选"
           }
         </span>
