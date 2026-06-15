@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Calendar, ChevronDown, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const DATE_FIELDS = [
   { key: "created_date", label: "订单提交日" },
@@ -13,12 +14,12 @@ const DATE_FIELDS = [
 /**
  * DateRangeFilter
  * Props:
- *   value: { from: string, to: string } | null  (简化版，不需要 field)
+ *   value: { field: string, from: string, to: string } | null
  *   onChange: (value | null) => void
- *   placeholder: string (可选，按钮显示的文字，如"開演日")
  */
-export default function DateRangeFilter({ value, onChange, placeholder }) {
+export default function DateRangeFilter({ value, onChange }) {
   const [open, setOpen] = useState(false);
+  const [field, setField] = useState(value?.field || "created_date");
   const [from, setFrom] = useState(value?.from || "");
   const [to, setTo] = useState(value?.to || "");
   const ref = useRef(null);
@@ -31,20 +32,27 @@ export default function DateRangeFilter({ value, onChange, placeholder }) {
   }, []);
 
   const hasValue = value && (value.from || value.to);
+  const currentField = DATE_FIELDS.find(f => f.key === (value?.field || field));
 
   const handleApply = () => {
-    if (!from && !to) { onChange(null); setOpen(false); return; }
-    onChange({ from, to });
+    if (!from && !to) { 
+      onChange(null); 
+      setOpen(false); 
+      return; 
+    }
+    onChange({ field, from, to });
     setOpen(false);
   };
 
   const handleClear = () => {
-    setFrom(""); setTo("");
+    setFrom(""); 
+    setTo("");
     onChange(null);
     setOpen(false);
   };
 
-  const displayLabel = placeholder || "日期";
+  // 只显示字段名，不显示具体日期
+  const displayLabel = currentField?.label || "日期筛选";
 
   return (
     <div className="relative" ref={ref}>
@@ -57,7 +65,12 @@ export default function DateRangeFilter({ value, onChange, placeholder }) {
           }`}
       >
         <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
-        <span>{hasValue ? `${displayLabel}: ${value.from || "∼"} ~ ${value.to || "∼"}` : displayLabel}</span>
+        <span>
+          {hasValue 
+            ? `${displayLabel}` 
+            : "日期筛选"
+          }
+        </span>
         {hasValue
           ? <X className="w-3 h-3 ml-0.5 hover:text-blue-900" onClick={(e) => { e.stopPropagation(); handleClear(); }} />
           : <ChevronDown className="w-3 h-3 ml-0.5 opacity-50" />
@@ -65,7 +78,22 @@ export default function DateRangeFilter({ value, onChange, placeholder }) {
       </button>
 
       {open && (
-        <div className="absolute top-full mt-1 left-0 z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-3 w-64">
+        <div className="absolute top-full mt-1 left-0 z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-3 w-72">
+          {/* 字段选择 */}
+          <div className="mb-2">
+            <div className="text-xs text-gray-500 mb-1">日期属性</div>
+            <Select value={field} onValueChange={setField}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="选择日期属性" />
+              </SelectTrigger>
+              <SelectContent>
+                {DATE_FIELDS.map(f => (
+                  <SelectItem key={f.key} value={f.key}>{f.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* 日期范围 */}
           <div className="space-y-2">
             <div>

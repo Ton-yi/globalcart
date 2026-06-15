@@ -328,10 +328,25 @@ export const PhysicalOrderController = {
         // For created_date / submit_date use created_date; for date fields use the field directly
         const raw = field === "submit_date" ? o.created_date : o[field];
         if (!raw) return false;
-        // Normalize to date string YYYY-MM-DD
-        const dateStr = raw.length > 10 ? raw.slice(0, 10) : raw;
-        if (from && dateStr < from) return false;
-        if (to && dateStr > to) return false;
+        
+        // Convert to Date object for proper timezone handling
+        const dateValue = new Date(raw);
+        
+        // Convert user's date strings to Date objects
+        const fromDate = from ? new Date(from) : null;
+        const toDate = to ? new Date(to) : null;
+        
+        if (fromDate && dateValue < fromDate) return false;
+        if (toDate) {
+          // For "to" date, include the entire day by setting to end of day
+          if (to && !to.includes('T')) {
+            const endDate = new Date(toDate);
+            endDate.setHours(23, 59, 59, 999);
+            if (dateValue > endDate) return false;
+          } else {
+            if (dateValue > toDate) return false;
+          }
+        }
       }
       
       return true;
