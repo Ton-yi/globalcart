@@ -196,36 +196,30 @@ export default function UserTicketOrderDetailPanel({ order, onClose, onRefresh, 
     { key: "fees", label: "费用明细" },
   ];
 
-  // 获取本地运输方式列表（日本国内运输）
-  const { data: shippingMethods = [] } = useQuery({
-    queryKey: ['local_shipping_methods', order.tenant_id],
+  // 获取本地运输方式和自提点列表
+  const { data: localShippingData, isLoading: isLoadingShipping } = useQuery({
+    queryKey: ['local_shipping_options', order.tenant_id],
     queryFn: async () => {
-      try {
-        const res = await base44.entities.ShippingMethod.filter({ tenant_id: order.tenant_id, is_active: true });
-        return (res || []).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
-      } catch { return []; }
+      const res = await base44.functions.invoke('getLocalShippingOptions', {});
+      return res.data || { shippingMethods: [], pickupLocations: [] };
     },
     enabled: !!order.tenant_id
   });
 
-  // 获取自提点列表
-  const { data: pickupLocations = [] } = useQuery({
-    queryKey: ['pickup_locations', order.tenant_id],
-    queryFn: async () => {
-      try {
-        const res = await base44.entities.PickupLocation.filter({ tenant_id: order.tenant_id, is_active: true });
-        return (res || []).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
-      } catch { return []; }
-    },
-    enabled: !!order.tenant_id
-  });
+  const shippingMethods = localShippingData?.shippingMethods || [];
+  const pickupLocations = localShippingData?.pickupLocations || [];
 
-  // 计算需要补正的金额
+  // 计算需要补正的金额（使用本地运输方式的 fee_jpy）
   const calculatePaymentAmount = () => {
     const pendingSupplement = order.supplement_requested ? (order.supplement_amount || 0) : 0;
-    const shippingFee = shippingMethodType === "domestic" 
-      ? (shippingMethods.find(m => m.code === selectedShippingMethod)?.official_pool_estimate_rate_per_unit || 0)
-      : (pickupLocations.find(l => l._id === selectedPickupLocation)?.fee_jpy || 0);
+    let shippingFee = 0;
+    if (shippingMethodType === "domestic" && selectedShippingMethod) {
+      const method = shippingMethods.find(m => m.name === selectedShippingMethod);
+      shippingFee = method?.fee_jpy || 0;
+    } else if (shippingMethodType === "pickup" && selectedPickupLocation) {
+      const location = pickupLocations.find(l => l._id === selectedPickupLocation);
+      shippingFee = location?.pickup_service_fee_jpy || 0;
+    }
     return pendingSupplement + shippingFee;
   };
 
@@ -708,8 +702,8 @@ export default function UserTicketOrderDetailPanel({ order, onClose, onRefresh, 
                           </SelectTrigger>
                           <SelectContent>
                             {shippingMethods.map(m => (
-                              <SelectItem key={m.code} value={m.code}>
-                                {m.name} · {m.transit_days || "时效待定"}
+                              <SelectItem key={m.name} value={m.name}>
+                                {m.name} {m.fee_jpy ? `· ¥${m.fee_jpy.toLocaleString()}` : ""} {m.transit_days ? `· ${m.transit_days}` : ""}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -740,7 +734,7 @@ export default function UserTicketOrderDetailPanel({ order, onClose, onRefresh, 
                           <SelectContent>
                             {pickupLocations.map(l => (
                               <SelectItem key={l._id} value={l._id}>
-                                {l.name} {l.fee_jpy ? `· 服务费 ¥${l.fee_jpy.toLocaleString()}` : ""}
+                                {l.name} {l.pickup_service_fee_jpy ? `· 服务费 ¥${l.pickup_service_fee_jpy.toLocaleString()}` : ""}
                               </SelectItem>
                             ))}
                           </SelectContent>
