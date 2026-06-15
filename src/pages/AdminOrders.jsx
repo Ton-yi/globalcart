@@ -319,18 +319,18 @@ export default function AdminOrders() {
         </div>
       </div>
 
-      {/* Filters — single row, wraps on small screens */}
-      <div className="flex flex-wrap gap-2 items-center">
-        {/* 搜索框 */}
-        <div className="relative w-44 shrink-0">
+      {/* Filters — full width, search flexes, others fixed */}
+      <div className="flex flex-wrap gap-2 items-center w-full">
+        {/* 搜索框 - 灵活适配 */}
+        <div className="relative flex-1 min-w-[180px]">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-          <Input placeholder="搜索订单/商品/用户..." className="pl-8 h-8 text-sm"
+          <Input placeholder="搜索订单/商品/用户..." className="pl-8 h-8 text-sm w-full"
             value={search} onChange={e => setSearch(e.target.value)} />
         </div>
 
-        {/* 订单状态 */}
+        {/* 订单状态 - 固定宽度 */}
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-36 h-8 text-xs">
+          <SelectTrigger className="w-36 h-8 text-xs shrink-0">
             <Filter className="w-3.5 h-3.5 mr-1 text-gray-400 shrink-0" />
             <SelectValue placeholder="所有状态" />
           </SelectTrigger>
@@ -340,9 +340,9 @@ export default function AdminOrders() {
           </SelectContent>
         </Select>
 
-        {/* 商城标签 */}
+        {/* 商城标签 - 固定宽度 */}
         <Select value={storeTagFilter} onValueChange={setStoreTagFilter}>
-          <SelectTrigger className="h-8 text-xs w-28">
+          <SelectTrigger className="h-8 text-xs w-28 shrink-0">
             <SelectValue placeholder="商城标签" />
           </SelectTrigger>
           <SelectContent>
@@ -354,9 +354,9 @@ export default function AdminOrders() {
           </SelectContent>
         </Select>
 
-        {/* 订单重量 */}
+        {/* 订单重量 - 固定宽度 */}
         <Select value={weightFilter} onValueChange={setWeightFilter}>
-          <SelectTrigger className="h-8 text-xs w-28">
+          <SelectTrigger className="h-8 text-xs w-28 shrink-0">
             <SelectValue placeholder="订单重量" />
           </SelectTrigger>
           <SelectContent>
@@ -368,9 +368,9 @@ export default function AdminOrders() {
           </SelectContent>
         </Select>
 
-        {/* 物品尺寸 */}
+        {/* 物品尺寸 - 固定宽度 */}
         <Select value={itemSizeFilter} onValueChange={setItemSizeFilter}>
-          <SelectTrigger className="h-8 text-xs w-28">
+          <SelectTrigger className="h-8 text-xs w-28 shrink-0">
             <SelectValue placeholder="物品尺寸" />
           </SelectTrigger>
           <SelectContent>
@@ -382,9 +382,9 @@ export default function AdminOrders() {
           </SelectContent>
         </Select>
 
-        {/* 回复状态 */}
+        {/* 回复状态 - 固定宽度 */}
         <Select value={replyFilter} onValueChange={setReplyFilter}>
-          <SelectTrigger className="h-8 text-xs w-28">
+          <SelectTrigger className="h-8 text-xs w-28 shrink-0">
             <SelectValue placeholder="回复状态" />
           </SelectTrigger>
           <SelectContent>
@@ -395,12 +395,14 @@ export default function AdminOrders() {
           </SelectContent>
         </Select>
 
-        {/* 日期段筛选 */}
-        <DateRangeFilter value={dateRangeFilter} onChange={setDateRangeFilter} />
+        {/* 日期段筛选 - 固定宽度 */}
+        <div className="shrink-0">
+          <DateRangeFilter value={dateRangeFilter} onChange={setDateRangeFilter} />
+        </div>
 
-        {/* 分组 */}
+        {/* 分组 - 固定宽度 */}
         <Select value={groupBy} onValueChange={v => { setGroupBy(v); setCollapsedGroups({}); }}>
-          <SelectTrigger className="w-28 h-8 text-xs">
+          <SelectTrigger className="w-28 h-8 text-xs shrink-0">
             <LayoutList className="w-3.5 h-3.5 mr-1 text-gray-400 shrink-0" />
             <SelectValue />
           </SelectTrigger>
@@ -412,7 +414,7 @@ export default function AdminOrders() {
           </SelectContent>
         </Select>
 
-        {/* 清除筛选 */}
+        {/* 清除筛选 - 固定宽度 */}
         {(statusFilter !== "all" || storeTagFilter !== "all" || weightFilter !== "all" || itemSizeFilter !== "all" || replyFilter !== "all" || dateRangeFilter) && (
           <button
             onClick={() => { setStatusFilter("all"); setStoreTagFilter("all"); setWeightFilter("all"); setItemSizeFilter("all"); setReplyFilter("all"); setDateRangeFilter(null); }}
