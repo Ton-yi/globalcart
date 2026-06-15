@@ -270,34 +270,34 @@ export default function OrderCancellationModule({ order, onSuccess, compact = fa
           </div>
 
           <div className="px-5 py-5 space-y-4">
+            {/* 取消理由 */}
+            <div>
+              <Label className="text-sm">取消理由</Label>
+              <div className="mt-1 p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 whitespace-pre-wrap">
+                {cancelReason}
+              </div>
+            </div>
+
             {/* 取消原因分类 */}
             <div>
               <Label className="text-sm flex items-center gap-1.5">
                 <Tags className="w-3.5 h-3.5" />
                 取消原因分类
               </Label>
-              <Select value={cancelCategory} onValueChange={setCancelCategory}>
-                <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="选择取消原因分类" />
-                </SelectTrigger>
-                <SelectContent>
-                  {CANCEL_REASON_CATEGORIES.map(cat => (
-                    <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {cancelCategory && (
-                <Badge className={`mt-1.5 ${CANCEL_REASON_CATEGORIES.find(c => c.value === cancelCategory)?.color}`}>
-                  {CANCEL_REASON_CATEGORIES.find(c => c.value === cancelCategory)?.label}
-                </Badge>
-              )}
-            </div>
-
-            {/* 取消理由 */}
-            <div>
-              <Label className="text-sm">取消理由</Label>
-              <div className="mt-1 p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 whitespace-pre-wrap">
-                {cancelReason}
+              <div className="mt-1 flex flex-wrap gap-1.5">
+                {CANCEL_REASON_CATEGORIES.map(cat => (
+                  <button
+                    key={cat.value}
+                    onClick={() => setCancelCategory(cat.value)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                      cancelCategory === cat.value
+                        ? `${cat.color} ring-2 ring-offset-1 ring-gray-400`
+                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    }`}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -360,7 +360,26 @@ export default function OrderCancellationModule({ order, onSuccess, compact = fa
           className="min-h-[60px]"
         />
 
-        {/* 第二行：退款金额输入框 + 退款按钮 */}
+        {/* 第二行：取消原因分类（footerActions 区域） */}
+        <div>
+          <div className="flex flex-wrap gap-1.5">
+            {CANCEL_REASON_CATEGORIES.map(cat => (
+              <button
+                key={cat.value}
+                onClick={() => setCancelCategory(cat.value)}
+                className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
+                  cancelCategory === cat.value
+                    ? `${cat.color} ring-2 ring-offset-1 ring-gray-400`
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                {cat.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 第三行：退款金额输入框 + 退款按钮 */}
         {hasRefund ? (
           <div className="flex items-center gap-2">
             <div className="flex-1 flex items-center gap-2">
@@ -391,6 +410,49 @@ export default function OrderCancellationModule({ order, onSuccess, compact = fa
                 </Button>
               )}
             </div>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className={`h-9 text-xs transition-all ${
+                  cancelCategory ? "border-gray-300" : "border-dashed border-gray-300"
+                }`}
+                onClick={() => {
+                  const currentIndex = CANCEL_REASON_CATEGORIES.findIndex(c => c.value === cancelCategory);
+                  const nextIndex = (currentIndex + 1) % CANCEL_REASON_CATEGORIES.length;
+                  setCancelCategory(CANCEL_REASON_CATEGORIES[nextIndex].value);
+                }}
+              >
+                <Tags className="w-3 h-3 mr-1" />
+                {cancelCategory ? CANCEL_REASON_CATEGORIES.find(c => c.value === cancelCategory)?.label : "选择分类"}
+              </Button>
+              <Button
+                size="sm"
+                className="h-9 text-xs bg-red-600 hover:bg-red-700"
+                onClick={handleCancelOrder}
+                disabled={isSubmitting || !cancelReason.trim()}
+              >
+                {isSubmitting ? <Loader2 className="w-3 h-3 animate-spin" /> : <AlertTriangle className="w-3 h-3" />}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              className={`h-9 text-xs transition-all flex-1 justify-start ${
+                cancelCategory ? "border-gray-300" : "border-dashed border-gray-300"
+              }`}
+              onClick={() => {
+                const currentIndex = CANCEL_REASON_CATEGORIES.findIndex(c => c.value === cancelCategory);
+                const nextIndex = (currentIndex + 1) % CANCEL_REASON_CATEGORIES.length;
+                setCancelCategory(CANCEL_REASON_CATEGORIES[nextIndex].value);
+              }}
+            >
+              <Tags className="w-3 h-3 mr-1" />
+              {cancelCategory ? CANCEL_REASON_CATEGORIES.find(c => c.value === cancelCategory)?.label : "选择分类"}
+            </Button>
             <Button
               size="sm"
               className="h-9 text-xs bg-red-600 hover:bg-red-700"
@@ -400,15 +462,6 @@ export default function OrderCancellationModule({ order, onSuccess, compact = fa
               {isSubmitting ? <Loader2 className="w-3 h-3 animate-spin" /> : <AlertTriangle className="w-3 h-3" />}
             </Button>
           </div>
-        ) : (
-          <Button
-            size="sm"
-            className="h-9 text-xs bg-red-600 hover:bg-red-700 w-full"
-            onClick={handleCancelOrder}
-            disabled={isSubmitting || !cancelReason.trim()}
-          >
-            {isSubmitting ? <Loader2 className="w-3 h-3 animate-spin" /> : <AlertTriangle className="w-3 h-3" />}
-          </Button>
         )}
 
         {/* 取消历史记录 */}
