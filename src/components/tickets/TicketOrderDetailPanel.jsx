@@ -132,9 +132,27 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
               <Badge className={`text-xs ${TICKET_STATUS_COLORS[order.ticket_status] || "bg-gray-100 text-gray-700"}`}>
                 {TICKET_STATUS_LABELS[order.ticket_status] || order.ticket_status}
               </Badge>
+              {ticketData.sales_method && (
+                <Badge variant="outline" className="text-xs">
+                  {SALES_METHOD_LABELS[ticketData.sales_method] || ticketData.sales_method}
+                </Badge>
+              )}
+              {ticketData.ticketing_method && (
+                <Badge variant="outline" className="text-xs">
+                  {TICKETING_METHOD_LABELS[ticketData.ticketing_method] || ticketData.ticketing_method}
+                </Badge>
+              )}
               <span className="text-xs text-gray-400 font-mono">{order.order_number}</span>
             </div>
-            <h2 className="text-lg font-bold text-gray-900 truncate">{order.product_name}</h2>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <h2 className="text-lg font-bold text-gray-900 truncate">{order.product_name}</h2>
+              {ticketData.performance_name && (
+                <>
+                  <span className="text-gray-300 flex-shrink-0">・</span>
+                  <span className="text-sm text-gray-600 truncate">{ticketData.performance_name}</span>
+                </>
+              )}
+            </div>
             <p className="text-xs text-gray-500 mt-0.5">
               {order.user_name} · {order.user_email}
             </p>
@@ -240,18 +258,6 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
                     <FileText className="w-4 h-4" />销售信息
                   </div>
                   <div className="space-y-1.5 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">销售方式</span>
-                      <span className="font-medium text-gray-900">
-                        {SALES_METHOD_LABELS[ticketData.sales_method] || ticketData.sales_method || "-"}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">发券方式</span>
-                      <span className="font-medium text-gray-900">
-                        {TICKETING_METHOD_LABELS[ticketData.ticketing_method] || ticketData.ticketing_method || "-"}
-                      </span>
-                    </div>
                     <div className="flex justify-between">
                       <span className="text-gray-500">提交日期</span>
                       <span className="font-medium text-gray-900">{formatDate(order.created_date)}</span>
