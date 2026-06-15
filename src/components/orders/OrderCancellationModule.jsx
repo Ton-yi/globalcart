@@ -178,15 +178,15 @@ export default function OrderCancellationModule({ order, onSuccess, compact = fa
   if (compact) {
     return (
       <div className="space-y-2">
-        {/* 第一行：取消理由输入框 */}
+        {/* 第一行：取消理由输入框（占两行） */}
         <RichTextInput
           value={cancelReason}
           onChange={setCancelReason}
           imageUrls={cancelImages}
           onImageUrls={setCancelImages}
           placeholder="取消理由..."
-          rows={1}
-          className="h-9"
+          rows={2}
+          className="min-h-[60px]"
         />
 
         {/* 第二行：退款金额输入框 + 退款按钮 */}
