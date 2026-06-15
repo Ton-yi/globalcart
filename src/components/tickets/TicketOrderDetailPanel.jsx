@@ -3,7 +3,7 @@
  * 专门用于显示票务订单的所有属性信息
  */
 import { useState } from "react";
-import { X, Ticket, Calendar, MapPin, Users, CreditCard, FileText, Image as ImageIcon, MessageSquare, Wand2, Loader2, Upload } from "lucide-react";
+import { X, Ticket, Calendar, MapPin, Users, CreditCard, FileText, Image as ImageIcon, MessageSquare, Wand2, Loader2, Upload, Pencil, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ImageWithViewer } from "@/components/common/ImageViewer";
@@ -286,6 +286,59 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
     (ticketData.seats || []).map(s => ({ ...s, actual_quantity: s.actual_quantity ?? s.quantity ?? 0 }))
   );
   const [savingSeats, setSavingSeats] = useState(false);
+
+  // 演出信息编辑
+  const [editingPerformance, setEditingPerformance] = useState(false);
+  const [perfForm, setPerfForm] = useState({
+    performance_name: ticketData.performance_name || "",
+    performance_datetime: ticketData.performance_datetime || "",
+    prefecture: ticketData.prefecture || "",
+    purchase_link: ticketData.purchase_link || "",
+  });
+  const [savingPerf, setSavingPerf] = useState(false);
+
+  const handleSavePerformance = async () => {
+    setSavingPerf(true);
+    try {
+      await updateOrder(order.id, {
+        ticket_data: { ...ticketData, ...perfForm },
+      });
+      toast.success("演出信息已保存");
+      setEditingPerformance(false);
+      onRefresh?.();
+    } catch (e) {
+      toast.error("保存失败：" + e.message);
+    } finally {
+      setSavingPerf(false);
+    }
+  };
+
+  // 销售信息编辑
+  const [editingSales, setEditingSales] = useState(false);
+  const [salesForm, setSalesForm] = useState({
+    sales_method: ticketData.sales_method || "",
+    ticketing_method: ticketData.ticketing_method || "",
+    sales_start_time: ticketData.sales_start_time || "",
+    sales_end_time: ticketData.sales_end_time || "",
+    lottery_result_time: ticketData.lottery_result_time || "",
+  });
+  const [savingSales, setSavingSales] = useState(false);
+
+  const handleSaveSales = async () => {
+    setSavingSales(true);
+    try {
+      await updateOrder(order.id, {
+        ticket_data: { ...ticketData, ...salesForm },
+      });
+      toast.success("销售信息已保存");
+      setEditingSales(false);
+      onRefresh?.();
+    } catch (e) {
+      toast.error("保存失败：" + e.message);
+    } finally {
+      setSavingSales(false);
+    }
+  };
 
   // 正数 = 应退款，负数 = 应补款
   const computedRefund = actualSeats.reduce((sum, s) => {
@@ -761,71 +814,167 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
                   <div className="text-xs text-green-600 mb-1">总票数</div>
                   <div className="text-lg font-bold text-green-700">{totalSeats}</div>
                 </div>
-                <div className="bg-orange-50 border border-orange-100 rounded-lg p-3">
-                  <div className="text-xs text-orange-600 mb-1">销售方式</div>
-                  <div className="text-sm font-bold text-orange-700">
-                    {SALES_METHOD_LABELS[ticketData.sales_method] || ticketData.sales_method || "-"}
-                  </div>
-                </div>
-              </div>
-
-              {/* Performance info */}
-              <div className="grid md:grid-cols-2 gap-4">
-                <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                    <Calendar className="w-4 h-4" />演出信息
-                  </div>
-                  <div className="space-y-1.5 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">演出名称</span>
-                      <span className="font-medium text-gray-900">{ticketData.performance_name || "-"}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">演出时间</span>
-                      <span className="font-medium text-gray-900">{formatDate(ticketData.performance_datetime)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">都道府县</span>
-                      <span className="font-medium text-gray-900">{ticketData.prefecture || "-"}</span>
-                    </div>
-                    {ticketData.purchase_link && (
-                      <div className="flex justify-between items-start gap-2 pt-1">
-                        <span className="text-gray-500">演出链接</span>
-                        <a 
-                          href={ticketData.purchase_link} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="font-medium text-blue-600 hover:text-blue-800 hover:underline text-xs break-all"
-                        >
-                          点击查看 →
-                        </a>
-                      </div>
+                {((ticketData.additional_fee_jpy || 0) > 0 || (ticketData.lottery_win_bonus_jpy || 0) > 0) ? (
+                  <div className="bg-orange-50 border border-orange-100 rounded-lg p-3">
+                    <div className="text-xs text-orange-600 mb-1">追加费用</div>
+                    {(ticketData.additional_fee_jpy || 0) > 0 && (
+                      <div className="text-xs text-orange-700">追加料金 <span className="font-bold">{Math.round(ticketData.additional_fee_jpy).toLocaleString()} JPY</span></div>
+                    )}
+                    {(ticketData.lottery_win_bonus_jpy || 0) > 0 && (
+                      <div className="text-xs text-orange-700 mt-0.5">抽中追加 <span className="font-bold">{Math.round(ticketData.lottery_win_bonus_jpy).toLocaleString()} JPY</span></div>
                     )}
                   </div>
+                ) : (
+                  <div className="bg-orange-50 border border-orange-100 rounded-lg p-3">
+                    <div className="text-xs text-orange-600 mb-1">销售方式</div>
+                    <div className="text-sm font-bold text-orange-700">
+                      {SALES_METHOD_LABELS[ticketData.sales_method] || ticketData.sales_method || "-"}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Performance info & Sales info */}
+              <div className="grid md:grid-cols-2 gap-4">
+                {/* 演出信息 */}
+                <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                      <Calendar className="w-4 h-4" />演出信息
+                    </div>
+                    {isAdmin && !editingPerformance && (
+                      <button onClick={() => { setPerfForm({ performance_name: ticketData.performance_name || "", performance_datetime: ticketData.performance_datetime || "", prefecture: ticketData.prefecture || "", purchase_link: ticketData.purchase_link || "" }); setEditingPerformance(true); }}
+                        className="p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600">
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                  {editingPerformance ? (
+                    <div className="space-y-2 text-sm">
+                      <div>
+                        <Label className="text-xs text-gray-500">演出名称</Label>
+                        <Input className="mt-0.5 h-7 text-sm" value={perfForm.performance_name} onChange={e => setPerfForm(p => ({ ...p, performance_name: e.target.value }))} />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-gray-500">演出时间</Label>
+                        <Input type="datetime-local" className="mt-0.5 h-7 text-sm" value={perfForm.performance_datetime ? perfForm.performance_datetime.slice(0, 16) : ""} onChange={e => setPerfForm(p => ({ ...p, performance_datetime: e.target.value ? new Date(e.target.value).toISOString() : "" }))} />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-gray-500">都道府县</Label>
+                        <Input className="mt-0.5 h-7 text-sm" value={perfForm.prefecture} onChange={e => setPerfForm(p => ({ ...p, prefecture: e.target.value }))} />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-gray-500">演出/购买链接</Label>
+                        <Input className="mt-0.5 h-7 text-sm" value={perfForm.purchase_link} onChange={e => setPerfForm(p => ({ ...p, purchase_link: e.target.value }))} />
+                      </div>
+                      <div className="flex gap-2 pt-1">
+                        <Button size="sm" className="h-7 text-xs bg-violet-600 hover:bg-violet-700" onClick={handleSavePerformance} disabled={savingPerf}>
+                          {savingPerf ? <Loader2 className="w-3 h-3 animate-spin" /> : <><Check className="w-3 h-3 mr-1" />保存</>}
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setEditingPerformance(false)} disabled={savingPerf}>取消</Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">演出名称</span>
+                        <span className="font-medium text-gray-900">{ticketData.performance_name || "-"}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">演出时间</span>
+                        <span className="font-medium text-gray-900">{formatDate(ticketData.performance_datetime)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">都道府县</span>
+                        <span className="font-medium text-gray-900">{ticketData.prefecture || "-"}</span>
+                      </div>
+                      {ticketData.purchase_link && (
+                        <div className="flex justify-between items-start gap-2 pt-1">
+                          <span className="text-gray-500">演出链接</span>
+                          <a href={ticketData.purchase_link} target="_blank" rel="noopener noreferrer"
+                            className="font-medium text-blue-600 hover:text-blue-800 hover:underline text-xs break-all">
+                            点击查看 →
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
+                {/* 销售信息 */}
                 <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                    <FileText className="w-4 h-4" />销售信息
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                      <FileText className="w-4 h-4" />销售信息
+                    </div>
+                    {isAdmin && !editingSales && (
+                      <button onClick={() => { setSalesForm({ sales_method: ticketData.sales_method || "", ticketing_method: ticketData.ticketing_method || "", sales_start_time: ticketData.sales_start_time || "", sales_end_time: ticketData.sales_end_time || "", lottery_result_time: ticketData.lottery_result_time || "" }); setEditingSales(true); }}
+                        className="p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600">
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
-                  <div className="space-y-1.5 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">销售方式</span>
-                      <span className="font-medium text-gray-900">
-                        {SALES_METHOD_LABELS[ticketData.sales_method] || ticketData.sales_method || "-"}
-                      </span>
+                  {editingSales ? (
+                    <div className="space-y-2 text-sm">
+                      <div>
+                        <Label className="text-xs text-gray-500">销售方式</Label>
+                        <Select value={salesForm.sales_method} onValueChange={v => setSalesForm(p => ({ ...p, sales_method: v }))}>
+                          <SelectTrigger className="mt-0.5 h-7 text-sm"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="first_come">先着販売</SelectItem>
+                            <SelectItem value="lottery">抽選販売</SelectItem>
+                            <SelectItem value="other">その他</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-gray-500">発券方式</Label>
+                        <Select value={salesForm.ticketing_method} onValueChange={v => setSalesForm(p => ({ ...p, ticketing_method: v }))}>
+                          <SelectTrigger className="mt-0.5 h-7 text-sm"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="paper">紙チケット</SelectItem>
+                            <SelectItem value="electronic">電子チケット</SelectItem>
+                            <SelectItem value="ticket_number">発券番号</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-gray-500">販売開始</Label>
+                        <Input type="datetime-local" className="mt-0.5 h-7 text-sm" value={salesForm.sales_start_time ? salesForm.sales_start_time.slice(0, 16) : ""} onChange={e => setSalesForm(p => ({ ...p, sales_start_time: e.target.value ? new Date(e.target.value).toISOString() : "" }))} />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-gray-500">販売終了</Label>
+                        <Input type="datetime-local" className="mt-0.5 h-7 text-sm" value={salesForm.sales_end_time ? salesForm.sales_end_time.slice(0, 16) : ""} onChange={e => setSalesForm(p => ({ ...p, sales_end_time: e.target.value ? new Date(e.target.value).toISOString() : "" }))} />
+                      </div>
+                      {salesForm.sales_method === "lottery" && (
+                        <div>
+                          <Label className="text-xs text-gray-500">抽選結果発表</Label>
+                          <Input type="datetime-local" className="mt-0.5 h-7 text-sm" value={salesForm.lottery_result_time ? salesForm.lottery_result_time.slice(0, 16) : ""} onChange={e => setSalesForm(p => ({ ...p, lottery_result_time: e.target.value ? new Date(e.target.value).toISOString() : "" }))} />
+                        </div>
+                      )}
+                      <div className="flex gap-2 pt-1">
+                        <Button size="sm" className="h-7 text-xs bg-violet-600 hover:bg-violet-700" onClick={handleSaveSales} disabled={savingSales}>
+                          {savingSales ? <Loader2 className="w-3 h-3 animate-spin" /> : <><Check className="w-3 h-3 mr-1" />保存</>}
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setEditingSales(false)} disabled={savingSales}>取消</Button>
+                      </div>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">发券方式</span>
-                      <span className="font-medium text-gray-900">
-                        {TICKETING_METHOD_LABELS[ticketData.ticketing_method] || ticketData.ticketing_method || "-"}
-                      </span>
+                  ) : (
+                    <div className="space-y-1.5 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">销售方式</span>
+                        <span className="font-medium text-gray-900">{SALES_METHOD_LABELS[ticketData.sales_method] || ticketData.sales_method || "-"}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">发券方式</span>
+                        <span className="font-medium text-gray-900">{TICKETING_METHOD_LABELS[ticketData.ticketing_method] || ticketData.ticketing_method || "-"}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">提交日期</span>
+                        <span className="font-medium text-gray-900">{formatDate(order.created_date)}</span>
+                      </div>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">提交日期</span>
-                      <span className="font-medium text-gray-900">{formatDate(order.created_date)}</span>
-                    </div>
-                  </div>
+                  )}
                 </div>
               </div>
 
