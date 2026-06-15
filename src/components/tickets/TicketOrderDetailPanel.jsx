@@ -3,7 +3,7 @@
  * 专门用于显示票务订单的所有属性信息
  */
 import { useState } from "react";
-import { X, Ticket, Calendar, MapPin, Users, CreditCard, FileText, Image as ImageIcon, MessageSquare, Wand2, Loader2 } from "lucide-react";
+import { X, Ticket, Calendar, MapPin, Users, CreditCard, FileText, Image as ImageIcon, MessageSquare, Wand2, Loader2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ImageWithViewer } from "@/components/common/ImageViewer";
@@ -15,6 +15,9 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { updateOrder } from "@/lib/tenantApi";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { base44 } from "@/api/base44Client";
 
 const TICKET_STATUS_LABELS = {
   pending_confirmation: "待确认",
@@ -58,6 +61,11 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
   const isAdmin = actualCurrentUser?.role === "admin" || actualCurrentUser?.role === "staff" || actualCurrentUser?.role === "platform_admin";
   const canUpdateStatus = can("order:update") || isAdmin;
   const [statusUpdating, setStatusUpdating] = useState(false);
+  const [ticketNumberInput, setTicketNumberInput] = useState("");
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [showTicketNumberModal, setShowTicketNumberModal] = useState(false);
+  const [showImageUploadModal, setShowImageUploadModal] = useState(false);
+  const [imageUploadType, setImageUploadType] = useState("ticket"); // "ticket" or "lottery"
 
   const ticketData = order.ticket_data || {};
   const seats = ticketData.seats || [];
@@ -112,6 +120,105 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
   };
 
   const isPendingConfirmation = order.ticket_status === "pending_confirmation";
+  const isAccepted = order.ticket_status === "accepted";
+  
+  // 判断当前订单应该显示什么操作按钮
+  const shouldShowTicketNumberButton = isAccepted && 
+    (ticketData.sales_method === "first_come" || ticketData.sales_method === "other") &&
+    (ticketData.ticketing_method === "electronic" || ticketData.ticketing_method === "ticket_number");
+  
+  const shouldShowPaperTicketButton = isAccepted && 
+    (ticketData.sales_method === "first_come" || ticketData.sales_method === "other") &&
+    ticketData.ticketing_method === "paper";
+  
+  const shouldShowLotteryButton = isAccepted && ticketData.sales_method === "lottery";
+
+  const handleTicketNumberSubmit = async () => {
+    if (!ticketNumberInput.trim()) {
+      toast.error("请输入发券番号");
+      return;
+    }
+    setStatusUpdating(true);
+    try {
+      await updateOrder(order.id, {
+        ticket_status: "shipped",
+        ticket_number_issued: ticketNumberInput.trim(),
+        messages: [
+          ...(order.messages || []),
+          {
+            id: `ticket_number_${Date.now()}`,
+            from: "系统通知",
+            from_email: "system@system.local",
+            role: "admin",
+            content: `发券番号已登记：${ticketNumberInput.trim()}，订单状态更新为已发货`,
+            timestamp: new Date().toISOString(),
+            is_system_notification: true,
+            meta: { type: "ticket_number_registered", ticket_number: ticketNumberInput.trim() }
+          }
+        ],
+        unread_roles: ["user"]
+      });
+      toast.success("发券番号已登记，订单状态已更新");
+      onRefresh?.();
+      onClose?.();
+    } catch (error) {
+      toast.error("更新失败：" + error.message);
+    } finally {
+      setStatusUpdating(false);
+    }
+  };
+
+  const handleImageUpload = async (file, type) => {
+    setUploadingImage(true);
+    try {
+      // 上传图片
+      const uploadRes = await base44.functions.invoke('getPaymentPageData', { file });
+      const imageUrl = uploadRes.data?.file_url;
+      
+      if (!imageUrl) {
+        toast.error("图片上传失败");
+        return;
+      }
+
+      let newStatus, messageContent, statusLabel;
+      
+      if (type === "ticket") {
+        newStatus = "purchased_pending_warehouse";
+        statusLabel = "已购买待入库";
+        messageContent = "票券图片已上传，订单状态更新为已购买待入库";
+      } else { // lottery
+        newStatus = "awaiting_lottery_result";
+        statusLabel = "等待抽选结果";
+        messageContent = "抽选截图已上传，订单状态更新为等待抽选结果";
+      }
+
+      await updateOrder(order.id, {
+        ticket_status: newStatus,
+        ticket_image_urls: [...(order.ticket_image_urls || []), imageUrl],
+        messages: [
+          ...(order.messages || []),
+          {
+            id: `image_upload_${Date.now()}`,
+            from: "系统通知",
+            from_email: "system@system.local",
+            role: "admin",
+            content: messageContent,
+            timestamp: new Date().toISOString(),
+            is_system_notification: true,
+            meta: { type: "image_uploaded", image_url: imageUrl, new_status: newStatus }
+          }
+        ],
+        unread_roles: ["user"]
+      });
+      toast.success(`图片已上传，订单状态已更新为${statusLabel}`);
+      onRefresh?.();
+      onClose?.();
+    } catch (error) {
+      toast.error("上传失败：" + error.message);
+    } finally {
+      setUploadingImage(false);
+    }
+  };
   
   const tabs = [
     { key: "overview", label: "概览" },
@@ -186,6 +293,39 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
               className="ml-auto bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
             >
               已受理 / 待开票
+            </Button>
+          )}
+          {shouldShowTicketNumberButton && (
+            <Button
+              size="sm"
+              onClick={() => setShowTicketNumberModal(true)}
+              disabled={statusUpdating}
+              className="ml-auto bg-teal-50 hover:bg-teal-100 text-teal-700 border-teal-200"
+            >
+              <Wand2 className="w-3.5 h-3.5 mr-1" />
+              登记发券番号 / 已发货
+            </Button>
+          )}
+          {shouldShowPaperTicketButton && (
+            <Button
+              size="sm"
+              onClick={() => { setImageUploadType("ticket"); setShowImageUploadModal(true); }}
+              disabled={statusUpdating || uploadingImage}
+              className="ml-auto bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200"
+            >
+              <Upload className="w-3.5 h-3.5 mr-1" />
+              上传票图片 / 已购买待入库
+            </Button>
+          )}
+          {shouldShowLotteryButton && (
+            <Button
+              size="sm"
+              onClick={() => { setImageUploadType("lottery"); setShowImageUploadModal(true); }}
+              disabled={statusUpdating || uploadingImage}
+              className="ml-auto bg-yellow-50 hover:bg-yellow-100 text-yellow-700 border-yellow-200"
+            >
+              <Upload className="w-3.5 h-3.5 mr-1" />
+              上传抽选截图 / 待抽选结果
             </Button>
           )}
         </div>
@@ -706,6 +846,91 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
             </div>
           )}
         </div>
+
+        {/* 发券番号输入弹窗 */}
+        {showTicketNumberModal && (
+          <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onMouseDown={() => setShowTicketNumberModal(false)}>
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-md" onMouseDown={e => e.stopPropagation()}>
+              <div className="px-6 py-4 border-b">
+                <h3 className="font-semibold text-gray-900">登记发券番号</h3>
+                <p className="text-xs text-gray-500 mt-0.5">{order.order_number}</p>
+              </div>
+              <div className="px-6 py-4 space-y-3">
+                <div>
+                  <Label className="text-sm">发券番号</Label>
+                  <Input
+                    value={ticketNumberInput}
+                    onChange={(e) => setTicketNumberInput(e.target.value)}
+                    placeholder="请输入发券番号"
+                    className="mt-1"
+                  />
+                </div>
+                <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-xs text-blue-700">
+                  <p>当前订单：{order.product_name}</p>
+                  <p className="mt-1">销售方式：{SALES_METHOD_LABELS[ticketData.sales_method] || ticketData.sales_method}</p>
+                  <p>发券方式：{TICKETING_METHOD_LABELS[ticketData.ticketing_method] || ticketData.ticketing_method}</p>
+                </div>
+              </div>
+              <div className="px-6 py-3 border-t flex gap-2 justify-end">
+                <Button variant="outline" size="sm" onClick={() => setShowTicketNumberModal(false)} disabled={statusUpdating}>
+                  取消
+                </Button>
+                <Button size="sm" className="bg-teal-600 hover:bg-teal-700" onClick={handleTicketNumberSubmit} disabled={statusUpdating || !ticketNumberInput.trim()}>
+                  {statusUpdating ? <><Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />处理中...</> : <><Wand2 className="w-3.5 h-3.5 mr-1" />确认登记</>}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 图片上传弹窗 */}
+        {showImageUploadModal && (
+          <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onMouseDown={() => setShowImageUploadModal(false)}>
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-md" onMouseDown={e => e.stopPropagation()}>
+              <div className="px-6 py-4 border-b">
+                <h3 className="font-semibold text-gray-900">
+                  {imageUploadType === "ticket" ? "上传票券图片" : "上传抽选截图"}
+                </h3>
+                <p className="text-xs text-gray-500 mt-0.5">{order.order_number}</p>
+              </div>
+              <div className="px-6 py-4 space-y-3">
+                <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-xs text-blue-700">
+                  <p>当前订单：{order.product_name}</p>
+                  <p className="mt-1">销售方式：{SALES_METHOD_LABELS[ticketData.sales_method] || ticketData.sales_method}</p>
+                  <p>发券方式：{TICKETING_METHOD_LABELS[ticketData.ticketing_method] || ticketData.ticketing_method}</p>
+                </div>
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                  <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                  <p className="text-sm text-gray-600">点击选择图片或拖拽图片到此处</p>
+                  <p className="text-xs text-gray-500 mt-1">支持 JPG、PNG 格式</p>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    id="image-upload"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        handleImageUpload(file, imageUploadType);
+                      }
+                    }}
+                    disabled={uploadingImage}
+                  />
+                  <Label htmlFor="image-upload" className="cursor-pointer">
+                    <Button size="sm" className="mt-3" disabled={uploadingImage}>
+                      {uploadingImage ? <><Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />上传中...</> : "选择图片"}
+                    </Button>
+                  </Label>
+                </div>
+              </div>
+              <div className="px-6 py-3 border-t flex gap-2 justify-end">
+                <Button variant="outline" size="sm" onClick={() => setShowImageUploadModal(false)} disabled={uploadingImage}>
+                  取消
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
