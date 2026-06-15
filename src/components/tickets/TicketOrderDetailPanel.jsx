@@ -116,26 +116,7 @@ export default function TicketOrderDetailPanel({ order, onClose, userProfileMap 
     { key: "overview", label: "概览" },
     { key: "messages", label: "留言", badge: (order.unread_roles || []).includes("admin") && isAdmin ? "red" : null },
     ...(isPendingConfirmation
-      ? [
-          { key: "messages_actions", label: "留言 & 取消" },
-          { 
-            key: "cancel_order", 
-            label: (
-              <Button
-                size="sm"
-                variant="destructive"
-                className="h-7 text-xs px-3"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setActiveTab("messages_actions");
-                }}
-              >
-                取消订单
-              </Button>
-            ),
-            isButton: true
-          }
-        ]
+      ? [{ key: "messages_actions", label: "留言 & 取消" }]
       : []),
     { key: "fees", label: "费用明细" },
     { key: "timeline", label: "时间线" },
@@ -166,30 +147,19 @@ export default function TicketOrderDetailPanel({ order, onClose, userProfileMap 
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b px-6 sticky top-[73px] bg-white z-10 items-center">
+        <div className="flex border-b px-6 sticky top-[73px] bg-white z-10">
           {tabs.map(t => (
-            t.isButton ? (
-              <div key={t.key} className="ml-auto">
-                {t.label}
-              </div>
-            ) : (
-              <button 
-                key={t.key} 
-                onClick={() => setActiveTab(t.key)}
-                className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 ${
-                  activeTab === t.key 
-                    ? "border-violet-600 text-violet-600" 
-                    : "border-transparent text-gray-500 hover:text-gray-700"
-                }`}
-              >
-                {t.label}
-                {t.badge && (
-                  <span className={`ml-1.5 inline-block w-2 h-2 rounded-full ${
-                    t.badge === "red" ? "bg-red-500" : "bg-gray-500"
-                  }`} />
-                )}
-              </button>
-            )
+            <button 
+              key={t.key} 
+              onClick={() => setActiveTab(t.key)}
+              className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 ${
+                activeTab === t.key 
+                  ? "border-violet-600 text-violet-600" 
+                  : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              {t.label}
+            </button>
           ))}
         </div>
 
