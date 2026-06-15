@@ -11,6 +11,26 @@ import RichTextInput from "@/components/common/RichTextInput";
  * data: ticket_data；onChange(patch) 更新
  * timeErrors: { sales_start_time, sales_end_time, lottery_result_time, performance_datetime } 时间校验错误
  */
+
+const MINUTE_OPTIONS = ["00", "15", "30", "45"];
+const HOUR_OPTIONS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
+
+/** 将 "YYYY-MM-DDTHH:MM" 拆成 { date, hour, minute } */
+function splitIso(val) {
+  if (!val) return { date: "", hour: "", minute: "" };
+  const [datePart, timePart = ""] = val.split("T");
+  const [hour = "", minute = ""] = timePart.split(":");
+  // snap minute to nearest 15-min slot
+  const snapped = MINUTE_OPTIONS.reduce((best, m) => Math.abs(parseInt(m) - parseInt(minute || 0)) < Math.abs(parseInt(best) - parseInt(minute || 0)) ? m : best, "00");
+  return { date: datePart, hour: hour.padStart(2, "0"), minute: snapped };
+}
+
+/** 合并回 ISO 字符串，date/hour/minute 任一为空则返回 "" */
+function joinIso(date, hour, minute) {
+  if (!date || !hour || !minute) return "";
+  return `${date}T${hour}:${minute}`;
+}
+
 export default function TicketRequestFields({ data, onChange, config, timeErrors = {} }) {
   const vis = config?.field_visibility || {};
   const show = (key) => vis[key] !== "hidden";
@@ -18,33 +38,55 @@ export default function TicketRequestFields({ data, onChange, config, timeErrors
   const set = (patch) => onChange(patch);
   const isLottery = data.sales_method === "lottery";
 
-  // 最小时间：当前时间（精确到分钟，step=900s 即15min）
-  const nowMin = (() => {
-    const d = new Date();
-    // round up to next 15-min slot
-    const ms = 15 * 60 * 1000;
-    const rounded = new Date(Math.ceil(d.getTime() / ms) * ms);
-    return rounded.toISOString().slice(0, 16);
-  })();
-
   const L = ({ k, children }) => (
     <Label className="text-sm font-medium">{children}{req(k) && <span className="text-red-500 ml-0.5">*</span>}</Label>
   );
 
-  const DateField = ({ fieldKey, label, value, minOverride }) => {
+  /** 日期 + 时 + 分（15分刻み）选择器，onChange 输出 "YYYY-MM-DDTHH:MM" 或 "" */
+  const DateField = ({ fieldKey, label, value }) => {
+    const { date, hour, minute } = splitIso(value);
     const error = timeErrors[fieldKey];
+
+    const handleChange = (part, val) => {
+      const next = {
+        date: part === "date" ? val : date,
+        hour: part === "hour" ? val : hour,
+        minute: part === "minute" ? val : minute,
+      };
+      set({ [fieldKey]: joinIso(next.date, next.hour, next.minute) });
+    };
+
     return (
       <div>
         <L k={fieldKey}>{label}</L>
-        <Input
-          type="datetime-local"
-          step={900}
-          className={`mt-1 text-sm ${error ? "border-red-400 focus:ring-red-400" : ""}`}
-          required={req(fieldKey)}
-          min={minOverride || nowMin}
-          value={value || ""}
-          onChange={e => set({ [fieldKey]: e.target.value })}
-        />
+        <div className={`mt-1 flex gap-1 items-center flex-wrap`}>
+          {/* 日期 */}
+          <Input
+            type="date"
+            className={`h-9 text-sm flex-1 min-w-[130px] ${error ? "border-red-400" : ""}`}
+            value={date}
+            onChange={e => handleChange("date", e.target.value)}
+          />
+          {/* 时 */}
+          <Select value={hour} onValueChange={v => handleChange("hour", v)}>
+            <SelectTrigger className={`h-9 w-[70px] text-sm ${error ? "border-red-400" : ""}`}>
+              <SelectValue placeholder="时" />
+            </SelectTrigger>
+            <SelectContent>
+              {HOUR_OPTIONS.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <span className="text-gray-400 text-sm">:</span>
+          {/* 分（只有 00/15/30/45） */}
+          <Select value={minute} onValueChange={v => handleChange("minute", v)}>
+            <SelectTrigger className={`h-9 w-[70px] text-sm ${error ? "border-red-400" : ""}`}>
+              <SelectValue placeholder="分" />
+            </SelectTrigger>
+            <SelectContent>
+              {MINUTE_OPTIONS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
         {error && <p className="text-xs text-red-500 mt-0.5">{error}</p>}
       </div>
     );
@@ -123,7 +165,6 @@ export default function TicketRequestFields({ data, onChange, config, timeErrors
               fieldKey="sales_end_time"
               label={isLottery ? "抽選終了" : "販売終了"}
               value={data.sales_end_time}
-              minOverride={data.sales_start_time || nowMin}
             />
           )}
           {show("lottery_result_time") && isLottery && (
@@ -131,7 +172,6 @@ export default function TicketRequestFields({ data, onChange, config, timeErrors
               fieldKey="lottery_result_time"
               label="結果発表"
               value={data.lottery_result_time}
-              minOverride={data.sales_end_time || data.sales_start_time || nowMin}
             />
           )}
         </div>
