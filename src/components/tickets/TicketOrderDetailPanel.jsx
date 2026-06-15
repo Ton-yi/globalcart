@@ -382,11 +382,11 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
           )}
           {shouldShowTicketNumberButton && (
             <div className="ml-auto flex items-center gap-2">
-              <Input
+              <textarea
                 value={ticketNumberInput}
                 onChange={(e) => setTicketNumberInput(e.target.value)}
                 placeholder="请输入发券番号"
-                className="w-40 h-8 text-sm"
+                className="w-40 h-8 text-sm resize-none rounded-md border border-input bg-background px-3 py-1 shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50"
                 disabled={statusUpdating}
               />
               <Button
