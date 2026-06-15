@@ -3,11 +3,18 @@
  * 专门用于显示票务订单的所有属性信息
  */
 import { useState } from "react";
-import { X, Ticket, Calendar, MapPin, Users, CreditCard, FileText, Image as ImageIcon } from "lucide-react";
+import { X, Ticket, Calendar, MapPin, Users, CreditCard, FileText, Image as ImageIcon, MessageSquare, Wand2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ImageWithViewer } from "@/components/common/ImageViewer";
 import ReactMarkdown from "react-markdown";
+import OrderMessageThread from "@/components/orders/OrderMessageThread";
+import OrderCancellationModule from "@/components/orders/OrderCancellationModule";
+import { useAuth } from "@/lib/AuthContext";
+import { usePermissions } from "@/hooks/usePermissions";
+import { updateOrder } from "@/lib/tenantApi";
+import { toast } from "sonner";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const TICKET_STATUS_LABELS = {
   pending_confirmation: "待确认",
@@ -43,14 +50,49 @@ const TICKETING_METHOD_LABELS = {
   ticket_number: "発券番号",
 };
 
-export default function TicketOrderDetailPanel({ order, onClose, userProfileMap = {} }) {
-  const [activeTab, setActiveTab] = useState("overview"); // "overview" | "details" | "fees" | "timeline"
+export default function TicketOrderDetailPanel({ order, onClose, userProfileMap = {}, currentUser }) {
+  const [activeTab, setActiveTab] = useState("overview");
+  const { user: authUser } = useAuth();
+  const { can } = usePermissions();
+  const actualCurrentUser = currentUser || authUser;
+  const isAdmin = actualCurrentUser?.role === "admin" || actualCurrentUser?.role === "staff" || actualCurrentUser?.role === "platform_admin";
+  const canUpdateStatus = can("order:update") || isAdmin;
+  const [statusUpdating, setStatusUpdating] = useState(false);
 
   const ticketData = order.ticket_data || {};
   const seats = ticketData.seats || [];
   const totalSeats = seats.reduce((sum, s) => sum + (s.quantity || 0), 0);
   const totalPrepaid = order.ticket_prepaid_total_jpy || 0;
   const totalRefund = order.ticket_refund_jpy || 0;
+
+  const handleStatusUpdate = async (newStatus) => {
+    setStatusUpdating(true);
+    try {
+      await updateOrder(order.id, {
+        ticket_status: newStatus,
+        messages: [
+          ...(order.messages || []),
+          {
+            id: `status_update_${Date.now()}`,
+            from: "系统通知",
+            from_email: "system@system.local",
+            role: "admin",
+            content: `订单状态已更新为：${TICKET_STATUS_LABELS[newStatus] || newStatus}`,
+            timestamp: new Date().toISOString(),
+            is_system_notification: true,
+            meta: { type: "status_update", new_status: newStatus }
+          }
+        ],
+        unread_roles: ["user"]
+      });
+      toast.success("订单状态已更新");
+      onClose?.();
+    } catch (error) {
+      toast.error("更新失败：" + error.message);
+    } finally {
+      setStatusUpdating(false);
+    }
+  };
 
   const formatCurrency = (amount) => {
     if (!amount || amount <= 0) return "-";
@@ -68,9 +110,14 @@ export default function TicketOrderDetailPanel({ order, onClose, userProfileMap 
     });
   };
 
+  const isPendingConfirmation = order.ticket_status === "pending_confirmation";
+  
   const tabs = [
     { key: "overview", label: "概览" },
-    { key: "details", label: "票务详情" },
+    { key: "messages", label: "留言", badge: (order.unread_roles || []).includes("admin") && isAdmin ? "red" : null },
+    ...(isPendingConfirmation
+      ? [{ key: "messages_actions", label: "留言 & 操作" }]
+      : []),
     { key: "fees", label: "费用明细" },
     { key: "timeline", label: "时间线" },
   ];
@@ -163,6 +210,19 @@ export default function TicketOrderDetailPanel({ order, onClose, userProfileMap 
                       <span className="text-gray-500">都道府县</span>
                       <span className="font-medium text-gray-900">{ticketData.prefecture || "-"}</span>
                     </div>
+                    {ticketData.purchase_link && (
+                      <div className="flex justify-between items-start gap-2 pt-1">
+                        <span className="text-gray-500">演出链接</span>
+                        <a 
+                          href={ticketData.purchase_link} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="font-medium text-blue-600 hover:text-blue-800 hover:underline text-xs break-all"
+                        >
+                          点击查看 →
+                        </a>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -367,33 +427,147 @@ export default function TicketOrderDetailPanel({ order, onClose, userProfileMap 
             </div>
           )}
 
+          {/* ===== MESSAGES TAB ===== */}
+          {activeTab === "messages" && (
+            <div>
+              <OrderMessageThread
+                order={order}
+                currentUser={actualCurrentUser}
+                isAdmin={isAdmin}
+                userProfileMap={userProfileMap}
+              />
+            </div>
+          )}
+
+          {/* ===== MESSAGES & ACTIONS TAB (for pending_confirmation only) ===== */}
+          {activeTab === "messages_actions" && isPendingConfirmation && (
+            <div className="space-y-6">
+              {/* Messages */}
+              <div>
+                <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                  <MessageSquare className="w-4 h-4" />留言沟通
+                </h3>
+                <OrderMessageThread
+                  order={order}
+                  currentUser={actualCurrentUser}
+                  isAdmin={isAdmin}
+                  userProfileMap={userProfileMap}
+                  hideHistory={false}
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="border-t pt-6">
+                <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                  <Wand2 className="w-4 h-4" />订单操作
+                </h3>
+                
+                {/* Status update buttons */}
+                <div className="space-y-3">
+                  <div className="text-xs text-gray-500">更新订单状态</div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleStatusUpdate("accepted")}
+                      disabled={statusUpdating}
+                      className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
+                    >
+                      已受理 / 待开票
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Cancel order */}
+                <div className="mt-4 pt-4 border-t">
+                  <div className="text-xs text-gray-500 mb-2">取消订单</div>
+                  <OrderCancellationModule order={order} compact onSuccess={() => onClose?.()} />
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* ===== FEES TAB ===== */}
           {activeTab === "fees" && (
             <div className="space-y-4">
-              {/* Fee summary */}
-              <div className="bg-green-50 border border-green-100 rounded-lg p-4 space-y-3">
-                <div className="flex items-center gap-2 text-sm font-semibold text-green-800">
-                  <CreditCard className="w-4 h-4" />费用汇总
+              {/* Detailed fee breakdown */}
+              <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-lg p-4 space-y-3">
+                <div className="flex items-center gap-2 text-sm font-semibold text-green-900">
+                  <CreditCard className="w-4 h-4" />费用详细构成
                 </div>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-green-600">预付总额</span>
-                    <span className="font-bold text-green-700">{formatCurrency(totalPrepaid)}</span>
+                <div className="space-y-2 text-sm">
+                  {/* Base ticket cost */}
+                  <div className="flex justify-between items-center py-1">
+                    <span className="text-green-700">席种总价</span>
+                    <span className="font-medium text-green-900">
+                      {formatCurrency(seats.reduce((sum, s) => sum + ((s.quantity || 0) * (s.price_jpy || 0)), 0))}
+                    </span>
                   </div>
-                  {totalRefund > 0 && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-green-600">退差价</span>
-                      <span className="font-bold text-green-700">{formatCurrency(totalRefund)}</span>
+                  <div className="text-xs text-green-600 pl-3">
+                    {seats.map((s, i) => (
+                      <div key={i} className="flex justify-between">
+                        <span>{s.seat_type || `席种 ${i + 1}`} × {s.quantity}</span>
+                        <span>{formatCurrency((s.quantity || 0) * (s.price_jpy || 0))}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Account multiplier */}
+                  {(ticketData.account_count || 1) > 1 && (
+                    <div className="flex justify-between items-center py-1 pl-3 border-l-2 border-green-300">
+                      <span className="text-green-700">账户数 ×{ticketData.account_count}</span>
+                      <span className="font-medium text-green-900">
+                        {formatCurrency(seats.reduce((sum, s) => sum + ((s.quantity || 0) * (s.price_jpy || 0)), 0) * ((ticketData.account_count || 1) - 1))}
+                      </span>
                     </div>
                   )}
+
+                  {/* Additional fees */}
+                  {(ticketData.additional_fee_jpy || 0) > 0 && (
+                    <div className="flex justify-between items-center py-1">
+                      <span className="text-green-700">追加料金</span>
+                      <span className="font-medium text-green-900">{formatCurrency(ticketData.additional_fee_jpy)}</span>
+                    </div>
+                  )}
+
+                  {/* Lottery bonus */}
+                  {(ticketData.lottery_win_bonus_jpy || 0) > 0 && (
+                    <div className="flex justify-between items-center py-1">
+                      <span className="text-green-700">抽中追加报酬</span>
+                      <span className="font-medium text-green-900">{formatCurrency(ticketData.lottery_win_bonus_jpy)}</span>
+                    </div>
+                  )}
+
+                  {/* Payment surcharge */}
                   {(order.payment_surcharge_jpy || 0) > 0 && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-green-600">支付方式服务费</span>
-                      <span className="font-bold text-green-700">{formatCurrency(order.payment_surcharge_jpy)}</span>
+                    <div className="flex justify-between items-center py-1">
+                      <span className="text-green-700">支付方式服务费</span>
+                      <span className="font-medium text-green-900">{formatCurrency(order.payment_surcharge_jpy)}</span>
                     </div>
                   )}
-                  <div className="border-t border-green-200 pt-2 flex justify-between text-base">
-                    <span className="font-semibold text-green-800">实际支付</span>
+
+                  {/* Subtotal */}
+                  <div className="border-t border-green-300 pt-2 flex justify-between items-center text-base">
+                    <span className="font-semibold text-green-900">预付总额</span>
+                    <span className="font-bold text-green-900">{formatCurrency(totalPrepaid)}</span>
+                  </div>
+
+                  {/* Refund */}
+                  {totalRefund > 0 && (
+                    <>
+                      <div className="flex justify-between items-center py-1 text-blue-700">
+                        <span>退差价</span>
+                        <span className="font-medium">-{formatCurrency(totalRefund)}</span>
+                      </div>
+                      <div className="text-xs text-blue-600 pl-3">
+                        退差价状态：{order.ticket_refund_settled ? "已结算" : "待结算"}
+                      </div>
+                    </>
+                  )}
+
+                  {/* Final total */}
+                  <div className="border-t-2 border-green-400 pt-3 flex justify-between items-center text-lg bg-green-100/50 rounded px-3 py-2">
+                    <span className="font-bold text-green-900">实际支付</span>
                     <span className="font-bold text-green-900">
                       {formatCurrency(totalPrepaid - totalRefund + (order.payment_surcharge_jpy || 0))}
                     </span>
