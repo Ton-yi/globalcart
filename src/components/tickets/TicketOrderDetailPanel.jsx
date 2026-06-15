@@ -455,11 +455,7 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
                     }
                   }}
                   onDragOver={(e) => e.preventDefault()}
-                  onClick={() => {
-                    if (!(lotteryImageFile instanceof File)) {
-                      document.getElementById('lottery-image-input').click();
-                    }
-                  }}
+                  onClick={(e) => e.currentTarget.focus()}
                 />
                 {lotteryImageFile instanceof File && (
                   <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
