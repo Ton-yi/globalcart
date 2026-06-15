@@ -1009,8 +1009,16 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
                         <Input className="mt-0.5 h-7 text-sm" value={perfForm.performance_name} onChange={e => setPerfForm(p => ({ ...p, performance_name: e.target.value }))} />
                       </div>
                       <div>
-                        <Label className="text-xs text-gray-500">演出时间</Label>
-                        <Input type="datetime-local" className="mt-0.5 h-7 text-sm" value={perfForm.performance_datetime ? perfForm.performance_datetime.slice(0, 16) : ""} onChange={e => setPerfForm(p => ({ ...p, performance_datetime: e.target.value ? new Date(e.target.value).toISOString() : "" }))} />
+                        <Label className="text-xs text-gray-500">演出时間（分：00/15/30/45）</Label>
+                        <Input type="datetime-local" step="900" className="mt-0.5 h-7 text-sm" value={perfForm.performance_datetime ? perfForm.performance_datetime.slice(0, 16) : ""} onChange={e => {
+                          if (!e.target.value) { setPerfForm(p => ({ ...p, performance_datetime: "" })); return; }
+                          // 将本地时间字符串直接转为 ISO，避免 new Date() 误判为 UTC
+                          const [datePart, timePart] = e.target.value.split("T");
+                          const [y, mo, d] = datePart.split("-");
+                          const [h, mi] = timePart.split(":");
+                          const local = new Date(+y, +mo - 1, +d, +h, +mi);
+                          setPerfForm(p => ({ ...p, performance_datetime: local.toISOString() }));
+                        }} />
                       </div>
                       <div>
                         <Label className="text-xs text-gray-500">都道府县</Label>
@@ -1092,18 +1100,30 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
                         </Select>
                       </div>
                       <div>
-                        <Label className="text-xs text-gray-500">販売開始</Label>
-                        <Input type="datetime-local" className="mt-0.5 h-7 text-sm" value={salesForm.sales_start_time ? salesForm.sales_start_time.slice(0, 16) : ""} onChange={e => setSalesForm(p => ({ ...p, sales_start_time: e.target.value ? new Date(e.target.value).toISOString() : "" }))} />
+                        <Label className="text-xs text-gray-500">販売開始（分：00/15/30/45）</Label>
+                        <Input type="datetime-local" step="900" className="mt-0.5 h-7 text-sm" value={salesForm.sales_start_time ? salesForm.sales_start_time.slice(0, 16) : ""} onChange={e => {
+                          if (!e.target.value) { setSalesForm(p => ({ ...p, sales_start_time: "" })); return; }
+                          const [dp, tp] = e.target.value.split("T"); const [y,mo,d] = dp.split("-"); const [h,mi] = tp.split(":");
+                          setSalesForm(p => ({ ...p, sales_start_time: new Date(+y,+mo-1,+d,+h,+mi).toISOString() }));
+                        }} />
                       </div>
                       <div>
-                        <Label className="text-xs text-gray-500">販売終了</Label>
-                        <Input type="datetime-local" className="mt-0.5 h-7 text-sm" value={salesForm.sales_end_time ? salesForm.sales_end_time.slice(0, 16) : ""} onChange={e => setSalesForm(p => ({ ...p, sales_end_time: e.target.value ? new Date(e.target.value).toISOString() : "" }))} />
+                        <Label className="text-xs text-gray-500">販売終了（分：00/15/30/45）</Label>
+                        <Input type="datetime-local" step="900" className="mt-0.5 h-7 text-sm" value={salesForm.sales_end_time ? salesForm.sales_end_time.slice(0, 16) : ""} onChange={e => {
+                          if (!e.target.value) { setSalesForm(p => ({ ...p, sales_end_time: "" })); return; }
+                          const [dp, tp] = e.target.value.split("T"); const [y,mo,d] = dp.split("-"); const [h,mi] = tp.split(":");
+                          setSalesForm(p => ({ ...p, sales_end_time: new Date(+y,+mo-1,+d,+h,+mi).toISOString() }));
+                        }} />
                       </div>
                       {salesForm.sales_method === "lottery" && (
                         <div>
-                          <Label className="text-xs text-gray-500">抽選結果発表</Label>
-                          <Input type="datetime-local" className="mt-0.5 h-7 text-sm" value={salesForm.lottery_result_time ? salesForm.lottery_result_time.slice(0, 16) : ""} onChange={e => setSalesForm(p => ({ ...p, lottery_result_time: e.target.value ? new Date(e.target.value).toISOString() : "" }))} />
-                        </div>
+                          <Label className="text-xs text-gray-500">抽選結果発表（分：00/15/30/45）</Label>
+                          <Input type="datetime-local" step="900" className="mt-0.5 h-7 text-sm" value={salesForm.lottery_result_time ? salesForm.lottery_result_time.slice(0, 16) : ""} onChange={e => {
+                            if (!e.target.value) { setSalesForm(p => ({ ...p, lottery_result_time: "" })); return; }
+                            const [dp, tp] = e.target.value.split("T"); const [y,mo,d] = dp.split("-"); const [h,mi] = tp.split(":");
+                            setSalesForm(p => ({ ...p, lottery_result_time: new Date(+y,+mo-1,+d,+h,+mi).toISOString() }));
+                            }} />
+                            </div>
                       )}
                       <div className="flex gap-2 pt-1">
                         <Button size="sm" className="h-7 text-xs bg-violet-600 hover:bg-violet-700" onClick={handleSaveSales} disabled={savingSales}>
