@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { X, Save, FlaskConical, AlertCircle, ShoppingCart, Truck } from "lucide-react";
+import { X, Save, FlaskConical, AlertCircle, ShoppingCart, Truck, Ticket } from "lucide-react";
 
 const EMPTY_RULE = {
   name: '', description: '', status: 'draft', priority: 0,
@@ -39,8 +39,8 @@ const STATUS_COLORS = { active: 'bg-green-100 text-green-700', inactive: 'bg-gra
 const ORDER_MODES = { simple: '简单比例', tiered: '阶梯费率', formula: '高级公式' };
 const SHIPPING_MODES = { simple: '简单比例', tiered: '阶梯费率', formula: '高级公式' };
 
-export default function RuleEditorModal({ rule: initialRule, onClose, onSaved, saveAction = 'save_rule' }) {
-  const [rule, setRule] = useState(initialRule ? { ...EMPTY_RULE, ...initialRule } : { ...EMPTY_RULE });
+export default function RuleEditorModal({ rule: initialRule, onClose, onSaved, saveAction = 'save_rule', isTicketRule = false }) {
+  const [rule, setRule] = useState(initialRule ? { ...EMPTY_RULE, ...initialRule, is_ticket_rule: initialRule.is_ticket_rule ?? isTicketRule } : { ...EMPTY_RULE, is_ticket_rule: isTicketRule });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('edit');
@@ -83,7 +83,8 @@ export default function RuleEditorModal({ rule: initialRule, onClose, onSaved, s
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <div className="flex items-center gap-3">
-            <h2 className="text-base font-semibold text-gray-900">{initialRule?.id ? '编辑规则' : '新建规则'}</h2>
+            <h2 className="text-base font-semibold text-gray-900">{initialRule?.id ? '编辑规则' : (rule.is_ticket_rule ? '新建票务规则' : '新建规则')}</h2>
+            {rule.is_ticket_rule && <Badge className="text-xs bg-violet-100 text-violet-700 border-violet-200 flex items-center gap-1"><Ticket className="w-3 h-3" />票务专用</Badge>}
             <Badge className={`text-xs ${STATUS_COLORS[rule.status]}`}>{STATUS_LABELS[rule.status]}</Badge>
             {initialRule?.version && <span className="text-xs text-gray-400">v{initialRule.version}</span>}
           </div>

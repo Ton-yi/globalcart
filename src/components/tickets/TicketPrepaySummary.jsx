@@ -18,8 +18,12 @@ export default function TicketPrepaySummary({ ticketData, config }) {
   const prepayEnabled = config?.prepay_enabled !== false;
   let prepayRate = parseFloat(config?.prepay_rate);
   if (isNaN(prepayRate) || prepayRate <= 0 || prepayRate > 100) prepayRate = 100;
-  const prepayJpy = Math.round(grossTotal * (prepayEnabled ? prepayRate / 100 : 100) / 100 * 100) / 1;
-  const finalPrepay = Math.round(grossTotal * (prepayEnabled ? prepayRate : 100) / 100);
+  // 兜底服务费估算（实际由后端规则引擎计算，此处仅作参考显示）
+  const fallbackRate = (parseFloat(config?.fallback_service_fee_rate) || 0) / 100;
+  const fallbackFixed = parseFloat(config?.fallback_service_fee_fixed) || 0;
+  const estimatedServiceFee = Math.round(grossTotal * fallbackRate + fallbackFixed);
+  const totalWithFee = grossTotal + estimatedServiceFee;
+  const finalPrepay = Math.round(totalWithFee * (prepayEnabled ? prepayRate : 100) / 100);
 
   if (grossTotal <= 0) return null;
 
@@ -29,6 +33,12 @@ export default function TicketPrepaySummary({ ticketData, config }) {
       <AlertDescription className="text-violet-900 text-sm space-y-1">
         <div className="flex justify-between"><span>票款小计（{seats.length} 种席 × {accountCount} 账户/人）</span><span>¥{Math.round(ticketsTotal).toLocaleString()}</span></div>
         {additional > 0 && <div className="flex justify-between"><span>追加料金</span><span>¥{Math.round(additional).toLocaleString()}</span></div>}
+        {estimatedServiceFee > 0 && (
+          <div className="flex justify-between text-violet-700">
+            <span>服务费（参考估算）</span>
+            <span>¥{estimatedServiceFee.toLocaleString()}</span>
+          </div>
+        )}
         <div className="flex justify-between font-semibold border-t border-violet-200 pt-1">
           <span>应付预付款{prepayEnabled && prepayRate < 100 ? `（${prepayRate}%）` : ""}</span>
           <span>¥{finalPrepay.toLocaleString()}</span>
@@ -36,6 +46,7 @@ export default function TicketPrepaySummary({ ticketData, config }) {
         <p className="text-xs text-violet-700 font-normal pt-1">
           说明：先按需求总票数（{accountCount} 个账户/人）全额预收。抽选/抢票结束后，管理员录入实际购票数量，
           多收的部分将按 <b>(预付票数 − 实际票数) × 单价 × 账户数</b> 退还给您。
+          {estimatedServiceFee > 0 && " 服务费将由系统在提交时按规则精确计算。"}
         </p>
       </AlertDescription>
     </Alert>

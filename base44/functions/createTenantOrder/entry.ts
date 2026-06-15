@@ -104,7 +104,6 @@ Deno.serve(async (req) => {
       const tPrepayEnabled = ticketCfg.prepay_enabled !== false;
       let tPrepayRate = parseFloat(ticketCfg.prepay_rate);
       if (isNaN(tPrepayRate) || tPrepayRate <= 0 || tPrepayRate > 100) tPrepayRate = 100;
-      const prepaidTotal = Math.round(grossTotal * (tPrepayEnabled ? tPrepayRate : 100) / 100);
 
       // 获取用户选择的支付方式配置（用于确定付款币种）
       let paymentCurrency = 'JPY';
@@ -125,6 +124,57 @@ Deno.serve(async (req) => {
       const tToday = (tExisting || []).filter(o => (o.order_number || '').startsWith(tPrefix));
       const tMaxSeq = tToday.reduce((max, o) => Math.max(max, parseInt((o.order_number || '').slice(tPrefix.length), 10) || 0), 0);
       const tOrderNumber = `${tPrefix}${String(tMaxSeq + 1).padStart(4, '0')}`;
+
+      // ── 票务服务费计算 ──────────────────────────────────────────────────────
+      // 1. 优先选取票务专用规则（is_ticket_rule=true, active, 在生效期内，按优先级降序）
+      // 2. 若无票务专用规则，则使用票务设置兜底配置（fallback_service_fee_rate + fixed）
+      const allFeeRules = await base44.asServiceRole.entities.ServiceFeeRule.filter({ tenant_id: assignedTenantId });
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const activeTicketRule = (allFeeRules || [])
+        .filter(r => !r.is_archived && r.is_ticket_rule && r.status === 'active' && r.fee_phase !== 'shipping')
+        .filter(r => !r.effective_from || r.effective_from <= todayStr)
+        .filter(r => !r.effective_until || r.effective_until >= todayStr)
+        .sort((a, b) => (parseFloat(b.priority) || 0) - (parseFloat(a.priority) || 0))[0] || null;
+
+      let ticketServiceFeeJpy = 0;
+      let ticketServiceFeeRuleId = null;
+      let ticketServiceFeeRuleName = null;
+      let ticketServiceFeeRuleVersion = null;
+
+      if (activeTicketRule) {
+        // 使用规则引擎计算（goodsAmount = 票务货款总额）
+        const evalRes = await base44.functions.invoke('serviceFeeRuleEngine', {
+          action: 'evaluate',
+          rule: activeTicketRule,
+          variables: {
+            goodsAmount: grossTotal,
+            orderAmount: grossTotal,
+            itemCount: accountCount,
+            sourceSite: 'ticket',
+            customerLevel: '',
+            currency: paymentCurrency,
+            country: '',
+            weight: 0,
+            valueAddedServiceAmount: 0,
+            paymentSurcharge: 0,
+          },
+        });
+        ticketServiceFeeJpy = evalRes.data?.fee ?? 0;
+        ticketServiceFeeRuleId = activeTicketRule.id;
+        ticketServiceFeeRuleName = activeTicketRule.name;
+        ticketServiceFeeRuleVersion = activeTicketRule.version;
+      } else {
+        // 兜底：使用票务设置中的服务费比例和固定费
+        const fallbackRate = (parseFloat(ticketCfg.fallback_service_fee_rate) || 0) / 100;
+        const fallbackFixed = parseFloat(ticketCfg.fallback_service_fee_fixed) || 0;
+        ticketServiceFeeJpy = Math.round(grossTotal * fallbackRate + fallbackFixed);
+        ticketServiceFeeRuleName = '兜底服务费';
+      }
+
+      const ticketServiceFeeJpyRounded = Math.round(ticketServiceFeeJpy);
+      // 预付 = (货款 + 服务费) × 预付比例
+      const totalWithFee = grossTotal + ticketServiceFeeJpyRounded;
+      const prepaidTotal = Math.round(totalWithFee * (tPrepayEnabled ? tPrepayRate : 100) / 100);
 
       const ticketOrder = await base44.asServiceRole.entities.Order.create({
         tenant_id: assignedTenantId,
@@ -153,6 +203,12 @@ Deno.serve(async (req) => {
         payment_mode: 'prepay',
         order_status: 'payment_pending',
         payment_status: 'awaiting_payment',
+        // 服务费快照
+        service_fee_amount: ticketServiceFeeJpyRounded,
+        service_fee_rule_id: ticketServiceFeeRuleId,
+        service_fee_rule_name: ticketServiceFeeRuleName,
+        service_fee_rule_version: ticketServiceFeeRuleVersion,
+        calculated_at: new Date().toISOString(),
       });
 
       return Response.json({ success: true, order: ticketOrder });

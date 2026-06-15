@@ -119,8 +119,9 @@ export const DEFAULT_TICKET_CONFIG = {
   // 独立预付设置（覆盖普通订单的预付配置）
   prepay_enabled: true,
   prepay_rate: 100,          // 票务默认全额预付（数量×料金×账户数）
-  jpy_cny_increment: 0,      // 汇率增益
-  jpy_usd_increment: 0,
+  // 兜底服务费设置（未配置票务专用规则时使用）
+  fallback_service_fee_rate: 0,   // 服务费比例（%），基于票务货款总额
+  fallback_service_fee_fixed: 0,  // 固定服务费（JPY）
   // 各发券方式最低追加料金（JPY）
   min_additional_fee: { paper: 0, electronic: 0, ticket_number: 0 },
   // 抽中追加报酬最低额（JPY）

@@ -455,7 +455,15 @@ Deno.serve(async (req) => {
     // ── list_rules ─────────────────────────────────────────────────────────────
     if (action === 'list_rules') {
       const rules = await base44.asServiceRole.entities.ServiceFeeRule.filter({ tenant_id: tenantId });
-      return Response.json({ rules: (rules || []).filter(r => !r.is_archived) });
+      // Default: return non-ticket rules only (backward compat). Pass include_ticket=true to get all.
+      const all = (rules || []).filter(r => !r.is_archived);
+      return Response.json({ rules: body.include_ticket ? all : all.filter(r => !r.is_ticket_rule) });
+    }
+
+    // ── list_ticket_rules ───────────────────────────────────────────────────────
+    if (action === 'list_ticket_rules') {
+      const rules = await base44.asServiceRole.entities.ServiceFeeRule.filter({ tenant_id: tenantId });
+      return Response.json({ rules: (rules || []).filter(r => !r.is_archived && r.is_ticket_rule) });
     }
 
     // ── list_member_tiers ──────────────────────────────────────────────────────

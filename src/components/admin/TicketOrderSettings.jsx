@@ -172,7 +172,7 @@ export default function TicketOrderSettings({ settings, onReload }) {
           {/* 独立预付配置 */}
           <Card className="border-gray-200">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold text-gray-700">票务预付与汇率设置</CardTitle>
+              <CardTitle className="text-sm font-semibold text-gray-700">票务预付设置</CardTitle>
               <p className="text-xs text-gray-400 mt-1">票务订单独立于普通订单的预付配置。预付金额 = 数量 × 料金 × 账户数 × 预付比例。</p>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -180,23 +180,43 @@ export default function TicketOrderSettings({ settings, onReload }) {
                 <Label className="text-sm">开启票务预付款</Label>
                 <Toggle enabled={config.prepay_enabled} onToggle={() => set({ prepay_enabled: !config.prepay_enabled })} />
               </div>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 gap-3">
                 <div>
                   <Label className="text-xs text-gray-500">预付比例（%）</Label>
                   <Input type="number" className="mt-1 h-8 text-sm" value={config.prepay_rate || ""}
                     onChange={e => set({ prepay_rate: parseFloat(e.target.value) || 0 })} />
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 兜底服务费设置 */}
+          <Card className="border-violet-100 bg-violet-50/30">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold text-gray-700">兜底服务费设置</CardTitle>
+              <p className="text-xs text-gray-400 mt-1">
+                仅在未配置任何<strong>票务专用服务费规则</strong>时生效，作为最低保障。
+                推荐前往「服务费规则中心」创建专用票务规则以获得更精细的控制。
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-xs text-gray-500">JPY→CNY 汇率增益</Label>
-                  <Input type="number" step="0.0001" className="mt-1 h-8 text-sm" value={config.jpy_cny_increment || ""}
-                    onChange={e => set({ jpy_cny_increment: parseFloat(e.target.value) || 0 })} />
+                  <Label className="text-xs text-gray-500">服务费比例（%，基于票务货款总额）</Label>
+                  <Input type="number" step="0.1" min="0" className="mt-1 h-8 text-sm"
+                    value={config.fallback_service_fee_rate ?? ""}
+                    onChange={e => set({ fallback_service_fee_rate: parseFloat(e.target.value) || 0 })} />
                 </div>
                 <div>
-                  <Label className="text-xs text-gray-500">JPY→USD 汇率增益</Label>
-                  <Input type="number" step="0.0001" className="mt-1 h-8 text-sm" value={config.jpy_usd_increment || ""}
-                    onChange={e => set({ jpy_usd_increment: parseFloat(e.target.value) || 0 })} />
+                  <Label className="text-xs text-gray-500">固定服务费（JPY）</Label>
+                  <Input type="number" min="0" className="mt-1 h-8 text-sm"
+                    value={config.fallback_service_fee_fixed ?? ""}
+                    onChange={e => set({ fallback_service_fee_fixed: parseFloat(e.target.value) || 0 })} />
                 </div>
               </div>
+              <p className="text-xs text-violet-600">
+                实际服务费 = 票务货款 × 比例% + 固定费（两者均为0时不收服务费）
+              </p>
             </CardContent>
           </Card>
 
