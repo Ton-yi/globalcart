@@ -174,7 +174,8 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
   const handleImageUpload = async (file, type) => {
     setUploadingImage(true);
     try {
-      const { url: imageUrl } = await base44.integrations.Core.UploadFile({ file });
+      const uploadRes = await base44.integrations.Core.UploadFile({ file });
+      const imageUrl = uploadRes?.file_url;
       if (!imageUrl) { toast.error("图片上传失败"); return; }
 
       const newStatus = type === "ticket" ? "purchased_pending_warehouse" : "awaiting_lottery_result";
@@ -209,7 +210,8 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
     if (!(file instanceof File)) return;
     setUploadingImage(true);
     try {
-      const { url: imageUrl } = await base44.integrations.Core.UploadFile({ file });
+      const uploadRes2 = await base44.integrations.Core.UploadFile({ file });
+      const imageUrl = uploadRes2?.file_url;
       if (!imageUrl) { toast.error("图片上传失败"); return; }
 
       await updateOrder(order.id, {
