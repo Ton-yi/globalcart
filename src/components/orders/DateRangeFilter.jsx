@@ -13,12 +13,12 @@ const DATE_FIELDS = [
 /**
  * DateRangeFilter
  * Props:
- *   value: { field: string, from: string, to: string } | null
+ *   value: { from: string, to: string } | null  (简化版，不需要 field)
  *   onChange: (value | null) => void
+ *   placeholder: string (可选，按钮显示的文字，如"開演日")
  */
-export default function DateRangeFilter({ value, onChange }) {
+export default function DateRangeFilter({ value, onChange, placeholder }) {
   const [open, setOpen] = useState(false);
-  const [field, setField] = useState(value?.field || "created_date");
   const [from, setFrom] = useState(value?.from || "");
   const [to, setTo] = useState(value?.to || "");
   const ref = useRef(null);
@@ -34,7 +34,7 @@ export default function DateRangeFilter({ value, onChange }) {
 
   const handleApply = () => {
     if (!from && !to) { onChange(null); setOpen(false); return; }
-    onChange({ field, from, to });
+    onChange({ from, to });
     setOpen(false);
   };
 
@@ -44,7 +44,7 @@ export default function DateRangeFilter({ value, onChange }) {
     setOpen(false);
   };
 
-  const fieldLabel = DATE_FIELDS.find(f => f.key === (value?.field || field))?.label || "日期";
+  const displayLabel = placeholder || "日期";
 
   return (
     <div className="relative" ref={ref}>
@@ -57,7 +57,7 @@ export default function DateRangeFilter({ value, onChange }) {
           }`}
       >
         <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
-        <span>{hasValue ? `${fieldLabel}: ${value.from || "~"} ~ ${value.to || "~"}` : "日期筛选"}</span>
+        <span>{hasValue ? `${displayLabel}: ${value.from || "∼"} ~ ${value.to || "∼"}` : displayLabel}</span>
         {hasValue
           ? <X className="w-3 h-3 ml-0.5 hover:text-blue-900" onClick={(e) => { e.stopPropagation(); handleClear(); }} />
           : <ChevronDown className="w-3 h-3 ml-0.5 opacity-50" />
@@ -65,29 +65,9 @@ export default function DateRangeFilter({ value, onChange }) {
       </button>
 
       {open && (
-        <div className="absolute top-full mt-1 left-0 z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-3 w-72">
-          {/* 字段选择 */}
-          <div className="mb-3">
-            <div className="text-xs text-gray-500 mb-1.5 font-medium">筛选字段</div>
-            <div className="flex flex-wrap gap-1">
-              {DATE_FIELDS.map(f => (
-                <button
-                  key={f.key}
-                  onClick={() => setField(f.key)}
-                  className={`px-2 py-1 rounded text-xs transition-colors ${
-                    field === f.key
-                      ? "bg-blue-600 text-white"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                  }`}
-                >
-                  {f.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
+        <div className="absolute top-full mt-1 left-0 z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-3 w-64">
           {/* 日期范围 */}
-          <div className="mb-3 space-y-2">
+          <div className="space-y-2">
             <div>
               <div className="text-xs text-gray-500 mb-1">开始日期</div>
               <input

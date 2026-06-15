@@ -12,6 +12,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { usePageSize } from "@/hooks/usePageSize";
 import PaginationBar from "@/components/common/PaginationBar";
 import ColumnCustomizer from "@/components/orders/ColumnCustomizer";
+import DateRangeFilter from "@/components/orders/DateRangeFilter";
 import { orderRegistry } from "@/lib/orderRegistry";
 import TicketOrderDetailPanel from "@/components/tickets/TicketOrderDetailPanel";
 
@@ -67,6 +68,21 @@ export default function AdminTicketOrders() {
   const [collapsedGroups, setCollapsedGroups] = useState({});
   const [userProfileMap, setUserProfileMap] = useState({});
   const { pageSize, setPageSize, currentPage, setCurrentPage, resetPage } = usePageSize("admin_ticket_orders_page_size", 20);
+  
+  // 新增筛选状态
+  const [orderAmountFilter, setOrderAmountFilter] = useState("all");
+  const [customOrderAmount, setCustomOrderAmount] = useState({ min: "", max: "" });
+  const [salesMethodFilter, setSalesMethodFilter] = useState("all");
+  const [ticketingMethodFilter, setTicketingMethodFilter] = useState("all");
+  const [performanceDateRange, setPerformanceDateRange] = useState(null);
+  const [salesStartDateRange, setSalesStartDateRange] = useState(null);
+  const [salesEndDateRange, setSalesEndDateRange] = useState(null);
+  const [submitDateRange, setSubmitDateRange] = useState(null);
+  const [lotteryResultDateRange, setLotteryResultDateRange] = useState(null);
+  const [additionalFeeFilter, setAdditionalFeeFilter] = useState("all");
+  const [customAdditionalFee, setCustomAdditionalFee] = useState({ min: "", max: "" });
+  const [lotteryBonusFilter, setLotteryBonusFilter] = useState("all");
+  const [customLotteryBonus, setCustomLotteryBonus] = useState({ min: "", max: "" });
 
   const handleColumnsChange = (cols) => {
     setColumns(cols);
@@ -95,18 +111,143 @@ export default function AdminTicketOrders() {
 
   // Filter
   const filteredOrders = (ticketController?.filterData
-    ? ticketController.filterData(orders, { statusFilter, search, userProfileMap, showArchived })
+    ? ticketController.filterData(orders, {
+        statusFilter, search, userProfileMap, showArchived,
+        orderAmountFilter, customOrderAmount,
+        salesMethodFilter, ticketingMethodFilter,
+        performanceDateRange, salesStartDateRange, salesEndDateRange, submitDateRange, lotteryResultDateRange,
+        additionalFeeFilter, customAdditionalFee,
+        lotteryBonusFilter, customLotteryBonus,
+      })
     : orders.filter(o => {
         if (showArchived ? !o.is_archived : !!o.is_archived) return false;
+        
         const matchStatus = statusFilter === "all" || o.ticket_status === statusFilter;
+        const td = o.ticket_data || {};
+        
+        // Order amount filter
+        const orderAmount = o.ticket_prepaid_total_jpy || 0;
+        let matchOrderAmount = true;
+        if (orderAmountFilter !== "all") {
+          if (orderAmountFilter === "0-5000") matchOrderAmount = orderAmount >= 0 && orderAmount < 5000;
+          else if (orderAmountFilter === "5000-10000") matchOrderAmount = orderAmount >= 5000 && orderAmount < 10000;
+          else if (orderAmountFilter === "10000-50000") matchOrderAmount = orderAmount >= 10000 && orderAmount < 50000;
+          else if (orderAmountFilter === "50000+") matchOrderAmount = orderAmount >= 50000;
+          else if (orderAmountFilter === "custom") {
+            if (customOrderAmount.min) matchOrderAmount = orderAmount >= Number(customOrderAmount.min);
+            if (customOrderAmount.max) matchOrderAmount = matchOrderAmount && orderAmount <= Number(customOrderAmount.max);
+          }
+        }
+        
+        // Sales method filter
+        let matchSalesMethod = true;
+        if (salesMethodFilter !== "all") {
+          matchSalesMethod = td.sales_method === salesMethodFilter;
+        }
+        
+        // Ticketing method filter
+        let matchTicketingMethod = true;
+        if (ticketingMethodFilter !== "all") {
+          matchTicketingMethod = td.ticketing_method === ticketingMethodFilter;
+        }
+        
+        // Date range filters
+        let matchPerformanceDate = true;
+        if (performanceDateRange) {
+          const perfDate = td.performance_datetime ? new Date(td.performance_datetime) : null;
+          if (perfDate) {
+            if (performanceDateRange.from) matchPerformanceDate = perfDate >= performanceDateRange.from;
+            if (performanceDateRange.to) matchPerformanceDate = matchPerformanceDate && perfDate <= performanceDateRange.to;
+          } else {
+            matchPerformanceDate = false;
+          }
+        }
+        
+        let matchSalesStartDate = true;
+        if (salesStartDateRange) {
+          const startDate = td.sales_start_time ? new Date(td.sales_start_time) : null;
+          if (startDate) {
+            if (salesStartDateRange.from) matchSalesStartDate = startDate >= salesStartDateRange.from;
+            if (salesStartDateRange.to) matchSalesStartDate = matchSalesStartDate && startDate <= salesStartDateRange.to;
+          } else {
+            matchSalesStartDate = false;
+          }
+        }
+        
+        let matchSalesEndDate = true;
+        if (salesEndDateRange) {
+          const endDate = td.sales_end_time ? new Date(td.sales_end_time) : null;
+          if (endDate) {
+            if (salesEndDateRange.from) matchSalesEndDate = endDate >= salesEndDateRange.from;
+            if (salesEndDateRange.to) matchSalesEndDate = matchSalesEndDate && endDate <= salesEndDateRange.to;
+          } else {
+            matchSalesEndDate = false;
+          }
+        }
+        
+        let matchSubmitDate = true;
+        if (submitDateRange) {
+          const submitDate = o.created_date ? new Date(o.created_date) : null;
+          if (submitDate) {
+            if (submitDateRange.from) matchSubmitDate = submitDate >= submitDateRange.from;
+            if (submitDateRange.to) matchSubmitDate = matchSubmitDate && submitDate <= submitDateRange.to;
+          } else {
+            matchSubmitDate = false;
+          }
+        }
+        
+        let matchLotteryResultDate = true;
+        if (lotteryResultDateRange) {
+          const lotteryDate = td.lottery_result_time ? new Date(td.lottery_result_time) : null;
+          if (lotteryDate) {
+            if (lotteryResultDateRange.from) matchLotteryResultDate = lotteryDate >= lotteryResultDateRange.from;
+            if (lotteryResultDateRange.to) matchLotteryResultDate = matchLotteryResultDate && lotteryDate <= lotteryResultDateRange.to;
+          } else {
+            matchLotteryResultDate = false;
+          }
+        }
+        
+        // Additional fee filter
+        const additionalFee = td.additional_fee_jpy || 0;
+        let matchAdditionalFee = true;
+        if (additionalFeeFilter !== "all") {
+          if (additionalFeeFilter === "0-1000") matchAdditionalFee = additionalFee >= 0 && additionalFee < 1000;
+          else if (additionalFeeFilter === "1000-3000") matchAdditionalFee = additionalFee >= 1000 && additionalFee < 3000;
+          else if (additionalFeeFilter === "3000-10000") matchAdditionalFee = additionalFee >= 3000 && additionalFee < 10000;
+          else if (additionalFeeFilter === "10000+") matchAdditionalFee = additionalFee >= 10000;
+          else if (additionalFeeFilter === "custom") {
+            if (customAdditionalFee.min) matchAdditionalFee = additionalFee >= Number(customAdditionalFee.min);
+            if (customAdditionalFee.max) matchAdditionalFee = matchAdditionalFee && additionalFee <= Number(customAdditionalFee.max);
+          }
+        }
+        
+        // Lottery bonus filter
+        const lotteryBonus = td.lottery_win_bonus_jpy || 0;
+        let matchLotteryBonus = true;
+        if (lotteryBonusFilter !== "all") {
+          if (lotteryBonusFilter === "0-1000") matchLotteryBonus = lotteryBonus >= 0 && lotteryBonus < 1000;
+          else if (lotteryBonusFilter === "1000-3000") matchLotteryBonus = lotteryBonus >= 1000 && lotteryBonus < 3000;
+          else if (lotteryBonusFilter === "3000-10000") matchLotteryBonus = lotteryBonus >= 3000 && lotteryBonus < 10000;
+          else if (lotteryBonusFilter === "10000+") matchLotteryBonus = lotteryBonus >= 10000;
+          else if (lotteryBonusFilter === "custom") {
+            if (customLotteryBonus.min) matchLotteryBonus = lotteryBonus >= Number(customLotteryBonus.min);
+            if (customLotteryBonus.max) matchLotteryBonus = matchLotteryBonus && lotteryBonus <= Number(customLotteryBonus.max);
+          }
+        }
+        
+        // Search
         const q = search?.toLowerCase() || "";
         const matchSearch = !q ||
           (o.product_name || "").toLowerCase().includes(q) ||
           (o.order_number || "").toLowerCase().includes(q) ||
           (o.user_name || "").toLowerCase().includes(q) ||
           (o.user_email || "").toLowerCase().includes(q) ||
-          (o.ticket_data?.performance_name || "").toLowerCase().includes(q);
-        return matchStatus && matchSearch;
+          (td.performance_name || "").toLowerCase().includes(q) ||
+          (td.prefecture || "").toLowerCase().includes(q);
+        
+        return matchStatus && matchOrderAmount && matchSalesMethod && matchTicketingMethod &&
+          matchPerformanceDate && matchSalesStartDate && matchSalesEndDate && matchSubmitDate && matchLotteryResultDate &&
+          matchAdditionalFee && matchLotteryBonus && matchSearch;
       })
   );
 
@@ -229,15 +370,18 @@ export default function AdminTicketOrders() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-2 items-center">
-        <div className="relative w-44 shrink-0">
+      {/* Filters - 参考 AdminOrders 样式，搜索框 flex-1，其它固定宽度 */}
+      <div className="flex flex-wrap gap-2 items-center w-full">
+        {/* 搜索框 - 灵活适配 */}
+        <div className="relative flex-1 min-w-[180px]">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-          <Input placeholder="搜索订单/演出/用户..." className="pl-8 h-8 text-sm"
+          <Input placeholder="搜索订单/演出/用户..." className="pl-8 h-8 text-sm w-full"
             value={search} onChange={e => { setSearch(e.target.value); resetPage(); }} />
         </div>
+
+        {/* 票务状态 - 固定宽度 */}
         <Select value={statusFilter} onValueChange={v => { setStatusFilter(v); resetPage(); }}>
-          <SelectTrigger className="w-36 h-8 text-xs">
+          <SelectTrigger className="w-36 h-8 text-xs shrink-0">
             <Filter className="w-3.5 h-3.5 mr-1 text-gray-400 shrink-0" />
             <SelectValue placeholder="所有状态" />
           </SelectTrigger>
@@ -246,8 +390,103 @@ export default function AdminTicketOrders() {
             {ALL_STATUSES.map(s => <SelectItem key={s.v} value={s.v}>{s.l}</SelectItem>)}
           </SelectContent>
         </Select>
+
+        {/* 订单金额 - 固定宽度 */}
+        <Select value={orderAmountFilter} onValueChange={v => { setOrderAmountFilter(v); resetPage(); }}>
+          <SelectTrigger className="h-8 text-xs w-32 shrink-0">
+            <SelectValue placeholder="订单金额" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">订单金额</SelectItem>
+            <SelectItem value="0-5000">0–5,000</SelectItem>
+            <SelectItem value="5000-10000">5,000–10,000</SelectItem>
+            <SelectItem value="10000-50000">10,000–50,000</SelectItem>
+            <SelectItem value="50000+">50,000+</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {/* 销售方式 - 固定宽度 */}
+        <Select value={salesMethodFilter} onValueChange={v => { setSalesMethodFilter(v); resetPage(); }}>
+          <SelectTrigger className="h-8 text-xs w-28 shrink-0">
+            <SelectValue placeholder="销售方式" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">销售方式</SelectItem>
+            <SelectItem value="first_come">先着</SelectItem>
+            <SelectItem value="lottery">抽选</SelectItem>
+            <SelectItem value="other">其它</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {/* 发券方式 - 固定宽度 */}
+        <Select value={ticketingMethodFilter} onValueChange={v => { setTicketingMethodFilter(v); resetPage(); }}>
+          <SelectTrigger className="h-8 text-xs w-28 shrink-0">
+            <SelectValue placeholder="发券方式" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">发券方式</SelectItem>
+            <SelectItem value="paper">纸票</SelectItem>
+            <SelectItem value="electronic">电子票</SelectItem>
+            <SelectItem value="ticket_number">发券番号</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {/* 開演日 - 固定宽度 */}
+        <div className="shrink-0">
+          <DateRangeFilter value={performanceDateRange} onChange={setPerformanceDateRange} placeholder="開演日" />
+        </div>
+
+        {/* 販売開始日 - 固定宽度 */}
+        <div className="shrink-0">
+          <DateRangeFilter value={salesStartDateRange} onChange={setSalesStartDateRange} placeholder="販売開始日" />
+        </div>
+
+        {/* 販売終了日 - 固定宽度 */}
+        <div className="shrink-0">
+          <DateRangeFilter value={salesEndDateRange} onChange={setSalesEndDateRange} placeholder="販売終了日" />
+        </div>
+
+        {/* 订单提交日 - 固定宽度 */}
+        <div className="shrink-0">
+          <DateRangeFilter value={submitDateRange} onChange={setSubmitDateRange} placeholder="订单提交日" />
+        </div>
+
+        {/* 結果発表日 - 固定宽度 */}
+        <div className="shrink-0">
+          <DateRangeFilter value={lotteryResultDateRange} onChange={setLotteryResultDateRange} placeholder="結果発表日" />
+        </div>
+
+        {/* 追加料金 - 固定宽度 */}
+        <Select value={additionalFeeFilter} onValueChange={v => { setAdditionalFeeFilter(v); resetPage(); }}>
+          <SelectTrigger className="h-8 text-xs w-32 shrink-0">
+            <SelectValue placeholder="追加料金" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">追加料金</SelectItem>
+            <SelectItem value="0-1000">0–1,000</SelectItem>
+            <SelectItem value="1000-3000">1,000–3,000</SelectItem>
+            <SelectItem value="3000-10000">3,000–10,000</SelectItem>
+            <SelectItem value="10000+">10,000+</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {/* 抽中追加報酬 - 固定宽度 */}
+        <Select value={lotteryBonusFilter} onValueChange={v => { setLotteryBonusFilter(v); resetPage(); }}>
+          <SelectTrigger className="h-8 text-xs w-32 shrink-0">
+            <SelectValue placeholder="抽中追加報酬" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">抽中追加報酬</SelectItem>
+            <SelectItem value="0-1000">0–1,000</SelectItem>
+            <SelectItem value="1000-3000">1,000–3,000</SelectItem>
+            <SelectItem value="3000-10000">3,000–10,000</SelectItem>
+            <SelectItem value="10000+">10,000+</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {/* 分组 - 固定宽度 */}
         <Select value={groupBy} onValueChange={v => { setGroupBy(v); setCollapsedGroups({}); }}>
-          <SelectTrigger className="w-32 h-8 text-xs">
+          <SelectTrigger className="w-32 h-8 text-xs shrink-0">
             <LayoutList className="w-3.5 h-3.5 mr-1 text-gray-400 shrink-0" />
             <SelectValue />
           </SelectTrigger>
@@ -259,15 +498,24 @@ export default function AdminTicketOrders() {
           </SelectContent>
         </Select>
 
-        {/* Clear filters */}
-        {(statusFilter !== "all" || search) && (
-          <button onClick={() => { setStatusFilter("all"); setSearch(""); resetPage(); }}
-            className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 h-8 px-1">
+        {/* 清除筛选 */}
+        {(statusFilter !== "all" || search || orderAmountFilter !== "all" || salesMethodFilter !== "all" || 
+          ticketingMethodFilter !== "all" || performanceDateRange || salesStartDateRange || salesEndDateRange || 
+          submitDateRange || lotteryResultDateRange || additionalFeeFilter !== "all" || lotteryBonusFilter !== "all") && (
+          <button onClick={() => {
+            setStatusFilter("all"); setSearch("");
+            setOrderAmountFilter("all"); setSalesMethodFilter("all"); setTicketingMethodFilter("all");
+            setPerformanceDateRange(null); setSalesStartDateRange(null); setSalesEndDateRange(null);
+            setSubmitDateRange(null); setLotteryResultDateRange(null);
+            setAdditionalFeeFilter("all"); setLotteryBonusFilter("all");
+            resetPage();
+          }}
+            className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 h-8 px-1 shrink-0">
             <X className="w-3 h-3" />清除
           </button>
         )}
 
-        <div className="ml-auto">
+        <div className="ml-auto shrink-0">
           <ColumnCustomizer columns={columns} onChange={handleColumnsChange} />
         </div>
       </div>
