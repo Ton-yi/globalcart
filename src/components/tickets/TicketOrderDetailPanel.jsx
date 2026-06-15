@@ -287,10 +287,12 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
   );
   const [savingSeats, setSavingSeats] = useState(false);
 
+  // 正数 = 应退款，负数 = 应补款
   const computedRefund = actualSeats.reduce((sum, s) => {
     const diff = (s.quantity || 0) - (s.actual_quantity ?? s.quantity ?? 0);
     return sum + diff * (s.price_jpy || 0);
   }, 0) * (ticketData.account_count || 1);
+  const needsSupplement = computedRefund < 0; // 实际买到更多 → 需要补款
 
   const handleSaveActualSeats = async () => {
     setSavingSeats(true);
@@ -299,6 +301,8 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
       await updateOrder(order.id, {
         ticket_data: { ...ticketData, seats: updatedSeats },
         ticket_refund_jpy: computedRefund > 0 ? computedRefund : 0,
+        supplement_requested: computedRefund < 0,
+        supplement_amount: computedRefund < 0 ? Math.abs(computedRefund) : 0,
       });
       toast.success("实际数量已保存，退款金额已更新");
       setEditingSeats(false);
@@ -339,6 +343,9 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
                 <Badge variant="outline" className="text-xs">
                   {TICKETING_METHOD_LABELS[ticketData.ticketing_method] || ticketData.ticketing_method}
                 </Badge>
+              )}
+              {order.supplement_requested && (order.supplement_amount || 0) > 0 && (
+                <Badge className="bg-red-100 text-red-700 border-red-200 text-xs">待补款</Badge>
               )}
               <span className="text-xs text-gray-400 font-mono">{order.order_number}</span>
             </div>
@@ -943,19 +950,18 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
                               {editingSeats ? (
                                 <div className="inline-flex items-center gap-1">
                                   <input
-                                    type="number"
-                                    min={0}
-                                    max={seat.quantity || 0}
-                                    value={actualQty}
+                                   type="number"
+                                   min={0}
+                                   value={actualQty}
                                     onChange={(e) => {
-                                      const val = Math.max(0, Math.min(seat.quantity || 0, Number(e.target.value)));
+                                      const val = Math.max(0, Number(e.target.value));
                                       setActualSeats(prev => prev.map((s, idx) => idx === i ? { ...s, actual_quantity: val } : s));
                                     }}
                                     className="w-14 text-right rounded border border-violet-300 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-violet-400"
                                   />
                                   <div className="flex flex-col">
                                     <button
-                                      onClick={() => setActualSeats(prev => prev.map((s, idx) => idx === i ? { ...s, actual_quantity: Math.min(s.quantity || 0, (s.actual_quantity ?? s.quantity ?? 0) + 1) } : s))}
+                                      onClick={() => setActualSeats(prev => prev.map((s, idx) => idx === i ? { ...s, actual_quantity: (s.actual_quantity ?? s.quantity ?? 0) + 1 } : s))}
                                       className="h-[18px] w-6 flex items-center justify-center rounded-t border border-violet-300 bg-violet-50 hover:bg-violet-100 text-violet-700 text-xs leading-none"
                                     >▲</button>
                                     <button
@@ -975,9 +981,9 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
                             </td>
                             <td className="px-3 py-2.5 text-right text-xs">
                               {diff > 0 ? (
-                                <span className="text-orange-600 font-medium">退 {refundForRow.toLocaleString()} JPY</span>
+                                <span className="text-orange-600 font-medium">退 {Math.abs(refundForRow).toLocaleString()} JPY</span>
                               ) : diff < 0 ? (
-                                <span className="text-red-500">超出</span>
+                                <span className="text-red-600 font-medium">补 {Math.abs(refundForRow).toLocaleString()} JPY</span>
                               ) : (
                                 <span className="text-gray-400">—</span>
                               )}
@@ -989,25 +995,38 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
                   </table>
                 </div>
 
-                {/* 退款合计预览 */}
-                {(editingSeats || computedRefund > 0) && (
+                {/* 退款/补款合计预览 */}
+                {(editingSeats || computedRefund !== 0) && (
                   <div className={`mt-3 rounded-lg p-3 flex justify-between items-center text-sm ${
-                    computedRefund > 0 ? "bg-orange-50 border border-orange-200" : "bg-gray-50 border border-gray-200"
+                    needsSupplement ? "bg-red-50 border border-red-200" :
+                    computedRefund > 0 ? "bg-orange-50 border border-orange-200" :
+                    "bg-gray-50 border border-gray-200"
                   }`}>
-                    <span className="font-medium text-gray-700">应退款合计</span>
-                    <span className={`font-bold text-base ${computedRefund > 0 ? "text-orange-600" : "text-gray-500"}`}>
-                      {computedRefund > 0 ? `${computedRefund.toLocaleString()} JPY` : "无需退款"}
+                    <span className="font-medium text-gray-700">
+                      {needsSupplement ? "应补款合计" : "应退款合计"}
+                    </span>
+                    <span className={`font-bold text-base ${
+                      needsSupplement ? "text-red-600" :
+                      computedRefund > 0 ? "text-orange-600" : "text-gray-500"
+                    }`}>
+                      {computedRefund !== 0 ? `${Math.abs(computedRefund).toLocaleString()} JPY` : "无差额"}
                     </span>
                   </div>
                 )}
 
-                {/* 已存退款信息 */}
+                {/* 已存退款/补款信息 */}
                 {!editingSeats && (order.ticket_refund_jpy || 0) > 0 && (
                   <div className="mt-2 flex items-center justify-between text-xs text-blue-600 px-1">
                     <span>已记录退差价：{(order.ticket_refund_jpy).toLocaleString()} JPY</span>
                     <Badge className={order.ticket_refund_settled ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}>
                       {order.ticket_refund_settled ? "已结算" : "待结算"}
                     </Badge>
+                  </div>
+                )}
+                {!editingSeats && order.supplement_requested && (order.supplement_amount || 0) > 0 && (
+                  <div className="mt-2 flex items-center justify-between text-xs text-red-600 px-1">
+                    <span>待补款金额：{(order.supplement_amount).toLocaleString()} JPY</span>
+                    <Badge className="bg-red-100 text-red-700">待补款</Badge>
                   </div>
                 )}
               </div>
