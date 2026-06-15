@@ -67,6 +67,8 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
   const [showTicketNumberModal, setShowTicketNumberModal] = useState(false);
   const [showImageUploadModal, setShowImageUploadModal] = useState(false);
   const [imageUploadType, setImageUploadType] = useState("ticket"); // "ticket" or "lottery"
+  const [lotteryImageFile, setLotteryImageFile] = useState(null);
+  const [lotteryImagePreview, setLotteryImagePreview] = useState(null);
 
   const ticketData = order.ticket_data || {};
   const seats = ticketData.seats || [];
@@ -220,6 +222,88 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
       setUploadingImage(false);
     }
   };
+
+  const handleLotteryImageUpload = async (file) => {
+    if (!file) return;
+    setUploadingImage(true);
+    try {
+      const uploadRes = await base44.functions.invoke('getPaymentPageData', { file });
+      const imageUrl = uploadRes.data?.file_url;
+      
+      if (!imageUrl) {
+        toast.error("图片上传失败");
+        return false;
+      }
+
+      await updateOrder(order.id, {
+        ticket_status: "awaiting_lottery_result",
+        ticket_image_urls: [...(order.ticket_image_urls || []), imageUrl],
+        messages: [
+          ...(order.messages || []),
+          {
+            id: `lottery_image_${Date.now()}`,
+            from: "系统通知",
+            from_email: "system@system.local",
+            role: "admin",
+            content: "抽选截图已上传，订单状态更新为等待抽选结果",
+            timestamp: new Date().toISOString(),
+            is_system_notification: true,
+            meta: { type: "lottery_image_uploaded", image_url: imageUrl }
+          }
+        ],
+        unread_roles: ["user"]
+      });
+      toast.success("抽选截图已上传，订单状态已更新为等待抽选结果");
+      onRefresh?.();
+      onClose?.();
+      return true;
+    } catch (error) {
+      toast.error("上传失败：" + error.message);
+      return false;
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const handlePaste = async (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        const file = items[i].getAsFile();
+        if (file) {
+          setLotteryImageFile(file);
+          const previewUrl = URL.createObjectURL(file);
+          setLotteryImagePreview(previewUrl);
+          toast.success("图片已从剪贴板加载");
+          break;
+        }
+      }
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    const files = e.dataTransfer?.files;
+    if (!files || files.length === 0) return;
+    
+    const file = files[0];
+    if (file.type.indexOf('image') === -1) {
+      toast.error("请上传图片文件");
+      return;
+    }
+    
+    setLotteryImageFile(file);
+    const previewUrl = URL.createObjectURL(file);
+    setLotteryImagePreview(previewUrl);
+    toast.success("图片已加载");
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+  };
   
   const tabs = [
     { key: "overview", label: "概览" },
@@ -334,15 +418,55 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
             </Button>
           )}
           {shouldShowLotteryButton && (
-            <Button
-              size="sm"
-              onClick={() => { setImageUploadType("lottery"); setShowImageUploadModal(true); }}
-              disabled={statusUpdating || uploadingImage}
-              className="ml-auto bg-yellow-50 hover:bg-yellow-100 text-yellow-700 border-yellow-200"
-            >
-              <Upload className="w-3.5 h-3.5 mr-1" />
-              上传抽选截图 / 待抽选结果
-            </Button>
+            <div className="ml-auto flex items-center gap-2">
+              <div 
+                className="relative w-20 h-12 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center cursor-pointer hover:border-yellow-400 hover:bg-yellow-50 transition-colors"
+                onPaste={handlePaste}
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+                onClick={() => document.getElementById('lottery-image-input').click()}
+                tabIndex={0}
+              >
+                {lotteryImagePreview ? (
+                  <img src={lotteryImagePreview} alt="抽选截图" className="w-full h-full object-cover rounded" />
+                ) : (
+                  <div className="text-center">
+                    <Upload className="w-4 h-4 text-gray-400 mx-auto" />
+                    <p className="text-[9px] text-gray-500 mt-0.5">粘贴/拖拽</p>
+                  </div>
+                )}
+              </div>
+              <input
+                id="lottery-image-input"
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setLotteryImageFile(file);
+                    const previewUrl = URL.createObjectURL(file);
+                    setLotteryImagePreview(previewUrl);
+                    toast.success("图片已加载");
+                  }
+                }}
+              />
+              <Button
+                size="sm"
+                onClick={async () => {
+                  if (lotteryImageFile) {
+                    await handleLotteryImageUpload(lotteryImageFile);
+                  } else {
+                    document.getElementById('lottery-image-input').click();
+                  }
+                }}
+                disabled={statusUpdating || uploadingImage}
+                className="bg-yellow-50 hover:bg-yellow-100 text-yellow-700 border-yellow-200"
+              >
+                <Upload className="w-3.5 h-3.5 mr-1" />
+                {lotteryImageFile ? "确认上传 / 待抽选结果" : "上传抽选截图 / 待抽选结果"}
+              </Button>
+            </div>
           )}
         </div>
 
