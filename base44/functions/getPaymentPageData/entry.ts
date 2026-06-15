@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
 
     // Fetch all user orders for tenant, then find by id
     const [allOrders, siteSettings, paymentMethods] = await Promise.all([
-      base44.asServiceRole.entities.Order.filter({ tenant_id: tenantId, user_email: user.email }),
+      base44.entities.Order.list({ filter: { tenant_id: tenantId, user_email: user.email } }),
       base44.asServiceRole.entities.SiteSettings.filter({ tenant_id: tenantId }),
       base44.asServiceRole.entities.PaymentMethod.filter({ tenant_id: tenantId, is_active: true }),
     ]);
