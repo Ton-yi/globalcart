@@ -106,6 +106,16 @@ Deno.serve(async (req) => {
       if (isNaN(tPrepayRate) || tPrepayRate <= 0 || tPrepayRate > 100) tPrepayRate = 100;
       const prepaidTotal = Math.round(grossTotal * (tPrepayEnabled ? tPrepayRate : 100) / 100);
 
+      // 获取用户选择的支付方式配置（用于确定付款币种）
+      let paymentCurrency = 'JPY';
+      if (body.payment_method) {
+        const paymentMethods = await base44.asServiceRole.entities.PaymentMethod.filter({ tenant_id: assignedTenantId, is_active: true });
+        const selectedMethod = (paymentMethods || []).find(m => (m.provider_key || m.name) === body.payment_method);
+        if (selectedMethod?.payment_currency) {
+          paymentCurrency = selectedMethod.payment_currency;
+        }
+      }
+
       // Generate ticket order number TK{YYYYMMDD}{seq}
       const tNow = new Date();
       const tJst = new Date(tNow.getTime() + 9 * 60 * 60 * 1000);
@@ -137,7 +147,7 @@ Deno.serve(async (req) => {
         ticket_prepaid_total_jpy: prepaidTotal,
         prepayment_amount: prepaidTotal,
         prepayment_amount_jpy: prepaidTotal,
-        prepayment_currency: 'JPY',
+        prepayment_currency: paymentCurrency,
         payment_mode: 'prepay',
         order_status: 'payment_pending',
         payment_status: 'awaiting_payment',
