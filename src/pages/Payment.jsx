@@ -45,30 +45,47 @@ export default function Payment() {
   const [otherPaymentConfig, setOtherPaymentConfig] = useState(null);
 
   const loadPaymentData = (payMethodKey = null) => {
-    if (!orderId) { navigate(createPageUrl("MyOrders")); return; }
-    // Only pass payment_method_key when explicitly provided (don't use URL `method` as surcharge key on first load)
+    if (!orderId) {
+      navigate(createPageUrl("MyOrders"));
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      setLoading(false);
+      setOrder(null); // Force render error state
+    }, 10000); // 10-second timeout
+
     base44.functions.invoke('getPaymentPageData', { order_id: orderId, ...(payMethodKey ? { payment_method_key: payMethodKey } : {}) })
       .then(r => {
+        clearTimeout(timeoutId);
         const data = r.data || {};
-        if (!data.order) { navigate(createPageUrl("MyOrders")); return; }
-        setOrder(data.order);
-        setSettings(data.settings || {});
-        if (data.settings?.payment_pending_reminder) {
-          setPaymentPendingReminder(data.settings.payment_pending_reminder);
+        if (!data.order) {
+          setOrder(null); 
+        } else {
+          setOrder(data.order);
+          setSettings(data.settings || {});
+          if (data.settings?.payment_pending_reminder) {
+            setPaymentPendingReminder(data.settings.payment_pending_reminder);
+          }
+          setPaymentMethods(data.paymentMethods || []);
+          setRates(data.rates || null);
+          setOtherPaymentConfig(data.otherPaymentConfig || null);
+          setServerPaymentData({
+            isFullPayOnce: data.isFullPayOnce || false,
+            estimatedShippingFee: data.estimatedShippingFee || 0,
+            paymentAmountJpy: data.paymentAmountJpy ?? null,
+            surchargeJpy: data.surchargeJpy ?? 0,
+            paymentAmountWithSurcharge: data.paymentAmountWithSurcharge ?? null,
+            paymentBreakdown: data.paymentBreakdown || null,
+            isSupplement: data.isSupplement || false,
+          });
         }
-        setPaymentMethods(data.paymentMethods || []);
-        setRates(data.rates || null);
-        setOtherPaymentConfig(data.otherPaymentConfig || null);
-        setServerPaymentData({
-          isFullPayOnce: data.isFullPayOnce || false,
-          estimatedShippingFee: data.estimatedShippingFee || 0,
-          paymentAmountJpy: data.paymentAmountJpy ?? null,
-          surchargeJpy: data.surchargeJpy ?? 0,
-          paymentAmountWithSurcharge: data.paymentAmountWithSurcharge ?? null,
-          paymentBreakdown: data.paymentBreakdown || null,
-          isSupplement: data.isSupplement || false,
-        });
         setLoading(false);
+      })
+      .catch(() => {
+        clearTimeout(timeoutId);
+        setLoading(false);
+        setOrder(null); // Force render error state
       });
   };
 
@@ -112,7 +129,22 @@ export default function Payment() {
     setTimeout(() => navigate(createPageUrl("MyOrders")), 2000);
   };
 
-  if (loading) return <div className="text-center py-20 text-gray-400">加载中...</div>;
+  if (loading) {
+    return <div className="text-center py-20 text-gray-400">加载中...</div>;
+  }
+
+  if (!order) {
+    return (
+      <div className="text-center py-20 text-red-500">
+        <AlertCircle className="mx-auto w-12 h-12 mb-4" />
+        <h2 className="text-xl font-semibold mb-2">无法加载订单信息</h2>
+        <p className="text-sm text-gray-600">订单不存在、已被删除或您没有权限访问。</p>
+        <Button variant="outline" className="mt-6" onClick={() => navigate(createPageUrl("MyOrders"))}>
+          返回我的订单
+        </Button>
+      </div>
+    );
+  }
 
   // Use server-computed payment data (authoritative, avoids client-side re-derivation)
   const isFullPayOnce = serverPaymentData?.isFullPayOnce || false;
