@@ -696,7 +696,7 @@ export default function SubmitOrder() {
                 });
                 setSubmitting(false);
                 if (res.data?.order) {
-                  window.location.href = `/PreShipmentForm?order_id=${res.data.order.id}`;
+                  navigate(createPageUrl(`PreShipmentForm`, { order_id: res.data.order.id }));
                 }
               }}
             >
