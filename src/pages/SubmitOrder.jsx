@@ -687,11 +687,12 @@ export default function SubmitOrder() {
                   selected_addon_ids: selectedAddons,
                   selected_addons: selectedAddons.map(id => {
                     const addon = addonOptions.find(a => a.id === id);
+                    if (!addon) return null;
                     const customFee = addonCustomFees[id];
                     const isCustomizable = addon.is_user_customizable;
                     const fee = isCustomizable && customFee !== undefined ? customFee : parseFloat(addon.fee) || 0;
                     return { id: addon.id, name: addon.name, fee, fee_currency: addon.fee_currency || "JPY" };
-                  })
+                  }).filter(Boolean)
                 });
                 setSubmitting(false);
                 if (res.data?.order) {
