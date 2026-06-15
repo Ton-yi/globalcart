@@ -19,6 +19,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { getStatusLabel, getStatusColor } from "@/lib/orderStatus";
 import MessageThread from "@/components/common/MessageThread";
+import OrderCancellationModule from "@/components/orders/OrderCancellationModule";
+import { toast } from "sonner";
 
 // All statuses admin can manually set (escape hatch)
 const ALL_STATUSES = [
@@ -530,148 +532,156 @@ export default function AdminOrderEditModal({ order, initialItemSizeTemplates, o
 
               {/* pending_confirmation → confirm or reply or cancel */}
               {status === "pending_confirmation" && (
-                <div className="space-y-3 border border-purple-100 rounded-xl p-3 bg-purple-50">
-                  <div className="text-sm font-medium text-purple-800">后付款待确认 — 请选择处理方式</div>
-                  <div className="space-y-2">
-                    <Label className="text-xs">确认后设置付款金额 ({cur})</Label>
-                    <Input type="number" step={cur === "JPY" ? "1" : "0.01"} placeholder="0" value={form.prepayment_amount}
-                      onChange={e => f("prepayment_amount", cur === "JPY" ? Math.round(parseFloat(e.target.value) || 0) || "" : e.target.value)} />
-                    <Label className="text-xs">付款截止日期（可选）</Label>
-                    <Input type="date" value={form.payment_due_date}
-                      onChange={e => f("payment_due_date", e.target.value)} />
-                    <div className="flex gap-2 pt-1">
-                      <Button size="sm" className="flex-1 bg-green-600 hover:bg-green-700 text-xs"
-                        onClick={handleConfirmOrder} disabled={!form.prepayment_amount || saving}>
-                        ✓ 确认可购买，通知付款
-                      </Button>
-                    </div>
+                <div className="space-y-3">
+                  <div className="space-y-3 border border-purple-100 rounded-xl p-3 bg-purple-50">
+                    <div className="text-sm font-medium text-purple-800">后付款待确认 — 请选择处理方式</div>
                     <div className="space-y-2">
-                      <Input placeholder="取消理由（取消时必填）" value={form.cancel_reason}
-                        onChange={e => f("cancel_reason", e.target.value)} className="text-xs h-8" />
-                      <Button size="sm" variant="outline" className="w-full text-xs border-red-300 text-red-600"
-                        onClick={handleCancel} disabled={saving || !form.cancel_reason}>
-                        取消订单
-                      </Button>
+                      <Label className="text-xs">确认后设置付款金额 ({cur})</Label>
+                      <Input type="number" step={cur === "JPY" ? "1" : "0.01"} placeholder="0" value={form.prepayment_amount}
+                        onChange={e => f("prepayment_amount", cur === "JPY" ? Math.round(parseFloat(e.target.value) || 0) || "" : e.target.value)} />
+                      <Label className="text-xs">付款截止日期（可选）</Label>
+                      <Input type="date" value={form.payment_due_date}
+                        onChange={e => f("payment_due_date", e.target.value)} />
+                      <div className="flex gap-2 pt-1">
+                        <Button size="sm" className="flex-1 bg-green-600 hover:bg-green-700 text-xs"
+                          onClick={handleConfirmOrder} disabled={!form.prepayment_amount || saving}>
+                          ✓ 确认可购买，通知付款
+                        </Button>
+                      </div>
                     </div>
                   </div>
+                  <OrderCancellationModule
+                    order={order}
+                    compact
+                    onSuccess={() => {
+                      onSaved();
+                      toast.success("订单已取消");
+                    }}
+                  />
                 </div>
               )}
 
               {/* payment_pending → generate alipay link */}
               {status === "payment_pending" && (
-                <div className="space-y-2 border border-orange-100 rounded-xl p-3 bg-orange-50">
-                  <div className="text-sm font-medium text-orange-800">待付款 — 为用户生成支付宝付款链接</div>
-                  <div className="flex gap-2">
-                    <Input type="number" step="0.01" placeholder="付款金额" value={form.prepayment_amount}
-                      onChange={e => f("prepayment_amount", e.target.value)} className="bg-white" />
-                    <Button size="sm" variant="outline"
-                      className="whitespace-nowrap text-blue-600 border-blue-300 hover:bg-blue-50"
-                      onClick={handleGenerateAlipay}
-                      disabled={generating || !form.prepayment_amount}>
-                      {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ExternalLink className="w-3.5 h-3.5" />}
-                      <span className="ml-1 text-xs">生成链接</span>
-                    </Button>
-                  </div>
-                  {alipayUrl && (
-                    <div className="p-2 bg-white border border-blue-200 rounded-lg space-y-1.5">
-                      <div className="flex gap-2">
-                        <input readOnly value={alipayUrl}
-                          className="flex-1 text-xs bg-gray-50 border border-gray-200 rounded px-2 py-1 font-mono truncate" />
-                        <Button size="sm" variant="ghost" className="h-7 px-2" onClick={handleCopyLink}>
-                          {linkCopied ? <CheckCircle className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
-                        </Button>
-                      </div>
+                <div className="space-y-3">
+                  <div className="space-y-2 border border-orange-100 rounded-xl p-3 bg-orange-50">
+                    <div className="text-sm font-medium text-orange-800">待付款 — 为用户生成支付宝付款链接</div>
+                    <div className="flex gap-2">
+                      <Input type="number" step="0.01" placeholder="付款金额" value={form.prepayment_amount}
+                        onChange={e => f("prepayment_amount", e.target.value)} className="bg-white" />
+                      <Button size="sm" variant="outline"
+                        className="whitespace-nowrap text-blue-600 border-blue-300 hover:bg-blue-50"
+                        onClick={handleGenerateAlipay}
+                        disabled={generating || !form.prepayment_amount}>
+                        {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ExternalLink className="w-3.5 h-3.5" />}
+                        <span className="ml-1 text-xs">生成链接</span>
+                      </Button>
                     </div>
-                  )}
-                  <div className="space-y-2 pt-1">
-                    <Input placeholder="取消理由（取消时必填）" value={form.cancel_reason}
-                      onChange={e => f("cancel_reason", e.target.value)} className="text-xs h-8" />
-                    <Button size="sm" variant="outline" className="w-full text-xs border-red-300 text-red-600"
-                      onClick={handleCancel} disabled={saving || !form.cancel_reason}>
-                      取消订单
-                    </Button>
+                    {alipayUrl && (
+                      <div className="p-2 bg-white border border-blue-200 rounded-lg space-y-1.5">
+                        <div className="flex gap-2">
+                          <input readOnly value={alipayUrl}
+                            className="flex-1 text-xs bg-gray-50 border border-gray-200 rounded px-2 py-1 font-mono truncate" />
+                          <Button size="sm" variant="ghost" className="h-7 px-2" onClick={handleCopyLink}>
+                            {linkCopied ? <CheckCircle className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
+                  <OrderCancellationModule
+                    order={order}
+                    compact
+                    onSuccess={() => {
+                      onSaved();
+                      toast.success("订单已取消");
+                    }}
+                  />
                 </div>
               )}
 
               {/* paid / pending_purchase → mark purchased */}
               {(status === "paid" || status === "pending_purchase") && (
-                <div className="space-y-3 border border-indigo-100 rounded-xl p-3 bg-indigo-50">
-                  <div className="text-sm font-medium text-indigo-800">待下单 — 完成购买后上传截图</div>
-                  <div className="space-y-2">
-                    <FileDropzone
-                      onFile={f => uploadFile(f, setPurchaseScreenshot, setUploadingScreenshot)}
-                      uploading={uploadingScreenshot}
-                      uploaded={!!purchaseScreenshot}
-                      label="截图已上传，点击或拖拽可更换"
-                      placeholder="点击或拖拽上传购买截图（可选）"
-                      borderColor="border-indigo-200"
-                      pasteHint={false}
-                    />
-                    <div>
-                      <Label className="text-xs text-gray-500">或粘贴截图 URL</Label>
-                      <Input
-                        type="text"
-                        placeholder="https://example.com/screenshot.jpg"
-                        value={purchaseScreenshot || ""}
-                        onChange={e => setPurchaseScreenshot(e.target.value)}
-                        onPaste={e => {
-                          const item = Array.from(e.clipboardData.items).find(i => i.type.startsWith("image/"));
-                          if (item) {
-                            e.preventDefault();
-                            const file = item.getAsFile();
-                            if (file) uploadFile(file, setPurchaseScreenshot, setUploadingScreenshot);
-                          }
-                        }}
-                        className="mt-1 text-xs"
+                <div className="space-y-3">
+                  <div className="space-y-3 border border-indigo-100 rounded-xl p-3 bg-indigo-50">
+                    <div className="text-sm font-medium text-indigo-800">待下单 — 完成购买后上传截图</div>
+                    <div className="space-y-2">
+                      <FileDropzone
+                        onFile={f => uploadFile(f, setPurchaseScreenshot, setUploadingScreenshot)}
+                        uploading={uploadingScreenshot}
+                        uploaded={!!purchaseScreenshot}
+                        label="截图已上传，点击或拖拽可更换"
+                        placeholder="点击或拖拽上传购买截图（可选）"
+                        borderColor="border-indigo-200"
+                        pasteHint={false}
                       />
-                    </div>
-                  </div>
-                  {/* Split marker preview */}
-                  {order.has_split_marker && (order.split_sections || []).length > 1 && !splitResult && (
-                    <div className="bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2.5 space-y-1.5">
-                      <div className="flex items-center gap-1.5 text-xs font-medium text-indigo-700">
-                        <Scissors className="w-3.5 h-3.5" />
-                        检测到 {order.split_sections.length} 组商品链接（拆单标记）
+                      <div>
+                        <Label className="text-xs text-gray-500">或粘贴截图 URL</Label>
+                        <Input
+                          type="text"
+                          placeholder="https://example.com/screenshot.jpg"
+                          value={purchaseScreenshot || ""}
+                          onChange={e => setPurchaseScreenshot(e.target.value)}
+                          onPaste={e => {
+                            const item = Array.from(e.clipboardData.items).find(i => i.type.startsWith("image/"));
+                            if (item) {
+                              e.preventDefault();
+                              const file = item.getAsFile();
+                              if (file) uploadFile(file, setPurchaseScreenshot, setUploadingScreenshot);
+                            }
+                          }}
+                          className="mt-1 text-xs"
+                        />
                       </div>
-                      <div className="text-xs text-indigo-600 space-y-1">
-                        {order.split_sections.map((sec, i) => (
-                          <div key={i} className="truncate">
-                            <span className="font-medium">第 {i+1} 批：</span>
-                            {sec.split('\n')[0].slice(0, 50)}{sec.length > 50 ? '…' : ''}
-                          </div>
+                    </div>
+                    {/* Split marker preview */}
+                    {order.has_split_marker && (order.split_sections || []).length > 1 && !splitResult && (
+                      <div className="bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2.5 space-y-1.5">
+                        <div className="flex items-center gap-1.5 text-xs font-medium text-indigo-700">
+                          <Scissors className="w-3.5 h-3.5" />
+                          检测到 {order.split_sections.length} 组商品链接（拆单标记）
+                        </div>
+                        <div className="text-xs text-indigo-600 space-y-1">
+                          {order.split_sections.map((sec, i) => (
+                            <div key={i} className="truncate">
+                              <span className="font-medium">第 {i+1} 批：</span>
+                              {sec.split('\n')[0].slice(0, 50)}{sec.length > 50 ? '…' : ''}
+                            </div>
+                          ))}
+                        </div>
+                        <p className="text-xs text-indigo-400">购买完成后可点击「下单并拆分」，将生成 {order.split_sections.length} 个子订单，货款平均分配</p>
+                      </div>
+                    )}
+                    {splitResult && (
+                      <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-xs text-green-700">
+                        ✓ 已拆分为 {splitResult.child_count} 个子订单
+                        {(splitResult.children || []).map(c => (
+                          <div key={c.id} className="mt-0.5 font-mono">{c.order_number}</div>
                         ))}
                       </div>
-                      <p className="text-xs text-indigo-400">购买完成后可点击「下单并拆分」，将生成 {order.split_sections.length} 个子订单，货款平均分配</p>
-                    </div>
-                  )}
-                  {splitResult && (
-                    <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-xs text-green-700">
-                      ✓ 已拆分为 {splitResult.child_count} 个子订单
-                      {(splitResult.children || []).map(c => (
-                        <div key={c.id} className="mt-0.5 font-mono">{c.order_number}</div>
-                      ))}
-                    </div>
-                  )}
-                  <Input placeholder="取消理由（取消时必填）" value={form.cancel_reason}
-                    onChange={e => f("cancel_reason", e.target.value)} className="text-xs" />
-                  <div className="flex gap-2 flex-wrap">
-                    {order.has_split_marker && (order.split_sections || []).length > 1 && !splitResult ? (
-                      <Button size="sm" className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-xs"
-                        onClick={handleSplitOrder} disabled={splitting || saving || !canPlaceOrder}>
-                        {splitting ? <><Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />拆分中...</> : <><GitBranch className="w-3.5 h-3.5 mr-1" />下单并拆分</>}
-                      </Button>
-                    ) : (
-                      <Button size="sm" className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-xs"
-                        onClick={handleMarkPurchased} disabled={saving || !canPlaceOrder}>
-                        ✓ 购买完成 → 已下单
-                      </Button>
                     )}
-                    <Button size="sm" variant="outline" className="text-xs border-red-300 text-red-600"
-                      onClick={handleCancel} disabled={saving || !form.cancel_reason}>
-                      取消订单
-                    </Button>
+                    <div className="flex gap-2 flex-wrap">
+                      {order.has_split_marker && (order.split_sections || []).length > 1 && !splitResult ? (
+                        <Button size="sm" className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-xs"
+                          onClick={handleSplitOrder} disabled={splitting || saving || !canPlaceOrder}>
+                          {splitting ? <><Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />拆分中...</> : <><GitBranch className="w-3.5 h-3.5 mr-1" />下单并拆分</>}
+                        </Button>
+                      ) : (
+                        <Button size="sm" className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-xs"
+                          onClick={handleMarkPurchased} disabled={saving || !canPlaceOrder}>
+                          ✓ 购买完成 → 已下单
+                        </Button>
+                      )}
+                    </div>
                   </div>
+                  <OrderCancellationModule
+                    order={order}
+                    compact
+                    onSuccess={() => {
+                      onSaved();
+                      toast.success("订单已取消");
+                    }}
+                  />
                 </div>
               )}
 
