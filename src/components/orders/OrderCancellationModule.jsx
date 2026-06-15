@@ -10,13 +10,14 @@ import { AlertTriangle, CheckCircle, Loader2, MessageCircle } from "lucide-react
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
+import RichTextInput from "@/components/common/RichTextInput";
 
 export default function OrderCancellationModule({ order, onSuccess, compact = false }) {
   const [cancelReason, setCancelReason] = useState("");
+  const [cancelImages, setCancelImages] = useState([]);
   const [refundAmountJpy, setRefundAmountJpy] = useState("");
   const [refundAmountCurrency, setRefundAmountCurrency] = useState("");
   const [isCalculating, setIsCalculating] = useState(false);
@@ -75,7 +76,6 @@ export default function OrderCancellationModule({ order, onSuccess, compact = fa
       // 如果有退款金额，记录双币种
       if (refundAmountJpy || refundAmountCurrency) {
         updates.refund_amount_jpy = parseFloat(refundAmountJpy) || 0;
-        // 如果需要，可以添加 refund_amount_currency 字段（需在 Order 实体中扩展）
       }
 
       // 生成系统留言
@@ -90,6 +90,7 @@ export default function OrderCancellationModule({ order, onSuccess, compact = fa
         role: "admin",
         content: `订单取消通知\n\n取消理由：${cancelReason}\n${refundInfo}\n\n如有后续疑问，您可在此留言或联系管理员。`,
         timestamp: new Date().toISOString(),
+        image_urls: cancelImages, // 附加上传的图片
         meta: {
           type: "cancellation",
           cancel_reason: cancelReason,
@@ -132,12 +133,13 @@ export default function OrderCancellationModule({ order, onSuccess, compact = fa
         <CardContent className="space-y-3">
           <div>
             <Label className="text-xs">取消理由 <span className="text-red-500">*</span></Label>
-            <Textarea
-              rows={2}
-              className="mt-1 text-xs bg-white"
-              placeholder="例如：商品缺货、用户要求取消等"
+            <RichTextInput
               value={cancelReason}
-              onChange={(e) => setCancelReason(e.target.value)}
+              onChange={setCancelReason}
+              images={cancelImages}
+              setImages={setCancelImages}
+              placeholder="例如：商品缺货、用户要求取消等"
+              compact
             />
           </div>
 
@@ -221,12 +223,12 @@ export default function OrderCancellationModule({ order, onSuccess, compact = fa
 
       <div>
         <Label className="text-sm">取消理由 <span className="text-red-500">*</span></Label>
-        <Textarea
-          rows={2}
-          className="mt-1 bg-white"
-          placeholder="请填写取消原因，这将作为系统留言发送给用户"
+        <RichTextInput
           value={cancelReason}
-          onChange={(e) => setCancelReason(e.target.value)}
+          onChange={setCancelReason}
+          images={cancelImages}
+          setImages={setCancelImages}
+          placeholder="请填写取消原因，这将作为系统留言发送给用户"
         />
       </div>
 
