@@ -758,6 +758,16 @@
       "description": "\u9000\u6b3e\u91d1\u989d\uff08JPY\uff09\uff0c\u7ba1\u7406\u5458\u5f55\u5165\u7684\u771f\u5b9e\u9000\u6b3e",
       "default": null
     },
+    "refund_amount_currency": {
+      "type": "number",
+      "description": "\u9000\u6b3e\u91d1\u989d\uff08\u7528\u6237\u4ed8\u6b3e\u8d27\u5e01\uff09\uff0c\u7ba1\u7406\u5458\u5f55\u5165\u7684\u771f\u5b9e\u9000\u6b3e",
+      "default": null
+    },
+    "refund_currency": {
+      "type": "string",
+      "description": "\u9000\u6b3e\u8d27\u5e01\u4ee3\u7801\uff08\u4e0e prepayment_currency \u4e00\u81f4\uff09",
+      "default": null
+    },
     "order_stage_payment_jpy": {
       "type": "number",
       "description": "\u4e0b\u5355\u9636\u6bb5\u7528\u6237\u5b9e\u9645\u652f\u4ed8\u603b\u989d\uff08JPY\uff09",

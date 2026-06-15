@@ -76,6 +76,8 @@ export default function OrderCancellationModule({ order, onSuccess, compact = fa
       // 如果有退款金额，记录双币种
       if (refundAmountJpy || refundAmountCurrency) {
         updates.refund_amount_jpy = parseFloat(refundAmountJpy) || 0;
+        updates.refund_amount_currency = parseFloat(refundAmountCurrency) || 0;
+        updates.refund_currency = paymentCurrency;
       }
 
       // 生成系统留言
