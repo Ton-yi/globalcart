@@ -424,7 +424,26 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
                     }
                   }}
                   onDragOver={(e) => e.preventDefault()}
-                  onClick={(e) => e.currentTarget.focus()}
+                  onClick={async (e) => {
+                    e.currentTarget.focus();
+                    // 尝试从剪切板读取图片
+                    try {
+                      const items = await navigator.clipboard.read();
+                      for (const item of items) {
+                        const imageType = item.types.find(t => t.startsWith('image/'));
+                        if (imageType) {
+                          const blob = await item.getType(imageType);
+                          const file = new File([blob], `clipboard_${Date.now()}.png`, { type: imageType });
+                          setLotteryImageFile(file);
+                          setLotteryImagePreview(URL.createObjectURL(file));
+                          toast.success("已从剪切板加载图片");
+                          break;
+                        }
+                      }
+                    } catch {
+                      // 用户未授权剪切板或剪切板无图片，保持 focus 等待手动粘贴
+                    }
+                  }}
                 />
                 {lotteryImageFile instanceof File && (
                   <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
