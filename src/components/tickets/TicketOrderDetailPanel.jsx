@@ -941,17 +941,29 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
                             </td>
                             <td className="px-3 py-2.5 text-right">
                               {editingSeats ? (
-                                <input
-                                  type="number"
-                                  min={0}
-                                  max={seat.quantity || 0}
-                                  value={actualQty}
-                                  onChange={(e) => {
-                                    const val = Math.max(0, Math.min(seat.quantity || 0, Number(e.target.value)));
-                                    setActualSeats(prev => prev.map((s, idx) => idx === i ? { ...s, actual_quantity: val } : s));
-                                  }}
-                                  className="w-16 text-right rounded border border-violet-300 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-violet-400"
-                                />
+                                <div className="inline-flex items-center gap-1">
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    max={seat.quantity || 0}
+                                    value={actualQty}
+                                    onChange={(e) => {
+                                      const val = Math.max(0, Math.min(seat.quantity || 0, Number(e.target.value)));
+                                      setActualSeats(prev => prev.map((s, idx) => idx === i ? { ...s, actual_quantity: val } : s));
+                                    }}
+                                    className="w-14 text-right rounded border border-violet-300 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-violet-400"
+                                  />
+                                  <div className="flex flex-col">
+                                    <button
+                                      onClick={() => setActualSeats(prev => prev.map((s, idx) => idx === i ? { ...s, actual_quantity: Math.min(s.quantity || 0, (s.actual_quantity ?? s.quantity ?? 0) + 1) } : s))}
+                                      className="h-[18px] w-6 flex items-center justify-center rounded-t border border-violet-300 bg-violet-50 hover:bg-violet-100 text-violet-700 text-xs leading-none"
+                                    >▲</button>
+                                    <button
+                                      onClick={() => setActualSeats(prev => prev.map((s, idx) => idx === i ? { ...s, actual_quantity: Math.max(0, (s.actual_quantity ?? s.quantity ?? 0) - 1) } : s))}
+                                      className="h-[18px] w-6 flex items-center justify-center rounded-b border-x border-b border-violet-300 bg-violet-50 hover:bg-violet-100 text-violet-700 text-xs leading-none"
+                                    >▼</button>
+                                  </div>
+                                </div>
                               ) : (
                                 <span className={`px-2 py-0.5 rounded text-xs font-medium ${
                                   seat.actual_quantity === undefined ? "text-gray-400" :
