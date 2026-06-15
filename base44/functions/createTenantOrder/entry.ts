@@ -406,6 +406,7 @@ Deno.serve(async (req) => {
       ...body,
       tenant_id: assignedTenantId,
       order_number: orderNumber, // always override with server-generated number
+      order_type: 'physical', // 实物订单（默认）
       // Always store the original JPY amount separately for display/accounting
       ...(body.prepayment_amount ? { prepayment_amount_jpy: parseFloat(body.prepayment_amount) } : {}),
       // Payment method and currency (already validated by frontend, stored as-is)
