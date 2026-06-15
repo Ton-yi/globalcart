@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { base44 } from "@/api/base44Client";
+import SupplementPaymentCard from "@/components/tickets/SupplementPaymentCard";
 
 const TICKET_STATUS_LABELS = {
   pending_confirmation: "待确认",
@@ -346,6 +347,8 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
     (ticketData.seats || []).map(s => ({ ...s, actual_quantity: s.actual_quantity ?? s.quantity ?? 0 }))
   );
   const [savingSeats, setSavingSeats] = useState(false);
+  const [requestingSupplement, setRequestingSupplement] = useState(false);
+  const [supplementPaymentMethod, setSupplementPaymentMethod] = useState(null);
 
   // 演出信息编辑
   const [editingPerformance, setEditingPerformance] = useState(false);
@@ -1351,10 +1354,63 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
                     </Badge>
                   </div>
                 )}
-                {!editingSeats && order.supplement_requested && (order.supplement_amount || 0) > 0 && (
-                  <div className="mt-2 flex items-center justify-between text-xs text-red-600 px-1">
-                    <span>待补款金额：{(order.supplement_amount).toLocaleString()} JPY</span>
-                    <Badge className="bg-red-100 text-red-700">待补款</Badge>
+                {!editingSeats && order.supplement_requested && (order.supplement_amount || 0) > 0 && !order.supplement_paid && (
+                  <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-semibold text-red-700">待补款金额</span>
+                      <span className="text-lg font-bold text-red-700">{(order.supplement_amount).toLocaleString()} JPY</span>
+                    </div>
+                    <p className="text-xs text-red-600 mb-2">
+                      由于实际购买的票数超过了预付票数，您需要补缴差额。
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <select
+                        className="h-8 text-sm rounded border border-red-300 px-2 bg-white"
+                        value={supplementPaymentMethod || ""}
+                        onChange={e => setSupplementPaymentMethod(e.target.value)}
+                        disabled={requestingSupplement}
+                      >
+                        <option value="">选择支付方式</option>
+                        <option value="alipay">支付宝</option>
+                        <option value="wechatpay">微信支付</option>
+                        <option value="paypay">PayPay</option>
+                        <option value="credit_card">信用卡</option>
+                        <option value="bank_transfer">银行转账</option>
+                      </select>
+                      <Button
+                        size="sm"
+                        className="h-8 text-xs bg-red-600 hover:bg-red-700"
+                        onClick={async () => {
+                          if (!supplementPaymentMethod) {
+                            toast.error("请选择支付方式");
+                            return;
+                          }
+                          setRequestingSupplement(true);
+                          try {
+                            const res = await base44.functions.invoke("requestTicketSupplement", {
+                              order_id: order.id,
+                              payment_method: supplementPaymentMethod,
+                            });
+                            if (res.data?.error) throw new Error(res.data.error);
+                            toast.success("补款申请已提交");
+                            onRefresh?.();
+                          } catch (e) {
+                            toast.error("申请失败：" + e.message);
+                          } finally {
+                            setRequestingSupplement(false);
+                          }
+                        }}
+                        disabled={requestingSupplement || !supplementPaymentMethod}
+                      >
+                        {requestingSupplement ? <><Loader2 className="w-3 h-3 mr-1 animate-spin" />处理中...</> : "申请补款"}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                {!editingSeats && order.supplement_requested && order.supplement_paid && (
+                  <div className="mt-2 flex items-center justify-between text-xs text-green-600 px-1">
+                    <span>补款已支付：{(order.supplement_amount).toLocaleString()} JPY</span>
+                    <Badge className="bg-green-100 text-green-700">已支付</Badge>
                   </div>
                 )}
               </div>
@@ -1407,6 +1463,11 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
           {/* ===== FEES TAB ===== */}
           {activeTab === "fees" && (
             <div className="space-y-4">
+              {/* Supplement payment card */}
+              {order.supplement_requested && (order.supplement_amount || 0) > 0 && (
+                <SupplementPaymentCard order={order} onRefresh={onRefresh} />
+              )}
+
               {/* Detailed fee breakdown */}
               <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-lg p-4 space-y-3">
                 <div className="flex items-center gap-2 text-sm font-semibold text-green-900">

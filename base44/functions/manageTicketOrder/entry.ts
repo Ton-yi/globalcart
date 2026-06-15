@@ -71,13 +71,20 @@ Deno.serve(async (req) => {
         const actual = raw == null ? (parseFloat(s.quantity) || 0) : Math.max(0, parseFloat(raw) || 0);
         return { ...s, actual_quantity: Math.min(actual, parseFloat(s.quantity) || 0) };
       });
+      // 服务端重新从数据库读取最新 seats 计算退差价，确保数据一致性
       const refund = calcRefund(newSeats);
       updateData.ticket_data = { ...td, seats: newSeats };
       updateData.ticket_refund_jpy = refund;
+      // 如果有差额，标记为待结算
+      if (refund > 0 && !order.ticket_refund_settled) {
+        updateData.ticket_refund_settled = false;
+      }
 
     } else if (action === 'settle_refund') {
       // 金额以服务端当前 seats 重算为准，忽略客户端传值
-      const refund = calcRefund(seats);
+      const currentOrder = await base44.asServiceRole.entities.Order.get(order_id);
+      const currentSeats = (currentOrder?.ticket_data?.seats || []);
+      const refund = calcRefund({ seats: currentSeats, account_count: parseFloat(currentOrder?.ticket_data?.account_count) || 1 });
       updateData.ticket_refund_jpy = refund;
       updateData.ticket_refund_settled = true;
 

@@ -35,6 +35,7 @@ export const TICKET_STATUSES = [
   "in_warehouse",
   "shipped",
   "delivered",
+  "lottery_lost",
   "cancelled",
 ];
 
@@ -59,6 +60,7 @@ export function ticketStatusLabel(status, side = "user", isLottery = false) {
     in_warehouse: { user: "待发货", admin: "已入库" },
     shipped: { user: "已发货", admin: "已发货" },
     delivered: { user: "已收货", admin: "已收货" },
+    lottery_lost: { user: "未中选", admin: "未中选" },
     cancelled: { user: "已取消", admin: "已取消" },
   };
   return map[status]?.[side] || status;
@@ -72,6 +74,7 @@ export const TICKET_STATUS_COLORS = {
   in_warehouse: "bg-orange-100 text-orange-700",
   shipped: "bg-green-100 text-green-700",
   delivered: "bg-gray-100 text-gray-700",
+  lottery_lost: "bg-gray-200 text-gray-800",
   cancelled: "bg-red-100 text-red-700",
 };
 

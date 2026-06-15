@@ -42,10 +42,12 @@ export default function TicketRequestFields({ data, onChange, config, timeErrors
     <Label className="text-sm font-medium">{children}{req(k) && <span className="text-red-500 ml-0.5">*</span>}</Label>
   );
 
-  /** 日期 + 时 + 分（15分刻み）选择器，onChange 输出 "YYYY-MM-DDTHH:MM" 或 "" */
-  const DateField = ({ fieldKey, label, value }) => {
+  /** 日期 + 时 + 分（15 分刻み）选择器，onChange 输出 "YYYY-MM-DDTHH:MM" 或 "" */
+  const DateField = ({ fieldKey, label, value, minDate = false }) => {
     const { date, hour, minute } = splitIso(value);
     const error = timeErrors[fieldKey];
+    // 计算最小日期（今天，JST timezone）
+    const todayJst = new Date(new Date().getTime() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
     const handleChange = (part, val) => {
       const next = {
@@ -65,6 +67,7 @@ export default function TicketRequestFields({ data, onChange, config, timeErrors
             type="date"
             className={`h-9 text-sm flex-1 min-w-[130px] ${error ? "border-red-400" : ""}`}
             value={date}
+            min={minDate ? todayJst : undefined}
             onChange={e => handleChange("date", e.target.value)}
           />
           {/* 时 */}
@@ -88,6 +91,9 @@ export default function TicketRequestFields({ data, onChange, config, timeErrors
           </Select>
         </div>
         {error && <p className="text-xs text-red-500 mt-0.5">{error}</p>}
+        {minDate && date && date < todayJst && (
+          <p className="text-xs text-orange-500 mt-0.5">⚠️ 已选择过去时间，请确认是否正确</p>
+        )}
       </div>
     );
   };
@@ -119,6 +125,7 @@ export default function TicketRequestFields({ data, onChange, config, timeErrors
               fieldKey="performance_datetime"
               label="開演日時"
               value={data.performance_datetime}
+              minDate={true}
             />
           )}
         </div>
@@ -158,6 +165,7 @@ export default function TicketRequestFields({ data, onChange, config, timeErrors
               fieldKey="sales_start_time"
               label={isLottery ? "抽選開始" : "販売開始"}
               value={data.sales_start_time}
+              minDate={true}
             />
           )}
           {show("sales_end_time") && (
@@ -165,6 +173,7 @@ export default function TicketRequestFields({ data, onChange, config, timeErrors
               fieldKey="sales_end_time"
               label={isLottery ? "抽選終了" : "販売終了"}
               value={data.sales_end_time}
+              minDate={true}
             />
           )}
           {show("lottery_result_time") && isLottery && (
@@ -172,6 +181,7 @@ export default function TicketRequestFields({ data, onChange, config, timeErrors
               fieldKey="lottery_result_time"
               label="結果発表"
               value={data.lottery_result_time}
+              minDate={true}
             />
           )}
         </div>
