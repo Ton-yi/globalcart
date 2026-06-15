@@ -204,37 +204,31 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
     }
   };
 
-  // 抽选：有图片则上传后更新状态；无图片则直接更新状态为待抽选结果
+  // 抽选：上传图片后更新状态为待抽选结果
   const handleLotteryImageUpload = async (file) => {
+    if (!(file instanceof File)) return;
     setUploadingImage(true);
     try {
-      let extraFields = {};
-      if (file instanceof File) {
-        const { url: imageUrl } = await base44.integrations.Core.UploadFile({ file });
-        if (!imageUrl) { toast.error("图片上传失败"); return; }
-        extraFields = { ticket_image_urls: [...(order.ticket_image_urls || []), imageUrl] };
-      }
-
-      const messageContent = file instanceof File
-        ? "抽选截图已上传，订单状态更新为等待抽选结果"
-        : "订单状态已更新为等待抽选结果";
+      const { url: imageUrl } = await base44.integrations.Core.UploadFile({ file });
+      if (!imageUrl) { toast.error("图片上传失败"); return; }
 
       await updateOrder(order.id, {
         ticket_status: "awaiting_lottery_result",
-        ...extraFields,
+        ticket_image_urls: [...(order.ticket_image_urls || []), imageUrl],
         messages: [
           ...(order.messages || []),
           { id: `lottery_${Date.now()}`, from: "系统通知", from_email: "system@system.local",
-            role: "admin", content: messageContent, timestamp: new Date().toISOString(),
-            is_system_notification: true, meta: { type: "lottery_status_update" } }
+            role: "admin", content: "抽选截图已上传，订单状态更新为等待抽选结果",
+            timestamp: new Date().toISOString(), is_system_notification: true,
+            meta: { type: "lottery_image_uploaded", image_url: imageUrl } }
         ],
         unread_roles: ["user"]
       });
-      toast.success("订单状态已更新为等待抽选结果");
+      toast.success("抽选截图已上传，订单状态已更新为等待抽选结果");
       onRefresh?.();
       onClose?.();
     } catch (error) {
-      toast.error("操作失败：" + error.message);
+      toast.error("上传失败：" + error.message);
     } finally {
       setUploadingImage(false);
     }
@@ -458,7 +452,13 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
               />
               <Button
                 size="sm"
-                onClick={() => handleLotteryImageUpload(lotteryImageFile instanceof File ? lotteryImageFile : null)}
+                onClick={async () => {
+                  if (lotteryImageFile instanceof File) {
+                    await handleLotteryImageUpload(lotteryImageFile);
+                  } else {
+                    document.getElementById('lottery-image-input').click();
+                  }
+                }}
                 disabled={statusUpdating || uploadingImage}
                 className="bg-yellow-50 hover:bg-yellow-100 text-yellow-700 border-yellow-200"
               >
