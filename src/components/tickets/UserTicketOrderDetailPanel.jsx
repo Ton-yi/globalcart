@@ -196,21 +196,28 @@ export default function UserTicketOrderDetailPanel({ order, onClose, onRefresh, 
     { key: "fees", label: "费用明细" },
   ];
 
-  // 获取运输方式和自提点数据
+  // 获取本地运输方式列表（日本国内运输）
   const { data: shippingMethods = [] } = useQuery({
-    queryKey: ['shipping_methods'],
+    queryKey: ['local_shipping_methods', order.tenant_id],
     queryFn: async () => {
-      const res = await base44.entities.ShippingMethod.filter({ is_active: true });
-      return res.filter(m => m.enabled_for_direct_ship);
-    }
+      try {
+        const res = await base44.entities.ShippingMethod.filter({ tenant_id: order.tenant_id, is_active: true });
+        return (res || []).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+      } catch { return []; }
+    },
+    enabled: !!order.tenant_id
   });
 
+  // 获取自提点列表
   const { data: pickupLocations = [] } = useQuery({
-    queryKey: ['pickup_locations'],
+    queryKey: ['pickup_locations', order.tenant_id],
     queryFn: async () => {
-      const res = await base44.entities.PickupLocation.filter({ is_active: true });
-      return res.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
-    }
+      try {
+        const res = await base44.entities.PickupLocation.filter({ tenant_id: order.tenant_id, is_active: true });
+        return (res || []).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+      } catch { return []; }
+    },
+    enabled: !!order.tenant_id
   });
 
   // 计算需要补正的金额
