@@ -40,10 +40,8 @@ export default function OrderMessageThread({
   composeOnly = false, 
   hideHistory = false, 
   userProfileMap = {},
-  showCancelButton = false,
-  onCancelToggle,
-  showCancelModule = false,
 }) {
+  const [showCancelModule, setShowCancelModule] = useState(false);
   const { can } = usePermissions();
   // Allow if user has parent permission OR specific child permission
   const canSendMessage = can("message:send_message") || can("message:send_order_message");
@@ -200,7 +198,7 @@ export default function OrderMessageThread({
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-gray-700">取消订单</span>
               <button 
-                onClick={onCancelToggle}
+                onClick={() => setShowCancelModule(false)}
                 className="text-xs text-gray-500 hover:text-gray-700 underline"
               >
                 返回留言
@@ -210,21 +208,19 @@ export default function OrderMessageThread({
               order={order} 
               compact 
               onSuccess={() => {
-                onCancelToggle?.();
+                setShowCancelModule(false);
                 onMessageSent?.();
               }} 
             />
           </div>
         ) : (
           <div className="flex items-end gap-2">
-            {showCancelButton && (
-              <button
-                onClick={onCancelToggle}
-                className="px-3 py-2 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 rounded-md transition-colors whitespace-nowrap"
-              >
-                取消订单
-              </button>
-            )}
+            <button
+              onClick={() => setShowCancelModule(true)}
+              className="px-3 py-2 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 rounded-md transition-colors whitespace-nowrap"
+            >
+              取消订单
+            </button>
             <div className="flex-1">
               <RichTextInput
                 value={content}

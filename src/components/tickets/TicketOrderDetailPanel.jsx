@@ -112,8 +112,6 @@ export default function TicketOrderDetailPanel({ order, onClose, userProfileMap 
 
   const isPendingConfirmation = order.ticket_status === "pending_confirmation";
   
-  const [showCancelInMessages, setShowCancelInMessages] = useState(false);
-  
   const tabs = [
     { key: "overview", label: "概览" },
     { key: "messages", label: "留言", badge: (order.unread_roles || []).includes("admin") && isAdmin ? "red" : null },
@@ -455,9 +453,6 @@ export default function TicketOrderDetailPanel({ order, onClose, userProfileMap 
                   isAdmin={isAdmin}
                   userProfileMap={userProfileMap}
                   hideHistory={false}
-                  showCancelButton={true}
-                  onCancelToggle={() => setShowCancelInMessages(!showCancelInMessages)}
-                  showCancelModule={showCancelInMessages}
                 />
               </div>
 
