@@ -120,6 +120,9 @@ export default function TicketOrderDetailPanel({ order, onClose, userProfileMap 
       : []),
     { key: "fees", label: "费用明细" },
     { key: "timeline", label: "时间线" },
+    ...(isPendingConfirmation && canUpdateStatus
+      ? [{ key: "actions", label: "订单操作" }]
+      : []),
   ];
 
   return (
@@ -411,7 +414,7 @@ export default function TicketOrderDetailPanel({ order, onClose, userProfileMap 
                     <CreditCard className="w-4 h-4" />抽中追加报酬
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-pink-600">抽选販売追加报酬</span>
+                    <span className="text-pink-600">抽選販売追加报酬</span>
                     <span className="font-bold text-pink-700">{formatCurrency(ticketData.lottery_win_bonus_jpy)}</span>
                   </div>
                 </div>
@@ -427,38 +430,22 @@ export default function TicketOrderDetailPanel({ order, onClose, userProfileMap 
             </div>
           )}
 
-          {/* ===== MESSAGES & CANCEL TAB (for pending_confirmation only) ===== */}
+          {/* ===== MESSAGES TAB (for pending_confirmation only) ===== */}
           {activeTab === "messages_actions" && isPendingConfirmation && (
-            <div className="space-y-6">
-              {/* Messages */}
-              <div>
-                <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                  <MessageSquare className="w-4 h-4" />留言沟通
-                </h3>
-                <OrderMessageThread
-                  order={order}
-                  currentUser={actualCurrentUser}
-                  isAdmin={isAdmin}
-                  userProfileMap={userProfileMap}
-                  hideHistory={false}
-                  showCancelButton={true}
-                  onCancelToggle={() => setShowCancelInMessages(!showCancelInMessages)}
-                  showCancelModule={showCancelInMessages}
-                />
-              </div>
-
-              {/* Cancel order (shown when cancel toggle is active) */}
-              {showCancelInMessages && (
-                <div className="border-t pt-6">
-                  <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                    取消订单
-                  </h3>
-                  <OrderCancellationModule order={order} compact onSuccess={() => {
-                    setShowCancelInMessages(false);
-                    onClose?.();
-                  }} />
-                </div>
-              )}
+            <div>
+              <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                <MessageSquare className="w-4 h-4" />留言沟通
+              </h3>
+              <OrderMessageThread
+                order={order}
+                currentUser={actualCurrentUser}
+                isAdmin={isAdmin}
+                userProfileMap={userProfileMap}
+                hideHistory={false}
+                showCancelButton={true}
+                onCancelToggle={() => setShowCancelInMessages(!showCancelInMessages)}
+                showCancelModule={showCancelInMessages}
+              />
             </div>
           )}
 
@@ -696,6 +683,37 @@ export default function TicketOrderDetailPanel({ order, onClose, userProfileMap 
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* ===== ACTIONS TAB (for pending_confirmation only) ===== */}
+          {activeTab === "actions" && isPendingConfirmation && (
+            <div className="space-y-6">
+              {/* Status update */}
+              <div>
+                <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                  <Wand2 className="w-4 h-4" />更新订单状态
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleStatusUpdate("accepted")}
+                    disabled={statusUpdating}
+                    className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
+                  >
+                    已受理 / 待开票
+                  </Button>
+                </div>
+              </div>
+
+              {/* Cancel order */}
+              <div className="border-t pt-6">
+                <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                  取消订单
+                </h3>
+                <OrderCancellationModule order={order} compact onSuccess={() => onClose?.()} />
+              </div>
             </div>
           )}
         </div>
