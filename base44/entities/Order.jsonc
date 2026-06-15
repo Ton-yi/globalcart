@@ -72,27 +72,27 @@
     "order_balance_due_jpy": {
       "type": "number",
       "default": 0,
-      "description": "\u4e0b\u5355\u9636\u6bb5\u9884\u4ed8\u540e\u7684\u8d27\u6b3e\u5c3e\u6b3e\uff08JPY\uff09\uff0c\u7531\u540e\u7aef\u5728\u521b\u5efa\u8ba2\u5355\u65f6\u8ba1\u7b97\uff08\u8ba2\u5355\u603b\u989d \u2212 \u9884\u4ed8\u6b3e\uff09\uff0c\u5728\u7528\u6237\u652f\u4ed8\u8fd0\u8d39\u65f6\u4e00\u5e76\u6536\u53d6"
+      "description": "\u4e0b\u5355\u9636\u6bb5\u9884\u4ed8\u540e\u7684\u8d27\u6b3e\u5c3e\u6b3e\uff08JPY\uff09"
     },
     "order_balance_settled": {
       "type": "boolean",
       "default": false,
-      "description": "\u8d27\u6b3e\u5c3e\u6b3e\u662f\u5426\u5df2\u968f\u8fd0\u8d39\u7ed3\u7b97\uff08\u7ba1\u7406\u5458\u786e\u8ba4\u6536\u6b3e\u65f6\u6807\u8bb0\uff09"
+      "description": "\u8d27\u6b3e\u5c3e\u6b3e\u662f\u5426\u5df2\u968f\u8fd0\u8d39\u7ed3\u7b97"
     },
     "order_balance_surcharge_rate": {
       "type": "number",
       "default": 0,
-      "description": "\u5c3e\u6b3e\u52a0\u4ef7\u6bd4\u4f8b\u5feb\u7167\uff08%\uff09\uff0c\u76f8\u5bf9\u8ba2\u5355\u603b\u989d\uff0c\u521b\u5efa\u8ba2\u5355\u65f6\u8bb0\u5f55"
+      "description": "\u5c3e\u6b3e\u52a0\u4ef7\u6bd4\u4f8b\u5feb\u7167\uff08%\uff09"
     },
     "order_balance_surcharge_jpy": {
       "type": "number",
       "default": 0,
-      "description": "\u5c3e\u6b3e\u52a0\u4ef7\u91d1\u989d\uff08JPY\uff09= \u8ba2\u5355\u603b\u989d \u00d7 \u5c3e\u6b3e\u52a0\u4ef7\u6bd4\u4f8b\uff0c\u968f\u8fd0\u8d39\u4e00\u5e76\u6536\u53d6"
+      "description": "\u5c3e\u6b3e\u52a0\u4ef7\u91d1\u989d\uff08JPY\uff09"
     },
     "payment_surcharge_jpy": {
       "type": "number",
       "default": 0,
-      "description": "\u652f\u4ed8\u65b9\u5f0f\u670d\u52a1\u8d39\uff08JPY\uff09\uff0c\u7528\u6237\u9009\u62e9\u7279\u5b9a\u652f\u4ed8\u65b9\u5f0f\u65f6\u4ea7\u751f\u7684\u989d\u5916\u624b\u7eed\u8d39\uff0c\u8bb0\u5f55\u5728\u8ba2\u5355\u4e0a\u7528\u4e8e\u8d22\u52a1\u8ffd\u8e2a"
+      "description": "\u652f\u4ed8\u65b9\u5f0f\u670d\u52a1\u8d39\uff08JPY\uff09"
     },
     "paid_amount": {
       "type": "number",
@@ -164,7 +164,7 @@
         "expired"
       ],
       "default": "pending_confirmation",
-      "description": "\u8ba2\u5355\u72b6\u6001\uff08transit_shipped=\u4e2d\u8f6c\u5730\u5df2\u53d1\u8d27\uff0c\u7b49\u5f85\u6700\u7ec8\u7b7e\u6536\uff1bexpired=\u5df2\u8d85\u65f6\uff09"
+      "description": "\u8ba2\u5355\u72b6\u6001"
     },
     "order_type": {
       "type": "string",
@@ -174,7 +174,7 @@
         "group_buy"
       ],
       "default": "physical",
-      "description": "\u8ba2\u5355\u7c7b\u578b\uff1aphysical=\u5b9e\u7269\u5546\u54c1\uff0cticket=\u7968\u52a1\u9700\u6c42\uff0cgroup_buy=\u62fc\u5355"
+      "description": "\u8ba2\u5355\u7c7b\u578b"
     },
     "ticket_status": {
       "type": "string",
@@ -188,11 +188,11 @@
         "delivered",
         "cancelled"
       ],
-      "description": "\u7968\u52a1\u8ba2\u5355\u72b6\u6001\uff08\u7edf\u4e00\u679a\u4e3e\uff0c\u524d\u7aef\u6309\u89d2\u8272\u663e\u793a\u4e0d\u540c\u522b\u540d\uff09\uff1apending_confirmation=\u5f85\u53d7\u7406/\u5f85\u786e\u8ba4\uff0caccepted=\u5df2\u53d7\u7406/\u5f85\u5f00\u7968\uff08\u62bd\u9009\u65f6\u663e\u793a\u5f85\u5f00\u59cb\u62bd\u9009\uff09\uff0cawaiting_lottery_result=\u7b49\u5f85\u62bd\u9009\u7ed3\u679c\uff0cpurchased_pending_warehouse=\u5df2\u8d2d\u4e70\u5f85\u5165\u5e93/\u5df2\u62bd\u4e2d\u5f85\u5165\u5e93\uff0cin_warehouse=\u5f85\u53d1\u8d27/\u5df2\u5165\u5e93\uff0cshipped=\u5df2\u53d1\u8d27\uff0cdelivered=\u5df2\u6536\u8d27\uff0ccancelled=\u5df2\u53d6\u6d88"
+      "description": "\u7968\u52a1\u8ba2\u5355\u72b6\u6001"
     },
     "ticket_data": {
       "type": "object",
-      "description": "\u7968\u52a1\u9700\u6c42\u8be6\u60c5\uff08\u8bbe\u7f6e\u9a71\u52a8\uff0c\u5b57\u6bb5\u53ef\u89c1\u6027\u7531\u7ba1\u7406\u5458\u914d\u7f6e\uff09",
+      "description": "\u7968\u52a1\u9700\u6c42\u8be6\u60c5",
       "properties": {
         "prefecture": {
           "type": "string",
@@ -209,7 +209,7 @@
             "lottery",
             "other"
           ],
-          "description": "\u8ca9\u58f2\u65b9\u6cd5\uff1a\u5148\u7740\u8ca9\u58f2/\u62bd\u9078\u8ca9\u58f2/\u4ed6"
+          "description": "\u8ca9\u58f2\u65b9\u6cd5"
         },
         "sales_start_time": {
           "type": "string",
@@ -230,29 +230,29 @@
             "electronic",
             "ticket_number"
           ],
-          "description": "\u767a\u5238\u65b9\u5f0f\uff1a\u7d19\u30c1\u30b1\u30c3\u30c8/\u96fb\u5b50\u30c1\u30b1\u30c3\u30c8/\u767a\u5238\u756a\u53f7"
+          "description": "\u767a\u5238\u65b9\u5f0f"
+        },
+        "estimated_ticket_delivery_datetime": {
+          "type": "string",
+          "description": "\u9884\u8ba1\u53d1\u7968\u65e5\u671f\u65f6\u95f4\uff08ISO\uff09\uff0c\u7ba1\u7406\u5458\u8bbe\u7f6e\uff0c\u7528\u4e8e\u544a\u77e5\u7528\u6237\u7968\u5238\u9884\u8ba1\u4f55\u65f6\u53d1\u51fa"
         },
         "seats": {
           "type": "array",
-          "description": "\u5e2d\u79cd - \u6570\u91cf - \u6599\u91d1\u660e\u7ec6 [{seat_type, quantity, price_jpy}]",
+          "description": "\u5e2d\u79cd - \u6570\u91cf - \u6599\u91d1\u660e\u7ec6",
           "items": {
             "type": "object",
             "properties": {
               "seat_type": {
-                "type": "string",
-                "description": "\u5e2d\u79cd\u540d\u79f0"
+                "type": "string"
               },
               "quantity": {
-                "type": "number",
-                "description": "\u9700\u6c42\u7968\u6570"
+                "type": "number"
               },
               "price_jpy": {
-                "type": "number",
-                "description": "\u5355\u4ef7\uff08JPY\uff09"
+                "type": "number"
               },
               "actual_quantity": {
-                "type": "number",
-                "description": "\u7ba1\u7406\u5458\u5f55\u5165\u7684\u5b9e\u9645\u8d2d\u4e70\u7968\u6570\uff08\u7ed3\u7b97\u9000\u5dee\u4ef7\u7528\uff09"
+                "type": "number"
               }
             }
           }
@@ -260,12 +260,12 @@
         "account_count": {
           "type": "number",
           "default": 1,
-          "description": "\u671f\u671b\u62bd\u7968\u8d26\u6237\u6570\uff08\u62bd\u9078\u6642\uff09/ \u671f\u671b\u62a2\u7968\u4eba\u6570\uff08\u5148\u7740\u6642\uff09"
+          "description": "\u671f\u671b\u62bd\u7968\u8d26\u6237\u6570/\u62a2\u7968\u4eba\u6570"
         },
         "additional_fee_jpy": {
           "type": "number",
           "default": 0,
-          "description": "\u8ffd\u52a0\u6599\u91d1\uff1a\u7528\u6237\u81ea\u884c\u8f93\u5165\u9884\u671f\u989d\u5916\u62a5\u916c\uff08JPY\uff09"
+          "description": "\u8ffd\u52a0\u6599\u91d1\uff08JPY\uff09"
         },
         "lottery_win_bonus_jpy": {
           "type": "number",
@@ -285,12 +285,12 @@
     "ticket_prepaid_total_jpy": {
       "type": "number",
       "default": 0,
-      "description": "\u7968\u52a1\u9884\u4ed8\u603b\u989d\u5feb\u7167\uff08JPY\uff09= \u03a3(\u5e2d\u79cd\u6570\u91cf \u00d7 \u5355\u4ef7) \u00d7 \u8d26\u6237\u6570 + \u8ffd\u52a0\u6599\u91d1"
+      "description": "\u7968\u52a1\u9884\u4ed8\u603b\u989d\u5feb\u7167\uff08JPY\uff09"
     },
     "ticket_refund_jpy": {
       "type": "number",
       "default": 0,
-      "description": "\u7968\u52a1\u9000\u5dee\u4ef7\u91d1\u989d\uff08JPY\uff09= \u03a3((\u9884\u4ed8\u7968\u6570 \u2212 \u5b9e\u9645\u7968\u6570) \u00d7 \u5355\u4ef7) \u00d7 \u8d26\u6237\u6570"
+      "description": "\u7968\u52a1\u9000\u5dee\u4ef7\u91d1\u989d\uff08JPY\uff09"
     },
     "ticket_refund_settled": {
       "type": "boolean",
@@ -605,12 +605,12 @@
     "transit_storage_enabled": {
       "type": "boolean",
       "default": false,
-      "description": "\u662f\u5426\u5904\u4e8e\u6682\u5b58\u72b6\u6001\uff08\u7531\u4e2d\u8f6c\u5730\u8d1f\u8d23\u4eba\u786e\u8ba4\uff09"
+      "description": "\u662f\u5426\u5904\u4e8e\u6682\u5b58\u72b6\u6001"
     },
     "transit_storage_until": {
       "type": "string",
       "format": "date",
-      "description": "\u6682\u5b58\u622a\u6b62\u65e5\u671f\uff08null = \u65e0\u671f\u9650\uff09"
+      "description": "\u6682\u5b58\u622a\u6b62\u65e5\u671f"
     },
     "transit_location_id": {
       "type": "string",
@@ -646,7 +646,7 @@
     },
     "pre_shipment": {
       "type": "object",
-      "description": "\u9884\u51fa\u8d27\u4fe1\u606f\uff1a\u7528\u6237\u5728\u63d0\u4ea4\u8ba2\u5355\u65f6\u9884\u5148\u586b\u5199\u7684\u53d1\u8d27\u4fe1\u606f\uff0c\u5165\u5e93\u540e\u81ea\u52a8\u521b\u5efa\u53d1\u8d27\u7533\u8bf7",
+      "description": "\u9884\u51fa\u8d27\u4fe1\u606f",
       "properties": {
         "shipping_method": {
           "type": "string"
@@ -661,8 +661,7 @@
           "type": "array",
           "items": {
             "type": "string"
-          },
-          "description": "\u5907\u6ce8\u56fe\u7247 URL \u5217\u8868"
+          }
         },
         "address": {
           "type": "object"
@@ -680,12 +679,10 @@
           "type": "string"
         },
         "transit_shipping_method_id": {
-          "type": "string",
-          "description": "\u4e2d\u8f6c\u6bb5\u8fd0\u8f93\u65b9\u5f0f ID"
+          "type": "string"
         },
         "transit_shipping_method_name": {
-          "type": "string",
-          "description": "\u4e2d\u8f6c\u6bb5\u8fd0\u8f93\u65b9\u5f0f\u540d\u79f0"
+          "type": "string"
         },
         "selected_addon_ids": {
           "type": "array",
@@ -719,7 +716,6 @@
         },
         "fullpay_once_config": {
           "type": "object",
-          "description": "\u4e00\u6b21\u4ed8\u6b3e\u914d\u7f6e\uff08\u5728\u9884\u51fa\u8d27\u9636\u6bb5\u586b\u5199\uff09",
           "properties": {
             "user_estimated_weight_g": {
               "type": "number"
@@ -751,7 +747,7 @@
     },
     "group_buy_request_id": {
       "type": "string",
-      "description": "\u6765\u6e90\u62fc\u5355\u7533\u8bf7 ID\uff08\u62fc\u5355\u751f\u6210\u7684\u8ba2\u5355\uff09"
+      "description": "\u6765\u6e90\u62fc\u5355\u7533\u8bf7 ID"
     },
     "group_buy_entry_id": {
       "type": "string",
@@ -763,21 +759,21 @@
     },
     "group_buy_allocated_shipping_fee_jpy": {
       "type": "number",
-      "description": "\u62fc\u5355\u5206\u644a\u7684\u8fd0\u8d39\uff08JPY\uff09\uff0c\u62fc\u5355\u5b8c\u6210\u65f6\u5199\u5165"
+      "description": "\u62fc\u5355\u5206\u644a\u7684\u8fd0\u8d39\uff08JPY\uff09"
     },
     "refund_amount_jpy": {
       "type": "number",
-      "description": "\u9000\u6b3e\u91d1\u989d\uff08JPY\uff09\uff0c\u7ba1\u7406\u5458\u5f55\u5165\u7684\u771f\u5b9e\u9000\u6b3e",
+      "description": "\u9000\u6b3e\u91d1\u989d\uff08JPY\uff09",
       "default": null
     },
     "refund_amount_currency": {
       "type": "number",
-      "description": "\u9000\u6b3e\u91d1\u989d\uff08\u7528\u6237\u4ed8\u6b3e\u8d27\u5e01\uff09\uff0c\u7ba1\u7406\u5458\u5f55\u5165\u7684\u771f\u5b9e\u9000\u6b3e",
+      "description": "\u9000\u6b3e\u91d1\u989d\uff08\u7528\u6237\u4ed8\u6b3e\u8d27\u5e01\uff09",
       "default": null
     },
     "refund_currency": {
       "type": "string",
-      "description": "\u9000\u6b3e\u8d27\u5e01\u4ee3\u7801\uff08\u4e0e prepayment_currency \u4e00\u81f4\uff09",
+      "description": "\u9000\u6b3e\u8d27\u5e01\u4ee3\u7801",
       "default": null
     },
     "order_stage_payment_jpy": {
@@ -788,12 +784,12 @@
     "storage_deadline_date": {
       "type": "string",
       "format": "date",
-      "description": "\u4ed3\u50a8\u622a\u6b62\u65e5\u671f\uff08\u4ece\u5165\u5e93\u65e5 + \u5b58\u653e\u671f\u9650\u5929\u6570\u8ba1\u7b97\uff09"
+      "description": "\u4ed3\u50a8\u622a\u6b62\u65e5\u671f"
     },
     "storage_fee_per_day": {
       "type": "number",
       "default": 0,
-      "description": "\u6bcf\u65e5\u4ed3\u50a8\u7ba1\u7406\u8d39\uff08JPY\uff09\uff0c\u4f18\u5148\u4f7f\u7528\u5916\u7bb1\u6a21\u677f\u8bbe\u7f6e"
+      "description": "\u6bcf\u65e5\u4ed3\u50a8\u7ba1\u7406\u8d39\uff08JPY\uff09"
     },
     "storage_fee_currency": {
       "type": "string",

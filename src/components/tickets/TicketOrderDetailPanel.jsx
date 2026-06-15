@@ -291,6 +291,46 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
     e.preventDefault();
   };
   
+  // 已购买待入库 浮层
+  const [showPurchasedPopover, setShowPurchasedPopover] = useState(false);
+  const [purchasedConfirmed, setPurchasedConfirmed] = useState(false); // 第一次点击后设为true，第二次点击直接提交
+  const defaultDeliveryDatetime = () => {
+    const base = ticketData.performance_datetime
+      ? new Date(ticketData.performance_datetime)
+      : new Date();
+    // 精确到小时
+    base.setMinutes(0, 0, 0);
+    return base.toISOString().slice(0, 13); // "YYYY-MM-DDTHH"
+  };
+  const [deliveryDatetime, setDeliveryDatetime] = useState(defaultDeliveryDatetime);
+
+  const handlePurchasedPendingWarehouse = async () => {
+    setStatusUpdating(true);
+    try {
+      await updateOrder(order.id, {
+        ticket_status: "purchased_pending_warehouse",
+        ticket_data: { ...ticketData, estimated_ticket_delivery_datetime: deliveryDatetime + ":00:00" },
+        messages: [
+          ...(order.messages || []),
+          { id: `purchased_${Date.now()}`, from: "系统通知", from_email: "system@system.local",
+            role: "admin", content: "订单状态更新为已购买待入库，预计发票时间：" + new Date(deliveryDatetime + ":00:00").toLocaleString("zh-CN"),
+            timestamp: new Date().toISOString(), is_system_notification: true,
+            meta: { type: "status_update", new_status: "purchased_pending_warehouse" } }
+        ],
+        unread_roles: ["user"]
+      });
+      toast.success("订单已更新为已购买待入库");
+      setShowPurchasedPopover(false);
+      setPurchasedConfirmed(false);
+      onRefresh?.();
+      onClose?.();
+    } catch (e) {
+      toast.error("更新失败：" + e.message);
+    } finally {
+      setStatusUpdating(false);
+    }
+  };
+
   const [editingSeats, setEditingSeats] = useState(false);
   const [actualSeats, setActualSeats] = useState(
     (ticketData.seats || []).map(s => ({ ...s, actual_quantity: s.actual_quantity ?? s.quantity ?? 0 }))
@@ -480,6 +520,63 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
                 <Wand2 className="w-3.5 h-3.5 mr-1" />
                 登记发券番号 / 已发货
               </Button>
+              {/* 已购买待入库 按钮（通用） */}
+              <div className="relative">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={statusUpdating}
+                  onClick={() => {
+                    if (!showPurchasedPopover) {
+                      setDeliveryDatetime(defaultDeliveryDatetime());
+                      setPurchasedConfirmed(false);
+                      setShowPurchasedPopover(true);
+                    } else if (purchasedConfirmed) {
+                      handlePurchasedPendingWarehouse();
+                    } else {
+                      setPurchasedConfirmed(true);
+                    }
+                  }}
+                  className="bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200"
+                >
+                  已购买待入库
+                </Button>
+                {showPurchasedPopover && (
+                  <div className="absolute right-0 top-full mt-1 z-50 bg-white border border-gray-200 rounded-lg shadow-xl p-4 w-72">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-sm font-semibold text-gray-800">设置预计发票时间</span>
+                      <button onClick={() => { setShowPurchasedPopover(false); setPurchasedConfirmed(false); }} className="text-gray-400 hover:text-gray-600 text-lg leading-none">×</button>
+                    </div>
+                    <div className="mb-3">
+                      <Label className="text-xs text-gray-500 mb-1 block">预计发票日期时间（精确到小时）</Label>
+                      <input
+                        type="datetime-local"
+                        step="3600"
+                        value={deliveryDatetime}
+                        onChange={e => {
+                          // 截取到小时
+                          const v = e.target.value.slice(0, 13);
+                          setDeliveryDatetime(v);
+                          setPurchasedConfirmed(false);
+                        }}
+                        className="w-full h-8 text-sm rounded-md border border-input px-2 focus:outline-none focus:ring-1 focus:ring-purple-400"
+                      />
+                    </div>
+                    <div className="mb-3 text-xs text-purple-700 bg-purple-50 rounded px-3 py-2">
+                      当前设置预计发票时间为：<span className="font-semibold">{deliveryDatetime ? new Date(deliveryDatetime + ":00:00").toLocaleString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—"}</span>
+                    </div>
+                    <Button
+                      size="sm"
+                      className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+                      disabled={statusUpdating}
+                      onClick={handlePurchasedPendingWarehouse}
+                    >
+                      {statusUpdating ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : null}
+                      确认 / 已购买待入库
+                    </Button>
+                  </div>
+                )}
+              </div>
             </div>
           )}
           {shouldShowPaperTicketButton && (
@@ -983,6 +1080,12 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
                         <span className="text-gray-500">提交日期</span>
                         <span className="font-medium text-gray-900">{formatDate(order.created_date)}</span>
                       </div>
+                      {ticketData.estimated_ticket_delivery_datetime && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">预计发票时间</span>
+                          <span className="font-medium text-purple-700">{formatDate(ticketData.estimated_ticket_delivery_datetime)}</span>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
