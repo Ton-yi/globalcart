@@ -948,7 +948,7 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
                             </td>
                             <td className="px-3 py-2.5 text-right">
                               {editingSeats ? (
-                                <div className="inline-flex items-center gap-1">
+                                <div className="inline-flex items-center gap-1 w-20">
                                   <input
                                    type="number"
                                    min={0}
@@ -957,7 +957,7 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
                                       const val = Math.max(0, Number(e.target.value));
                                       setActualSeats(prev => prev.map((s, idx) => idx === i ? { ...s, actual_quantity: val } : s));
                                     }}
-                                    className="w-14 text-right rounded border border-violet-300 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-violet-400"
+                                    className="w-10 text-right rounded border border-violet-300 px-1 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-violet-400"
                                   />
                                   <div className="flex flex-col">
                                     <button
