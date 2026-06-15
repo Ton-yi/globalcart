@@ -419,21 +419,56 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
           )}
           {shouldShowLotteryButton && (
             <div className="ml-auto flex items-center gap-2">
-              <div 
-                className="relative w-20 h-12 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center cursor-pointer hover:border-yellow-400 hover:bg-yellow-50 transition-colors"
-                onPaste={handlePaste}
-                onDrop={handleDrop}
-                onDragOver={handleDragOver}
-                onClick={() => document.getElementById('lottery-image-input').click()}
+              {/* 单行输入框外观，支持粘贴/拖拽图片 */}
+              <div
+                className={`relative flex items-center h-8 px-3 rounded-md border bg-background shadow-sm text-sm cursor-pointer select-none transition-colors ${
+                  lotteryImageFile instanceof File
+                    ? "border-yellow-400 bg-yellow-50 text-yellow-700"
+                    : "border-input text-muted-foreground hover:border-yellow-300"
+                }`}
+                style={{ minWidth: 160 }}
                 tabIndex={0}
+                onPaste={(e) => {
+                  const items = e.clipboardData?.items;
+                  if (!items) return;
+                  for (let i = 0; i < items.length; i++) {
+                    if (items[i].type.indexOf('image') !== -1) {
+                      const file = items[i].getAsFile();
+                      if (file) {
+                        setLotteryImageFile(file);
+                        setLotteryImagePreview(URL.createObjectURL(file));
+                        toast.success("图片已从剪贴板加载");
+                        break;
+                      }
+                    }
+                  }
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const file = e.dataTransfer?.files?.[0];
+                  if (file && file.type.indexOf('image') !== -1) {
+                    setLotteryImageFile(file);
+                    setLotteryImagePreview(URL.createObjectURL(file));
+                    toast.success("图片已加载");
+                  }
+                }}
+                onDragOver={(e) => e.preventDefault()}
+                onClick={() => document.getElementById('lottery-image-input').click()}
               >
-                {lotteryImagePreview ? (
-                  <img src={lotteryImagePreview} alt="抽选截图" className="w-full h-full object-cover rounded" />
+                {lotteryImageFile instanceof File ? (
+                  <span className="flex items-center gap-1.5 truncate">
+                    {lotteryImagePreview && <img src={lotteryImagePreview} className="h-5 w-5 object-cover rounded flex-shrink-0" />}
+                    <span className="truncate max-w-[100px]">{lotteryImageFile.name}</span>
+                    <button
+                      className="ml-1 flex-shrink-0 text-yellow-500 hover:text-red-500"
+                      onClick={(e) => { e.stopPropagation(); setLotteryImageFile(null); setLotteryImagePreview(null); }}
+                    >×</button>
+                  </span>
                 ) : (
-                  <div className="text-center">
-                    <Upload className="w-4 h-4 text-gray-400 mx-auto" />
-                    <p className="text-[9px] text-gray-500 mt-0.5">粘贴/拖拽</p>
-                  </div>
+                  <span className="flex items-center gap-1.5">
+                    <Upload className="w-3.5 h-3.5" />
+                    粘贴 / 拖拽截图
+                  </span>
                 )}
               </div>
               <input
@@ -445,8 +480,7 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
                   const file = e.target.files?.[0];
                   if (file) {
                     setLotteryImageFile(file);
-                    const previewUrl = URL.createObjectURL(file);
-                    setLotteryImagePreview(previewUrl);
+                    setLotteryImagePreview(URL.createObjectURL(file));
                     toast.success("图片已加载");
                   }
                 }}
@@ -454,7 +488,7 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
               <Button
                 size="sm"
                 onClick={async () => {
-                  if (lotteryImageFile) {
+                  if (lotteryImageFile instanceof File) {
                     await handleLotteryImageUpload(lotteryImageFile);
                   } else {
                     document.getElementById('lottery-image-input').click();
@@ -464,7 +498,7 @@ export default function TicketOrderDetailPanel({ order, onClose, onRefresh, user
                 className="bg-yellow-50 hover:bg-yellow-100 text-yellow-700 border-yellow-200"
               >
                 <Upload className="w-3.5 h-3.5 mr-1" />
-                {lotteryImageFile ? "确认上传 / 待抽选结果" : "上传抽选截图 / 待抽选结果"}
+                {lotteryImageFile instanceof File ? "确认上传 / 待抽选结果" : "上传抽选截图 / 待抽选结果"}
               </Button>
             </div>
           )}
