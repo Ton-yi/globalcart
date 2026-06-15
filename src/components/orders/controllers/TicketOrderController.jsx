@@ -10,7 +10,7 @@
  * 此控制器为未来整合做准备
  */
 
-import { Ticket } from "lucide-react";
+import { Ticket, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 export const TicketOrderController = {
@@ -22,17 +22,26 @@ export const TicketOrderController = {
    */
   getColumnConfig: () => {
     return [
-      { key: "order_number", label: "订单号", defaultVisible: true, sortable: true },
-      { key: "user_name", label: "用户名", defaultVisible: true, sortable: true },
-      { key: "product_name", label: "演出名称", defaultVisible: true, sortable: true },
-      { key: "ticket_prepaid_total_jpy", label: "预付总额", defaultVisible: true, sortable: true },
-      { key: "ticket_status", label: "票务状态", defaultVisible: true, sortable: true },
-      { key: "performance_datetime", label: "演出时间", defaultVisible: false, sortable: true },
-      { key: "prefecture", label: "都道府县", defaultVisible: false, sortable: true },
-      { key: "sales_method", label: "销售方式", defaultVisible: false, sortable: true },
-      { key: "ticketing_method", label: "发券方式", defaultVisible: false, sortable: true },
-      { key: "account_count", label: "账户数", defaultVisible: false, sortable: true },
-      { key: "submit_date", label: "提交日", defaultVisible: false, sortable: true },
+      { key: "order_number",             label: "订单号",       visible: true,  sortable: true },
+      { key: "user_name",                label: "用户名",       visible: true,  sortable: true },
+      { key: "product_name",             label: "演出名称",     visible: true,  sortable: true },
+      { key: "ticket_status",            label: "票务状态",     visible: true,  sortable: true },
+      { key: "ticket_prepaid_total_jpy", label: "订单金额",     visible: true,  sortable: true },
+      { key: "sales_method",             label: "销售方式",     visible: true,  sortable: true },
+      { key: "ticketing_method",         label: "发券方式",     visible: true,  sortable: true },
+      { key: "sales_start_time",         label: "販売開始日",   visible: true,  sortable: true },
+      { key: "sales_end_time",           label: "販売終了日",   visible: true,  sortable: true },
+      { key: "lottery_result_time",      label: "結果発表日",   visible: true,  sortable: true },
+      { key: "performance_datetime",     label: "開演日",       visible: false, sortable: true },
+      { key: "prefecture",               label: "都道府県",     visible: false, sortable: true },
+      { key: "sales_period",             label: "販売期間",     visible: false, sortable: false },
+      { key: "submit_date",              label: "订单提交日",   visible: false, sortable: true },
+      { key: "account_count",            label: "账户数",       visible: false, sortable: true },
+      { key: "additional_fee_jpy",       label: "追加料金",     visible: false, sortable: true },
+      { key: "lottery_win_bonus_jpy",    label: "抽中追加报酬", visible: false, sortable: true },
+      { key: "purchase_link",            label: "购买链接",     visible: false, sortable: false },
+      { key: "ticket_image_urls",        label: "演出图片",     visible: false, sortable: false, isImage: true },
+      { key: "payment_method",           label: "付款方式",     visible: false, sortable: true },
     ];
   },
 
@@ -143,12 +152,83 @@ export const TicketOrderController = {
         const td = order.ticket_data || {};
         return <span className="text-xs text-gray-700">{td.account_count || 1}</span>;
       }
-      
+
       case "submit_date":
         return <span className="text-xs text-gray-700">{order.created_date ? new Date(order.created_date).toLocaleDateString("zh-CN") : "-"}</span>;
-      
+
+      case "sales_start_time": {
+        const td = order.ticket_data || {};
+        return <span className="text-xs text-gray-700">{td.sales_start_time ? new Date(td.sales_start_time).toLocaleDateString("zh-CN") : "-"}</span>;
+      }
+
+      case "sales_end_time": {
+        const td = order.ticket_data || {};
+        return <span className="text-xs text-gray-700">{td.sales_end_time ? new Date(td.sales_end_time).toLocaleDateString("zh-CN") : "-"}</span>;
+      }
+
+      case "sales_period": {
+        const td = order.ticket_data || {};
+        const start = td.sales_start_time ? new Date(td.sales_start_time).toLocaleDateString("zh-CN") : null;
+        const end = td.sales_end_time ? new Date(td.sales_end_time).toLocaleDateString("zh-CN") : null;
+        if (!start && !end) return <span className="text-xs text-gray-400">-</span>;
+        return <span className="text-xs text-gray-700 whitespace-nowrap">{start || "?"} ~ {end || "?"}</span>;
+      }
+
+      case "lottery_result_time": {
+        const td = order.ticket_data || {};
+        return <span className="text-xs text-gray-700">{td.lottery_result_time ? new Date(td.lottery_result_time).toLocaleDateString("zh-CN") : "-"}</span>;
+      }
+
+      case "additional_fee_jpy": {
+        const td = order.ticket_data || {};
+        return <span className="text-xs text-gray-700">{td.additional_fee_jpy ? `${Number(td.additional_fee_jpy).toLocaleString()} yen` : "-"}</span>;
+      }
+
+      case "lottery_win_bonus_jpy": {
+        const td = order.ticket_data || {};
+        return <span className="text-xs text-gray-700">{td.lottery_win_bonus_jpy ? `${Number(td.lottery_win_bonus_jpy).toLocaleString()} yen` : "-"}</span>;
+      }
+
+      case "purchase_link": {
+        const td = order.ticket_data || {};
+        const url = td.purchase_link;
+        if (!url) return <span className="text-xs text-gray-400">-</span>;
+        return (
+          <a href={url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
+            className="flex items-center gap-1 text-xs text-blue-600 hover:underline max-w-[160px] truncate">
+            <ExternalLink className="w-3 h-3 flex-shrink-0" />
+            <span className="truncate">{url}</span>
+          </a>
+        );
+      }
+
+      case "ticket_image_urls": {
+        const urls = order.ticket_image_urls || [];
+        if (!urls.length) return <span className="text-xs text-gray-400">-</span>;
+        const w = col.imageWidth || 40;
+        return (
+          <div className="flex gap-1 flex-wrap">
+            {urls.slice(0, 3).map((url, i) => (
+              <a key={i} href={url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>
+                <img src={url} alt="" style={{ width: w, height: w }} className="rounded object-cover border border-gray-200 flex-shrink-0" />
+              </a>
+            ))}
+          </div>
+        );
+      }
+
+      case "payment_method": {
+        const METHOD_LABELS = {
+          alipay: "支付宝", wechatpay: "微信支付", paypay: "PayPay",
+          paypal: "PayPal", credit_card: "信用卡", bank_transfer: "银行转账",
+          credit: "记账", other: "其它",
+        };
+        const m = order.payment_method;
+        return <span className="text-xs text-gray-700">{m ? (METHOD_LABELS[m] || m) : "-"}</span>;
+      }
+
       default:
-        return "-";
+        return <span className="text-xs text-gray-400">-</span>;
     }
   },
 
