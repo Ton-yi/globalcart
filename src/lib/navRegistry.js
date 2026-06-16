@@ -6,6 +6,7 @@ import {
   Home, ShoppingBag, UserPlus, Package, Send, User,
   BarChart3, Layers, Users, Settings, Bell, Zap, FileText, Navigation, Crown, HelpCircle, MessageCircleQuestion, CheckSquare, TrendingUp, Ticket,
 } from "lucide-react";
+import { t } from "@/lib/i18n";
 
 export const NAV_REGISTRY = {
   user: {
@@ -151,15 +152,18 @@ export function mergeNavTree(configTree, group) {
 /**
  * 把配置树构建成可渲染的导航项（过滤隐藏项与无权限项，应用文字覆盖）。
  */
-export function buildNav(tree, group, { access = {}, labelOverrides = {} } = {}) {
+export function buildNav(tree, group, { access = {}, labelOverrides = {}, locale = 'zh' } = {}) {
   const registry = NAV_REGISTRY[group];
   const walk = (nodes, depth = 1) => (Array.isArray(nodes) && depth <= 3 ? nodes : [])
     .filter(n => n && registry[n.key] && !n.hidden && access[n.key] !== false)
     .map(n => {
       const reg = registry[n.key];
+      // 使用 t() 翻译标签，如果 label 是中文则翻译，否则直接使用
+      const rawLabel = n.label || labelOverrides[n.key] || reg.label;
+      const label = t(rawLabel, locale);
       return {
         key: n.key,
-        label: n.label || labelOverrides[n.key] || reg.label,
+        label,
         icon: reg.icon,
         page: reg.page,
         activePage: reg.activePage || reg.page,

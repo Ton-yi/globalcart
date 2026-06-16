@@ -136,6 +136,7 @@ export default function Layout({ children, currentPageName }) {
           UserMyOrders: canViewMyOrders, UserShippingPool: true, UserProfile: true,
           UserHelpCenter: true, UserTodoAdmin: true,
         },
+        locale,
       });
       return isPlatformAdmin ? [...built, ...platformAdminNav] : built;
     }
@@ -143,6 +144,7 @@ export default function Layout({ children, currentPageName }) {
     return buildNav(mergeNavTree(navbarSettings?.user_nav, "user"), "user", {
       access: { MyOrders: canViewMyOrders, ShippingPool: !canAccessAdminShippingPool },
       labelOverrides: { ShippingPool: isTransitManager ? t("发货池", locale) : t("发货 & 拼邮", locale) },
+      locale,
     });
   }, [
     navbarSettings,
