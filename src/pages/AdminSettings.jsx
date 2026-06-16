@@ -496,7 +496,7 @@ export default function AdminSettings() {
         </aside>
 
         {/* Main content — wider for home_customize tab */}
-        <div className={`flex-1 min-w-0 space-y-5 ${activeTab === "home_customize" || activeTab === "local_shipping_methods" || activeTab === "payment_methods" ? "" : "max-w-2xl"}`}>
+        <div className={`flex-1 min-w-0 space-y-5 ${["home_customize","local_shipping_methods","payment_methods","shipping_methods","transit_methods"].includes(activeTab) ? "" : "max-w-2xl"}`}>
 
       {activeTab === "home_customize" && !loading && (
         <div className="flex flex-col xl:flex-row gap-5 items-start">

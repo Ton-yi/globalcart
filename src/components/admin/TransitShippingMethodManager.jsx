@@ -1,14 +1,12 @@
 /**
- * TransitShippingMethodManager - Admin only
- * Manage transit shipping methods with country selection and rate configuration
+ * TransitShippingMethodManager - Master-detail two-column layout
+ * Left: detail editor | Right: sortable list
  */
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
 import { tenantEntity } from "@/lib/tenantApi";
-import { Plus, Trash2, Edit2, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Trash2, ChevronUp, ChevronDown, Eye, EyeOff, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -17,8 +15,8 @@ import CountrySelect from "@/components/common/CountrySelect";
 import { getCountry } from "@/lib/countries";
 
 const CURRENCIES = ["JPY", "CNY", "USD", "TWD", "HKD", "EUR", "SGD"];
-
 const EMPTY_RATE = { zone: "通用", first_weight_g: 500, first_weight_fee: 0, additional_unit_g: 500, additional_unit_fee: 0, currency: "CNY" };
+const BLANK = { name: "", description: "", country: "CN", fee: 0, fee_currency: "CNY", rate_mode: "simple", simple_rates: [{ ...EMPTY_RATE }], is_active: true };
 
 function RateRow({ rate, onChange, onDelete }) {
   return (
@@ -59,37 +57,58 @@ function RateRow({ rate, onChange, onDelete }) {
   );
 }
 
-function MethodForm({ initial, onSave, onCancel }) {
-  const [form, setForm] = useState({
-    name: "", description: "", country: "CN", fee: 0, fee_currency: "CNY",
-    rate_mode: "simple", simple_rates: [{ ...EMPTY_RATE }], is_active: true,
-    ...initial,
-  });
+// ─── Left detail editor panel ─────────────────────────────────
+function TransitDetailPanel({ selected, onSave, onCancel }) {
+  const [form, setForm] = useState(selected ? { ...selected } : null);
   const [saving, setSaving] = useState(false);
-  const f = (k, v) => setForm(p => ({ ...p, [k]: v }));
+  const [isNew, setIsNew] = useState(false);
 
-  const updateRate = (i, updated) => {
-    const rates = [...(form.simple_rates || [])];
-    rates[i] = updated;
-    f("simple_rates", rates);
-  };
+  useEffect(() => {
+    if (selected) { setForm({ ...selected }); setIsNew(false); }
+    else { setForm(null); setIsNew(false); }
+  }, [selected?.id]);
+
+  const f = (k, v) => setForm(p => ({ ...p, [k]: v }));
+  const updateRate = (i, u) => { const rates = [...(form.simple_rates || [])]; rates[i] = u; f("simple_rates", rates); };
   const removeRate = (i) => f("simple_rates", (form.simple_rates || []).filter((_, idx) => idx !== i));
   const addRate = () => f("simple_rates", [...(form.simple_rates || []), { ...EMPTY_RATE }]);
 
   const handleSave = async () => {
+    if (!form.name) return;
     setSaving(true);
-    // For fixed mode, sync fee/fee_currency from first simple_rate
     const saveData = { ...form };
-    if (form.rate_mode === "fixed") {
-      saveData.fee = parseFloat(form.fee) || 0;
-    }
-    await onSave(saveData);
+    if (form.rate_mode === "fixed") saveData.fee = parseFloat(form.fee) || 0;
+    await onSave(saveData, isNew);
     setSaving(false);
   };
 
+  const handleStartNew = () => { setForm({ ...BLANK, simple_rates: [{ ...EMPTY_RATE }] }); setIsNew(true); };
+
+  if (!form) {
+    return (
+      <div className="border border-dashed border-gray-200 rounded-xl p-6 text-center space-y-3 flex flex-col items-center justify-center min-h-[200px]">
+        <p className="text-xs text-gray-400">点击右侧中转运输方式进行编辑</p>
+        <Button size="sm" className="bg-orange-500 hover:bg-orange-600 h-7 text-xs" onClick={handleStartNew}>
+          <Plus className="w-3 h-3 mr-1" />新增中转运输方式
+        </Button>
+      </div>
+    );
+  }
+
   return (
-    <div className="border border-dashed border-gray-300 rounded-xl p-4 space-y-3 bg-gray-50">
-      <p className="text-xs font-medium text-gray-600">{initial?.id ? "编辑中转运输方式" : "新增中转运输方式"}</p>
+    <div className="border border-orange-200 rounded-xl p-4 space-y-3 bg-orange-50">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-semibold text-gray-700">{isNew ? "新增中转运输方式" : `编辑：${form.name}`}</p>
+        <div className="flex items-center gap-2">
+          {!isNew && (
+            <Button size="sm" variant="outline" className="h-6 text-xs" onClick={handleStartNew}>
+              <Plus className="w-3 h-3 mr-1" />新增
+            </Button>
+          )}
+          <button onClick={onCancel} className="text-gray-400 hover:text-gray-600"><X className="w-3.5 h-3.5" /></button>
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 gap-3">
         <div>
           <Label className="text-xs text-gray-500">名称 *</Label>
@@ -110,7 +129,7 @@ function MethodForm({ initial, onSave, onCancel }) {
         <Label className="text-xs text-gray-500">费率模式</Label>
         <div className="flex gap-3 mt-1.5">
           {[{ v: "simple", l: "首续重计费" }, { v: "fixed", l: "固定费用" }].map(opt => (
-            <label key={opt.v} className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer text-sm transition-colors ${form.rate_mode === opt.v ? "border-orange-400 bg-orange-50 text-orange-700" : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"}`}>
+            <label key={opt.v} className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer text-sm transition-colors ${form.rate_mode === opt.v ? "border-orange-400 bg-white text-orange-700" : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"}`}>
               <input type="radio" checked={form.rate_mode === opt.v} onChange={() => f("rate_mode", opt.v)} className="accent-orange-500" />
               {opt.l}
             </label>
@@ -142,23 +161,19 @@ function MethodForm({ initial, onSave, onCancel }) {
               <Plus className="w-3 h-3 mr-1" />添加区域
             </Button>
           </div>
-          {(form.simple_rates || []).length === 0 && (
-            <p className="text-xs text-gray-400 text-center py-2">点击"添加区域"添加费率行</p>
-          )}
+          {(form.simple_rates || []).length === 0 && <p className="text-xs text-gray-400 text-center py-2">点击"添加区域"添加费率行</p>}
           <div className="space-y-2">
             {(form.simple_rates || []).map((r, i) => (
-              <RateRow key={i} rate={r} onChange={updated => updateRate(i, updated)} onDelete={() => removeRate(i)} />
+              <RateRow key={i} rate={r} onChange={u => updateRate(i, u)} onDelete={() => removeRate(i)} />
             ))}
           </div>
-          {(form.simple_rates || []).length > 0 && (
-            <p className="text-xs text-gray-400">货币以各行的货币设置为准</p>
-          )}
+          {(form.simple_rates || []).length > 0 && <p className="text-xs text-gray-400">货币以各行的货币设置为准</p>}
         </div>
       )}
 
-      <div className="flex gap-2 justify-end">
+      <div className="flex gap-2 justify-end pt-1">
         <Button variant="outline" size="sm" onClick={onCancel}>取消</Button>
-        <Button size="sm" className="bg-red-600 hover:bg-red-700" onClick={handleSave} disabled={saving || !form.name}>
+        <Button size="sm" className="bg-orange-600 hover:bg-orange-700" onClick={handleSave} disabled={saving || !form.name}>
           {saving ? "保存中..." : "保存"}
         </Button>
       </div>
@@ -166,65 +181,62 @@ function MethodForm({ initial, onSave, onCancel }) {
   );
 }
 
-function MethodCard({ method, onSave, onDelete }) {
-  const [editing, setEditing] = useState(false);
-  const countryName = getCountry(method.country)?.name || method.country || "中国";
-
-  const getRateSummary = () => {
-    if (method.rate_mode === "fixed") {
-      return `固定 ${method.fee_currency || "CNY"} ${Number(method.fee || 0).toLocaleString()}`;
-    }
-    const rates = method.simple_rates || [];
-    if (rates.length === 0) return "无费率";
-    const r = rates[0];
-    return `首 ${r.first_weight_g}g/${r.first_weight_fee}${r.currency} 续 ${r.additional_unit_g}g/${r.additional_unit_fee}${r.currency}`;
-  };
-
+// ─── Right list/sort panel ────────────────────────────────────
+function TransitListPanel({ methods, activeId, onSelect, onToggle, onDelete, onMoveUp, onMoveDown }) {
   return (
-    <div className={`border rounded-xl overflow-hidden ${method.is_active ? "border-gray-200" : "border-gray-100 opacity-60"}`}>
-      <div className="flex items-center gap-3 px-4 py-3 bg-white">
-        <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center text-orange-600 text-xs font-bold flex-shrink-0">
-          {(method.name || "")[0] || "T"}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-medium text-sm text-gray-900">{method.name}</span>
-            <Badge variant="outline" className="text-xs">{countryName}</Badge>
-            <Badge className="text-xs bg-orange-100 text-orange-700">{getRateSummary()}</Badge>
-            {!method.is_active && <Badge className="text-xs bg-gray-100 text-gray-400">已禁用</Badge>}
-          </div>
-          {method.description && <p className="text-xs text-gray-400 mt-0.5 truncate">{method.description}</p>}
-        </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <Switch checked={!!method.is_active} onCheckedChange={v => onSave({ ...method, is_active: v })} />
-          <button onClick={() => setEditing(!editing)} className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-700">
-            <Edit2 className="w-3.5 h-3.5" />
-          </button>
-          <button onClick={() => onDelete(method.id)} className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-500">
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
-        </div>
+    <div className="space-y-2">
+      <div className="flex items-center justify-between mb-1">
+        <p className="text-xs font-semibold text-gray-600">中转运输方式 &amp; 排序</p>
+        <p className="text-xs text-gray-400">点击条目在左侧编辑</p>
       </div>
-
-      {editing && (
-        <div className="border-t border-gray-100">
-          <div className="px-4 py-4 bg-gray-50">
-            <MethodForm
-              initial={method}
-              onSave={async (data) => { await onSave(data); setEditing(false); }}
-              onCancel={() => setEditing(false)}
-            />
-          </div>
-        </div>
+      {methods.length === 0 && (
+        <p className="text-xs text-gray-400 text-center py-6">暂无中转运输方式</p>
       )}
+      {methods.map((m, idx) => {
+        const countryName = getCountry(m.country)?.name || m.country || "中国";
+        const rateSummary = m.rate_mode === "fixed"
+          ? `固定 ${m.fee_currency || "CNY"} ${Number(m.fee || 0).toLocaleString()}`
+          : (() => { const r = (m.simple_rates || [])[0]; return r ? `首 ${r.first_weight_g}g/${r.first_weight_fee}${r.currency}` : "无费率"; })();
+        return (
+          <div key={m.id}
+            className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border cursor-pointer transition-colors ${
+              activeId === m.id ? "border-orange-300 bg-orange-50" : "border-gray-200 bg-white hover:bg-gray-50"
+            } ${!m.is_active ? "opacity-50" : ""}`}
+            onClick={() => onSelect(m)}
+          >
+            <div className="w-6 h-6 rounded bg-orange-100 flex items-center justify-center text-orange-600 text-xs font-bold flex-shrink-0">
+              {(m.name || "")[0] || "T"}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium text-gray-800 truncate">{m.name}</p>
+              <p className="text-xs text-gray-400 truncate">{countryName} · {rateSummary}</p>
+            </div>
+            <div className="flex items-center gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
+              <button className="p-1 rounded hover:bg-gray-100 text-gray-300 hover:text-gray-600 disabled:opacity-30" disabled={idx === 0} onClick={() => onMoveUp(idx)}>
+                <ChevronUp className="w-3 h-3" />
+              </button>
+              <button className="p-1 rounded hover:bg-gray-100 text-gray-300 hover:text-gray-600 disabled:opacity-30" disabled={idx === methods.length - 1} onClick={() => onMoveDown(idx)}>
+                <ChevronDown className="w-3 h-3" />
+              </button>
+              <button className="p-1 rounded hover:bg-gray-100 text-gray-300 hover:text-gray-600" onClick={() => onToggle(m)}>
+                {m.is_active ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+              </button>
+              <button className="p-1 rounded hover:bg-red-50 text-gray-300 hover:text-red-500" onClick={() => onDelete(m.id)}>
+                <Trash2 className="w-3 h-3" />
+              </button>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
 
+// ─── Main export ──────────────────────────────────────────────
 export default function TransitShippingMethodManager({ initialData = null }) {
   const [methods, setMethods] = useState(initialData || []);
+  const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [showAdd, setShowAdd] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -237,51 +249,71 @@ export default function TransitShippingMethodManager({ initialData = null }) {
     if (initialData === null) load();
   }, []);
 
-  const handleSave = async (updated) => {
-    await tenantEntity.update('TransitShippingMethod', updated.id, updated);
-    await load();
+  const handleSave = async (updated, isNew) => {
+    if (isNew) {
+      const { id, tenant_id, created_date, updated_date, created_by, ...data } = updated;
+      const created = await tenantEntity.create('TransitShippingMethod', data);
+      setMethods(prev => [...prev, created]);
+      setSelected(created);
+    } else {
+      await tenantEntity.update('TransitShippingMethod', updated.id, updated);
+      setMethods(prev => prev.map(m => m.id === updated.id ? { ...m, ...updated } : m));
+      setSelected(prev => prev?.id === updated.id ? { ...prev, ...updated } : prev);
+    }
+  };
+
+  const handleToggle = async (m) => {
+    const updated = { ...m, is_active: !m.is_active };
+    await tenantEntity.update('TransitShippingMethod', m.id, { is_active: updated.is_active });
+    setMethods(prev => prev.map(x => x.id === m.id ? updated : x));
+    if (selected?.id === m.id) setSelected(updated);
   };
 
   const handleDelete = async (id) => {
     if (!confirm("确认删除此中转运输方式？")) return;
     await tenantEntity.delete('TransitShippingMethod', id);
-    await load();
+    setMethods(prev => prev.filter(m => m.id !== id));
+    if (selected?.id === id) setSelected(null);
   };
 
-  const handleAddNew = async (data) => {
-    await tenantEntity.create('TransitShippingMethod', data);
-    setShowAdd(false);
-    await load();
+  const handleMoveUp = (idx) => {
+    if (idx === 0) return;
+    const arr = [...methods];
+    [arr[idx - 1], arr[idx]] = [arr[idx], arr[idx - 1]];
+    setMethods(arr);
+  };
+
+  const handleMoveDown = (idx) => {
+    if (idx >= methods.length - 1) return;
+    const arr = [...methods];
+    [arr[idx], arr[idx + 1]] = [arr[idx + 1], arr[idx]];
+    setMethods(arr);
   };
 
   if (loading) return <div className="py-8 text-center text-gray-400 text-sm">加载中...</div>;
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-semibold text-gray-700">中转运输方式管理</p>
-          <p className="text-xs text-gray-400 mt-0.5">用户在提交拼邮发货申请时可选择中转段的运输方式</p>
-        </div>
-        <Button size="sm" variant="outline" onClick={() => setShowAdd(v => !v)}>
-          <Plus className="w-3.5 h-3.5 mr-1.5" />添加中转方式
-        </Button>
-      </div>
-
-      {showAdd && (
-        <MethodForm
-          onSave={handleAddNew}
-          onCancel={() => setShowAdd(false)}
+    <div className="flex flex-col xl:flex-row gap-5 items-start">
+      {/* Left: detail editor */}
+      <div className="flex-1 min-w-0">
+        <TransitDetailPanel
+          selected={selected}
+          onSave={handleSave}
+          onCancel={() => setSelected(null)}
         />
-      )}
-
-      {methods.length === 0 && !showAdd && (
-        <p className="text-xs text-gray-400 text-center py-6">暂无中转运输方式，点击"添加中转方式"创建</p>
-      )}
-
-      {methods.map(m => (
-        <MethodCard key={m.id} method={m} onSave={handleSave} onDelete={handleDelete} />
-      ))}
+      </div>
+      {/* Right: list & sort */}
+      <div className="w-full xl:w-72 flex-shrink-0">
+        <TransitListPanel
+          methods={methods}
+          activeId={selected?.id}
+          onSelect={m => setSelected(m)}
+          onToggle={handleToggle}
+          onDelete={handleDelete}
+          onMoveUp={handleMoveUp}
+          onMoveDown={handleMoveDown}
+        />
+      </div>
     </div>
   );
 }
