@@ -1,4 +1,4 @@
-import { Save, MessageSquare } from "lucide-react";
+import { Save, MessageSquare, ChevronDown, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -54,6 +54,7 @@ export const NOTIFICATION_TEXT_FIELDS = [
 export default function NotificationTextSettings({ settings, onReload }) {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [expanded, setExpanded] = useState({});
 
   // Local state: key → value
   const buildMap = (s) => {
@@ -117,29 +118,48 @@ export default function NotificationTextSettings({ settings, onReload }) {
           自定义网站各环节向用户展示的提示文字，留空则使用系统默认文字。
         </p>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {NOTIFICATION_TEXT_FIELDS.map(field => (
-          <div key={field.key}>
-            <Label className="text-xs text-gray-600 font-medium">{field.label}</Label>
-            <p className="text-xs text-gray-400 mb-1">{field.description}</p>
-            {field.type === "textarea" ? (
-              <Textarea
-                rows={3}
-                className="text-sm"
-                placeholder={field.placeholder}
-                value={localValues[field.key] ?? ""}
-                onChange={e => setLocalValues(prev => ({ ...prev, [field.key]: e.target.value }))}
-              />
-            ) : (
-              <Input
-                className="h-8 text-sm"
-                placeholder={field.placeholder}
-                value={localValues[field.key] ?? ""}
-                onChange={e => setLocalValues(prev => ({ ...prev, [field.key]: e.target.value }))}
-              />
-            )}
-          </div>
-        ))}
+      <CardContent className="space-y-2">
+        {NOTIFICATION_TEXT_FIELDS.map(field => {
+          const isOpen = !!expanded[field.key];
+          return (
+            <div key={field.key} className="border border-gray-100 rounded-lg overflow-hidden">
+              <button
+                type="button"
+                className="w-full flex items-center justify-between px-3 py-2.5 text-left hover:bg-gray-50 transition-colors"
+                onClick={() => setExpanded(prev => ({ ...prev, [field.key]: !prev[field.key] }))}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-xs font-medium text-gray-700">{field.label}</span>
+                  {localValues[field.key] && (
+                    <span className="text-xs text-gray-400 truncate max-w-[200px]">{localValues[field.key]}</span>
+                  )}
+                </div>
+                {isOpen ? <ChevronDown className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />}
+              </button>
+              {isOpen && (
+                <div className="px-3 pb-3 pt-1 bg-gray-50 border-t border-gray-100">
+                  <p className="text-xs text-gray-400 mb-2">{field.description}</p>
+                  {field.type === "textarea" ? (
+                    <Textarea
+                      rows={3}
+                      className="text-sm"
+                      placeholder={field.placeholder}
+                      value={localValues[field.key] ?? ""}
+                      onChange={e => setLocalValues(prev => ({ ...prev, [field.key]: e.target.value }))}
+                    />
+                  ) : (
+                    <Input
+                      className="h-8 text-sm"
+                      placeholder={field.placeholder}
+                      value={localValues[field.key] ?? ""}
+                      onChange={e => setLocalValues(prev => ({ ...prev, [field.key]: e.target.value }))}
+                    />
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </CardContent>
     </Card>
   );

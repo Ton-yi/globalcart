@@ -496,7 +496,7 @@ export default function AdminSettings() {
         </aside>
 
         {/* Main content — wider for home_customize tab */}
-        <div className={`flex-1 min-w-0 space-y-5 ${activeTab === "home_customize" || activeTab === "local_shipping_methods" ? "" : "max-w-2xl"}`}>
+        <div className={`flex-1 min-w-0 space-y-5 ${activeTab === "home_customize" || activeTab === "local_shipping_methods" || activeTab === "payment_methods" ? "" : "max-w-2xl"}`}>
 
       {activeTab === "home_customize" && !loading && (
         <div className="flex flex-col xl:flex-row gap-5 items-start">
@@ -642,44 +642,52 @@ export default function AdminSettings() {
       )}
 
       {activeTab === "payment_methods" && (
-        <div className="space-y-4">
-          {!loading && <PaymentModeSettings settings={settings} onReload={load} />}
-          {!loading && (() => {
-            const reminderSetting = getSetting('payment_pending_reminder');
-            return (
-              <Card className="border-yellow-200">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="text-sm font-semibold text-gray-700">待付款页面提示</CardTitle>
-                      <p className="text-xs text-gray-400 mt-1">用户进入付款页时，显示在订单金额下方的提示文字。留空不显示。</p>
-                    </div>
-                    <Button size="sm" className="h-7 text-xs bg-yellow-600 hover:bg-yellow-700" disabled={saving}
-                      onClick={handleSaveAll}>
-                      <Save className="w-3 h-3 mr-1" />{saved ? "已保存 ✓" : saving ? "保存中..." : "保存"}
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <Input
-                    className="h-8 text-sm"
-                    placeholder="请在付款截止日期前完成支付，以免订单被取消。"
-                    value={reminderSetting?.value ?? ""}
-                    onChange={e => updateSettingByKey('payment_pending_reminder', e.target.value, '待付款页面提示', 'general')}
-                  />
-                </CardContent>
-              </Card>
-            );
-          })()}
-          <Card className="border-gray-200">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold text-gray-700">支付方式管理</CardTitle>
-              <p className="text-xs text-gray-400 mt-1">支付宝自动支付的密钥可在添加后点击「密钥」按钮配置。</p>
-            </CardHeader>
-            <CardContent>
-              <PaymentMethodManager onReload={load} />
-            </CardContent>
-          </Card>
+        <div className="flex flex-col xl:flex-row gap-5 items-start">
+          {/* 左列：支付方式管理 */}
+          <div className="flex-1 min-w-0">
+            <Card className="border-gray-200">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-semibold text-gray-700">支付方式管理</CardTitle>
+                <p className="text-xs text-gray-400 mt-1">支付宝自动支付的密钥可在添加后点击「密钥」按钮配置。</p>
+              </CardHeader>
+              <CardContent>
+                <PaymentMethodManager onReload={load} />
+              </CardContent>
+            </Card>
+          </div>
+          {/* 右列：预付款设置 + 待付款提示 */}
+          {!loading && (
+            <div className="w-full xl:w-80 flex-shrink-0 space-y-4">
+              <PaymentModeSettings settings={settings} onReload={load} />
+              {(() => {
+                const reminderSetting = getSetting('payment_pending_reminder');
+                return (
+                  <Card className="border-yellow-200">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <CardTitle className="text-sm font-semibold text-gray-700">待付款页面提示</CardTitle>
+                          <p className="text-xs text-gray-400 mt-1">用户进入付款页时，显示在订单金额下方的提示文字。留空不显示。</p>
+                        </div>
+                        <Button size="sm" className="h-7 text-xs bg-yellow-600 hover:bg-yellow-700" disabled={saving}
+                          onClick={handleSaveAll}>
+                          <Save className="w-3 h-3 mr-1" />{saved ? "已保存 ✓" : saving ? "保存中..." : "保存"}
+                        </Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <Input
+                        className="h-8 text-sm"
+                        placeholder="请在付款截止日期前完成支付，以免订单被取消。"
+                        value={reminderSetting?.value ?? ""}
+                        onChange={e => updateSettingByKey('payment_pending_reminder', e.target.value, '待付款页面提示', 'general')}
+                      />
+                    </CardContent>
+                  </Card>
+                );
+              })()}
+            </div>
+          )}
         </div>
       )}
 
