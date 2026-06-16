@@ -18,6 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
+import { t, getLocale } from "@/lib/i18n";
 
 // Default prepay rate fallback
 const DEFAULT_PREPAY_RATE = 0.80;
@@ -26,6 +27,7 @@ export default function SubmitOrder() {
   const navigate = useNavigate();
   const { user } = useCurrentUser();
   const { can } = usePermissions();
+  const locale = getLocale();
   const canSubmitOrder = can("order:submit_purchase_request");
   const canSplitOrder = can("order:submit_split_request");
   const canSelectOrderAddons = can("addon:select_order_value_added_services");
@@ -197,8 +199,8 @@ export default function SubmitOrder() {
     const minFee = parseFloat(addon.min_fee) || 0;
     const maxFee = parseFloat(addon.max_fee) || Infinity;
     
-    if (fee < minFee) return `金额不能低于 ${minFee} ${addon.fee_currency || 'JPY'}`;
-    if (maxFee > 0 && fee > maxFee) return `金额不能高于 ${maxFee} ${addon.fee_currency || 'JPY'}`;
+    if (fee < minFee) return `${t("金额不能低于", locale)} ${minFee} ${addon.fee_currency || 'JPY'}`;
+    if (maxFee > 0 && fee > maxFee) return `${t("金额不能高于", locale)} ${maxFee} ${addon.fee_currency || 'JPY'}`;
     return null;
   };
 
@@ -238,7 +240,7 @@ export default function SubmitOrder() {
     setAddonFeeErrors(validationErrors);
 
     if (hasErrors) {
-      toast.error('请修正所有自定义金额的错误');
+      toast.error(t('请修正所有自定义金额的错误', locale));
       return;
     }
 
@@ -308,7 +310,7 @@ export default function SubmitOrder() {
       // 记账订单：账目已直接记入记账系统，无需前往付款页
       if (isCredit) {
         setSubmitting(false);
-        toast.success("提交成功，本单已记账，无需付款");
+        toast.success(t("提交成功，本单已记账，无需付款", locale));
         navigate(createPageUrl("MyOrders"));
         return;
       }
@@ -316,20 +318,20 @@ export default function SubmitOrder() {
       // 后付款订单：下单阶段无需付款，货款将在支付运费时一并收取
       if (isDeferred) {
         setSubmitting(false);
-        toast.success("提交成功，货款将在支付运费时一并支付");
+        toast.success(t("提交成功，货款将在支付运费时一并支付", locale));
         navigate(createPageUrl("MyOrders"));
         return;
       }
 
       if (!order) {
-        toast.error('订单创建失败：服务器未返回订单信息');
+        toast.error(t('订单创建失败：服务器未返回订单信息', locale));
         setSubmitting(false);
         return;
       }
 
       navigate(`/Payment?order_id=${order.id}&method=${paymentMethod || "other"}&pay_currency=${selectedCurrency}`);
     } catch (error) {
-      toast.error('提交失败：' + error.message);
+      toast.error(t('提交失败：', locale) + error.message);
       setSubmitting(false);
     }
   };
@@ -354,7 +356,7 @@ export default function SubmitOrder() {
     setAddonFeeErrors(validationErrors);
 
     if (hasErrors) {
-      toast.error('请修正所有自定义金额的错误');
+      toast.error(t('请修正所有自定义金额的错误', locale));
       return;
     }
     
@@ -405,17 +407,17 @@ export default function SubmitOrder() {
       setSubmitting(false);
       
       if (res.data?.error) {
-        toast.error('提交失败：' + res.data.error);
+        toast.error(t('提交失败：', locale) + res.data.error);
         return;
       }
       
       if (res.data?.order) {
         navigate(createPageUrl(`PreShipmentForm`, { order_id: res.data.order.id }));
       } else {
-        toast.error('订单创建失败：服务器未返回订单信息');
+        toast.error(t('订单创建失败：服务器未返回订单信息', locale));
       }
     } catch (error) {
-      toast.error('提交失败：' + error.message);
+      toast.error(t('提交失败：', locale) + error.message);
       setSubmitting(false);
     }
   };
@@ -423,8 +425,8 @@ export default function SubmitOrder() {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div>
-        <h1 className="text-xl font-bold text-gray-900">提交购买需求</h1>
-        <p className="text-sm text-gray-500 mt-1">填写您想购买的日本商品信息，我们将为您代购</p>
+        <h1 className="text-xl font-bold text-gray-900">{t("提交购买需求", locale)}</h1>
+        <p className="text-sm text-gray-500 mt-1">{t("填写您想购买的日本商品信息，我们将为您代购", locale)}</p>
       </div>
 
       {creditDowngradeMsg && (
@@ -432,7 +434,7 @@ export default function SubmitOrder() {
           <AlertTriangle className="w-4 h-4 text-orange-600" />
           <AlertDescription className="text-orange-800 text-sm font-medium">
             {creditDowngradeMsg}
-            <p className="text-xs mt-1 font-normal text-orange-700">正在跳转到订单列表…</p>
+            <p className="text-xs mt-1 font-normal text-orange-700">{t("正在跳转到订单列表…", locale)}</p>
           </AlertDescription>
         </Alert>
       )}
@@ -441,7 +443,7 @@ export default function SubmitOrder() {
         <Alert className="border-blue-200 bg-blue-50">
           <Info className="w-4 h-4 text-blue-600" />
           <AlertDescription className="text-blue-800 text-sm">
-            预付款 = (日元货款总价 + 服务费 + 增值费用) × {(() => { const p = parseFloat(settings.prepay_rate); return (isNaN(p) || p <= 0 || p > 100) ? Math.round(DEFAULT_PREPAY_RATE * 100) : p; })()}%。订单确认后可补款或抵扣余额。
+            {t("预付款 = (日元货款总价 + 服务费 + 增值费用) ×", locale)} {(() => { const p = parseFloat(settings.prepay_rate); return (isNaN(p) || p <= 0 || p > 100) ? Math.round(DEFAULT_PREPAY_RATE * 100) : p; })()}%{t("。订单确认后可补款或抵扣余额。", locale)}
           </AlertDescription>
         </Alert>
       )}
@@ -450,18 +452,18 @@ export default function SubmitOrder() {
         {/* 商品信息卡片 */}
         <Card className="border-gray-200">
           <CardHeader className="pb-3 border-b border-gray-100">
-            <CardTitle className="text-sm font-semibold text-gray-700">商品信息</CardTitle>
+            <CardTitle className="text-sm font-semibold text-gray-700">{t("商品信息", locale)}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 pt-4">
             {/* 商品链接 */}
             <div>
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-1.5">
-                  <Label className="text-sm font-medium">商品链接</Label>
+                  <Label className="text-sm font-medium">{t("商品链接", locale)}</Label>
                   <div className="group relative">
                     <HelpCircle className="w-3.5 h-3.5 text-gray-400 hover:text-gray-600 cursor-help" />
                     <div className="invisible group-hover:visible absolute left-0 top-full mt-1 bg-gray-800 text-white text-xs rounded-lg px-3 py-2 w-56 z-10 pointer-events-none whitespace-normal">
-                      {settings.product_url_tips || "输入日本商城的商品链接，支持多个链接"}
+                      {settings.product_url_tips || t("输入日本商城的商品链接，支持多个链接", locale)}
                     </div>
                   </div>
                 </div>
@@ -479,7 +481,7 @@ export default function SubmitOrder() {
                   }} 
                   className="text-xs text-blue-500 hover:text-blue-700 font-medium"
                 >
-                  {urlMode === "multi" ? "切换文本框" : "切换分行"}
+                  {urlMode === "multi" ? t("切换文本框", locale) : t("切换分行", locale)}
                 </button>
               </div>
               
@@ -516,15 +518,15 @@ export default function SubmitOrder() {
                   ))}
                 </div>
               )}
-              <p className="text-xs text-gray-400 mt-1.5">Shift+Enter 添加下一条</p>
+              <p className="text-xs text-gray-400 mt-1.5">{t("Shift+Enter 添加下一条", locale)}</p>
             </div>
 
             {/* 订单名称和价格 - 并排显示 */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
-                <Label className="text-sm font-medium">订单名称</Label>
+                <Label className="text-sm font-medium">{t("订单名称", locale)}</Label>
                 <Input 
-                  placeholder="方便辨认的名字" 
+                  placeholder={t("方便辨认的名字", locale)} 
                   required 
                   value={form.product_name}
                   onChange={(e) => setForm((f) => ({ ...f, product_name: e.target.value }))} 
@@ -532,7 +534,7 @@ export default function SubmitOrder() {
                 />
               </div>
               <div>
-                <Label className="text-sm font-medium">日元货款 (¥)</Label>
+                <Label className="text-sm font-medium">{t("日元货款 (¥)", locale)}</Label>
                 <Input
                   type="text"
                   inputMode="decimal"
@@ -546,9 +548,9 @@ export default function SubmitOrder() {
             </div>
 
             <div>
-              <Label className="text-sm font-medium">商品描述 / 规格</Label>
+              <Label className="text-sm font-medium">{t("商品描述 / 规格", locale)}</Label>
               <Textarea 
-                placeholder="数量、颜色、尺码等（可选）" 
+                placeholder={t("数量、颜色、尺码等（可选）", locale)} 
                 value={form.product_description}
                 onChange={(e) => setForm((f) => ({ ...f, product_description: e.target.value }))}
                 className="mt-1 text-sm" 
@@ -559,7 +561,7 @@ export default function SubmitOrder() {
             {/* 增值服务 - 可折叠 */}
             {addonOptions.length > 0 && canSelectOrderAddons && (
               <div className="border-t border-gray-100 pt-3">
-                <Label className="text-sm font-medium mb-2 block">增值服务（可选）</Label>
+                <Label className="text-sm font-medium mb-2 block">{t("增值服务（可选）", locale)}</Label>
                 <div className="space-y-2">
                   {addonOptions.map((opt) => {
                     const isSelected = selectedAddons.includes(opt.id);
@@ -582,11 +584,11 @@ export default function SubmitOrder() {
                                 +{feeCur} {feeCur === "JPY" ? Math.round(effectiveFee) : effectiveFee}
                               </span>
                             </div>
-                            {opt.description && <p className="text-xs text-gray-500 mt-0.5">{opt.description}</p>}
+                            {opt.description && <p className="text-xs text-gray-500 mt-0.5">{t(opt.description, locale)}</p>}
                             {isCustomizable && isSelected && (
                               <div className="mt-2 space-y-1.5">
                                 <div className="flex items-center gap-2">
-                                  <Label className="text-xs text-gray-600">自定义金额 ({opt.min_fee || 0} - {opt.max_fee || '∞'} {feeCur})</Label>
+                                  <Label className="text-xs text-gray-600">{t("自定义金额", locale)} ({opt.min_fee || 0} - {opt.max_fee || '∞'} {feeCur})</Label>
                                   <Input
                                     type="number"
                                     min={opt.min_fee || 0}
@@ -619,7 +621,7 @@ export default function SubmitOrder() {
 
             {/* 图片上传 */}
             <div className="border-t border-gray-100 pt-3">
-              <Label className="text-sm font-medium mb-2 block">商品图片（可选）</Label>
+              <Label className="text-sm font-medium mb-2 block">{t("商品图片（可选）", locale)}</Label>
               <div
                 className={`border-2 rounded-lg transition-colors ${
                 form.product_image_url ? "border-green-300 bg-green-50" :
@@ -652,21 +654,21 @@ export default function SubmitOrder() {
                   {form.product_image_url ? (
                     <div className="flex items-center gap-3">
                       <img src={form.product_image_url} alt="" className="h-12 rounded object-cover" />
-                      <div className="text-sm text-green-700">✓ 已上传，点击更换</div>
+                      <div className="text-sm text-green-700">✓ {t("已上传，点击更换", locale)}</div>
                     </div>
                   ) : uploading ? (
                     <div className="flex items-center gap-2 text-blue-500 text-sm">
                       <Upload className="w-4 h-4 animate-pulse" />
-                      <span>上传中...</span>
+                      <span>{t("上传中...", locale)}</span>
                     </div>
                   ) : (
-                    <div className="text-sm text-gray-500">点击上传、拖拽图片到此 或 Ctrl+V 粘贴剪切板图片</div>
+                    <div className="text-sm text-gray-500">{t("点击上传、拖拽图片到此 或 Ctrl+V 粘贴剪切板图片", locale)}</div>
                   )}
                 </div>
                 <div className="border-t border-dashed border-gray-200 px-3 py-2">
                   <Input
                     type="text"
-                    placeholder="或输入图片 URL"
+                    placeholder={t("或输入图片 URL", locale)}
                     value={form.product_image_url || ""}
                     onChange={(e) => setForm((f) => ({ ...f, product_image_url: e.target.value }))}
                     className="text-sm border-0 shadow-none bg-transparent px-0 h-7 focus-visible:ring-0"
@@ -685,9 +687,9 @@ export default function SubmitOrder() {
 
             {/* 备注 */}
             <div className="border-t border-gray-100 pt-3">
-              <Label className="text-sm font-medium mb-2 block">备注（可选）</Label>
+              <Label className="text-sm font-medium mb-2 block">{t("备注（可选）", locale)}</Label>
               <Textarea 
-                placeholder="其他特殊说明..." 
+                placeholder={t("其他特殊说明...", locale)} 
                 value={form.user_note}
                 onChange={(e) => setForm((f) => ({ ...f, user_note: e.target.value }))}
                 rows={2}
@@ -728,7 +730,7 @@ export default function SubmitOrder() {
               onClick={handlePreShipmentSubmit}
             >
               <Truck className="w-4 h-4 mr-2" />
-              填写预出货信息
+              {t("填写预出货信息", locale)}
             </Button>
             )}
             <Button
@@ -737,9 +739,9 @@ export default function SubmitOrder() {
               className="w-full bg-red-600 hover:bg-red-700"
             >
               <ShoppingBag className="w-4 h-4 mr-2" />
-              {submitting ? "提交中..." : (
-                paymentMode === "credit_weekly" || paymentMode === "credit_monthly" ? "提交需求（记账）" :
-                paymentMode === "deferred" ? "提交需求（后付款）" : "提交并前往付款"
+              {submitting ? t("提交中...", locale) : (
+                paymentMode === "credit_weekly" || paymentMode === "credit_monthly" ? t("提交需求（记账）", locale) :
+                paymentMode === "deferred" ? t("提交需求（后付款）", locale) : t("提交并前往付款", locale)
               )}
             </Button>
           </div>
@@ -747,7 +749,7 @@ export default function SubmitOrder() {
         {!canSubmitOrder && (
           <Button type="button" disabled className="w-full bg-gray-400">
             <Lock className="w-4 h-4 mr-2" />
-            您没有权限提交购买需求
+            {t("您没有权限提交购买需求", locale)}
           </Button>
         )}
       </form>
