@@ -85,6 +85,122 @@ export const SETTINGS_TRANSLATIONS = {
     shippingEditor: "运输方式编辑",
     shippingTree: "运输公司 & 方式排序",
     hazmatText: "危险物品确认文本（报关单）",
+    
+    // Addons
+    addonName: "名称",
+    addonDescription: "描述",
+    addonFee: "费用",
+    addonType: "类型",
+    addonMinFee: "最低费用",
+    addonMaxFee: "最高费用",
+    addonUserCustomizable: "用户可自定义",
+    addonOrder: "下单增值服务",
+    addonShipping: "发货增值服务",
+    addonActive: "启用",
+    
+    // Member tiers
+    tierName: "阶级名称",
+    tierDescription: "阶级描述",
+    tierPrice: "价格 (JPY)",
+    tierPermanent: "永久保留",
+    tierPurchasable: "允许购买",
+    tierTriggerEnabled: "自动升级触发",
+    tierCreditEnabled: "记账功能",
+    tierCreditLimit: "默认欠款上限 (JPY)",
+    tierCreditCycle: "结账周期",
+    tierCreditOverdueDays: "逾期上限 (天)",
+    
+    // Storage
+    storageEnabled: "开启库存管理",
+    defaultStorageDays: "默认存放天数",
+    defaultReminderDays: "提前提醒天数",
+    defaultStorageFeePerDay: "每日仓储费 (JPY)",
+    onDeadlineAction: "到期后操作",
+    deadlineStatus: "超期订单状态",
+    actionNothing: "无操作",
+    actionMarkOverdue: "标记为超期",
+    actionChargeFee: "收取仓储费",
+    
+    // Notifications
+    emailSender: "邮件发件人",
+    emailSenderPlaceholder: "例如：noreply@example.com",
+    smtpHost: "SMTP 服务器",
+    smtpPort: "SMTP 端口",
+    smtpSecure: "使用 SSL/TLS",
+    smtpUsername: "SMTP 用户名",
+    smtpPassword: "SMTP 密码",
+    testEmail: "测试邮件",
+    sendTestEmail: "发送测试邮件",
+    
+    // Payment
+    alipayAccount: "支付宝账号",
+    alipayAccountName: "支付宝收款人姓名",
+    alipayQrCode: "支付宝收款码",
+    alipayPaymentNote: "支付宝付款备注提示",
+    prepayEnabled: "开启预付款",
+    prepayRate: "预付款比率 (%)",
+    allowShipWithoutPayment: "允许未付款发货",
+    fullpayOnceEnabled: "开启一次付款",
+    fullpayOnceTolerance: "一次付款运费误差容忍值 (JPY)",
+    
+    // Shipping
+    shippingMethodCode: "运输方式代码",
+    shippingMethodIcon: "图标",
+    shippingMethodColor: "颜色",
+    shippingMethodTransitDays: "时效",
+    shippingMethodDescription: "描述",
+    shippingMethodMinWeight: "最小重量 (g)",
+    shippingMethodMaxWeight: "最大重量 (g)",
+    shippingMethodRateMode: "费率模式",
+    shippingMethodSimpleRate: "简易费率",
+    shippingMethodDetailedRate: "详细费率",
+    shippingMethodOfficialPoolEstimate: "官方拼邮估算费率",
+    
+    // Order management
+    orderSplitEnabled: "开启订单拆分",
+    paymentTimeoutDays: "付款超期天数",
+    autoArchiveDeliveredDays: "自动归档已送达订单 (天)",
+    
+    // Home customization
+    bannerEnabled: "开启横幅广告",
+    heroSectionEnabled: "开启主页主视觉区",
+    quickActionsEnabled: "开启快捷操作",
+    exchangeRateWidgetEnabled: "开启汇率小组件",
+    stepsSectionEnabled: "开启流程步骤",
+    logisticsStatusBoardEnabled: "开启物流状态板",
+    faqSectionEnabled: "开启 FAQ 区块",
+    
+    // Exchange rates
+    jpyUsdIncrement: "日元/美元汇率增量",
+    jpyCnyIncrement: "日元/人民币汇率增量",
+    navbarExchangeRateEnabled: "导航栏汇率显示",
+    navbarExchangeRateCurrencies: "显示币种",
+    
+    // Ticket orders
+    ticketOrderEnabled: "开启票务功能",
+    ticketConfirmDeliveryEnabled: "确认到场功能",
+    ticketSupplementEnabled: "补款功能",
+    
+    // Permissions
+    permissionName: "权限名称",
+    permissionDescription: "权限描述",
+    permissionModule: "权限模块",
+    
+    // Announcements
+    announcementTitle: "公告标题",
+    announcementContent: "公告内容",
+    announcementType: "公告类型",
+    announcementTargetAudience: "目标受众",
+    announcementDisplayPosition: "显示位置",
+    announcementExpiresAt: "过期日期",
+    announcementDismissible: "可关闭",
+    announcementAllowedPages: "允许页面",
+    
+    // Countries
+    countryName: "国家名称",
+    countryCode: "国家代码",
+    countryEnabled: "启用",
+    countrySortOrder: "排序",
   },
   
   ja: {
