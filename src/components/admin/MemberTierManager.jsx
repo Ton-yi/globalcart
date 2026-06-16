@@ -5,6 +5,8 @@
 import { useState, useEffect } from "react";
 import { Plus, Trash2, Save, X, CreditCard, Crown, Star, Gem, Award, Medal, Trophy, Sparkles, Shield, Zap, Lock, Eye, EyeOff, ChevronUp, ChevronDown } from "lucide-react";
 import { tenantEntity } from "@/lib/tenantApi";
+import { useLocale } from "@/lib/LocaleContext";
+import { t } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -45,7 +47,7 @@ const EMPTY_FORM = {
 };
 
 // ─── Left detail editor panel ─────────────────────────────────
-function TierDetailPanel({ selected, onSave, onCancel, roles }) {
+function TierDetailPanel({ selected, onSave, onCancel, roles, locale }) {
   const [form, setForm] = useState(selected ? { ...EMPTY_FORM, ...selected } : null);
   const [saving, setSaving] = useState(false);
   const [isNew, setIsNew] = useState(false);
@@ -93,9 +95,9 @@ function TierDetailPanel({ selected, onSave, onCancel, roles }) {
   if (!form) {
     return (
       <div className="border border-dashed border-gray-200 rounded-xl p-6 text-center space-y-3 flex flex-col items-center justify-center min-h-[200px]">
-        <p className="text-xs text-gray-400">点击右侧会员阶级条目进行编辑</p>
+        <p className="text-xs text-gray-400">{t("点击右侧会员阶级条目进行编辑", locale)}</p>
         <Button size="sm" className="bg-red-600 hover:bg-red-700 h-7 text-xs" onClick={handleStartNew}>
-          <Plus className="w-3 h-3 mr-1" />新增会员阶级
+          <Plus className="w-3 h-3 mr-1" />{t("新增会员阶级", locale)}
         </Button>
       </div>
     );
@@ -104,11 +106,11 @@ function TierDetailPanel({ selected, onSave, onCancel, roles }) {
   return (
     <div className="border border-blue-200 rounded-xl p-4 bg-blue-50/30 space-y-3">
       <div className="flex items-center justify-between">
-        <h4 className="text-sm font-semibold text-gray-800">{isNew ? "新增会员阶级" : `编辑：${form.name}`}</h4>
+        <h4 className="text-sm font-semibold text-gray-800">{isNew ? t("新增会员阶级", locale) : `${t("编辑", locale)}: ${form.name}`}</h4>
         <div className="flex items-center gap-2">
           {!isNew && (
             <Button size="sm" variant="outline" className="h-6 text-xs" onClick={handleStartNew}>
-              <Plus className="w-3 h-3 mr-1" />新增
+              <Plus className="w-3 h-3 mr-1" />{t("新增", locale)}
             </Button>
           )}
           <button onClick={onCancel} className="text-gray-400 hover:text-gray-600">
@@ -119,11 +121,11 @@ function TierDetailPanel({ selected, onSave, onCancel, roles }) {
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <Label className="text-xs text-gray-500">阶级名称 *</Label>
-          <Input className="mt-1 h-8 text-sm" placeholder="如：周结会员" value={form.name} onChange={e => f("name", e.target.value)} />
+          <Label className="text-xs text-gray-500">{t("阶级名称", locale)} *</Label>
+          <Input className="mt-1 h-8 text-sm" placeholder={t("如：周结会员", locale)} value={form.name} onChange={e => f("name", e.target.value)} />
         </div>
         <div>
-          <Label className="text-xs text-gray-500">显示颜色</Label>
+          <Label className="text-xs text-gray-500">{t("显示颜色", locale)}</Label>
           <Select value={form.color} onValueChange={v => f("color", v)}>
             <SelectTrigger className="mt-1 h-8 text-sm">
               <SelectValue>
@@ -349,6 +351,7 @@ function TierListPanel({ tiers, activeId, onSelect, onToggle, onDelete, onMoveUp
 
 // ─── Main export ──────────────────────────────────────────────
 export default function MemberTierManager({ initialData = [], onReload }) {
+  const { locale } = useLocale();
   const [tiers, setTiers] = useState(initialData);
   const [selected, setSelected] = useState(null);
   const [roles, setRoles] = useState([]);
@@ -430,6 +433,7 @@ export default function MemberTierManager({ initialData = [], onReload }) {
             onSave={handleSave}
             onCancel={() => setSelected(null)}
             roles={roles}
+            locale={locale}
           />
         </div>
         {/* Right: list & sort */}

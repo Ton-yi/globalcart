@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { usePermissions } from "@/hooks/usePermissions";
 import { mergeNavTree, buildNav, navTreeHasPage } from "@/lib/navRegistry";
+import { t, getLocale } from "@/lib/i18n";
 
 export default function Layout({ children, currentPageName }) {
   const { user, tenantBranding, authError } = useAuth();
@@ -31,7 +32,14 @@ export default function Layout({ children, currentPageName }) {
   const [navbarRateCurrencies, setNavbarRateCurrencies] = useState([]);
   const [transitLocations, setTransitLocations] = useState([]);
   const [bannerConfig, setBannerConfig] = useState(null);
+  const [locale, setLocale] = useState(getLocale());
   const location = useLocation();
+  
+  useEffect(() => {
+    const handler = (e) => setLocale(e.detail?.locale || getLocale());
+    window.addEventListener('localeChanged', handler);
+    return () => window.removeEventListener('localeChanged', handler);
+  }, []);
 
   useEffect(() => {
     if (tenant?.favicon_url) {
@@ -104,9 +112,9 @@ export default function Layout({ children, currentPageName }) {
 
   const navItems = useMemo(() => {
     const platformAdminNav = [
-      { key: "PlatformAdminSettings", label: "平台设置", icon: Settings, page: "PlatformAdminSettings", children: [
-        { key: "PlatformNotificationManager", label: "跨租户通知", icon: Bell, page: "PlatformNotificationManager", children: [] },
-        { key: "PlatformTenantManager", label: "租户管理", icon: Globe, page: "PlatformAdminSettings", children: [] },
+      { key: "PlatformAdminSettings", label: t("平台设置", locale), icon: Settings, page: "PlatformAdminSettings", children: [
+        { key: "PlatformNotificationManager", label: t("跨租户通知", locale), icon: Bell, page: "PlatformNotificationManager", children: [] },
+        { key: "PlatformTenantManager", label: t("租户管理", locale), icon: Globe, page: "PlatformAdminSettings", children: [] },
       ]},
     ];
 
@@ -134,7 +142,7 @@ export default function Layout({ children, currentPageName }) {
 
     return buildNav(mergeNavTree(navbarSettings?.user_nav, "user"), "user", {
       access: { MyOrders: canViewMyOrders, ShippingPool: !canAccessAdminShippingPool },
-      labelOverrides: { ShippingPool: isTransitManager ? "发货池" : "发货 & 拼邮" },
+      labelOverrides: { ShippingPool: isTransitManager ? t("发货池", locale) : t("发货 & 拼邮", locale) },
     });
   }, [
     navbarSettings,
@@ -151,9 +159,9 @@ export default function Layout({ children, currentPageName }) {
       {isSuspended && (
         <div className="bg-red-600 text-white px-4 py-3 text-sm text-center font-medium flex items-center justify-center gap-2">
           <Shield className="w-4 h-4 flex-shrink-0" />
-          您的账户已被停用。所有操作已被禁止，请联系管理员处理。
+          {t("您的账户已被停用。所有操作已被禁止，请联系管理员处理。", locale)}
           <Button size="sm" variant="ghost" className="text-white hover:text-white hover:bg-red-700 h-6 px-2 text-xs ml-2"
-            onClick={() => base44.auth.logout()}>退出登录</Button>
+            onClick={() => base44.auth.logout()}>{t("退出登录", locale)}</Button>
         </div>
       )}
       {/* modal announcements */}
@@ -258,8 +266,8 @@ export default function Layout({ children, currentPageName }) {
             })}
             <span className="flex items-center gap-1.5 px-3 py-1.5 rounded text-sm text-gray-400 cursor-default">
               <Store className="w-3.5 h-3.5" />
-              商城
-              <Badge variant="outline" className="text-xs px-1 py-0 ml-1">即将上线</Badge>
+              {t("商城", locale)}
+              <Badge variant="outline" className="text-xs px-1 py-0 ml-1">{t("即将上线", locale)}</Badge>
             </span>
           </nav>
 
@@ -273,7 +281,7 @@ export default function Layout({ children, currentPageName }) {
             <MidnightToggle />
             {isAdmin && (
               <Badge className="bg-red-100 text-red-700 border-red-200 text-xs">
-                <Shield className="w-3 h-3 mr-1" />管理员
+                <Shield className="w-3 h-3 mr-1" />{t("管理员", locale)}
               </Badge>
             )}
             {user ? (
@@ -286,7 +294,7 @@ export default function Layout({ children, currentPageName }) {
               </div>
             ) : (
               <Button size="sm" className="h-7 text-xs" onClick={() => base44.auth.redirectToLogin()}>
-                登录
+                {t("登录", locale)}
               </Button>
             )}
           </div>
@@ -345,9 +353,9 @@ export default function Layout({ children, currentPageName }) {
           <div className="absolute inset-0 z-40 bg-white/70 backdrop-blur-sm flex items-center justify-center rounded-lg">
             <div className="text-center p-8">
               <Shield className="w-12 h-12 text-red-400 mx-auto mb-3" />
-              <p className="text-lg font-semibold text-gray-800">账户已停用</p>
-              <p className="text-sm text-gray-500 mt-1">您的账户已被管理员停用，无法进行任何操作。</p>
-              <p className="text-sm text-gray-500 mt-0.5">请联系管理员解除限制。</p>
+              <p className="text-lg font-semibold text-gray-800">{t("账户已停用", locale)}</p>
+              <p className="text-sm text-gray-500 mt-1">{t("您的账户已被管理员停用，无法进行任何操作。", locale)}</p>
+              <p className="text-sm text-gray-500 mt-0.5">{t("请联系管理员解除限制。", locale)}</p>
             </div>
           </div>
         )}
@@ -362,9 +370,9 @@ export default function Layout({ children, currentPageName }) {
 
       <footer className="border-t bg-white mt-10 py-6 text-center text-xs text-gray-400">
         <div className="flex items-center justify-center gap-4 mb-2">
-          <Link to={createPageUrl("helpcenter")} className="hover:text-teal-600 transition-colors">帮助中心</Link>
+          <Link to={createPageUrl("helpcenter")} className="hover:text-teal-600 transition-colors">{t("帮助中心", locale)}</Link>
           <span>·</span>
-          <Link to={createPageUrl("helpcenter/faq")} className="hover:text-teal-600 transition-colors">常见问题</Link>
+          <Link to={createPageUrl("helpcenter/faq")} className="hover:text-teal-600 transition-colors">{t("常见问题", locale)}</Link>
         </div>
         © 2026 同一物流 Tongyi Express · 日本 → 全球 · 安心・信頼・快捷
       </footer>

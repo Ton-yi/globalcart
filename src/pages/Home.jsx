@@ -8,6 +8,8 @@ import { Truck, Package, CheckCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { getStatusLabel, getStatusColor } from "@/lib/orderStatus";
 import { getTenantConfigCache, setTenantConfigCache } from "@/lib/configCache";
+import { useLocale } from "@/lib/LocaleContext";
+import { t } from "@/lib/i18n";
 // Badge/getStatus* kept for future use; LogisticsStatusBoard handles order display now
 import QuickActionsGrid from "@/components/home/QuickActionsGrid";
 import LogisticsStatusBoard from "@/components/home/LogisticsStatusBoard";
@@ -18,6 +20,7 @@ import ExchangeRateWidget from "@/components/home/ExchangeRateWidget";
 export default function Home() {
   const { user } = useCurrentUser();
   const { tenant } = useTenantBranding();
+  const { locale } = useLocale();
   const [recentOrders, setRecentOrders] = useState([]);
   const [quickActions, setQuickActions] = useState([]);
   const [boardConfig, setBoardConfig] = useState({});
@@ -102,12 +105,12 @@ export default function Home() {
   }, [user?.email]); // re-run when auth state changes (guest → logged-in)
 
   const DEFAULT_SECTIONS = [{
-    heading: "代购流程",
+    heading: t("代购流程", locale),
     steps: [
-      { title: "提交购买需求", desc: "填写商品链接、数量，系统自动估算预付款" },
-      { title: "确认付款",     desc: "选择支付方式完成预付款，管理员审核确认" },
-      { title: "采购进行中",   desc: "我们在日本为您采购商品，实时更新状态" },
-      { title: "提交发货需求", desc: "填写收货地址，选运输方式，余额自动抵扣运费" },
+      { title: t("提交购买需求", locale), desc: t("填写商品链接、数量，系统自动估算预付款", locale) },
+      { title: t("确认付款", locale),     desc: t("选择支付方式完成预付款，管理员审核确认", locale) },
+      { title: t("采购进行中", locale),   desc: t("我们在日本为您采购商品，实时更新状态", locale) },
+      { title: t("提交发货需求", locale), desc: t("填写收货地址，选运输方式，余额自动抵扣运费", locale) },
     ],
   }];
   const STEP_ICONS = [Package, CheckCircle, Package, Truck];
