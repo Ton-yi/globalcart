@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getStatusLabel, getStatusColor } from "@/lib/orderStatus";
-import OrderDetailDrawer from "@/components/orders/OrderDetailDrawer";
+import OrderDetailPanel from "@/components/orders/OrderDetailPanel";
 import ColumnCustomizer from "@/components/orders/ColumnCustomizer";
 import PaymentModal from "@/components/orders/PaymentModal";
 import UserNotifyShipmentModal from "@/components/orders/UserNotifyShipmentModal";
@@ -769,23 +769,15 @@ export default function MyOrders() {
       />
 
       {selectedOrder && user && (
-        <OrderDetailDrawer
+        <OrderDetailPanel
           order={selectedOrder}
           currentUser={user}
-          initialUserPreference={pageData.userPreference}
-          initialPaidOrderReminder={pageData.paidOrderReminder}
-          initialShippedReminder={pageData.shippedReminder}
-          initialUserProfileMap={pageData.userProfileMap || {}}
-          otherPaymentName={pageData.otherPaymentName || '其它支付方式'}
+          userProfileMap={pageData.userProfileMap || {}}
           allowSplitAfterWarehouse={allowSplitAfterWarehouse}
           onClose={() => setSelectedOrder(null)}
-          onAction={(action) => {
+          onRefresh={() => {
             fetchOrders(user);
-            if (action === "delivered") setSelectedOrder(null);
-          }}
-          onUpdated={() => {
             setSelectedOrder(null);
-            fetchOrders(user);
           }}
         />
       )}
