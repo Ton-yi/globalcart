@@ -21,7 +21,7 @@ import ShippingMethodManager from "@/components/admin/ShippingMethodManager";
 import LocalShippingMethodManager, { LocalShippingDetail, LocalShippingTree } from "@/components/admin/LocalShippingMethodManager";
 import { useLocalShipping } from "@/hooks/useLocalShipping";
 import PickupLocationManager from "@/components/admin/PickupLocationManager";
-import OnlineStoreTagManager, { TagRuleDetail, TagRuleList } from "@/components/admin/OnlineStoreTagManager";
+import OnlineStoreTagManager from "@/components/admin/OnlineStoreTagManager";
 import TransitShippingMethodManager from "@/components/admin/TransitShippingMethodManager";
 import ItemSizeTemplateManager from "@/components/admin/ItemSizeTemplateManager";
 import BoxTemplateManager from "@/components/admin/BoxTemplateManager";
@@ -78,100 +78,6 @@ function LocalShippingTwoCol() {
           </CardHeader>
           <CardContent>
             <LocalShippingTree state={state} />
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
-}
-
-// ─── 商城标签识别规则：两列 Card 布局 ────────────────────────────
-function TagRulesTwoCol({ storeTagRules }) {
-  const [rules, setRules] = useState(storeTagRules ? [...storeTagRules].sort((a, b) => (b.priority || 0) - (a.priority || 0)) : []);
-  const [selected, setSelected] = useState(null);
-  const [loading, setLoading] = useState(false);
-
-  const load = async () => {
-    setLoading(true);
-    const data = await tenantEntity.list('OnlineStoreTagRule');
-    setRules((data || []).sort((a, b) => (b.priority || 0) - (a.priority || 0)));
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    if (!storeTagRules) load();
-  }, []);
-
-  const handleSave = async (updated, isNew) => {
-    if (isNew) {
-      const created = await tenantEntity.create('OnlineStoreTagRule', updated);
-      setRules(prev => [...prev, created].sort((a, b) => (b.priority || 0) - (a.priority || 0)));
-      setSelected(created);
-    } else {
-      await tenantEntity.update('OnlineStoreTagRule', updated.id, updated);
-      setRules(prev => prev.map(r => r.id === updated.id ? { ...r, ...updated } : r).sort((a, b) => (b.priority || 0) - (a.priority || 0)));
-      setSelected(prev => prev?.id === updated.id ? { ...prev, ...updated } : prev);
-    }
-  };
-
-  const handleToggle = async (r) => {
-    const updated = { ...r, is_active: !r.is_active };
-    await tenantEntity.update('OnlineStoreTagRule', r.id, { is_active: updated.is_active });
-    setRules(prev => prev.map(x => x.id === r.id ? updated : x).sort((a, b) => (b.priority || 0) - (a.priority || 0)));
-    if (selected?.id === r.id) setSelected(updated);
-  };
-
-  const handleDelete = async (id) => {
-    if (!confirm("确认删除此规则？")) return;
-    await tenantEntity.delete('OnlineStoreTagRule', id);
-    setRules(prev => prev.filter(r => r.id !== id));
-    if (selected?.id === id) setSelected(null);
-  };
-
-  const handleMoveUp = async (idx) => {
-    if (idx === 0) return;
-    const r = rules[idx];
-    await tenantEntity.update('OnlineStoreTagRule', r.id, { priority: (r.priority || 0) + 1 });
-    await load();
-  };
-
-  const handleMoveDown = async (idx) => {
-    if (idx >= rules.length - 1) return;
-    const r = rules[idx];
-    await tenantEntity.update('OnlineStoreTagRule', r.id, { priority: (r.priority || 0) - 1 });
-    await load();
-  };
-
-  const state = {
-    rules, selected, loading,
-    activeId: selected?.id,
-    onSelect: setSelected,
-    handleSave, handleToggle, handleDelete, handleMoveUp, handleMoveDown,
-  };
-
-  if (loading) return <p className="text-gray-400 text-sm">加载中...</p>;
-
-  return (
-    <div className="flex flex-col xl:flex-row gap-5 items-start">
-      <div className="flex-1 min-w-0">
-        <Card className="border-gray-200 h-full">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold text-gray-700">商城标签规则编辑</CardTitle>
-            <p className="text-xs text-gray-400 mt-1">点击右侧规则条目后在此编辑详情，或新增规则</p>
-          </CardHeader>
-          <CardContent>
-            <TagRuleDetail state={state} />
-          </CardContent>
-        </Card>
-      </div>
-      <div className="flex-1 min-w-0">
-        <Card className="border-gray-200">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold text-gray-700">商城标签规则 &amp; 排序</CardTitle>
-            <p className="text-xs text-gray-400 mt-1">管理规则优先级及启用状态</p>
-          </CardHeader>
-          <CardContent>
-            <TagRuleList state={state} />
           </CardContent>
         </Card>
       </div>
@@ -663,7 +569,11 @@ export default function AdminSettings() {
       {activeTab === "home_customize" && loading && <p className="text-gray-400 text-sm">加载中...</p>}
 
       {activeTab === "order_management" && (
-        <TagRulesTwoCol storeTagRules={storeTagRules} />
+        <Card className="border-gray-200">
+          <CardContent className="pt-5">
+            <OnlineStoreTagManager initialData={storeTagRules} />
+          </CardContent>
+        </Card>
       )}
 
       {activeTab === "order_management_split" && !loading && (
