@@ -25,7 +25,11 @@ export default function LocaleSwitcher() {
         {SUPPORTED_LOCALES.map((loc) => (
           <DropdownMenuItem
             key={loc.code}
-            onClick={() => changeLocale(loc.code)}
+            onClick={() => {
+              changeLocale(loc.code);
+              // 强制刷新页面以应用翻译
+              window.location.reload();
+            }}
             className={`flex items-center gap-2 cursor-pointer ${
               locale === loc.code ? 'bg-gray-100 font-semibold' : ''
             }`}
