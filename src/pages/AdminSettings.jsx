@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { t, getLocale } from "@/lib/i18n";
 
 import ShippingMethodManager from "@/components/admin/ShippingMethodManager";
 import LocalShippingMethodManager, { LocalShippingDetail, LocalShippingTree } from "@/components/admin/LocalShippingMethodManager";
@@ -148,41 +149,55 @@ const DEFAULT_SETTINGS = [
 const CAT_LABELS = { fee: "费率设置", payment: "支付设置", shipping: "运输设置", general: "基本信息" };
 const CAT_COLORS = { fee: "bg-yellow-100 text-yellow-700", payment: "bg-green-100 text-green-700", shipping: "bg-blue-100 text-blue-700", general: "bg-gray-100 text-gray-600" };
 
-const ADMIN_NAV = [
-  { group: "基本设置", children: [
-    { key: "home_customize", label: "主页自定义" },
-    { key: "countries", label: "国家设置" },
-    { key: "exchange_rates", label: "汇率设置" },
-    { key: "notifications", label: "通知设置" },
-    { key: "reminder_texts", label: "提醒文案" },
-    { key: "theme", label: "界面主题" },
-  ]},
-  { group: "订单管理", children: [
-    { key: "order_management", label: "商城标签规则" },
-    { key: "order_management_split", label: "订单管理" },
-    { key: "ticket_orders", label: "票务功能" },
-  ]},
-  { key: "payment_methods", label: "支付方式" },
-  { key: "addons", label: "增值服务" },
-  { key: "fee_rules", label: "服务费规则" },
-  { key: "member_tiers", label: "会员阶级" },
-  { group: "发货设置", children: [
-    { key: "shipping_methods", label: "国际运输方式" },
-      { key: "local_shipping_methods", label: "本地运输方式" },
-      { key: "transit_methods", label: "中转运输" },
-    { key: "item_sizes", label: "物品尺寸" },
-    { key: "box_templates", label: "外箱模板" },
-    { key: "storage", label: "库存存放" },
-    { key: "official_pool", label: "官方拼邮" },
-  ]},
-  { key: "permissions", label: "权限一览" },
-  { key: "__divider__" },
-  { group: "管理页面入口", children: [
-    { key: "ext_announcements", label: "公告管理", href: "AdminAnnouncements" },
-    { key: "ext_navbar", label: "导航栏设置", href: "AdminNavbarSettings" },
-    { key: "ext_users", label: "用户管理", href: "AdminUsers" },
-  ]},
-];
+// 导航配置（在组件内使用 t() 函数动态翻译）
+const ADMIN_NAV_I18N_KEYS = {
+  basic: {
+    group: "基本设置",
+    items: {
+      home_customize: "主页自定义",
+      countries: "国家·地区设置",
+      exchange_rates: "汇率设置",
+      notifications: "通知设置",
+      reminder_texts: "提醒文案",
+      theme: "界面主题",
+    }
+  },
+  order: {
+    group: "订单管理",
+    items: {
+      order_management: "商城标签规则",
+      order_management_split: "订单管理",
+      ticket_orders: "票务功能",
+    }
+  },
+  standalone: {
+    payment_methods: "支付方式",
+    addons: "增值服务",
+    fee_rules: "服务费规则",
+    member_tiers: "会员阶级",
+  },
+  shipping: {
+    group: "发货设置",
+    items: {
+      shipping_methods: "国际运输方式",
+      local_shipping_methods: "本地运输方式",
+      transit_methods: "中转运输",
+      item_sizes: "物品尺寸",
+      box_templates: "外箱模板",
+      storage: "库存存放",
+      official_pool: "官方拼邮",
+    }
+  },
+  permissions: "权限一览",
+  adminPages: {
+    group: "管理页面入口",
+    items: {
+      ext_announcements: "公告管理",
+      ext_navbar: "导航栏设置",
+      ext_users: "用户管理",
+    }
+  }
+};
 
 // Reusable toggle component (purely local state, no API call)
 function Toggle({ enabled, onToggle, color = "bg-blue-600", size = "md" }) {
@@ -199,12 +214,23 @@ function Toggle({ enabled, onToggle, color = "bg-blue-600", size = "md" }) {
 
 export default function AdminSettings() {
   const { user } = useCurrentUser();
+  const locale = getLocale();
   const [activeTab, setActiveTab] = useState("home_customize");
   const [settings, setSettings] = useState([]);
   const [addons, setAddons] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
   const [showPayment, setShowPayment] = useState(false);
+  
+  // 翻译文本
+  const tx = {
+    pageTitle: t("网站后台设置", locale),
+    save: t("保存", locale),
+    saving: t("保存中...", locale),
+    saved: t("已保存 ✓", locale),
+    loading: t("加载中...", locale),
+    noAccess: t("仅管理员可访问此页面", locale),
+  };
 
   const [newAddon, setNewAddon] = useState({ name: "", description: "", fee: "", fee_currency: "JPY", addon_type: "order", is_user_customizable: false, min_fee: 0, max_fee: 0 });
   const [editingAddon, setEditingAddon] = useState(null);
@@ -290,8 +316,18 @@ export default function AdminSettings() {
 
   useEffect(() => { load(); }, [load]);
 
+    const ADMIN_NAV = [
+    { group: t(ADMIN_NAV_I18N_KEYS.basic.group, locale), children: Object.entries(ADMIN_NAV_I18N_KEYS.basic.items).map(([key, labelKey]) => ({ key, label: t(labelKey, locale) })) },
+    { group: t(ADMIN_NAV_I18N_KEYS.order.group, locale), children: Object.entries(ADMIN_NAV_I18N_KEYS.order.items).map(([key, labelKey]) => ({ key, label: t(labelKey, locale) })) },
+    ...Object.entries(ADMIN_NAV_I18N_KEYS.standalone).map(([key, labelKey]) => ({ key, label: t(labelKey, locale) })),
+    { group: t(ADMIN_NAV_I18N_KEYS.shipping.group, locale), children: Object.entries(ADMIN_NAV_I18N_KEYS.shipping.items).map(([key, labelKey]) => ({ key, label: t(labelKey, locale) })) },
+    { key: 'permissions', label: t(ADMIN_NAV_I18N_KEYS.permissions, locale) },
+    { key: "__divider__" },
+    { group: t(ADMIN_NAV_I18N_KEYS.adminPages.group, locale), children: Object.entries(ADMIN_NAV_I18N_KEYS.adminPages.items).map(([key, labelKey]) => ({ key, label: t(labelKey, locale), href: key.replace('ext_', '') })) },
+  ];
+
   if (user && !isTenantAdmin && !isPlatformAdmin) {
-    return <div className="text-center py-8 text-red-600">仅管理员可访问此页面</div>;
+    return <div className="text-center py-8 text-red-600">{tx.noAccess}</div>;
   }
 
   // Update a setting value in local state only (no API call)
@@ -440,7 +476,7 @@ export default function AdminSettings() {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-gray-900">网站后台设置</h1>
+        <h1 className="text-xl font-bold text-gray-900">{tx.pageTitle}</h1>
 
       </div>
 
