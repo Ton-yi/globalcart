@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import PreShipmentBadge from "@/components/admin/PreShipmentBadge";
 import { matchStoreTagResult } from "@/lib/onlineStoreTag";
+import { t, getLocale } from "@/lib/i18n";
 
 export const PhysicalOrderController = {
   getLabel: () => "实物订单",
@@ -31,28 +32,29 @@ export const PhysicalOrderController = {
    * 获取表格列配置
    */
   getColumnConfig: () => {
+    const locale = getLocale();
     return [
-      { key: "order_number", label: "订单号", defaultVisible: true, sortable: true },
-      { key: "user_name", label: "用户名", defaultVisible: true, sortable: true },
-      { key: "product_name", label: "商品名", defaultVisible: true, sortable: true },
-      { key: "estimated_jpy", label: "货款", defaultVisible: true, sortable: true },
-      { key: "order_stage_payment_jpy", label: "下单实付", defaultVisible: true, sortable: true },
-      { key: "paid_amount", label: "已付总额", defaultVisible: true, sortable: true },
-      { key: "weight_g", label: "订单重量", defaultVisible: true, sortable: true },
-      { key: "order_status", label: "订单状态", defaultVisible: true, sortable: true },
-      { key: "online_store_tag", label: "商城标签", defaultVisible: false, sortable: true },
-      { key: "reply_status", label: "回复状态", defaultVisible: false, sortable: true },
-      { key: "purchased_date", label: "下单日", defaultVisible: false, sortable: true },
-      { key: "in_warehouse_date", label: "入库日", defaultVisible: false, sortable: true },
-      { key: "shipped_date", label: "发货日", defaultVisible: false, sortable: true },
-      { key: "submit_date", label: "订单提交日", defaultVisible: false, sortable: true },
-      { key: "product_image_url", label: "商品图片", defaultVisible: false, sortable: false, isImage: true },
-      { key: "arrival_photo_url", label: "入库图片", defaultVisible: false, sortable: false, isImage: true },
-      { key: "product_description", label: "商品描述", defaultVisible: false, sortable: true },
-      { key: "admin_note", label: "管理员备注", defaultVisible: false, sortable: true },
-      { key: "user_note", label: "用户订单备注", defaultVisible: false, sortable: true },
-      { key: "payment_due_date", label: "付款截止日期", defaultVisible: false, sortable: true },
-      { key: "fullpay_once", label: "一次付款", defaultVisible: false, sortable: false, isFullPayOnce: true },
+      { key: "order_number", label: t("订单号", locale), defaultVisible: true, sortable: true },
+      { key: "user_name", label: t("用户名", locale), defaultVisible: true, sortable: true },
+      { key: "product_name", label: t("商品名", locale), defaultVisible: true, sortable: true },
+      { key: "estimated_jpy", label: t("货款", locale), defaultVisible: true, sortable: true },
+      { key: "order_stage_payment_jpy", label: t("下单实付", locale), defaultVisible: true, sortable: true },
+      { key: "paid_amount", label: t("已付总额", locale), defaultVisible: true, sortable: true },
+      { key: "weight_g", label: t("订单重量", locale), defaultVisible: true, sortable: true },
+      { key: "order_status", label: t("订单状态", locale), defaultVisible: true, sortable: true },
+      { key: "online_store_tag", label: t("商城标签", locale), defaultVisible: false, sortable: true },
+      { key: "reply_status", label: t("回复状态", locale), defaultVisible: false, sortable: true },
+      { key: "purchased_date", label: t("下单日", locale), defaultVisible: false, sortable: true },
+      { key: "in_warehouse_date", label: t("入库日", locale), defaultVisible: false, sortable: true },
+      { key: "shipped_date", label: t("发货日", locale), defaultVisible: false, sortable: true },
+      { key: "submit_date", label: t("订单提交日", locale), defaultVisible: false, sortable: true },
+      { key: "product_image_url", label: t("商品图片", locale), defaultVisible: false, sortable: false, isImage: true },
+      { key: "arrival_photo_url", label: t("入库图片", locale), defaultVisible: false, sortable: false, isImage: true },
+      { key: "product_description", label: t("商品描述", locale), defaultVisible: false, sortable: true },
+      { key: "admin_note", label: t("管理员备注", locale), defaultVisible: false, sortable: true },
+      { key: "user_note", label: t("用户订单备注", locale), defaultVisible: false, sortable: true },
+      { key: "payment_due_date", label: t("付款截止日期", locale), defaultVisible: false, sortable: true },
+      { key: "fullpay_once", label: t("一次付款", locale), defaultVisible: false, sortable: false, isFullPayOnce: true },
     ];
   },
 
