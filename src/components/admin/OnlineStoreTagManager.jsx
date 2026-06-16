@@ -1,7 +1,10 @@
 /**
  * OnlineStoreTagManager - Master-detail two-column layout
  * Left: detail editor | Right: sortable list
- * Reference: TransitShippingMethodManager layout
+ * Exports:
+ *   - TagRuleDetail  — 左侧编辑表单
+ *   - TagRuleList    — 右侧规则列表面板
+ *   - default        — 两者合并（兼容旧调用，内部两列布局）
  */
 import { useState, useEffect } from "react";
 import { tenantEntity } from "@/lib/tenantApi";
@@ -22,10 +25,9 @@ const COLOR_PRESETS = [
   { value: "bg-pink-100 text-pink-700", label: "粉色" },
 ];
 
-const BLANK_RULE = { keyword: "", tag_label: "", tag_color: "bg-gray-100 text-gray-700", priority: 0, is_active: true };
-
-// ─── Left detail editor panel ─────────────────────────────────
-function TagRuleDetailPanel({ selected, onSave, onCancel }) {
+// ─── Left detail editor panel (exported) ─────────────────────────────────
+export function TagRuleDetail({ state }) {
+  const { selected, activeId, onSelect, handleSave } = state;
   const [form, setForm] = useState(selected ? { ...selected } : null);
   const [saving, setSaving] = useState(false);
   const [isNew, setIsNew] = useState(false);
@@ -37,10 +39,10 @@ function TagRuleDetailPanel({ selected, onSave, onCancel }) {
 
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
-  const handleSave = async () => {
+  const handleFormSave = async () => {
     if (!form.keyword || !form.tag_label) return;
     setSaving(true);
-    await onSave({ ...form, priority: parseInt(form.priority) || 0 }, isNew);
+    await handleSave({ ...form, priority: parseInt(form.priority) || 0 }, isNew);
     setSaving(false);
   };
 
@@ -51,11 +53,13 @@ function TagRuleDetailPanel({ selected, onSave, onCancel }) {
 
   if (!form) {
     return (
-      <div className="border border-dashed border-gray-200 rounded-xl p-6 text-center space-y-3 flex flex-col items-center justify-center min-h-[200px]">
-        <p className="text-xs text-gray-400">点击右侧规则条目进行编辑</p>
-        <Button size="sm" className="bg-blue-600 hover:bg-blue-700 h-7 text-xs" onClick={handleStartNew}>
-          <Plus className="w-3 h-3 mr-1" />新增规则
-        </Button>
+      <div className="space-y-3">
+        <div className="border border-dashed border-gray-200 rounded-xl p-6 text-center space-y-3">
+          <p className="text-xs text-gray-400">点击右侧规则条目进行编辑</p>
+          <Button size="sm" className="bg-blue-600 hover:bg-blue-700 h-7 text-xs" onClick={handleStartNew}>
+            <Plus className="w-3 h-3 mr-1" />新增规则
+          </Button>
+        </div>
       </div>
     );
   }
@@ -64,14 +68,7 @@ function TagRuleDetailPanel({ selected, onSave, onCancel }) {
     <div className="border border-blue-200 rounded-xl p-4 space-y-3 bg-blue-50">
       <div className="flex items-center justify-between">
         <p className="text-xs font-semibold text-gray-700">{isNew ? "新增商城标签规则" : `编辑：${form.keyword}`}</p>
-        <div className="flex items-center gap-2">
-          {!isNew && (
-            <Button size="sm" variant="outline" className="h-6 text-xs" onClick={handleStartNew}>
-              <Plus className="w-3 h-3 mr-1" />新增
-            </Button>
-          )}
-          <button onClick={onCancel} className="text-gray-400 hover:text-gray-600"><X className="w-3.5 h-3.5" /></button>
-        </div>
+        <button onClick={() => onSelect(null)} className="text-gray-400 hover:text-gray-600"><X className="w-3.5 h-3.5" /></button>
       </div>
 
       <div>
@@ -132,8 +129,8 @@ function TagRuleDetailPanel({ selected, onSave, onCancel }) {
       </div>
 
       <div className="flex gap-2 justify-end pt-1">
-        <Button variant="outline" size="sm" onClick={onCancel}>取消</Button>
-        <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={handleSave} disabled={saving || !form.keyword || !form.tag_label}>
+        <Button variant="outline" size="sm" onClick={() => onSelect(null)}>取消</Button>
+        <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={handleFormSave} disabled={saving || !form.keyword || !form.tag_label}>
           {saving ? "保存中..." : "保存"}
         </Button>
       </div>
@@ -141,8 +138,10 @@ function TagRuleDetailPanel({ selected, onSave, onCancel }) {
   );
 }
 
-// ─── Right list/sort panel ────────────────────────────────────
-function TagRuleListPanel({ rules, activeId, onSelect, onToggle, onDelete, onMoveUp, onMoveDown }) {
+// ─── Right list/sort panel (exported) ────────────────────────────────────
+export function TagRuleList({ state }) {
+  const { rules, activeId, onSelect, handleToggle, handleDelete, handleMoveUp, handleMoveDown } = state;
+
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between mb-1">
@@ -168,16 +167,16 @@ function TagRuleListPanel({ rules, activeId, onSelect, onToggle, onDelete, onMov
             </div>
           </div>
           <div className="flex items-center gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
-            <button className="p-1 rounded hover:bg-gray-100 text-gray-300 hover:text-gray-600 disabled:opacity-30" disabled={idx === 0} onClick={() => onMoveUp(idx)}>
+            <button className="p-1 rounded hover:bg-gray-100 text-gray-300 hover:text-gray-600 disabled:opacity-30" disabled={idx === 0} onClick={() => handleMoveUp(idx)}>
               <ChevronUp className="w-3 h-3" />
             </button>
-            <button className="p-1 rounded hover:bg-gray-100 text-gray-300 hover:text-gray-600 disabled:opacity-30" disabled={idx === rules.length - 1} onClick={() => onMoveDown(idx)}>
+            <button className="p-1 rounded hover:bg-gray-100 text-gray-300 hover:text-gray-600 disabled:opacity-30" disabled={idx === rules.length - 1} onClick={() => handleMoveDown(idx)}>
               <ChevronDown className="w-3 h-3" />
             </button>
-            <button className="p-1 rounded hover:bg-gray-100 text-gray-300 hover:text-gray-600" onClick={() => onToggle(r)}>
+            <button className="p-1 rounded hover:bg-gray-100 text-gray-300 hover:text-gray-600" onClick={() => handleToggle(r)}>
               {r.is_active ? <span className="text-xs">✓</span> : <span className="text-xs">✕</span>}
             </button>
-            <button className="p-1 rounded hover:bg-red-50 text-gray-300 hover:text-red-500" onClick={() => onDelete(r.id)}>
+            <button className="p-1 rounded hover:bg-red-50 text-gray-300 hover:text-red-500" onClick={() => handleDelete(r.id)}>
               <Trash2 className="w-3 h-3" />
             </button>
           </div>
@@ -187,8 +186,8 @@ function TagRuleListPanel({ rules, activeId, onSelect, onToggle, onDelete, onMov
   );
 }
 
-// ─── Main component ─────────────────────────────────────────────
-export default function OnlineStoreTagManager({ initialData = null }) {
+// ─── Main component (internal) ─────────────────────────────────────────────
+function OnlineStoreTagManagerInner({ initialData = null }) {
   const [rules, setRules] = useState(initialData ? [...initialData].sort((a, b) => (b.priority || 0) - (a.priority || 0)) : []);
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -244,30 +243,31 @@ export default function OnlineStoreTagManager({ initialData = null }) {
     await load();
   };
 
+  // Expose state for child components
+  const state = {
+    rules, selected, loading,
+    activeId: selected?.id,
+    onSelect: setSelected,
+    handleSave, handleToggle, handleDelete, handleMoveUp, handleMoveDown,
+  };
+
   if (loading) return <div className="py-8 text-center text-gray-400 text-sm">加载中...</div>;
 
   return (
     <div className="flex flex-col xl:flex-row gap-5 items-start">
       {/* Left: detail editor */}
       <div className="flex-1 min-w-0">
-        <TagRuleDetailPanel
-          selected={selected}
-          onSave={handleSave}
-          onCancel={() => setSelected(null)}
-        />
+        <TagRuleDetail state={state} />
       </div>
       {/* Right: list & sort */}
       <div className="w-full xl:w-80 flex-shrink-0">
-        <TagRuleListPanel
-          rules={rules}
-          activeId={selected?.id}
-          onSelect={r => setSelected(r)}
-          onToggle={handleToggle}
-          onDelete={handleDelete}
-          onMoveUp={handleMoveUp}
-          onMoveDown={handleMoveDown}
-        />
+        <TagRuleList state={state} />
       </div>
     </div>
   );
+}
+
+// ─── Default export: combined layout for backward compatibility ────────────
+export default function OnlineStoreTagManager({ initialData = null }) {
+  return <OnlineStoreTagManagerInner initialData={initialData} />;
 }
