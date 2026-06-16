@@ -15,6 +15,8 @@ export function setLocale(locale) {
   try {
     localStorage.setItem('preferred_locale', locale);
     window.dispatchEvent(new CustomEvent('localeChanged', { detail: { locale } }));
+    // Reload page to apply language change
+    window.location.reload();
   } catch {}
 }
 
