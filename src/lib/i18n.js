@@ -397,6 +397,18 @@ export const translations = {
     "粉色": "粉色",
     "清除": "清除",
 
+    // Login page
+    "日本代购": "日本代购",
+    "一站式采购，安心托付": "一站式采购，安心托付",
+    "国际物流": "国际物流",
+    "拼邮发货，节省运费": "拼邮发货，节省运费",
+    "安全可靠": "安全可靠",
+    "实时状态，全程透明": "实时状态，全程透明",
+    "手机号": "手机号",
+    "发送验证码": "发送验证码",
+    "验证码": "验证码",
+    "登录 / 注册": "登录 / 注册",
+
     // HeroSection defaults
     "日本 → 全球": "日本 → 全球",
     "同一物流 · Tongyi Express": "同一物流 · Tongyi Express",
@@ -588,6 +600,18 @@ export const translations = {
     "灰色": "灰色",
     "粉色": "ピンク",
     "清除": "クリア",
+
+    // Login page
+    "日本代购": "日本代行購入",
+    "一站式采购，安心托付": "ワンストップ購入、安心",
+    "国际物流": "国際配送",
+    "拼邮发货，节省运费": "まとめ配送で送料節約",
+    "安全可靠": "安全・信頼",
+    "实时状态，全程透明": "リアルタイム状況、全行程透明",
+    "手机号": "電話番号",
+    "发送验证码": "認証コード送信",
+    "验证码": "認証コード",
+    "登录 / 注册": "ログイン / 登録",
 
     // HeroSection defaults
     "日本 → 全球": "日本 → 全世界",
@@ -1031,6 +1055,18 @@ export const translations = {
     "灰色": "Gray",
     "粉色": "Pink",
     "清除": "Clear",
+
+    // Login page
+    "日本代购": "Japan Shopping",
+    "一站式采购，安心托付": "One-stop shopping, peace of mind",
+    "国际物流": "International Shipping",
+    "拼邮发货，节省运费": "Consolidated shipping, save on fees",
+    "安全可靠": "Safe & Reliable",
+    "实时状态，全程透明": "Real-time tracking, fully transparent",
+    "手机号": "Phone Number",
+    "发送验证码": "Send Code",
+    "验证码": "Verification Code",
+    "登录 / 注册": "Login / Register",
 
     // HeroSection defaults
     "日本 → 全球": "Japan → Global",

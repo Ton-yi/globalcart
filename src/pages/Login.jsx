@@ -4,11 +4,19 @@ import { useTenantBranding } from "@/hooks/useTenantBranding";
 import { Package, Truck, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { t, getLocale } from "@/lib/i18n";
 
 export default function Login() {
   const { tenant } = useTenantBranding();
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
+  const [locale, setLocale] = useState(getLocale());
+
+  useEffect(() => {
+    const handler = (e) => setLocale(e.detail?.locale || getLocale());
+    window.addEventListener('localeChanged', handler);
+    return () => window.removeEventListener('localeChanged', handler);
+  }, []);
 
   useEffect(() => {
     // 如果已登录，直接跳转首页
@@ -22,9 +30,9 @@ export default function Login() {
   };
 
   const features = [
-    { icon: Package, title: "日本代购", desc: "一站式采购，安心托付" },
-    { icon: Truck, title: "国际物流", desc: "拼邮发货，节省运费" },
-    { icon: Shield, title: "安全可靠", desc: "实时状态，全程透明" },
+    { icon: Package, title: t("日本代购", locale), desc: t("一站式采购，安心托付", locale) },
+    { icon: Truck, title: t("国际物流", locale), desc: t("拼邮发货，节省运费", locale) },
+    { icon: Shield, title: t("安全可靠", locale), desc: t("实时状态，全程透明", locale) },
   ];
 
   return (
@@ -69,7 +77,7 @@ export default function Login() {
         {/* 手机号 */}
         <div className="flex gap-2">
           <Input
-            placeholder="手机"
+            placeholder={t("手机号", locale)}
             value={phone}
             onChange={e => setPhone(e.target.value)}
             className="flex-1"
@@ -79,12 +87,12 @@ export default function Login() {
             className="shrink-0 text-red-600 border-red-200 hover:bg-red-50 text-xs px-3"
             onClick={() => {}}
           >
-            发送验证码
+            {t("发送验证码", locale)}
           </Button>
         </div>
         {/* 验证码 */}
         <Input
-          placeholder="验证码"
+          placeholder={t("验证码", locale)}
           value={code}
           onChange={e => setCode(e.target.value)}
         />
@@ -93,7 +101,7 @@ export default function Login() {
           className="w-full bg-red-600 hover:bg-red-700 text-white h-10"
           onClick={handleLogin}
         >
-          登录 / 注册
+          {t("登录 / 注册", locale)}
         </Button>
         {tenant?.contact_info && (
           <p className="text-center text-xs text-gray-400">{tenant.contact_info}</p>
