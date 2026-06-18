@@ -1,8 +1,10 @@
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { ShoppingBag, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { base44 } from "@/api/base44Client";
+import { t, getLocale } from "@/lib/i18n";
 
 // 默认配置
 export const DEFAULT_HERO = {
@@ -41,6 +43,13 @@ function resolveAudienceConfig(config, user) {
 }
 
 export default function HeroSection({ config, user, tenant, rateOverlay = null, ratePosition = "hero_right" }) {
+  const [locale, setLocale] = useState(getLocale());
+  useEffect(() => {
+    const handler = (e) => setLocale(e.detail?.locale || getLocale());
+    window.addEventListener('localeChanged', handler);
+    return () => window.removeEventListener('localeChanged', handler);
+  }, []);
+
   const c = { ...DEFAULT_HERO, ...resolveAudienceConfig(config, user) };
 
   const buttons = (c.buttons || []).filter(b => {
@@ -115,14 +124,14 @@ export default function HeroSection({ config, user, tenant, rateOverlay = null, 
         {c.badgeText && (
           <div className="flex items-center justify-center gap-2 mb-3">
             <Globe className={`w-5 h-5 ${useWhiteText ? "text-red-300" : "text-red-600"}`} />
-            <span className={`text-sm ${useWhiteText ? "text-white/80 drop-shadow" : "text-gray-500"}`}>{c.badgeText}</span>
+            <span className={`text-sm ${useWhiteText ? "text-white/80 drop-shadow" : "text-gray-500"}`}>{c.badgeText || t("日本 → 全球", locale)}</span>
           </div>
         )}
         <h1 className={`text-2xl font-bold mb-2 ${useWhiteText ? "text-white drop-shadow" : "text-gray-900"}`}>
-          {c.title || tenant?.login_title || "同一物流 · Tongyi Express"}
+          {c.title || tenant?.login_title || t("同一物流 · Tongyi Express", locale)}
         </h1>
         <p className={`mb-6 max-w-md mx-auto text-sm ${useWhiteText ? "text-white/75 drop-shadow" : "text-gray-500"}`}>
-          {c.subtitle || tenant?.login_subtitle || "专业代购日本商品，安心付款，全程追踪，极速发货至全球各地"}
+          {c.subtitle || tenant?.login_subtitle || t("专业代购日本商品，安心付款，全程追踪，极速发货至全球各地", locale)}
         </p>
         <div className="flex gap-3 justify-center flex-wrap">
           {buttons.map((btn, i) => {
