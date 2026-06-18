@@ -1026,6 +1026,7 @@ export const translations = {
     "通知出货": "Notify Shipping",
     "待收货": "Pending Receipt",
     "待确认": "Pending Confirm",
+    "待付款": "Pending Payment",
     "暂无待付款项目": "No pending payments",
     "去付款": "Pay Now",
     "发货申请": "Shipping Request",
