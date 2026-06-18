@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { base44 } from "@/api/base44Client";
 import { t, getLocale } from "@/lib/i18n";
 
-// 默认配置
+// 默认配置（label 字段存中文 key，渲染时通过 t() 翻译）
 export const DEFAULT_HERO = {
   title: "",
   subtitle: "",
@@ -149,7 +149,7 @@ export default function HeroSection({ config, user, tenant, rateOverlay = null, 
                   className={!isOutline && !btn.color ? "bg-red-600 hover:bg-red-700" : ""}
                 >
                   {btn.icon === "ShoppingBag" && <ShoppingBag className="w-4 h-4 mr-2" />}
-                  {btn.label}
+                  {t(btn.label, locale)}
                 </Button>
               );
               if (isExternal) {
@@ -166,7 +166,7 @@ export default function HeroSection({ config, user, tenant, rateOverlay = null, 
                 onClick={!btn.page && !user ? () => base44.auth.redirectToLogin() : undefined}
               >
                 {btn.icon === "ShoppingBag" && <ShoppingBag className="w-4 h-4 mr-2" />}
-                {btn.label}
+                {t(btn.label, locale)}
               </Button>
             );
           })}

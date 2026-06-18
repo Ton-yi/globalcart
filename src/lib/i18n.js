@@ -401,6 +401,8 @@ export const translations = {
     "日本 → 全球": "日本 → 全球",
     "同一物流 · Tongyi Express": "同一物流 · Tongyi Express",
     "专业代购日本商品，安心付款，全程追踪，极速发货至全球各地": "专业代购日本商品，安心付款，全程追踪，极速发货至全球各地",
+    "查看我的订单": "查看我的订单",
+    "登录开始代购": "登录开始代购",
 
     // UserTodo
     "加载待办中...": "加载待办中...",
@@ -591,6 +593,8 @@ export const translations = {
     "日本 → 全球": "日本 → 全世界",
     "同一物流 · Tongyi Express": "同一物流 · Tongyi Express",
     "专业代购日本商品，安心付款，全程追踪，极速发货至全球各地": "日本商品を代行購入、安心決済、全追跡、世界各地へ迅速発送",
+    "查看我的订单": "マイオーダーを見る",
+    "登录开始代购": "ログインして代行購入",
 
     // UserTodo
     "加载待办中...": "ToDo を読み込み中...",
@@ -1032,6 +1036,8 @@ export const translations = {
     "日本 → 全球": "Japan → Global",
     "同一物流 · Tongyi Express": "Tongyi Express",
     "专业代购日本商品，安心付款，全程追踪，极速发货至全球各地": "Professional Japan shopping service — secure payment, full tracking, fast worldwide delivery",
+    "查看我的订单": "View My Orders",
+    "登录开始代购": "Login to Start",
 
     // UserTodo
     "加载待办中...": "Loading to-do...",
