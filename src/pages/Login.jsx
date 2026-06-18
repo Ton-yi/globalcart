@@ -1,11 +1,14 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useTenantBranding } from "@/hooks/useTenantBranding";
 import { Package, Truck, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 export default function Login() {
   const { tenant } = useTenantBranding();
+  const [phone, setPhone] = useState("");
+  const [code, setCode] = useState("");
 
   useEffect(() => {
     // 如果已登录，直接跳转首页
@@ -61,8 +64,31 @@ export default function Login() {
         ))}
       </div>
 
-      {/* Login Button */}
+      {/* Phone & Code Inputs */}
       <div className="w-full max-w-xs space-y-3">
+        {/* 手机号 */}
+        <div className="flex gap-2">
+          <Input
+            placeholder="手机"
+            value={phone}
+            onChange={e => setPhone(e.target.value)}
+            className="flex-1"
+          />
+          <Button
+            variant="outline"
+            className="shrink-0 text-red-600 border-red-200 hover:bg-red-50 text-xs px-3"
+            onClick={() => {}}
+          >
+            发送验证码
+          </Button>
+        </div>
+        {/* 验证码 */}
+        <Input
+          placeholder="验证码"
+          value={code}
+          onChange={e => setCode(e.target.value)}
+        />
+        {/* Login Button */}
         <Button
           className="w-full bg-red-600 hover:bg-red-700 text-white h-10"
           onClick={handleLogin}
