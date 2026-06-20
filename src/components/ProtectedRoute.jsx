@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
+import { base44 } from '@/api/base44Client';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 
 const DefaultFallback = () => (
@@ -9,8 +10,21 @@ const DefaultFallback = () => (
   </div>
 );
 
+/**
+ * 路由登录守卫
+ * 
+ * 用法（在 App.jsx 中）：
+ * 
+ * <Route element={<ProtectedRoute />}>
+ *   <Route path="/:locale/SubmitOrder" element={<LayoutWrapper currentPageName="SubmitOrder"><SubmitOrder /></LayoutWrapper>} />
+ *   <Route path="/:locale/MyOrders"    element={<LayoutWrapper currentPageName="MyOrders"><MyOrders /></LayoutWrapper>} />
+ * </Route>
+ * 
+ * 未登录用户访问以上路由时，自动跳转登录页，登录成功后回到原页面。
+ */
 export default function ProtectedRoute({ fallback = <DefaultFallback />, unauthenticatedElement }) {
   const { isAuthenticated, isLoadingAuth, authChecked, authError, checkUserAuth } = useAuth();
+  const location = useLocation();
 
   useEffect(() => {
     if (!authChecked && !isLoadingAuth) {
@@ -26,11 +40,17 @@ export default function ProtectedRoute({ fallback = <DefaultFallback />, unauthe
     if (authError.type === 'user_not_registered') {
       return <UserNotRegisteredError />;
     }
-    return unauthenticatedElement;
+    // 未登录：跳转到登录页，登录后返回当前页
+    const nextUrl = location.pathname + location.search;
+    base44.auth.redirectToLogin(nextUrl);
+    return fallback;
   }
 
   if (!isAuthenticated) {
-    return unauthenticatedElement;
+    if (unauthenticatedElement) return unauthenticatedElement;
+    const nextUrl = location.pathname + location.search;
+    base44.auth.redirectToLogin(nextUrl);
+    return fallback;
   }
 
   return <Outlet />;

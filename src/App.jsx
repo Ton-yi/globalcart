@@ -36,6 +36,7 @@ import UserTodo from '@/pages/UserTodo';
 import SubmitTicketOrder from '@/pages/SubmitTicketOrder';
 import AdminTicketOrders from '@/pages/AdminTicketOrders';
 import Login from '@/pages/Login';
+import ProtectedRoute from '@/components/ProtectedRoute';
 
 // 初始化订单控制器注册中心
 import '@/components/orders/controllers';
@@ -142,11 +143,15 @@ const AuthenticatedApp = () => {
           <AdminFeeRules />
         </LayoutWrapper>
       } />
-      <Route path="/:locale/PreShipmentForm" element={
-        <LayoutWrapper currentPageName="PreShipmentForm">
-          <PreShipmentForm />
-        </LayoutWrapper>
-      } />
+      {/* ===== 需要登录才能访问的路由 ===== */}
+      <Route element={<ProtectedRoute />}>
+        <Route path="/:locale/PreShipmentForm" element={
+          <LayoutWrapper currentPageName="PreShipmentForm">
+            <PreShipmentForm />
+          </LayoutWrapper>
+        } />
+      </Route>
+
       <Route path="/:locale/GroupBuy" element={
         <LayoutWrapper currentPageName="GroupBuy">
           <GroupBuy />
