@@ -36,7 +36,6 @@ import UserTodo from '@/pages/UserTodo';
 import SubmitTicketOrder from '@/pages/SubmitTicketOrder';
 import AdminTicketOrders from '@/pages/AdminTicketOrders';
 import Login from '@/pages/Login';
-import EmailVerificationTemplate from '@/pages/EmailVerificationTemplate';
 
 // 初始化订单控制器注册中心
 import '@/components/orders/controllers';
@@ -286,7 +285,7 @@ const AuthenticatedApp = () => {
           <Login />
         </LayoutWrapper>
       } />
-      <Route path="/:locale/EmailVerificationTemplate" element={<EmailVerificationTemplate />} />
+
       
       <Route path="*" element={<Navigate to={`/${getPreferredLocale()}`} replace />} />
     </Routes>
