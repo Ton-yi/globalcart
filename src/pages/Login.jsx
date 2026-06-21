@@ -99,7 +99,7 @@ export default function Login() {
           />
           <Button
             variant="outline"
-            className="shrink-0 text-red-600 border-red-200 hover:bg-red-50 text-xs px-3"
+            className="shrink-0 text-red-600 border-red-200 hover:bg-red-50 text-xs w-20"
             onClick={handleSendCode}
             disabled={countdown > 0}
           >
