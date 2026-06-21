@@ -35,10 +35,9 @@ export default function NotificationBellComponent() {
       const res = await base44.functions.invoke('getUnreadNotificationCount', {});
       return res.data;
     },
-    refetchInterval: 30000,
   });
 
-  // 始终在后台预取最近通知（跟随未读数 30 秒轮询），点开铃铛时即刻显示，无需等待加载
+  // 始终在后台预取最近通知，点开铃铛时即刻显示，无需等待加载
   const { data: notificationsData } = useQuery({
     queryKey: ['notification-recent-unread'],
     queryFn: async () => {
@@ -46,7 +45,6 @@ export default function NotificationBellComponent() {
       return res.data;
     },
     staleTime: 25000,
-    refetchInterval: 30000,
   });
 
   const markAsReadMutation = useMutation({
