@@ -162,7 +162,9 @@ export const AuthProvider = ({ children }) => {
       assignedRoles,
       logout,
       navigateToLogin,
-      checkAppState
+      checkAppState,
+      checkUserAuth,
+      authChecked: !isLoadingAuth,
     }}>
       {children}
     </AuthContext.Provider>
