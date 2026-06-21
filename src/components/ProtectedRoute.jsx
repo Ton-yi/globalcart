@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
+import { Outlet, useLocation, useParams, Navigate } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
-import { base44 } from '@/api/base44Client';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 
 const DefaultFallback = () => (
@@ -25,6 +24,7 @@ const DefaultFallback = () => (
 export default function ProtectedRoute({ fallback = <DefaultFallback />, unauthenticatedElement }) {
   const { isAuthenticated, isLoadingAuth, authChecked, authError, checkUserAuth } = useAuth();
   const location = useLocation();
+  const { locale = 'zhcn' } = useParams();
 
   useEffect(() => {
     if (!authChecked && !isLoadingAuth) {
@@ -40,17 +40,15 @@ export default function ProtectedRoute({ fallback = <DefaultFallback />, unauthe
     if (authError.type === 'user_not_registered') {
       return <UserNotRegisteredError />;
     }
-    // 未登录：跳转到登录页，登录后返回当前页
-    const nextUrl = location.pathname + location.search;
-    base44.auth.redirectToLogin(nextUrl);
-    return fallback;
+    // 未登录：跳转到站内登录页，登录后返回当前页
+    const next = encodeURIComponent(location.pathname + location.search);
+    return <Navigate to={`/${locale}/Login?next=${next}`} replace />;
   }
 
   if (!isAuthenticated) {
     if (unauthenticatedElement) return unauthenticatedElement;
-    const nextUrl = location.pathname + location.search;
-    base44.auth.redirectToLogin(nextUrl);
-    return fallback;
+    const next = encodeURIComponent(location.pathname + location.search);
+    return <Navigate to={`/${locale}/Login?next=${next}`} replace />;
   }
 
   return <Outlet />;
