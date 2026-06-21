@@ -26,7 +26,10 @@ export default function Login() {
   }, []);
 
   const handleLogin = () => {
-    base44.auth.redirectToLogin(window.location.origin);
+    const params = new URLSearchParams(window.location.search);
+    const next = params.get('next');
+    const returnUrl = next ? decodeURIComponent(next) : window.location.origin;
+    base44.auth.redirectToLogin(returnUrl);
   };
 
   const features = [
