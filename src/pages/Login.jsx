@@ -12,7 +12,8 @@ export default function Login() {
   const [code, setCode] = useState("");
   const [locale, setLocale] = useState(getLocale());
   const [countdown, setCountdown] = useState(0);
-  const [error, setError] = useState("");
+  const [phoneError, setPhoneError] = useState(false);
+  const [codeError, setCodeError] = useState(false);
 
   useEffect(() => {
     const handler = (e) => setLocale(e.detail?.locale || getLocale());
@@ -39,15 +40,16 @@ export default function Login() {
   };
 
   const handleLogin = () => {
-    setError("");
+    setPhoneError(false);
+    setCodeError(false);
     const isPhone = /^\d{11}$/.test(phone.trim());
     const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(phone.trim());
     if (!isPhone && !isEmail) {
-      setError(t("请输入正确的11位手机号或邮箱地址", locale));
+      setPhoneError(true);
       return;
     }
     if (!code.trim()) {
-      setError(t("请输入验证码", locale));
+      setCodeError(true);
       return;
     }
     const params = new URLSearchParams(window.location.search);
@@ -104,10 +106,10 @@ export default function Login() {
         {/* 手机号 */}
         <div className="flex gap-2">
           <Input
-            placeholder={t("手机号", locale)}
+            placeholder={phoneError ? t("请输入正确的11位手机号或邮箱地址", locale) : t("手机号", locale)}
             value={phone}
-            onChange={e => setPhone(e.target.value)}
-            className="flex-1"
+            onChange={e => { setPhone(e.target.value); setPhoneError(false); }}
+            className={`flex-1 ${phoneError ? "border-red-500 placeholder:text-red-400 focus-visible:ring-red-300" : ""}`}
           />
           <Button
             variant="outline"
@@ -120,9 +122,10 @@ export default function Login() {
         </div>
         {/* 验证码 */}
         <Input
-          placeholder={t("验证码", locale)}
+          placeholder={codeError ? t("请输入验证码", locale) : t("验证码", locale)}
           value={code}
-          onChange={e => setCode(e.target.value)}
+          onChange={e => { setCode(e.target.value); setCodeError(false); }}
+          className={codeError ? "border-red-500 placeholder:text-red-400 focus-visible:ring-red-300" : ""}
         />
         {/* Login Button */}
         <Button
@@ -131,9 +134,6 @@ export default function Login() {
         >
           {t("登录 / 注册", locale)}
         </Button>
-        {error && (
-          <p className="text-center text-xs text-red-500">{error}</p>
-        )}
         {tenant?.contact_info && (
           <p className="text-center text-xs text-gray-400">{tenant.contact_info}</p>
         )}
