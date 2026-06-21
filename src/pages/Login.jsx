@@ -11,6 +11,7 @@ export default function Login() {
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
   const [locale, setLocale] = useState(getLocale());
+  const [countdown, setCountdown] = useState(0);
 
   useEffect(() => {
     const handler = (e) => setLocale(e.detail?.locale || getLocale());
@@ -24,6 +25,17 @@ export default function Login() {
       if (ok) window.location.href = "/";
     });
   }, []);
+
+  const handleSendCode = () => {
+    if (countdown > 0) return;
+    setCountdown(30);
+    const timer = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) { clearInterval(timer); return 0; }
+        return prev - 1;
+      });
+    }, 1000);
+  };
 
   const handleLogin = () => {
     const params = new URLSearchParams(window.location.search);
@@ -88,9 +100,10 @@ export default function Login() {
           <Button
             variant="outline"
             className="shrink-0 text-red-600 border-red-200 hover:bg-red-50 text-xs px-3"
-            onClick={() => {}}
+            onClick={handleSendCode}
+            disabled={countdown > 0}
           >
-            {t("发送验证码", locale)}
+            {countdown > 0 ? `${countdown}s` : t("发送验证码", locale)}
           </Button>
         </div>
         {/* 验证码 */}
