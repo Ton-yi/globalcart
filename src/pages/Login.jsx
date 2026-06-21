@@ -12,6 +12,7 @@ export default function Login() {
   const [code, setCode] = useState("");
   const [locale, setLocale] = useState(getLocale());
   const [countdown, setCountdown] = useState(0);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const handler = (e) => setLocale(e.detail?.locale || getLocale());
@@ -38,6 +39,17 @@ export default function Login() {
   };
 
   const handleLogin = () => {
+    setError("");
+    const isPhone = /^\d{11}$/.test(phone.trim());
+    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(phone.trim());
+    if (!isPhone && !isEmail) {
+      setError(t("请输入正确的11位手机号或邮箱地址", locale));
+      return;
+    }
+    if (!code.trim()) {
+      setError(t("请输入验证码", locale));
+      return;
+    }
     const params = new URLSearchParams(window.location.search);
     const next = params.get('next');
     const returnUrl = next ? decodeURIComponent(next) : window.location.origin;
@@ -119,6 +131,9 @@ export default function Login() {
         >
           {t("登录 / 注册", locale)}
         </Button>
+        {error && (
+          <p className="text-center text-xs text-red-500">{error}</p>
+        )}
         {tenant?.contact_info && (
           <p className="text-center text-xs text-gray-400">{tenant.contact_info}</p>
         )}
