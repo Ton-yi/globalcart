@@ -11,9 +11,27 @@ export default function Login() {
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
   const [locale, setLocale] = useState(getLocale());
-  const [countdown, setCountdown] = useState(0);
   const [phoneError, setPhoneError] = useState(false);
   const [codeError, setCodeError] = useState(false);
+
+  // 从 localStorage 恢复倒计时
+  const getInitialCountdown = () => {
+    const until = parseInt(localStorage.getItem("login_code_until") || "0", 10);
+    const remaining = Math.ceil((until - Date.now()) / 1000);
+    return remaining > 0 ? remaining : 0;
+  };
+  const [countdown, setCountdown] = useState(getInitialCountdown);
+
+  useEffect(() => {
+    if (countdown <= 0) return;
+    const timer = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) { clearInterval(timer); return 0; }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [countdown > 0]);
 
   useEffect(() => {
     const handler = (e) => setLocale(e.detail?.locale || getLocale());
@@ -30,13 +48,8 @@ export default function Login() {
 
   const handleSendCode = () => {
     if (countdown > 0) return;
+    localStorage.setItem("login_code_until", String(Date.now() + 30000));
     setCountdown(30);
-    const timer = setInterval(() => {
-      setCountdown(prev => {
-        if (prev <= 1) { clearInterval(timer); return 0; }
-        return prev - 1;
-      });
-    }, 1000);
   };
 
   const handleLogin = () => {
