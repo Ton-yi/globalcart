@@ -48,6 +48,12 @@ export default function Login() {
 
   const handleSendCode = () => {
     if (countdown > 0) return;
+    const isPhone = /^\d{11}$/.test(phone.trim());
+    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(phone.trim());
+    if (!isPhone && !isEmail) {
+      setPhoneError(true);
+      return;
+    }
     localStorage.setItem("login_code_until", String(Date.now() + 30000));
     setCountdown(30);
   };
