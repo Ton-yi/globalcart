@@ -24,6 +24,7 @@ export const AuthProvider = ({ children }) => {
     setIsLoadingAuth(false);
     setIsLoadingPublicSettings(false);
     setIsAuthenticated(true);
+    setUser({ id: 'dev', full_name: 'Dev User', email: 'dev@test.com', role: 'admin', __dev_mock__: true });
   }, []);
 
   const checkAppState = async () => {
