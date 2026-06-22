@@ -5,6 +5,7 @@ import { Package, Truck, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { t, getLocale } from "@/lib/i18n";
+import { toast } from "sonner";
 
 export default function Login() {
   const { tenant } = useTenantBranding();
@@ -56,6 +57,7 @@ export default function Login() {
     }
     localStorage.setItem("login_code_until", String(Date.now() + 30000));
     setCountdown(30);
+    toast.success(t("验证码已发送到邮箱，请注意查收", locale));
   };
 
   const handleLogin = () => {
