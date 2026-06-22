@@ -19,7 +19,12 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     // Resolve tenant branding from subdomain in parallel with app state check
     resolveTenantBranding().then(b => setTenantBranding(b)).catch(() => setTenantBranding({ tenant: null }));
-    checkAppState();
+    // --- LOCAL DEV ONLY: skip checkAppState, uncomment below for production ---
+    // checkAppState();
+    setIsLoadingAuth(false);
+    setIsLoadingPublicSettings(false);
+    setIsAuthenticated(true);
+    setUser({ id: 'dev', full_name: 'Dev User', email: 'dev@test.com', role: 'admin' });
   }, []);
 
   const checkAppState = async () => {
