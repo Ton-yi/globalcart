@@ -23,6 +23,43 @@ import { t, getLocale } from "@/lib/i18n";
 // Default prepay rate fallback
 const DEFAULT_PREPAY_RATE = 0.80;
 
+// ─── DEV MOCK ───────────────────────────────────────────────────────────────
+const IS_DEV_MOCK = import.meta.env.DEV;
+
+const MOCK_PAGE_DATA = {
+  addons: [
+    { id: 'addon-1', name: '商品拍照', fee: 300, fee_currency: 'JPY', description: '入库时拍摄商品实物照片', is_user_customizable: false },
+    { id: 'addon-2', name: '代缴消费税', fee: 0, fee_currency: 'JPY', description: '代垫消费税金额（自定义）', is_user_customizable: true, min_fee: 100, max_fee: 50000 },
+  ],
+  rates: { jpy_cny: 0.049, jpy_usd: 0.0067, jpy_twd: 0.21 },
+  activeRule: {
+    id: 'rule-dev', name: '标准服务费 8%', mode: 'simple', simple_rate: 8, simple_fixed_fee: 0,
+    min_fee: 0, max_fee: 0, round_mode: 'round', round_unit: 1, version: 1,
+  },
+  settings: {
+    prepay_enabled: 'true',
+    prepay_rate: '80',
+    service_fee_rate: '8',
+    pre_shipment_enabled: 'true',
+    product_url_tips: '输入日本商城的商品链接，支持多个链接',
+  },
+};
+
+const MOCK_PAYMENT_METHODS = {
+  methods: [
+    { id: 'pm-1', name: '支付宝', provider_key: 'alipay', payment_currency: 'CNY', icon: '💰', color: 'bg-blue-100 text-blue-700', is_active: true, sort_order: 0, surcharge_rate: 0, surcharge_fixed_jpy: 0 },
+    { id: 'pm-2', name: '银行转账', provider_key: '', payment_currency: 'JPY', icon: '🏦', color: 'bg-gray-100 text-gray-700', is_active: true, sort_order: 1, surcharge_rate: 0, surcharge_fixed_jpy: 0 },
+  ],
+};
+
+const MOCK_SHIPPING_METHODS = {
+  methods: [
+    { id: 'sm-1', name: 'EMS', code: 'EMS', transit_days: '5-10个工作日', is_active: true },
+    { id: 'sm-2', name: 'SAL', code: 'SAL', transit_days: '2-3个月', is_active: true },
+  ],
+};
+// ────────────────────────────────────────────────────────────────────────────
+
 export default function SubmitOrder() {
   const navigate = useNavigate();
   const { user } = useCurrentUser();
@@ -60,9 +97,22 @@ export default function SubmitOrder() {
   const [shippingMethods, setShippingMethods] = useState([]);
 
   useEffect(() => {
-    const t = timePage('SubmitOrder');
+    if (IS_DEV_MOCK) {
+      const data = MOCK_PAGE_DATA;
+      setAddonOptions(data.addons);
+      setRates(data.rates);
+      setActiveRule(data.activeRule);
+      setSettings(data.settings);
+      setPaymentMode(data.settings.prepay_enabled !== 'false' ? "prepay" : "fullpay");
+      setUserCredit(null);
+      setPaymentMethods(MOCK_PAYMENT_METHODS.methods);
+      setShippingMethods(MOCK_SHIPPING_METHODS.methods);
+      return;
+    }
+
+    const timer = timePage('SubmitOrder');
     Promise.all([
-      t.timeCall('getSubmitOrderPageData', () => base44.functions.invoke('getSubmitOrderPageData', {})),
+      timer.timeCall('getSubmitOrderPageData', () => base44.functions.invoke('getSubmitOrderPageData', {})),
       base44.functions.invoke('manageCreditApplication', { action: 'get_user_credit' })
     ]).then(([r, creditR]) => {
       const data = r.data || {};
@@ -75,7 +125,7 @@ export default function SubmitOrder() {
       const prepayOn = parsed.prepay_enabled !== 'false';
       setPaymentMode(prepayOn ? "prepay" : "fullpay");
       setUserCredit(creditR.data || null);
-      t.done('data ready');
+      timer.done('data ready');
     }).catch(() => {});
     
     base44.functions.invoke('managePaymentMethod', { action: 'list' })
@@ -129,7 +179,9 @@ export default function SubmitOrder() {
         valueAddedServiceAmount: addonTotalJpy,
         paymentSurcharge: 0,
       };
-      const res = await base44.functions.invoke('serviceFeeRuleEngine', { action: 'evaluate', variables, rule: activeRule });
+      const res = IS_DEV_MOCK
+        ? { data: { fee: Math.round(variables.goodsAmount * (activeRule.simple_rate / 100)), steps: null } }
+        : await base44.functions.invoke('serviceFeeRuleEngine', { action: 'evaluate', variables, rule: activeRule });
       serviceFeeJpy = res.data?.fee ?? 0;
       feeRateDisplay = activeRule.name;
       feeSteps = res.data?.steps || null;
@@ -272,31 +324,33 @@ export default function SubmitOrder() {
     const selectedCurrency = selectedMethodObj?.payment_currency || "JPY";
     
     try {
-      const res = await base44.functions.invoke('createTenantOrder', {
-        ...form,
-        product_url: urlsText,
-        user_email: user.email,
-        user_name: user.full_name || user.email,
-        quantity: 1,
-        estimated_jpy: parseFloat(form.estimated_jpy) || 0,
-        service_fee_rate: parseFloat(settings.service_fee_rate) || 10,
-        service_fee_amount: calculated ? calculated.serviceFeeJpy : null,
-        service_fee_rule_id: activeRule?.id || null,
-        service_fee_rule_name: activeRule?.name || null,
-        service_fee_rule_version: activeRule?.version || null,
-        prepayment_amount: prepaymentAmount,
-        prepayment_currency: selectedCurrency, // 使用支付方式对应的货币
-        online_store_tag: tagResult.tag_label,
-        online_store_tag_color: tagResult.tag_color,
-        payment_method: paymentMethod, // 记录付款方式
-        payment_mode: isCredit ? "credit" : isDeferred ? "deferred" : (settings.prepay_enabled === 'false' ? "fullpay_once" : "prepay"),
-        credit_cycle: isCredit ? (paymentMode === "credit_weekly" ? "weekly" : "monthly") : null,
-        order_status: isCredit ? "paid" : "payment_pending",
-        payment_status: isCredit ? "paid" : "awaiting_payment",
-        user_note: form.user_note || "",
-        selected_addon_ids: selectedAddons,
-        selected_addons: selectedAddonObjects.map((a) => ({ id: a.id, name: a.name, fee: parseFloat(a.fee) || 0, fee_currency: a.fee_currency || "JPY" }))
-      });
+      const res = IS_DEV_MOCK
+        ? { data: { order: { id: 'dev-order-' + Date.now() } } }
+        : await base44.functions.invoke('createTenantOrder', {
+            ...form,
+            product_url: urlsText,
+            user_email: user.email,
+            user_name: user.full_name || user.email,
+            quantity: 1,
+            estimated_jpy: parseFloat(form.estimated_jpy) || 0,
+            service_fee_rate: parseFloat(settings.service_fee_rate) || 10,
+            service_fee_amount: calculated ? calculated.serviceFeeJpy : null,
+            service_fee_rule_id: activeRule?.id || null,
+            service_fee_rule_name: activeRule?.name || null,
+            service_fee_rule_version: activeRule?.version || null,
+            prepayment_amount: prepaymentAmount,
+            prepayment_currency: selectedCurrency,
+            online_store_tag: tagResult.tag_label,
+            online_store_tag_color: tagResult.tag_color,
+            payment_method: paymentMethod,
+            payment_mode: isCredit ? "credit" : isDeferred ? "deferred" : (settings.prepay_enabled === 'false' ? "fullpay_once" : "prepay"),
+            credit_cycle: isCredit ? (paymentMode === "credit_weekly" ? "weekly" : "monthly") : null,
+            order_status: isCredit ? "paid" : "payment_pending",
+            payment_status: isCredit ? "paid" : "awaiting_payment",
+            user_note: form.user_note || "",
+            selected_addon_ids: selectedAddons,
+            selected_addons: selectedAddonObjects.map((a) => ({ id: a.id, name: a.name, fee: parseFloat(a.fee) || 0, fee_currency: a.fee_currency || "JPY" }))
+          });
       
       const order = res.data?.order;
 
@@ -372,38 +426,40 @@ export default function SubmitOrder() {
     const selectedCurrencyForPre = selectedMethodObjForPre?.payment_currency || "JPY";
     
     try {
-      const res = await base44.functions.invoke('createTenantOrder', {
-        ...form,
-        product_url: urlsText,
-        user_email: user.email,
-        user_name: user.full_name || user.email,
-        quantity: 1,
-        estimated_jpy: parseFloat(form.estimated_jpy) || 0,
-        service_fee_rate: parseFloat(settings.service_fee_rate) || 10,
-        service_fee_amount: calculated ? calculated.serviceFeeJpy : null,
-        service_fee_rule_id: activeRule?.id || null,
-        service_fee_rule_name: activeRule?.name || null,
-        service_fee_rule_version: activeRule?.version || null,
-        prepayment_amount: prepaymentAmount,
-        prepayment_currency: selectedCurrencyForPre, // 使用支付方式对应的货币
-        payment_method: paymentMethod, // 记录付款方式
-        online_store_tag: tagResult.tag_label,
-        online_store_tag_color: tagResult.tag_color,
-        payment_mode: settings.prepay_enabled === 'false' ? "fullpay_once" : "prepay",
-        order_status: "payment_pending",
-        payment_status: "awaiting_payment",
-        user_note: form.user_note || "",
-        note_image_url: form.note_image_url || "",
-        selected_addon_ids: selectedAddons,
-        selected_addons: selectedAddons.map(id => {
-          const addon = addonOptions.find(a => a.id === id);
-          if (!addon) return null;
-          const customFee = addonCustomFees[id];
-          const isCustomizable = addon.is_user_customizable;
-          const fee = isCustomizable && customFee !== undefined ? customFee : parseFloat(addon.fee) || 0;
-          return { id: addon.id, name: addon.name, fee, fee_currency: addon.fee_currency || "JPY" };
-        }).filter(Boolean)
-      });
+      const res = IS_DEV_MOCK
+        ? { data: { order: { id: 'dev-order-pre-' + Date.now() } } }
+        : await base44.functions.invoke('createTenantOrder', {
+            ...form,
+            product_url: urlsText,
+            user_email: user.email,
+            user_name: user.full_name || user.email,
+            quantity: 1,
+            estimated_jpy: parseFloat(form.estimated_jpy) || 0,
+            service_fee_rate: parseFloat(settings.service_fee_rate) || 10,
+            service_fee_amount: calculated ? calculated.serviceFeeJpy : null,
+            service_fee_rule_id: activeRule?.id || null,
+            service_fee_rule_name: activeRule?.name || null,
+            service_fee_rule_version: activeRule?.version || null,
+            prepayment_amount: prepaymentAmount,
+            prepayment_currency: selectedCurrencyForPre,
+            payment_method: paymentMethod,
+            online_store_tag: tagResult.tag_label,
+            online_store_tag_color: tagResult.tag_color,
+            payment_mode: settings.prepay_enabled === 'false' ? "fullpay_once" : "prepay",
+            order_status: "payment_pending",
+            payment_status: "awaiting_payment",
+            user_note: form.user_note || "",
+            note_image_url: form.note_image_url || "",
+            selected_addon_ids: selectedAddons,
+            selected_addons: selectedAddons.map(id => {
+              const addon = addonOptions.find(a => a.id === id);
+              if (!addon) return null;
+              const customFee = addonCustomFees[id];
+              const isCustomizable = addon.is_user_customizable;
+              const fee = isCustomizable && customFee !== undefined ? customFee : parseFloat(addon.fee) || 0;
+              return { id: addon.id, name: addon.name, fee, fee_currency: addon.fee_currency || "JPY" };
+            }).filter(Boolean)
+          });
       setSubmitting(false);
       
       if (res.data?.error) {
