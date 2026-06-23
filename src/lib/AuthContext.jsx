@@ -18,13 +18,44 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     // Resolve tenant branding from subdomain in parallel with app state check
-    resolveTenantBranding().then(b => setTenantBranding(b)).catch(() => setTenantBranding({ tenant: null }));
+    // Skip in dev mock mode (will be set below)
+    const isDev = !window.location.hostname.includes('.') || window.location.hostname === 'localhost';
+    if (!isDev) {
+      resolveTenantBranding().then(b => setTenantBranding(b)).catch(() => setTenantBranding({ tenant: null }));
+    }
     // --- LOCAL DEV ONLY: skip checkAppState, uncomment below for production ---
     // checkAppState();
     setIsLoadingAuth(false);
     setIsLoadingPublicSettings(false);
     setIsAuthenticated(true);
-    setUser({ id: 'dev', full_name: 'Dev User', email: 'dev@test.com', role: 'admin', __dev_mock__: true });
+    setUser({ id: 'dev', full_name: '周防桃子', email: 'dev@test.com', role: 'admin', __dev_mock__: true });
+    // Mock full admin permissions so all UI sections render
+    setPermissions([
+      'order:submit_purchase_request', 'order:submit_split_request', 'order:update', 'order:read',
+      'addon:select_order_value_added_services',
+      'payment:pre_pay', 'payment:pay_full_amount', 'payment:deferred_pay', 'payment:apply_credit',
+      'shipping_pool:update', 'shipping:view_transit_panel',
+      'user:read', 'view:admin_dashboard', 'view:order_management_page', 'view:user_management_page',
+      'view:announcement_management_page', 'view:my_orders_module',
+      'admin_settings:manage_backend_settings',
+    ]);
+    setAssignedRoles([]);
+    setTenantBranding({
+      tenant: {
+        id: 'dev-tenant',
+        name: '同一物流（开发）',
+        branding_name: '同一物流',
+        theme_color: '#dc2626',
+        logo_url: '',
+        favicon_url: '',
+        login_title: '欢迎登录',
+        login_subtitle: '日本代购 · 国际物流',
+        contact_info: '联系客服：service@example.com',
+        timezone: 'Asia/Tokyo',
+        is_active: true,
+        allowed_features: ['credit_module', 'consolidation', 'transit_shipping', 'ticket_orders', 'group_buy'],
+      }
+    });
   }, []);
 
   const checkAppState = async () => {
