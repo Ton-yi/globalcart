@@ -67,6 +67,8 @@ export default function ShippingPool() {
   const [loading, setLoading] = useState(true);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [activeTab, setActiveTab] = useState("pools");
+  const [total, setTotal] = useState(0);
+  const [poolsCount, setPoolsCount] = useState({ pools: 0, consolidation: 0, officialKanban: 0 });
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedPool, setSelectedPool] = useState(null);
   const [showArchivedPools, setShowArchivedPools] = useState(false);
@@ -116,51 +118,64 @@ export default function ShippingPool() {
 
   const f = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
-  const fetchData = async (_u) => {
+  const fetchData = async () => {
     setLoading(true);
     const t = timePage('ShippingPool');
-    const [allPools, myOrders, editReqs, usersRes] = await Promise.all([
-    t.timeCall('getTenantShippingPools', () => fetchShippingPools()),
-    t.timeCall('getTenantOrders', () => base44.functions.invoke('getTenantOrders', {}).then((r) => r.data?.orders || [])),
-    base44.functions.invoke('getMyShippingEditRequests', {}).then((r) => r.data?.requests || []).catch(() => []),
-    base44.functions.invoke('getTenantUsers', {}).then((r) => r.data?.users || []).catch(() => [])]
-    );
-    // Build userProfileMap from users list
-    const profileMap = {};
-    (usersRes || []).forEach((u) => {profileMap[u.email] = u;});
-    setUserProfileMap(profileMap);
-    setPools(allPools);
-    setLocalPools(null); // Clear local overrides on full refresh
+    const r = await shippingPoolApi.page(null, {
+      page: poolPage,
+      page_size: poolPageSize,
+      status: statusFilter,
+      show_archived: showArchivedPools,
+      tab: activeTab,
+    });
+    const data = r?.data || r || {};
+
+    setPools(data.pools || []);
+    setTotal(data.total || 0);
+    setPoolsCount(data.poolsCount || {});
+    setLocalPools(null);
     setHasUnsavedChanges(false);
+
+    // 后端补充的数据
+    const myOrders = data.orders || [];
+    const editReqs = data.pendingEditRequests || [];
+    const usersRes = data.users || [];
+
     setAllOrders(myOrders);
     setPendingEditRequests(editReqs.filter((r) => r.status === 'pending'));
 
-    const consPools = allPools.filter((p) => p.consolidation_type && p.consolidation_type !== "");
+    // Build userProfileMap from users list
+    const profileMap = {};
+    (usersRes || []).forEach((u) => { profileMap[u.email] = u; });
+    setUserProfileMap(profileMap);
+
+    // 计算 consolidationOrders
+    const consPools = (data.pools || []).filter((p) => p.consolidation_type && p.consolidation_type !== "");
     const consOrderIds = new Set(consPools.flatMap((p) => p.order_ids || []));
     setConsolidationOrders(myOrders.filter((o) => o.order_status === "notified_shipment" && consOrderIds.has(o.id)));
+
     setLoading(false);
     t.done('data ready');
   };
 
   // Fetch transit locations where user is the manager
-  useEffect(() => {
-    if (!user?.email) return;
-    base44.entities.TransitLocation.filter({ manager_email: user.email, is_active: true })
-      .then(locations => setUserTransitLocations(locations))
-      .catch(() => {});
-  }, [user?.email]);
+  // useEffect(() => {
+  //   if (!user?.email) return;
+  //   base44.entities.TransitLocation.filter({ manager_email: user.email, is_active: true })
+  //     .then(locations => setUserTransitLocations(locations))
+  //     .catch(() => {});
+  // }, [user?.email]);
 
   useEffect(() => {
-    if (user) {
-      fetchData(user);
-      // Pre-load transit methods so the detail modal has them available
-      fetchTenantConfig().then((cfg) => {
-        setTransitShippingMethods((cfg.transitMethods || []).filter((m) => m.is_active !== false));
-        setShippingAddons((cfg.addons || []).filter((a) => a.addon_type === "shipping" && a.is_active !== false));
-        setShippingMethods((cfg.shippingMethods || []).filter((m) => m.is_active !== false));
-      }).catch(() => {});
-    }
-  }, [user]);
+    if (!user) return;
+    fetchData();
+    // Pre-load transit methods so the detail modal has them available
+    fetchTenantConfig().then((cfg) => {
+      setTransitShippingMethods((cfg.transitMethods || []).filter((m) => m.is_active !== false));
+      setShippingAddons((cfg.addons || []).filter((a) => a.addon_type === "shipping" && a.is_active !== false));
+      setShippingMethods((cfg.shippingMethods || []).filter((m) => m.is_active !== false));
+    }).catch(() => {});
+  }, [user, poolPage, poolPageSize, statusFilter, showArchivedPools, activeTab]);
 
   // Open inline create form
   const handleOpenCreate = async () => {
@@ -414,12 +429,12 @@ export default function ShippingPool() {
 
     setSubmitting(false);
     handleCloseCreate();
-    fetchData(user);
+    fetchData();
   };
 
   const handleArchivePool = async (pool) => {
     await shippingPoolApi.update(pool.id, { is_archived: true, archived_at: new Date().toISOString() });
-    fetchData(user);
+    fetchData();
   };
 
   const isAdmin = user?.role === "admin" || user?.role === "platform_admin" || user?.role === "tenant_admin" || user?.role === "staff";
@@ -474,7 +489,7 @@ export default function ShippingPool() {
           <Button variant="outline" size="sm" onClick={() => setShowArchivedPools((v) => !v)}>
             {showArchivedPools ? <><ArchiveRestore className="w-3.5 h-3.5 mr-1.5" />返回发货列表</> : <><Archive className="w-3.5 h-3.5 mr-1.5" />查看已存档</>}
           </Button>
-          <Button variant="outline" size="sm" onClick={() => user && fetchData(user)}>
+          <Button variant="outline" size="sm" onClick={() => user && fetchData()}>
             <RefreshCw className="w-3.5 h-3.5 mr-1.5" />刷新
           </Button>
           {!showCreate && !showArchivedPools && canNotifyShipment &&
@@ -1005,7 +1020,7 @@ export default function ShippingPool() {
         return (
           <div className="flex gap-1 border-b border-gray-200">
             {visibleTabs.map((tab) =>
-            <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+            <button key={tab.key} onClick={() => { setActiveTab(tab.key); resetPoolPage(); }}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${activeTab === tab.key ? "border-red-600 text-red-600" : "border-transparent text-gray-500 hover:text-gray-800"}`}>
                 {tab.label}
                 {tab.key === "pools" && <span className="ml-1.5 text-xs bg-gray-100 text-gray-500 rounded px-1.5 py-0.5">{directPools.length}</span>}
@@ -1287,7 +1302,7 @@ export default function ShippingPool() {
                 await Promise.all(orderUpdates);
                 setLocalPools(null);
                 setHasUnsavedChanges(false);
-                fetchData(user);
+                fetchData();
               } catch (e) {
                 console.error('Save failed:', e);
               } finally {
@@ -1309,7 +1324,7 @@ export default function ShippingPool() {
           currentUser={user}
           isAdmin={isAdmin}
           onPoolClick={setSelectedPool}
-          onRefresh={() => fetchData(user)}
+          onRefresh={() => fetchData()}
           onLocalUpdate={(updatedPool) => {
             setLocalPools((prev) => {
               // If first update, initialize with all pools from current displayed state
@@ -1338,7 +1353,7 @@ export default function ShippingPool() {
         availableAddons={shippingAddons}
         transitShippingMethods={transitShippingMethods}
         onClose={() => setSelectedPool(null)}
-        onUpdated={() => {setSelectedPool(null);fetchData(user);}} />
+        onUpdated={() => {setSelectedPool(null);fetchData();}} />
 
       }
     </div>);
