@@ -464,7 +464,7 @@ export default function AdminOrders() {
   const handleOpenPool = async (pool) => {
     const isOfficialPool = pool.is_admin_created === true;
     if (isOfficialPool) {
-      window.location.href = '/AdminShippingPool?view=official';
+      window.location.href = '/ShippingPool?view=official';
       return;
     }
     setSelectedPool(pool);
@@ -970,7 +970,7 @@ export default function AdminOrders() {
             if (!poolId) return;
             
             if (isOfficialPool) {
-              window.location.href = '/AdminShippingPool?view=official';
+              window.location.href = '/ShippingPool?view=official';
               return;
             }
                         

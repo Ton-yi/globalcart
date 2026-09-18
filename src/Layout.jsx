@@ -144,7 +144,7 @@ export default function Layout({ children, currentPageName }) {
         access: {
           AdminDashboard: canAccessAdminDashboard,
           AdminOrders: canAccessAdminOrders,
-          AdminShippingPool: canAccessAdminShippingPool,
+          ShippingPool: canAccessAdminShippingPool,
           AdminTransitWork: canAccessTransitWork,
           AdminUsers: canAccessAdminUsers,
           AdminSettings: canAccessAdminSettings,
@@ -163,7 +163,7 @@ export default function Layout({ children, currentPageName }) {
     }
 
     return buildNav(mergeNavTree(navbarSettings?.user_nav, "user"), "user", {
-      access: { MyOrders: canViewMyOrders, ShippingPool: !canAccessAdminShippingPool },
+      access: { MyOrders: canViewMyOrders, ShippingPool: true },
       labelOverrides: { ShippingPool: isTransitManager ? t("发货池", locale) : t("发货 & 拼邮", locale) },
       locale,
     });

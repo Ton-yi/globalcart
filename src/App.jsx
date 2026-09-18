@@ -55,7 +55,6 @@ import TermsOfService from '@/pages/TermsOfService';
 import PrivacyPolicy from '@/pages/PrivacyPolicy';
 import ConsolidationPool from '@/pages/ConsolidationPool';
 import ShippingPool from '@/pages/ShippingPool.jsx';
-import AdminShippingPool from '@/pages/AdminShippingPool.jsx';
 
 // 初始化订单控制器注册中心
 import '@/components/orders/controllers';
@@ -92,6 +91,13 @@ const HelpCenterFaqOldRedirect = () => {
   const { locale } = useParams();
   const location = useLocation();
   return <Navigate to={`/${locale}/helpcenter/faq${location.search}`} replace />;
+};
+
+// /{locale}/AdminShippingPool (old) → /:locale/ShippingPool
+const AdminShippingPoolRedirect = () => {
+  const { locale } = useParams();
+  const location = useLocation();
+  return <Navigate to={`/${locale}/ShippingPool${location.search}`} replace />;
 };
 
 const AuthenticatedApp = () => {
@@ -181,7 +187,7 @@ const AuthenticatedApp = () => {
         <Route path="/:locale/PrivacyPolicy" element={<LayoutWrapper currentPageName="PrivacyPolicy"><PrivacyPolicy /></LayoutWrapper>} />
         <Route path="/:locale/ConsolidationPool" element={<LayoutWrapper currentPageName="ConsolidationPool"><ConsolidationPool /></LayoutWrapper>} />
         <Route path="/:locale/ShippingPool" element={<LayoutWrapper currentPageName="ShippingPool"><ShippingPool /></LayoutWrapper>} />
-        <Route path="/:locale/AdminShippingPool" element={<LayoutWrapper currentPageName="AdminShippingPool"><AdminShippingPool /></LayoutWrapper>} />
+        <Route path="/:locale/AdminShippingPool" element={<AdminShippingPoolRedirect />} />
         <Route path="/:locale/PreShipmentForm" element={<LayoutWrapper currentPageName="PreShipmentForm"><PreShipmentForm /></LayoutWrapper>} />
       </Route>
 

@@ -41,7 +41,7 @@ const ALL_PAGES = [
   { key: "AdminDashboard", label: "管理看板" },
   { key: "AdminOrders", label: "订单管理" },
   { key: "AdminShipping", label: "发货管理" },
-  { key: "AdminShippingPool", label: "发货池管理" },
+  { key: "ShippingPool", label: "发货池管理" },
   { key: "AdminUsers", label: "用户管理" },
   { key: "AdminAnnouncements", label: "公告管理" },
   { key: "AdminSettings", label: "后台设置" },

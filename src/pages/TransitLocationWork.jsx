@@ -185,7 +185,7 @@ export default function TransitLocationWork() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => navigate("/AdminShippingPool")}>
+          <Button variant="ghost" size="sm" onClick={() => navigate("/ShippingPool")}>
             ← 返回
           </Button>
           <div>

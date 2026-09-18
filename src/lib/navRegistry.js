@@ -30,7 +30,7 @@ export const NAV_REGISTRY = {
     AdminDashboard: { label: "管理总览", icon: BarChart3, page: "AdminDashboard" },
     AdminOrders: { label: "订单管理", icon: Package, page: "AdminOrders" },
     AdminOrdersTicket: { label: "票务订单", icon: Ticket, page: "AdminOrders?tab=ticket" },
-    AdminShippingPool: { label: "发货池", icon: Send, page: "AdminShippingPool" },
+    ShippingPool: { label: "发货池", icon: Send, page: "ShippingPool" },
     AdminTransitWork: { label: "中转地工作面板", icon: Layers, page: "AdminTransitWork" },
     AdminUsers: { label: "用户管理", icon: Users, page: "AdminUsers" },
     AdminSettings: { label: "网站设置", icon: Settings, page: "AdminSettings" },
@@ -72,7 +72,7 @@ export const DEFAULT_NAV_TREES = {
     { key: "ExchangeRate", hidden: true },
     { key: "AdminDashboard" },
     { key: "AdminOrders", children: [{ key: "AdminOrdersTicket" }] },
-    { key: "AdminShippingPool", children: [{ key: "AdminTransitWork" }] },
+    { key: "ShippingPool", children: [{ key: "AdminTransitWork" }] },
     { key: "AdminUsers" },
     { key: "AdminSettings", children: [
       { key: "AdminAnnouncements" },

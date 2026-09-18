@@ -1164,7 +1164,7 @@ export default function MyOrders() {
         open={!!deliverTargetOrder}
         onOpenChange={open => { if (!open) setDeliverTargetOrder(null); }}
         title="确认收货"
-        description="是否确认收货？确认后订单状态将变为已签收。"
+        description="是否确认收货？确认后订单状态将变为 已收货。"
         confirmText="是"
         onConfirm={() => { handleConfirmDelivered(deliverTargetOrder); setDeliverTargetOrder(null); }}
       />

@@ -1,1361 +1,731 @@
 /**
- * ShippingPool - 合并"发货申请"和"拼邮池"的用户页面
- * 创建表单为页面内嵌展开，不弹窗
+ * ShippingPool - 发货池管理
+ * Shows all shipping pools + transit location management
  */
 import { useState, useEffect } from "react";
 import { usePageSize } from "@/hooks/usePageSize";
 import PaginationBar from "@/components/common/PaginationBar";
 import { base44 } from "@/api/base44Client";
-import { fetchShippingPools, tenantEntity, fetchTenantConfig, shippingPoolApi } from "@/lib/tenantApi";
+import { tenantEntity } from "@/lib/tenantApi";
 import { timePage } from "@/lib/timing";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { usePermissions } from "@/hooks/usePermissions";
-import { Plus, RefreshCw, Truck, X, Package, MapPin, ChevronRight, ChevronLeft, Check, Scale, Calendar, Info, Layers, Lock, Users, Search, PlusCircle, Archive, ArchiveRestore, CreditCard, CheckCircle2, LogIn } from "lucide-react";
+import { Plus, RefreshCw, Truck, MapPin, Edit2, Trash2, Check, X as XIcon, AlertCircle, Layers, Archive, ArchiveRestore, Settings2, LogIn } from "lucide-react";
 import { getCountry } from "@/lib/countries";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import AddressForm, { EMPTY_ADDRESS_FORM, serializeAddressToText, isAddressFormValid } from "@/components/common/AddressForm";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import CountrySelect from "@/components/common/CountrySelect";
 import ShippingPoolCard from "@/components/shippingpool/ShippingPoolCard";
 import ShippingPoolDetailModal from "@/components/shippingpool/ShippingPoolDetailModal";
+import CreateShippingPoolModal from "@/components/shippingpool/CreateShippingPoolModal";
 import OfficialPoolKanban from "@/components/shippingpool/OfficialPoolKanban.jsx";
-
-const SHIPPING_METHODS = [
-{ value: "EMS", label: "EMS空运" },
-{ value: "surface", label: "海运" },
-{ value: "small_packet_air", label: "小型包装物空运" }];
-
+import { shippingPoolApi } from "@/lib/tenantApi";
+import { toast } from "sonner";
 
 const STATUS_FILTERS = [
-{ v: "all", l: "全部" },
-{ v: "pending", l: "待处理" },
-{ v: "awaiting_payment", l: "待付款" },
-{ v: "ready_to_ship", l: "待发货" },
-{ v: "shipped", l: "已发货" },
-{ v: "delivered", l: "已签收" }];
+  { v: "all",              l: "全部状态" },
+  { v: "pending",          l: "待处理" },
+  { v: "awaiting_payment", l: "待付款" },
+  { v: "ready_to_ship",    l: "待发货" },
+  { v: "shipped",          l: "已发货" },
+  { v: "delivered",        l: "已签收" },
+];
 
-
-const ALL_TABS = [
-{ key: "pools", label: "发货申请" },
-{ key: "consolidation", label: "用户拼邮", permKey: "consolidation" },
-{ key: "official_kanban", label: "官方拼邮看板", permKey: "official_kanban" }];
-
-
-const METHOD_LABELS = {
-  EMS: "EMS", surface: "海运", small_packet_air: "小型包装物空运"
-};
+const TABS = [
+  { key: "pools", label: "发货申请" },
+  { key: "consolidation", label: "用户拼邮" },
+  { key: "official_kanban", label: "官方拼邮看板" },
+  { key: "locations", label: "中转地管理" },
+];
 
 export default function ShippingPool() {
   const { user } = useCurrentUser();
-  const { can } = usePermissions();
-  const canNotifyShipment = can("shipping:notify_shipment");
-  const canDirectShipment = can("shipping:direct_shipment");
-  const canConsolidateTransit = can("shipping:consolidate_to_transit");
-  const canConsolidateOther = can("shipping:consolidate_to_other_address");
-  const canViewOtherConsolidation = can("view:other_user_consolidation_pool");
-  const canViewOfficialKanban = can("view:official_consolidation_kanban");
-  const canSelectShippingAddons = can("addon:select_shipping_value_added_services");
+  const { can, isAdmin } = usePermissions();
+  const canManageTransitLocations = isAdmin || can("shipping:manage_transit_locations");
 
-  const [pools, setPools] = useState([]);
-  const [localPools, setLocalPools] = useState(null); // Local optimistic updates for official kanban
-  const [consolidationOrders, setConsolidationOrders] = useState([]);
-  const [pendingEditRequests, setPendingEditRequests] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [activeTab, setActiveTab] = useState("pools");
-  const [total, setTotal] = useState(0);
-  const [poolsCount, setPoolsCount] = useState({ pools: 0, consolidation: 0, officialKanban: 0 });
+  const [pools, setPools] = useState([]);
+  const [locations, setLocations] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedPool, setSelectedPool] = useState(null);
-  const [showArchivedPools, setShowArchivedPools] = useState(false);
-  const [userTransitLocations, setUserTransitLocations] = useState([]);
-
-  // Inline create form state
   const [showCreate, setShowCreate] = useState(false);
-  const [createStep, setCreateStep] = useState(1);
-  const [availableOrders, setAvailableOrders] = useState([]);
-  const [selectedOrderIds, setSelectedOrderIds] = useState([]);
-  const [savedAddresses, setSavedAddresses] = useState([]);
-  const [selectedAddressId, setSelectedAddressId] = useState("");
-  const [useNewAddress, setUseNewAddress] = useState(false);
-  const [saveAddress, setSaveAddress] = useState(false);
-  const [newAddress, setNewAddress] = useState({ label: "", ...EMPTY_ADDRESS_FORM });
-  const [transitLocations, setTransitLocations] = useState([]);
-  const [submitting, setSubmitting] = useState(false);
-  const [formLoading, setFormLoading] = useState(false);
-  const [form, setForm] = useState({
-    shipping_method: "", scheduled_ship_date: "", transit_location_id: "", user_note: ""
-  });
-  // consolidation type: "" = none, "transit" = to transit location, "other" = to saved address
-  const [consType, setConsType] = useState("");
-  // Final address for transit consolidation (new address mode)
-  const [transitFinalAddressId, setTransitFinalAddressId] = useState("");
-  const [transitUseNewAddress, setTransitUseNewAddress] = useState(false);
-  const [transitNewAddress, setTransitNewAddress] = useState({ label: "", ...EMPTY_ADDRESS_FORM });
-  const [transitSaveAddress, setTransitSaveAddress] = useState(false);
-  // Privacy
-  const [isPrivate, setIsPrivate] = useState(false);
-  const [sharedWithEmails, setSharedWithEmails] = useState([]);
+  const [showArchived, setShowArchived] = useState(false);
+  const [showPoolSorter, setShowPoolSorter] = useState(false);
+  const [total, setTotal] = useState(0);
+
+  // Location form
+  const [showLocForm, setShowLocForm] = useState(false);
+  const [editingLoc, setEditingLoc] = useState(null);
+  const [locForm, setLocForm] = useState({ name: "", code_prefix: "", country: "", province: "", address: "", handling_fee: 0, handling_fee_currency: "JPY", manager_email: "", manager_contact: "", allow_storage: false, allow_pickup: false, description: "", is_active: true, is_default_official_pool: false, disabled_transit_method_ids: [], disabled_addon_ids: [] });
+  const [savingLoc, setSavingLoc] = useState(false);
   const [allUsers, setAllUsers] = useState([]);
-  const [userSearchQuery, setUserSearchQuery] = useState("");
-  const [strategyOpen, setStrategyOpen] = useState(false);
-  const [strategy, setStrategy] = useState({ deadline: "", min_weight_g: "2000", timeout_action: "ship_individually" });
-  const [shippingAddons, setShippingAddons] = useState([]);
-  const [selectedAddonIds, setSelectedAddonIds] = useState([]);
-  const [addonCustomFees, setAddonCustomFees] = useState({});
-  const [addonFeeErrors, setAddonFeeErrors] = useState({});
-  const [transitShippingMethods, setTransitShippingMethods] = useState([]);
-  const [selectedTransitMethodId, setSelectedTransitMethodId] = useState("");
-  const [userProfileMap, setUserProfileMap] = useState({});
-  const [allOrders, setAllOrders] = useState([]);
+  const [transitMethods, setTransitMethods] = useState([]);
+  const [addonOptions, setAddonOptions] = useState([]);
+  const [pendingEditRequests, setPendingEditRequests] = useState([]);
+  const [boxTemplates, setBoxTemplates] = useState([]);
   const [shippingMethods, setShippingMethods] = useState([]);
-  const [methodError, setMethodError] = useState(null);
-  const { pageSize: poolPageSize, setPageSize: setPoolPageSize, currentPage: poolPage, setCurrentPage: setPoolPage, resetPage: resetPoolPage, PAGE_SIZES } = usePageSize("user_shipping_pool_page_size", 20);
+  const [defaultPackingFeeSingle, setDefaultPackingFeeSingle] = useState(0);
+  const [defaultPackingFeeConsolidation, setDefaultPackingFeeConsolidation] = useState(0);
+  const [allowReadyToShipWithoutPayment, setAllowReadyToShipWithoutPayment] = useState(false);
+  const [allowShipWithoutPaymentSingle, setAllowShipWithoutPaymentSingle] = useState(false);
+  const [allowShipWithoutPaymentUserPool, setAllowShipWithoutPaymentUserPool] = useState(false);
+  const [allowShipWithoutPaymentOfficialPool, setAllowShipWithoutPaymentOfficialPool] = useState(false);
+  const [fullpayOnceToleranceJpy, setFullpayOnceToleranceJpy] = useState(500);
+  const [transitHandlingFeeSplit, setTransitHandlingFeeSplit] = useState(false);
+  const [allOrders, setAllOrders] = useState([]);
+  const { pageSize: poolPageSize, setPageSize: setPoolPageSize, currentPage: poolPage, setCurrentPage: setPoolPage, resetPage: resetPoolPage, PAGE_SIZES } = usePageSize("admin_shipping_pool_page_size", 20);
 
-  const f = (k, v) => setForm((p) => ({ ...p, [k]: v }));
+  const [poolsCount, setPoolsCount] = useState(0);
+  const [totalConsolidation, setTotalConsolidationCount] = useState(0);
+  const [totalLocations, setTotalLocationsCount] = useState(0);
+  const [totalOfficial, setTotalOfficialCount] = useState(0);
 
-  const fetchData = async () => {
+  const fetchPageData = async () => {
     setLoading(true);
     const t = timePage('ShippingPool');
-    const r = await shippingPoolApi.page(null, {
-      page: poolPage,
-      page_size: poolPageSize,
-      status: statusFilter,
-      show_archived: showArchivedPools,
-      tab: activeTab,
-    });
-    const data = r?.data || r || {};
-
+    const r = await fetchPools();
+    
+    const data = r || {};
+    const poolsCount = data?.poolsCount;
     setPools(data.pools || []);
-    setTotal(data.total || 0);
-    setPoolsCount(data.poolsCount || {});
-    setLocalPools(null);
-    setHasUnsavedChanges(false);
 
-    // 后端补充的数据
-    const myOrders = data.orders || [];
-    const editReqs = data.pendingEditRequests || [];
-    const usersRes = data.users || [];
+    setTotal(data?.total)
+    setPoolsCount(poolsCount?.pools || 0);
+    setTotalConsolidationCount(poolsCount?.consolidation)
+    setTotalLocationsCount(poolsCount?.locations)
+    setTotalOfficialCount(poolsCount?.officialKanban)
 
-    setAllOrders(myOrders);
-    setPendingEditRequests(editReqs.filter((r) => r.status === 'pending'));
-
-    // Build userProfileMap from users list
-    const profileMap = {};
-    (usersRes || []).forEach((u) => { profileMap[u.email] = u; });
-    setUserProfileMap(profileMap);
-
-    // 计算 consolidationOrders
-    const consPools = (data.pools || []).filter((p) => p.consolidation_type && p.consolidation_type !== "");
-    const consOrderIds = new Set(consPools.flatMap((p) => p.order_ids || []));
-    setConsolidationOrders(myOrders.filter((o) => o.order_status === "notified_shipment" && consOrderIds.has(o.id)));
-
+    setLocations(data.locations || []);
+    setAllUsers(data.users || []);
+    setTransitMethods(data.transit_methods || []);
+    setAddonOptions(data.selected_addons || []);
+    setPendingEditRequests(data.pendingEditRequests || []);
+    setBoxTemplates(data.box_templates || []);
+    setShippingMethods(data.shipping_methods || []);
+    setDefaultPackingFeeSingle(data.defaultPackingFeeSingle || 0);
+    setDefaultPackingFeeConsolidation(data.defaultPackingFeeConsolidation || 0);
+    setAllowReadyToShipWithoutPayment(data.allowShipWithoutPayment || false);
+    setAllowShipWithoutPaymentSingle(data.allowShipWithoutPaymentSingle || false);
+    setAllowShipWithoutPaymentUserPool(data.allowShipWithoutPaymentUserPool || false);
+    setAllowShipWithoutPaymentOfficialPool(data.allowShipWithoutPaymentOfficialPool || false);
+    setFullpayOnceToleranceJpy(data.fullpayOnceToleranceJpy ?? 500);
+    setTransitHandlingFeeSplit(data.transitHandlingFeeSplit || false);
+    setAllOrders(data.orders || []);
     setLoading(false);
     t.done('data ready');
   };
 
-  // Fetch transit locations where user is the manager
-  // useEffect(() => {
-  //   if (!user?.email) return;
-  //   base44.entities.TransitLocation.filter({ manager_email: user.email, is_active: true })
-  //     .then(locations => setUserTransitLocations(locations))
-  //     .catch(() => {});
-  // }, [user?.email]);
+  // fetchPools is still used for post-mutation refresh (pools only)
+  const fetchPools = async () => {
+    setLoading(true);
+    const r = await shippingPoolApi.page(null, {
+      page: poolPage,
+      page_size: poolPageSize,
+      status: statusFilter,
+      show_archived: showArchived,
+      tab: activeTab,
+    });
+    
+    setLoading(false);
+    return r;
+  };
+
+  const fetchLocations = async () => {
+    const data = await tenantEntity.list('TransitLocation');
+    setLocations(data);
+  };
 
   useEffect(() => {
     if (!user) return;
-    fetchData();
-    // Pre-load transit methods so the detail modal has them available
-    fetchTenantConfig().then((cfg) => {
-      setTransitShippingMethods((cfg.transitMethods || []).filter((m) => m.is_active !== false));
-      setShippingAddons((cfg.addons || []).filter((a) => a.addon_type === "shipping" && a.is_active !== false));
-      setShippingMethods((cfg.shippingMethods || []).filter((m) => m.is_active !== false));
-    }).catch(() => {});
-  }, [user, poolPage, poolPageSize, statusFilter, showArchivedPools, activeTab]);
+    fetchPageData();
+  }, [user, poolPage, poolPageSize, statusFilter, showArchived, activeTab]);
 
-  // Open inline create form
-  const handleOpenCreate = async () => {
-    setShowCreate(true);
-    setCreateStep(1);
-    setSelectedOrderIds([]);
-    setForm({ shipping_method: "", scheduled_ship_date: "", transit_location_id: "", user_note: "" });
-    setConsType("");
-    setNewAddress({ label: "", ...EMPTY_ADDRESS_FORM });
-    setSaveAddress(false);
-    setTransitFinalAddressId("");
-    setTransitUseNewAddress(false);
-    setTransitNewAddress({ label: "", ...EMPTY_ADDRESS_FORM });
-    setTransitSaveAddress(false);
-    setIsPrivate(false);
-    setSharedWithEmails([]);
-    setUserSearchQuery("");
-    setStrategy({ deadline: "", min_weight_g: "2000", timeout_action: "ship_individually" });
-    setShippingAddons([]);
-    setSelectedAddonIds([]);
-    setAddonCustomFees({});
-    setAddonFeeErrors({});
-    setTransitShippingMethods([]);
-    setSelectedTransitMethodId("");
-    setFormLoading(true);
-    const [configData, prefs, usersRes, inWarehouseOrders] = await Promise.all([
-    fetchTenantConfig(),
-    tenantEntity.list('UserPreference', { user_email: user.email }).catch(() => []),
-    base44.functions.invoke("listTenantUsers", {}).catch(() => ({ data: { users: [] } })),
-    base44.functions.invoke('getTenantOrders', {}).
-    then((r) => (r.data?.orders || []).filter((o) => o.order_status === "in_warehouse")).
-    catch(() => [])]
-    );
-    setAvailableOrders(inWarehouseOrders);
-    setTransitLocations((configData.transitLocations || []).filter((l) => l.is_active !== false));
-    setTransitShippingMethods((configData.transitMethods || []).filter((m) => m.is_active !== false));
-    setShippingAddons((configData.addons || []).filter((a) => a.addon_type === "shipping" && a.is_active !== false));
-    setShippingMethods((configData.shippingMethods || []).filter((m) => m.is_active !== false));
-    setAllUsers(usersRes?.data?.users || []);
-    const pref = prefs[0];
-    const addrs = (pref?.saved_addresses || []).map((a) => ({ ...EMPTY_ADDRESS_FORM, ...a }));
-    setSavedAddresses(addrs);
-    const defaultId = pref?.default_address_id || "";
-    const defaultAddr = addrs.find((a) => a.id === defaultId) || addrs[0];
-    if (defaultAddr) {
-      setSelectedAddressId(defaultAddr.id);
-      setUseNewAddress(false);
-      // Pre-fill newAddress with country from default address, so CountrySelect shows value if user switches to new address
-      setNewAddress(p => ({ ...p, country: defaultAddr.country || "" }));
-      setTransitNewAddress(p => ({ ...p, country: defaultAddr.country || "" }));
-    } else {
-      setUseNewAddress(true);
-      setSelectedAddressId("");
-    }
-    // Auto-fill shipping method from user preference
-    if (pref?.preferred_shipping) {
-      f("shipping_method", pref.preferred_shipping);
-    }
-    // Auto-fill transit final address from preference
-    if (pref?.default_address_id && addrs.find(a => a.id === pref.default_address_id)) {
-      setTransitFinalAddressId(pref.default_address_id);
-    } else if (defaultAddr) {
-      setTransitFinalAddressId(defaultAddr.id);
-    }
-    setFormLoading(false);
-  };
-
-  const handleCloseCreate = () => {
-    setShowCreate(false);
-    setCreateStep(1);
-  };
-
-  const handleAddressSelect = (id) => {
-    if (id === "__new__") {
-      setSelectedAddressId("");
-      setUseNewAddress(true);
-      setNewAddress({ label: "", ...EMPTY_ADDRESS_FORM });
-      setSaveAddress(false);
-    } else {
-      setSelectedAddressId(id);
-      setUseNewAddress(false);
-      setNewAddress({ label: "", ...EMPTY_ADDRESS_FORM });
-      setSaveAddress(false);
-    }
-  };
-
-  const toggleOrder = (id) => {
-    setSelectedOrderIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
-  };
-
-  const selectedOrders = availableOrders.filter((o) => selectedOrderIds.includes(o.id));
-  const totalWeight = selectedOrders.reduce((s, o) => s + (o.weight_g || 0), 0);
-
-  // Check shipping method constraints
-  const getShippingMethodError = () => {
-    if (!form.shipping_method) return null;
-    const selectedMethod = shippingMethods.find((m) => m.code === form.shipping_method);
-    if (!selectedMethod) return null;
-
-    // Check weight constraints
-    if (selectedMethod.min_weight_g > 0 && totalWeight < selectedMethod.min_weight_g) {
-      return `所选运输方式最小重量为 ${selectedMethod.min_weight_g}g，当前订单总重为 ${totalWeight}g，不符合条件`;
-    }
-    if (selectedMethod.max_weight_g > 0 && totalWeight > selectedMethod.max_weight_g) {
-      return `所选运输方式最大重量为 ${selectedMethod.max_weight_g}g，当前订单总重为 ${totalWeight}g，超出限制`;
-    }
-
-    // Check disabled item size templates
-    const disabledSizes = selectedMethod.disabled_item_size_template_ids || [];
-    const hasDisabledSize = selectedOrders.some((o) => o.item_size_template_id && disabledSizes.includes(o.item_size_template_id));
-    if (hasDisabledSize) {
-      return `所选运输方式不支持当前订单所使用的物品尺寸模板`;
-    }
-
-    return null;
-  };
-
-  const handleSubmit = async () => {
-    if (selectedOrderIds.length === 0) return;
-
-    // Validate addon custom fees are within range
-    const hasFeeErrors = Object.entries(addonCustomFees).some(([addonId, fee]) => {
-      const addon = shippingAddons.find((a) => a.id === addonId);
-      return addon && addon.is_user_customizable && selectedAddonIds.includes(addonId) && (
-      fee < addon.min_fee || fee > addon.max_fee);
-    });
-
-    if (hasFeeErrors) {
-      alert('请确保所有自定义增值服务的金额都在指定区间内');
-      return;
-    }
-
-    setSubmitting(true);
-
-    // Determine effective address fields
-    const getAddrForSave = (addrObj) => {
-      const { label, ...fields } = addrObj;
-      return { label: label || "新地址", full_text: serializeAddressToText(fields), ...fields };
-    };
-
-    const needSaveDirect = useNewAddress && saveAddress && isAddressFormValid(newAddress);
-    const needSaveTransit = consType === "transit" && transitUseNewAddress && transitSaveAddress && isAddressFormValid(transitNewAddress);
-
-    if (needSaveDirect || needSaveTransit) {
-      const existingPrefs = await tenantEntity.list('UserPreference', { user_email: user.email });
-      const existingAddrs = existingPrefs[0]?.saved_addresses || [];
-      const newEntries = [];
-      if (needSaveDirect) newEntries.push({ id: Date.now().toString(), ...getAddrForSave(newAddress) });
-      if (needSaveTransit) newEntries.push({ id: (Date.now() + 1).toString(), ...getAddrForSave(transitNewAddress) });
-      if (existingPrefs.length > 0) {
-        await tenantEntity.update('UserPreference', existingPrefs[0].id, { saved_addresses: [...existingAddrs, ...newEntries] });
-      } else {
-        await tenantEntity.create('UserPreference', { user_email: user.email, saved_addresses: newEntries });
-      }
-    }
-
-    const transitLoc = transitLocations.find((l) => l.id === form.transit_location_id);
-    const isAsap = form.scheduled_ship_date === "__asap__";
-
-    // Determine destination_country
-    let destinationCountry = "";
-    if (consType === "transit") {
-      // For transit shipments, destination is the final address after transit
-      const finalAddrForCountry = transitUseNewAddress
-        ? transitNewAddress
-        : savedAddresses.find((a) => a.id === transitFinalAddressId) || {};
-      destinationCountry = finalAddrForCountry.country || "";
-    } else if (useNewAddress) {
-      destinationCountry = newAddress.country || "";
-    } else {
-      const addr = savedAddresses.find((a) => a.id === selectedAddressId);
-      destinationCountry = addr?.country || "";
-    }
-
-    const prefix = consType === "transit" && transitLoc?.code_prefix ?
-    transitLoc.code_prefix.toUpperCase() :
-    "AAA";
-    const allPools = await fetchShippingPools();
-    const prefixPools = allPools.filter((p) => p.pool_code && p.pool_code.startsWith(prefix));
-    // Use max existing sequence number + 1 to avoid duplicates (robust against deletions and race conditions)
-    const maxSeq = prefixPools.reduce((max, p) => {
-      const seqStr = p.pool_code.slice(prefix.length);
-      const seq = parseInt(seqStr, 10);
-      return isNaN(seq) ? max : Math.max(max, seq);
-    }, 0);
-    const nextSeq = (maxSeq + 1).toString().padStart(5, "0");
-    const pool_code = `${prefix}${nextSeq}`;
-
-    // Build address fields for pool record
-    const directAddr = useNewAddress ? newAddress : savedAddresses.find((a) => a.id === selectedAddressId) || {};
-    const finalAddr = transitUseNewAddress ? transitNewAddress : savedAddresses.find((a) => a.id === transitFinalAddressId) || {};
-
-    await tenantEntity.create('ShippingPool', {
-      pool_code,
-      shipping_method: form.shipping_method,
-      scheduled_ship_date: isAsap ? "" : form.scheduled_ship_date,
-      asap: isAsap,
-      transit_location_id: form.transit_location_id || "",
-      user_note: form.user_note || "",
-      consolidation_type: consType || "",
-      order_ids: selectedOrderIds,
-      order_names: selectedOrders.map((o) => o.product_name).filter(Boolean),
-      creator_email: user.email,
-      creator_name: user.full_name || user.email,
-      is_admin_created: false,
-      total_weight_g: totalWeight,
-      status: "pending",
-      destination_country: destinationCountry,
-      transit_location_name: transitLoc?.name || "",
-      transit_shipping_method_id: consType === "transit" ? selectedTransitMethodId || "" : "",
-      transit_shipping_method_name: consType === "transit" ?
-      selectedTransitMethodId === "__pickup__" ? "自取" :
-      selectedTransitMethodId === "__storage__" ? "暂存" :
-      transitShippingMethods.find((m) => m.id === selectedTransitMethodId)?.name || "" :
-      "",
-      final_address_id: consType === "transit" ? transitUseNewAddress ? "" : transitFinalAddressId : "",
-      recipient_name: consType === "transit" ? finalAddr.recipient_name || "" : directAddr.recipient_name || "",
-      address_line1: consType === "transit" ? finalAddr.addr1 || "" : directAddr.addr1 || "",
-      address_line2: consType === "transit" ? finalAddr.addr2 || "" : directAddr.addr2 || "",
-      city: consType === "transit" ? finalAddr.addr3 || "" : directAddr.addr3 || "",
-      state: consType === "transit" ? finalAddr.state || "" : directAddr.state || "",
-      messages: [],
-      is_private: isPrivate,
-      shared_with_emails: isPrivate ? sharedWithEmails : [],
-      selected_addon_ids: selectedAddonIds,
-      selected_addons: shippingAddons.
-      filter((a) => selectedAddonIds.includes(a.id)).
-      map((a) => {
-        const customFee = addonCustomFees[a.id];
-        const isCustomizable = a.is_user_customizable;
-        return {
-          id: a.id,
-          name: a.name,
-          fee: isCustomizable && customFee !== undefined ? customFee : a.fee,
-          fee_currency: a.fee_currency
-        };
-      }),
-      // Store consolidation strategy on the pool so all participants can see progress
-      consolidation_min_weight_g: consType !== "" ? parseFloat(strategy.min_weight_g) || 2000 : 0,
-      consolidation_deadline: consType !== "" ? strategy.deadline || "" : ""
-    });
-
-    const strategyFields = consType !== "" ? {
-      consolidation_deadline: strategy.deadline || "",
-      consolidation_min_weight_g: strategy.min_weight_g ? parseFloat(strategy.min_weight_g) : undefined,
-      consolidation_timeout_action: strategy.timeout_action || "ship_individually"
-    } : {};
-    await Promise.all(selectedOrderIds.map((id) =>
-    base44.functions.invoke('updateTenantOrder', { order_id: id, order_status: "notified_shipment", ...strategyFields })
-    ));
-
-    setSubmitting(false);
-    handleCloseCreate();
-    fetchData();
-  };
-
+  // Archive handler for pools
   const handleArchivePool = async (pool) => {
-    await shippingPoolApi.update(pool.id, { is_archived: true, archived_at: new Date().toISOString() });
-    fetchData();
+    // await base44.functions.invoke('mutateTenantEntity', { entity: 'ShippingPool', action: 'update', id: pool.id, data: { is_archived: true, archived_at: new Date().toISOString() } });
+
+    const payload = {
+      pool_code: pool.pool_code
+    }
+
+    try {
+      const res = await shippingPoolApi.archived(pool.id, payload);
+     
+      toast.success(`[${pool.pool_code}] 已存档.`);
+    } catch (err) {
+      const errorMessage = err?.response?.data?.message;
+      console.error("操作失败:", err);
+      persistentToastError("操作失败：" + (errorMessage || "未知错误"));
+    } finally {
+      
+    }
+
+    fetchPageData();
   };
 
-  const isAdmin = user?.role === "admin" || user?.role === "platform_admin" || user?.role === "tenant_admin" || user?.role === "staff";
+  const handleUnarchivePool = async (pool) => {
+    await base44.functions.invoke('mutateTenantEntity', { entity: 'ShippingPool', action: 'update', id: pool.id, data: { is_archived: false, archived_at: "" } });
+    fetchPageData();
+  };
 
+  const handleDeletePool = async (pool) => {
+    if (!window.confirm(`确认永久删除发货申请"${pool.pool_code || pool.id.slice(-6)}"？此操作不可撤销。`)) return;
+    await base44.functions.invoke('mutateTenantEntity', { entity: 'ShippingPool', action: 'delete', id: pool.id });
+    fetchPageData();
+  };
 
-  // "发货申请" tab: direct (non-consolidation) pools
-  // Admin sees all; regular users see their own + non-private pools from others in same tenant
-  const directPools = pools.filter((p) => {
-    if (p.consolidation_type && p.consolidation_type !== "") return false;
-    if (!isAdmin && p.creator_email !== user?.email && p.is_private) return false;
-    if (!showArchivedPools && p.is_archived) return false;
-    if (showArchivedPools && !p.is_archived) return false;
-    return statusFilter === "all" || p.status === statusFilter;
-  });
+  // "发货申请" tab: direct (non-consolidation) pools, excluding pending pools
+  // const directPools = pools.filter(p =>
+  //   !p.is_pending_pool &&
+  //   (!p.consolidation_type || p.consolidation_type === "") &&
+  //   (showArchived ? !!p.is_archived : !p.is_archived) &&
+  //   (statusFilter === "all" || p.status === statusFilter)
+  // );
 
-  // "用户拼邮" tab: user-initiated consolidation pools (is_admin_created = false)
-  const userConsPools = pools.filter((p) => {
-    if (!p.consolidation_type || p.consolidation_type === "") return false;
-    if (p.is_admin_created) return false;
-    // Private pools: only visible to owner, admins, and explicitly shared users
-    if (!isAdmin && p.is_private && p.creator_email !== user?.email && !(p.shared_with_emails || []).includes(user?.email)) return false;
-    if (!showArchivedPools && p.is_archived) return false;
-    if (showArchivedPools && !p.is_archived) return false;
-    return statusFilter === "all" || p.status === statusFilter;
-  });
+  // // "用户拼邮" tab: user-initiated consolidation pools
+  // const userConsPools = pools.filter(p =>
+  //   p.consolidation_type && p.consolidation_type !== "" && !p.is_admin_created &&
+  //   (showArchived ? !!p.is_archived : !p.is_archived) &&
+  //   (statusFilter === "all" || p.status === statusFilter)
+  // );
 
-  // "官方拼邮看板" tab: admin-created consolidation pools only
-  const officialConsPools = pools.filter((p) => {
-    if (!p.consolidation_type || p.consolidation_type === "") return false;
-    return !!p.is_admin_created;
-  });
+  // // "官方拼邮看板" tab: admin-created consolidation pools only (staging is derived from allOrders)
+  // const officialConsPools = pools.filter(p =>
+  //   p.consolidation_type && p.consolidation_type !== "" && !!p.is_admin_created &&
+  //   !p.is_pending_pool &&
+  //   !p.is_archived
+  // );
 
-  // Legacy: for the consolidation tab display (user-initiated)
-  const filtered = directPools; // kept for existing pool tab code reuse
-  const consTotalWeight = consolidationOrders.reduce((s, o) => s + (o.weight_g || 0), 0);
-  const consGroups = consolidationOrders.reduce((acc, o) => {
-    const key = o.consolidation_pool_id || o.shipping_method || "unknown";
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(o);
-    return acc;
-  }, {});
+  // Location handlers
+  const lf = (k, v) => setLocForm(p => ({ ...p, [k]: v }));
+
+  const handleLocSave = async () => {
+    setSavingLoc(true);
+    // If setting as default, clear the flag on all other locations first
+    if (locForm.is_default_official_pool) {
+      const others = locations.filter(l => l.is_default_official_pool && l.id !== editingLoc?.id);
+      await Promise.all(others.map(l => tenantEntity.update('TransitLocation', l.id, { is_default_official_pool: false })));
+    }
+    if (editingLoc) {
+      await tenantEntity.update('TransitLocation', editingLoc.id, locForm);
+    } else {
+      await tenantEntity.create('TransitLocation', locForm);
+    }
+    await fetchLocations();
+    setShowLocForm(false);
+    setEditingLoc(null);
+    setLocForm({ name: "", code_prefix: "", country: "", province: "", address: "", handling_fee: 0, handling_fee_currency: "JPY", manager_email: "", manager_contact: "", allow_storage: false, allow_pickup: false, description: "", is_active: true, is_default_official_pool: false, disabled_transit_method_ids: [], disabled_addon_ids: [] });
+    setSavingLoc(false);
+  };
+
+  const handleLocEdit = (loc) => {
+    setEditingLoc(loc);
+    setLocForm({
+      name: loc.name, code_prefix: loc.code_prefix || "", country: loc.country || "", province: loc.province || "",
+      address: loc.address || "", handling_fee: loc.handling_fee || 0,
+      handling_fee_currency: loc.handling_fee_currency || "JPY",
+      manager_email: loc.manager_email || "", manager_contact: loc.manager_contact || "",
+      allow_storage: loc.allow_storage || false,
+      allow_pickup: loc.allow_pickup || false,
+      disabled_transit_method_ids: loc.disabled_transit_method_ids || [],
+      disabled_addon_ids: loc.disabled_addon_ids || [],
+      description: loc.description || "", is_active: loc.is_active !== false,
+      is_default_official_pool: loc.is_default_official_pool || false,
+    });
+    setShowLocForm(true);
+  };
+
+  const handleLocDelete = async (id) => {
+    if (!confirm("确认删除此中转地？")) return;
+    await tenantEntity.delete('TransitLocation', id);
+    fetchLocations();
+  };
+
+  const handleLocToggle = async (loc) => {
+    await tenantEntity.update('TransitLocation', loc.id, { is_active: !loc.is_active });
+    fetchLocations();
+  };
 
   return (
     <div className="space-y-5">
-      {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">发货 & 拼邮</h1>
-          <p className="text-sm text-gray-400 mt-0.5">管理您的发货申请与拼邮包裹</p>
+          <h1 className="text-xl font-bold text-gray-900">发货池管理</h1>
+          <p className="text-sm text-gray-400 mt-0.5">管理所有发货申请与中转地配置</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setShowArchivedPools((v) => !v)}>
-            {showArchivedPools ? <><ArchiveRestore className="w-3.5 h-3.5 mr-1.5" />返回发货列表</> : <><Archive className="w-3.5 h-3.5 mr-1.5" />查看已存档</>}
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => user && fetchData()}>
-            <RefreshCw className="w-3.5 h-3.5 mr-1.5" />刷新
-          </Button>
-          {!showCreate && !showArchivedPools && canNotifyShipment &&
-          <Button size="sm" className="bg-red-600 hover:bg-red-700" onClick={handleOpenCreate}>
-               <Plus className="w-3.5 h-3.5 mr-1.5" />新增发货申请
-             </Button>
-          }
-           {!showCreate && !showArchivedPools && !canNotifyShipment &&
-          <Button size="sm" disabled className="bg-gray-400">
-               <Lock className="w-3.5 h-3.5 mr-1.5" />您没有权限创建发货申请
-             </Button>
-          }
+          {(activeTab === "pools" || activeTab === "consolidation" || activeTab === "official_kanban") && (
+            <>
+              {(activeTab === "pools" || activeTab === "consolidation") && (
+                <Button variant="outline" size="sm" onClick={() => setShowArchived(v => !v)}>
+                  {showArchived ? <><ArchiveRestore className="w-3.5 h-3.5 mr-1.5" />返回列表</> : <><Archive className="w-3.5 h-3.5 mr-1.5" />查看已存档</>}
+                </Button>
+              )}
+              {activeTab === "official_kanban" && isAdmin && (
+                <Button variant="outline" size="sm" onClick={() => setShowPoolSorter(v => !v)}>
+                  <Settings2 className="w-3.5 h-3.5 mr-1.5" />排序拼邮
+                </Button>
+              )}
+              <Button variant="outline" size="sm" onClick={() => { console.log('手动刷新发货池页面'); fetchPageData(); }}>
+                <RefreshCw className="w-3.5 h-3.5 mr-1.5" />刷新
+              </Button>
+              {!showArchived && (
+                <Button size="sm" className="bg-red-600 hover:bg-red-700" onClick={() => setShowCreate(true)}>
+                  <Plus className="w-3.5 h-3.5 mr-1.5" />创建发货申请
+                </Button>
+              )}
+            </>
+          )}
+          {activeTab === "locations" && canManageTransitLocations && (
+            <Button size="sm" className="bg-red-600 hover:bg-red-700" onClick={() => { setEditingLoc(null); setLocForm({ name: "", code_prefix: "", country: "", province: "", address: "", handling_fee: 0, handling_fee_currency: "JPY", manager_email: "", manager_contact: "", allow_storage: false, allow_pickup: false, description: "", is_active: true, disabled_transit_method_ids: [], disabled_addon_ids: [] }); setShowLocForm(true); }}>
+              <Plus className="w-3.5 h-3.5 mr-1.5" />添加中转地
+            </Button>
+          )}
         </div>
       </div>
 
-      {/* ---- INLINE CREATE FORM ---- */}
-      {showCreate &&
-      <div className="border-2 border-red-100 rounded-2xl overflow-hidden bg-white shadow-sm">
-          {/* Form header */}
-          <div className="flex items-center justify-between px-5 py-3.5 bg-red-50 border-b border-red-100">
-            <div className="flex items-center gap-3">
-              {[1, 2].map((s) =>
-            <div key={s} className={`flex items-center gap-1.5 text-xs font-medium ${s === createStep ? "text-red-700" : s < createStep ? "text-green-600" : "text-gray-400"}`}>
-                  <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs ${s === createStep ? "bg-red-600 text-white" : s < createStep ? "bg-green-500 text-white" : "bg-gray-200 text-gray-400"}`}>
-                    {s < createStep ? <Check className="w-3 h-3" /> : s}
-                  </div>
-                  {s === 1 ? "选择包裹" : "收货信息"}
-                  {s < 2 && <ChevronRight className="w-3 h-3 text-gray-300 ml-1" />}
-                </div>
-            )}
-            </div>
-            <button onClick={handleCloseCreate} className="text-gray-400 hover:text-gray-600">
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          {formLoading ?
-        <div className="py-10 text-center text-gray-400 text-sm">加载中...</div> :
-
-        <div className="px-5 py-5">
-              {/* STEP 1: SELECT ORDERS */}
-              {createStep === 1 &&
-          <div className="space-y-3">
-                  {availableOrders.length === 0 ?
-            <div className="text-center py-10 text-gray-400">
-                      <Package className="w-8 h-8 mx-auto mb-2 opacity-20" />
-                      <p className="text-sm">暂无"已入库"状态的订单</p>
-                    </div> :
-
-            <>
-                      <p className="text-sm text-gray-600">选择要发货的包裹（可多选）：</p>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {availableOrders.map((o) =>
-                <label key={o.id} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${selectedOrderIds.includes(o.id) ? "border-red-300 bg-red-50" : "border-gray-200 hover:bg-gray-50"}`}>
-                            <Checkbox checked={selectedOrderIds.includes(o.id)} onCheckedChange={() => toggleOrder(o.id)} />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-gray-800 truncate">{o.product_name}</p>
-                              <p className="text-xs text-gray-400 mt-0.5">{o.order_number || o.id.slice(0, 8)} · {o.weight_g || 0}g</p>
-                            </div>
-                          </label>
-                )}
-                      </div>
-                    </>
-            }
-
-                  {selectedOrderIds.length > 0 &&
-            <div className="bg-teal-50 border border-teal-100 rounded-lg px-4 py-2 flex items-center justify-between text-sm">
-                      <span className="text-teal-700 font-medium">已选 {selectedOrderIds.length} 件</span>
-                      <span className="text-teal-600">总重量：{totalWeight}g</span>
-                    </div>
-            }
-
-                  <div className="flex justify-end pt-1">
-                    <Button size="sm" className="bg-red-600 hover:bg-red-700"
-              disabled={selectedOrderIds.length === 0}
-              onClick={() => setCreateStep(2)}>
-                      下一步 <ChevronRight className="w-3.5 h-3.5 ml-1" />
-                    </Button>
-                  </div>
-                </div>
-          }
-
-              {/* STEP 2: ADDRESS + DETAILS */}
-              {createStep === 2 &&
-          <div className="space-y-4">
-                  {/* Consolidation type selection */}
-                  <div>
-                    <Label className="text-xs text-gray-500 font-medium mb-2 block">发货方式</Label>
-                    <div className="space-y-2">
-                      {[
-                { key: "", label: "直接发货（单独发往收货地址）", desc: "", needPerm: "shipping:direct_shipment" },
-                { key: "transit", label: "申请拼邮到中转地", desc: "与其他包裹合并，发往中转地", needPerm: "shipping:consolidate_to_transit" }].
-                map((opt) => {
-                  const hasPerm = opt.key === "" ? canDirectShipment : opt.key === "transit" ? canConsolidateTransit : canConsolidateOther;
-                  return (
-                    <label key={opt.key} className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${!hasPerm ? "opacity-50 cursor-not-allowed" : consType === opt.key ? "border-red-300 bg-red-50" : "border-gray-200 hover:bg-gray-50"}`}>
-                            <input type="radio" checked={consType === opt.key} onChange={() => setConsType(opt.key)} disabled={!hasPerm} className="mt-0.5 accent-red-600" />
-                            <div>
-                              <span className="text-sm font-medium text-gray-800">{opt.label}</span>
-                              {opt.desc && <p className="text-xs text-gray-400 mt-0.5">{opt.desc}</p>}
-                              {!hasPerm && <p className="text-xs text-red-500 mt-0.5">您没有权限选择此发货方式</p>}
-                            </div>
-                          </label>);
-
-                })}
-                    </div>
-                  </div>
-
-                  {/* Transit location selector (only for consType="transit") */}
-                  {consType === "transit" &&
-            <div className="space-y-3">
-                      <div className="border border-blue-100 rounded-xl p-4 bg-blue-50/40 space-y-3">
-                        <Label className="text-xs text-blue-700 font-medium">选择中转地 *</Label>
-                        {transitLocations.length === 0 ?
-                <p className="text-xs text-gray-400">暂无可用中转地，请联系管理员添加</p> :
-
-                <div className="space-y-2">
-                            {/* Allow deselect / no transit */}
-                            <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${!form.transit_location_id ? "border-gray-400 bg-gray-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
-                              <input type="radio" checked={!form.transit_location_id} onChange={() => f("transit_location_id", "")} className="mt-0.5 accent-gray-500" />
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-gray-400">不指定（不拼邮到中转地）</p>
-                              </div>
-                            </label>
-                            {transitLocations.map((l) =>
-                  <label key={l.id} className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${form.transit_location_id === l.id ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
-                                <input type="radio" checked={form.transit_location_id === l.id} onChange={() => f("transit_location_id", l.id)} className="mt-0.5 accent-blue-600" />
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium text-gray-800">{l.name}</p>
-                                  <p className="text-xs text-gray-400 mt-0.5">
-                                    {[getCountry(l.country)?.name || l.country, l.province].filter(Boolean).join(" · ")}
-                                    {l.handling_fee > 0 && ` · 手续费 ${l.handling_fee_currency || "JPY"} ${l.handling_fee}`}
-                                    {l.allow_storage && " · 支持暂存"}
-                                  </p>
-                                  {l.manager_contact &&
-                      <p className="text-xs text-gray-400">联系：{l.manager_contact}</p>
-                      }
-                                </div>
-                              </label>
-                  )}
-                          </div>
-                }
-                      </div>
-
-                      {/* Transit shipping method selector */}
-                      <div className="border border-blue-100 rounded-xl p-4 bg-blue-50/40 space-y-3">
-                        <Label className="text-xs text-blue-700 font-medium">中转运输方式（可选）</Label>
-                        <div className="space-y-2">
-                          <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${selectedTransitMethodId === "" ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
-                            <input type="radio" checked={selectedTransitMethodId === ""} onChange={() => setSelectedTransitMethodId("")} className="mt-0.5 accent-blue-600" />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-gray-400">不指定</p>
-                            </div>
-                          </label>
-                          {[
-                  { id: "__pickup__", name: "自取", description: "到中转地自行取货", fee: 0 },
-                  { id: "__storage__", name: "暂存", description: "货品暂存于中转地", fee: 0 },
-                  ...transitShippingMethods].
-                  map((m) =>
-                  <label key={m.id} className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${selectedTransitMethodId === m.id ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
-                              <input type="radio" checked={selectedTransitMethodId === m.id} onChange={() => setSelectedTransitMethodId(m.id)} className="mt-0.5 accent-blue-600" />
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-gray-800">{m.name}</p>
-                                {m.description && <p className="text-xs text-gray-400 mt-0.5">{m.description}</p>}
-                                {m.fee > 0 && <p className="text-xs text-blue-600 mt-0.5">{m.fee_currency || "CNY"} {m.fee}</p>}
-                              </div>
-                            </label>
-                  )}
-                        </div>
-                      </div>
-
-                      {/* Final delivery address after transit */}
-                      <div className="border border-gray-200 rounded-xl p-4 bg-gray-50/60 space-y-3">
-                        <Label className="text-xs text-gray-600 font-medium flex items-center gap-1.5">
-                          <MapPin className="w-3.5 h-3.5 text-gray-400" />
-                          最终收货地址（货品从中转地发往此处）
-                        </Label>
-                        {savedAddresses.length > 0 &&
-                <Select value={transitUseNewAddress ? "__new__" : transitFinalAddressId || ""} onValueChange={(v) => {
-                  if (v === "__new__") {
-                    setTransitFinalAddressId("");
-                    setTransitUseNewAddress(true);
-                  } else {
-                    setTransitFinalAddressId(v);
-                    setTransitUseNewAddress(false);
-                    setTransitNewAddress({ label: "", ...EMPTY_ADDRESS_FORM });
-                    setTransitSaveAddress(false);
-                  }
-                }}>
-                            <SelectTrigger className="bg-white"><SelectValue placeholder="选择地址簿中的收货地址" /></SelectTrigger>
-                            <SelectContent>
-                              {savedAddresses.map((a) =>
-                    <SelectItem key={a.id} value={a.id}>{a.label}</SelectItem>
-                    )}
-                              <SelectItem value="__new__">
-                                <span className="flex items-center gap-1.5 text-blue-600"><PlusCircle className="w-3.5 h-3.5" />输入新地址</span>
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
-                }
-                        {!transitUseNewAddress && transitFinalAddressId && (() => {
-                  const addr = savedAddresses.find((a) => a.id === transitFinalAddressId);
-                  return addr ?
-                  <div className="bg-white border border-gray-100 rounded-lg px-3 py-2 text-xs text-gray-600 whitespace-pre-wrap">{addr.full_text || serializeAddressToText(addr)}</div> :
-                  null;
-                })()}
-                        {(transitUseNewAddress || savedAddresses.length === 0) &&
-                <div className="space-y-2">
-                            <div>
-                              <label className="text-xs text-gray-500 font-medium block mb-1">地址标签</label>
-                              <Input className="h-8 text-sm bg-white" placeholder="如：家、公司"
-                    value={transitNewAddress.label}
-                    onChange={(e) => setTransitNewAddress((p) => ({ ...p, label: e.target.value }))} />
-                            </div>
-                            <AddressForm
-                    value={transitNewAddress}
-                    onChange={(v) => setTransitNewAddress((p) => ({ ...p, ...v }))} />
-                  
-                            <label className="flex items-center gap-2 cursor-pointer">
-                              <Checkbox checked={transitSaveAddress} onCheckedChange={(v) => setTransitSaveAddress(!!v)} />
-                              <span className="text-xs text-gray-600">保存此地址到地址簿</span>
-                            </label>
-                          </div>
-                }
-                      </div>
-                    </div>
-            }
-
-                  {/* Address section (for direct or consType="other") */}
-                  {(consType === "" || consType === "other") &&
-            <div className="border border-gray-200 rounded-xl p-4 bg-gray-50/60 space-y-3">
-                      <Label className="text-xs text-gray-600 font-medium flex items-center gap-1.5">
-                        <MapPin className="w-3.5 h-3.5 text-gray-400" />
-                        {consType === "other" ? "拼邮目标地址" : "收货地址"}
-                      </Label>
-                      {savedAddresses.length > 0 &&
-              <Select value={useNewAddress ? "__new__" : selectedAddressId || ""} onValueChange={handleAddressSelect}>
-                          <SelectTrigger className="bg-white"><SelectValue placeholder="选择地址簿中的地址" /></SelectTrigger>
-                          <SelectContent>
-                            {savedAddresses.map((a) =>
-                  <SelectItem key={a.id} value={a.id}>{a.label}</SelectItem>
-                  )}
-                            <SelectItem value="__new__">
-                              <span className="flex items-center gap-1.5 text-blue-600">
-                                <PlusCircle className="w-3.5 h-3.5" />输入新地址
-                              </span>
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-              }
-                      {!useNewAddress && selectedAddressId && (() => {
-                const addr = savedAddresses.find((a) => a.id === selectedAddressId);
-                return addr ?
-                <div className="bg-white border border-gray-100 rounded-lg px-3 py-2 text-xs text-gray-600 whitespace-pre-wrap">{addr.full_text || serializeAddressToText(addr)}</div> :
-                null;
-              })()}
-                      {(useNewAddress || savedAddresses.length === 0) &&
-              <div className="space-y-2">
-                          <div>
-                            <label className="text-xs text-gray-500 font-medium block mb-1">地址标签</label>
-                            <Input className="h-8 text-sm bg-white" placeholder="如：家、公司"
-                  value={newAddress.label}
-                  onChange={(e) => setNewAddress((p) => ({ ...p, label: e.target.value }))} />
-                          </div>
-                          <AddressForm
-                  value={newAddress}
-                  onChange={(v) => setNewAddress((p) => ({ ...p, ...v }))} />
-                
-                          <label className="flex items-center gap-2 cursor-pointer">
-                            <Checkbox checked={saveAddress} onCheckedChange={(v) => setSaveAddress(!!v)} />
-                            <span className="text-xs text-gray-600">保存此地址到地址簿</span>
-                          </label>
-                        </div>
-              }
-                    </div>
-            }
-
-                  {/* Shipping method */}
-                  <div>
-                    <Label className="text-xs text-gray-500">运输方式</Label>
-                    <Select value={form.shipping_method} onValueChange={(v) => {f("shipping_method", v);setMethodError(null);}}>
-                      <SelectTrigger className={`mt-1 h-8 text-sm ${methodError ? "border-red-300" : ""}`}><SelectValue placeholder="选择..." /></SelectTrigger>
-                      <SelectContent>
-                        {(shippingMethods.length > 0 ? shippingMethods.map(m => ({ value: m.code, label: m.name })) : SHIPPING_METHODS).map((m) => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                    {form.shipping_method && getShippingMethodError() &&
-              <div className="mt-2 p-2.5 rounded-lg bg-red-50 border border-red-200">
-                        <p className="text-xs text-red-700 font-medium">⚠️ 所选运输方式不可用</p>
-                        <p className="text-xs text-red-600 mt-1">{getShippingMethodError()}</p>
-                        <p className="text-xs text-red-600 mt-1">请重新选择运输方式</p>
-                      </div>
-              }
-                  </div>
-
-                  {/* Scheduled date with ASAP option */}
-                  <div>
-                    <Label className="text-xs text-gray-500">计划发货日期</Label>
-                    <div className="flex gap-2 mt-1">
-                      <button
-                  type="button"
-                  onClick={() => f("scheduled_ship_date", "__asap__")}
-                  className={`flex items-center gap-1.5 px-3 h-8 rounded-md border text-sm transition-colors ${form.scheduled_ship_date === "__asap__" ? "border-orange-400 bg-orange-50 text-orange-600 font-medium" : "border-gray-200 text-gray-500 hover:bg-gray-50"}`}>
-                  
-                        ⚡ 尽快
-                      </button>
-                      <Input
-                  type="date"
-                  className="h-8 text-sm flex-1"
-                  value={form.scheduled_ship_date === "__asap__" ? "" : form.scheduled_ship_date}
-                  onChange={(e) => f("scheduled_ship_date", e.target.value)} />
-                
-                    </div>
-                  </div>
-
-                  {/* Consolidation strategy - collapsible (only for consolidation types) */}
-                  {consType !== "" &&
-            <div className="border border-blue-100 rounded-xl overflow-hidden">
-                      <button type="button"
-              onClick={() => setStrategyOpen((v) => !v)}
-              className="w-full flex items-center justify-between px-4 py-3 bg-blue-50 hover:bg-blue-100/60 transition-colors">
-                        <p className="text-xs text-blue-600 font-medium uppercase tracking-wide">拼邮策略</p>
-                        <span className="text-xs text-blue-400">{strategyOpen ? "收起 ▲" : "展开 ▼"}</span>
-                      </button>
-                      {strategyOpen &&
-              <div className="bg-blue-50/60 px-4 pb-4 pt-3 space-y-3">
-                          <div>
-                            <Label className="text-xs text-gray-500 block mb-1">最低凑满重量 (g) · 凑单截止日期</Label>
-                            <div className="flex items-center gap-1.5">
-                              <button type="button"
-                    onClick={() => setStrategy((p) => ({ ...p, min_weight_g: String(Math.max(0, (parseInt(p.min_weight_g) || 0) - 1000)) }))}
-                    className="h-8 px-2.5 rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-100 text-sm font-medium transition-colors">-1000</button>
-                              <span className="w-20 text-center text-sm font-semibold text-gray-800 bg-white border border-gray-200 rounded-md h-8 flex items-center justify-center flex-shrink-0">
-                                {parseInt(strategy.min_weight_g) || 0}g
-                              </span>
-                              <button type="button"
-                    onClick={() => setStrategy((p) => ({ ...p, min_weight_g: String((parseInt(p.min_weight_g) || 0) + 1000) }))}
-                    className="h-8 px-2.5 rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-100 text-sm font-medium transition-colors">+1000</button>
-                              <Input type="date" className="h-8 text-sm bg-white flex-1"
-                    value={strategy.deadline}
-                    onChange={(e) => setStrategy((p) => ({ ...p, deadline: e.target.value }))} />
-                            </div>
-                          </div>
-                          <div>
-                            <Label className="text-xs text-gray-500 block mb-1">截止后超时处理方式</Label>
-                            <div className="space-y-1.5">
-                              {[
-                    { v: "ship_individually", l: "单独发货" },
-                    { v: "next_consolidation", l: "等待下一次拼邮" },
-                    { v: "return_to_storage", l: "重新入库" }].
-                    map((opt) =>
-                    <label key={opt.v} className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border cursor-pointer text-sm transition-colors ${strategy.timeout_action === opt.v ? "border-blue-400 bg-white text-blue-700 font-medium" : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"}`}>
-                                  <input type="radio" checked={strategy.timeout_action === opt.v}
-                      onChange={() => setStrategy((p) => ({ ...p, timeout_action: opt.v }))}
-                      className="accent-blue-600" />
-                                  {opt.l}
-                                </label>
-                    )}
-                            </div>
-                          </div>
-                        </div>
-              }
-                    </div>
-            }
-
-                  {/* Privacy setting (only when consolidation type selected) */}
-                  {consType !== "" &&
-            <div className="border border-gray-200 rounded-xl p-4 space-y-3">
-                      <label className={`flex items-center gap-3 cursor-pointer rounded-lg p-2 -m-2 transition-colors ${isPrivate ? "bg-gray-100" : "hover:bg-gray-50"}`}>
-                        <Checkbox checked={isPrivate} onCheckedChange={(v) => {setIsPrivate(!!v);if (!v) setSharedWithEmails([]);}} />
-                        <div className="flex items-center gap-1.5">
-                          <Lock className="w-3.5 h-3.5 text-gray-500" />
-                          <span className="text-sm font-medium text-gray-700">不公开</span>
-                          <span className="text-xs text-gray-400">（仅管理员和指定用户可见）</span>
-                        </div>
-                      </label>
-                      {isPrivate &&
-              <div className="ml-2 space-y-2">
-                          <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                            <Users className="w-3.5 h-3.5" />
-                            <span>选择可查看此拼邮需求的用户（管理员始终可见）</span>
-                          </div>
-                          <div className="relative">
-                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-                            <Input placeholder="搜索用户..." className="pl-8 h-7 text-xs"
-                  value={userSearchQuery} onChange={(e) => setUserSearchQuery(e.target.value)} />
-                          </div>
-                          {allUsers.length === 0 ?
-                <p className="text-xs text-gray-400">暂无其他用户</p> :
-
-                <div className="space-y-1 max-h-32 overflow-y-auto border border-gray-200 rounded-lg p-2 bg-white">
-                              {allUsers.filter((u) => {
-                    if (!userSearchQuery) return true;
-                    const q = userSearchQuery.toLowerCase();
-                    return (u.full_name || "").toLowerCase().includes(q) || (u.email || "").toLowerCase().includes(q);
-                  }).map((u) =>
-                  <label key={u.email} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 rounded px-1 py-0.5">
-                                  <Checkbox
-                      checked={sharedWithEmails.includes(u.email)}
-                      onCheckedChange={() => setSharedWithEmails((prev) => prev.includes(u.email) ? prev.filter((e) => e !== u.email) : [...prev, u.email])} />
-                    
-                                  <div className="flex-1 min-w-0">
-                                    <span className="text-xs font-medium text-gray-700">{u.full_name || u.email}</span>
-                                    {u.full_name && <span className="text-xs text-gray-400 ml-1.5">{u.email}</span>}
-                                  </div>
-                                </label>
-                  )}
-                            </div>
-                }
-                          {sharedWithEmails.length > 0 &&
-                <p className="text-xs text-gray-500">已与 {sharedWithEmails.length} 位用户分享</p>
-                }
-                        </div>
-              }
-                    </div>
-            }
-
-                  {/* Shipping Addons */}
-                  {shippingAddons.length > 0 && canSelectShippingAddons &&
-            <div>
-                      <Label className="text-xs text-gray-500 font-medium block mb-2">发货增值服务（可选）</Label>
-                      <div className="space-y-1.5">
-                        {shippingAddons.map((a) => {
-                  const isSelected = selectedAddonIds.includes(a.id);
-                  const isCustomizable = a.is_user_customizable;
-                  return (
-                    <div key={a.id} className={`rounded-lg border p-2.5 transition-colors ${isSelected ? "border-yellow-400 bg-yellow-50" : "border-gray-200 hover:bg-gray-50"}`}>
-                              <label className="flex items-center justify-between gap-3 cursor-pointer">
-                                <div className="flex items-center gap-2 flex-1">
-                                  <Checkbox
-                            checked={isSelected}
-                            onCheckedChange={(v) => setSelectedAddonIds((prev) => v ? [...prev, a.id] : prev.filter((id) => id !== a.id))} />
-                          
-                                  <div className="flex flex-col gap-0.5">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                      <span className="text-sm font-medium text-gray-800">{a.name}</span>
-                                      {isCustomizable &&
-                              <Badge className="text-[10px] bg-green-100 text-green-700 border-green-200">可自定义金额</Badge>
-                              }
-                                      {a.description && <span className="text-xs text-gray-400">{a.description}</span>}
-                                    </div>
-                                    {isCustomizable &&
-                            <span className="text-[10px] text-gray-500">区间：{a.fee_currency || "JPY"} {a.min_fee} - {a.max_fee} · 默认：{Number(a.fee || 0).toLocaleString()}</span>
-                            }
-                                  </div>
-                                </div>
-                                {!isCustomizable &&
-                        <span className="text-xs font-medium text-yellow-700 flex-shrink-0">+{a.fee_currency || "JPY"} {Number(a.fee || 0).toLocaleString()}</span>
-                        }
-                              </label>
-                              {isCustomizable && isSelected &&
-                      <div className="mt-2 ml-6 flex items-center gap-2">
-                                  <span className="text-[10px] text-green-600 font-medium">用户可自定义</span>
-                                  <div className="flex flex-col gap-1 w-full">
-                                    <Input
-                            type="number"
-                            className="h-7 w-28 text-xs"
-                            placeholder={`${a.min_fee}-${a.max_fee}`}
-                            value={addonCustomFees[a.id] ?? a.fee}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              const value = val === '' ? '' : parseFloat(val) || 0;
-                              setAddonCustomFees((prev) => ({ ...prev, [a.id]: value }));
-                              // Check if value is within range
-                              if (value === '' || value < a.min_fee || value > a.max_fee) {
-                                setAddonFeeErrors((prev) => ({ ...prev, [a.id]: value === '' ? '请输入金额' : `请输入${a.min_fee}-${a.max_fee}之间的金额` }));
-                              } else {
-                                setAddonFeeErrors((prev) => {
-                                  const newErrors = { ...prev };
-                                  delete newErrors[a.id];
-                                  return newErrors;
-                                });
-                              }
-                            }}
-                            onClick={(e) => e.stopPropagation()} />
-                          
-                                    {addonFeeErrors[a.id] &&
-                          <span className="text-[10px] text-red-600">{addonFeeErrors[a.id]}</span>
-                          }
-                                  </div>
-                                  <span className="text-xs text-yellow-700">{a.fee_currency || "JPY"}</span>
-                                </div>
-                      }
-                            </div>);
-
-                })}
-                      </div>
-                    </div>
-            }
-
-                  {/* Note */}
-                  <div>
-                    <Label className="text-xs text-gray-500">备注（可选）</Label>
-                    <Textarea rows={2} className="mt-1 text-sm" placeholder="特殊要求..." value={form.user_note} onChange={(e) => f("user_note", e.target.value)} />
-                  </div>
-
-                  {/* Summary */}
-                  <div className="bg-gray-50 border border-gray-100 rounded-lg px-4 py-2.5 text-xs text-gray-600 flex flex-wrap gap-x-4 gap-y-1">
-                    <span>{selectedOrders.length} 件包裹 · {totalWeight}g</span>
-                    {form.shipping_method && <span>{SHIPPING_METHODS.find((m) => m.value === form.shipping_method)?.label}</span>}
-                    {form.scheduled_ship_date === "__asap__" && <span className="text-orange-500">⚡ 尽快发出</span>}
-                  </div>
-
-                  <div className="flex items-center justify-between pt-1">
-                    <Button variant="outline" size="sm" onClick={() => setCreateStep(1)}>
-                      <ChevronLeft className="w-3.5 h-3.5 mr-1" />上一步
-                    </Button>
-                    <Button size="sm" className="bg-red-600 hover:bg-red-700"
-              disabled={submitting || !!(form.shipping_method && getShippingMethodError())}
-              onClick={handleSubmit}>
-                      {submitting ? "提交中..." : "确认创建发货申请"}
-                    </Button>
-                  </div>
-                </div>
-          }
-            </div>
-        }
-        </div>
-      }
-
-      {/* Tabs — filtered by permissions */}
-      {(() => {
-        const visibleTabs = ALL_TABS.filter((tab) => {
-          if (tab.key === "consolidation") return isAdmin || canViewOtherConsolidation;
-          if (tab.key === "official_kanban") return isAdmin || canViewOfficialKanban;
-          return true;
-        });
-        return (
-          <div className="flex gap-1 border-b border-gray-200">
-            {visibleTabs.map((tab) =>
-            <button key={tab.key} onClick={() => { setActiveTab(tab.key); resetPoolPage(); }}
+      {/* Tabs */}
+      <div className="flex gap-1 border-b border-gray-200">
+        {TABS.filter(tab => tab.key !== "locations" || canManageTransitLocations).map(tab => (
+          <button key={tab.key} onClick={() => setActiveTab(tab.key)}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${activeTab === tab.key ? "border-red-600 text-red-600" : "border-transparent text-gray-500 hover:text-gray-800"}`}>
-                {tab.label}
-                {tab.key === "pools" && <span className="ml-1.5 text-xs bg-gray-100 text-gray-500 rounded px-1.5 py-0.5">{directPools.length}</span>}
-                {tab.key === "consolidation" && <span className="ml-1.5 text-xs bg-gray-100 text-gray-500 rounded px-1.5 py-0.5">{userConsPools.length}</span>}
-                {tab.key === "official_kanban" && <span className="ml-1.5 text-xs bg-gray-100 text-gray-500 rounded px-1.5 py-0.5">{officialConsPools.length}</span>}
-              </button>
-            )}
-          </div>);
+            {tab.label}
+            {tab.key === "pools" && <span className="ml-1.5 text-xs bg-gray-100 text-gray-600 rounded px-1.5 py-0.5">{poolsCount}</span>}
+            {tab.key === "consolidation" && <span className="ml-1.5 text-xs bg-gray-100 text-gray-600 rounded px-1.5 py-0.5">{totalConsolidation}</span>}
+            {tab.key === "official_kanban" && <span className="ml-1.5 text-xs bg-gray-100 text-gray-600 rounded px-1.5 py-0.5">{totalOfficial}</span>}
+            {tab.key === "locations" && <span className="ml-1.5 text-xs bg-gray-100 text-gray-600 rounded px-1.5 py-0.5">{totalLocations}</span>}
+          </button>
+        ))}
+      </div>
 
-      })()}
-
-      {/* ---- TAB: SHIPPING POOLS ---- */}
-      {activeTab === "pools" &&
-      <>
-          <div className="flex items-center justify-between gap-2 mb-3">
+      {/* ---- POOLS TAB ---- */}
+      {activeTab === "pools" && (
+        <>
+          <div className="flex items-center gap-3 flex-wrap">
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-32 h-8 text-sm"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-36 h-8 text-sm"><SelectValue /></SelectTrigger>
               <SelectContent>
-                {STATUS_FILTERS.map((s) => <SelectItem key={s.v} value={s.v}>{s.l}</SelectItem>)}
+                {STATUS_FILTERS.map(s => <SelectItem key={s.v} value={s.v}>{s.l}</SelectItem>)}
               </SelectContent>
             </Select>
-            {/* Transit Location Work Panel Entry for transit managers */}
-            {userTransitLocations.length > 0 && (
-              <div className="flex items-center gap-2">
-                <Badge className="bg-blue-100 text-blue-700 border-blue-200 text-xs">
-                  <MapPin className="w-2.5 h-2.5 mr-1 inline" />
-                  负责 {userTransitLocations.length} 个中转地
-                </Badge>
-                {userTransitLocations.map(loc => (
-                  <a
-                    key={loc.id}
-                    href={`/TransitLocationWork/${loc.id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <Button size="sm" variant="outline" className="h-7 text-xs bg-white hover:bg-blue-50 text-blue-600 border-blue-200">
-                      <LogIn className="w-3 h-3 mr-1" />
-                      {loc.name} 工作面板
-                    </Button>
-                  </a>
-                ))}
+            {isAdmin && pendingEditRequests.length > 0 && (
+              <div className="flex items-center gap-1.5 text-sm text-orange-700 bg-orange-50 border border-orange-200 rounded-lg px-3 py-1.5">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>有 <strong>{pendingEditRequests.length}</strong> 项待审批的发货更改申请，点击对应发货申请处理</span>
               </div>
             )}
           </div>
 
-          {loading ?
-        <div className="text-center py-16 text-gray-400 text-sm">加载中...</div> :
-        directPools.length === 0 ?
-        <div className="flex flex-col items-center py-20 text-gray-400">
+          {loading ? (
+            <div className="text-center py-16 text-gray-400 text-sm">加载中...</div>
+          ) : pools.length === 0 ? (
+            <div className="flex flex-col items-center py-20 text-gray-400">
               <Truck className="w-12 h-12 mb-3 opacity-20" />
               <p className="text-sm">暂无发货申请</p>
-              <p className="text-xs mt-1">点击右上角"新增发货申请"开始</p>
-            </div> :
+            </div>
+          ) : (() => {
+            const userProfileMap = {};
+            (allUsers || []).forEach(u => { userProfileMap[u.email] = u; });
+            return (
+              <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+              {pools.map(pool => (
+                <ShippingPoolCard
+                  key={pool.id}
+                  pool={pool}
+                  isAdmin={isAdmin}
+                  onClick={setSelectedPool}
+                  pendingEditCount={pendingEditRequests.filter(r => r.pool_id === pool.id).length}
+                  userProfileMap={userProfileMap}
+                  onArchive={!pool.is_archived && pool.status === "delivered" ? () => handleArchivePool(pool) : null}
+                  onUnarchive={isAdmin && pool.is_archived ? () => handleUnarchivePool(pool) : null}
+                  onDelete={isAdmin && pool.is_archived ? () => handleDeletePool(pool) : null}
+                />
+              ))}
+              </div>
+              <PaginationBar total={total} pageSize={poolPageSize} currentPage={poolPage}
+                onPageChange={setPoolPage} onPageSizeChange={s => { setPoolPageSize(s); resetPoolPage(); }} className="mt-3" />
+              </>
+            );
+          })()}
+        </>
+      )}
 
+      {/* ---- USER CONSOLIDATION TAB ---- */}
+      {activeTab === "consolidation" && (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-              {directPools.slice((poolPage - 1) * poolPageSize, poolPage * poolPageSize).map((pool) =>
-          <ShippingPoolCard
-            key={pool.id}
-            pool={pool}
-            onClick={setSelectedPool}
-            pendingEditCount={pendingEditRequests.filter((r) => r.pool_id === pool.id).length}
-            userProfileMap={userProfileMap}
-            onArchive={!pool.is_archived && pool.status === "delivered" ? () => handleArchivePool(pool) : null} />
-          )}
-            </div>
-          <PaginationBar total={directPools.length} pageSize={poolPageSize} currentPage={poolPage}
-            onPageChange={setPoolPage} onPageSizeChange={s => { setPoolPageSize(s); resetPoolPage(); }} className="mt-3" />
-        </>
-        }
-        </>
-      }
-
-      {/* ---- TAB: CONSOLIDATION POOL ---- */}
-      {activeTab === "consolidation" &&
-      <>
-          {consolidationOrders.length > 0 &&
-        <div className="grid grid-cols-3 gap-3">
-              <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-center">
-                <div className="text-2xl font-bold text-blue-700">{consolidationOrders.length}</div>
-                <div className="text-xs text-blue-500 mt-0.5">等待拼邮的包裹</div>
-              </div>
-              <div className="bg-teal-50 border border-teal-100 rounded-xl p-3 text-center">
-                <div className="text-2xl font-bold text-teal-700">{consTotalWeight}g</div>
-                <div className="text-xs text-teal-500 mt-0.5">当前总重量</div>
-              </div>
-              <div className="bg-purple-50 border border-purple-100 rounded-xl p-3 text-center">
-                <div className="text-2xl font-bold text-purple-700">{Object.keys(consGroups).length}</div>
-                <div className="text-xs text-purple-500 mt-0.5">发货方式分组</div>
-              </div>
-            </div>
-        }
-
-          <div className="flex items-start gap-2 bg-yellow-50 border border-yellow-200 rounded-xl px-4 py-3 text-sm text-yellow-800">
-            <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
-            <p>拼邮池显示所有申请拼邮且等待凑单的包裹。通知发货时选择"申请拼邮"即可加入。</p>
+          <div className="flex items-center gap-3 flex-wrap">
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-36 h-8 text-sm"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {STATUS_FILTERS.map(s => <SelectItem key={s.v} value={s.v}>{s.l}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
-
-          {loading ?
-        <div className="text-center py-16 text-gray-400 text-sm">加载中...</div> :
-        userConsPools.length === 0 ?
-        <div className="flex flex-col items-center py-20 text-gray-400">
+          {loading ? (
+            <div className="text-center py-16 text-gray-400 text-sm">加载中...</div>
+          ) : pools.length === 0 ? (
+            <div className="flex flex-col items-center py-20 text-gray-400">
               <Layers className="w-12 h-12 mb-3 opacity-20" />
               <p className="text-sm">暂无用户拼邮请求</p>
-              <p className="text-xs mt-1">通知发货时选择"申请拼邮"即可加入</p>
-            </div> :
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-              {userConsPools.slice((poolPage - 1) * poolPageSize, poolPage * poolPageSize).map((pool) => {
-            // Use allOrders for users who have orders in this pool; fall back to pool-level data for others' pools
-            const poolOrders = (pool.order_ids || []).
-            map((id) => allOrders.find((o) => o.id === id)).
-            filter(Boolean);
-            // Use pool-level aggregated data as source of truth (always available, visible to all participants)
-            const groupWeight = pool.total_weight_g || poolOrders.reduce((s, o) => s + (o.weight_g || 0), 0);
-            // Prefer pool-level strategy fields (stored at creation time, visible to all users)
-            // Fall back to order-level fields for legacy pools created before this was stored on pool
-            const minWeight = pool.consolidation_min_weight_g > 0 ?
-            pool.consolidation_min_weight_g :
-            Math.max(0, ...poolOrders.map((o) => o.consolidation_min_weight_g || 0));
-            const deadline = pool.consolidation_deadline ||
-            poolOrders.map((o) => o.consolidation_deadline).filter(Boolean).sort()[0];
-            const groupLabel = pool.consolidation_type === "transit" ?
-            pool.transit_location_name || "中转地" :
-            "自选地址拼邮";
-            const progressPct = minWeight > 0 ? Math.min(100, groupWeight / minWeight * 100) : 0;
-            const isReady = minWeight > 0 && groupWeight >= minWeight;
-            return (
-              <div key={pool.id}
-              className="border border-gray-200 rounded-xl overflow-hidden bg-white hover:shadow-md hover:border-gray-300 cursor-pointer transition-all"
-              onClick={() => setSelectedPool(pool)}>
-                
-                    <div className={`px-4 py-3 border-b ${pool.consolidation_type === "transit" ? "bg-blue-50 border-blue-100" : "bg-purple-50 border-purple-100"}`}>
-                      <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-                        <Layers className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
-                        <span className="font-semibold text-gray-800 text-sm truncate">{groupLabel}</span>
-                        {pool.pool_code &&
-                      <span className="text-xs font-mono bg-white/70 text-purple-700 border border-purple-200 px-1.5 py-0.5 rounded">{pool.pool_code}</span>
-                      }
-                      </div>
-                      <div className="flex items-center gap-1.5 text-xs text-gray-500 flex-shrink-0">
-                        <Badge variant="outline" className="text-xs">{(pool.order_ids || []).length} 件</Badge>
-                        {isReady && <Badge className="text-xs bg-green-100 text-green-700 border-green-200">可发货</Badge>}
-                        {(pool.status === "awaiting_payment" || pool.status === "awaiting_payment_confirmation") && poolOrders.some((o) => o.user_email === user?.email) &&
-                      <Badge className={`text-xs border ${pool.status === "awaiting_payment_confirmation" ? "bg-blue-100 text-blue-700 border-blue-200" : "bg-orange-100 text-orange-700 border-orange-200"}`}>
-                            <CreditCard className="w-2.5 h-2.5 mr-1 inline" />{pool.status === "awaiting_payment_confirmation" ? "待确认付款" : "待付运费"}
-                          </Badge>
-                      }
-                      </div>
-                      </div>
-                      <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-500">
-                        {pool.shipping_method && <span className="flex items-center gap-1"><Truck className="w-3 h-3" />{METHOD_LABELS[pool.shipping_method] || pool.shipping_method}</span>}
-                        <span className="flex items-center gap-1"><Scale className="w-3 h-3" />{groupWeight}g</span>
-                        {deadline && <span className="flex items-center gap-1 text-orange-500"><Calendar className="w-3 h-3" />截止 {deadline}</span>}
-                      </div>
-                    </div>
-
-                    {/* Progress bar — always shown when minWeight is set, using pool-level fields (visible to all users) */}
-                    {minWeight > 0 &&
-                <div className="px-4 py-2.5 border-b bg-white">
-                        <div className="flex justify-between text-xs mb-1.5">
-                          <span className="text-gray-500">凑单进度</span>
-                          <span className={isReady ? "text-green-600 font-medium" : "text-gray-500"}>{groupWeight}g / {minWeight}g</span>
-                        </div>
-                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                          <div className={`h-full rounded-full transition-all ${isReady ? "bg-green-500" : "bg-blue-400"}`} style={{ width: `${progressPct}%` }} />
-                        </div>
-                        {!isReady && <p className="text-xs text-gray-400 mt-1">还差 {minWeight - groupWeight}g 可发货</p>}
-                      </div>
-                }
-
-                    <div className="divide-y divide-gray-50">
-                      {/* Always show order names from pool record — visible to all permitted users */}
-                      {(() => {
-                    // Prefer detailed order info if current user has orders in this pool
-                    const displayOrders = poolOrders.length > 0 ? poolOrders : null;
-                    const displayNames = pool.order_names || [];
-                    const totalCount = pool.order_ids?.length || 0;
-                    if (displayOrders) {
-                      return (
-                        <>
-                              {displayOrders.slice(0, 3).map((o) =>
-                          <div key={o.id} className="px-4 py-2 flex items-center justify-between gap-2">
-                                  <div className="min-w-0 flex-1">
-                                    <p className="text-sm text-gray-800 truncate">{o.product_name}</p>
-                                    <p className="text-xs text-gray-400">{o.order_number} · {o.weight_g || 100}g</p>
-                                  </div>
-                                  {o.consolidation_deadline &&
-                            <span className="text-xs text-orange-500 flex-shrink-0">截止 {o.consolidation_deadline}</span>
-                            }
-                                </div>
-                          )}
-                              {displayOrders.length > 3 &&
-                          <div className="px-4 py-2 text-xs text-gray-400 text-center">还有 {displayOrders.length - 3} 件...</div>
-                          }
-                            </>);
-
-                    }
-                    // Fallback to pool-level order_names (available to all who can see the pool)
-                    return (
-                      <>
-                            {displayNames.slice(0, 3).map((name, i) =>
-                        <div key={i} className="px-4 py-2">
-                                <p className="text-sm text-gray-800 truncate">{name}</p>
-                              </div>
-                        )}
-                            {displayNames.length > 3 &&
-                        <div className="px-4 py-2 text-xs text-gray-400 text-center">还有 {displayNames.length - 3} 件...</div>
-                        }
-                            {displayNames.length === 0 &&
-                        <div className="px-4 py-2 text-xs text-gray-400">{totalCount} 件包裹</div>
-                        }
-                          </>);
-
-                  })()}
-                    </div>
-                  </div>);
-
-          }).filter(Boolean)}
             </div>
-        }
-        <PaginationBar total={userConsPools.length} pageSize={poolPageSize} currentPage={poolPage}
-          onPageChange={setPoolPage} onPageSizeChange={s => { setPoolPageSize(s); resetPoolPage(); }} className="mt-3" />
-        </>
-        }
-
-        {/* ---- TAB: OFFICIAL CONSOLIDATION KANBAN ---- */}
-      {activeTab === "official_kanban" &&
-      <>
-          <div className="flex items-center justify-between gap-2 mb-2">
-            {!isAdmin &&
-          <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-sm text-blue-800">
-                <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                <p>官方拼邮看板展示管理员组织的拼邮请求。您可以将自己的包裹拖拽到其它拼邮请求中。</p>
+          ) : (() => {
+            const userProfileMap = {};
+            (allUsers || []).forEach(u => { userProfileMap[u.email] = u; });
+            return (
+              <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                {pools.map(pool => (
+                  <ShippingPoolCard
+                    key={pool.id}
+                    pool={pool}
+                    isAdmin={isAdmin}
+                    onClick={setSelectedPool}
+                    pendingEditCount={pendingEditRequests.filter(r => r.pool_id === pool.id).length}
+                    userProfileMap={userProfileMap}
+                    onArchive={!pool.is_archived && pool.status === "delivered" ? () => handleArchivePool(pool) : null}
+                    onUnarchive={isAdmin && pool.is_archived ? () => handleUnarchivePool(pool) : null}
+                  />
+                ))}
               </div>
-          }
-            {hasUnsavedChanges && localPools &&
-          <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-4 py-2.5 text-sm text-green-700 ml-auto">
-                <CheckCircle2 className="w-4 h-4" />
-                <span>有未保存的更改</span>
-                <Button size="sm" className="bg-green-600 hover:bg-green-700 h-7 text-xs" onClick={async () => {
-              setSubmitting(true);
-              try {
-                // Commit all changed pools to backend
-                const promises = Object.values(localPools || {}).map((localPool) => {
-                  const original = officialConsPools.find((p) => p.id === localPool.id);
-                  const patch = {};
-                  if (JSON.stringify(localPool.order_ids) !== JSON.stringify(original?.order_ids)) patch.order_ids = localPool.order_ids;
-                  if (localPool.total_weight_g !== original?.total_weight_g) patch.total_weight_g = localPool.total_weight_g;
-                  if (JSON.stringify(localPool.per_user_groups) !== JSON.stringify(original?.per_user_groups)) patch.per_user_groups = localPool.per_user_groups;
-                  return shippingPoolApi.update(localPool.id, patch);
-                });
-                await Promise.all(promises);
-                // Also update order records to reflect new pool assignments
-                const orderUpdates = [];
-                Object.values(localPools || {}).forEach((localPool) => {
-                  const original = officialConsPools.find((p) => p.id === localPool.id);
-                  if (original) {
-                    const removedOrderIds = (original.order_ids || []).filter((id) => !(localPool.order_ids || []).includes(id));
-                    const addedOrderIds = (localPool.order_ids || []).filter((id) => !(original.order_ids || []).includes(id));
-                    removedOrderIds.forEach((orderId) => {
-                      orderUpdates.push(base44.functions.invoke('updateTenantOrder', {
-                        order_id: orderId,
-                        consolidation_pool_id: "",
-                        pre_shipment: { pool_created: false, pool_id: "", consType: "official_pool" }
-                      }));
-                    });
-                    addedOrderIds.forEach((orderId) => {
-                      orderUpdates.push(base44.functions.invoke('updateTenantOrder', {
-                        order_id: orderId,
-                        consolidation_pool_id: localPool.id,
-                        order_status: "notified_shipment",
-                        pre_shipment: { pool_created: true, pool_id: localPool.id, consType: "official_pool" }
-                      }));
-                    });
-                  }
-                });
-                await Promise.all(orderUpdates);
-                setLocalPools(null);
-                setHasUnsavedChanges(false);
-                fetchData();
-              } catch (e) {
-                console.error('Save failed:', e);
-              } finally {
-                setSubmitting(false);
-              }
-            }}>
-                  {submitting ? "保存中..." : "保存更改"}
+              <PaginationBar total={total} pageSize={poolPageSize} currentPage={poolPage}
+                onPageChange={setPoolPage} onPageSizeChange={s => { setPoolPageSize(s); resetPoolPage(); }} className="mt-3" />
+              </>
+            );
+          })()}
+        </>
+      )}
+
+      {/* ---- OFFICIAL KANBAN TAB ---- */}
+      {activeTab === "official_kanban" && (
+        <>
+          {loading ? (
+            <div className="text-center py-16 text-gray-400 text-sm">加载中...</div>
+          ) : (
+            <OfficialPoolKanban
+              pools={pools}
+              allOrders={allOrders}
+              currentUser={user}
+              isAdmin={isAdmin}
+              showPoolSorter={isAdmin && showPoolSorter}
+              setShowPoolSorter={setShowPoolSorter}
+              onPoolClick={setSelectedPool}
+              onRefresh={fetchPageData}
+              shippingMethods={shippingMethods}
+            />
+          )}
+        </>
+      )}
+
+      {/* ---- LOCATIONS TAB ---- */}
+      {activeTab === "locations" && (
+        <div className="space-y-4">
+          {/* Location form */}
+          {showLocForm && (
+            <div className="border border-gray-200 rounded-xl p-5 bg-gray-50 space-y-3">
+              <h3 className="text-sm font-semibold text-gray-800">{editingLoc ? "编辑中转地" : "添加中转地"}</h3>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="col-span-2">
+                  <Label className="text-xs text-gray-500">中转地名称 *</Label>
+                  <Input className="mt-1 h-8 text-sm" value={locForm.name} onChange={e => lf("name", e.target.value)} />
+                </div>
+                <div>
+                  <Label className="text-xs text-gray-500">代号前缀（3位大写字母）</Label>
+                  <Input
+                    className="mt-1 h-8 text-sm font-mono uppercase tracking-widest"
+                    maxLength={3}
+                    placeholder="TYO"
+                    value={locForm.code_prefix}
+                    onChange={e => lf("code_prefix", e.target.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 3))}
+                  />
+                </div>
+              </div>
+              <div>
+                  <Label className="text-xs text-gray-500">负责人（可选择任何用户）</Label>
+                  <Select value={locForm.manager_email} onValueChange={v => lf("manager_email", v)}>
+                    <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue placeholder="选择用户..." /></SelectTrigger>
+                    <SelectContent>
+                      {allUsers.map(u => (
+                        <SelectItem key={u.id} value={u.email}>
+                          {u.full_name ? `${u.full_name} (${u.email})` : u.email}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+              </div>
+              <div>
+                <Label className="text-xs text-gray-500">负责人联系方式（微信/Line/WhatsApp等）</Label>
+                <Input className="mt-1 h-8 text-sm" placeholder="如：微信号 abc123" value={locForm.manager_contact} onChange={e => lf("manager_contact", e.target.value)} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs text-gray-500">国家</Label>
+                  <CountrySelect value={locForm.country} onChange={v => lf("country", v)} placeholder="选择国家" className="mt-1" />
+                </div>
+                <div>
+                  <Label className="text-xs text-gray-500">省/州</Label>
+                  <Input className="mt-1 h-8 text-sm" placeholder="如：广东省" value={locForm.province} onChange={e => lf("province", e.target.value)} />
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs text-gray-500">详细地址</Label>
+                <Input className="mt-1 h-8 text-sm" placeholder="街道、门牌号等" value={locForm.address} onChange={e => lf("address", e.target.value)} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs text-gray-500">中转手续费</Label>
+                  <Input type="number" step="0.01" className="mt-1 h-8 text-sm" placeholder="0" value={locForm.handling_fee} onChange={e => lf("handling_fee", parseFloat(e.target.value) || 0)} />
+                </div>
+                <div>
+                  <Label className="text-xs text-gray-500">手续费货币</Label>
+                  <Select value={locForm.handling_fee_currency} onValueChange={v => lf("handling_fee_currency", v)}>
+                    <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {["JPY","CNY","USD","TWD","HKD","EUR","SGD"].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs text-gray-500">描述/备注</Label>
+                <Textarea rows={2} className="mt-1 text-sm" value={locForm.description} onChange={e => lf("description", e.target.value)} />
+              </div>
+              <div className="flex items-center gap-6 flex-wrap">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <Switch checked={locForm.allow_storage} onCheckedChange={v => lf("allow_storage", v)} />
+                  <span className="text-xs text-gray-600">允许货品暂存</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <Switch checked={locForm.allow_pickup} onCheckedChange={v => lf("allow_pickup", v)} />
+                  <span className="text-xs text-gray-600">允许自取</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <Switch checked={locForm.is_active} onCheckedChange={v => lf("is_active", v)} />
+                  <span className="text-xs text-gray-600">启用</span>
+                </label>
+              </div>
+
+              {/* Default official pool toggle */}
+              <div className="flex items-center justify-between border border-orange-200 rounded-lg px-3 py-2 bg-orange-50">
+                <div>
+                  <p className="text-xs font-medium text-orange-700">设为默认官方拼邮中转地</p>
+                  <p className="text-xs text-orange-500 mt-0.5">开启后，创建官方拼邮需求时将自动选取此中转地（全租户唯一）</p>
+                </div>
+                <Switch
+                  checked={locForm.is_default_official_pool}
+                  onCheckedChange={v => lf("is_default_official_pool", v)}
+                />
+              </div>
+
+              {/* Disable transit methods for this location */}
+              {transitMethods.length > 0 && (
+                <div>
+                  <Label className="text-xs text-gray-500">禁用的中转运输方式（勾选 = 在此中转地隐藏）</Label>
+                  <div className="mt-1.5 space-y-1 border border-gray-200 rounded-lg p-2 bg-white max-h-36 overflow-y-auto">
+                    {transitMethods.map(m => {
+                      const disabled = (locForm.disabled_transit_method_ids || []).includes(m.id);
+                      return (
+                        <label key={m.id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 rounded px-1 py-0.5">
+                          <input type="checkbox" checked={disabled}
+                            onChange={() => lf("disabled_transit_method_ids", disabled
+                              ? (locForm.disabled_transit_method_ids || []).filter(id => id !== m.id)
+                              : [...(locForm.disabled_transit_method_ids || []), m.id]
+                            )}
+                            className="accent-red-600" />
+                          <span className="text-xs text-gray-700">{m.name}</span>
+                          {!m.is_active && <span className="text-xs text-gray-400">（已全局禁用）</span>}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Disable addons for this location */}
+              {addonOptions.length > 0 && (
+                <div>
+                  <Label className="text-xs text-gray-500">禁用的发货增值服务（勾选 = 在此中转地隐藏）</Label>
+                  <div className="mt-1.5 space-y-1 border border-gray-200 rounded-lg p-2 bg-white max-h-36 overflow-y-auto">
+                    {addonOptions.map(a => {
+                      const disabled = (locForm.disabled_addon_ids || []).includes(a.id);
+                      return (
+                        <label key={a.id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 rounded px-1 py-0.5">
+                          <input type="checkbox" checked={disabled}
+                            onChange={() => lf("disabled_addon_ids", disabled
+                              ? (locForm.disabled_addon_ids || []).filter(id => id !== a.id)
+                              : [...(locForm.disabled_addon_ids || []), a.id]
+                            )}
+                            className="accent-red-600" />
+                          <span className="text-xs text-gray-700">{a.service_name}</span>
+                          {a.fee > 0 && <span className="text-xs text-gray-400">+{a.fee_currency} {a.fee}</span>}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              <div className="flex gap-2 justify-end">
+                <Button variant="outline" size="sm" onClick={() => { setShowLocForm(false); setEditingLoc(null); }}>取消</Button>
+                <Button size="sm" className="bg-red-600 hover:bg-red-700" onClick={handleLocSave} disabled={savingLoc || !locForm.name}>
+                  {savingLoc ? "保存中..." : "保存"}
                 </Button>
-                <Button variant="ghost" size="sm" className="h-7 text-xs text-green-600 hover:text-green-700" onClick={() => {setLocalPools(null);setHasUnsavedChanges(false);}}>放弃</Button>
               </div>
-          }
-          </div>
-          {loading ?
-        <div className="text-center py-16 text-gray-400 text-sm">加载中...</div> :
+            </div>
+          )}
 
-        <OfficialPoolKanban
-          pools={localPools ? Object.values(localPools) : officialConsPools}
-          allOrders={allOrders}
-          currentUser={user}
+          {/* Location list */}
+          {locations.length === 0 ? (
+            <div className="text-center py-12 text-gray-400">
+              <MapPin className="w-10 h-10 mx-auto mb-2 opacity-20" />
+              <p className="text-sm">暂无中转地，点击右上角"添加中转地"</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {/* Sort: locations without manager first */}
+              {[...locations].sort((a, b) => {
+                const aHasManager = !!a.manager_email;
+                const bHasManager = !!b.manager_email;
+                if (aHasManager === bHasManager) return 0;
+                return aHasManager ? 1 : -1;
+              }).map(loc => (
+                  <div key={loc.id} className="flex items-start gap-3 border border-gray-200 rounded-xl p-4 bg-white">
+                  <MapPin className={`w-4 h-4 mt-0.5 flex-shrink-0 ${loc.is_active ? "text-red-500" : "text-gray-300"}`} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-medium text-gray-800">{loc.name}</span>
+                      {loc.code_prefix && (
+                        <Badge className="text-xs bg-purple-100 text-purple-700 font-mono">{loc.code_prefix}</Badge>
+                      )}
+                      {(loc.country || loc.province) && (
+                        <Badge variant="outline" className="text-xs">
+                          {[getCountry(loc.country)?.name || loc.country, loc.province].filter(Boolean).join(" · ")}
+                        </Badge>
+                      )}
+                      {loc.allow_storage && <Badge className="text-xs bg-blue-100 text-blue-600">可暂存</Badge>}
+                      {loc.allow_pickup && <Badge className="text-xs bg-teal-100 text-teal-600">可自取</Badge>}
+                      {loc.is_default_official_pool && (
+                        <Badge className="text-xs bg-orange-100 text-orange-700">⭐ 默认官方拼邮</Badge>
+                      )}
+                      <Badge className={`text-xs ${loc.is_active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                        {loc.is_active ? "启用" : "停用"}
+                      </Badge>
+                      {!loc.manager_email && (
+                        <Badge className="text-xs bg-orange-100 text-orange-700 border-orange-200">
+                          <AlertCircle className="w-2.5 h-2.5 mr-1 inline" />
+                          未分配负责人
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-x-3 mt-0.5">
+                      {loc.address && <p className="text-xs text-gray-500">{loc.address}</p>}
+                      {loc.handling_fee > 0 && <p className="text-xs text-orange-500">手续费 {loc.handling_fee_currency || "JPY"} {loc.handling_fee}</p>}
+                      {loc.manager_email && <p className="text-xs text-gray-400">负责人：{allUsers.find(u => u.email === loc.manager_email)?.full_name || loc.manager_email}{loc.manager_contact ? ` · ${loc.manager_contact}` : ""}</p>}
+                    </div>
+                    {loc.description && <p className="text-xs text-gray-400 mt-0.5">{loc.description}</p>}
+                  </div>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    {canManageTransitLocations && (
+                      <>
+                        {/* Work Panel Button */}
+                        <a
+                          href={`${window.location.origin}/TransitLocationWork/${loc.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="打开中转地工作面板"
+                          className="inline-flex items-center gap-1 px-2 py-1.5 rounded bg-red-50 text-red-600 hover:bg-red-100 text-xs font-medium transition-colors"
+                        >
+                          <LogIn className="w-3.5 h-3.5" />
+                          工作面板
+                        </a>
+                        {!loc.is_default_official_pool && (
+                          <button
+                            title="设为默认官方拼邮中转地"
+                            onClick={async () => {
+                              // Clear existing default, then set this one
+                              const others = locations.filter(l => l.is_default_official_pool);
+                              await Promise.all(others.map(l => tenantEntity.update('TransitLocation', l.id, { is_default_official_pool: false })));
+                              await tenantEntity.update('TransitLocation', loc.id, { is_default_official_pool: true });
+                              fetchLocations();
+                            }}
+                            className="p-1.5 rounded hover:bg-orange-50 text-gray-300 hover:text-orange-500">
+                            <Check className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {loc.is_default_official_pool && (
+                          <button
+                            title="取消默认官方拼邮中转地"
+                            onClick={async () => {
+                              await tenantEntity.update('TransitLocation', loc.id, { is_default_official_pool: false });
+                              fetchLocations();
+                            }}
+                            className="p-1.5 rounded hover:bg-orange-50 text-orange-500 hover:text-orange-700">
+                            <Check className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        <button onClick={() => handleLocToggle(loc)} className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-700">
+                          {loc.is_active ? <XIcon className="w-3.5 h-3.5" /> : <Check className="w-3.5 h-3.5" />}
+                        </button>
+                        <button onClick={() => handleLocEdit(loc)} className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-700">
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                        <button onClick={() => handleLocDelete(loc.id)} className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-500">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {showCreate && (
+        <CreateShippingPoolModal
           isAdmin={isAdmin}
-          onPoolClick={setSelectedPool}
-          onRefresh={() => fetchData()}
-          onLocalUpdate={(updatedPool) => {
-            setLocalPools((prev) => {
-              // If first update, initialize with all pools from current displayed state
-              const base = prev ? { ...prev } : {};
-              if (!prev) {
-                // First time: start from current displayed pools (which may already be localPools or officialConsPools)
-                (localPools ? Object.values(localPools) : officialConsPools || []).forEach((p) => {base[p.id] = p;});
-              }
-              // Apply the updated pool
-              base[updatedPool.id] = updatedPool;
-              return base;
-            });
-            setHasUnsavedChanges(true);
-          }} />
+          onClose={() => setShowCreate(false)}
+          onSuccess={() => {
+            setShowCreate(false);
+            fetchPageData();
+          }}
+        />
+      )}
 
-        }
-        </>
-      }
-
-      {selectedPool && user &&
-      <ShippingPoolDetailModal
-        pool={selectedPool}
-        isAdmin={isAdmin}
-        currentUser={user}
-        pendingEditRequests={pendingEditRequests.filter((r) => r.pool_id === selectedPool.id)}
-        availableAddons={shippingAddons}
-        transitShippingMethods={transitShippingMethods}
-        onClose={() => setSelectedPool(null)}
-        onUpdated={() => {setSelectedPool(null);fetchData();}} />
-
-      }
-    </div>);
-
+      {selectedPool && user && (
+        <ShippingPoolDetailModal
+          pool={selectedPool}
+          isAdmin={isAdmin}
+          currentUser={user}
+          pendingEditRequests={pendingEditRequests.filter(r => r.pool_id === selectedPool.id)}
+          boxTemplates={boxTemplates}
+          shippingMethods={shippingMethods}
+          defaultPackingFeeSingle={defaultPackingFeeSingle}
+          defaultPackingFeeConsolidation={defaultPackingFeeConsolidation}
+          allowReadyToShipWithoutPayment={allowReadyToShipWithoutPayment}
+          allowShipWithoutPaymentSingle={allowShipWithoutPaymentSingle}
+          allowShipWithoutPaymentUserPool={allowShipWithoutPaymentUserPool}
+          allowShipWithoutPaymentOfficialPool={allowShipWithoutPaymentOfficialPool}
+          fullpayOnceToleranceJpy={fullpayOnceToleranceJpy}
+          transitHandlingFeeSplit={transitHandlingFeeSplit}
+          transitLocations={locations}
+          transitShippingMethods={transitMethods}
+          onClose={() => {
+            setSelectedPool(null);
+            fetchPageData();
+          }}
+          onUpdated={() => {
+            setSelectedPool(null);
+            fetchPageData();
+          }}
+        />
+      )}
+    </div>
+  );
 }

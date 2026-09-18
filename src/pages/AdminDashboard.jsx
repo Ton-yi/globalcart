@@ -110,7 +110,7 @@ export default function AdminDashboard() {
             <div className="text-xs text-gray-500 mt-0.5">活跃订单</div>
           </div>
         </Link>
-        <Link to={createPageUrl("AdminShippingPool")}>
+        <Link to={createPageUrl("ShippingPool")}>
           <div className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow text-center cursor-pointer">
             <div className="text-2xl font-bold text-gray-900">{totalPools}</div>
             <div className="text-xs text-gray-500 mt-0.5">发货申请</div>
@@ -335,7 +335,7 @@ export default function AdminDashboard() {
             ))}
             {poolsPendingInit.length > 5 && (
               <div className="px-4 py-2 text-center">
-                <Link to={createPageUrl("AdminShippingPool")} className="text-xs text-blue-600 hover:underline flex items-center justify-center gap-1">
+                <Link to={createPageUrl("ShippingPool")} className="text-xs text-blue-600 hover:underline flex items-center justify-center gap-1">
                   查看全部 {poolsPendingInit.length} 条 <ArrowRight className="w-3 h-3" />
                 </Link>
               </div>
@@ -412,7 +412,7 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         {[
           { label: "订单管理", page: "AdminOrders" },
-          { label: "发货池管理", page: "AdminShippingPool" },
+          { label: "发货池管理", page: "ShippingPool" },
           { label: "用户管理", page: "AdminUsers" },
           { label: "常见问题", page: "AdminFaq" },
         ].map(({ label, page }) => (

@@ -174,6 +174,26 @@ export default function AdminShippingInfoPanel({
     }
   }, [initialPool?.status]);
 
+  // Sync packing fees when getShippingPoolDetail returns updated data (e.g. after handleSaveInfoOnly)
+  const packingFeesKeyRef = useRef(JSON.stringify(initialPool?.packing_fees_per_user));
+  useEffect(() => {
+    const newKey = JSON.stringify(initialPool?.packing_fees_per_user);
+    if (newKey === packingFeesKeyRef.current) return;
+    packingFeesKeyRef.current = newKey;
+    const saved = initialPool?.packing_fees_per_user || [];
+    if (saved.length > 0 && saved[0].base_fee_jpy !== undefined) {
+      setBasePackingFee(saved[0].base_fee_jpy);
+    } else if (initialPool?.packing_fee_jpy) {
+      setBasePackingFee(initialPool.packing_fee_jpy);
+    }
+    if (saved.length > 0) {
+      setPackingFeesPerUser(saved.map(u => ({
+        ...u,
+        extra_fee_jpy: u.extra_fee_jpy ?? Math.max(0, (u.fee_jpy || 0) - (u.base_fee_jpy ?? defaultBaseFee)),
+      })));
+    }
+  }, [initialPool?.packing_fees_per_user, defaultBaseFee]);
+
   // Sync pool.order_ids when parent passes updated pool (e.g. after orders are moved in)
   useEffect(() => {
     setPool(prev => {
@@ -210,6 +230,7 @@ export default function AdminShippingInfoPanel({
     // Try to restore base fee from saved data: if all users have same fee, that's the base
     const saved = initialPool.packing_fees_per_user || [];
     if (saved.length > 0 && saved[0].base_fee_jpy !== undefined) return saved[0].base_fee_jpy;
+    if (initialPool.packing_fee_jpy) return initialPool.packing_fee_jpy;
     return defaultBaseFee;
   });
   const [packingFeesPerUser, setPackingFeesPerUser] = useState(initPackingFeesPerUser);

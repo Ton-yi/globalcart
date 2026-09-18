@@ -85,7 +85,7 @@ export default function CreateShippingPoolModal({ isAdmin, onClose, onSuccess })
         user_email: u?.data?.user_email
       }
 
-      const res = await shippingPoolApi.adminCreate(u.id, payload);
+      const res = await shippingPoolApi.poolCreate(u.id, payload);
 
 
       // const warehouseOrders = ordersRes.filter(o => o.order_status === "in_warehouse");
@@ -242,7 +242,7 @@ export default function CreateShippingPoolModal({ isAdmin, onClose, onSuccess })
     }
 
     try {
-      const res = await shippingPoolApi.handleAdminCreate(payload);
+      const res = await shippingPoolApi.handleCreate(payload);
       toast.success(`发货池 [${res?.pool_code}] 创建成功`);
       onSuccess?.();
     } catch (err) {
