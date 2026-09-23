@@ -1,0 +1,37 @@
+{
+  "name": "Auto Create Pre-Shipment Pool on In-Warehouse",
+  "description": "When order status is updated to in_warehouse, auto-create shipping pool from pre_shipment data",
+  "trigger": {
+    "condition": "${ (.trigger.data.order_status == \"in_warehouse\") }",
+    "config": {
+      "trigger_type": "entity",
+      "events": [
+        "update"
+      ],
+      "entity_name": "Order"
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "auto_create_pre_shipment_pool_on_in_warehouse",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "autoCreatePreShipmentPool",
+            "args": {}
+          },
+          "then": "end"
+        }
+      }
+    ]
+  },
+  "x-base44-migrated-from-automation": {
+    "legacy_payload_function": "autoCreatePreShipmentPool"
+  }
+}

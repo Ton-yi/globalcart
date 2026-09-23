@@ -1,0 +1,44 @@
+{
+  "name": "\u6bcf\u65e5\u51cc\u6668\u751f\u6210\u62a5\u8868\u6c47\u603b",
+  "description": "\u6bcf\u5929\u51cc\u6668 2 \u70b9\u81ea\u52a8\u751f\u6210\u524d\u4e00\u5929\u7684\u62a5\u8868\u6c47\u603b\u6570\u636e\u5230 DailyReportSummary \u5b9e\u4f53",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "0 17 * * *",
+      "one_time_date": null,
+      "timezone": "UTC",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "migrated_workflow",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "generateDailyReportSummary",
+            "args": {}
+          },
+          "then": "end"
+        }
+      }
+    ]
+  },
+  "x-base44-migrated-from-automation": {
+    "legacy_payload_function": "generateDailyReportSummary"
+  }
+}

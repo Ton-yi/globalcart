@@ -1,0 +1,39 @@
+{
+  "name": "\u4f1a\u5458\u7edf\u8ba1-\u8ba2\u5355\u53d8\u66f4\u540c\u6b65",
+  "description": "\u8ba2\u5355\u521b\u5efa/\u66f4\u65b0/\u5220\u9664\u65f6\u81ea\u52a8\u91cd\u7b97\u8be5\u7528\u6237\u7684\u4f1a\u5458\u7edf\u8ba1\u7f13\u5b58\uff08UserMemberStats\uff09",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "entity",
+      "events": [
+        "create",
+        "update",
+        "delete"
+      ],
+      "entity_name": "Order"
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "migrated_workflow",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "recalculateMemberStats",
+            "args": {}
+          },
+          "then": "end"
+        }
+      }
+    ]
+  },
+  "x-base44-migrated-from-automation": {
+    "legacy_payload_function": "recalculateMemberStats"
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "name": "Auto-assign tenant to unassigned users",
+  "description": "Runs every 10 minutes to auto-assign tenant_id to any newly created users who are still unassigned. Handles the single-tenant and sole-admin cases automatically; logs a warning for ambiguous multi-tenant cases.",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "interval",
+      "cron_expression": null,
+      "one_time_date": null,
+      "timezone": "UTC",
+      "interval_value": 5,
+      "interval_unit": "minutes",
+      "interval_anchor": "2026-03-23T03:45:01.340000",
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "auto_assign_tenant_to_unassigned_users",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "autoAssignTenantOnUserCreate",
+            "args": {}
+          },
+          "then": "end"
+        }
+      }
+    ]
+  },
+  "x-base44-migrated-from-automation": {
+    "legacy_payload_function": "autoAssignTenantOnUserCreate"
+  }
+}
