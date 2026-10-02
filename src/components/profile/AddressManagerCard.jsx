@@ -62,7 +62,7 @@ export default function AddressManagerCard() {
   };
 
   const handleSaveAddr = async () => {
-    if (!addrForm.label.trim() || !isAddressFormValid(addrForm)) return;
+    if (!isAddressFormValid(addrForm)) return;
     const { label, ...fields } = addrForm;
     const full_text = serializeAddressToText(fields);
     let newAddresses;
@@ -117,13 +117,13 @@ export default function AddressManagerCard() {
           <div className="border border-red-100 rounded-xl p-4 bg-red-50/30 space-y-3">
             <p className="text-xs font-medium text-gray-600">{editingAddr === "new" ? "添加新地址" : "编辑地址"}</p>
             <div>
-              <Label className="text-xs text-gray-500">地址标签 *</Label>
+              <Label className="text-xs text-gray-500">地址标签（选填）</Label>
               <Input className="mt-1 h-8 text-sm" placeholder="如：家、公司" value={addrForm.label} onChange={e => af("label", e.target.value)} />
             </div>
             <AddressForm value={addrForm} onChange={v => setAddrForm(prev => ({ ...prev, ...v }))} />
             <div className="flex gap-2 justify-end pt-1">
               <Button variant="outline" size="sm" onClick={() => setEditingAddr(null)}>取消</Button>
-              <Button size="sm" className="bg-red-600 hover:bg-red-700" onClick={handleSaveAddr} disabled={saving || !addrForm.label.trim() || !isAddressFormValid(addrForm)}>
+              <Button size="sm" className="bg-red-600 hover:bg-red-700" onClick={handleSaveAddr} disabled={saving || !isAddressFormValid(addrForm)}>
                 <Check className="w-3.5 h-3.5 mr-1" />{saving ? "保存中..." : "保存"}
               </Button>
             </div>
@@ -139,7 +139,7 @@ export default function AddressManagerCard() {
             <div key={addr.id} className={`rounded-xl border p-3 ${isDefault ? "border-red-200 bg-red-50/30" : "border-gray-100 bg-gray-50"}`}>
               <div className="flex items-start justify-between gap-2 mb-1.5">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-sm font-medium text-gray-800">{addr.label}</span>
+                  {addr.label?.trim() && <span className="text-sm font-medium text-gray-800">{addr.label}</span>}
                   {addr.country && <Badge variant="outline" className="text-xs">{getCountry(addr.country)?.name || addr.country}</Badge>}
                   {isDefault && (
                     <Badge className="text-xs bg-red-100 text-red-700 flex items-center gap-1">

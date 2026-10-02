@@ -4,7 +4,7 @@
  * Admin can edit tracking number, actual fee.
  */
 import { useState, useEffect, useRef } from "react";
-import { X, Package, Edit2, Save, MoreVertical, ArrowRight, RotateCcw, Loader2, Search, Trash2, AlertCircle, CheckCircle, XCircle, CreditCard, ExternalLink, Upload, Truck, MapPin, PlusCircle, MoveRight, Star, ChevronDown, ChevronUp, Layers, Tag } from "lucide-react";
+import { X, Package, Edit2, Save, MoreVertical, ArrowRight, RotateCcw, Loader2, Search, Trash2, AlertCircle, CheckCircle, XCircle, CreditCard, ExternalLink, Truck, MapPin, PlusCircle, MoveRight, Star, Layers } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { usePermissions } from "@/hooks/usePermissions";
 import { updateOrder, tenantEntity, shippingPoolApi, userPrefApi, fetchTenantConfig } from "@/lib/tenantApi";
@@ -22,16 +22,16 @@ import ShippingFeeBreakdown from "@/components/shippingpool/ShippingFeeBreakdown
 import { ImageWithViewer } from "@/components/common/ImageViewer";
 import PaymentMethodSelector from "@/components/common/PaymentMethodSelector";
 import PaymentProofUploader from "@/components/shippingpool/PaymentProofUploader";
-import OrderDetailCard from "@/components/shippingpool/OrderDetailCard";
 import OrderDetailPanel from "@/components/shippingpool/OrderDetailPanel";
 import TransitShippedPanel from "@/components/shippingpool/TransitShippedPanel";
 import UserGroupHeader from "@/components/shippingpool/UserGroupHeader";
 import MessageThread from "@/components/common/MessageThread";
+import DestinationAddress, { resolveDestinationAddressLabel } from "@/components/shippingpool/DestinationAddress";
 
 import { STATUS_CONFIG, METHOD_LABELS } from "./shippingFormConstants";
 import AddressForm, { EMPTY_ADDRESS_FORM, serializeAddressToText, isAddressFormValid } from "@/components/common/AddressForm";
 
-export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, currentUser, pendingEditRequests: initialPendingEdits = [], boxTemplates = [], shippingMethods = [], defaultPackingFeeSingle = 0, defaultPackingFeeConsolidation = 0, allowReadyToShipWithoutPayment = false, allowShipWithoutPaymentSingle = false, allowShipWithoutPaymentUserPool = false, allowShipWithoutPaymentOfficialPool = false, fullpayOnceToleranceJpy = 500, transitHandlingFeeSplit = false, transitLocations = [], transitShippingMethods = [], availableAddons = [], allowUserRewarehouse = false, onClose, onUpdated }) {
+export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, currentUser, pendingEditRequests: initialPendingEdits = [], boxTemplates = [], shippingMethods = [], defaultPackingFeeSingle = 0, defaultPackingFeeConsolidation = 0, allowReadyToShipWithoutPayment = false, allowShipWithoutPaymentSingle = false, allowShipWithoutPaymentUserPool = false, allowShipWithoutPaymentOfficialPool = false, fullpayOnceToleranceJpy = 500, transitHandlingFeeSplit = false, transitLocations = [], transitShippingMethods = [], availableAddons = [], allowUserRewarehouse = false, onSavePostShipmentInfo, onClose, onUpdated }) {
   const { can } = usePermissions();
   const canDeleteShipment = isAdmin && can("shipping:delete_shipment_request");
   const canEditPackage = isAdmin && can("shipping:edit_package");
@@ -39,6 +39,32 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
   const canSendShippingMessage = isAdmin || can("message:send_shipping_message");
 
   const [pool, setPool] = useState(initialPool);
+  const [configuredShippingMethods, setConfiguredShippingMethods] = useState(shippingMethods);
+  const [destinationAddressLabel, setDestinationAddressLabel] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    // Include inactive methods for historical shipments. shipping_method normally stores code,
+    // not the entity ID; support ID and legacy name records without translating the configured name.
+    fetchTenantConfig().then(cfg => {
+      if (!cancelled) setConfiguredShippingMethods(cfg.shippingMethods || shippingMethods);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    setDestinationAddressLabel("");
+    const ownerEmail = pool.creator_email;
+    if (!ownerEmail || (!isAdmin && ownerEmail !== currentUser?.email)) return;
+    userPrefApi.list({ user_email: ownerEmail }).then(prefs => {
+      const addresses = prefs.flatMap(pref => pref.saved_addresses || []);
+      // Only the optional label is read from the address book; shipment address snapshots stay authoritative.
+      // TODO (integration): persist a label snapshot when creating a shipment if labels must stay historical.
+      if (!cancelled) setDestinationAddressLabel(resolveDestinationAddressLabel(pool, addresses));
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [pool.creator_email, pool.final_address_id, pool.recipient_name, pool.address_line1, pool.address_line2, pool.city, pool.state, pool.recipient_phone, pool.postal_code, pool.country, pool.destination_country, isAdmin, currentUser?.email]);
   const [orders, setOrders] = useState([]);
   const [saving, setSaving] = useState(false);
   const [imageFile, setImageFile] = useState(null);
@@ -137,7 +163,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
     if (isNew && convertSaveAddress && isAddressFormValid(convertNewAddress)) {
       const prefs = await userPrefApi.list({ user_email: currentUser?.email }).catch(() => []);
       const existing = prefs[0]?.saved_addresses || [];
-      const newEntry = { id: `addr_${Date.now()}`, label: convertNewAddress.label || "新地址", full_text: serializeAddressToText(convertNewAddress), ...convertNewAddress };
+      const newEntry = { id: `addr_${Date.now()}`, label: convertNewAddress.label.trim(), full_text: serializeAddressToText(convertNewAddress), ...convertNewAddress };
       if (prefs[0]) {
         await userPrefApi.update(prefs[0].id, { saved_addresses: [...existing, newEntry] });
       } else {
@@ -654,6 +680,11 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
   }])).values()].filter((u) => u.name);
 
   const status = STATUS_CONFIG[pool.status] || STATUS_CONFIG.pending;
+  const hasShipped = pool.status === "shipped" || pool.status === "delivered";
+  const internationalMethod = configuredShippingMethods.find(method => method.code === pool.shipping_method)
+    || configuredShippingMethods.find(method => method.id === pool.shipping_method)
+    || configuredShippingMethods.find(method => method.name === pool.shipping_method);
+  const internationalMethodName = internationalMethod?.name || METHOD_LABELS[pool.shipping_method] || pool.shipping_method;
 
   // 发货后补付：池子已进入发货流程但运费未确认收款，用户仍可付款（付款只更新付款状态，不影响发货状态）
   const feeNotified = (pool.fee_breakdown_per_user || []).length > 0 || (parseFloat(pool.shipping_fee_jpy) || 0) > 0;
@@ -708,14 +739,17 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
         <div className="px-6 py-5 space-y-6">
           {/* Info grid */}
            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
-             {pool.scheduled_ship_date &&
+             {!hasShipped && pool.scheduled_ship_date &&
             <InfoBlock label="计划发货日" value={pool.scheduled_ship_date} />
             }
+             {/* shipped_date ALREADY exists in ShippingPool schema and dispatch handlers.
+                 Legacy rows may lack it: show missing data instead of the planned date. */}
+             {hasShipped && <InfoBlock label="发货日" value={pool.shipped_date || "未记录"} />}
              {pool.destination_country &&
             <InfoBlock label="目的国家" value={pool.destination_country} />
             }
              {pool.shipping_method &&
-            <InfoBlock label="运输方式" value={METHOD_LABELS[pool.shipping_method] || pool.shipping_method} />
+            <InfoBlock label="运输方式" value={internationalMethodName} untranslated />
             }
              {pool.total_weight_g > 0 &&
             <InfoBlock label="总重量" value={`${pool.total_weight_g}g`} />
@@ -729,22 +763,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
            </div>
 
            {/* Destination address */}
-           {(pool.recipient_name || pool.address_line1 || pool.city || pool.country) &&
-          <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2.5 hidden">
-               <p className="text-xs text-blue-600 font-medium mb-1">发货目的地</p>
-               <div className="text-sm text-blue-800 space-y-0.5">
-                 {pool.recipient_name && <p className="font-medium">{pool.recipient_name}</p>}
-                 {pool.recipient_phone && <p className="text-xs">{pool.recipient_phone}</p>}
-                 <p className="whitespace-pre-wrap">
-                   {pool.address_line1}{pool.address_line2 ? ` ${pool.address_line2}` : ""}<br />
-                   {pool.city && `${pool.city} `}
-                   {pool.state && `${pool.state} `}
-                   {pool.postal_code && `${pool.postal_code}`}<br />
-                   {pool.country}
-                 </p>
-               </div>
-             </div>
-          }
+           <DestinationAddress pool={pool} addressLabel={destinationAddressLabel} />
 
           {/* Selected shipping addons */}
           {((pool.selected_addons || []).length > 0 || (pool.selected_addon_ids || []).length > 0) &&
@@ -1454,7 +1473,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
             pool={pool}
             orders={orders}
             boxTemplates={boxTemplates}
-            shippingMethods={shippingMethods}
+            shippingMethods={configuredShippingMethods}
             defaultPackingFeeSingle={defaultPackingFeeSingle}
             defaultPackingFeeConsolidation={defaultPackingFeeConsolidation}
             allowShipWithoutPayment={allowReadyToShipWithoutPayment}
@@ -1466,6 +1485,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
             transitLocations={transitLocations}
             transitShippingMethods={transitShippingMethods}
             userProfileMap={tenantUserMap}
+            onSavePostShipmentInfo={onSavePostShipmentInfo}
             onPoolUpdated={onUpdated} />
 
           }
@@ -1546,7 +1566,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                     {pool.shipping_method &&
                   <div>
                         <p className="text-xs text-gray-400">运输方式</p>
-                        <p className="font-medium text-gray-800">{METHOD_LABELS[pool.shipping_method] || pool.shipping_method}</p>
+                        <p className="font-medium text-gray-800" translate="no">{internationalMethodName}</p>
                       </div>
                   }
                     {pool.transit_location_name &&
@@ -1935,11 +1955,11 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
 
 }
 
-function InfoBlock({ label, value, highlight }) {
+function InfoBlock({ label, value, highlight, untranslated = false }) {
   return (
     <div className={`rounded-lg p-3 ${highlight ? "bg-green-50 border border-green-100" : "bg-gray-50"}`}>
       <p className="text-xs text-gray-400">{label}</p>
-      <p className={`text-sm font-medium mt-0.5 ${highlight ? "text-green-700" : "text-gray-800"}`}>{value}</p>
+      <p translate={untranslated ? "no" : undefined} className={`text-sm font-medium mt-0.5 ${highlight ? "text-green-700" : "text-gray-800"}`}>{value}</p>
     </div>);
 
 }

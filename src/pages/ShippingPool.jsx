@@ -298,7 +298,7 @@ export default function ShippingPool() {
     // Determine effective address fields
     const getAddrForSave = (addrObj) => {
       const { label, ...fields } = addrObj;
-      return { label: label || "新地址", full_text: serializeAddressToText(fields), ...fields };
+      return { label: label.trim(), full_text: serializeAddressToText(fields), ...fields };
     };
 
     const needSaveDirect = useNewAddress && saveAddress && isAddressFormValid(newAddress);
@@ -1336,6 +1336,7 @@ export default function ShippingPool() {
         currentUser={user}
         pendingEditRequests={pendingEditRequests.filter((r) => r.pool_id === selectedPool.id)}
         availableAddons={shippingAddons}
+        shippingMethods={shippingMethods}
         transitShippingMethods={transitShippingMethods}
         onClose={() => setSelectedPool(null)}
         onUpdated={() => {setSelectedPool(null);fetchData(user);}} />

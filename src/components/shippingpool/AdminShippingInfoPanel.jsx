@@ -16,9 +16,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CreditCard, Truck, CheckCircle, ExternalLink, X, Plus, Loader2, MapPin, Copy } from "lucide-react";
+import { CreditCard, Truck, CheckCircle, ExternalLink, X, Plus, Loader2 } from "lucide-react";
 import CustomsDeclarationDisplay from "@/components/shippingpool/CustomsDeclarationDisplay";
-import { getCountry, getCountryZone } from "@/lib/countries";
+import { getCountryZone } from "@/lib/countries";
 import { calcFeeBreakdownPerUser } from "@/lib/shippingFeeCalc";
 import { getExchangeRates } from "@/lib/exchangeRates";
 import ShippingFeeBreakdown from "@/components/shippingpool/ShippingFeeBreakdown";
@@ -95,6 +95,11 @@ export default function AdminShippingInfoPanel({
   transitShippingMethods = [],
   userProfileMap = {},
   onPoolUpdated,
+  // TODO (integration): wire a dedicated post-shipment edit service here.
+  // It must preserve status/shipped_date/payment confirmations, validate permissions and
+  // fee adjustments, sync affected orders, record before/after changes and notify users.
+  // Do not reuse handleSetAwaitingPayment/handleShip: they mutate lifecycle/payment state.
+  onSavePostShipmentInfo,
 }) {
   const isConsolidation = (initialPool.consolidation_type === "transit" || initialPool.consolidation_type === "other");
   
@@ -142,6 +147,8 @@ export default function AdminShippingInfoPanel({
     });
   }, [JSON.stringify(initialPool.order_ids)]);
   const [saving, setSaving] = useState(false);
+  const [editingAfterShipment, setEditingAfterShipment] = useState(false);
+  const [postShipmentEditError, setPostShipmentEditError] = useState("");
   const [confirmingSaving, setConfirmingSaving] = useState(false);
   const [exchangeRates, setExchangeRates] = useState(null);
 
@@ -199,9 +206,9 @@ export default function AdminShippingInfoPanel({
   const totalPackingFee = basePackingFee + effectivePackingFeesPerUser.reduce((s, u) => s + (u.fee_jpy || 0), 0);
 
   // Find the shipping method matching pool's shipping_method code
-  const matchedShippingMethod = shippingMethods.find(m =>
-    m.code === pool.shipping_method || m.name === pool.shipping_method
-  ) || null;
+  const matchedShippingMethod = shippingMethods.find(m => m.code === pool.shipping_method)
+    || shippingMethods.find(m => m.id === pool.shipping_method)
+    || shippingMethods.find(m => m.name === pool.shipping_method) || null;
 
   // Auto-calculate shipping fee from weight using the matched shipping method's rates
   const calcFeeFromWeight = (weightG) => {
@@ -683,21 +690,46 @@ export default function AdminShippingInfoPanel({
   const isAwaitingConfirmation = currentStatus === "awaiting_payment_confirmation";
   const isStep2 = currentStatus === "ready_to_ship";
   const isDone = currentStatus === "shipped" || currentStatus === "delivered";
+  const showPostShipmentEditor = isDone && editingAfterShipment;
+  const handleSaveAfterShipment = async () => {
+    if (!onSavePostShipmentInfo || !isDone) return;
+    setSaving(true);
+    setPostShipmentEditError("");
+    try {
+      // The adapter must return the authoritative updated pool after validation and notification.
+      const updated = await onSavePostShipmentInfo({ poolId: pool.id, previousPool: pool, changes: buildUpdatePayload() });
+      if (!updated || updated.status !== pool.status) throw new Error("发货信息保存结果异常，请刷新后确认。");
+      setPool(updated);
+      setEditingAfterShipment(false);
+      onPoolUpdated?.(updated);
+    } catch (error) {
+      setPostShipmentEditError(error.message || "保存失败，请重试。");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="border border-red-100 rounded-xl overflow-hidden">
       <div className="bg-red-50 px-4 py-2.5 border-b border-red-100 flex items-center justify-between">
         <span className="text-sm font-medium text-red-700">管理员操作</span>
+        <div className="flex items-center gap-2">
+          {isDone && <button type="button" aria-label={editingAfterShipment ? "收起发货信息编辑" : "编辑已发货信息"}
+            aria-expanded={editingAfterShipment} title="编辑发货信息"
+            onClick={() => setEditingAfterShipment(value => !value)} className="rounded-md px-1.5 py-1 hover:bg-red-100 transition-colors">✏️</button>}
         <Badge className={`text-xs ${STATUS_CONFIG[pool.status]?.color || ""}`}>
           {STATUS_CONFIG[pool.status]?.label}
         </Badge>
+        </div>
       </div>
 
       {isDone && (
         <div className="p-4 space-y-3">
           <div className="text-sm text-gray-500 text-center">
             {pool.status === "shipped" ? "📦 已发货" : "✅ 已签收"}
-            {pool.tracking_number && <span className="ml-2 font-mono text-gray-700">{pool.tracking_number}</span>}
+            {pool.tracking_number && <a className="ml-2 font-mono text-gray-700 rounded px-1 hover:bg-blue-50 hover:text-blue-700 hover:underline transition-colors"
+              href={`https://trackings.post.japanpost.jp/services/srv/search/direct?reqCodeNo1=${encodeURIComponent(pool.tracking_number.trim())}`}
+              target="_blank" rel="noopener noreferrer" title="在新标签页查询物流">{pool.tracking_number}</a>}
           </div>
           {pool.payment_status !== "paid" && ((pool.fee_breakdown_per_user || []).length > 0 || (parseFloat(pool.shipping_fee_jpy) || 0) > 0) && (
             <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 space-y-2">
@@ -733,7 +765,7 @@ export default function AdminShippingInfoPanel({
         </div>
       )}
 
-      {(isStep1 || isStep2 || isAwaitingPayment || isAwaitingConfirmation) && (
+      {(isStep1 || isStep2 || isAwaitingPayment || isAwaitingConfirmation || showPostShipmentEditor) && (
         <div className="p-4 space-y-4">
           {isStep1 && (
             <p className="text-xs text-gray-500 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
@@ -1049,6 +1081,18 @@ export default function AdminShippingInfoPanel({
 
           {/* Action buttons */}
           <div className="space-y-2 pt-1">
+            {showPostShipmentEditor && (
+              <>
+                {/* TODO: developer must connect post-shipment save + change notifications.
+                    Leave saving disabled until onSavePostShipmentInfo is supplied. */}
+                {postShipmentEditError && <p role="alert" className="text-xs text-red-600">{postShipmentEditError}</p>}
+                <Button size="sm" className="w-full" onClick={handleSaveAfterShipment}
+                  disabled={saving || !onSavePostShipmentInfo} title={!onSavePostShipmentInfo ? "发货后修改的保存与通知功能待接入" : undefined}>
+                  {saving ? "保存中..." : "保存发货信息并通知用户"}
+                </Button>
+                <Button size="sm" variant="outline" className="w-full" onClick={() => setEditingAfterShipment(false)}>收起编辑</Button>
+              </>
+            )}
             {isStep1 && (
               <>
                 {trackingNumber && (
