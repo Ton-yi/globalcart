@@ -46,6 +46,8 @@ export default function ShippingFeeAdjustDialog({
 
   const savedRows = pool?.packing_fees_per_user || [];
   const savedBreakdown = pool?.fee_breakdown_per_user || [];
+  // 没有已发布明细时（还没通知过用户），不展示「¥0 → 新金额」这种误导性对比
+  const hasPublished = savedBreakdown.length > 0;
   const participantKey = participants.join(",");
   const savedBaseFee = Number(baseFee) || 0;
   // 拼邮时运费/外箱/全局捆包费按重量平摊，单件发货则是直加
@@ -194,7 +196,9 @@ export default function ShippingFeeAdjustDialog({
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <Label className="text-xs text-gray-500">各用户额外费用（负数表示补正/折扣）</Label>
-            <span className="text-xs text-gray-400">已发布合计 {yen(publishedTotal)}</span>
+            <span className="text-xs text-gray-400">
+              {hasPublished ? `已发布合计 ${yen(publishedTotal)}` : "尚未发布"}
+            </span>
           </div>
 
           {rows.length === 0 && (
@@ -220,12 +224,18 @@ export default function ShippingFeeAdjustDialog({
                       ? "已发布金额 → 按当前输入重新平摊后的金额（个人额外费用为个人直加，不参与平摊）"
                       : "已发布金额 → 按当前输入重算后的金额"}
                   >
-                    <span className="text-gray-400">{isConsolidation ? "平摊后：" : "合计："}</span>
-                    {yen(published)} → <span className={delta < 0 ? "text-blue-600" : delta > 0 ? "text-orange-600" : ""}>{yen(after)}</span>
-                    {delta !== 0 && (
-                      <span className={`ml-1 ${delta < 0 ? "text-blue-600" : "text-orange-600"}`}>
-                        ({delta > 0 ? "+" : ""}{Math.round(delta).toLocaleString()})
-                      </span>
+                    {hasPublished ? (
+                      <>
+                        <span className="text-gray-400">{isConsolidation ? "平摊后：" : "合计："}</span>
+                        {yen(published)} → <span className={delta < 0 ? "text-blue-600" : delta > 0 ? "text-orange-600" : ""}>{yen(after)}</span>
+                        {delta !== 0 && (
+                          <span className={`ml-1 ${delta < 0 ? "text-blue-600" : "text-orange-600"}`}>
+                            ({delta > 0 ? "+" : ""}{Math.round(delta).toLocaleString()})
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      <span className="font-medium text-gray-700">{yen(after)}</span>
                     )}
                   </span>
                 </div>
@@ -264,10 +274,16 @@ export default function ShippingFeeAdjustDialog({
 
         <div className="flex items-center justify-between border-t pt-2">
           <div className="text-sm text-gray-600">
-            {isConsolidation ? "平摊后合计" : "合计"}{" "}
-            <span className="text-gray-400 line-through">{yen(publishedTotal)}</span>
-            {" → "}
-            <span className="font-semibold text-gray-900">{yen(previewTotal)}</span>
+            {hasPublished ? (
+              <>
+                {isConsolidation ? "平摊后合计" : "合计"}{" "}
+                <span className="text-gray-400 line-through">{yen(publishedTotal)}</span>
+                {" → "}
+                <span className="font-semibold text-gray-900">{yen(previewTotal)}</span>
+              </>
+            ) : (
+              <span className="font-semibold text-gray-900">{yen(previewTotal)}</span>
+            )}
           </div>
           {negativeEntry && (
             <span className="text-xs text-red-600">用户 {negativeEntry.user_email} 调整后金额为负，无法保存</span>

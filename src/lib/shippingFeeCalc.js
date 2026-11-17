@@ -81,11 +81,15 @@ export function calcFeeBreakdownPerUser({
     return id === "__pickup__" || id === "__storage__"
       || name === "__pickup__" || name === "__storage__";
   };
-  // Map user_email -> transit_shipping record (first match wins; one record per user per group)
+  // Map user_email -> transit_shipping records. 同一用户在同一池下可能有多个批次，
+  // 增值服务/中转费需要按批次累加，不能只取第一条。
   const transitRecordByEmail = {};
+  const transitRecordsByEmail = {};
   for (const r of transitRecords) {
     const email = r.user_email;
-    if (email && !(email in transitRecordByEmail)) transitRecordByEmail[email] = r;
+    if (!email) continue;
+    if (!(email in transitRecordByEmail)) transitRecordByEmail[email] = r;
+    (transitRecordsByEmail[email] ||= []).push(r);
   }
 
   const result = [];
@@ -101,17 +105,25 @@ export function calcFeeBreakdownPerUser({
     // Rewarehouse fee: if any of user's orders have a rewarehouse_fee_jpy, sum them
     const rewarehouseFeeJpy = userOrders.reduce((s, o) => s + (parseFloat(o.rewarehouse_fee_jpy) || 0), 0);
 
-    // 发货增值服务：中转拼邮按该用户自己的 transit_shipping 记录计费（每个用户可能不同），
-    // 其他拼邮类型沿用池级 addon。按 addon id/name 去重，一个用户同一服务只收一次。
-    const addonSource = isTransit
-      ? (transitRecordByEmail[email]?.selected_addons || [])
-      : (pool.selected_addons || []);
-    const seenAddonKeys = new Set();
+    // 发货增值服务：中转拼邮按该用户的**每个批次**计费，累加所有批次的 selected_addons；
+    // 同一批次内按 addon id/name 去重，不同批次即使同一服务也分别收费。
     const userAddons = [];
-    for (const a of addonSource) {
-      const key = a.id || a.service_name;
-      if (key && !seenAddonKeys.has(key)) {
-        seenAddonKeys.add(key);
+    if (isTransit) {
+      for (const rec of transitRecordsByEmail[email] || []) {
+        const seenAddonKeys = new Set();
+        for (const a of rec.selected_addons || []) {
+          const key = a.id || a.service_name;
+          if (key && seenAddonKeys.has(key)) continue;
+          if (key) seenAddonKeys.add(key);
+          userAddons.push(a);
+        }
+      }
+    } else {
+      const seenAddonKeys = new Set();
+      for (const a of pool.selected_addons || []) {
+        const key = a.id || a.service_name;
+        if (key && seenAddonKeys.has(key)) continue;
+        if (key) seenAddonKeys.add(key);
         userAddons.push(a);
       }
     }
@@ -174,8 +186,9 @@ export function calcFeeBreakdownPerUser({
     if (userAddonFeeJpy > 0) {
       const hasCustomAddon = userAddons.some(a => a.custom_fee != null);
       const originalAddonFee = userAddons.reduce((s, a) => s + (parseFloat(a.fee) || 0), 0);
+      const addonNames = [...new Set(userAddons.map(a => a.service_name).filter(Boolean))].join("、");
       items.push({ 
-        label: `发货增值服务（${userAddons.map(a => a.service_name).join("、")}）`, 
+        label: `发货增值服务（${addonNames}）`, 
         amount_jpy: userAddonFeeJpy,
         is_addon: true,
         original_fee: originalAddonFee,

@@ -175,18 +175,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
       ? convertNewAddress
       : convertSavedAddresses.find(a => a.id === convertSelectedAddressId) || {};
 
-    // Optionally save address
-    if (isNew && convertSaveAddress && isAddressFormValid(convertNewAddress)) {
-      const prefs = await userPrefApi.list({ user_email: currentUser?.email }).catch(() => []);
-      const existing = prefs[0]?.saved_addresses || [];
-      const newEntry = { id: `addr_${Date.now()}`, label: convertNewAddress.label || "新地址", full_text: serializeAddressToText(convertNewAddress), ...convertNewAddress };
-      if (prefs[0]) {
-        await userPrefApi.update(prefs[0].id, { saved_addresses: [...existing, newEntry] });
-      } else {
-        await userPrefApi.create({ user_email: currentUser?.email, saved_addresses: [newEntry] });
-      }
-    }
-
+    // 地址保存交给后端追加，避免这里整表更新覆盖地址簿
     await shippingPoolApi.update(pool.id, {
       consolidation_type: "other",
       recipient_name: addr.recipient_name || "",
@@ -195,6 +184,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
       city: addr.addr3 || "",
       state: addr.state || "",
       destination_country: addr.country || "",
+      save_address: isNew && convertSaveAddress,
     });
 
     setPool(p => ({
@@ -1368,44 +1358,108 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
             }
            </div>
 
-          {/* Selected shipping addons —— 中转拼邮的增值服务按用户区分，改在包裹清单里各自展示 */}
-          {pool.consolidation_type !== "transit" && ((pool.selected_addons || []).length > 0 || (pool.selected_addon_ids || []).length > 0) &&
-          <div className="bg-yellow-50 border border-yellow-100 rounded-lg px-3 py-2.5">
-              <p className="text-xs text-yellow-700 font-medium mb-1.5">发货增值服务</p>
-              <div className="space-y-1">
-                {(pool.selected_addons || []).length > 0 ?
-              pool.selected_addons.map((a, i) => {
-                const hasCustom = a.custom_fee != null;
-                const displayFee = hasCustom ? a.custom_fee : a.fee;
-                return (
-                  <div key={i} className="flex flex-col">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-gray-700">{a.service_name || a.id}</span>
-                      {parseFloat(a.fee) > 0 && (
-                        <span className={`font-medium ${hasCustom ? "line-through text-gray-400" : "text-yellow-700"}`}>
-                          +{a.fee_currency || "JPY"} {Math.round(parseFloat(a.fee))}
-                        </span>
-                      )}
-                    </div>
-                    {hasCustom && parseFloat(displayFee) > 0 && (
-                      <div className="text-xs text-yellow-600 text-right">
-                        用户自定义 +{a.fee_currency || "JPY"} {Math.round(parseFloat(displayFee))}
-                      </div>
+          {/* Selected shipping addons —— 中转拼邮的增值服务存放在每条 transit_shipping 记录里，不能读 pool.selected_addons */}
+          {(() => {
+            const isTransitPool = pool.consolidation_type === "transit";
+            // getShippingPoolDetail 返回的 transit_shipping：每条记录（用户/批次）各自带 selected_addons
+            const transitAddonRecords = isTransitPool
+              ? (pool.transit_shipping || []).filter(t =>
+                  t
+                  && (isAdmin || (currentUser?.email && t.user_email === currentUser.email))
+                  && ((t.selected_addons || []).length > 0 || (t.selected_addon_ids || []).length > 0))
+              : [];
+            const poolAddons = pool.selected_addons || [];
+            const poolAddonIds = pool.selected_addon_ids || [];
+            // 中转：没有 transit_shipping 记录（或记录里没有增值服务）时不展示池级 addon
+            if (isTransitPool ? transitAddonRecords.length === 0 : (poolAddons.length === 0 && poolAddonIds.length === 0)) return null;
+
+            const renderAddon = (a, key) => {
+              const baseFee = parseFloat(a.fee) || 0;
+              const customFee = (a.custom_fee === null || a.custom_fee === undefined) ? null : parseFloat(a.custom_fee);
+              const hasCustom = customFee !== null && !Number.isNaN(customFee);
+              const currency = a.fee_currency || "JPY";
+              return (
+                <div key={key} className="flex flex-col">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-gray-700">{a.service_name || a.id}</span>
+                    {baseFee > 0 && (
+                      <span className={`font-medium ${hasCustom ? "line-through text-gray-400" : "text-yellow-700"}`}>
+                        +{currency} {Math.round(baseFee)}
+                      </span>
                     )}
                   </div>
-                );
-              }) :
-              (pool.selected_addon_ids || []).map((id, i) =>
-              <div key={i} className="text-xs text-gray-500 font-mono">{id}</div>
-              )
-              }
-              </div>
-            </div>
-          }
+                  {hasCustom && customFee > 0 && (
+                    <div className="text-xs text-yellow-600 text-right">
+                      用户自定义 +{currency} {Math.round(customFee)}
+                    </div>
+                  )}
+                </div>
+              );
+            };
+
+            // 有多个批次或多个用户时，用「用户名 · 中转方式」标注每条 transit_shipping 记录
+            const showTransitRecordLabel = transitAddonRecords.length > 1
+              || new Set(transitAddonRecords.map(r => r.user_email)).size > 1;
+            const formatTransitRecordLabel = (t) => {
+              const userData = tenantUserMap[t.user_email] || {};
+              const userName = userData.display_name || userData.full_name || t.user_name || t.user_email || "";
+              const rawMethod = t.transit_shipping_method || "";
+              const methodName = rawMethod === "__pickup__" || rawMethod === "pickup"
+                ? "自取"
+                : rawMethod === "__storage__" || rawMethod === "storage"
+                  ? "暂存"
+                  : rawMethod || transitShippingMethods.find(m => String(m.id) === String(t.transit_shipping_method_id))?.name || "";
+              return [userName, methodName].filter(Boolean).join(" · ");
+            };
+
+            return (
+              <details className="group bg-yellow-50 border border-yellow-100 rounded-lg">
+                <summary className="cursor-pointer px-3 py-2.5 text-xs text-yellow-700 font-medium flex items-center justify-between select-none">
+                  <span>发货增值服务</span>
+                  <ChevronDown className="w-3.5 h-3.5 transition-transform group-open:rotate-180" />
+                </summary>
+                <div className="px-3 pb-2.5">
+                {isTransitPool ? (
+                  <div className="space-y-2">
+                    {transitAddonRecords.map((t, ti) => {
+                      const addons = t.selected_addons || [];
+                      const recordLabel = showTransitRecordLabel ? formatTransitRecordLabel(t) : "";
+                      return (
+                        <div key={t.id || ti} className={ti > 0 ? "border-t border-yellow-100 pt-1.5" : ""}>
+                          {recordLabel && <p className="text-[11px] text-yellow-600 mb-0.5">{recordLabel}</p>}
+                          <div className="space-y-1">
+                            {addons.length > 0
+                              ? addons.map((a, i) => renderAddon(a, `${t.id || ti}-${a.id ?? i}`))
+                              : (t.selected_addon_ids || []).map((id, i) =>
+                                  <div key={`${t.id || ti}-id-${i}`} className="text-xs text-gray-500 font-mono">{id}</div>
+                                )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    {poolAddons.length > 0
+                      ? poolAddons.map((a, i) => renderAddon(a, i))
+                      : poolAddonIds.map((id, i) =>
+                          <div key={i} className="text-xs text-gray-500 font-mono">{id}</div>
+                        )}
+                  </div>
+                )}
+                </div>
+              </details>
+            );
+          })()}
 
           {/* Items list */}
           <div>
-            <h3 className="text-sm font-semibold text-gray-700 mb-2">包裹清单 ({(pool.order_ids || []).length} 件)</h3>
+            <details className="group">
+              <summary className="cursor-pointer text-sm font-semibold text-gray-700 flex items-center justify-between select-none">
+                <span>包裹清单 ({(pool.order_ids || []).length} 件)</span>
+                <ChevronDown className="w-4 h-4 text-gray-400 transition-transform group-open:rotate-180" />
+              </summary>
+              <div className="mt-2">
             {orders.length > 0 ? (() => {
               // Group orders by user email; single-user pools render flat (no group header)
               const userEmails = [...new Set(orders.map(o => o.user_email || "__unknown__"))];
@@ -1671,7 +1725,6 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
               }; // end renderOrder
 
               const isConsolidation = pool.consolidation_type && pool.consolidation_type !== "";
-              const isTransitPool = pool.consolidation_type === "transit";
 
               return (
                 <div className="space-y-3">
@@ -1686,11 +1739,6 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                     const uniqueGroupAddons = pool.consolidation_type ? [] : [...new Map(
                       groupOrders.flatMap(o => o.selected_addons || []).map(a => [a.id || a.service_name, a])
                     ).values()];
-                    // 中转拼邮：发货增值服务存在该用户自己的 transit_shipping 记录里，与订单级增值服务是两回事
-                    const userTransitRecord = isTransitPool
-                      ? (pool.transit_shipping || []).find(t => t && t.user_email === email)
-                      : null;
-                    const groupShippingAddons = userTransitRecord?.selected_addons || [];
                     // Transit method name
                     const transitMethodId = groupOrders[0]?.consolidation_transit_shipping_id || pool.transit_shipping_method_id || "";
                     const transitMethodName = transitShippingMethods.find(m => m.id === transitMethodId)?.name || "";
@@ -1722,38 +1770,6 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                             setRewarehouseSelectedIds={setRewarehouseSelectedIds}
                             setShowBulkRewarehouse={setShowBulkRewarehouse}
                           />
-                        )}
-                        {isTransitPool && groupShippingAddons.length > 0 && (
-                          <div className="mb-1.5 bg-yellow-50 border border-yellow-100 rounded-lg px-2.5 py-1.5">
-                            <p className="text-xs text-yellow-700 font-medium mb-1">发货增值服务</p>
-                            <div className="space-y-0.5">
-                              {groupShippingAddons.map((a, i) => {
-                                const baseFee = parseFloat(a.fee) || 0;
-                                const customFee = (a.custom_fee === null || a.custom_fee === undefined)
-                                  ? null
-                                  : parseFloat(a.custom_fee);
-                                const hasCustom = customFee !== null && !Number.isNaN(customFee);
-                                const currency = a.fee_currency || "JPY";
-                                return (
-                                  <div key={a.id ?? i} className="flex items-center justify-between gap-2 text-xs">
-                                    <span className="text-gray-700">{a.service_name || a.id}</span>
-                                    <span className="flex-shrink-0 whitespace-nowrap">
-                                      {baseFee > 0 && (
-                                        <span className={hasCustom ? "line-through text-gray-400" : "text-yellow-700 font-medium"}>
-                                          +{currency} {Math.round(baseFee)}
-                                        </span>
-                                      )}
-                                      {hasCustom && (
-                                        <span className="text-yellow-600 font-medium ml-1">
-                                          自定义 +{currency} {Math.round(customFee)}
-                                        </span>
-                                      )}
-                                    </span>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
                         )}
                         <div className="space-y-1.5">
                           {groupOrders.map(o => renderOrder(o))}
@@ -1863,6 +1879,8 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
 
                     <p className="text-xs text-gray-400">没有包裹...</p>
             }
+              </div>
+            </details>
           </div>
 
           {/* Add more orders to this pool — users on their own pending pools; admins on any pending pool they created or that is non-private */}
@@ -1885,7 +1903,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                   );
                 }
               })()}
-              {!showAddOrder ? (
+              {pool.consolidation_type !== "transit" && (!showAddOrder ? (
                 <button
                   onClick={openAddOrder}
                   className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 border border-dashed border-blue-200 hover:border-blue-400 rounded-lg px-3 py-2 w-full justify-center transition-colors bg-blue-50/30 hover:bg-blue-50">
@@ -1939,7 +1957,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
 
                   </div>
                 </div>
-              )}
+              ))}
             </div>
           )}
 
@@ -2199,12 +2217,18 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                   {transitRecords.map((t, i) => {
                     const suffix = (isAdmin || transitRecords.length > 1) ? ` · ${t.user_name || t.user_email || `用户${i + 1}`}` : '';
                     return (
-                      <AddressCard key={t.id || i} title={`最终收货地址${suffix}`}>
-                        {t.transit_shipping_method && (
-                          <p className="text-xs text-blue-700">发货方式：{t.transit_shipping_method}</p>
-                        )}
-                        {renderFinalAddress(t.final_address)}
-                      </AddressCard>
+                      <details key={t.id || i} className="group bg-blue-50 border border-blue-100 rounded-lg">
+                        <summary className="cursor-pointer px-3 py-2.5 text-xs text-blue-600 font-medium flex items-center justify-between select-none">
+                          <span>最终收货地址{suffix}</span>
+                          <ChevronDown className="w-3.5 h-3.5 transition-transform group-open:rotate-180" />
+                        </summary>
+                        <div className="px-3 pb-2.5 text-sm text-blue-800 space-y-0.5">
+                          {t.transit_shipping_method && (
+                            <p className="text-xs text-blue-700">发货方式：{t.transit_shipping_method}</p>
+                          )}
+                          {renderFinalAddress(t.final_address)}
+                        </div>
+                      </details>
                     );
                   })}
                 </div>

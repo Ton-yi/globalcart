@@ -754,6 +754,8 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
         });
         await base44.functions.invoke('shipping/joinShippingPool', {
           id: selectedPoolId,
+          new_address: saveNewAddress,
+          pref_id: userPrefId || null,
           data: {
             order_id: order.id,
             order_number: order.order_number,
@@ -762,7 +764,8 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
             transit_batch_mode: transitBatchMode,
             transit_shipping_id: transitBatchMode === "current" ? selectedBatchId : null,
             user_note: note || '',
-            address_id: finalAddress?.id ?? null,
+            address_id: finalAddress && /^\d+$/.test(String(finalAddress.id)) ? finalAddress.id : null,
+            final_address: finalAddress,
             transit_shipping_method_id: normalizedTransitMethodId,
             transit_shipping_method_name: userTransitMethodName,
             consolidation_transit_shipping_id: normalizedTransitMethodId,

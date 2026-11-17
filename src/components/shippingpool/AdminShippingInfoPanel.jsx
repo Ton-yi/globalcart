@@ -17,7 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CreditCard, Truck, CheckCircle, ExternalLink, X } from "lucide-react";
+import { CreditCard, Truck, CheckCircle, ExternalLink, X, ChevronDown } from "lucide-react";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
 import CustomsDeclarationDisplay from "@/components/shippingpool/CustomsDeclarationDisplay";
 import { getCountryZone } from "@/lib/countries";
@@ -1105,7 +1105,9 @@ export default function AdminShippingInfoPanel({
 
               {hasPerUserFeeChanged && (
                 <p className="text-xs text-orange-600">
-                  费用相关输入已变化，尚未发布给用户；点「通知用户付款」后按新金额生效并通知。
+                  {(pool.fee_breakdown_per_user || []).length > 0
+                    ? "费用相关输入已变化，尚未发布给用户；点「通知用户付款」后按新金额生效并通知。"
+                    : "费用尚未通知用户；点「通知用户付款」后按当前金额生效并通知。"}
                 </p>
               )}
             </div>
@@ -1113,16 +1115,19 @@ export default function AdminShippingInfoPanel({
 
           {/* Fee breakdown preview */}
           {(shippingFeeJpy || boxPrice > 0 || totalPackingFee > 0) && feeBreakdowns.length > 0 && (
-            <div>
-              <Label className="text-xs text-gray-500 mb-2 block">
-                费用明细{isConsolidation ? "（含平摊运费）" : ""}
-              </Label>
-              <ShippingFeeBreakdown
-                breakdowns={feeBreakdowns}
-                isConsolidation={isConsolidation}
-                userProfileMap={userProfileMap}
-              />
-            </div>
+            <details className="group">
+              <summary className="cursor-pointer text-xs text-gray-500 flex items-center justify-between select-none">
+                <span>费用明细{isConsolidation ? "（含平摊运费）" : ""}</span>
+                <ChevronDown className="w-3.5 h-3.5 text-gray-400 transition-transform group-open:rotate-180" />
+              </summary>
+              <div className="mt-2">
+                <ShippingFeeBreakdown
+                  breakdowns={feeBreakdowns}
+                  isConsolidation={isConsolidation}
+                  userProfileMap={userProfileMap}
+                />
+              </div>
+            </details>
           )}
             </>
           )}
