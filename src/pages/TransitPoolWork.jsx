@@ -4,7 +4,7 @@
  * 左侧：发货申请详情 + 批次列表
  * 右侧：选中批次的详细操作（普通发货 / 暂存 / 自取）
  */
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -16,6 +16,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import PoolInfoPanel from "@/components/transit/PoolInfoPanel";
 import BatchDetailPanel from "@/components/transit/BatchDetailPanel";
+import { usePermissions } from "@/hooks/usePermissions";
+import { isManagerOf } from "@/lib/managerUtils";
+import { tenantEntity, transitLocationApi } from "@/lib/tenantApi";
 
 // ─── Normalize transit method id ─────────────────────────────────────────────
 const normalizeMethodId = (id) => {
@@ -24,18 +27,73 @@ const normalizeMethodId = (id) => {
   return id || '';
 };
 
+// ─── Normalize entry: order_details is an array of orders on the backend ─────
+// One entry can hold several orders; keep the full order list and aggregate
+// fields across all of them (first non-empty for scalars, sums for numbers).
+function normalizeEntry(entry) {
+  const raw = entry.order_details;
+  const orderList = Array.isArray(raw) ? raw : raw ? [raw] : [];
+  const firstNonEmpty = (key) => {
+    for (const order of orderList) {
+      if (order[key] != null && order[key] !== '') return order[key];
+    }
+    return undefined;
+  };
+  return {
+    ...entry,
+    order_id: entry.order_id || entry.order_ids?.[0] || entry.id,
+    order_details: orderList,
+    product_name: entry.product_name || firstNonEmpty('product_name'),
+    product_image_url: entry.product_image_url || firstNonEmpty('product_image_url'),
+    arrival_photo_url: entry.arrival_photo_url || firstNonEmpty('arrival_photo_url'),
+    weight_g: entry.weight_g != null ? entry.weight_g : orderList.reduce((s, o) => s + (Number(o.weight_g) || 0), 0),
+    estimated_jpy: entry.estimated_jpy != null ? entry.estimated_jpy : orderList.reduce((s, o) => s + (o.estimated_jpy || 0), 0),
+  };
+}
+
+// Addons are order-level: collected from each order's selected_addons.
+function collectAddons(entry) {
+  const byId = new Map();
+  (entry.order_details || []).forEach(order => {
+    (order.selected_addons || []).forEach(a => { if (a) byId.set(a.id ?? a.service_name, a); });
+  });
+  return [...byId.values()];
+}
+
 // ─── Build user group list from entries ──────────────────────────────────────
 function buildUserGroupList(entries, request) {
   const hasPerUserGroups = !request?.title && (request?.per_user_groups || []).length > 0;
 
+  // 从 request.per_user_groups 找到该 entry 所属 group，取 group 级的暂存/自取标记
+  // （group 的 transit_shipping_method_id 保留 '__storage__'/'__pickup__'，而 entry 的是用户申请后的真实方式 id，被覆盖）
+  // group 按 user_email + transit method 唯一，无 group_index；用 user_email + order_entries 含该 order_id 来定位
+  const findGroupMarker = (entry) => {
+    const groups = request?.per_user_groups || [];
+    const orderId = String(entry.order_id ?? entry.id ?? '');
+    // 优先：user_email 匹配且该 group 的 order_entries 含此订单
+    let g = groups.find(g => g.user_email === entry.user_email &&
+      (g.order_entries || []).some(e => String(e.order_id ?? e.id) === orderId));
+    // 兜底：同 user 的 group（若只有一组）
+    if (!g) {
+      const sameUser = groups.filter(g => g.user_email === entry.user_email);
+      if (sameUser.length === 1) g = sameUser[0];
+    }
+    return normalizeMethodId(g?.transit_shipping_method_id) || normalizeMethodId(g?.transit_shipping_method_name) || '';
+  };
+
   if (hasPerUserGroups) {
     const groups = {};
-    entries.forEach(entry => {
-      const methodId = normalizeMethodId(entry.transit_shipping_method_id);
-      const key = `${entry.user_email}__${methodId}__${entry.group_index ?? 0}`;
+    entries.forEach(rawEntry => {
+      const entry = normalizeEntry(rawEntry);
+      const methodMarker = findGroupMarker(entry);
+      const methodId = methodMarker || normalizeMethodId(entry.transit_shipping_method_id);
+      // 一个 transit_shipping 记录就是一个批次；key 必须带记录 id，
+      // 否则同一用户用相同运输方式建的两个批次会在左侧列表里被合并
+      const key = `${entry.user_email}__${methodId}__${entry.id}`;
       if (!groups[key]) {
         groups[key] = {
           key,
+          id: entry.id,
           user_email: entry.user_email,
           user_name: entry.user_name,
           group_label: entry.group_label,
@@ -43,15 +101,16 @@ function buildUserGroupList(entries, request) {
           transit_shipping_method_id: methodId,
           transit_shipping_method: entry.transit_shipping_method,
           final_address: entry.group_final_address,
-          selected_addons: entry.selected_addons || [],
+          selected_addons: collectAddons(entry),
           selected_addon_ids: entry.selected_addon_ids || [],
           note: entry.note,
+          product_image_url: entry.product_image_url,
           entries: [],
           estimated_jpy: 0,
         };
       }
       groups[key].entries.push(entry);
-      groups[key].estimated_jpy += entry.estimated_jpy || 0;
+      groups[key].estimated_jpy += entry.order_details.reduce((s, o) => s + (Number(o.estimated_jpy) || 0), 0);
     });
     return Object.values(groups).sort((a, b) =>
       a.user_email.localeCompare(b.user_email) || a.group_index - b.group_index
@@ -59,24 +118,28 @@ function buildUserGroupList(entries, request) {
   } else {
     // Simple grouping by user
     const groups = {};
-    entries.forEach(entry => {
-      const key = entry.user_email;
+    entries.forEach(rawEntry => {
+      const entry = normalizeEntry(rawEntry);
+      // 没有 per_user_groups 时也要按 transit_shipping 记录拆批次
+      const key = `${entry.user_email}__${entry.id}`;
       if (!groups[key]) {
         groups[key] = {
           key,
+          id: entry.id,
           user_email: entry.user_email,
           user_name: entry.user_name,
           group_label: entry.user_name || entry.user_email,
           final_address: entry.final_address,
-          transit_shipping_method_id: normalizeMethodId(entry.transit_shipping_method_id),
+          transit_shipping_method_id: findGroupMarker(entry) || normalizeMethodId(entry.transit_shipping_method_id),
           transit_shipping_method: entry.transit_shipping_method,
-          selected_addons: entry.selected_addons || [],
+          selected_addons: collectAddons(entry),
+          product_image_url: entry.product_image_url,
           entries: [],
           estimated_jpy: 0,
         };
       }
       groups[key].entries.push(entry);
-      groups[key].estimated_jpy += entry.estimated_jpy || 0;
+      groups[key].estimated_jpy += entry.order_details.reduce((s, o) => s + (o.estimated_jpy || 0), 0);
     });
     return Object.values(groups);
   }
@@ -84,9 +147,18 @@ function buildUserGroupList(entries, request) {
 
 // ─── Batch list item ──────────────────────────────────────────────────────────
 function BatchListItem({ batch, selected, onClick }) {
-  const methodId = normalizeMethodId(batch.transit_shipping_method_id);
-  const isStorage = methodId === '__storage__';
-  const isPickup = methodId === '__pickup__';
+  // 归一化暂存/自取标记（历史值：0 / 'pickup' / 'storage' / '__pickup__' / '__storage__'）
+  // sentinel 可能在 id 或 name 任一字段，两个都检查（与 shippingFeeCalc.isPickupStorageMethod 一致）
+  const normId = v => {
+    if (v === 'pickup' || v === '__pickup__') return '__pickup__';
+    if (v === 'storage' || v === '__storage__') return '__storage__';
+    return v == null ? '' : String(v);
+  };
+  
+  const idMark = normId(batch.transit_shipping_method_id);
+  const nameMark = normId(batch.transit_shipping_method);
+  const isStorage = idMark === '__storage__' || nameMark === '__storage__';
+  const isPickup = idMark === '__pickup__' || nameMark === '__pickup__';
   const methodName = isStorage ? '暂存' : isPickup ? '自取' : (batch.transit_shipping_method || '中转发货');
 
   return (
@@ -114,7 +186,9 @@ function BatchListItem({ batch, selected, onClick }) {
           {isPickup && <Badge className="bg-teal-100 text-teal-700 text-xs shrink-0">自取</Badge>}
         </div>
         <div className="flex items-center gap-2 mt-0.5">
-          <span className="text-xs text-gray-500">{batch.entries.length} 件</span>
+          <span className="text-xs text-gray-500">
+            {batch.entries.reduce((n, e) => n + (Array.isArray(e.order_details) ? e.order_details.length : 1), 0)} 件
+          </span>
           {!isStorage && !isPickup && (
             <span className="text-xs text-blue-600 flex items-center gap-0.5">
               <Truck className="w-2.5 h-2.5" />{methodName}
@@ -144,24 +218,31 @@ export default function TransitPoolWork() {
   const [location, setLocation] = useState(null);
   const [transitMethods, setTransitMethods] = useState([]);
   const [selectedBatchKey, setSelectedBatchKey] = useState(null);
+  const [selectedBatchDetail, setSelectedBatchDetail] = useState(null);
+  const [batchDetailLoading, setBatchDetailLoading] = useState(false);
 
-  const isAdmin = user?.role === 'admin' || user?.role === 'tenant_admin' || user?.role === 'platform_admin';
-  const isManager = isAdmin || (location && location.manager_email === user?.email);
+  // const isAdmin = user?.role === 'admin' || user?.role === 'tenant_admin' || user?.role === 'platform_admin';
+  const { isAdmin: isAdminStrict } = usePermissions();
+  const isAdmin = isAdminStrict; // 真实布尔判定（usePermissions().isAdmin），供 BatchDetailPanel 等新代码使用
+  // manager_email 是数组（多负责人，见 lib/managerUtils.js），用 isManagerOf 归一化判断
+  const isManager = isAdmin || isManagerOf(location, user?.email);
 
-  const fetchData = async () => {
-    setLoading(true);
+  const fetchData = async ({ silent = false } = {}) => {
+    if (!silent) setLoading(true);
     try {
-      const res = await base44.functions.invoke('getTransitPoolWorkData', { request_id: pool_code });
-      if (!res.data?.request) { navigate('/Home'); return; }
-      setRequest(res.data.request);
-      setEntries(res.data.entries || []);
-      setLocation(res.data.location);
-      setTransitMethods(res.data.transitMethods || []);
+
+      // const res = await base44.functions.invoke('getTransitPoolWorkData', { request_id: pool_code });
+      const res = await transitLocationApi.poolWork(pool_code);
+      // if (!res.data?.request) { navigate('/Home'); return; }
+      setRequest(res?.request || {});
+      setEntries(res?.entries || []);
+      setLocation(res?.location || {});
+      setTransitMethods(res?.transitMethods || []);
     } catch (error) {
-      alert('加载失败：' + error.message);
-      navigate('/Home');
+      if (!silent) alert('加载失败：' + error.message);
+      // navigate('/Home');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -170,9 +251,51 @@ export default function TransitPoolWork() {
     fetchData();
   }, [user, pool_code]);
 
+  // Silent refresh: called from PoolInfoPanel via onUpdate — doesn't unmount the layout
+  const silentFetch = () => fetchData({ silent: true });
+
+  const loadBatchDetail = useCallback(async (batchId) => {
+    setBatchDetailLoading(true);
+    try {
+      const res = await transitLocationApi.findOne(batchId);
+      setSelectedBatchDetail(res?.data || res || null);
+    } catch (err) {
+      console.error('[TransitPoolWork] findOne failed:', err);
+      setSelectedBatchDetail(null);
+    } finally {
+      setBatchDetailLoading(false);
+    }
+  }, []);
+
+  // Re-fetch findOne for the currently selected batch after save/ship
+  const refreshSelectedDetail = useCallback(async () => {
+    const selectedId = selectedBatchIdRef.current;
+    if (selectedId) {
+      await loadBatchDetail(selectedId);
+    }
+  }, [loadBatchDetail]);
+
+  const handleBatchClick = async (batch) => {
+    if (selectedBatchKey === batch.key) {
+      setSelectedBatchKey(null);
+      setSelectedBatchDetail(null);
+      setBatchDetailLoading(false);
+      return;
+    }
+    setSelectedBatchKey(batch.key);
+    setSelectedBatchDetail(null);
+    if (!batch.id) return; // no detail id available, fall back to list data
+    await loadBatchDetail(batch.id);
+  };
+
   const activeEntries = useMemo(() => entries.filter(e => e.status !== 'cancelled'), [entries]);
   const userGroups = useMemo(() => buildUserGroupList(activeEntries, request), [activeEntries, request]);
   const selectedBatch = userGroups.find(g => g.key === selectedBatchKey) || null;
+
+  const selectedBatchIdRef = useRef(selectedBatch?.id);
+  useEffect(() => {
+    selectedBatchIdRef.current = selectedBatch?.id;
+  }, [selectedBatch?.id]);
 
   if (loading) {
     return (
@@ -215,7 +338,7 @@ export default function TransitPoolWork() {
             userGroups={userGroups}
             isAdmin={isAdmin}
             isManager={isManager}
-            onUpdate={fetchData}
+            onUpdate={silentFetch}
           />
 
           {/* Batch list */}
@@ -234,7 +357,7 @@ export default function TransitPoolWork() {
                     key={batch.key}
                     batch={batch}
                     selected={selectedBatchKey === batch.key}
-                    onClick={() => setSelectedBatchKey(batch.key === selectedBatchKey ? null : batch.key)}
+                    onClick={() => handleBatchClick(batch)}
                   />
                 ))
               )}
@@ -247,12 +370,15 @@ export default function TransitPoolWork() {
           <div className="bg-white border border-gray-200 rounded-xl overflow-hidden min-h-[400px]">
             <BatchDetailPanel
               batch={selectedBatch}
+              detail={selectedBatchDetail}
+              detailLoading={batchDetailLoading}
+              loading={batchDetailLoading}
               pool={request}
               transitMethods={transitMethods}
               isManager={isManager}
-              onSaved={() => {
-                fetchData();
-              }}
+              isAdmin={isAdmin}
+              currentUser={user}
+              onSaved={refreshSelectedDetail}
             />
           </div>
         </div>

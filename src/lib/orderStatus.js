@@ -86,6 +86,42 @@ export const ORDER_STATUS_CONFIG = {
     adminColor: "bg-blue-100 text-blue-700",
     userColor: "bg-blue-100 text-blue-700",
   },
+  transit_notified_shipment: {
+    admin: "已通知中转地出货",
+    user: "已通知中转地出货",
+    adminColor: "bg-cyan-100 text-cyan-700",
+    userColor: "bg-cyan-100 text-cyan-700",
+  },
+  transit_forwarded: {
+    admin: "中转地已发货",
+    user: "中转地已发货",
+    adminColor: "bg-teal-100 text-teal-700",
+    userColor: "bg-teal-100 text-teal-700",
+  },
+  transit_arrived: {
+    admin: "中转地已收货",
+    user: "中转地已收货",
+    adminColor: "bg-green-100 text-green-700",
+    userColor: "bg-green-100 text-green-700",
+  },
+  awaiting_forwarded_notified: {
+    admin: "等待中转地确认",
+    user: "等待中转地确认",
+    adminColor: "bg-cyan-100 text-cyan-700",
+    userColor: "bg-cyan-100 text-cyan-700",
+  },
+  forwarded_notified: {
+    admin: "已申请中转地发货",
+    user: "已申请中转地发货",
+    adminColor: "bg-cyan-100 text-cyan-700",
+    userColor: "bg-cyan-100 text-cyan-700",
+  },
+  transited: {
+    admin: "已向中转地发货",
+    user: "已向中转地发货",
+    adminColor: "bg-indigo-100 text-indigo-700",
+    userColor: "bg-indigo-100 text-indigo-700",
+  },
   shipped: {
     admin: "已发出",
     user: "已发出",
@@ -139,7 +175,7 @@ export const ACTIVE_STATUSES = [
   "awaiting_payment_confirmation", "paid", "pending_purchase", "purchased", "in_warehouse",
   "in_storage",
   "notified_shipment", "notified_shipment_fee_pending", "notified_shipment_fee_paid",
-  "shipping_fee_pending", "ready_to_ship", "transit_shipped", "shipped"
+  "shipping_fee_pending", "ready_to_ship", "transited", "transit_shipped", "awaiting_forwarded_notified", "forwarded_notified", "shipped"
 ];
 
 /**

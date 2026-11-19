@@ -12,6 +12,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Plus, RefreshCw, Truck, MapPin, Edit2, Trash2, Check, X as XIcon, AlertCircle, Layers, Archive, ArchiveRestore, Settings2, LogIn } from "lucide-react";
 import { getCountry } from "@/lib/countries";
+import { normalizeManagerEmails, hasManager } from "@/lib/managerUtils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -28,12 +29,15 @@ import { shippingPoolApi } from "@/lib/tenantApi";
 import { toast } from "sonner";
 
 const STATUS_FILTERS = [
-  { v: "all",              l: "全部状态" },
-  { v: "pending",          l: "待处理" },
-  { v: "awaiting_payment", l: "待付款" },
-  { v: "ready_to_ship",    l: "待发货" },
-  { v: "shipped",          l: "已发货" },
-  { v: "delivered",        l: "已签收" },
+  { v: "all",                 l: "全部状态" },
+  { v: "pending",             l: "待处理" },
+  { v: "awaiting_payment",    l: "待付款" },
+  { v: "ready_to_ship",       l: "待发货" },
+  { v: "shipped",             l: "已发货" },
+  { v: "delivered",           l: "已签收" },
+  { v: "transited",           l: "已向中转地发出" },
+  { v: "transit_shipped",     l: "中转地已发货" },
+  { v: "transit_delivered",   l: "已到达中转地" },
 ];
 
 const TABS = [
@@ -47,7 +51,6 @@ export default function ShippingPool() {
   const { user } = useCurrentUser();
   const { can, isAdmin } = usePermissions();
   const canManageTransitLocations = isAdmin || can("shipping:manage_transit_locations");
-
   const [activeTab, setActiveTab] = useState("pools");
   const [pools, setPools] = useState([]);
   const [locations, setLocations] = useState([]);
@@ -101,7 +104,7 @@ export default function ShippingPool() {
     setTotalLocationsCount(poolsCount?.locations)
     setTotalOfficialCount(poolsCount?.officialKanban)
 
-    setLocations(data.locations || []);
+    setLocations(data.transit_locations || []);
     setAllUsers(data.users || []);
     setTransitMethods(data.transit_methods || []);
     setAddonOptions(data.selected_addons || []);
@@ -275,7 +278,7 @@ export default function ShippingPool() {
               <Button variant="outline" size="sm" onClick={() => { console.log('手动刷新发货池页面'); fetchPageData(); }}>
                 <RefreshCw className="w-3.5 h-3.5 mr-1.5" />刷新
               </Button>
-              {!showArchived && (
+              {activeTab === "pools" && !showArchived && (
                 <Button size="sm" className="bg-red-600 hover:bg-red-700" onClick={() => setShowCreate(true)}>
                   <Plus className="w-3.5 h-3.5 mr-1.5" />创建发货申请
                 </Button>
@@ -387,6 +390,10 @@ export default function ShippingPool() {
                     pool={pool}
                     isAdmin={isAdmin}
                     onClick={setSelectedPool}
+                    onManage={pool.transit_location_id && (isAdmin || locations?.some(l => String(l.id) === String(pool.transit_location_id))) ? (p) => {
+                      const target = p || pool;
+                      window.open(`${window.location.origin}/TransitLocationWork/${target.transit_location_id}`, '_blank');
+                    } : null}
                     pendingEditCount={pendingEditRequests.filter(r => r.pool_id === pool.id).length}
                     userProfileMap={userProfileMap}
                     onArchive={!pool.is_archived && pool.status === "delivered" ? () => handleArchivePool(pool) : null}
@@ -589,8 +596,8 @@ export default function ShippingPool() {
             <div className="space-y-2">
               {/* Sort: locations without manager first */}
               {[...locations].sort((a, b) => {
-                const aHasManager = !!a.manager_email;
-                const bHasManager = !!b.manager_email;
+                const aHasManager = hasManager(a);
+                const bHasManager = hasManager(b);
                 if (aHasManager === bHasManager) return 0;
                 return aHasManager ? 1 : -1;
               }).map(loc => (
@@ -615,7 +622,7 @@ export default function ShippingPool() {
                       <Badge className={`text-xs ${loc.is_active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
                         {loc.is_active ? "启用" : "停用"}
                       </Badge>
-                      {!loc.manager_email && (
+                      {!hasManager(loc) && (
                         <Badge className="text-xs bg-orange-100 text-orange-700 border-orange-200">
                           <AlertCircle className="w-2.5 h-2.5 mr-1 inline" />
                           未分配负责人
@@ -625,7 +632,7 @@ export default function ShippingPool() {
                     <div className="flex flex-wrap gap-x-3 mt-0.5">
                       {loc.address && <p className="text-xs text-gray-500">{loc.address}</p>}
                       {loc.handling_fee > 0 && <p className="text-xs text-orange-500">手续费 {loc.handling_fee_currency || "JPY"} {loc.handling_fee}</p>}
-                      {loc.manager_email && <p className="text-xs text-gray-400">负责人：{allUsers.find(u => u.email === loc.manager_email)?.full_name || loc.manager_email}{loc.manager_contact ? ` · ${loc.manager_contact}` : ""}</p>}
+                      {loc.manager_email && <p className="text-xs text-gray-400">负责人：{normalizeManagerEmails(loc.manager_email).map(e => allUsers.find(u => u.email === e)?.full_name || e).join("、")}{loc.manager_contact ? ` · ${loc.manager_contact}` : ""}</p>}
                     </div>
                     {loc.description && <p className="text-xs text-gray-400 mt-0.5">{loc.description}</p>}
                   </div>

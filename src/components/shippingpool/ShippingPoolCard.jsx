@@ -1,5 +1,6 @@
 import { Calendar, Package, Scale, MapPin, Truck, DollarSign, User, Layers, ChevronRight, AlertCircle, MessageCircle, CreditCard, Archive, ArchiveRestore, Trash2, Target } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { getCountry } from "@/lib/countries";
 
 function truncateName(name, maxLen = 10) {
@@ -30,10 +31,13 @@ const STATUS_CONFIG = {
   awaiting_payment:              { label: "待付款",    color: "bg-orange-100 text-orange-700" },
   awaiting_payment_confirmation: { label: "待确认付款", color: "bg-blue-100 text-blue-700" },
   ready_to_ship:                 { label: "待发货",    color: "bg-lime-100 text-lime-700" },
+  transited:                     { label: "已向中转地发出", color: "bg-indigo-100 text-indigo-700" },
   shipped:                       { label: "已发货",    color: "bg-green-100 text-green-700" },
   delivered:                     { label: "已签收",    color: "bg-emerald-100 text-emerald-700" },
   cancelled:                     { label: "已取消",    color: "bg-red-100 text-red-600" },
   processing:                    { label: "处理中",    color: "bg-blue-100 text-blue-700" },
+  transit_forwarded:             { label: "中转地已发货",    color: "bg-blue-100 text-blue-700" },
+  transit_arrived:               { label: "中转地已收货",    color: "bg-blue-100 text-blue-700" },
 };
 
 const METHOD_LABELS = {
@@ -41,18 +45,32 @@ const METHOD_LABELS = {
   surface: "海运", small_packet_air: "小包空运", other: "其他"
 };
 
-export default function ShippingPoolCard({ pool, onClick, pendingEditCount = 0, isAdmin = false, userProfileMap = {}, onArchive = null, onUnarchive = null, onDelete = null }) {
+export default function ShippingPoolCard({ pool, onClick, onManage = null, pendingEditCount = 0, isAdmin = false, userProfileMap = {}, onArchive = null, onUnarchive = null, onDelete = null, selectMode = false, isSelected = false, onSelect = null }) {
   const status = STATUS_CONFIG[pool.status] || STATUS_CONFIG.pending;
   const isConsolidation = pool.consolidation_type && pool.consolidation_type !== "";
-  
+
   // Use display_name from userProfileMap if available, otherwise fall back to pool.creator_name
   const creatorProfile = userProfileMap[pool.creator_email] || {};
   const displayCreatorName = creatorProfile.display_name || creatorProfile.full_name || pool.creator_name;
 
+  // In select mode, clicking the card body selects; otherwise clicking opens detail
+  const handleCardClick = () => {
+    if (selectMode && onSelect) {
+      onSelect(pool.id);
+    } else {
+      onClick?.(pool);
+    }
+  };
+
   return (
     <div
-      onClick={() => onClick?.(pool)}
-      className="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-md hover:border-gray-300 cursor-pointer transition-all">
+      onClick={handleCardClick}
+      className={`rounded-xl overflow-hidden cursor-pointer transition-all ${
+        isSelected
+          ? "p-[2px] bg-gradient-to-r from-blue-400 to-purple-400 shadow-md"
+          : "bg-white border border-gray-200 hover:shadow-md hover:border-gray-300"
+      }`}>
+      <div className="bg-white rounded-[10px] overflow-hidden">
       
       {/* Colored top bar based on type */}
       <div className={`h-1 w-full ${isConsolidation ? "bg-gradient-to-r from-blue-400 to-purple-400" : "bg-gradient-to-r from-gray-300 to-gray-400"}`} />
@@ -121,6 +139,13 @@ export default function ShippingPoolCard({ pool, onClick, pendingEditCount = 0, 
               <p className="text-xs font-medium text-gray-700 flex items-center gap-1 mt-0.5">
                 <Calendar className="w-3 h-3" />{pool.scheduled_ship_date}
               </p>
+            </div>
+          }
+          {selectMode && onSelect &&
+          <div className="flex-shrink-0" onClick={e => e.stopPropagation()}>
+              <RadioGroup value={isSelected ? pool.id : ""} onValueChange={() => onSelect(pool.id)}>
+                <RadioGroupItem value={pool.id} aria-label="选择此拼邮" className="h-5 w-5" />
+              </RadioGroup>
             </div>
           }
         </div>
@@ -197,7 +222,7 @@ export default function ShippingPoolCard({ pool, onClick, pendingEditCount = 0, 
         {/* Footer */}
         <div className="flex items-center justify-between pt-1 border-t border-gray-50">
           <span className="text-xs text-gray-400">
-            {new Date(pool.created_at).toLocaleDateString("zh-CN")}
+            {new Date(pool.created_at || pool.created_date).toLocaleDateString("zh-CN")}
             
           </span>
           <div className="flex items-center gap-2">
@@ -232,11 +257,21 @@ export default function ShippingPoolCard({ pool, onClick, pendingEditCount = 0, 
                 <Trash2 className="w-3 h-3" />删除
               </button>
             )}
-            <span className="text-xs text-gray-400 flex items-center gap-0.5 hover:text-gray-600">
+            <button
+              onClick={e => { e.stopPropagation(); onClick?.(pool); }}
+              className="inline-flex items-center gap-0.5 text-xs text-gray-400 hover:text-gray-700 px-1.5 py-0.5 rounded hover:bg-gray-100 transition-colors">
               查看详情 <ChevronRight className="w-3 h-3" />
-            </span>
+            </button>
+            {onManage && (
+              <button
+                onClick={e => { e.stopPropagation(); onManage(pool); }}
+                className="inline-flex items-center gap-0.5 text-xs text-blue-500 hover:text-blue-700 px-1.5 py-0.5 rounded hover:bg-blue-50 transition-colors">
+                中转地管理 <ChevronRight className="w-3 h-3" />
+              </button>
+            )}
           </div>
         </div>
+      </div>
       </div>
     </div>);
 

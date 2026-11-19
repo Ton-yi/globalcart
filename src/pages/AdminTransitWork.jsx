@@ -5,7 +5,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { tenantEntity } from "@/lib/tenantApi";
+import { tenantEntity, transitLocationApi } from "@/lib/tenantApi";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { usePermissions } from "@/hooks/usePermissions";
 import {
@@ -19,6 +19,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import CountrySelect from "@/components/common/CountrySelect";
+import ManagerMultiSelect from "@/components/common/ManagerMultiSelect";
+import { normalizeManagerEmails, hasManager } from "@/lib/managerUtils";
+import ConfirmDialog from "@/components/common/ConfirmDialog";
 import TransitPoolCard from "@/components/transit/TransitPoolCard";
 import { getCountry } from "@/lib/countries";
 
@@ -33,7 +36,7 @@ export default function AdminTransitWork() {
   const { can, isAdmin } = usePermissions();
   const canViewTransitPanel = isAdmin || can("shipping:view_transit_panel");
   const canManageTransitLocations = isAdmin || can("shipping:manage_transit_locations");
-
+console.log(isAdmin)
   const [activeTab, setActiveTab] = useState("work");
   const [loading, setLoading] = useState(true);
   const [locations, setLocations] = useState([]);
@@ -45,18 +48,25 @@ export default function AdminTransitWork() {
   // Location form state
   const [showLocForm, setShowLocForm] = useState(false);
   const [editingLoc, setEditingLoc] = useState(null);
-  const [locForm, setLocForm] = useState({ name: "", code_prefix: "", country: "", province: "", address: "", handling_fee: 0, handling_fee_currency: "JPY", manager_email: "", manager_contact: "", allow_storage: false, allow_pickup: false, description: "", is_active: true, is_default_official_pool: false, disabled_transit_method_ids: [], disabled_addon_ids: [] });
+  const [locForm, setLocForm] = useState({ name: "", code_prefix: "", country: "", province: "", address: "", handling_fee: '', handling_fee_currency: "JPY", manager_email: [], manager_contact: "", allow_storage: false, allow_pickup: false, description: "", is_active: true, is_default_official_pool: false, disabled_transit_method_ids: [], disabled_addon_ids: [] });
   const [savingLoc, setSavingLoc] = useState(false);
   
   // Collapsed state for each location (default: all collapsed)
   const [collapsedLocations, setCollapsedLocations] = useState({});
 
+  // Delete confirmation dialog target
+  const [deleteLocId, setDeleteLocId] = useState(null);
+
+  // Location management actions are only shown in the manage tab
+  const showLocationActions = activeTab === "manage";
+
   const fetchData = async () => {
     setLoading(true);
     try {
-      const r = await base44.functions.invoke('getAllTransitWorkData', {});
-      const data = r.data || {};
-      
+      // const r = await base44.functions.invoke('getAllTransitWorkData', {});
+      const r = await transitLocationApi.workData();
+      const data = r || {};
+
       setLocations(data.locations || []);
       setRequestsByLocation(data.requestsByLocation || data.poolsByLocation || {});
       setAllUsers(data.users || []);
@@ -91,11 +101,13 @@ export default function AdminTransitWork() {
     pending: pools.filter(p => 
       !p.transit_arrival_confirmed_at && 
       !p.transit_shipped_date && 
-      (p.status === "open" || p.status === "completed" || p.status === "pending" || p.status === "awaiting_payment")
+      (p.status === "open" || p.status === "completed" || p.status === "pending" || p.status === "awaiting_payment" || p.status === 'ready_to_ship')
     ),
     // In transit: completed requests/pools en route to transit location (Japan shipped but transit hasn't confirmed arrival)
     in_transit: pools.filter(p => 
-      (p.status === "completed" || p.status === "paid" || p.status === "ready_to_ship") && 
+      (p.status === "shipped" || p.status === 'transited'
+        // || p.status === "paid" || p.status === "ready_to_ship"
+      ) && 
       !p.transit_arrival_confirmed_at
     ),
     // Arrived: transit location confirmed receipt but hasn't forwarded yet
@@ -105,8 +117,10 @@ export default function AdminTransitWork() {
   });
 
   const fetchLocations = async () => {
-    const data = await tenantEntity.list('TransitLocation');
-    setLocations(data);
+    // const data = await tenantEntity.list('TransitLocation');
+    const r = await transitLocationApi.workData();
+    setRequestsByLocation(r?.requestsByLocation || r?.poolsByLocation || {});
+    setLocations(r?.locations);
   };
 
   const lf = (k, v) => setLocForm(p => ({ ...p, [k]: v }));
@@ -118,18 +132,20 @@ export default function AdminTransitWork() {
       const others = locations.filter(l => l.is_default_official_pool && l.id !== editingLoc?.id);
       await Promise.all(others.map(l => tenantEntity.update('TransitLocation', l.id, { is_default_official_pool: false })));
     }
+    const submitData = { ...locForm, handling_fee: locForm.handling_fee === "" ? null : parseFloat(locForm.handling_fee) };
     if (editingLoc) {
-      await tenantEntity.update('TransitLocation', editingLoc.id, locForm);
+      await transitLocationApi.update(editingLoc.id, submitData);
     } else {
-      await tenantEntity.create('TransitLocation', locForm);
+      await transitLocationApi.create(submitData);
     }
     await fetchLocations();
     // Refresh requests data
-    const r = await base44.functions.invoke('getAllTransitWorkData', {});
-    setRequestsByLocation(r.data?.requestsByLocation || r.data?.poolsByLocation || {});
+    // const r = await base44.functions.invoke('getAllTransitWorkData', {});
+    // const r = await transitLocationApi.workData();
+    // setRequestsByLocation(r?.requestsByLocation || r?.poolsByLocation || {});
     setShowLocForm(false);
     setEditingLoc(null);
-    setLocForm({ name: "", code_prefix: "", country: "", province: "", address: "", handling_fee: 0, handling_fee_currency: "JPY", manager_email: "", manager_contact: "", allow_storage: false, allow_pickup: false, description: "", is_active: true, is_default_official_pool: false, disabled_transit_method_ids: [], disabled_addon_ids: [] });
+    setLocForm({ name: "", code_prefix: "", country: "", province: "", address: "", handling_fee: "", handling_fee_currency: "JPY", manager_email: [], manager_contact: "", allow_storage: false, allow_pickup: false, description: "", is_active: true, is_default_official_pool: false, disabled_transit_method_ids: [], disabled_addon_ids: [] });
     setSavingLoc(false);
   };
 
@@ -137,25 +153,30 @@ export default function AdminTransitWork() {
     setEditingLoc(loc);
     setLocForm({
       name: loc.name, code_prefix: loc.code_prefix || "", country: loc.country || "", province: loc.province || "",
-      address: loc.address || "", handling_fee: loc.handling_fee || 0,
+      address: loc.address || "", handling_fee: loc.handling_fee ?? "",
       handling_fee_currency: loc.handling_fee_currency || "JPY",
-      manager_email: loc.manager_email || "", manager_contact: loc.manager_contact || "",
+      manager_email: normalizeManagerEmails(loc.manager_email), manager_contact: loc.manager_contact || "",
       allow_storage: loc.allow_storage || false,
       allow_pickup: loc.allow_pickup || false,
-      disabled_transit_method_ids: loc.disabled_transit_method_ids || [],
-      disabled_addon_ids: loc.disabled_addon_ids || [],
+      disabled_transit_method_ids: (loc.disabled_transit_method_ids || []).map(String),
+      disabled_addon_ids: (loc.disabled_addon_ids || []).map(String),
       description: loc.description || "", is_active: loc.is_active !== false,
       is_default_official_pool: loc.is_default_official_pool || false,
     });
     setShowLocForm(true);
   };
 
-  const handleLocDelete = async (id) => {
-    if (!confirm("确认删除此中转地？")) return;
-    await tenantEntity.delete('TransitLocation', id);
+  const handleLocDelete = (id) => {
+    setDeleteLocId(id);
+  };
+
+  const confirmLocDelete = async () => {
+    if (!deleteLocId) return;
+    await tenantEntity.delete('TransitLocation', deleteLocId);
+    setDeleteLocId(null);
     await fetchLocations();
-    const r = await base44.functions.invoke('getAllTransitWorkData', {});
-    setRequestsByLocation(r.data?.requestsByLocation || r.data?.poolsByLocation || {});
+    // const r = await base44.functions.invoke('getAllTransitWorkData', {});
+    // setRequestsByLocation(r.data?.requestsByLocation || r.data?.poolsByLocation || {});
   };
 
   const handleLocToggle = async (loc) => {
@@ -209,7 +230,7 @@ export default function AdminTransitWork() {
             刷新数据
           </Button>
           {activeTab === "manage" && canManageTransitLocations && (
-            <Button size="sm" className="bg-red-600 hover:bg-red-700" onClick={() => { setEditingLoc(null); setLocForm({ name: "", code_prefix: "", country: "", province: "", address: "", handling_fee: 0, handling_fee_currency: "JPY", manager_email: "", manager_contact: "", allow_storage: false, allow_pickup: false, description: "", is_active: true, disabled_transit_method_ids: [], disabled_addon_ids: [] }); setShowLocForm(true); }}>
+            <Button size="sm" className="bg-red-600 hover:bg-red-700" onClick={() => { setEditingLoc(null); setLocForm({ name: "", code_prefix: "", country: "", province: "", address: "", handling_fee: "", handling_fee_currency: "JPY", manager_email: [], manager_contact: "", allow_storage: false, allow_pickup: false, description: "", is_active: true, disabled_transit_method_ids: [], disabled_addon_ids: [] }); setShowLocForm(true); }}>
               <Plus className="w-3.5 h-3.5 mr-1.5" />添加中转地
             </Button>
           )}
@@ -239,7 +260,7 @@ export default function AdminTransitWork() {
           ) : (
             <div className="space-y-8">
               {activeLocations.map(loc => {
-                const pools = requestsByLocation[loc.id] || [];
+                const pools = requestsByLocation.filter(p => parseInt(p.transit_location_id) === loc.id) || [];
                 const byStatus = getPoolsByStatus(pools);
                 const pendingCount = byStatus.pending.length + byStatus.arrived.length + byStatus.in_transit.length;
                 const isCollapsed = collapsedLocations[loc.id] !== false; // default collapsed
@@ -256,10 +277,12 @@ export default function AdminTransitWork() {
                         {loc.code_prefix && (
                           <Badge className="text-xs bg-purple-100 text-purple-700 font-mono">{loc.code_prefix}</Badge>
                         )}
-                        {loc.manager_email && (
-                          <span className="text-xs text-gray-400">负责人：{loc.manager_email}</span>
+                        {hasManager(loc) && (
+                          <span className="text-xs text-gray-400">
+                            负责人：{normalizeManagerEmails(loc.manager_email).map(e => allUsers.find(u => u.email === e)?.full_name || e).join("、")}
+                          </span>
                         )}
-                        {!loc.manager_email && (
+                        {!hasManager(loc) && (
                           <Badge className="text-xs bg-orange-100 text-orange-700">
                             <AlertCircle className="w-2.5 h-2.5 mr-1 inline" />未分配负责人
                           </Badge>
@@ -282,24 +305,29 @@ export default function AdminTransitWork() {
                         >
                           <MapPin className="w-3.5 h-3.5" />
                         </button>
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); handleLocEdit(loc); }} 
-                          className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-700"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); handleLocToggle(loc); }} 
-                          className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-700"
-                        >
-                          {loc.is_active ? <X className="w-3.5 h-3.5" /> : <CheckCircle className="w-3.5 h-3.5" />}
-                        </button>
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); handleLocDelete(loc.id); }} 
-                          className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-500"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        {showLocationActions && (
+                          <>
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); handleLocEdit(loc); }} 
+                              title="编辑" 
+                              className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-700"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); handleLocToggle(loc); }} 
+                              className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-700"
+                            >
+                              {loc.is_active ? <X className="w-3.5 h-3.5" /> : <CheckCircle className="w-3.5 h-3.5" />}
+                            </button>
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); handleLocDelete(loc.id); }} 
+                              className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-500"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
 
@@ -314,7 +342,7 @@ export default function AdminTransitWork() {
                           </div>
                           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
                             {byStatus.pending.map(pool => (
-                              <TransitPoolCard key={pool.id} pool={pool} transitStatus="pending" onClick={() => navigate(`/Trworkon/${pool.pool_code || pool.id}`)} />
+                              <TransitPoolCard key={pool.id} pool={pool} transitStatus="pending" onClick={() => navigate(`/Trworkon/${pool.id || pool.pool_code}`)} />
                             ))}
                           </div>
                         </div>
@@ -327,7 +355,7 @@ export default function AdminTransitWork() {
                           </div>
                           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
                             {byStatus.in_transit.map(pool => (
-                              <TransitPoolCard key={pool.id} pool={pool} transitStatus="in_transit" onClick={() => navigate(`/Trworkon/${pool.pool_code || pool.id}`)} />
+                              <TransitPoolCard key={pool.id} pool={pool} transitStatus="in_transit" onClick={() => navigate(`/Trworkon/${pool.id || pool.pool_code}`)} />
                             ))}
                           </div>
                         </div>
@@ -340,7 +368,7 @@ export default function AdminTransitWork() {
                           </div>
                           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
                             {byStatus.arrived.map(pool => (
-                              <TransitPoolCard key={pool.id} pool={pool} transitStatus="arrived" onClick={() => navigate(`/Trworkon/${pool.pool_code || pool.id}`)} />
+                              <TransitPoolCard key={pool.id} pool={pool} transitStatus="arrived" onClick={() => navigate(`/Trworkon/${pool.id || pool.pool_code}`)} />
                             ))}
                           </div>
                         </div>
@@ -353,7 +381,7 @@ export default function AdminTransitWork() {
                           </div>
                           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
                             {byStatus.forwarded.map(pool => (
-                              <TransitPoolCard key={pool.id} pool={pool} transitStatus="forwarded" onClick={() => navigate(`/Trworkon/${pool.pool_code || pool.id}`)} />
+                              <TransitPoolCard key={pool.id} pool={pool} transitStatus="forwarded" onClick={() => navigate(`/Trworkon/${pool.id || pool.pool_code}`)} />
                             ))}
                           </div>
                         </div>
@@ -395,17 +423,13 @@ export default function AdminTransitWork() {
                 </div>
               </div>
               <div>
-                  <Label className="text-xs text-gray-500">负责人（可选择任何用户）</Label>
-                  <Select value={locForm.manager_email} onValueChange={v => lf("manager_email", v)}>
-                    <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue placeholder="选择用户..." /></SelectTrigger>
-                    <SelectContent>
-                      {allUsers.map(u => (
-                        <SelectItem key={u.id} value={u.email}>
-                          {u.full_name ? `${u.full_name} (${u.email})` : u.email}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label className="text-xs text-gray-500">负责人（可多选）</Label>
+                  <ManagerMultiSelect
+                    users={allUsers}
+                    value={locForm.manager_email}
+                    onChange={v => lf("manager_email", v)}
+                    placeholder="选择用户..."
+                  />
               </div>
               <div>
                 <Label className="text-xs text-gray-500">负责人联系方式（微信/Line/WhatsApp 等）</Label>
@@ -428,7 +452,7 @@ export default function AdminTransitWork() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-xs text-gray-500">中转手续费</Label>
-                  <Input type="number" step="0.01" className="mt-1 h-8 text-sm" placeholder="0" value={locForm.handling_fee} onChange={e => lf("handling_fee", parseFloat(e.target.value) || 0)} />
+                  <Input type="number" step="0.01" className="mt-1 h-8 text-sm" placeholder="" value={locForm.handling_fee} onChange={e => lf("handling_fee", e.target.value)} />
                 </div>
                 <div>
                   <Label className="text-xs text-gray-500">手续费货币</Label>
@@ -477,13 +501,13 @@ export default function AdminTransitWork() {
                   <Label className="text-xs text-gray-500">禁用的中转运输方式（勾选 = 在此中转地隐藏）</Label>
                   <div className="mt-1.5 space-y-1 border border-gray-200 rounded-lg p-2 bg-white max-h-36 overflow-y-auto">
                     {transitMethods.map(m => {
-                      const disabled = (locForm.disabled_transit_method_ids || []).includes(m.id);
+                      const disabled = (locForm.disabled_transit_method_ids || []).some(id => String(id) === String(m.id));
                       return (
                         <label key={m.id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 rounded px-1 py-0.5">
                           <input type="checkbox" checked={disabled}
                             onChange={() => lf("disabled_transit_method_ids", disabled
-                              ? (locForm.disabled_transit_method_ids || []).filter(id => id !== m.id)
-                              : [...(locForm.disabled_transit_method_ids || []), m.id]
+                              ? (locForm.disabled_transit_method_ids || []).filter(id => String(id) !== String(m.id))
+                              : [...(locForm.disabled_transit_method_ids || []), String(m.id)]
                             )}
                             className="accent-red-600" />
                           <span className="text-xs text-gray-700">{m.name}</span>
@@ -501,13 +525,13 @@ export default function AdminTransitWork() {
                   <Label className="text-xs text-gray-500">禁用的发货增值服务（勾选 = 在此中转地隐藏）</Label>
                   <div className="mt-1.5 space-y-1 border border-gray-200 rounded-lg p-2 bg-white max-h-36 overflow-y-auto">
                     {addonOptions.map(a => {
-                      const disabled = (locForm.disabled_addon_ids || []).includes(a.id);
+                      const disabled = (locForm.disabled_addon_ids || []).some(id => String(id) === String(a.id));
                       return (
                         <label key={a.id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 rounded px-1 py-0.5">
                           <input type="checkbox" checked={disabled}
                             onChange={() => lf("disabled_addon_ids", disabled
-                              ? (locForm.disabled_addon_ids || []).filter(id => id !== a.id)
-                              : [...(locForm.disabled_addon_ids || []), a.id]
+                              ? (locForm.disabled_addon_ids || []).filter(id => String(id) !== String(a.id))
+                              : [...(locForm.disabled_addon_ids || []), String(a.id)]
                             )}
                             className="accent-red-600" />
                           <span className="text-xs text-gray-700">{a.name}</span>
@@ -536,8 +560,8 @@ export default function AdminTransitWork() {
           ) : (
             <div className="space-y-2">
               {[...locations].sort((a, b) => {
-                const aHasManager = !!a.manager_email;
-                const bHasManager = !!b.manager_email;
+                const aHasManager = hasManager(a);
+                const bHasManager = hasManager(b);
                 if (aHasManager === bHasManager) return 0;
                 return aHasManager ? 1 : -1;
               }).map(loc => (
@@ -562,7 +586,7 @@ export default function AdminTransitWork() {
                       <Badge className={`text-xs ${loc.is_active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
                         {loc.is_active ? "启用" : "停用"}
                       </Badge>
-                      {!loc.manager_email && (
+                      {!hasManager(loc) && (
                         <Badge className="text-xs bg-orange-100 text-orange-700 border-orange-200">
                           <AlertCircle className="w-2.5 h-2.5 mr-1 inline" />
                           未分配负责人
@@ -572,7 +596,7 @@ export default function AdminTransitWork() {
                     <div className="flex flex-wrap gap-x-3 mt-0.5">
                       {loc.address && <p className="text-xs text-gray-500">{loc.address}</p>}
                       {loc.handling_fee > 0 && <p className="text-xs text-orange-500">手续费 {loc.handling_fee_currency || "JPY"} {loc.handling_fee}</p>}
-                      {loc.manager_email && <p className="text-xs text-gray-400">负责人：{allUsers.find(u => u.email === loc.manager_email)?.full_name || loc.manager_email}{loc.manager_contact ? ` · ${loc.manager_contact}` : ""}</p>}
+                      {hasManager(loc) && <p className="text-xs text-gray-400">负责人：{normalizeManagerEmails(loc.manager_email).map(e => allUsers.find(u => u.email === e)?.full_name || e).join("、")}{loc.manager_contact ? ` · ${loc.manager_contact}` : ""}</p>}
                     </div>
                     {loc.description && <p className="text-xs text-gray-400 mt-0.5">{loc.description}</p>}
                   </div>
@@ -624,6 +648,16 @@ export default function AdminTransitWork() {
           )}
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!deleteLocId}
+        onOpenChange={(open) => { if (!open) setDeleteLocId(null); }}
+        title="删除中转地"
+        description="确认删除此中转地？删除后无法恢复。"
+        confirmText="删除"
+        confirmClassName="bg-red-600 hover:bg-red-700"
+        onConfirm={confirmLocDelete}
+      />
     </div>
   );
 }

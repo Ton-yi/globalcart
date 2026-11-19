@@ -6,7 +6,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { X, Package, Edit2, Save, MoreVertical, ArrowRight, RotateCcw, Loader2, Search, Trash2, AlertCircle, CheckCircle, XCircle, CreditCard, ExternalLink, Upload, Truck, MapPin, PlusCircle, MoveRight, Star, ChevronDown, ChevronUp, Layers, Tag } from "lucide-react";
 import { base44 } from "@/api/base44Client";
-import { openAlipayPopup } from "@/lib/alipayUtils";
+import { openAlipayPopup, openAlipayBlankPopup } from "@/lib/alipayUtils";
 import { usePermissions } from "@/hooks/usePermissions";
 import { updateOrder, tenantEntity, shippingPoolApi, userPrefApi, fetchTenantConfig, editRequestApi } from "@/lib/tenantApi";
 // exchangeRates now provided by getShippingPoolDetail response
@@ -30,6 +30,10 @@ import TransitShippedPanel from "@/components/shippingpool/TransitShippedPanel";
 import UserGroupHeader from "@/components/shippingpool/UserGroupHeader";
 import MessageThread from "@/components/common/MessageThread";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { usePickupActions } from "@/hooks/usePickupActions";
+import PickupStatusBadges from "@/components/transit/pickup/PickupStatusBadges";
+import PickupConfirmActions from "@/components/transit/pickup/PickupConfirmActions";
+import { createPageUrl } from "@/utils";
 import { toast } from "sonner";
 import { persistentToastError } from "@/lib/toastUtils.jsx";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
@@ -76,8 +80,6 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
   const [selectedMethodMeta, setSelectedMethodMeta] = useState(null);
   const [generatingAlipay, setGeneratingAlipay] = useState(false);
   const [alipayUrl, setAlipayUrl] = useState(null);
-  const [showAlipayConfirm, setShowAlipayConfirm] = useState(false);
-  const [alipayFormData, setAlipayFormData] = useState(null);
   const [alipayPaying, setAlipayPaying] = useState(false);
   const alipayPopupRef = useRef(null);
   const alipayPollTimerRef = useRef(null);
@@ -133,6 +135,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
   const [convertSavedAddresses, setConvertSavedAddresses] = useState([]);
   const [convertSaveAddress, setConvertSaveAddress] = useState(false);
   const [submittingConvert, setSubmittingConvert] = useState(false);
+  const [tranLocations, setTransitLocations] = useState(false);
 
   const { user } = useCurrentUser();
   const onSuccessRef = useRef(null);
@@ -148,8 +151,8 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
 
   const openConvertToOther = async () => {
 
-    toast.error('功能开发中......');
-    return;
+    // toast.error('功能开发中......');
+    // return;
 
     setShowConvertToOther(true);
     setConvertAddressMode("saved");
@@ -172,18 +175,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
       ? convertNewAddress
       : convertSavedAddresses.find(a => a.id === convertSelectedAddressId) || {};
 
-    // Optionally save address
-    if (isNew && convertSaveAddress && isAddressFormValid(convertNewAddress)) {
-      const prefs = await userPrefApi.list({ user_email: currentUser?.email }).catch(() => []);
-      const existing = prefs[0]?.saved_addresses || [];
-      const newEntry = { id: `addr_${Date.now()}`, label: convertNewAddress.label || "新地址", full_text: serializeAddressToText(convertNewAddress), ...convertNewAddress };
-      if (prefs[0]) {
-        await userPrefApi.update(prefs[0].id, { saved_addresses: [...existing, newEntry] });
-      } else {
-        await userPrefApi.create({ user_email: currentUser?.email, saved_addresses: [newEntry] });
-      }
-    }
-
+    // 地址保存交给后端追加，避免这里整表更新覆盖地址簿
     await shippingPoolApi.update(pool.id, {
       consolidation_type: "other",
       recipient_name: addr.recipient_name || "",
@@ -192,6 +184,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
       city: addr.addr3 || "",
       state: addr.state || "",
       destination_country: addr.country || "",
+      save_address: isNew && convertSaveAddress,
     });
 
     setPool(p => ({
@@ -273,7 +266,10 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
       const r = await base44.functions.invoke('shipping/getShippingPoolDetail', { id });
       const d = r?.data || {};
       if (d.pool) setPool(p => ({ ...p, ...d.pool }));
+      // transit_shipping is a sibling of pool in the response — attach it so fee calc can read pool.transit_shipping
+      if (d.transit_shipping) setPool(p => ({ ...p, transit_shipping: d.transit_shipping }));
       if (d?.orders) setOrders(d.orders);
+      if (d?.transit_locations) setTransitLocations(d?.transit_locations);
       if (d.users && d.users.length > 0) {
         const emailUserMap = {};
         d.users.forEach(u => { emailUserMap[u.user_email] = u; });
@@ -637,61 +633,78 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
     }
 
     const newMethod = {
-      payable_amount: amountToCharge,
+      // payable_amount: amountToCharge,
       method_name: method,
       payment_currency: selectedMethodMeta?.payment_currency,
       payment_currency_type: selectedMethodMeta?.payment_currency,
       prepayment_rate_jpy_cny: exchangeRates?.[`jpy_${payCurrency.toLowerCase()}`],
-      provider_key: method
+      provider_key: method,
+      payment_config_id: selectedMethodMeta.id
     };
 
-    setGeneratingAlipay(true);
-    
-    const res = await base44.functions.invoke("alipay/shipping-pool/pay", {
-      pool_id: pool.id,
-      user_id: user.id,
-      subject: subject,
-      payment_type: "ship",
-      paid_currency: currencyToSend,
-      payment_method: newMethod,
-      popup_mode: true
-    });
-
-    if(!res?.data?.success) {
-      persistentToastError(`下单失败: ${res?.data?.result}`);
-      setGeneratingAlipay(false);
+    // 先在点击事件里同步开窗：await 之后浏览器可能把 window.open 当成非用户操作拦截
+    const popup = openAlipayBlankPopup();
+    if (!popup) {
+      persistentToastError("请允许浏览器弹窗后重新生成付款链接");
       return;
     }
 
-    const formData = res?.data?.form;
-    setGeneratingAlipay(false);
+    setGeneratingAlipay(true);
 
-    if (formData && typeof formData === 'string') {
-      setAlipayFormData(formData);
-      setShowAlipayConfirm(true);
+    try {
+      const res = await base44.functions.invoke("alipay/shipping-pool/pay", {
+        pool_id: pool.id,
+        user_id: user.id,
+        subject: subject,
+        payment_type: "ship",
+        paid_currency: currencyToSend,
+        payment_method: newMethod,
+        popup_mode: true
+      });
+
+      if (!res?.data?.success) {
+        popup.close();
+        persistentToastError(`下单失败: ${res?.data?.result}`);
+        return;
+      }
+
+      const formData = res?.data?.form;
+      if (!formData || typeof formData !== 'string') {
+        popup.close();
+        persistentToastError("下单失败: 未返回支付宝表单");
+        return;
+      }
+
+      launchAlipayPopup(formData, popup);
+    } catch (err) {
+      popup.close();
+      persistentToastError(`下单失败: ${err?.message || "网络异常"}`);
+    } finally {
+      setGeneratingAlipay(false);
     }
   };
 
-  const submitToAlipay = () => {
-    const popup = openAlipayPopup(alipayFormData);
-    setShowAlipayConfirm(false);
-    setAlipayFormData(null);
-
-    if (popup) {
-      setAlipayPaying(true);
-      setAlertDialogOpen(true);
-      setAlertDialogMessage("支付中，请在弹出的支付宝窗口完成付款...");
-      setAlertDialogDescription("请不要刷新和关闭本页面...");
-      alipayPopupRef.current = popup;
-      alipayPollTimerRef.current = setInterval(() => {
-        if (popup.closed) {
-          clearInterval(alipayPollTimerRef.current);
-          alipayPollTimerRef.current = null;
-          setAlipayPaying(false);
-          setAlertDialogOpen(false);
-        }
-      }, 500);
+  // 把后端返回的支付宝表单提交到（预先打开的）支付窗口
+  const launchAlipayPopup = (formData, targetWindow) => {
+    const popup = openAlipayPopup(formData, { targetWindow });
+    if (!popup) {
+      persistentToastError("请允许弹窗以完成支付");
+      return;
     }
+
+    setAlipayPaying(true);
+    setAlertDialogOpen(true);
+    setAlertDialogMessage("支付中，请在弹出的支付宝窗口完成付款...");
+    setAlertDialogDescription("请不要刷新和关闭本页面...");
+    alipayPopupRef.current = popup;
+    alipayPollTimerRef.current = setInterval(() => {
+      if (popup.closed) {
+        clearInterval(alipayPollTimerRef.current);
+        alipayPollTimerRef.current = null;
+        setAlipayPaying(false);
+        setAlertDialogOpen(false);
+      }
+    }, 500);
   };
 
   // User: upload payment proof (non-alipay)
@@ -982,6 +995,11 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
       params.target_shipping_pool = { id: req.target_pool_id, pool_code: pool?.pool_code };
     }
 
+    if (action === 'reject') {
+      params.source_shipping_pool = { id: pool.id, pool_code: pool?.pool_code };
+      params.target_shipping_pool = null;
+    }
+
     await processEditRequest(action, action === 'approve' ? 'approveAddToPool' : 'rejectAddToPool', req, params);
   };
 
@@ -1045,9 +1063,13 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
       const message = err?.response?.data?.message;
       console.error('[ShippingPoolDetailModal] Edit Request failed:', message);
       persistentToastError(message || "提交失败，请稍后重试");
+
+      return;
+    } finally {
+      setProcessingEditId(null);
     }
+
     setPendingEdits((prev) => prev.filter((r) => r.id !== req.id));
-    setProcessingEditId(null);
     await refreshPool();
   }
 
@@ -1227,9 +1249,22 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
   const status = STATUS_CONFIG[pool.status] || STATUS_CONFIG.pending;
 
   // 发货后补付：池子已进入发货流程但运费未确认收款，用户仍可付款（付款只更新付款状态，不影响发货状态）
+  // 一个用户的付款记录算已付，需外层 payment_status 与 payment_method.payment_status 都为 "paid"
+  const isPaymentRecordPaid = (p) =>
+    p?.payment_status === "paid" && p?.payment_method?.payment_status === "paid";
+  // 全员已付清 = fee_breakdown_per_user 里每个用户都有 per_user_payments 记录且都已付（与管理端判定一致）
+  const allParticipantsPaid = () => {
+    const breakdowns = pool.fee_breakdown_per_user || [];
+    const payments = pool.per_user_payments || [];
+    if (breakdowns.length === 0) return false;
+    return breakdowns.every(b => {
+      const rec = payments.find(p => p.user_email === b.user_email);
+      return !!rec && isPaymentRecordPaid(rec);
+    });
+  };
   const feeNotified = (pool.fee_breakdown_per_user || []).length > 0 || (parseFloat(pool.shipping_fee_jpy) || 0) > 0;
   const postShipmentUnpaid = !isAdmin && ["ready_to_ship", "shipped", "delivered"].includes(pool.status) &&
-    pool.payment_status !== "paid" && feeNotified;
+    !allParticipantsPaid() && feeNotified;
 
   const formatDateOnly = (dateString) => {
     if (!dateString) return '';
@@ -1323,62 +1358,108 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
             }
            </div>
 
-           {/* Destination address */}
-           {(pool.recipient_name || pool.address_line1 || pool.city || pool.country) &&
-          <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2.5 hidden">
-               <p className="text-xs text-blue-600 font-medium mb-1">发货目的地</p>
-               <div className="text-sm text-blue-800 space-y-0.5">
-                 {pool.recipient_name && <p className="font-medium">{pool.recipient_name}</p>}
-                 {pool.recipient_phone && <p className="text-xs">{pool.recipient_phone}</p>}
-                 <p className="whitespace-pre-wrap">
-                   {pool.address_line1}{pool.address_line2 ? ` ${pool.address_line2}` : ""}<br />
-                   {pool.city && `${pool.city} `}
-                   {pool.state && `${pool.state} `}
-                   {pool.postal_code && `${pool.postal_code}`}<br />
-                   {pool.country}
-                 </p>
-               </div>
-             </div>
-          }
+          {/* Selected shipping addons —— 中转拼邮的增值服务存放在每条 transit_shipping 记录里，不能读 pool.selected_addons */}
+          {(() => {
+            const isTransitPool = pool.consolidation_type === "transit";
+            // getShippingPoolDetail 返回的 transit_shipping：每条记录（用户/批次）各自带 selected_addons
+            const transitAddonRecords = isTransitPool
+              ? (pool.transit_shipping || []).filter(t =>
+                  t
+                  && (isAdmin || (currentUser?.email && t.user_email === currentUser.email))
+                  && ((t.selected_addons || []).length > 0 || (t.selected_addon_ids || []).length > 0))
+              : [];
+            const poolAddons = pool.selected_addons || [];
+            const poolAddonIds = pool.selected_addon_ids || [];
+            // 中转：没有 transit_shipping 记录（或记录里没有增值服务）时不展示池级 addon
+            if (isTransitPool ? transitAddonRecords.length === 0 : (poolAddons.length === 0 && poolAddonIds.length === 0)) return null;
 
-          {/* Selected shipping addons */}
-          {((pool.selected_addons || []).length > 0 || (pool.selected_addon_ids || []).length > 0) &&
-          <div className="bg-yellow-50 border border-yellow-100 rounded-lg px-3 py-2.5">
-              <p className="text-xs text-yellow-700 font-medium mb-1.5">发货增值服务</p>
-              <div className="space-y-1">
-                {(pool.selected_addons || []).length > 0 ?
-              pool.selected_addons.map((a, i) => {
-                const hasCustom = a.custom_fee != null;
-                const displayFee = hasCustom ? a.custom_fee : a.fee;
-                return (
-                  <div key={i} className="flex flex-col">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-gray-700">{a.service_name || a.id}</span>
-                      {parseFloat(a.fee) > 0 && (
-                        <span className={`font-medium ${hasCustom ? "line-through text-gray-400" : "text-yellow-700"}`}>
-                          +{a.fee_currency || "JPY"} {Math.round(parseFloat(a.fee))}
-                        </span>
-                      )}
-                    </div>
-                    {hasCustom && parseFloat(displayFee) > 0 && (
-                      <div className="text-xs text-yellow-600 text-right">
-                        用户自定义 +{a.fee_currency || "JPY"} {Math.round(parseFloat(displayFee))}
-                      </div>
+            const renderAddon = (a, key) => {
+              const baseFee = parseFloat(a.fee) || 0;
+              const customFee = (a.custom_fee === null || a.custom_fee === undefined) ? null : parseFloat(a.custom_fee);
+              const hasCustom = customFee !== null && !Number.isNaN(customFee);
+              const currency = a.fee_currency || "JPY";
+              return (
+                <div key={key} className="flex flex-col">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-gray-700">{a.service_name || a.id}</span>
+                    {baseFee > 0 && (
+                      <span className={`font-medium ${hasCustom ? "line-through text-gray-400" : "text-yellow-700"}`}>
+                        +{currency} {Math.round(baseFee)}
+                      </span>
                     )}
                   </div>
-                );
-              }) :
-              (pool.selected_addon_ids || []).map((id, i) =>
-              <div key={i} className="text-xs text-gray-500 font-mono">{id}</div>
-              )
-              }
-              </div>
-            </div>
-          }
+                  {hasCustom && customFee > 0 && (
+                    <div className="text-xs text-yellow-600 text-right">
+                      用户自定义 +{currency} {Math.round(customFee)}
+                    </div>
+                  )}
+                </div>
+              );
+            };
+
+            // 有多个批次或多个用户时，用「用户名 · 中转方式」标注每条 transit_shipping 记录
+            const showTransitRecordLabel = transitAddonRecords.length > 1
+              || new Set(transitAddonRecords.map(r => r.user_email)).size > 1;
+            const formatTransitRecordLabel = (t) => {
+              const userData = tenantUserMap[t.user_email] || {};
+              const userName = userData.display_name || userData.full_name || t.user_name || t.user_email || "";
+              const rawMethod = t.transit_shipping_method || "";
+              const methodName = rawMethod === "__pickup__" || rawMethod === "pickup"
+                ? "自取"
+                : rawMethod === "__storage__" || rawMethod === "storage"
+                  ? "暂存"
+                  : rawMethod || transitShippingMethods.find(m => String(m.id) === String(t.transit_shipping_method_id))?.name || "";
+              return [userName, methodName].filter(Boolean).join(" · ");
+            };
+
+            return (
+              <details className="group bg-yellow-50 border border-yellow-100 rounded-lg">
+                <summary className="cursor-pointer px-3 py-2.5 text-xs text-yellow-700 font-medium flex items-center justify-between select-none">
+                  <span>发货增值服务</span>
+                  <ChevronDown className="w-3.5 h-3.5 transition-transform group-open:rotate-180" />
+                </summary>
+                <div className="px-3 pb-2.5">
+                {isTransitPool ? (
+                  <div className="space-y-2">
+                    {transitAddonRecords.map((t, ti) => {
+                      const addons = t.selected_addons || [];
+                      const recordLabel = showTransitRecordLabel ? formatTransitRecordLabel(t) : "";
+                      return (
+                        <div key={t.id || ti} className={ti > 0 ? "border-t border-yellow-100 pt-1.5" : ""}>
+                          {recordLabel && <p className="text-[11px] text-yellow-600 mb-0.5">{recordLabel}</p>}
+                          <div className="space-y-1">
+                            {addons.length > 0
+                              ? addons.map((a, i) => renderAddon(a, `${t.id || ti}-${a.id ?? i}`))
+                              : (t.selected_addon_ids || []).map((id, i) =>
+                                  <div key={`${t.id || ti}-id-${i}`} className="text-xs text-gray-500 font-mono">{id}</div>
+                                )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    {poolAddons.length > 0
+                      ? poolAddons.map((a, i) => renderAddon(a, i))
+                      : poolAddonIds.map((id, i) =>
+                          <div key={i} className="text-xs text-gray-500 font-mono">{id}</div>
+                        )}
+                  </div>
+                )}
+                </div>
+              </details>
+            );
+          })()}
 
           {/* Items list */}
           <div>
-            <h3 className="text-sm font-semibold text-gray-700 mb-2">包裹清单 ({(pool.order_ids || []).length} 件)</h3>
+            <details className="group">
+              <summary className="cursor-pointer text-sm font-semibold text-gray-700 flex items-center justify-between select-none">
+                <span>包裹清单 ({(pool.order_ids || []).length} 件)</span>
+                <ChevronDown className="w-4 h-4 text-gray-400 transition-transform group-open:rotate-180" />
+              </summary>
+              <div className="mt-2">
             {orders.length > 0 ? (() => {
               // Group orders by user email; single-user pools render flat (no group header)
               const userEmails = [...new Set(orders.map(o => o.user_email || "__unknown__"))];
@@ -1441,6 +1522,37 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                               {canSeeDetail ? o.order_number : "—"} · {parseInt(o.weight_g) || 0}g
                               {isAdmin && o.id ? ` · ${tenantUserMap[o.user_email]?.display_name || tenantUserMap[o.user_email]?.full_name || o.user_name || ""}` : ""}
                             </p>
+                            {/* 订单增值服务（订单级 addon，含用户自定义金额） */}
+                            {canSeeDetail && (o.selected_addons || []).length > 0 && (
+                              <div className="mt-1.5 space-y-0.5">
+                                {(o.selected_addons || []).map((a, i) => {
+                                  const baseFee = parseFloat(a.fee) || 0;
+                                  const customFee = (a.custom_fee === null || a.custom_fee === undefined)
+                                    ? null
+                                    : parseFloat(a.custom_fee);
+                                  const hasCustom = customFee !== null && !Number.isNaN(customFee);
+                                  return (
+                                    <div key={i} className="flex items-center justify-between gap-2 text-xs">
+                                      <span className="text-purple-700 truncate">
+                                        订单增值服务 · {a.service_name || a.id}
+                                      </span>
+                                      <span className="flex-shrink-0 whitespace-nowrap">
+                                        {baseFee > 0 && (
+                                          <span className={hasCustom ? "line-through text-gray-400" : "text-purple-700 font-medium"}>
+                                            +{a.fee_currency || "JPY"} {Math.round(baseFee)}
+                                          </span>
+                                        )}
+                                        {hasCustom && (
+                                          <span className="text-purple-600 font-medium ml-1">
+                                            自定义 +{a.fee_currency || "JPY"} {Math.round(customFee)}
+                                          </span>
+                                        )}
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
                           
                             </div>
                             <div className="flex items-center gap-1">
@@ -1622,7 +1734,9 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                     const groupWeight = groupOrders.reduce((s, o) => s + (parseInt(o.weight_g) || 0), 0);
                     const isMyGroup = email === currentUser?.email;
                     // Aggregate addons from this user's orders — deduplicated per user
-                    const uniqueGroupAddons = [...new Map(
+                    // 订单级增值服务 chip 只在非拼邮（consolidation_type 为空）时展示；
+                    // 中转/拼邮场景下每个订单行内已经单独展示「订单增值服务」，头部再挂 chip 会重复
+                    const uniqueGroupAddons = pool.consolidation_type ? [] : [...new Map(
                       groupOrders.flatMap(o => o.selected_addons || []).map(a => [a.id || a.service_name, a])
                     ).values()];
                     // Transit method name
@@ -1765,6 +1879,8 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
 
                     <p className="text-xs text-gray-400">没有包裹...</p>
             }
+              </div>
+            </details>
           </div>
 
           {/* Add more orders to this pool — users on their own pending pools; admins on any pending pool they created or that is non-private */}
@@ -1787,7 +1903,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                   );
                 }
               })()}
-              {!showAddOrder ? (
+              {pool.consolidation_type !== "transit" && (!showAddOrder ? (
                 <button
                   onClick={openAddOrder}
                   className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 border border-dashed border-blue-200 hover:border-blue-400 rounded-lg px-3 py-2 w-full justify-center transition-colors bg-blue-50/30 hover:bg-blue-50">
@@ -1841,7 +1957,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
 
                   </div>
                 </div>
-              )}
+              ))}
             </div>
           )}
 
@@ -1933,7 +2049,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="text-xs font-medium text-gray-700">{user.display_name}</span>
+                          <span className="text-xs font-medium text-gray-700">{req.user_email}</span>
                           <Badge className={`text-xs ${req.edit_type === 'cancel_shipment' ? 'bg-red-100 text-red-700' : req.edit_type === 'add_to_pool' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
                             {req.is_rewarehouse_request ? '申请再入库（待付运费）' : req.edit_type === 'cancel_shipment' ? '申请重新入库' : req.edit_type === 'add_to_pool' ? '申请加入此发货申请' : '申请移至其他发货申请'}
                           </Badge>
@@ -2016,6 +2132,128 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
             </div>
           }
 
+          {/* Destination / transit address block */}
+          {(() => {
+            const isTransit = pool.consolidation_type === "transit";
+
+            // Shared renderer for the blue address card
+            const AddressCard = ({ title, children }) => (
+              <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2.5">
+                <p className="text-xs text-blue-600 font-medium mb-1">{title}</p>
+                <div className="text-sm text-blue-800 space-y-0.5">{children}</div>
+              </div>
+            );
+
+            // Render a transit_shipping final_address object ({recipient_name, phone, addr1/2/3, state, country, postal_code})
+            const renderFinalAddress = (addr) => (
+              <>
+                {addr.recipient_name && <p className="font-medium">{addr.recipient_name}</p>}
+                {addr.phone && <p className="text-xs">{addr.phone}</p>}
+                <p className="whitespace-pre-wrap">
+                  {[addr.addr1, addr.addr2, addr.addr3].filter(Boolean).join(" ")}<br />
+                  {addr.state && `${addr.state} `}
+                  {addr.postal_code && `${addr.postal_code}`}<br />
+                  {addr.country}
+                </p>
+              </>
+            );
+
+            if (isTransit) {
+              const transitLoc = (tranLocations || []).find(
+                l => String(l.id) === String(pool.transit_location_id)
+              ) || (tranLocations || []).find(l => l.name === pool.transit_location_name);
+              const hasTransitAddr = pool.transit_location_name || (transitLoc && (transitLoc.address || transitLoc.province || transitLoc.country));
+
+              // 按当前用户（管理员看全部）过滤 transit_shipping 记录
+              const visibleTransitRecords = (pool.transit_shipping || []).filter(t => t && (isAdmin || (currentUser?.email && t.user_email === currentUser.email)));
+
+              // 每条记录按自己的 transit_shipping_method 判断类型
+              const isPickupOrStorageMethod = (m) => m === '__pickup__' || m === 'pickup' || m === '__storage__' || m === 'storage';
+              const isStorageMethodOf = (m) => m === '__storage__' || m === 'storage';
+              // 普通快递记录：有 final_address 的显示"最终收货地址"
+              const transitRecords = visibleTransitRecords.filter(t => t.final_address && t.final_address.recipient_name);
+              // 自取/暂存记录：transit_shipping_method 是 pickup/storage
+              const pickupStorageRecords = visibleTransitRecords.filter(t => isPickupOrStorageMethod(t.transit_shipping_method));
+
+              if (!hasTransitAddr && transitRecords.length === 0 && pickupStorageRecords.length === 0) return null;
+              return (
+                <div className="space-y-2">
+                  {hasTransitAddr && (
+                    <AddressCard title="中转地收货地址">
+                      {pool.transit_location_name && <p className="font-medium">{pool.transit_location_name}</p>}
+                      {transitLoc && (
+                        <p className="whitespace-pre-wrap">
+                          {[transitLoc.address, transitLoc.province].filter(Boolean).join(" ")}
+                          {transitLoc.country ? `\n${transitLoc.country}` : ""}
+                        </p>
+                      )}
+                    </AddressCard>
+                  )}
+                  {pickupStorageRecords.map((t, i) => {
+                    const isStorage = isStorageMethodOf(t.transit_shipping_method);
+                    const label = isStorage ? '暂存' : '自取';
+                    const hasSlot = !!t.transit_pickup_time_slot;
+                    // 管理员始终带用户名；普通用户只看自己那条，多条才带
+                    const suffix = (isAdmin || pickupStorageRecords.length > 1) ? ` · ${t.user_name || t.user_email || `用户${i + 1}`}` : '';
+                    return (
+                      <div key={t.id || i} className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2.5">
+                        <p className="text-xs text-blue-900 font-semibold mb-1">{label}{suffix}</p>
+                        {isStorage ? null
+                          : hasSlot ? (
+                            <PickupRecordCard
+                              record={t}
+                              pool={pool}
+                              isAdmin={isAdmin}
+                              currentUser={currentUser}
+                              isManager={isAdmin}
+                              onRefresh={refreshPool}
+                            />
+                          )
+                          : pool.status === 'transit_arrived' ? <p className="text-sm text-blue-900">等待中转地负责人约定自取时间</p>
+                          : null}
+                      </div>
+                    );
+                  })}
+                  {transitRecords.map((t, i) => {
+                    const suffix = (isAdmin || transitRecords.length > 1) ? ` · ${t.user_name || t.user_email || `用户${i + 1}`}` : '';
+                    return (
+                      <details key={t.id || i} className="group bg-blue-50 border border-blue-100 rounded-lg">
+                        <summary className="cursor-pointer px-3 py-2.5 text-xs text-blue-600 font-medium flex items-center justify-between select-none">
+                          <span>最终收货地址{suffix}</span>
+                          <ChevronDown className="w-3.5 h-3.5 transition-transform group-open:rotate-180" />
+                        </summary>
+                        <div className="px-3 pb-2.5 text-sm text-blue-800 space-y-0.5">
+                          {t.transit_shipping_method && (
+                            <p className="text-xs text-blue-700">发货方式：{t.transit_shipping_method}</p>
+                          )}
+                          {renderFinalAddress(t.final_address)}
+                        </div>
+                      </details>
+                    );
+                  })}
+                </div>
+              );
+            }
+
+            // Non-transit: show pool-level recipient address
+            const hasAddr = pool.recipient_name || pool.address_line1 || pool.city || pool.state || pool.country;
+            if (!hasAddr) return null;
+            return (
+              <AddressCard title="收货地址">
+                {pool.recipient_name && <p className="font-medium">{pool.recipient_name}</p>}
+                {pool.recipient_phone && <p className="text-xs">{pool.recipient_phone}</p>}
+                <p className="whitespace-pre-wrap">
+                  {pool.address_line1}{pool.address_line2 ? ` ${pool.address_line2}` : ""}
+                  {pool.address_line3 ? ` ${pool.address_line3}` : ""}<br />
+                  {pool.city && `${pool.city} `}
+                  {pool.state && `${pool.state} `}
+                  {pool.postal_code && `${pool.postal_code}`}<br />
+                  {pool.country}
+                </p>
+              </AddressCard>
+            );
+          })()}
+
           {/* Participants */}
           {participantUsers.length > 0 &&
           <div>
@@ -2068,7 +2306,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
             allowShipWithoutPaymentOfficialPool={allowShipWithoutPaymentOfficialPool}
             fullpayOnceToleranceJpy={fullpayOnceToleranceJpy}
             transitHandlingFeeSplit={transitHandlingFeeSplit}
-            transitLocations={transitLocations}
+            transitLocations={tranLocations}
             transitShippingMethods={transitShippingMethods}
             userProfileMap={tenantUserMap}
             exchangeRates={exchangeRates}
@@ -2082,6 +2320,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
           }
 
           {!isAdmin && <TransitShippedPanel orders={orders} currentUser={currentUser} onUpdated={onUpdated} />}
+          {/* 包裹已发货：展示运单号/查物流；确认收货按钮中转地发货（transit）时收货走 TransitShippedPanel，这里隐藏 */}
           {!isAdmin && pool.status === "shipped" && (
             <div className="border border-green-200 rounded-xl overflow-hidden">
               <div className="bg-green-50 px-4 py-2.5 border-b border-green-200 flex items-center gap-2">
@@ -2114,13 +2353,15 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                 ) : (
                   <p className="text-xs text-gray-400">运单号待管理员填写</p>
                 )}
-                <Button
-                  className="w-full bg-emerald-600 hover:bg-emerald-700"
-                  onClick={() => setShowConfirmDeliveryDialog(true)}
-                  disabled={confirmingDelivery}>
-                  <CheckCircle className="w-4 h-4 mr-2" />
-                  {confirmingDelivery ? "确认中..." : "确认收货"}
-                </Button>
+                {pool.consolidation_type !== "transit" && (
+                  <Button
+                    className="w-full bg-emerald-600 hover:bg-emerald-700"
+                    onClick={() => setShowConfirmDeliveryDialog(true)}
+                    disabled={confirmingDelivery}>
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    {confirmingDelivery ? "确认中..." : "确认收货"}
+                  </Button>
+                )}
               </div>
             </div>
           )}
@@ -2204,6 +2445,7 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                   const isMultiUserPool = (pool.consolidation_type && pool.consolidation_type !== "") && participantEmails.length > 1;
                   const myPayment = (pool.per_user_payments || []).find(p => p.user_email === currentUser?.email);
                   const iAlreadySubmitted = myPayment?.payment_status === "awaiting_confirmation" || myPayment?.payment_status === "paid";
+                  const pm = myPayment?.payment_method;
 
                   // For multi-user pool: show my submitted status + others' pending count
                   if (isMultiUserPool && iAlreadySubmitted) {
@@ -2219,15 +2461,21 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                         ) : (
                           <p className="text-xs text-blue-500">所有参与者均已提交付款，等待管理员确认。</p>
                         )}
-                        <p className="text-xs text-blue-500">你也可以，重新上传凭证</p>
-                        <ImageUploader
-                          value={proofUrl || pool.payment_proof_url || ''}
-                          onChange={handleProofChange}
-                          onDelete={handleDeleteProof}
-                          uploading={uploadingProof}
-                          label="重新上传付款凭证"
-                          id="pool-payment-proof-reupload-multi"
-                        />
+
+                        {pm?.provider_key !== 'alipay' ? (
+                          <>
+                            <p className="text-xs text-blue-500">你也可以，重新上传凭证</p>
+                            <ImageUploader
+                              value={proofUrl || pool.payment_proof_url || ''}
+                              onChange={handleProofChange}
+                              onDelete={handleDeleteProof}
+                              uploading={uploadingProof}
+                              label="重新上传付款凭证"
+                              id="pool-payment-proof-reupload-multi"
+                            />
+                          </>
+                        ) : null}
+                        
                       </div>
                     );
                   }
@@ -2347,10 +2595,26 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
                       const shippingFee = Math.round(parseFloat(pool.shipping_fee_jpy) || 0);
                       const packingFee = Math.round(parseFloat(pool.packing_fee_jpy) || 0);
                       const itemSizeFee = orders.reduce((sum, o) => sum + (parseFloat(o.item_size_extra_fee) || 0), 0);
-                      const addonFee = (pool.selected_addons || []).reduce((sum, a) => {
-                        const fee = a.custom_fee != null ? a.custom_fee : a.fee;
-                        return sum + (parseFloat(fee) || 0);
-                      }, 0);
+                      const addonFee = (() => {
+                        // 中转拼邮的发货增值服务按用户区分，这里汇总全池（同一用户同一服务只算一次）
+                        if (pool.consolidation_type === "transit") {
+                          const seen = new Set();
+                          let total = 0;
+                          (pool.transit_shipping || []).forEach(t => {
+                            (t?.selected_addons || []).forEach(a => {
+                              const key = `${t.user_email}__${a.id || a.service_name}`;
+                              if (seen.has(key)) return;
+                              seen.add(key);
+                              total += parseFloat(a.custom_fee != null ? a.custom_fee : a.fee) || 0;
+                            });
+                          });
+                          return total;
+                        }
+                        return (pool.selected_addons || []).reduce((sum, a) => {
+                          const fee = a.custom_fee != null ? a.custom_fee : a.fee;
+                          return sum + (parseFloat(fee) || 0);
+                        }, 0);
+                      })();
                       const grandTotal = boxFee + shippingFee + packingFee + itemSizeFee + addonFee;
                       const hasFeeItems = boxFee > 0 || shippingFee > 0 || packingFee > 0 || itemSizeFee > 0 || addonFee > 0;
                       return (
@@ -2659,16 +2923,6 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
         }
 
         <ConfirmDialog
-          open={showAlipayConfirm}
-          onOpenChange={setShowAlipayConfirm}
-          title="确认支付"
-          description="点击下方按钮将跳转到支付宝完成付款"
-          confirmText="前往支付宝付款"
-          onConfirm={submitToAlipay}
-          onCancel={() => setAlipayFormData(null)}
-        />
-
-        <ConfirmDialog
           open={showConfirmDeliveryDialog}
           onOpenChange={setShowConfirmDeliveryDialog}
           title="确认收货"
@@ -2706,6 +2960,59 @@ export default function ShippingPoolDetailModal({ pool: initialPool, isAdmin, cu
       </div>
     </div>);
 
+}
+
+function PickupRecordCard({ record, pool, isAdmin, currentUser, isManager, onRefresh }) {
+  const {
+    saving,
+    pickupTimeSlot,
+    pickupUserConfirmed,
+    pickupAdminConfirmed,
+    pickupCompleted,
+    pickupCompletedAt,
+    canUserConfirm,
+    canManagerConfirm,
+    canComplete,
+    confirm,
+    complete,
+  } = usePickupActions({
+    scope: "record",
+    record,
+    pool,
+    isAdmin,
+    isManager,
+    currentUser,
+    onSaved: onRefresh,
+    notify: {
+      baseUrl: createPageUrl("ShippingPool"),
+      entityType: "TransitShipping",
+      entityId: record?.id || pool?.id,
+      managerEmail: pool?.creator_email,
+    },
+  });
+
+  return (
+    <div className="space-y-2">
+      <p className="text-sm text-blue-900">约定自取时间：{pickupTimeSlot}</p>
+      <PickupStatusBadges
+        userConfirmed={pickupUserConfirmed}
+        adminConfirmed={pickupAdminConfirmed}
+        completed={pickupCompleted}
+        completedAt={pickupCompletedAt}
+        adminLabel="中转地负责人"
+      />
+      <PickupConfirmActions
+        canUserConfirm={canUserConfirm}
+        canManagerConfirm={canManagerConfirm}
+        canComplete={canComplete}
+        saving={saving}
+        onConfirm={confirm}
+        onComplete={complete}
+        size="sm"
+        layout="col"
+      />
+    </div>
+  );
 }
 
 function InfoBlock({ label, value, highlight }) {

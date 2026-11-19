@@ -44,6 +44,11 @@ const ALL_STATUSES = [
   { v: "shipping_fee_pending", l: "待付运费" },
   { v: "ready_to_ship", l: "准备发货" },
   { v: "shipped", l: "已发出" },
+  { v: "transited", l: "已向中转地发货" },
+  { v: "transit_forwarded", l: "中转地已发货" },
+  { v: "transit_arrived", l: "中转地已收货" },
+  { v: "awaiting_forwarded_notified", l: "等待中转地确认" },
+  { v: "forwarded_notified", l: "已申请中转地发货" },
   { v: "delivered", l: "已收货" },
   { v: "cancelled", l: "已取消" },
 ];
@@ -391,7 +396,7 @@ export default function AdminOrders() {
   };
 
   const handleQuickOrdered = async (order) => {
-    debugger
+    
     const payload = [order];
 
     handleBulkAction("正在标记已下单...", "order/info/handleMarkPurchased", "下单成功", payload);
@@ -802,7 +807,8 @@ export default function AdminOrders() {
                                 已下单
                               </Button>
                         )}
-                        {order.order_status === "purchased" && order.pre_shipment && (
+                        {/* [隐藏预出货] 暂时用 false && 短路隐藏，未删除，恢复时去掉 false && 即可 */}
+                        {false && order.order_status === "purchased" && order.pre_shipment && (
                           <PreShipmentBadge preShipment={order.pre_shipment} />
                         )}
                         {order.order_status === "purchased" && canWarehouseIn && (
@@ -827,12 +833,12 @@ export default function AdminOrders() {
                           const pool = getOrderPool(order);
                           if (!pool) return null;
                           if (order.order_status === "shipping_fee_pending") return null; // already shown above
-                          if (!["notified_shipment", "ready_to_ship", "notified_shipment_fee_paid", "notified_shipment_fee_pending", "shipped"].includes(order.order_status)) return null;
+                          if (!["notified_shipment", "ready_to_ship", "notified_shipment_fee_paid", "notified_shipment_fee_pending", "shipped", "transited", "transit_shipped", "transit_forwarded", "transit_arrived", "delivered"].includes(order.order_status)) return null;
                           const isConsolidation = pool.consolidation_type && pool.consolidation_type !== "";
                           const isOfficialPool = pool.is_admin_created === true;
+                          const poolHasPendingEdit = pendingEditRequests.some(r => String(r.target_pool_id) === String(pool.id));
                           return (
                             <>
-                            
                             <Button size="sm" variant="outline"
                               className={`h-6 text-xs px-2 ${isOfficialPool ? "text-blue-600 border-blue-200 hover:bg-blue-50" : isConsolidation ? "text-purple-600 border-purple-200 hover:bg-purple-50" : "text-teal-600 border-teal-200 hover:bg-teal-50"}`}
                               onClick={() => handleOpenPool(pool)}>
@@ -848,6 +854,12 @@ export default function AdminOrders() {
                                 onClick={() => setSelectedPool(pool)}>
                                 <Send className="w-3 h-3 mr-1" />查看发货申请
                               </Button>
+                            )}
+                            {poolHasPendingEdit && (
+                              <span className="inline-flex items-center gap-1 text-xs bg-orange-100 text-orange-700 border border-orange-300 px-1.5 py-0.5 rounded-full font-medium">
+                                <AlertCircle className="w-3 h-3" />
+                                有待审批发货申请
+                              </span>
                             )}
                             </>
                           );

@@ -4,13 +4,14 @@ import PaginationBar from "@/components/common/PaginationBar";
 import { base44 } from "@/api/base44Client";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 
-import { Package, RefreshCw, Search, CreditCard, Truck, CheckCircle, ChevronUp, ChevronDown, ChevronsUpDown, AlertCircle, Send, Archive, ArchiveRestore, RotateCcw, Zap, MapPin, X, Loader2 } from "lucide-react";
+import { Package, RefreshCw, Search, CreditCard, Truck, CheckCircle, ChevronUp, ChevronDown, ChevronsUpDown, AlertCircle, Archive, ArchiveRestore, RotateCcw, Zap, X, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Textarea } from "@/components/ui/textarea";
 import { ImageWithViewer } from "@/components/common/ImageViewer";
 import BulkPaymentModal from "@/components/orders/BulkPaymentModal";
 import { matchStoreTagResult } from "@/lib/onlineStoreTag";
+import { getPreferredLocale } from "@/lib/LocaleContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -22,10 +23,11 @@ import OrderDetailPanel from "@/components/orders/OrderDetailPanel";
 import ColumnCustomizer from "@/components/orders/ColumnCustomizer";
 import PaymentModal from "@/components/orders/PaymentModal";
 import UserNotifyShipmentModal from "@/components/orders/UserNotifyShipmentModal";
+import TransitNotifyShipmentModal from "@/components/orders/TransitNotifyShipmentModal";
 import { getNotifyShipmentCache, setNotifyShipmentCache } from "@/lib/notifyShipmentCache";
 import ShippingEditModal from "@/components/shippingpool/ShippingEditModal";
 import ShippingPoolDetailModal from "@/components/shippingpool/ShippingPoolDetailModal";
-import { shippingPoolApi, updateTenantOrder } from "@/lib/tenantApi";
+import { updateTenantOrder } from "@/lib/tenantApi";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
 import { Ticket } from "lucide-react";
@@ -91,6 +93,11 @@ const STATUS_FILTERS = [
   { v: "transit_shipped", l: "中转地已发货" },
   { v: "notified_shipment", l: "已通知出货" },
   { v: "shipping_fee_pending", l: "待付运费" },
+  { v: "transited", l: "已向中转地发出" },
+  { v: "transit_forwarded", l: "中转地已发货" },
+  { v: "transit_arrived", l: "中转地已收货" },
+  { v: "awaiting_forwarded_notified", l: "等待中转地确认" },
+  { v: "forwarded_notified", l: "已申请中转地发货" },
   { v: "shipped", l: "已发出" },
   { v: "delivered", l: "已收货" },
   { v: "cancelled", l: "已取消" },
@@ -265,6 +272,10 @@ export default function MyOrders() {
   const [shipmentOrder, setShipmentOrder] = useState(null);
   const [shipmentOrders, setShipmentOrders] = useState(null); // multi-order bulk
   const [shipmentInitialData, setShipmentInitialData] = useState(null); // data from findOrderForNotifyShipment
+  // in_storage 订单申请中转地发货（精简弹窗）
+  const [transitShipmentOrder, setTransitShipmentOrder] = useState(null);
+  const [transitShipmentOrders, setTransitShipmentOrders] = useState(null);
+  const [transitShipmentInitialData, setTransitShipmentInitialData] = useState(null);
   const [shipmentLoading, setShipmentLoading] = useState(false); // loading state for notify shipment API call
   const [bulkPaymentOrders, setBulkPaymentOrders] = useState(null); // multi-order bulk payment
   const [editShipOrder, setEditShipOrder] = useState(null); // order being edit-shipped
@@ -323,9 +334,8 @@ export default function MyOrders() {
     });
     
     const data = r.data || {};
-    const rawOrders = data.orders || [];
     // 后端 camelCase → 前端 snake_case 字段统一
-    const freshOrders = rawOrders.map(o => ({
+    const normalizeOrder = (o) => o ? ({
       ...o,
       quantity: o.quantity ?? 1,
       prepayment_amount: o.prepayment_amount ?? o.prepayment_amount_jpy ?? 0,
@@ -333,8 +343,14 @@ export default function MyOrders() {
       paid_amount: o.paid_amount ?? 0,
       paid_amount_jpy: o.paid_amount_jpy ?? null,
       order_stage_payment_jpy: o.order_stage_payment_jpy ?? o.prepayment_amount_jpy ?? null,
+    }) : o;
+    // grouping_orders: [{ order: {...}|null, pool_orders: [...] }]，按池分组
+    const rawGroups = data.grouping_orders || [];
+    const freshGroups = rawGroups.map(g => ({
+      order: normalizeOrder(g.order),
+      pool_orders: (g.pool_orders || []).map(normalizeOrder),
     }));
-    setOrders(freshOrders);
+    setOrders(freshGroups);
     setTotal(data.total || 0);
     setTicketOrders(data.ticketOrders || []);
     setShippingPools(data.pools || []);
@@ -413,24 +429,27 @@ export default function MyOrders() {
    * 申请发货
    * @param {*} order 
    */
-  const handleConfirmDelivered = async (order) => {
+  const handleConfirmDelivered = async (orders) => {
     setActionLoading(true);
     try {
-      let payload = [{
-        id: order.id,
-        data: {
-          order_number: order.order_number,
-          consolidation_pool_id: order.pool_id
-        }
-      }];
+      // orders: 订单数组（pool_orders / 单订单数组），原样传给后端，payload 由后端设置
+      const list = Array.isArray(orders) ? orders : [orders];
 
-      return;
-      // await base44.functions.invoke('order/info/handleDelivered', payload);
+      let payload = list.map(o => ({
+        id: o.id,
+        data: {
+          id: o.id,
+          order_number: o.order_number,
+          consolidation_pool_id: o.consolidation_pool_id
+        }
+        
+      }));
+
       const res = await updateTenantOrder('order/info/handleDelivered', payload);
       const innerCode = res?.data?.code;
 
       if (innerCode === 200) {
-        toast.success(`订单 [${order.order_number}] 收货成功`);
+        toast.success(list.length > 1 ? `整组共 ${list.length} 件收货成功` : `订单 [${list[0]?.order_number}] 收货成功`);
       } else {
         const errors = res?.data?.errorInfo?.errors || [];
         if (errors.length > 0) {
@@ -488,12 +507,14 @@ export default function MyOrders() {
   const handleBatchConfirmDelivered = (orders) =>
     handleBulkAction("正在确认收货...", "order/info/handleDelivered", "批量收货成功", orders);
 
-  const handleArchiveOrder = async (order) => {
+  const handleArchiveOrder = async (target) => {
     setActionLoading(true);
     try {
-      let payload = [{
-        id: order.id
-      }];
+      // 支持单个 order 或多商品组 { pool_orders: [...] }，一次存档整组
+      const ids = Array.isArray(target?.pool_orders)
+        ? target.pool_orders.map(o => o.id)
+        : [target.id];
+      const payload = ids.map(id => ({ id }));
 
       await base44.functions.invoke('order/info/handleArchive', payload);
       fetchOrders(user);
@@ -507,31 +528,46 @@ export default function MyOrders() {
     return handleBulkAction("正在存档...", "order/info/handleArchive", "批量存档成功", deliveredSelected);
   };
 
-  // 后端已分页，orders 就是当前页数据
+  // 后端已分页，orders（分组项）就是当前页数据
   const filtered = orders;
   const visibleCols = columns.filter(c => c.visible);
 
   // Pagination — 后端已分页，直接用 orders
   const pagedFiltered = orders;
 
+  // 拍平所有订单（单商品 order + 多商品 pool_orders），供批量筛选/全选用
+  const flatOrders = orders.flatMap(g => (g.order ? [g.order] : (g.pool_orders || [])));
+
   // Orders eligible for bulk notify (in_warehouse only) — operate on full filtered, not paged
-  const inWarehouseOrders = filtered.filter(o => o.order_status === "in_warehouse");
-  const selectedInWarehouse = filtered.filter(o => selectedIds.includes(o.id) && o.order_status === "in_warehouse");
+  const inWarehouseOrders = flatOrders.filter(o => o.order_status === "in_warehouse");
+  const selectedInWarehouse = flatOrders.filter(o => selectedIds.includes(o.id) && o.order_status === "in_warehouse");
+  // in_storage orders eligible for bulk transit re-shipment
+  const inStorageOrders = flatOrders.filter(o => o.order_status === "in_storage");
+  const selectedInStorage = flatOrders.filter(o => selectedIds.includes(o.id) && o.order_status === "in_storage");
 
   // Orders eligible for bulk payment
-  const paymentPendingOrders = filtered.filter(o => o.order_status === "payment_pending" && o.payment_status !== "awaiting_confirmation");
-  const selectedPaymentPending = filtered.filter(o => selectedIds.includes(o.id) && o.order_status === "payment_pending" && o.payment_status !== "awaiting_confirmation");
+  const paymentPendingOrders = flatOrders.filter(o => o.order_status === "payment_pending" && o.payment_status !== "awaiting_confirmation");
+  const selectedPaymentPending = flatOrders.filter(o => selectedIds.includes(o.id) && o.order_status === "payment_pending" && o.payment_status !== "awaiting_confirmation");
 
   // Orders eligible for bulk archive (only if user has archive permission)
-  const deliveredOrders = canArchiveOrder ? filtered.filter(o => o.order_status === "delivered" && !o.is_archived) : [];
-  const selectedDelivered = canArchiveOrder ? filtered.filter(o => selectedIds.includes(o.id) && o.order_status === "delivered" && !o.is_archived) : [];
+  const deliveredOrders = canArchiveOrder ? flatOrders.filter(o => o.order_status === "delivered" && !o.is_archived) : [];
+  const selectedDelivered = canArchiveOrder ? flatOrders.filter(o => selectedIds.includes(o.id) && o.order_status === "delivered" && !o.is_archived) : [];
 
   // Orders eligible for bulk confirm delivery
-  const shippedOrders = filtered.filter(o => o.order_status === "shipped");
-  const selectedShipped = filtered.filter(o => selectedIds.includes(o.id) && o.order_status === "shipped");
+  const bulkDeliverStatuses = ["shipped", "transit_shipped", "transit_forwarded"];
+  const shippedOrders = flatOrders.filter(o => bulkDeliverStatuses.includes(o.order_status));
+  const selectedShipped = flatOrders.filter(o => selectedIds.includes(o.id) && bulkDeliverStatuses.includes(o.order_status));
 
   const toggleSelect = (id) => {
     setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  // 整组选中/取消（多商品组 checkbox）：把 pool_orders 所有 id 并入/移出 selectedIds
+  const toggleGroup = (group) => {
+    const ids = (group.pool_orders || []).map(o => o.id);
+    const allSelected = ids.every(id => selectedIds.includes(id));
+    if (allSelected) setSelectedIds(prev => prev.filter(id => !ids.includes(id)));
+    else setSelectedIds(prev => [...new Set([...prev, ...ids])]);
   };
 
   const toggleAllInWarehouse = () => {
@@ -546,6 +582,345 @@ export default function MyOrders() {
     const allSelected = ids.every(id => selectedIds.includes(id));
     if (allSelected) setSelectedIds(prev => prev.filter(id => !ids.includes(id)));
     else setSelectedIds(prev => [...new Set([...prev, ...ids])]);
+  };
+
+  // 单商品订单的操作列（分支①）：完整 per-order 操作
+  // 发货池是否已进入「可收款」阶段。
+  // open / pending / processing 是建单与打包处理阶段：后台保存发货信息时会把费用明细
+  // 一并预览落库（ShippingPoolRecordServiceImpl#saveShippingDetail 每次都会重算 fee_breakdown_per_user），
+  // 但此时并没有向用户发起收款，payment_status 也还是 null，不能据此显示「补付运费」。
+  const POOL_NOT_PAYABLE_STATUSES = ["open", "pending", "processing"];
+  const isPoolPaymentDue = (pool, email) => {
+    if (!pool) return false;
+    const status = pool.status || pool.pool_status;
+    if (status && POOL_NOT_PAYABLE_STATUSES.includes(status)) return false;
+    const myPay = (pool.per_user_payments || []).find(p => p.user_email === email);
+    if (pool.payment_status === "paid") return false;
+    if (myPay && myPay.payment_status === "paid") return false;
+    return (pool.fee_breakdown_per_user || []).length > 0 || (pool.shipping_fee_jpy || 0) > 0;
+  };
+
+  const renderOrderActions = (order) => (
+    <div className="flex flex-col gap-1">
+      {(order.unread_roles || []).includes("user") && (
+        <span className="inline-flex items-center gap-1 text-xs bg-red-100 text-red-600 border border-red-200 px-1.5 py-0.5 rounded-full font-medium animate-pulse w-fit">
+          <span className="w-1.5 h-1.5 rounded-full bg-red-500" />新消息
+        </span>
+      )}
+      {(order.pool?.pool_code || order.pool_code) && (
+        <button
+          className="text-xs font-mono text-purple-700 bg-purple-50 border border-purple-100 px-1.5 py-0.5 rounded hover:bg-purple-100 hover:border-purple-300 transition-colors cursor-pointer"
+          onClick={() => setViewPool(order.pool)}>
+          {order.pool?.pool_code || order.pool_code}
+        </button>
+      )}
+      {order.order_status === "payment_pending" && order.payment_status !== "awaiting_confirmation" && (() => {
+        const isFullPayOnce = order.payment_mode === "fullpay_once";
+        return (
+          <Button size="sm" className="h-7 text-xs bg-red-600 hover:bg-red-700" onClick={() => setPaymentOrder(order)}>
+            <CreditCard className="w-3 h-3 mr-1" />{isFullPayOnce ? "全额付款" : "付款"}
+          </Button>
+        );
+      })()}
+      {order.order_status === "in_warehouse" && canNotifyShipment && (() => {
+        const editRequest = order.edit_request;
+        const orderId = String(order.id);
+        const hasPendingAdd = Array.isArray(editRequest) && editRequest.some(r => String(r.order_id) === orderId && r.status === 'pending' && r.edit_type === 'add_to_pool');
+        if (hasPendingAdd) {
+          return (
+            <span className="inline-flex items-center gap-1 text-xs bg-orange-100 text-orange-700 border border-orange-300 px-1.5 py-0.5 rounded-full font-medium">
+              <AlertCircle className="w-3 h-3" />等待管理员批准添加包裹出货
+            </span>
+          );
+        }
+        return (
+          <Button size="sm" className="h-7 text-xs bg-teal-600 hover:bg-teal-700"
+            disabled={shipmentLoading}
+            onClick={async () => {
+              const orderIds = [order.id];
+              const cached = getNotifyShipmentCache(orderIds);
+              if (cached) { setShipmentInitialData(cached); setShipmentOrder(order); return; }
+              setShipmentLoading(true);
+              try {
+                const r = await base44.functions.invoke('order/info/findOrderForNotifyShipment', { id: null, data: { order_ids: orderIds } });
+                setNotifyShipmentCache(orderIds, r.data);
+                setShipmentInitialData(r.data);
+                setShipmentOrder(order);
+              } catch (err) {
+                persistentToastError('获取发货信息失败');
+              } finally {
+                setShipmentLoading(false);
+              }
+            }}>
+            {shipmentLoading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Truck className="w-3 h-3 mr-1" />}
+            {shipmentLoading ? '加载中...' : '通知发货'}
+          </Button>
+        );
+      })()}
+      {order.order_status === "in_storage" && (
+        <div className="flex flex-col gap-1 items-start">
+          <span className="inline-flex items-center gap-1 text-xs bg-indigo-100 text-indigo-700 border border-indigo-200 px-1.5 py-0.5 rounded-full font-medium">
+            📦 暂存中{order.transit_location_name ? `于 ${order.transit_location_name}` : ''}
+          </span>
+          {order.transit_storage_until && (
+            <span className="text-xs text-gray-400">期限至 {order.transit_storage_until}</span>
+          )}
+          {canNotifyShipment && (
+            <Button size="sm" className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700"
+              disabled={shipmentLoading}
+              onClick={async () => {
+                const orderIds = [order.id];
+                const cached = getNotifyShipmentCache(orderIds);
+                if (cached) { setTransitShipmentInitialData(cached); setTransitShipmentOrder(order); return; }
+                setShipmentLoading(true);
+                debugger
+                try {
+                  const r = await base44.functions.invoke('order/info/findTransitForShipment', {
+                    id: null,
+                    data: {
+                      transit_location_id: order.pool?.transit_location_id || order.transit_location_id || null,
+                      user_email: order.user_email,
+                      pool_id: order.consolidation_pool_id || order.pool?.pool_id || null,
+                    }
+                  });
+                  setNotifyShipmentCache(orderIds, r.data);
+                  setTransitShipmentInitialData(r.data);
+                  setTransitShipmentOrder(order);
+                } catch (err) {
+                  persistentToastError('获取发货信息失败');
+                } finally {
+                  setShipmentLoading(false);
+                }
+              }}>
+              {shipmentLoading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Truck className="w-3 h-3 mr-1" />}
+              {shipmentLoading ? '加载中...' : '申请中转地发货'}
+            </Button>
+          )}
+        </div>
+      )}
+      {(order.order_status === "transit_shipped" || order.order_status === "transit_forwarded") && (() => {
+        const orderId = String(order.id);
+        const pool = order.pool;
+        const poolOrderIds = pool?.order_ids || [];
+        const otherPoolOrders = poolOrderIds.filter(id => String(id) !== orderId);
+        return (
+          <div className="flex flex-col gap-1 items-start">
+            {order.id && !!order.transit_shipping && (
+              <Button size="sm" variant="outline" className="h-7 text-xs px-2 text-blue-600 border-blue-200 hover:bg-blue-50"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const url = `${window.location.origin}/${getPreferredLocale()}/TrackingQuery?order_id=${encodeURIComponent(order.id)}`;
+                  window.open(url, '_blank');
+                }}>
+                <Truck className="w-3 h-3 mr-1" />查看物流
+              </Button>
+            )}
+            {order.transit_tracking_number && (
+              <span className="text-xs font-mono text-gray-600 bg-gray-50 border border-gray-200 px-1.5 py-0.5 rounded select-all">
+                {order.transit_tracking_number}
+              </span>
+            )}
+            {order.transit_shipped_date && (
+              <span className="text-xs text-gray-400">发货日 {new Date(order.transit_shipped_date).toLocaleDateString("zh-CN")}</span>
+            )}
+            <Button size="sm" className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700"
+              onClick={async (e) => {
+                e.stopPropagation();
+                if (otherPoolOrders.length > 0) {
+                  const confirmAll = window.confirm(
+                    `此发货申请中还有其他 ${otherPoolOrders.length} 件包裹。\n\n点击"确定"一并确认所有包裹收货。\n点击"取消"仅确认此订单收货。`
+                  );
+                  if (confirmAll) {
+                    await Promise.all(poolOrderIds.map(id =>
+                      base44.functions.invoke('updateTenantOrder', { order_id: id, order_status: 'delivered' })
+                    ));
+                  } else {
+                    await base44.functions.invoke('updateTenantOrder', { order_id: order.id, order_status: 'delivered' });
+                  }
+                } else {
+                  await base44.functions.invoke('updateTenantOrder', { order_id: order.id, order_status: 'delivered' });
+                }
+                fetchOrders(user);
+              }}>
+              <CheckCircle className="w-3 h-3 mr-1" />收货
+            </Button>
+            {isPoolPaymentDue(pool, user?.email) && (
+              <Button size="sm" className="h-7 text-xs bg-orange-600 hover:bg-orange-700"
+                onClick={(e) => { e.stopPropagation(); setViewPool(pool); }}>
+                <CreditCard className="w-3 h-3 mr-1" />补付运费
+              </Button>
+            )}
+          </div>
+        );
+      })()}
+      {order.order_status === "transited" && (
+        <span className="inline-flex items-center gap-1 text-xs bg-indigo-100 text-indigo-700 border border-indigo-200 px-1.5 py-0.5 rounded-full font-medium w-fit">
+          <Truck className="w-2.5 h-2.5" />已向中转地发货
+        </span>
+      )}
+      {false && order.order_status === "in_warehouse" && order.pre_shipment && !order.pre_shipment.pool_created && (
+        <span className="inline-flex items-center gap-1 text-xs bg-blue-100 text-blue-700 border border-blue-200 px-1.5 py-0.5 rounded-full font-medium w-fit">
+          <Zap className="w-2.5 h-2.5" />已预出货
+        </span>
+      )}
+      {order.order_status === "notified_shipment" && (() => {
+        const orderId = String(order.id);
+        const pool = order?.pool;
+        const editRequest = order.edit_request;
+        const hasPendingEdit = editRequest.some(r => String(r.order_id) === orderId && r.status === 'pending');
+        const poolAwaitingPayment = pool?.id && (pool?.status === "awaiting_payment" || pool?.status === "awaiting_payment_confirmation");
+        return (
+          <div className="flex flex-col gap-1 items-start">
+            {hasPendingEdit && (<span className="text-xs text-orange-600 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded flex items-center gap-1">⏳ 申请更改中</span>)}
+            {poolAwaitingPayment && (<Button size="sm" className="h-7 text-xs bg-orange-600 hover:bg-orange-700" onClick={() => setViewPool(pool)}><CreditCard className="w-3 h-3 mr-1" />去付运费</Button>)}
+            {canEditShipmentRequest && pool?.pool_status !== "shipped" && pool?.pool_status !== "delivered" && !hasPendingEdit && !poolAwaitingPayment && (
+              <Button size="sm" variant="outline" className="h-6 text-xs px-2" onClick={() => { setEditShipOrder(order); setEditShipPool(pool); }}>编辑出货</Button>
+            )}
+          </div>
+        );
+      })()}
+      {(order.order_status === "shipping_fee_pending" || order.order_status === "notified_shipment_fee_pending") && (() => {
+        const orderId = String(order.id);
+        const pool = order.pool;
+        if (!pool?.pool_id) return null;
+        const hasPendingRewarehouse = pendingEditRequests.some(r => String(r.order_id) === orderId && r.is_rewarehouse_request);
+        return (
+          <div className="flex flex-col gap-1 items-start">
+            <Button size="sm" className="h-7 text-xs bg-orange-600 hover:bg-orange-700" onClick={() => setViewPool(pool)}>
+              <CreditCard className="w-3 h-3 mr-1" />去付运费
+            </Button>
+            {allowUserRewarehouse && canRequestRewarehouse && !hasPendingRewarehouse && (
+              <Button size="sm" variant="outline" className="h-6 text-xs px-2 text-gray-500 border-gray-300" onClick={() => { setRewarehouseOrder({ order, pool }); setRewarehouseNote(""); }}>
+                <RotateCcw className="w-3 h-3 mr-1" />申请再入库
+              </Button>
+            )}
+            {hasPendingRewarehouse && (<span className="text-xs text-orange-600 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded">⏳ 再入库审批中</span>)}
+          </div>
+        );
+      })()}
+      {order.order_status === "shipped" && (() => {
+        const pool = order.pool;
+        return (
+          <div className="flex flex-col gap-1 items-start">
+            {pool?.id && (
+              <Button size="sm" variant="outline" className="h-7 text-xs px-2" onClick={() => setViewPool(pool)}>
+                <Package className="w-3 h-3 mr-1" />发货详情
+              </Button>
+            )}
+            {pool?.pool_id && isPoolPaymentDue(pool, user?.email) && (
+              <Button size="sm" className="h-7 text-xs bg-orange-600 hover:bg-orange-700" onClick={() => setViewPool(pool)}>
+                <CreditCard className="w-3 h-3 mr-1" />补付运费
+              </Button>
+            )}
+            <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700" onClick={() => setDeliverTargetOrder([order])}>
+              <CheckCircle className="w-3 h-3 mr-1" />收货
+            </Button>
+          </div>
+        );
+      })()}
+      {order.order_status === "delivered" && !order.is_archived && canArchiveOrder && (
+        <Button size="sm" variant="outline" className="h-7 text-xs px-2 text-gray-500" onClick={() => setArchiveTargetOrder(order)}>
+          <Archive className="w-3 h-3 mr-1" />存档
+        </Button>
+      )}
+    </div>
+  );
+
+  // 多商品池组的操作列（分支②）：仅池级共享操作，收货一次作用整组
+  const renderPoolActions = (group) => {
+    const orders = group.pool_orders || [];
+    const repr = orders[0] || {};
+    const pool = repr.pool || {};
+    const status = repr.order_status;
+    return (
+      <div className="flex flex-col gap-1">
+        {status === "in_storage" && (
+          <div className="flex flex-col gap-1 items-start">
+            <span className="inline-flex items-center gap-1 text-xs bg-indigo-100 text-indigo-700 border border-indigo-200 px-1.5 py-0.5 rounded-full font-medium">
+              📦 暂存中{repr.transit_location_name ? `于 ${repr.transit_location_name}` : ''}
+            </span>
+            {repr.transit_storage_until && (
+              <span className="text-xs text-gray-400">期限至 {repr.transit_storage_until}</span>
+            )}
+            {canNotifyShipment && (
+              <Button size="sm" className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700"
+                disabled={shipmentLoading}
+                onClick={async () => {
+                  const orderIds = orders.map(o => o.id);
+                  const cached = getNotifyShipmentCache(orderIds);
+                  if (cached) { setTransitShipmentInitialData(cached); setTransitShipmentOrders(orders); return; }
+                  setShipmentLoading(true);
+                  try {
+                    const r = await base44.functions.invoke('order/info/findTransitForShipment', {
+                      id: null,
+                      data: {
+                        transit_location_id: repr.pool?.transit_location_id || repr.transit_location_id || null,
+                        user_email: repr.user_email,
+                        pool_id: repr.consolidation_pool_id || repr.pool?.pool_id || null,
+                      }
+                    });
+                    setNotifyShipmentCache(orderIds, r.data);
+                    setTransitShipmentInitialData(r.data);
+                    setTransitShipmentOrders(orders);
+                  } catch (err) {
+                    persistentToastError('获取发货信息失败');
+                  } finally {
+                    setShipmentLoading(false);
+                  }
+                }}>
+                {shipmentLoading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Truck className="w-3 h-3 mr-1" />}
+                {shipmentLoading ? '加载中...' : '申请中转地发货'}
+              </Button>
+            )}
+          </div>
+        )}
+        {(pool.pool_code || repr.pool_code) && (
+          <button
+            className="text-xs font-mono text-purple-700 bg-purple-50 border border-purple-100 px-1.5 py-0.5 rounded hover:bg-purple-100 hover:border-purple-300 transition-colors cursor-pointer"
+            onClick={() => setViewPool(pool)}>
+            {pool.pool_code || repr.pool_code}
+          </button>
+        )}
+        {(status === "transit_shipped" || status === "transit_forwarded" || status === "shipped") && repr.id && !!repr.transit_shipping && (
+          <Button size="sm" variant="outline" className="h-7 text-xs px-2 text-blue-600 border-blue-200 hover:bg-blue-50"
+            onClick={(e) => {
+              e.stopPropagation();
+              const url = `${window.location.origin}/${getPreferredLocale()}/TrackingQuery?order_id=${encodeURIComponent(repr.id)}`;
+              window.open(url, '_blank');
+            }}>
+            <Truck className="w-3 h-3 mr-1" />查看物流
+          </Button>
+        )}
+        {repr.transit_tracking_number && (
+          <span className="text-xs font-mono text-gray-600 bg-gray-50 border border-gray-200 px-1.5 py-0.5 rounded select-all">
+            {repr.transit_tracking_number}
+          </span>
+        )}
+        {(status === "transit_shipped" || status === "transit_forwarded") && (
+          <Button size="sm" className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700"
+            onClick={(e) => { e.stopPropagation(); setDeliverTargetOrder(orders); }}>
+            <CheckCircle className="w-3 h-3 mr-1" />整组确认收货
+          </Button>
+        )}
+        {status === "shipped" && (
+          <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700"
+            onClick={() => setDeliverTargetOrder(orders)}>
+            <CheckCircle className="w-3 h-3 mr-1" />收货
+          </Button>
+        )}
+        {status === "delivered" && !repr.is_archived && canArchiveOrder && (
+          <Button size="sm" variant="outline" className="h-7 text-xs px-2 text-gray-500"
+            onClick={() => setArchiveTargetOrder(group)}>
+            <Archive className="w-3 h-3 mr-1" />存档
+          </Button>
+        )}
+        {pool.pool_id && isPoolPaymentDue(pool, user?.email) && (
+          <Button size="sm" className="h-7 text-xs bg-orange-600 hover:bg-orange-700" onClick={(e) => { e.stopPropagation(); setViewPool(pool); }}>
+            <CreditCard className="w-3 h-3 mr-1" />补付运费
+          </Button>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -654,6 +1029,40 @@ export default function MyOrders() {
             onClick={() => setSelectedIds([])} disabled={actionLoading}>取消</Button>
         </div>
       )}
+      {selectedInStorage.length > 0 && canNotifyShipment && (
+        <div className="flex items-center gap-3 bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-2.5">
+          <span className="text-sm text-indigo-700 font-medium">已选 {selectedInStorage.length} 件暂存包裹</span>
+          <Button size="sm" className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700 ml-auto"
+            disabled={actionLoading || shipmentLoading}
+            onClick={async () => {
+              const orderIds = selectedInStorage.map(o => o.id);
+              const cached = getNotifyShipmentCache(orderIds);
+              if (cached) {
+                setTransitShipmentInitialData(cached);
+                setTransitShipmentOrders(selectedInStorage);
+                return;
+              }
+              setShipmentLoading(true);
+              try {
+                const r = await base44.functions.invoke('order/info/findOrderForNotifyShipment', {
+                  id: null, data: { order_ids: orderIds }
+                });
+                setNotifyShipmentCache(orderIds, r.data);
+                setTransitShipmentInitialData(r.data);
+                setTransitShipmentOrders(selectedInStorage);
+              } catch (err) {
+                persistentToastError('获取发货信息失败');
+              } finally {
+                setShipmentLoading(false);
+              }
+            }}>
+            {shipmentLoading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Truck className="w-3 h-3 mr-1" />}
+            {shipmentLoading ? '加载中...' : '批量申请中转地发货'}
+          </Button>
+          <Button size="sm" variant="ghost" className="h-7 text-xs"
+            onClick={() => setSelectedIds([])} disabled={actionLoading}>取消</Button>
+        </div>
+      )}
       {selectedPaymentPending.length > 1 && (
         <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">
           <span className="text-sm text-red-700 font-medium">已选 {selectedPaymentPending.length} 笔待付款订单</span>
@@ -744,276 +1153,76 @@ export default function MyOrders() {
                   </div>
                 </td>
               </tr>
-            ) : pagedFiltered.map(order => (
-              <tr key={order.id} className={`hover:bg-gray-50 cursor-pointer ${selectedIds.includes(order.id) ? "bg-teal-50/50" : ""}`}
-                onClick={() => setSelectedOrder(order)}>
-                <td className="px-3 py-3" onClick={e => e.stopPropagation()}>
-                  {!showArchived && (order.order_status === "in_warehouse" || order.order_status === "shipped" || (order.order_status === "payment_pending" && order.payment_status !== "awaiting_confirmation") || (order.order_status === "delivered" && !order.is_archived)) && (
-                   <Checkbox
-                     checked={selectedIds.includes(order.id)}
-                     onCheckedChange={() => toggleSelect(order.id)}
-                   />
-                 )}
-                </td>
-                {visibleCols.map(col => (
-                  <td key={col.key} className="px-3 py-3 max-w-[220px] overflow-hidden">
-                    <CellValue col={{ ...col, _rules: storeTagRules }} order={order} />
-                  </td>
-                ))}
-                <td className="px-3 py-3 whitespace-nowrap" onClick={e => e.stopPropagation()}>
-                  <div className="flex flex-col gap-1">
-                  {(order.unread_roles || []).includes("user") && (
-                    <span className="inline-flex items-center gap-1 text-xs bg-red-100 text-red-600 border border-red-200 px-1.5 py-0.5 rounded-full font-medium animate-pulse w-fit">
-                      <span className="w-1.5 h-1.5 rounded-full bg-red-500" />新消息
-                    </span>
-                  )}
-                  {(order.pool?.pool_code || order.pool_code) && (
-                    <button
-                      className="text-xs font-mono text-purple-700 bg-purple-50 border border-purple-100 px-1.5 py-0.5 rounded hover:bg-purple-100 hover:border-purple-300 transition-colors cursor-pointer"
-                      onClick={() => setViewPool(order.pool)}>
-                      {order.pool?.pool_code || order.pool_code}
-                    </button>
-                  )}
-                  {order.order_status === "payment_pending" && order.payment_status !== "awaiting_confirmation" && (() => {
-                    const isFullPayOnce = order.payment_mode === "fullpay_once";
-                    return (
-                      <Button size="sm" className="h-7 text-xs bg-red-600 hover:bg-red-700"
-                        onClick={() => setPaymentOrder(order)}>
-                        <CreditCard className="w-3 h-3 mr-1" />{isFullPayOnce ? "全额付款" : "付款"}
-                      </Button>
-                    );
-                  })()}
-                  {order.order_status === "in_warehouse" && canNotifyShipment && (() => {
-                    const editRequest = order.edit_request;
-                    const orderId = String(order.id);
-                    const hasPendingAdd = Array.isArray(editRequest) && editRequest.some(r => String(r.order_id) === orderId && r.status === 'pending' && r.edit_type === 'add_to_pool');
-                    if (hasPendingAdd) {
-                      return (
-                        <span className="inline-flex items-center gap-1 text-xs bg-orange-100 text-orange-700 border border-orange-300 px-1.5 py-0.5 rounded-full font-medium">
-                          <AlertCircle className="w-3 h-3" />等待管理员批准添加包裹出货
-                        </span>
-                      );
-                    }
-                    return (
-                      <Button size="sm" className="h-7 text-xs bg-teal-600 hover:bg-teal-700"
-                        disabled={shipmentLoading}
-                        onClick={async () => {
-                          const orderIds = [order.id];
-                          const cached = getNotifyShipmentCache(orderIds);
-                          if (cached) {
-                            setShipmentInitialData(cached);
-                            setShipmentOrder(order);
-                            return;
-                          }
-                          setShipmentLoading(true);
-                          try {
-                            const r = await base44.functions.invoke('order/info/findOrderForNotifyShipment', {
-                              id: null, data: { order_ids: orderIds }
-                            });
-                            setNotifyShipmentCache(orderIds, r.data);
-                            setShipmentInitialData(r.data);
-                            setShipmentOrder(order);
-                          } catch (err) {
-                            persistentToastError('获取发货信息失败');
-                          } finally {
-                            setShipmentLoading(false);
-                          }
-                        }}>
-                        {shipmentLoading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Truck className="w-3 h-3 mr-1" />}
-                        {shipmentLoading ? '加载中...' : '通知发货'}
-                      </Button>
-                    );
-                  })()}
-                  {order.order_status === "in_storage" && (
-                    <div className="flex flex-col gap-1 items-start">
-                      <span className="inline-flex items-center gap-1 text-xs bg-indigo-100 text-indigo-700 border border-indigo-200 px-1.5 py-0.5 rounded-full font-medium">
-                        📦 暂存中{order.transit_location_name ? `于 ${order.transit_location_name}` : ''}
-                      </span>
-                      {order.transit_storage_until && (
-                        <span className="text-xs text-gray-400">期限至 {order.transit_storage_until}</span>
+            ) : pagedFiltered.map(group => {
+              const isPoolGroup = !group.order && (group.pool_orders || []).length > 0;
+              if (!isPoolGroup) {
+                // 分支①：单商品订单，照原单行
+                const order = group.order;
+                return (
+                  <tr key={order.id} className={`hover:bg-gray-50 cursor-pointer ${selectedIds.includes(order.id) ? "bg-teal-50/50" : ""}`}
+                    onClick={() => setSelectedOrder(order)}>
+                    <td className="px-3 py-3" onClick={e => e.stopPropagation()}>
+                      {!showArchived && (order.order_status === "in_warehouse" || order.order_status === "in_storage" || bulkDeliverStatuses.includes(order.order_status) || (order.order_status === "payment_pending" && order.payment_status !== "awaiting_confirmation") || (order.order_status === "delivered" && !order.is_archived)) && (
+                        <Checkbox checked={selectedIds.includes(order.id)} onCheckedChange={() => toggleSelect(order.id)} />
                       )}
-                    </div>
+                    </td>
+                    {visibleCols.map(col => (
+                      <td key={col.key} className="px-3 py-3 max-w-[220px] overflow-hidden">
+                        <CellValue col={{ ...col, _rules: storeTagRules }} order={order} />
+                      </td>
+                    ))}
+                    <td className="px-3 py-3 whitespace-nowrap" onClick={e => e.stopPropagation()}>
+                      {renderOrderActions(order)}
+                    </td>
+                  </tr>
+                );
+              }
+              // 分支②：同池多商品，每个 pool_order 一行；checkbox/状态/操作 用 rowspan 纵跨整组并居中
+              const poolOrders = group.pool_orders;
+              const repr = poolOrders[0];
+              const span = poolOrders.length;
+              const allGroupSelected = poolOrders.every(o => selectedIds.includes(o.id));
+              const groupEligible = !showArchived && poolOrders.some(o =>
+                o.order_status === "in_warehouse" || o.order_status === "in_storage" || bulkDeliverStatuses.includes(o.order_status) ||
+                (o.order_status === "payment_pending" && o.payment_status !== "awaiting_confirmation") ||
+                (o.order_status === "delivered" && !o.is_archived));
+              return poolOrders.map((p, idx) => (
+                <tr key={p.id} className={`hover:bg-gray-50 cursor-pointer ${allGroupSelected ? "bg-teal-50/50" : ""}`}
+                  onClick={() => setSelectedOrder(p)}>
+                  {/* checkbox：仅首行渲染，rowspan 纵跨整组，垂直居中 */}
+                  {idx === 0 && (
+                    <td className="px-3 py-3 align-middle" rowSpan={span} onClick={e => e.stopPropagation()}>
+                      {groupEligible && (
+                        <Checkbox checked={allGroupSelected} onCheckedChange={() => toggleGroup(group)} />
+                      )}
+                    </td>
                   )}
-                  {/* 中转地-还没做 */}
-                  {order.order_status === "transit_shipped" && (() => {
-                    const orderId = String(order.id);
-                    // const pool = shippingPools.find(p => (p.order_ids || []).some(id => String(id) === orderId));
-                    const pool = order.pool;
-                    // Other orders in same pool for this user
-                    const poolOrderIds = pool?.order_ids || [];
-                    const otherPoolOrders = poolOrderIds.filter(id => String(id) !== orderId);
-                    return (
-                      <div className="flex flex-col gap-1 items-start">
-                        <span className="inline-flex items-center gap-1 text-xs bg-blue-100 text-blue-700 border border-blue-200 px-1.5 py-0.5 rounded-full font-medium">
-                          <Truck className="w-2.5 h-2.5" />中转地已发货
-                        </span>
-                        {order.transit_tracking_number && (
-                          <span className="text-xs font-mono text-gray-600 bg-gray-50 border border-gray-200 px-1.5 py-0.5 rounded select-all">
-                            {order.transit_tracking_number}
-                          </span>
-                        )}
-                        {order.transit_shipped_date && (
-                          <span className="text-xs text-gray-400">发货日 {order.transit_shipped_date}</span>
-                        )}
-                        <Button size="sm" className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700"
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            if (otherPoolOrders.length > 0) {
-                              const confirmAll = window.confirm(
-                                `此发货申请中还有其他 ${otherPoolOrders.length} 件包裹。\n\n点击"确定"一并确认所有包裹收货。\n点击"取消"仅确认此订单收货。`
-                              );
-                              if (confirmAll) {
-                                await Promise.all(poolOrderIds.map(id =>
-                                  base44.functions.invoke('updateTenantOrder', { order_id: id, order_status: 'delivered' })
-                                ));
-                              } else {
-                                await base44.functions.invoke('updateTenantOrder', { order_id: order.id, order_status: 'delivered' });
-                              }
-                            } else {
-                              await base44.functions.invoke('updateTenantOrder', { order_id: order.id, order_status: 'delivered' });
-                            }
-                            fetchOrders(user);
-                          }}>
-                          <CheckCircle className="w-3 h-3 mr-1" />确认收货
-                        </Button>
-                        {(() => {
-                          if (!pool) return null;
-                          const feeNotified = (pool.fee_breakdown_per_user || []).length > 0 || (pool.shipping_fee_jpy || 0) > 0;
-                          const myPay = (pool.per_user_payments || []).find(p => p.user_email === user?.email);
-                          const unpaid = pool.payment_status !== "paid" && !(myPay && myPay.payment_status === "paid") && feeNotified;
-                          return unpaid ? (
-                            <Button size="sm" className="h-7 text-xs bg-orange-600 hover:bg-orange-700"
-                              onClick={(e) => { e.stopPropagation(); setViewPool(pool); }}>
-                              <CreditCard className="w-3 h-3 mr-1" />补付运费
-                            </Button>
-                          ) : null;
-                        })()}
-                      </div>
-                    );
-                  })()}
-                  {/* Pre-shipment badge / button: show for all orders not yet in warehouse and not cancelled */}
-                  {!["in_warehouse", "in_storage", "transit_shipped", "notified_shipment", "notified_shipment_fee_pending", "notified_shipment_fee_paid", "shipping_fee_pending", "ready_to_ship", "shipped", "delivered", "cancelled"].includes(order.order_status) && (
-                    order.pre_shipment
-                      ? <Button size="sm" variant="outline" className="h-6 text-xs px-2 text-purple-600 border-purple-200 hover:bg-purple-50"
-                          onClick={() => navigate(`/PreShipmentForm?order_id=${order.id}`)}>
-                          <Zap className="w-3 h-3 mr-1" />编辑预出货
-                        </Button>
-                      : <Button size="sm" variant="outline" className="h-6 text-xs px-2 text-blue-600 border-blue-200 hover:bg-blue-50"
-                          onClick={() => navigate(`/PreShipmentForm?order_id=${order.id}`)}>
-                          <Zap className="w-3 h-3 mr-1" />预出货
-                        </Button>
+                  {/* 按表头列序渲染：商品类列每行独立；order_status 列仅首行 rowspan 居中 */}
+                  {visibleCols.map(col => (
+                    col.key === "order_status" ? (
+                      idx === 0 ? (
+                        <td key={col.key} className="px-3 py-3 align-middle" rowSpan={span}>
+                          <Badge className={`text-xs ${getStatusColor(repr.order_status, "user")}`}>
+                            {getStatusLabel(repr.order_status, "user")}
+                          </Badge>
+                        </td>
+                      ) : null
+                    ) : (
+                      <td key={col.key} className="px-3 py-3 max-w-[220px]">
+                        <CellValue col={{ ...col, _rules: storeTagRules }} order={p} />
+                      </td>
+                    )
+                  ))}
+                  {/* 操作：仅首行渲染，rowspan 纵跨整组，垂直居中 */}
+                  {idx === 0 && (
+                    <td className="px-3 py-3 whitespace-nowrap align-middle" rowSpan={span} onClick={e => e.stopPropagation()}>
+                      {renderPoolActions(group)}
+                    </td>
                   )}
-                  {order.order_status === "in_warehouse" && order.pre_shipment && !order.pre_shipment.pool_created && (
-                    <span className="inline-flex items-center gap-1 text-xs bg-blue-100 text-blue-700 border border-blue-200 px-1.5 py-0.5 rounded-full font-medium w-fit">
-                      <Zap className="w-2.5 h-2.5" />已预出货
-                    </span>
-                  )}
-                  {order.order_status === "notified_shipment_fee_paid" && (() => {
-                    const pool = order?.pool;
-                    return (
-                      <div className="flex flex-col gap-1 items-start">
-                      </div>
-                    );
-                  })()}
-                  {order.order_status === "notified_shipment" && (() => {
-                    const orderId = String(order.id);
-                    // const pool = shippingPools.find(p => (p.order_ids || []).some(id => String(id) === orderId));
-                    const pool = order?.pool;
-                    // const hasPendingEdit = pendingEditRequests.some(r => String(r.order_id) === orderId && r.status === 'pending');
-                    const editRequest = order.edit_request;
-                    const hasPendingEdit = editRequest.some(r => String(r.order_id) === orderId && r.status === 'pending');
-                    const poolAwaitingPayment = pool?.id && (pool?.status === "awaiting_payment" || pool?.status === "awaiting_payment_confirmation");
-                    return (
-                      <div className="flex flex-col gap-1 items-start">
-                        {hasPendingEdit && (
-                          <span className="text-xs text-orange-600 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded flex items-center gap-1">
-                            ⏳ 申请更改中
-                          </span>
-                        )}
-                        {poolAwaitingPayment && (
-                          <Button size="sm" className="h-7 text-xs bg-orange-600 hover:bg-orange-700"
-                            onClick={() => setViewPool(pool)}>
-                            <CreditCard className="w-3 h-3 mr-1" />去付运费
-                          </Button>
-                        )}
-                        {canEditShipmentRequest && pool?.pool_status !== "shipped" && pool?.pool_status !== "delivered" && !hasPendingEdit && !poolAwaitingPayment && (
-                          <Button size="sm" variant="outline" className="h-6 text-xs px-2"
-                            onClick={() => { setEditShipOrder(order); setEditShipPool(pool); }}>
-                            编辑出货
-                          </Button>
-                        )}
-                      </div>
-                    );
-                  })()}
-                  {(order.order_status === "shipping_fee_pending" || order.order_status === "notified_shipment_fee_pending") && (() => {
-                    // Try order_ids first, fall back to consolidation_pool_id on the order itself
-                    const orderId = String(order.id);
-                    // const pool = shippingPools.find(p => (p.order_ids || []).some(id => String(id) === orderId))
-                    //   || (order.consolidation_pool_id ? shippingPools.find(p => String(p.id) === String(order.consolidation_pool_id)) : null);
-                    const pool = order.pool;
-                    if (!pool?.pool_id) return null;
-                    const hasPendingRewarehouse = pendingEditRequests.some(r => String(r.order_id) === orderId && r.is_rewarehouse_request);
-                    return (
-                      <div className="flex flex-col gap-1 items-start">
-                        <Button size="sm" className="h-7 text-xs bg-orange-600 hover:bg-orange-700"
-                          onClick={() => setViewPool(pool)}>
-                          <CreditCard className="w-3 h-3 mr-1" />去付运费
-                        </Button>
-                        {allowUserRewarehouse && canRequestRewarehouse && !hasPendingRewarehouse && (
-                          <Button size="sm" variant="outline" className="h-6 text-xs px-2 text-gray-500 border-gray-300"
-                            onClick={() => { setRewarehouseOrder({ order, pool }); setRewarehouseNote(""); }}>
-                            <RotateCcw className="w-3 h-3 mr-1" />申请再入库
-                          </Button>
-                        )}
-                        {hasPendingRewarehouse && (
-                          <span className="text-xs text-orange-600 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded">
-                            ⏳ 再入库审批中
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })()}
-                  {order.order_status === "shipped" && (() => {
-                    const orderId = String(order.id);
-                    // const pool = shippingPools.find(p => (p.order_ids || []).some(id => String(id) === orderId));
-                    const pool = order.pool;
-                    return (
-                      <div className="flex flex-col gap-1 items-start">
-                        {pool?.id && (
-                          <Button size="sm" variant="outline" className="h-7 text-xs px-2"
-                            onClick={() => setViewPool(pool)}>
-                            <Package className="w-3 h-3 mr-1" />发货详情
-                          </Button>
-                        )}
-                        {(() => {
-                          if (!pool?.pool_id) return null;
-                          const feeNotified = (pool?.fee_breakdown_per_user || []).length > 0 || (pool?.shipping_fee_jpy || 0) > 0;
-                          const myPay = (pool?.per_user_payments || []).find(p => p.user_email === user?.email);
-                          const unpaid = pool?.payment_status !== "paid" && !(myPay && myPay.payment_status === "paid") && feeNotified;
-                          return unpaid ? (
-                            <Button size="sm" className="h-7 text-xs bg-orange-600 hover:bg-orange-700"
-                              onClick={() => setViewPool(pool)}>
-                              <CreditCard className="w-3 h-3 mr-1" />补付运费
-                            </Button>
-                          ) : null;
-                        })()}
-                        <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700"
-                          onClick={() => setDeliverTargetOrder(order)}>
-                          <CheckCircle className="w-3 h-3 mr-1" />收货
-                        </Button>
-                      </div>
-                    );
-                  })()}
-                  {order.order_status === "delivered" && !order.is_archived && canArchiveOrder && (
-                    <Button size="sm" variant="outline" className="h-7 text-xs px-2 text-gray-500"
-                      onClick={() => setArchiveTargetOrder(order)}>
-                      <Archive className="w-3 h-3 mr-1" />存档
-                    </Button>
-                  )}
-                  </div>
-                </td>
-              </tr>
-            ))}
+                </tr>
+              ));
+            })}
+
           </tbody>
         </table>
       </div>
@@ -1052,6 +1261,48 @@ export default function MyOrders() {
         />
       )}
 
+      {transitShipmentOrder && (
+        <TransitNotifyShipmentModal
+          order={transitShipmentOrder}
+          initialData={transitShipmentInitialData}
+          onClose={() => { setTransitShipmentOrder(null); setTransitShipmentInitialData(null); fetchOrders(user); }}
+          onProofUploaded={async () => {
+            const order = transitShipmentOrder;
+            const orderIds = [order.id];
+            try {
+              const r = await base44.functions.invoke('order/info/findTransitForShipment', {
+                id: null,
+                data: {
+                  transit_location_id: order.pool?.transit_location_id || order.transit_location_id || null,
+                  user_email: order.user_email,
+                  pool_id: order.consolidation_pool_id || order.pool?.pool_id || null,
+                }
+              });
+              setNotifyShipmentCache(orderIds, r.data);
+              setTransitShipmentInitialData(r.data);
+            } catch (err) {
+              console.error('[MyOrders] 刷新 findTransitForShipment 失败:', err);
+            }
+          }}
+          onSuccess={() => {
+            setTransitShipmentOrder(null);
+            setTransitShipmentInitialData(null);
+            fetchOrders(user);
+          }}
+        />
+      )}
+      {transitShipmentOrders && (
+        <TransitNotifyShipmentModal
+          orders={transitShipmentOrders}
+          initialData={transitShipmentInitialData}
+          onClose={() => { setTransitShipmentOrders(null); setTransitShipmentInitialData(null); fetchOrders(user); }}
+          onSuccess={() => {
+            setTransitShipmentOrders(null);
+            setTransitShipmentInitialData(null);
+            fetchOrders(user);
+          }}
+        />
+      )}
       {shipmentOrder && (
         <UserNotifyShipmentModal
           order={shipmentOrder}
@@ -1164,7 +1415,9 @@ export default function MyOrders() {
         open={!!deliverTargetOrder}
         onOpenChange={open => { if (!open) setDeliverTargetOrder(null); }}
         title="确认收货"
-        description="是否确认收货？确认后订单状态将变为 已收货。"
+        description={deliverTargetOrder?.length > 1
+          ? `是否确认该组共 ${deliverTargetOrder.length} 件订单收货？确认后订单状态将变为 已收货。`
+          : "是否确认收货？确认后订单状态将变为 已收货。"}
         confirmText="是"
         onConfirm={() => { handleConfirmDelivered(deliverTargetOrder); setDeliverTargetOrder(null); }}
       />
@@ -1182,7 +1435,9 @@ export default function MyOrders() {
         open={!!archiveTargetOrder}
         onOpenChange={open => { if (!open) setArchiveTargetOrder(null); }}
         title="确认存档"
-        description={`是否将订单 ${archiveTargetOrder?.order_number} 存档？存档后将从列表中隐藏。`}
+        description={Array.isArray(archiveTargetOrder?.pool_orders)
+          ? `是否将该组共 ${archiveTargetOrder.pool_orders.length} 件订单存档？存档后将从列表中隐藏。`
+          : `是否将订单 ${archiveTargetOrder?.order_number} 存档？存档后将从列表中隐藏。`}
         confirmText="是"
         onConfirm={() => { handleArchiveOrder(archiveTargetOrder); setArchiveTargetOrder(null); }}
       />

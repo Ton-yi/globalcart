@@ -8,7 +8,7 @@
  */
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { X, Truck, Package, MapPin, Lock, Users, Search, Star, Loader2 } from "lucide-react";
+import { X, Truck, Package, Lock, Users, Search, Star, Loader2, Layers } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import CustomsDeclarationForm from "@/components/orders/CustomsDeclarationForm";
 import { serializeAddressToText, isAddressFormValid, EMPTY_ADDRESS_FORM } from "@/components/common/AddressForm";
@@ -23,14 +23,27 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 // Shared with CreateShippingPoolModal — edit shippingFormConstants.js to sync both
-import { CONSOLIDATION_TIMEOUT_ACTIONS as TIMEOUT_ACTIONS } from "@/components/shippingpool/shippingFormConstants";
-import ConfirmDialog from "@/components/common/ConfirmDialog";
+import { CONSOLIDATION_TIMEOUT_ACTIONS as TIMEOUT_ACTIONS, METHOD_LABELS } from "@/components/shippingpool/shippingFormConstants";
 
 function clampYear(dateStr) {
   if (!dateStr) return dateStr;
   const parts = dateStr.split("-");
   if (parts[0] && parts[0].length > 4) { parts[0] = parts[0].slice(0, 4); return parts.join("-"); }
   return dateStr;
+}
+
+// base44.auth.me() returns the full response envelope { code, data, msg }, not the user object.
+function resolveAuthUser(res) {
+  const raw = res?.data ?? res ?? {};
+  return {
+    ...raw,
+    email: raw.userEmail ?? raw.email ?? raw.user_email ?? "",
+    full_name: raw.displayName ?? raw.full_name ?? raw.fullName ?? raw.user_name ?? "",
+  };
+}
+
+function sameEmail(a, b) {
+  return (a || "").trim().toLowerCase() === (b || "").trim().toLowerCase();
 }
 
 function Token({ value, onChange, type = "text", options, placeholder, suffix }) {
@@ -85,13 +98,15 @@ function DeadlineToken({ value, onChange }) {
   );
 }
 
-function TransitMethodSection({ consType, selectedTransitId, transitLocations, transitMethods, selectedTransitMethodId, setSelectedTransitMethodId }) {
+function TransitMethodSection({ consType, selectedTransitId, transitLocations, transitMethods, selectedTransitMethodId, setSelectedTransitMethodId, isStorageReship, locked = false }) {
   if (consType !== "transit") return null;
-  const selectedLoc = transitLocations.find(l => l.id === selectedTransitId);
+  // id may be string or number depending on source (user click vs pool data) — compare loosely
+  const selectedLoc = transitLocations.find(l => String(l.id) === String(selectedTransitId));
   const disabledMethodIds = selectedLoc?.disabled_transit_method_ids || [];
-  const visibleMethods = transitMethods.filter(m => !disabledMethodIds.includes(m.id));
-  const allowPickup = selectedLoc?.allow_pickup;
-  const allowStorage = selectedLoc?.allow_storage;
+  const visibleMethods = transitMethods.filter(m => !disabledMethodIds.some(id => String(id) === String(m.id)));
+  // in_storage 重新发货时隐藏"暂存"/"自取"，只能选真实发货方式
+  const allowPickup = selectedLoc?.allow_pickup && !isStorageReship;
+  const allowStorage = selectedLoc?.allow_storage && !isStorageReship;
   if (visibleMethods.length === 0 && !allowPickup && !allowStorage) return null;
 
   const getRateSummary = (m) => {
@@ -107,7 +122,12 @@ function TransitMethodSection({ consType, selectedTransitId, transitLocations, t
       <label className="text-xs text-gray-500 font-medium uppercase tracking-wide flex items-center gap-1.5">
         <Truck className="w-3.5 h-3.5" />中转段运输方式 <span className="text-red-500">*</span>
       </label>
-      <div className="mt-1.5 space-y-1.5">
+      {locked && (
+        <p className="mt-1 text-xs text-amber-600 flex items-center gap-1">
+          <Lock className="w-3 h-3" />该拼邮需求下你已有中转发货记录，运输方式不可更改
+        </p>
+      )}
+      <div className={`mt-1.5 space-y-1.5 ${locked ? "pointer-events-none opacity-60" : ""}`}>
         {allowPickup && (
           <label className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${selectedTransitMethodId === "__pickup__" ? "border-teal-400 bg-teal-50" : "border-gray-200 hover:bg-gray-50"}`}>
             <input type="radio" checked={selectedTransitMethodId === "__pickup__"} onChange={() => setSelectedTransitMethodId("__pickup__")} className="accent-teal-600" />
@@ -141,9 +161,9 @@ function TransitAddonSection({ consType, selectedTransitId, transitLocations, sh
   const [open, setOpen] = useState(false);
   // When consType is "transit", filter out addons disabled by the selected transit location
   const disabledAddonIds = consType === "transit"
-    ? (transitLocations.find(l => l.id === selectedTransitId)?.disabled_addon_ids || [])
+    ? (transitLocations.find(l => String(l.id) === String(selectedTransitId))?.disabled_addon_ids || [])
     : [];
-  const visibleAddons = shippingAddons.filter(a => !disabledAddonIds.includes(a.id));
+  const visibleAddons = shippingAddons.filter(a => !disabledAddonIds.some(id => String(id) === String(a.id)));
   // Show addons for all shipping types (not just transit)
   if (visibleAddons.length === 0) return null;
 
@@ -243,6 +263,9 @@ function TransitAddonSection({ consType, selectedTransitId, transitLocations, sh
 export default function UserNotifyShipmentModal({ order, orders, initialData, onClose, onSuccess, hazmatText }) {
   const targetOrders = orders || (order ? [order] : []);
   const isMulti = targetOrders.length > 1;
+  // in_storage 订单重新发起中转地发货时，只能选真实发货方式（transitMethods），
+  // 不再提供"暂存"/"自取"选项（第一次选暂存时本来就不收费，第二次按 transitMethods 计费）
+  const isStorageReship = targetOrders.some(o => o.order_status === "in_storage");
 
   const [method, setMethod] = useState(targetOrders[0]?.shipping_method || "");
   const [consType, setConsType] = useState("");
@@ -282,6 +305,11 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
   const [existingPools, setExistingPools] = useState([]);
   const [poolSearchQuery, setPoolSearchQuery] = useState("");
   const [selectedPoolId, setSelectedPoolId] = useState("");
+  // 加入已有拼邮时选择「当前批次 / 新批次」；有批次默认 current
+  const [transitBatchMode, setTransitBatchMode] = useState("current");
+  const [selectedBatchId, setSelectedBatchId] = useState("");
+  // 当前登录用户 pending 状态的中转地发货记录（后端 findOrderForNotifyShipment 返回）
+  const [transitRecords, setTransitRecords] = useState(initialData?.transit_shipping || []);
   // Join existing direct (single) pool
   const [joinDirectPool, setJoinDirectPool] = useState(false);
   const [directPoolSearchQuery, setDirectPoolSearchQuery] = useState("");
@@ -305,7 +333,6 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
   );
   const [shippingMethods, setShippingMethods] = useState(initialData?.shippingMethods || []);
   const [methodError, setMethodError] = useState(null);
-  const [showConfirm, setShowConfirm] = useState(false);
 
   useEffect(() => {
     // If initialData was provided by the parent page, use it directly — skip all self-fetches
@@ -333,20 +360,22 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
       setShippingMethods(data.shippingMethods || []);
       setTransitMethods(data.transitMethods || []);
       setShippingAddons(data.shippingAddons || []);
+      setTransitRecords(data.transit_shipping || []);
 
       const allPools = data.pools || [];
-      base44.auth.me().then(u => {
+      base44.auth.me().then(res => {
+        const u = resolveAuthUser(res);
         setCurrentUser(u);
         const consolidationPools = allPools.filter(p =>
           p.consolidation_type && p.consolidation_type !== "" &&
           (p.status === "pending" || p.status === "processing") &&
-          (!p.is_private || p.creator_email === u.email || (p.shared_with_emails || []).includes(u.email))
+          (!p.is_private || sameEmail(p.creator_email, u.email) || (p.shared_with_emails || []).some(e => sameEmail(e, u.email)))
         );
         setExistingPools(consolidationPools);
         const directShipPools = allPools.filter(p =>
           (!p.consolidation_type || p.consolidation_type === "") &&
           (p.status === "pending" || p.status === "processing") &&
-          p.creator_email === u.email
+          sameEmail(p.creator_email, u.email)
         );
         setDirectPools(directShipPools);
       }).catch(() => {});
@@ -405,7 +434,8 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
     }
 
     // Fallback: self-fetch when used outside MyOrders (e.g. from OrderDetailDrawer)
-    base44.auth.me().then(async u => {
+    base44.auth.me().then(async res => {
+      const u = resolveAuthUser(res);
       setCurrentUser(u);
       const [prefs, allLocs, usersRes, allPools, addons, tMethods, shippingMethods] = await Promise.all([
         userPrefApi.list({ user_email: u.email }),
@@ -428,13 +458,13 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
       const consolidationPools = allPools.filter(p =>
         p.consolidation_type && p.consolidation_type !== "" &&
         (p.status === "pending" || p.status === "processing") &&
-        (!p.is_private || p.creator_email === u.email || (p.shared_with_emails || []).includes(u.email))
+        (!p.is_private || sameEmail(p.creator_email, u.email) || (p.shared_with_emails || []).some(e => sameEmail(e, u.email)))
       );
       setExistingPools(consolidationPools);
       const directShipPools = allPools.filter(p =>
         (!p.consolidation_type || p.consolidation_type === "") &&
         (p.status === "pending" || p.status === "processing") &&
-        p.creator_email === u.email
+        sameEmail(p.creator_email, u.email)
       );
       setDirectPools(directShipPools);
       setShippingAddons(addons || []);
@@ -511,6 +541,123 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
   // When joining existing pool, method/minWeight/consMethod are locked
   const isJoiningPool = joinExistingPool && selectedPoolId;
 
+  // 加入已有拼邮时，按「批次」选择：current=追加到已有 transit_shipping，new=新建批次
+  // 后端自取/暂存会把 method_id 存成 0，真实标记写在 transit_shipping_method 字段。
+  const pickRecordMethodId = (rec) => {
+    if (!rec) return "";
+    const rawName = rec.transit_shipping_method || "";
+    if (rawName === "__pickup__" || rawName === "__storage__") return rawName;
+    const rawId = normalizeId(rec.transit_shipping_method_id);
+    return rawId === "0" ? "" : rawId;
+  };
+  const poolBatches = (Array.isArray(transitRecords) ? transitRecords : transitRecords ? [transitRecords] : [])
+    .filter(r => r && String(r.consolidate_pool_id) === String(selectedPoolId))
+    .sort((a, b) => Number(b.id || 0) - Number(a.id || 0));
+  const batchIdsKey = poolBatches.map(b => b.id).join(",");
+  const selectedBatch = poolBatches.find(b => String(b.id) === String(selectedBatchId)) || poolBatches[0] || null;
+  const hasBatches = poolBatches.length > 0;
+  const batchMethodLabel = (batch) => {
+    const id = pickRecordMethodId(batch);
+    return METHOD_LABELS[id]
+      || transitMethods.find(m => String(m.id) === String(id))?.name
+      || "未指定";
+  };
+
+  // Read-only values derived from the target pool (joining must never use the user's own form state)
+  const joinDeadline = selectedPool?.consolidation_deadline || selectedPool?.scheduled_ship_date || "";
+  const joinTransitMethodId = normalizeId(selectedPool?.transit_shipping_method_id) || "";
+  const joinTransitMethodName =
+    selectedPool?.transit_shipping_method_name ||
+    METHOD_LABELS[joinTransitMethodId] ||
+    transitMethods.find(m => m.id === joinTransitMethodId)?.name || "";
+
+  // Pickup/storage is now decided by the user's own transit method choice (selectable
+  // even when joining a pool), so the final-address requirement follows the user, not the pool.
+  const effectiveIsPickupStorage = isPickupStorageSelected;
+
+  const joinTransitLocationName =
+    selectedPool?.transit_location_name ||
+    transitLocations.find(l => String(l.id) === String(selectedPool?.transit_location_id))?.name || "";
+  const joinShippingMethodName =
+    shippingMethods.find(m => m.code === selectedPool?.shipping_method)?.name ||
+    selectedPool?.shipping_method || "";
+  const joinConsMethodName =
+    !selectedPool?.consolidation_shipping_method || selectedPool.consolidation_shipping_method === "any"
+      ? "任何运输方式"
+      : shippingMethods.find(m => m.code === selectedPool.consolidation_shipping_method)?.name ||
+        selectedPool.consolidation_shipping_method;
+  const joinFallbackMethodName =
+    shippingMethods.find(m => m.code === selectedPool?.consolidation_shipping_method_fallback)?.name ||
+    selectedPool?.consolidation_shipping_method_fallback || "";
+  const joinTimeoutActionLabel =
+    TIMEOUT_ACTIONS.find(a => a.value === selectedPool?.consolidation_timeout_action)?.label ||
+    selectedPool?.consolidation_timeout_action || "";
+  const joinTimeoutMethodName =
+    shippingMethods.find(m => m.code === selectedPool?.consolidation_timeout_method)?.name ||
+    selectedPool?.consolidation_timeout_method || "";
+  const joinAddons = (
+    selectedPool?.selected_addons?.length
+      ? selectedPool.selected_addons
+      : (selectedPool?.selected_addon_ids || [])
+          .map(id => shippingAddons.find(a => String(a.id) === String(id)))
+          .filter(Boolean)
+  ).map(a => ({
+    ...a,
+    service_name: a.service_name || shippingAddons.find(x => String(x.id) === String(a.id))?.service_name || "",
+  }));
+
+  // 加入已有拼邮需求时确定批次：
+  //  - 该池下已有当前用户的 pending 批次 → 默认选「当前批次」，运输方式沿用批次
+  //  - 没有批次 → 只能「新批次」，运输方式回落到拼邮需求自身的方式
+  useEffect(() => {
+    if (!isJoiningPool) return;
+    if (poolBatches.length > 0) {
+      setTransitBatchMode("current");
+      setSelectedBatchId(prev =>
+        poolBatches.some(b => String(b.id) === String(prev)) ? prev : String(poolBatches[0].id)
+      );
+      setSelectedTransitMethodId(pickRecordMethodId(poolBatches[0]));
+      return;
+    }
+    setTransitBatchMode("new");
+    setSelectedBatchId("");
+    if (joinTransitMethodId) {
+      setSelectedTransitMethodId(joinTransitMethodId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isJoiningPool, selectedPoolId, batchIdsKey]);
+
+  const handleBatchModeChange = (mode) => {
+    setTransitBatchMode(mode);
+    if (mode === "current") {
+      const batch = selectedBatch || poolBatches[0];
+      if (batch) {
+        setSelectedBatchId(String(batch.id));
+        setSelectedTransitMethodId(pickRecordMethodId(batch));
+      }
+      return;
+    }
+    if (joinTransitMethodId) {
+      setSelectedTransitMethodId(joinTransitMethodId);
+    }
+  };
+
+  // 当前批次的增值服务/备注跟随批次：备注回填，增值服务只读；
+  // 切到「新批次」时清空勾选和备注，避免带过去
+  useEffect(() => {
+    if (!isJoiningPool) return;
+    if (transitBatchMode === "current" && selectedBatch) {
+      setNote(selectedBatch.user_note || "");
+      return;
+    }
+    if (transitBatchMode === "new") {
+      setSelectedAddonIds([]);
+      setAddonCustomFees({});
+      setNote("");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isJoiningPool, transitBatchMode, selectedBatch?.id]);
+
   const filteredPools = existingPools.filter(p => {
     if (!poolSearchQuery) return true;
     const q = poolSearchQuery.toLowerCase();
@@ -522,7 +669,7 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
   const filteredUsers = allUsers.filter(u => {
     if (!userSearchQuery) return true;
     const q = userSearchQuery.toLowerCase();
-    return (u.full_name || "").toLowerCase().includes(q) || (u.email || "").toLowerCase().includes(q);
+    return (u.display_name || "").toLowerCase().includes(q) || (u.user_email || "").toLowerCase().includes(q);
   });
 
   const toggleSharedUser = (email) => {
@@ -530,31 +677,35 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
   };
 
   const handleSubmit = async () => {
-    if (!method && !isJoiningPool) return;
-    if (!isJoiningPool && consType === "transit" && !selectedTransitId) return;
-    if (!isJoiningPool && consType === "transit" && !selectedTransitMethodId) return;
-    if (!isJoiningPool && consType === "transit" && !isPickupStorageSelected && !isAddressSlotOk("final")) return;
-    if (isJoiningPool && !isPickupStorageSelected && !isAddressSlotOk("final")) return;
-    if (isJoiningPool && selectedPool?.consolidation_type === "transit" && !selectedTransitMethodId) return;
-    if (!isJoiningPool && consType === "" && !joinDirectPool && !isAddressSlotOk("direct")) return;
-    if (!isJoiningPool && consType === "other" && !isAddressSlotOk("other")) return;
-    if (joinExistingPool && !selectedPoolId) return;
+    if (isJoiningPool) {
+      if (!selectedPoolId) return;
+      if (selectedPool?.consolidation_type === "transit") {
+        if (transitBatchMode === "new" && !selectedTransitMethodId) return;
+        if (transitBatchMode === "current" && !selectedBatchId) return;
+      }
+      // 当前批次的地址跟随批次，不需要校验/选择地址
+      const currentBatchAddressLocked = transitBatchMode === "current" && !!selectedBatch;
+      if (!currentBatchAddressLocked && !effectiveIsPickupStorage && !isAddressSlotOk("final")) return;
+    } else {
+      if (!method) return;
+      if (consType === "transit" && !selectedTransitId) return;
+      if (consType === "transit" && !selectedTransitMethodId) return;
+      if (consType === "transit" && !isPickupStorageSelected && !isAddressSlotOk("final")) return;
+      if (consType === "" && !joinDirectPool && !isAddressSlotOk("direct")) return;
+      if (consType === "other" && !isAddressSlotOk("other")) return;
+      if (joinExistingPool && !selectedPoolId) return;
 
-    // Validate addon custom fees are within range
-    const hasFeeErrors = Object.entries(addonCustomFees).some(([addonId, fee]) => {
-      const addon = shippingAddons.find(a => a.id === addonId);
-      return addon && addon.is_user_customizable && selectedAddonIds.includes(addonId) &&
-             (fee < addon.fee_min || fee > addon.fee_max);
-    });
-    if (hasFeeErrors) {
-      alert('请确保所有自定义增值服务的金额都在指定区间内');
-      return;
+      // Validate addon custom fees are within range
+      const hasFeeErrors = Object.entries(addonCustomFees).some(([addonId, fee]) => {
+        const addon = shippingAddons.find(a => a.id === addonId);
+        return addon && addon.is_user_customizable && selectedAddonIds.includes(addonId) &&
+               (fee < addon.fee_min || fee > addon.fee_max);
+      });
+      if (hasFeeErrors) {
+        alert('请确保所有自定义增值服务的金额都在指定区间内');
+        return;
+      }
     }
-
-    setSubmitting(true);
-
-    const u = currentUser || await base44.auth.me();
-    const orderIds = targetOrders.map(o => o.id);
 
     // Resolve effective address for each slot
     const getEffectiveAddr = (slot) => {
@@ -566,6 +717,80 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
       const addrId = slot === "final" ? finalAddressId : selectedAddress;
       return savedAddresses.find(a => a.id === addrId) || null;
     };
+
+    // Joining an existing pool only appends the orders to that pool.
+    const addrSlot = consType === "transit" ? "final" : (consType === "other" ? "other" : "direct");
+    const skipAddress = isPickupStorageSelected;
+    const addrObj = !skipAddress ? getEffectiveAddr(addrSlot) : null;
+    
+    if (isJoiningPool) {
+      setSubmitting(true);
+
+      const joinAddrObj = !effectiveIsPickupStorage ? getEffectiveAddr("final") : null;
+      const finalAddress = joinAddrObj ? {
+        id: joinAddrObj.id,
+        recipient_name: joinAddrObj.recipient_name || '',
+        phone: joinAddrObj.phone || '',
+        country: joinAddrObj.country || '',
+        state: joinAddrObj.state || '',
+        addr1: joinAddrObj.addr1 || '',
+        addr2: joinAddrObj.addr2 || '',
+        addr3: joinAddrObj.addr3 || '',
+        postal_code: joinAddrObj.postal_code || '',
+        label: joinAddrObj.label || '',
+      } : null;
+
+      // The joining user's own transit method choice — written to the order-level
+      // consolidation_transit_shipping_id field so each member can differ from the creator.
+      const userTransitMethodName =
+        METHOD_LABELS[normalizedTransitMethodId] ||
+        transitMethods.find(m => m.id === selectedTransitMethodId)?.name || '';
+
+      try {
+        const selectedAddons = shippingAddons.filter(a => selectedAddonIds.includes(a.id));
+        const resolvedAddons = selectedAddons.map(a => {
+          const customFee = addonCustomFees[a.id];
+          return customFee != null ? { ...a, custom_fee: customFee } : a;
+        });
+        await base44.functions.invoke('shipping/joinShippingPool', {
+          id: selectedPoolId,
+          new_address: saveNewAddress,
+          pref_id: userPrefId || null,
+          data: {
+            order_id: order.id,
+            order_number: order.order_number,
+            pool_code: selectedPool.pool_code,
+            target_pool_id: selectedPoolId,
+            transit_batch_mode: transitBatchMode,
+            transit_shipping_id: transitBatchMode === "current" ? selectedBatchId : null,
+            user_note: note || '',
+            address_id: finalAddress && /^\d+$/.test(String(finalAddress.id)) ? finalAddress.id : null,
+            final_address: finalAddress,
+            transit_shipping_method_id: normalizedTransitMethodId,
+            transit_shipping_method_name: userTransitMethodName,
+            consolidation_transit_shipping_id: normalizedTransitMethodId,
+            consolidation_transit_shipping_name: userTransitMethodName,
+            selected_addon_ids: selectedAddonIds,
+            selected_addons: resolvedAddons,
+          }
+
+        });
+        toast.success('已加入拼邮需求');
+        onSuccess?.();
+      } catch (err) {
+        const message = err?.response?.data?.message || err?.message;
+        console.error('[UserNotifyShipmentModal] joinShippingPool failed:', err);
+        toast.error(message || '加入失败，请稍后重试');
+        setSubmitting(false);
+      }
+      return;
+    }
+
+    setSubmitting(true);
+
+    const u = currentUser || resolveAuthUser(await base44.auth.me());
+    const orderIds = targetOrders.map(o => o.id);
+
 
     // Save new address to UserPreference if requested
     const isInNewAddressMode = Object.values(addressInputMode).some(v => v) || savedAddresses.length === 0;
@@ -587,11 +812,10 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
     // }
 
     // Build resolved address object
-    const skipAddress = isPickupStorageSelected;
-    const addrSlot = consType === "transit" ? "final" : (consType === "other" ? "other" : "direct");
-    const addrObj = !skipAddress ? getEffectiveAddr(addrSlot) : null;
+  
     const resolvedAddress = addrObj ? {
-      id: Date.now().toString(),
+      // id: Date.now().toString(),
+      id: addrObj.id,
       label: addrObj.label,
       recipient_name: addrObj.recipient_name || '',
       country: addrObj.country || '',
@@ -627,7 +851,7 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
     const effectiveJoinExisting = isJoiningPool || (joinDirectPool && !!selectedDirectPoolId);
 
     // Resolve transit location name + country for new pool creation
-    const transitLoc = transitLocations.find(l => l.id === selectedTransitId);
+    const transitLoc = transitLocations.find(l => String(l.id) === String(selectedTransitId));
     const selectedShippingMethod = shippingMethods.find(m => m.code === method);
 
     // Build the standard shipment payload
@@ -651,7 +875,15 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
       join_existing_pool: effectiveJoinExisting,
       is_private: isPrivate,
       shared_with_emails: sharedWithEmails,
-      customs_declaration: hasCustoms ? customsData : null
+      customs_declaration: hasCustoms ? customsData : null,
+      ...(consolidation && !isJoiningPool ? {
+        consolidation_deadline: deadline || '',
+        consolidation_min_weight_g: parseFloat(minWeight) || 0,
+        consolidation_timeout_action: timeoutAction || 'ship_individually',
+        consolidation_shipping_method: consMethod === 'any' ? '' : (consMethod || ''),
+        consolidation_shipping_method_fallback: consMethodFallback || '',
+        consolidation_timeout_method: timeoutAction === 'ship_individually' ? (timeoutMethod || '') : '',
+      } : {}),
     };
 
     let payload = {
@@ -661,6 +893,7 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
       new_address: saveNewAddress,
       pref_id: userPrefId
     }
+
     // Call unified engine
     try {
       await base44.functions.invoke('shipping/createShippingPool', {
@@ -726,9 +959,9 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
           {/* Shipping method */}
            <div>
              <label className="text-xs text-gray-500 font-medium uppercase tracking-wide">发货方式 <span className="text-red-500">*</span></label>
-             <Select value={method} onValueChange={(val) => { setMethod(val); setMethodError(null); }} disabled={!!isJoiningPool}>
-               <SelectTrigger className={`mt-1.5 ${isJoiningPool ? "opacity-50 cursor-not-allowed" : ""} ${methodError ? "border-red-300" : ""} ${!method && !isJoiningPool ? "border-red-400" : ""}`}>
-                 <SelectValue placeholder={isJoiningPool ? "使用拼邮池配置" : "请选择发货方式"} />
+             <Select value={method} onValueChange={(val) => { setMethod(val); setMethodError(null); }} disabled={!!joinExistingPool}>
+               <SelectTrigger className={`mt-1.5 ${joinExistingPool ? "opacity-50 cursor-not-allowed" : ""} ${methodError ? "border-red-300" : ""} ${!method && !joinExistingPool ? "border-red-400" : ""}`}>
+                 <SelectValue placeholder={joinExistingPool ? "使用拼邮池配置" : "请选择发货方式"} />
                </SelectTrigger>
                <SelectContent>
                  {shippingMethods.map(m => (
@@ -736,8 +969,8 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
                   ))}
                </SelectContent>
              </Select>
-             {isJoiningPool && <p className="text-xs text-gray-400 mt-1">发货方式将使用所选拼邮需求的配置</p>}
-             {method && !isJoiningPool && getMethodError() && (
+             {joinExistingPool && <p className="text-xs text-gray-400 mt-1">发货方式将使用所选拼邮需求的配置</p>}
+             {method && !joinExistingPool && getMethodError() && (
                <div className="mt-2 p-2.5 rounded-lg bg-red-50 border border-red-200">
                  <p className="text-xs text-red-700 font-medium">⚠️ 所选运输方式不可用</p>
                  <p className="text-xs text-red-600 mt-1">{getMethodError()}</p>
@@ -762,6 +995,54 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
               </label>
             ))}
           </div>
+
+          {/* Join existing pool option (only for consolidation types) */}
+          {consolidation && existingPools.length > 0 && (
+            <div className="border border-gray-200 rounded-xl overflow-hidden">
+              <label className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${joinExistingPool ? "bg-purple-50 border-b border-purple-100" : "hover:bg-gray-50"}`}>
+                <Checkbox checked={joinExistingPool} onCheckedChange={v => { setJoinExistingPool(!!v); if (!v) setSelectedPoolId(""); }} />
+                <div>
+                  <p className="text-sm font-medium text-gray-800">加入已有的拼邮需求</p>
+                  <p className="text-xs text-gray-400 mt-0.5">将此次发货订单加入到现有的拼邮池中</p>
+                </div>
+              </label>
+
+              {joinExistingPool && (
+                <div className="px-4 py-3 space-y-2 bg-purple-50/40">
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                    <Input placeholder="搜索拼邮需求编号或名称..." className="pl-8 h-8 text-sm"
+                      value={poolSearchQuery} onChange={e => setPoolSearchQuery(e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                    {filteredPools.length === 0 ? (
+                      <p className="text-xs text-gray-400 text-center py-3">无匹配的拼邮需求</p>
+                    ) : filteredPools.map(p => (
+                      <label key={p.id} className={`flex items-start gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-colors ${selectedPoolId === p.id ? "border-purple-400 bg-purple-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
+                        <input type="radio" checked={selectedPoolId === p.id} onChange={() => setSelectedPoolId(p.id)} className="mt-0.5 accent-purple-600" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-xs font-mono font-medium text-purple-700">{p.pool_code}</span>
+                            {p.is_private && <span className="text-xs text-gray-400">🔒</span>}
+                          </div>
+                          <p className="text-xs text-gray-600 mt-0.5 truncate">
+                            {p.consolidation_type === "transit" ? `中转拼邮 → ${p.transit_location_name || "中转地"}` : "自选地址拼邮"}
+                            {p.shipping_method && ` · ${p.shipping_method}`}
+                            {` · 当前 ${(p.order_ids || []).length} 件`}
+                          </p>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                  {isJoiningPool && (
+                    <p className="text-xs text-blue-600 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+                      ℹ️ 加入后，发货期限、运输方式、增值服务、拼邮策略均以该拼邮需求为准，不可修改；中转段运输方式与最终收货地址可自行选择。
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Join existing direct shipment pool (only for single shipment) */}
           {consType === "" && directPools.length > 0 && (
@@ -820,7 +1101,7 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
           )}
 
           {/* Address selection for consType="other" (consolidation to other address) */}
-          {consType === "other" && !isJoiningPool && (
+          {consType === "other" && !joinExistingPool && (
             <AddressBlock
               slot="other"
               label="拼邮目标地址"
@@ -848,26 +1129,28 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
           {/* Transit location selection */}
           {consType === "transit" && (
             <div className="space-y-3">
-              <div className="border border-blue-100 rounded-xl p-4 bg-blue-50/40 space-y-2">
-                <label className="text-xs text-blue-700 font-medium">选择中转地 <span className="text-red-500">*</span></label>
-                {transitLocations.length === 0 ? (
-                  <p className="text-xs text-gray-400">暂无可用中转地，请联系管理员</p>
-                ) : transitLocations.map(l => (
-                  <label key={l.id} className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${selectedTransitId === l.id ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"} ${joinExistingPool ? "opacity-50 pointer-events-none" : ""}`}>
-                    <input type="radio" checked={selectedTransitId === l.id} onChange={() => { setSelectedTransitId(l.id); setSelectedTransitMethodId(""); setSelectedAddonIds([]); }} className="mt-0.5 accent-blue-600" disabled={joinExistingPool} />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-800">{l.name}</p>
-                      <p className="text-xs text-gray-400">
-                        {[getCountry(l.country)?.name || l.country, l.province].filter(Boolean).join(" · ")}
-                        {l.handling_fee > 0 && ` · 手续费 ${l.handling_fee_currency || "JPY"} ${l.handling_fee}`}
-                        {l.allow_storage && " · 支持暂存"}
-                        {l.allow_pickup && " · 支持自取"}
-                      </p>
-                      {l.manager_contact && <p className="text-xs text-gray-400 mt-0.5">联系：{l.manager_contact}</p>}
-                    </div>
-                  </label>
-                ))}
-              </div>
+              {!joinExistingPool && (
+                <div className="border border-blue-100 rounded-xl p-4 bg-blue-50/40 space-y-2">
+                  <label className="text-xs text-blue-700 font-medium">选择中转地 <span className="text-red-500">*</span></label>
+                  {transitLocations.length === 0 ? (
+                    <p className="text-xs text-gray-400">暂无可用中转地，请联系管理员</p>
+                  ) : transitLocations.map(l => (
+                    <label key={l.id} className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${String(selectedTransitId) === String(l.id) ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"} ${joinExistingPool ? "opacity-50 pointer-events-none" : ""}`}>
+                      <input type="radio" checked={String(selectedTransitId) === String(l.id)} onChange={() => { setSelectedTransitId(l.id); setSelectedTransitMethodId(""); setSelectedAddonIds([]); }} className="mt-0.5 accent-blue-600" disabled={joinExistingPool} />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-gray-800">{l.name}</p>
+                        <p className="text-xs text-gray-400">
+                          {[getCountry(l.country)?.name || l.country, l.province].filter(Boolean).join(" · ")}
+                          {l.handling_fee > 0 && ` · 手续费 ${l.handling_fee_currency || "JPY"} ${l.handling_fee}`}
+                          {l.allow_storage && " · 支持暂存"}
+                          {l.allow_pickup && " · 支持自取"}
+                        </p>
+                        {l.manager_contact && <p className="text-xs text-gray-400 mt-0.5">联系：{l.manager_contact}</p>}
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              )}
               {!isJoiningPool && (
                 <div className={isPickupStorageSelected ? "opacity-50 pointer-events-none grayscale" : ""}>
                   <AddressBlock
@@ -881,63 +1164,15 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
                     onSelect={(v) => handleAddressSelect(v, "final")}
                     onNewAddressChange={setNewAddress}
                     onSaveToggle={setSaveNewAddress}
-                    error={!isPickupStorageSelected && !isAddressSlotOk("final")}
+                    error={!joinExistingPool && !isPickupStorageSelected && !isAddressSlotOk("final")}
                   />
                 </div>
               )}
             </div>
           )}
 
-          {/* Join existing pool option (only for consolidation types) */}
-          {consolidation && existingPools.length > 0 && (
-            <div className="border border-gray-200 rounded-xl overflow-hidden">
-              <label className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${joinExistingPool ? "bg-purple-50 border-b border-purple-100" : "hover:bg-gray-50"}`}>
-                <Checkbox checked={joinExistingPool} onCheckedChange={v => { setJoinExistingPool(!!v); if (!v) setSelectedPoolId(""); }} />
-                <div>
-                  <p className="text-sm font-medium text-gray-800">加入已有的拼邮需求</p>
-                  <p className="text-xs text-gray-400 mt-0.5">将此次发货订单加入到现有的拼邮池中</p>
-                </div>
-              </label>
-
-              {joinExistingPool && (
-                <div className="px-4 py-3 space-y-2 bg-purple-50/40">
-                  <div className="relative">
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-                    <Input placeholder="搜索拼邮需求编号或名称..." className="pl-8 h-8 text-sm"
-                      value={poolSearchQuery} onChange={e => setPoolSearchQuery(e.target.value)} />
-                  </div>
-                  <div className="space-y-1.5 max-h-40 overflow-y-auto">
-                    {filteredPools.length === 0 ? (
-                      <p className="text-xs text-gray-400 text-center py-3">无匹配的拼邮需求</p>
-                    ) : filteredPools.map(p => (
-                      <label key={p.id} className={`flex items-start gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-colors ${selectedPoolId === p.id ? "border-purple-400 bg-purple-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
-                        <input type="radio" checked={selectedPoolId === p.id} onChange={() => setSelectedPoolId(p.id)} className="mt-0.5 accent-purple-600" />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-xs font-mono font-medium text-purple-700">{p.pool_code}</span>
-                            {p.is_private && <span className="text-xs text-gray-400">🔒</span>}
-                          </div>
-                          <p className="text-xs text-gray-600 mt-0.5 truncate">
-                            {p.consolidation_type === "transit" ? `中转拼邮 → ${p.transit_location_name || "中转地"}` : "自选地址拼邮"}
-                            {p.shipping_method && ` · ${p.shipping_method}`}
-                            {` · 当前 ${(p.order_ids || []).length} 件`}
-                          </p>
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                  {isJoiningPool && (
-                    <p className="text-xs text-blue-600 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
-                      ℹ️ 加入已有拼邮需求后，运输方式与凑满重量设置将使用该需求的配置。发货期限设置仅适用于本次新加入的订单。
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
           {/* Natural-language consolidation config */}
-          {consolidation && !isJoiningPool && (
+          {consolidation && !joinExistingPool && (
             <div className="border border-blue-100 rounded-xl overflow-hidden">
               <button type="button"
                 onClick={() => setStrategyOpen(v => !v)}
@@ -1018,7 +1253,7 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
           )}
 
           {/* Privacy setting - shown for all consolidation types, including when joining a pool */}
-          {consolidation && !isJoiningPool && (
+          {consolidation && !joinExistingPool && (
             <div className="border border-gray-200 rounded-xl p-4 space-y-3">
               <label className={`flex items-center gap-3 cursor-pointer rounded-lg p-2 -m-2 transition-colors ${isPrivate ? "bg-gray-100" : "hover:bg-gray-50"}`}>
                 <Checkbox checked={isPrivate} onCheckedChange={v => { setIsPrivate(!!v); if (!v) setSharedWithEmails([]); }} />
@@ -1044,11 +1279,11 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
                   ) : (
                     <div className="space-y-1 max-h-32 overflow-y-auto border border-gray-200 rounded-lg p-2 bg-white">
                       {filteredUsers.map(u => (
-                        <label key={u.email} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 rounded px-1 py-0.5">
-                          <Checkbox checked={sharedWithEmails.includes(u.email)} onCheckedChange={() => toggleSharedUser(u.email)} />
+                        <label key={u.user_email} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 rounded px-1 py-0.5">
+                          <Checkbox checked={sharedWithEmails.includes(u.user_email)} onCheckedChange={() => toggleSharedUser(u.user_email)} />
                           <div className="flex-1 min-w-0">
-                            <span className="text-xs font-medium text-gray-700">{u.full_name || u.email}</span>
-                            {u.full_name && <span className="text-xs text-gray-400 ml-1.5">{u.email}</span>}
+                            <span className="text-xs font-medium text-gray-700">{u.display_name || u.user_email}</span>
+                            {u.display_name && <span className="text-xs text-gray-400 ml-1.5">{u.user_email}</span>}
                           </div>
                         </label>
                       ))}
@@ -1062,37 +1297,114 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
             </div>
           )}
 
-          {/* Joining existing pool: show final address + deadline */}
+          {/* Joining existing pool: read-only pool config and user's own address */}
           {isJoiningPool && (
             <div className="space-y-3">
-              <div className={isPickupStorageSelected ? "opacity-50 pointer-events-none grayscale" : ""}>
-                <AddressBlock
-                  slot="final"
-                  label="最终收货地址"
-                  savedAddresses={savedAddresses}
-                  selectedId={finalAddressId}
-                  isNewMode={!!addressInputMode["final"]}
-                  newAddress={newAddress}
-                  saveNewAddress={saveNewAddress}
-                  onSelect={(v) => handleAddressSelect(v, "final")}
-                  onNewAddressChange={setNewAddress}
-                  onSaveToggle={setSaveNewAddress}
-                  error={!isPickupStorageSelected && !isAddressSlotOk("final")}
-                />
-              </div>
-              <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 space-y-2">
-                <p className="text-xs text-blue-500 font-medium uppercase tracking-wide">发货期限（仅适用于本次订单）</p>
-                <div className="text-sm text-gray-700 leading-8 flex flex-wrap items-center gap-x-1.5">
-                  <span>在</span>
-                  <DeadlineToken value={deadline} onChange={setDeadline} />
-                  <span>前发出。</span>
+              {/* 当前批次：地址随批次固定，只能查看；新批次才允许选择地址 */}
+              {isJoiningPool && transitBatchMode === "current" && selectedBatch ? (
+                <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-1.5">
+                  <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">最终收货地址（当前批次）</p>
+                  {selectedBatch.final_address ? (
+                    <>
+                      <p className="text-sm text-gray-800">
+                        {selectedBatch.final_address.recipient_name || "未填写"} · {selectedBatch.final_address.phone || ""}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {[
+                          selectedBatch.final_address.country,
+                          selectedBatch.final_address.state,
+                          selectedBatch.final_address.addr1,
+                          selectedBatch.final_address.addr2,
+                          selectedBatch.final_address.addr3,
+                        ].filter(Boolean).join(" ")}
+                      </p>
+                      <p className="text-xs text-gray-400">地址跟随当前批次，不可修改；如需新地址请选择「新批次」。</p>
+                    </>
+                  ) : (
+                    <p className="text-xs text-gray-400">当前批次没有保存地址</p>
+                  )}
+                </div>
+              ) : (
+                <div className={effectiveIsPickupStorage ? "opacity-50 pointer-events-none grayscale" : ""}>
+                  <AddressBlock
+                    slot="final"
+                    label="最终收货地址"
+                    savedAddresses={savedAddresses}
+                    selectedId={finalAddressId}
+                    isNewMode={!!addressInputMode["final"]}
+                    newAddress={newAddress}
+                    saveNewAddress={saveNewAddress}
+                    onSelect={(v) => handleAddressSelect(v, "final")}
+                    onNewAddressChange={setNewAddress}
+                    onSaveToggle={setSaveNewAddress}
+                    error={!effectiveIsPickupStorage && !isAddressSlotOk("final")}
+                  />
+                </div>
+              )}
+              <div className="bg-purple-50 border border-purple-100 rounded-xl p-4 space-y-2">
+                <p className="text-xs text-purple-600 font-medium uppercase tracking-wide">
+                  🔒 {selectedPool?.pool_code} · 以下配置以拼邮需求为准
+                </p>
+                <div className="text-sm text-gray-700 space-y-1">
+                  <p>发货期限：<span className="font-medium">{joinDeadline || "任何时候"}</span></p>
+                  <p>运输方式：<span className="font-medium">{joinShippingMethodName || "未指定"}</span></p>
+                  {selectedPool?.consolidation_type === "transit" && (
+                    <p>中转地：<span className="font-medium">{joinTransitLocationName || "未指定"}</span></p>
+                  )}
                 </div>
               </div>
+
+              {joinAddons.length > 0 && (
+                <div className="bg-yellow-50 border border-yellow-100 rounded-xl p-4 space-y-1.5">
+                  <p className="text-xs text-yellow-700 font-medium uppercase tracking-wide">增值服务（来自拼邮需求）</p>
+                  {joinAddons.map((a, i) => {
+                    const fee = a.custom_fee ?? a.fee;
+                    return (
+                      <div key={a.id ?? i} className="flex items-center justify-between gap-2 text-sm text-gray-700">
+                        <span>{a.service_name || "增值服务"}</span>
+                        {fee !== undefined && fee !== null && fee !== "" && (
+                          <span className="text-xs text-gray-500">{a.fee_currency || "JPY"} {fee}</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 space-y-1 text-sm text-gray-700">
+                <p className="text-xs text-blue-600 font-medium uppercase tracking-wide">拼邮策略（来自拼邮需求）</p>
+                {selectedPool?.consolidation_min_weight_g > 0 && (
+                  <p>凑满 <span className="font-medium">{selectedPool.consolidation_min_weight_g}g</span> 时发货</p>
+                )}
+                <p>使用运输方式：<span className="font-medium">{joinConsMethodName}</span></p>
+                {joinFallbackMethodName && <p>备选运输方式：<span className="font-medium">{joinFallbackMethodName}</span></p>}
+                {joinTimeoutActionLabel && <p>条件未达成：<span className="font-medium">{joinTimeoutActionLabel}</span></p>}
+                {selectedPool?.consolidation_timeout_action === "ship_individually" && joinTimeoutMethodName && (
+                  <p>单独发货方式：<span className="font-medium">{joinTimeoutMethodName}</span></p>
+                )}
+              </div>
+
+              {/* 收货地址（来自拼邮需求）——已停用，改用上方当前用户的最终收货地址
+              <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-1">
+                <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">收货地址（来自拼邮需求）</p>
+                <p className="text-sm font-medium text-gray-800">{selectedPool?.recipient_name || "未填写"}</p>
+                {selectedPool?.recipient_phone && <p className="text-xs text-gray-500">{selectedPool.recipient_phone}</p>}
+                <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                  {[selectedPool?.address_line1, selectedPool?.address_line2, selectedPool?.address_line3].filter(Boolean).join(" ") || "未填写"}
+                </p>
+                {[selectedPool?.city, selectedPool?.state, selectedPool?.postal_code].filter(Boolean).length > 0 && (
+                  <p className="text-sm text-gray-700">
+                    {[selectedPool?.city, selectedPool?.state, selectedPool?.postal_code].filter(Boolean).join(" ")}
+                  </p>
+                )}
+                <p className="text-sm text-gray-700">{getCountry(selectedPool?.country)?.name || selectedPool?.country || ""}</p>
+              </div>
+              */}
             </div>
           )}
 
           {/* Address picker for consType="other" (only when NOT joining existing pool) */}
-          {consType === "other" && !isJoiningPool && (
+          {consType === "other" && !joinExistingPool && (
             <AddressBlock
               slot="other"
               label="拼邮目标地址"
@@ -1108,45 +1420,132 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
             />
           )}
 
-          {consType === "transit" && !isJoiningPool && (
-            <TransitMethodSection
-              consType="transit"
-              selectedTransitId={selectedTransitId}
-              transitLocations={transitLocations}
-              transitMethods={transitMethods}
-              selectedTransitMethodId={selectedTransitMethodId}
-              setSelectedTransitMethodId={setSelectedTransitMethodId}
-            />
-          )}
-          {isJoiningPool && selectedPool?.consolidation_type === "transit" && (
-            <TransitMethodSection
-              consType="transit"
-              selectedTransitId={selectedPool.transit_location_id}
-              transitLocations={transitLocations}
-              transitMethods={transitMethods}
-              selectedTransitMethodId={selectedTransitMethodId}
-              setSelectedTransitMethodId={setSelectedTransitMethodId}
-            />
-          )}
+          {consType === "transit" && (
+            <>
+              {isJoiningPool && (
+                <div className="space-y-2">
+                  <label className="text-xs text-gray-500 font-medium uppercase tracking-wide flex items-center gap-1.5">
+                    <Layers className="w-3.5 h-3.5" />批次 <span className="text-red-500">*</span>
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      disabled={!hasBatches}
+                      onClick={() => handleBatchModeChange("current")}
+                      className={`px-3 py-2 rounded-lg border text-sm transition-colors ${transitBatchMode === "current"
+                        ? "border-orange-400 bg-orange-50 text-orange-700"
+                        : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"} ${!hasBatches ? "opacity-50 cursor-not-allowed" : ""}`}
+                    >
+                      当前批次
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleBatchModeChange("new")}
+                      className={`px-3 py-2 rounded-lg border text-sm transition-colors ${transitBatchMode === "new"
+                        ? "border-orange-400 bg-orange-50 text-orange-700"
+                        : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"}`}
+                    >
+                      新批次
+                    </button>
+                  </div>
 
-          {/* Show shipping addons for all shipment types */}
-          {!joinDirectPool && (
-            <TransitAddonSection
-              consType={consType}
-              selectedTransitId={isJoiningPool ? (selectedPool?.transit_location_id || selectedTransitId) : selectedTransitId}
-              transitLocations={transitLocations}
-              shippingAddons={shippingAddons}
-              selectedAddonIds={selectedAddonIds}
-              setSelectedAddonIds={setSelectedAddonIds}
-              addonCustomFees={addonCustomFees}
-              setAddonCustomFees={setAddonCustomFees}
-              addonFeeErrors={addonFeeErrors}
-              setAddonFeeErrors={setAddonFeeErrors}
-            />
+                  {transitBatchMode === "current" && (
+                    <div className="space-y-1.5">
+                      {poolBatches.map(batch => (
+                        <label
+                          key={batch.id}
+                          className={`flex items-center justify-between gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${String(selectedBatchId) === String(batch.id)
+                            ? "border-orange-400 bg-orange-50"
+                            : "border-gray-200 hover:bg-gray-50"}`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="radio"
+                              checked={String(selectedBatchId) === String(batch.id)}
+                              onChange={() => {
+                                setSelectedBatchId(String(batch.id));
+                                setSelectedTransitMethodId(pickRecordMethodId(batch));
+                              }}
+                              className="accent-orange-500"
+                            />
+                            <div className="flex flex-col">
+                              <span className="text-sm font-medium text-gray-800">{batchMethodLabel(batch)}</span>
+                              <span className="text-xs text-gray-400">
+                                {(batch.order_ids || []).length} 件
+                                {batch.created_at ? ` · ${String(batch.created_at).slice(0, 10)}` : ""}
+                              </span>
+                            </div>
+                          </div>
+                        </label>
+                      ))}
+                      {!hasBatches && (
+                        <p className="text-xs text-gray-400">该拼邮需求下没有可用的当前批次</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {(!isJoiningPool || transitBatchMode === "new") && (
+                <TransitMethodSection
+                  consType="transit"
+                  selectedTransitId={isJoiningPool ? (selectedPool?.transit_location_id || selectedTransitId) : selectedTransitId}
+                  transitLocations={transitLocations}
+                  transitMethods={transitMethods}
+                  selectedTransitMethodId={selectedTransitMethodId}
+                  setSelectedTransitMethodId={setSelectedTransitMethodId}
+                  isStorageReship={isStorageReship}
+                  locked={false}
+                />
+              )}
+
+              {isJoiningPool && transitBatchMode === "current" && selectedBatch && (
+                <p className="text-xs text-gray-500">
+                  当前批次运输方式：<span className="font-medium text-gray-700">{batchMethodLabel(selectedBatch)}</span>（沿用已有批次，不可修改）
+                </p>
+              )}
+            </>
+          )}
+          {/* 当前批次：增值服务跟随批次，只读；新批次才允许选择 */}
+          {isJoiningPool && transitBatchMode === "current" && selectedBatch ? (
+            <div className="bg-yellow-50 border border-yellow-100 rounded-xl p-4 space-y-1.5">
+              <p className="text-xs text-yellow-700 font-medium uppercase tracking-wide">增值服务（当前批次）</p>
+              {(selectedBatch.selected_addons || []).length === 0 ? (
+                <p className="text-sm text-gray-500">无</p>
+              ) : (
+                (selectedBatch.selected_addons || []).map((a, i) => {
+                  const fee = a.custom_fee ?? a.fee;
+                  return (
+                    <div key={a.id ?? i} className="flex items-center justify-between gap-2 text-sm text-gray-700">
+                      <span>{a.service_name || "增值服务"}</span>
+                      {fee !== undefined && fee !== null && fee !== "" && (
+                        <span className="text-xs text-gray-500">{a.fee_currency || "JPY"} {fee}</span>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+              <p className="text-xs text-gray-400">增值服务跟随当前批次，不可修改；如需变更请选择「新批次」。</p>
+            </div>
+          ) : (
+            !joinDirectPool && (
+              <TransitAddonSection
+                consType={consType}
+                selectedTransitId={selectedTransitId}
+                transitLocations={transitLocations}
+                shippingAddons={shippingAddons}
+                selectedAddonIds={selectedAddonIds}
+                setSelectedAddonIds={setSelectedAddonIds}
+                addonCustomFees={addonCustomFees}
+                setAddonCustomFees={setAddonCustomFees}
+                addonFeeErrors={addonFeeErrors}
+                setAddonFeeErrors={setAddonFeeErrors}
+              />
+            )
           )}
 
           {/* Pool title — only when creating a new pool (not joining existing) */}
-          {!joinDirectPool && !isJoiningPool && (
+          {!joinDirectPool && !joinExistingPool && (
             <div>
               <label className="text-xs text-gray-500 font-medium uppercase tracking-wide">发货申请名称（可选）</label>
               <Input
@@ -1169,10 +1568,27 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
         {(() => {
           const missing = [];
           const isPickupStorageSelected = selectedTransitMethodId === '__pickup__' || selectedTransitMethodId === '__storage__';
-          if (!method && !joinDirectPool && !isJoiningPool) missing.push("发货方式");
-          if (!isJoiningPool && consType === "transit" && !selectedTransitId) missing.push("中转地");
-          if (!isJoiningPool && consType === "transit" && !selectedTransitMethodId) missing.push("中转段运输方式");
-          if (!isJoiningPool && consType === "transit" && !isPickupStorageSelected && !isAddressSlotOk("final")) {
+          if (!method && !joinDirectPool && !joinExistingPool) missing.push("发货方式");
+          if (joinExistingPool && isJoiningPool && selectedPool?.consolidation_type === "transit") {
+            if (transitBatchMode === "new" && !selectedTransitMethodId) missing.push("中转段运输方式");
+            if (transitBatchMode === "current" && !selectedBatchId) missing.push("当前批次");
+          }
+          if (joinExistingPool && isJoiningPool && !(transitBatchMode === "current" && selectedBatch) && !effectiveIsPickupStorage && !isAddressSlotOk("final")) {
+            const inNew = !!addressInputMode["final"] || savedAddresses.length === 0;
+            if (inNew) {
+              if (!newAddress.recipient_name?.trim()) missing.push("最终收货地址：受取人お名前");
+              if (!newAddress.country?.trim()) missing.push("最终收货地址：受取人国名");
+              if (!newAddress.addr2?.trim()) missing.push("最终收货地址：住所2");
+              if (!newAddress.addr1?.trim()) missing.push("最终收货地址：住所1");
+              if (!newAddress.state?.trim()) missing.push("最终收货地址：州名など");
+              if (!newAddress.phone?.trim()) missing.push("最终收货地址：連絡先電話番号");
+            } else {
+              missing.push("最终收货地址");
+            }
+          }
+          if (!joinExistingPool && consType === "transit" && !selectedTransitId) missing.push("中转地");
+          if (!joinExistingPool && consType === "transit" && !selectedTransitMethodId) missing.push("中转段运输方式");
+          if (!joinExistingPool && consType === "transit" && !isPickupStorageSelected && !isAddressSlotOk("final")) {
             const inNew = !!addressInputMode["final"] || savedAddresses.length === 0;
             if (inNew) {
               if (!newAddress.recipient_name?.trim()) missing.push("收货地址：受取人お名前");
@@ -1185,20 +1601,7 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
               missing.push("最终收货地址");
             }
           }
-          if (isJoiningPool && !isPickupStorageSelected && !isAddressSlotOk("final")) {
-            const inNew = !!addressInputMode["final"] || savedAddresses.length === 0;
-            if (inNew) {
-              if (!newAddress.recipient_name?.trim()) missing.push("收货地址：受取人お名前");
-              if (!newAddress.country?.trim()) missing.push("收货地址：受取人国名");
-              if (!newAddress.addr2?.trim()) missing.push("収货地址：住所2");
-              if (!newAddress.addr1?.trim()) missing.push("收货地址：住所1");
-              if (!newAddress.state?.trim()) missing.push("收货地址：州名など");
-              if (!newAddress.phone?.trim()) missing.push("收货地址：連絡先電話番号");
-            } else {
-              missing.push("最终收货地址");
-            }
-          }
-          if (!isJoiningPool && consType === "" && !joinDirectPool && !isAddressSlotOk("direct")) {
+          if (!joinExistingPool && consType === "" && !joinDirectPool && !isAddressSlotOk("direct")) {
             const inNew = !!addressInputMode["direct"] || savedAddresses.length === 0;
             if (inNew) {
               if (!newAddress.recipient_name?.trim()) missing.push("收货地址：受取人お名前");
@@ -1211,7 +1614,7 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
               missing.push("收货地址");
             }
           }
-          if (!isJoiningPool && consType === "other" && !isAddressSlotOk("other")) {
+          if (!joinExistingPool && consType === "other" && !isAddressSlotOk("other")) {
             const inNew = !!addressInputMode["other"] || savedAddresses.length === 0;
             if (inNew) {
               if (!newAddress.recipient_name?.trim()) missing.push("拼邮地址：受取人お名前");
@@ -1245,18 +1648,19 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
           <Button
              size="sm"
              className="bg-red-600 hover:bg-red-700"
-             onClick={() => setShowConfirm(true)}
+             onClick={handleSubmit}
              disabled={
-               (!method && !joinDirectPool && !isJoiningPool) || submitting ||
-               (method && !isJoiningPool && getMethodError()) ||
-               (!isJoiningPool && consType === "transit" && !selectedTransitId) ||
-               (!isJoiningPool && consType === "transit" && !selectedTransitMethodId) ||
-               (!isJoiningPool && consType === "transit" && !(selectedTransitMethodId === '__pickup__' || selectedTransitMethodId === '__storage__') && !isAddressSlotOk("final")) ||
-               (isJoiningPool && !(selectedTransitMethodId === '__pickup__' || selectedTransitMethodId === '__storage__') && !isAddressSlotOk("final")) ||
-               (isJoiningPool && selectedPool?.consolidation_type === "transit" && !selectedTransitMethodId) ||
-               (!isJoiningPool && consType === "" && !joinDirectPool && !isAddressSlotOk("direct")) ||
-               (!isJoiningPool && consType === "other" && !isAddressSlotOk("other")) ||
+                (!method && !joinDirectPool && !joinExistingPool) || submitting ||
+                (method && !joinExistingPool && getMethodError()) ||
+                (!joinExistingPool && consType === "transit" && !selectedTransitId) ||
+                (!joinExistingPool && consType === "transit" && !selectedTransitMethodId) ||
+                (!joinExistingPool && consType === "transit" && !(selectedTransitMethodId === '__pickup__' || selectedTransitMethodId === '__storage__') && !isAddressSlotOk("final")) ||
+                (!joinExistingPool && consType === "" && !joinDirectPool && !isAddressSlotOk("direct")) ||
+                (!joinExistingPool && consType === "other" && !isAddressSlotOk("other")) ||
                (joinExistingPool && !selectedPoolId) ||
+               (isJoiningPool && selectedPool?.consolidation_type === "transit" && transitBatchMode === "new" && !selectedTransitMethodId) ||
+               (isJoiningPool && selectedPool?.consolidation_type === "transit" && transitBatchMode === "current" && !selectedBatchId) ||
+               (isJoiningPool && !(transitBatchMode === "current" && selectedBatch) && !effectiveIsPickupStorage && !isAddressSlotOk("final")) ||
                (joinDirectPool && !selectedDirectPoolId)
              }
            >
@@ -1266,15 +1670,6 @@ export default function UserNotifyShipmentModal({ order, orders, initialData, on
         </div>
       </div>
     </div>
-    <ConfirmDialog
-      open={showConfirm}
-      onOpenChange={setShowConfirm}
-      title="确认通知发货"
-      description="确定要通知发货吗？提交后将通知仓库处理您的订单。"
-      confirmText="确认通知"
-      cancelText="取消"
-      onConfirm={() => { setShowConfirm(false); handleSubmit(); }}
-    />
     </>
   );
 }

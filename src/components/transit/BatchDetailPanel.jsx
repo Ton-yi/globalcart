@@ -2,17 +2,27 @@
  * BatchDetailPanel - 右侧 Master-Detail 面板
  * 根据批次类型（普通运输 / 暂存 / 自取）显示不同内容
  */
-import { useState, useEffect } from "react";
-import { X, MapPin, Truck, Star, Package, Upload, Save, Image as ImageIcon, CheckCircle, Calendar, Info, Eye } from "lucide-react";
+import { useState, useEffect, memo } from "react";
+import { X, MapPin, Truck, Star, Package, Save, CheckCircle, Calendar, CalendarDays, Info, Eye, Loader2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { Calendar as CalendarPicker } from "@/components/ui/calendar";
+import { format } from "date-fns";
 import { base44 } from "@/api/base44Client";
 import { getCountry } from "@/lib/countries";
 import AdminOrderEditModal from "@/components/admin/AdminOrderEditModal";
+import MultiImageUploader from "@/components/common/MultiImageUploader";
+import { toast } from "sonner";
+import { transitLocationApi } from "@/lib/tenantApi";
+import { usePickupActions, buildPickupTimeSlot } from "@/hooks/usePickupActions";
+import PickupStatusBadges from "@/components/transit/pickup/PickupStatusBadges";
+import PickupTimeSlotPicker from "@/components/transit/pickup/PickupTimeSlotPicker";
+import PickupConfirmActions from "@/components/transit/pickup/PickupConfirmActions";
+import { createPageUrl } from "@/utils";
 
 function AddressBlock({ address }) {
   if (!address || !address.recipient_name) return (
@@ -37,81 +47,235 @@ function AddonsBlock({ addons }) {
   );
   return (
     <div className="flex flex-wrap gap-1.5">
-      {addons.map((a, i) => (
-        <span key={i} className="inline-flex items-center gap-1 text-xs bg-yellow-50 border border-yellow-200 text-yellow-700 rounded px-2 py-0.5">
-          <Star className="w-2.5 h-2.5" />{a.name}{a.fee > 0 ? ` +${a.fee_currency || 'JPY'} ${a.fee}` : ''}
-        </span>
-      ))}
+      {addons.map((a, i) => {
+        const hasCustom = a.custom_fee !== null && a.custom_fee !== undefined;
+        const originalFee = parseFloat(a.fee) || 0;
+        const effectiveFee = hasCustom ? (parseFloat(a.custom_fee) || 0) : originalFee;
+        const currency = a.fee_currency || 'JPY';
+        return (
+          <span key={i} className="inline-flex items-center gap-1 text-xs bg-yellow-50 border border-yellow-200 text-yellow-700 rounded px-2 py-0.5">
+            <Star className="w-2.5 h-2.5" />{a.service_name}
+            {hasCustom && originalFee > 0 && (
+              <span className="line-through text-yellow-500/60">+{currency} {originalFee}</span>
+            )}
+            {effectiveFee > 0 && <span>+{currency} {effectiveFee}</span>}
+          </span>
+        );
+      })}
     </div>
   );
 }
 
+// 批次订单以 findOne 的 detail 为准：列表 entries 可能包含历史重复的 transit_shipping 记录。
+// 无论用哪份数据，都按订单 id 去重，避免同一订单被重复计数/重复提交。
+function resolveBatchOrders(batch, detail) {
+  const detailOrders = Array.isArray(detail?.order_details) ? detail.order_details : [];
+  const source = detailOrders.length > 0
+    ? detailOrders
+    : (batch?.entries || []).flatMap((entry) =>
+        Array.isArray(entry.order_details) && entry.order_details.length > 0
+          ? entry.order_details
+          : [entry]
+      );
+  const seen = new Set();
+  return source.filter((order) => {
+    const key = order?.id ?? order?.order_id;
+    if (key === null || key === undefined) return true;
+    const normalized = String(key);
+    if (seen.has(normalized)) return false;
+    seen.add(normalized);
+    return true;
+  });
+}
+
 // ─── 普通运输面板 ───────────────────────────────────────────────────────────────
-function TransitShippingPanel({ batch, pool, transitMethods, isManager, onSaved }) {
+function TransitShippingPanel({ batch, pool, transitMethods, isManager, onSaved, detail }) {
+  const batchOrders = resolveBatchOrders(batch, detail);
   // Get default method from batch's pre-shipment config (user's selected transit method)
-  const defaultMethod = batch.transit_shipping_method_name || 
-                        transitMethods.find(m => m.id === batch.transit_shipping_method_id)?.name || 
-                        '';
+  const defaultMethod = transitMethods.find(m => m.id === batch.transit_shipping_method_id)?.name ||
+    batch.transit_shipping_method || '';
+
+  // 池级收货状态：由 TransitLocationWork「确认收货」写入，决定按钮形态
+  const poolArrived = !!pool?.transit_arrival_confirmed_at || !!detail?.transit_arrived_date;
+  const recordNotArrived = detail?.status !== 'arrived';
+
   const [formData, setFormData] = useState({
     transit_shipping_method: defaultMethod,
+    transit_shipping_method_id: batch.transit_shipping_method_id,
     transit_tracking_number: '',
     transit_fee_jpy: '',
     transit_note: '',
     transit_image_urls: [],
+    transit_shipped_date: ''
   });
-  const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [shipping, setShipping] = useState(false);
 
   // Load existing saved shipping info
   useEffect(() => {
-    if (!pool?.transit_shipping_info_per_user) return;
-    const userInfo = pool.transit_shipping_info_per_user.find(i => i.user_email === batch.user_email);
-    if (!userInfo?.address_groups) return;
-    const myOrderIds = batch.entries.map(e => e.order_id || e.id).filter(Boolean).sort();
-    const existing = userInfo.address_groups.find(ag => {
-      return JSON.stringify((ag.order_ids || []).sort()) === JSON.stringify(myOrderIds);
-    });
-    if (existing) {
+    // Priority 1: use findOne detail record (fresh, complete)
+    if (detail) {
+      // 用户申请发货时选的真实方式存在 detail.transit_shipping_method_id（如 8），
+      // 而 detail.transit_shipping_method 可能是 "__storage__" 标记，需用 id 反查真实方式名
+      const detailMethodId = detail.transit_shipping_method_id;
+      const detailMethodName = transitMethods.find(m => String(m.id) === String(detailMethodId))?.name
+        || (detail.transit_shipping_method && !String(detail.transit_shipping_method).startsWith('__') ? detail.transit_shipping_method : '')
+        || defaultMethod;
       setFormData({
-        transit_shipping_method: existing.transit_shipping_method || defaultMethod,
-        transit_tracking_number: existing.transit_tracking_number || '',
-        transit_fee_jpy: existing.transit_fee_jpy || '',
-        transit_note: existing.transit_note || '',
-        transit_image_urls: existing.transit_image_urls || [],
+        transit_shipping_method: detailMethodName,
+        transit_shipping_method_id: detailMethodId ?? batch.transit_shipping_method_id,
+        transit_tracking_number: detail.transit_tracking_number ?? '',
+        transit_fee_jpy: detail.transit_fee_jpy ?? '',
+        transit_note: detail.transit_note ?? '',
+        transit_image_urls: detail.transit_image_urls || [],
+        transit_shipped_date: detail.transit_shipped_date ?? '',
       });
+      return;
     }
-  }, [pool?.id, batch.user_email]);
 
-  const handleImageUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
+    // Priority 2: legacy pool.transit_shipping_info_per_user format
+    const myOrderIds = batch.entries.map(e => e.order_id || e.id).filter(Boolean).sort();
+    if (pool?.transit_shipping_info_per_user) {
+      const userInfo = pool.transit_shipping_info_per_user.find(i => i.user_email === batch.user_email);
+      const existing = userInfo?.address_groups?.find(ag =>
+        JSON.stringify((ag.order_ids || []).sort()) === JSON.stringify(myOrderIds)
+      );
+      if (existing) {
+        setFormData({
+          transit_shipping_method: existing.transit_shipping_method || defaultMethod,
+          transit_shipping_method_id: batch.transit_shipping_method_id,
+          transit_tracking_number: existing.transit_tracking_number || '',
+          transit_fee_jpy: existing.transit_fee_jpy || '',
+          transit_note: existing.transit_note || '',
+          transit_image_urls: existing.transit_image_urls || [],
+          transit_shipped_date: existing.transit_shipped_date || '',
+        });
+        return;
+      }
+    }
+
+    // Priority 3: fallback to batch.entries[0] fields
+    const firstEntry = batch.entries[0];
+    if (firstEntry) {
+      setFormData(p => ({
+        ...p,
+        transit_shipping_method: firstEntry.transit_shipping_method || p.transit_shipping_method,
+        transit_tracking_number: firstEntry.transit_tracking_number ?? p.transit_tracking_number,
+        transit_fee_jpy: firstEntry.transit_fee_jpy ?? p.transit_fee_jpy,
+        transit_note: firstEntry.transit_note ?? p.transit_note,
+        transit_image_urls: firstEntry.transit_image_urls || p.transit_image_urls,
+        transit_shipped_date: firstEntry.transit_shipped_date ?? p.transit_shipped_date,
+      }));
+    }
+  }, [detail, pool?.id, batch.user_email, batch.entries.length]);
+
+  // 该批次（用户+订单组）的 transit_shipping 记录是否已发货
+  const existingRecord = (() => {
+    // Priority 1: findOne detail record
+    if (detail) return detail;
+    // Priority 2: legacy pool.transit_shipping_info_per_user
+    if (pool?.transit_shipping_info_per_user) {
+      const userInfo = pool.transit_shipping_info_per_user.find(i => i.user_email === batch.user_email);
+      if (userInfo?.address_groups) {
+        const myOrderIds = batch.entries.map(e => e.order_id || e.id).filter(Boolean).sort();
+        return userInfo.address_groups.find(ag => JSON.stringify((ag.order_ids || []).sort()) === JSON.stringify(myOrderIds)) || null;
+      }
+    }
+    // Priority 3: fallback to batch.entries[0]
+    return batch.entries[0] || null;
+  })();
+  const recordShipped = !!existingRecord?.transit_shipped_date || !!existingRecord.transit_forwarded_date || recordNotArrived;
+
+  // 组装该批次的订单 id 列表（用户+订单组 粒度，对应 transit_shipping.order_ids）
+  const buildOrderIds = () => batchOrders
+    .map(o => o.id ?? o.order_id)
+    .filter(Boolean);
+
+  const buildShippingData = () => ({
+    ...formData,
+    transit_fee_jpy: formData.transit_fee_jpy ? Number(formData.transit_fee_jpy) : 0,
+  });
+
+  // 保存发货信息到 transit_shipping 表（用户+订单组 粒度），不产生费用
+  const handleSave = async () => {
+    setSaving(true);
+
+    let payload =  {
+      id: pool.id,
+      pool_code: pool.pool_code,
+      data: {...buildShippingData(),
+        id: detail?.id ?? batch?.entries?.[0]?.id, //为后端TransitShippingRecord的主键
+        user_email: batch.user_email,
+        order_ids: buildOrderIds(),
+        order_details: batchOrders.map(d => ({
+          id: d.id,
+          order_number: d.order_number
+        }))
+      }
+    }
+
     try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
-      if (file_url) setFormData(p => ({ ...p, transit_image_urls: [...p.transit_image_urls, file_url] }));
+      // await base44.functions.invoke('updateUserTransitShipping', {
+      //   pool_id: pool.id,
+      //   user_email: batch.user_email,
+      //   order_ids: buildOrderIds(),
+      //   shipping_data: buildShippingData(),
+      // });
+
+      await transitLocationApi.saveInfo(payload.id, payload.data);
+
+      toast.success('发货信息已保存');
+      onSaved?.();
+    } catch (err) {
+      const message = err?.response?.data?.message;
+      console.error('[BatchDetailPanel] handleSave failed:', message);
+      toast.error(message || '保存失败，请稍后重试');
     } finally {
-      setUploading(false);
+      setSaving(false);
     }
   };
 
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      const orderIds = batch.entries.map(e => e.order_id || e.id).filter(Boolean);
-      await base44.functions.invoke('updateUserTransitShipping', {
-        pool_id: pool.id,
+  // 确认中转地发货：保存当前信息并标记该 transit_shipping 记录为已发货（国内发货，不产生费用）
+  const handleShip = async () => {
+    setShipping(true);
+
+    let payload =  {
+      id: pool.id,
+      pool_code: pool.pool_code,
+      data: {...buildShippingData(),
+        id: detail?.id ?? batch?.entries?.[0]?.id, //为后端TransitShippingRecord的主键
         user_email: batch.user_email,
-        order_ids: orderIds,
-        shipping_data: {
-          ...formData,
-          transit_fee_jpy: formData.transit_fee_jpy ? Number(formData.transit_fee_jpy) : 0,
-        },
-      });
+        order_ids: buildOrderIds(),
+        order_details: batchOrders.map(d => ({
+          id: d.id,
+          order_number: d.order_number
+        }))
+      }
+    }
+
+    try {
+
+      await transitLocationApi.handleShipped(payload.id, payload.data);
+
+      // await base44.functions.invoke('updateUserTransitShipping', {
+      //   pool_id: pool.id,
+      //   user_email: batch.user_email,
+      //   order_ids: buildOrderIds(),
+      //   shipping_data: {
+      //     ...buildShippingData(),
+      //     transit_shipped_date: formData.transit_shipped_date || new Date().toISOString().split('T')[0],
+      //   },
+      //   action: 'confirm_ship',
+      // });
+      toast.success('已确认中转地发货');
       onSaved?.();
     } catch (err) {
-      alert('保存失败：' + err.message);
+      // alert('发货失败：' + err.message);
+      const message = err?.response?.data?.message;
+      console.error('[BatchDetailPanel] handleShip failed:', message);
+      toast.error(message || '发货失败，请稍后重试');
     } finally {
-      setSaving(false);
+      setShipping(false);
     }
   };
 
@@ -137,101 +301,150 @@ function TransitShippingPanel({ batch, pool, transitMethods, isManager, onSaved 
           <Label className="text-xs text-gray-500">发货方式</Label>
           {transitMethods.length > 0 ? (
             <select
-              className="mt-1 w-full border rounded-lg px-2 py-1.5 text-sm bg-white"
-              value={formData.transit_shipping_method}
-              onChange={e => setFormData(p => ({ ...p, transit_shipping_method: e.target.value }))}
+              className="mt-1 w-full border rounded-lg px-2 py-1.5 text-sm bg-white disabled:opacity-60 disabled:cursor-not-allowed"
+              value={formData.transit_shipping_method_id ?? ""}
+              disabled={recordShipped}
+              onChange={e => {
+                const id = e.target.value ? Number(e.target.value) : null;
+                const m = transitMethods.find(mm => mm.id === id);
+                setFormData(p => ({
+                  ...p,
+                  transit_shipping_method_id: id,
+                  transit_shipping_method: m?.name || ''
+                }));
+              }}
             >
               <option value="">请选择</option>
               {transitMethods.map(m => (
-                <option key={m.id} value={m.name}>{m.name}</option>
+                <option key={m.id} value={m.id}>{m.name}</option>
               ))}
             </select>
           ) : (
             <Input className="mt-1 text-sm" value={formData.transit_shipping_method}
+              disabled={recordShipped}
               onChange={e => setFormData(p => ({ ...p, transit_shipping_method: e.target.value }))}
               placeholder="填写中转发货方式" />
           )}
         </div>
 
         <div>
-          <Label className="text-xs text-gray-500">运输单号</Label>
+          <Label className="text-xs text-gray-500">
+            运输单号 <span className="text-red-500">*</span>
+          </Label>
           <Input className="mt-1 text-sm font-mono" value={formData.transit_tracking_number}
+            disabled={recordShipped}
             onChange={e => setFormData(p => ({ ...p, transit_tracking_number: e.target.value }))}
             placeholder="填写运单号" />
         </div>
 
+        {/* 隐藏：运费已在 ShippingPoolDetailModal 支付，此处不再显示
         <div>
           <Label className="text-xs text-gray-500">中转运费 (JPY)</Label>
           <Input className="mt-1 text-sm" type="number" value={formData.transit_fee_jpy}
             onChange={e => setFormData(p => ({ ...p, transit_fee_jpy: e.target.value }))}
             placeholder="0" />
         </div>
+        */}
 
         <div>
           <Label className="text-xs text-gray-500">中转人备注</Label>
           <Textarea className="mt-1 text-sm" rows={2} value={formData.transit_note}
+            disabled={recordShipped}
             onChange={e => setFormData(p => ({ ...p, transit_note: e.target.value }))}
             placeholder="填写备注" />
         </div>
 
         <div>
-          <Label className="text-xs text-gray-500 mb-1.5 block">中转地发货图片</Label>
-          <label className="cursor-pointer">
-            <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={uploading} />
-            <div className="flex items-center gap-2 text-xs text-indigo-600 hover:text-indigo-800 border border-dashed border-indigo-200 rounded-lg px-3 py-2 hover:border-indigo-400 transition-colors">
-              <Upload className="w-3.5 h-3.5" />{uploading ? '上传中...' : '上传图片'}
-            </div>
-          </label>
-          {formData.transit_image_urls.length > 0 && (
-            <div className="grid grid-cols-3 gap-1.5 mt-2">
-              {formData.transit_image_urls.map((url, i) => (
-                <div key={i} className="relative group">
-                  <img src={url} alt={`发货图${i+1}`} className="w-full h-16 object-cover rounded border" />
-                  <button
-                    onClick={() => setFormData(p => ({ ...p, transit_image_urls: p.transit_image_urls.filter((_, j) => j !== i) }))}
-                    className="absolute top-0.5 right-0.5 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs"
-                  >×</button>
-                </div>
-              ))}
-            </div>
-          )}
+          <MultiImageUploader
+            value={formData.transit_image_urls}
+            onChange={(urls) => setFormData(p => ({ ...p, transit_image_urls: urls }))}
+            uploadPath="transit_ship"
+            label="中转地发货图片"
+            id="transit-image-uploader"
+            readOnly={recordShipped}
+          />
         </div>
 
-        {isManager && (
+        {recordShipped ? (
+          recordNotArrived && !existingRecord?.transit_shipped_date && !existingRecord?.transit_forwarded_date ? (
+            <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              <AlertTriangle className="w-4 h-4" />
+              包裹未到达中转地，暂不可编辑
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+              <CheckCircle className="w-4 h-4" />
+              已确认中转地发货{formData.transit_shipped_date ? `（${formData.transit_shipped_date}）` : ''}
+            </div>
+          )
+        ) : isManager && poolArrived ? (
+          <div className="flex gap-2">
+            <Button variant="outline" className="flex-1" onClick={handleSave} disabled={saving}>
+              <Save className="w-4 h-4 mr-2" />{saving ? '保存中...' : '保存'}
+            </Button>
+            <Button className="flex-1 bg-indigo-600 hover:bg-indigo-700" onClick={handleShip} disabled={shipping || !formData.transit_tracking_number?.trim()}>
+              <Truck className="w-4 h-4 mr-2" />{shipping ? '发货中...' : '确认中转地发货'}
+            </Button>
+          </div>
+        ) : isManager ? (
           <Button className="w-full bg-indigo-600 hover:bg-indigo-700" onClick={handleSave} disabled={saving}>
             <Save className="w-4 h-4 mr-2" />{saving ? '保存中...' : '保存发货信息'}
           </Button>
-        )}
+        ) : null}
       </div>
     </div>
   );
 }
 
+const MemoizedTransitShippingPanel = memo(TransitShippingPanel);
+
 // ─── 暂存面板 ────────────────────────────────────────────────────────────────
-function StorageBatchPanel({ batch, pool, isManager, onSaved }) {
-  const [storageUntil, setStorageUntil] = useState('');
+function StorageBatchPanel({ batch, pool, isManager, onSaved, detail }) {
+  const batchOrders = resolveBatchOrders(batch, detail);
+  const [storageUntil, setStorageUntil] = useState(detail?.storage_until || '');
   const [saving, setSaving] = useState(false);
 
+  // detail 是异步加载的（挂载时为 null），加载完成后同步暂存期限到 state
+  useEffect(() => {
+    if (detail) setStorageUntil(detail.storage_until || '');
+  }, [detail]);
+
   // Check if this specific batch's orders are already in storage mode
-  const storageConfirmed = batch.entries.every(e => {
-    const order = e.order_details;
-    return order?.order_status === 'in_storage' || order?.order_status === 'notified_shipment';
-  });
+  const storageConfirmed = batchOrders.every(order =>
+    order?.order_status === 'in_storage' || order?.order_status === 'notified_shipment'
+  );
 
   const handleConfirmStorage = async () => {
     setSaving(true);
     try {
-      const orderIds = batch.entries.map(e => e.order_id || e.id).filter(Boolean);
-      await base44.functions.invoke('updateTransitPoolShipment', {
-        request_id: pool.id,
-        action: 'confirm_storage_batch',
-        order_ids: orderIds,
-        storage_until: storageUntil || null,
-        user_email: batch.user_email,
-      });
+      const orderIds = batchOrders.map(o => o.id ?? o.order_id).filter(Boolean);
+
+      let payload = {
+        id: detail.id,
+        data: {
+          id: detail?.ids,
+          storage_until: storageUntil,
+          user_email: detail.user_email,
+          order_ids: orderIds,
+        }
+        
+      }
+
+      await transitLocationApi.confirmStorage(detail.id, payload.data);
+
+      // await base44.functions.invoke('updateTransitPoolShipment', {
+      //   request_id: pool.id,
+      //   action: 'confirm_storage_batch',
+      //   order_ids: orderIds,
+      //   storage_until: storageUntil || null,
+      //   user_email: batch.user_email,
+      // });
       onSaved?.();
     } catch (err) {
-      alert('操作失败：' + err.message);
+      // alert('操作失败：' + err.message);
+      const message = err?.response?.data?.message;
+      console.error('[BatchDetailPanel] handleSave failed:', message);
+      toast.error(message || '暂存失败，请稍后重试');
     } finally {
       setSaving(false);
     }
@@ -256,8 +469,36 @@ function StorageBatchPanel({ batch, pool, isManager, onSaved }) {
           <p className="text-sm font-semibold text-gray-700">确认暂存</p>
           <div>
             <Label className="text-xs text-gray-500">暂存期限（不填则无期限）</Label>
-            <Input type="date" className="mt-1 text-sm" value={storageUntil}
-              onChange={e => setStorageUntil(e.target.value)} />
+            <div className="flex gap-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="mt-1 flex-1 justify-start text-left font-normal text-sm">
+                    <CalendarDays className="w-3.5 h-3.5 mr-1.5" />
+                    {storageUntil || "选择暂存截止日期"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  {(() => {
+                    // 今天 00:00 作为禁用下界（保留今天可选，禁用今天之前）；每次渲染取当前时间，跨零点后行为正确
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    return (
+                      <CalendarPicker
+                        mode="single"
+                        selected={storageUntil ? new Date(storageUntil) : undefined}
+                        onSelect={(d) => setStorageUntil(d ? format(d, "yyyy-MM-dd") : '')}
+                        disabled={{ before: today }}
+                        initialFocus
+                      />
+                    );
+                  })()}
+                </PopoverContent>
+              </Popover>
+              <Button variant="outline" className="mt-1 shrink-0 text-sm text-gray-500"
+                disabled={!storageUntil} onClick={() => setStorageUntil('')}>
+                清除
+              </Button>
+            </div>
           </div>
           <Button className="w-full bg-indigo-600 hover:bg-indigo-700" onClick={handleConfirmStorage} disabled={saving}>
             <CheckCircle className="w-4 h-4 mr-2" />{saving ? '处理中...' : '确认暂存此批次订单'}
@@ -269,28 +510,41 @@ function StorageBatchPanel({ batch, pool, isManager, onSaved }) {
 }
 
 // ─── 自取面板 ────────────────────────────────────────────────────────────────
-function PickupBatchPanel({ batch, pool, isManager, onSaved }) {
-  const [timeSlot, setTimeSlot] = useState('');
-  const [saving, setSaving] = useState(false);
+function PickupBatchPanel({ batch, pool, isManager, isAdmin, currentUser, onSaved, detail }) {
+  const [pickupDate, setPickupDate] = useState('');       // "2026-06-15"
+  const [pickupTimeRange, setPickupTimeRange] = useState(''); // "14:00-16:00"
+  const timeSlot = buildPickupTimeSlot(pickupDate, pickupTimeRange);
 
-  const handleConfirmPickup = async () => {
-    setSaving(true);
-    try {
-      const orderIds = batch.entries.map(e => e.order_id || e.id).filter(Boolean);
-      await base44.functions.invoke('updateTransitPoolShipment', {
-        request_id: pool.id,
-        action: 'confirm_pickup_batch',
-        order_ids: orderIds,
-        pickup_time_slot: timeSlot || null,
-        user_email: batch.user_email,
-      });
-      onSaved?.();
-    } catch (err) {
-      alert('操作失败：' + err.message);
-    } finally {
-      setSaving(false);
-    }
-  };
+  const {
+    saving,
+    pickupTimeSlot,
+    pickupUserConfirmed,
+    pickupAdminConfirmed,
+    pickupCompleted,
+    pickupCompletedAt,
+    canSchedule,
+    canUserConfirm,
+    canManagerConfirm,
+    canComplete,
+    schedule,
+    confirm,
+    complete,
+  } = usePickupActions({
+    scope: 'batch',
+    batch,
+    pool,
+    detail,
+    isManager,
+    isAdmin,
+    currentUser,
+    onSaved,
+    notify: {
+      baseUrl: createPageUrl('MyOrders'),
+      entityType: 'ShippingPool',
+      entityId: pool?.id,
+      managerEmail: pool?.creator_email,
+    },
+  });
 
   return (
     <div className="space-y-4">
@@ -308,26 +562,30 @@ function PickupBatchPanel({ batch, pool, isManager, onSaved }) {
       {/* Self-pickup management */}
       <div className="space-y-3 border-t pt-4">
         <p className="text-sm font-semibold text-gray-700">自取管理</p>
-        {pool.transit_pickup_time_slot ? (
+        {pickupTimeSlot ? (
           <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm">
             <p className="text-xs text-gray-500">约定自取时间段</p>
-            <p className="font-medium text-gray-800 mt-0.5">{pool.transit_pickup_time_slot}</p>
-            <div className="flex gap-2 mt-2">
-              <Badge className={pool.transit_pickup_user_confirmed ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}>
-                用户{pool.transit_pickup_user_confirmed ? '已确认' : '未确认'}
-              </Badge>
-              <Badge className={pool.transit_pickup_admin_confirmed ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}>
-                管理员{pool.transit_pickup_admin_confirmed ? '已确认' : '未确认'}
-              </Badge>
-            </div>
+            <p className="font-medium text-gray-800 mt-0.5">{pickupTimeSlot}</p>
+            <PickupStatusBadges
+              userConfirmed={pickupUserConfirmed}
+              adminConfirmed={pickupAdminConfirmed}
+              completed={pickupCompleted}
+              completedAt={pickupCompletedAt}
+              adminLabel="中转地负责人"
+              className="mt-2"
+            />
           </div>
-        ) : isManager ? (
+        ) : canSchedule ? (
           <div className="space-y-2">
             <Label className="text-xs text-gray-500">约定自取时间段</Label>
             <div className="flex gap-2">
-              <Input className="flex-1 text-sm" placeholder="例：2026-06-15 14:00-16:00"
-                value={timeSlot} onChange={e => setTimeSlot(e.target.value)} />
-              <Button onClick={handleConfirmPickup} disabled={saving || !timeSlot} className="shrink-0">
+              <PickupTimeSlotPicker
+                date={pickupDate}
+                timeRange={pickupTimeRange}
+                onDateChange={setPickupDate}
+                onTimeRangeChange={setPickupTimeRange}
+              />
+              <Button onClick={() => schedule(timeSlot)} disabled={saving || !timeSlot} className="shrink-0">
                 {saving ? '...' : '约定'}
               </Button>
             </div>
@@ -336,23 +594,15 @@ function PickupBatchPanel({ batch, pool, isManager, onSaved }) {
           <p className="text-xs text-gray-400">等待中转地负责人约定自取时间</p>
         )}
 
-        {pool.transit_pickup_completed && (
-          <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 border border-green-100 rounded-lg px-3 py-2">
-            <CheckCircle className="w-4 h-4" />自取已完成
-          </div>
-        )}
-
-        {isManager && pool.transit_pickup_time_slot && !pool.transit_pickup_completed && pool.transit_pickup_user_confirmed && pool.transit_pickup_admin_confirmed && (
-          <Button className="w-full bg-green-600 hover:bg-green-700" onClick={async () => {
-            setSaving(true);
-            try {
-              await base44.functions.invoke('updateTransitPoolPickup', { pool_id: pool.id, action: 'complete' });
-              onSaved?.();
-            } finally { setSaving(false); }
-          }} disabled={saving}>
-            <CheckCircle className="w-4 h-4 mr-2" />标记已自取
-          </Button>
-        )}
+        <PickupConfirmActions
+          canUserConfirm={canUserConfirm}
+          canManagerConfirm={canManagerConfirm}
+          canComplete={canComplete}
+          saving={saving}
+          onConfirm={confirm}
+          onComplete={complete}
+          layout="col"
+        />
       </div>
     </div>
   );
@@ -376,7 +626,7 @@ function OrderDetailModal({ order, onClose, onSaved }) {
 }
 
 // ─── Main Export ──────────────────────────────────────────────────────────────
-export default function BatchDetailPanel({ batch, pool, transitMethods, isManager, onClose, onSaved }) {
+export default function BatchDetailPanel({ batch, pool, transitMethods, isManager, isAdmin, currentUser, onClose, onSaved, detail, loading }) {
   const [orderDetail, setOrderDetail] = useState(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
@@ -384,6 +634,15 @@ export default function BatchDetailPanel({ batch, pool, transitMethods, isManage
     setRefreshTrigger(prev => prev + 1);
     onSaved?.();
   };
+
+  if (loading && !batch) {
+    return (
+      <div className="flex-1 flex items-center justify-center py-20">
+        <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+        <span className="ml-2 text-sm text-gray-500">加载中...</span>
+      </div>
+    );
+  }
 
   if (!batch) {
     return (
@@ -397,9 +656,18 @@ export default function BatchDetailPanel({ batch, pool, transitMethods, isManage
   }
 
   const normalizeId = id => id === 'pickup' ? '__pickup__' : id === 'storage' ? '__storage__' : (id || '');
-  const methodId = normalizeId(batch.transit_shipping_method_id);
-  const isStorage = methodId === '__storage__';
-  const isPickup = methodId === '__pickup__';
+  // 订单以 findOne 的 detail 为准并去重，避免历史重复的 entries 把同一订单算多次
+  const batchOrders = resolveBatchOrders(batch, detail);
+  // 暂存/自取标记权威来源：detail（findOne 的 TransitShipping 记录，如 '__storage__'），其次 batch
+  // 注意 transit_shipping_method_id 是用户申请发货时选的真实方式 id（如 8），不能用于判断暂存/自取
+  const methodMarker = detail?.transit_shipping_method || batch.transit_shipping_method || '';
+  const methodId = normalizeId(String(methodMarker).startsWith('__') ? methodMarker : batch.transit_shipping_method_id);
+  const isStorage = methodId === '__storage__' || methodMarker === '__storage__';
+  const isPickup = methodId === '__pickup__' || methodMarker === '__pickup__';
+  // detail.status 是 TransitStatus（TransitShipping 记录）：
+  //   'awaiting'（等待确认）/ 'forwarded_notified'（已申请中转地发货）都表示暂存后用户申请发货、等负责人发货
+  //   （这是 TransitStatus，区别于 OrderStatus 的 awaiting_forwarded_notified 等订单级状态）
+  const awaitingShip = detail?.status === 'awaiting' || detail?.status === 'forwarded_notified';
 
   const batchLabel = batch.group_label || `${batch.user_name || batch.user_email} 批次`;
 
@@ -410,9 +678,13 @@ export default function BatchDetailPanel({ batch, pool, transitMethods, isManage
         <div>
           <div className="flex items-center gap-2">
             <p className="font-semibold text-gray-800 text-sm">{batchLabel}</p>
-            {isStorage && <Badge className="bg-indigo-100 text-indigo-700 text-xs">暂存</Badge>}
-            {isPickup && <Badge className="bg-teal-100 text-teal-700 text-xs">自取</Badge>}
-            {!isStorage && !isPickup && <Badge className="bg-blue-100 text-blue-700 text-xs">中转发货</Badge>}
+            {isStorage && !awaitingShip && <Badge className="bg-indigo-100 text-indigo-700 text-xs">暂存</Badge>}
+            {isPickup && !awaitingShip && <Badge className="bg-teal-100 text-teal-700 text-xs">自取</Badge>}
+            {(!isStorage && !isPickup) || awaitingShip ? (
+              <Badge className="bg-blue-100 text-blue-700 text-xs">
+                中转发货{isStorage && awaitingShip ? '（用户申请暂存货物发货）' : ''}
+              </Badge>
+            ) : null}
           </div>
           <p className="text-xs text-gray-500 mt-0.5">{batch.user_name || batch.user_email}</p>
         </div>
@@ -424,63 +696,69 @@ export default function BatchDetailPanel({ batch, pool, transitMethods, isManage
       </div>
 
       {/* Scrollable content */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="relative flex-1 overflow-y-auto p-4 space-y-4">
+        {loading && (
+          <div className="absolute inset-0 z-10 bg-white/70 backdrop-blur-sm flex items-center justify-center">
+            <div className="flex items-center gap-2 text-sm text-gray-500">
+              <Loader2 className="w-4 h-4 animate-spin" />加载中...
+            </div>
+          </div>
+        )}
         {/* Orders list */}
         <div>
           <p className="text-xs font-medium text-gray-500 mb-2 flex items-center gap-1">
-            <Package className="w-3.5 h-3.5" />批次订单（{batch.entries.length} 件）
+            <Package className="w-3.5 h-3.5" />批次订单（{batchOrders.length} 件）
           </p>
           <div className="space-y-1.5">
-            {batch.entries.map((entry, i) => {
-              const order = entry.order_details || entry;
+            {batchOrders.map((order, idx) => {
               const canSeeDetail = !!order.product_name;
               return (
-                <div key={entry.order_id || entry.id || i} className="flex items-center gap-2 bg-gray-50 border border-gray-100 rounded-lg px-2.5 py-2">
-                  {(order.product_image_url || order.arrival_photo_url) && (
-                    <img
-                      src={order.product_image_url || order.arrival_photo_url}
-                      className="w-9 h-9 object-cover rounded border flex-shrink-0"
-                      alt=""
-                    />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-800 truncate">{order.product_name || entry.product_name || '包裹'}</p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      {(order.estimated_jpy || entry.estimated_jpy) && (
-                        <span className="text-xs text-gray-500">¥{Math.round(order.estimated_jpy || entry.estimated_jpy).toLocaleString()}</span>
-                      )}
-                      {(order.weight_g || entry.weight_g) && (
-                        <span className="text-xs text-gray-400">{order.weight_g || entry.weight_g}g</span>
-                      )}
-                      {(order.selected_addons || []).length > 0 && (
-                        <span className="text-xs text-yellow-600 flex items-center gap-0.5">
-                          <Star className="w-2.5 h-2.5" />{(order.selected_addons || []).map(a => a.name).join('、')}
-                        </span>
-                      )}
+                <div key={order.id ?? order.order_id ?? `order_${idx}`} className="flex items-center gap-2 bg-gray-50 border border-gray-100 rounded-lg px-2.5 py-2">
+                    {(order.product_image_url || order.arrival_photo_url) && (
+                      <img
+                        src={order.product_image_url || order.arrival_photo_url}
+                        className="w-9 h-9 object-cover rounded border flex-shrink-0"
+                        alt=""
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-gray-800 truncate">{order.product_name || '包裹'}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        {order.estimated_jpy ? (
+                          <span className="text-xs text-gray-500">¥{Math.round(order.estimated_jpy).toLocaleString()}</span>
+                        ) : null}
+                        {order.weight_g ? (
+                          <span className="text-xs text-gray-400">{order.weight_g}g</span>
+                        ) : null}
+                        {(order.selected_addons || []).length > 0 && (
+                          <span className="text-xs text-yellow-600 flex items-center gap-0.5">
+                            <Star className="w-2.5 h-2.5" />{(order.selected_addons || []).map(a => a.service_name || a.name).join('、')}
+                          </span>
+                        )}
+                      </div>
                     </div>
+                    {canSeeDetail && order.product_name && (
+                      <button
+                        onClick={() => setOrderDetail(order)}
+                        className="flex-shrink-0 p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-700 transition-colors"
+                        title="查看详情"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
-                  {canSeeDetail && order.product_name && (
-                    <button
-                      onClick={() => setOrderDetail(order)}
-                      className="flex-shrink-0 p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-700 transition-colors"
-                      title="查看详情"
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-              );
+                );
             })}
           </div>
         </div>
 
         {/* Type-specific panels */}
-        {isStorage ? (
-          <StorageBatchPanel batch={batch} pool={pool} isManager={isManager} onSaved={onSaved} />
-        ) : isPickup ? (
-          <PickupBatchPanel batch={batch} pool={pool} isManager={isManager} onSaved={onSaved} />
+        {isStorage && !awaitingShip ? (
+          <StorageBatchPanel batch={batch} pool={pool} isManager={isManager} onSaved={onSaved} detail={detail}/>
+        ) : isPickup && !awaitingShip ? (
+          <PickupBatchPanel batch={batch} pool={pool} isManager={isManager} isAdmin={isAdmin} currentUser={currentUser} onSaved={onSaved} detail={detail} />
         ) : (
-          <TransitShippingPanel batch={batch} pool={pool} transitMethods={transitMethods} isManager={isManager} onSaved={onSaved} />
+          <MemoizedTransitShippingPanel batch={batch} pool={pool} transitMethods={transitMethods} isManager={isManager} onSaved={onSaved} detail={detail} />
         )}
       </div>
 
